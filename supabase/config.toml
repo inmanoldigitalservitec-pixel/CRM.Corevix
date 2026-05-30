@@ -1,0 +1,7 @@
+project_id = "rxvejorurljyxqsgtops"
+
+[functions.gmail-oauth-callback]
+verify_jwt = false
+
+[functions.google-drive-callback]
+verify_jwt = false

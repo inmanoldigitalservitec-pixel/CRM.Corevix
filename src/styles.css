@@ -1,0 +1,187 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.002 247);
+  --foreground: oklch(0.145 0.035 265);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0.035 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0.035 265);
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(0.985 0.002 247);
+  --secondary: oklch(0.96 0.01 248);
+  --secondary-foreground: oklch(0.25 0.04 265);
+  --muted: oklch(0.96 0.01 248);
+  --muted-foreground: oklch(0.55 0.03 258);
+  --accent: oklch(0.96 0.01 248);
+  --accent-foreground: oklch(0.25 0.04 265);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0.002 247);
+  --border: oklch(0.922 0.012 250);
+  --input: oklch(0.922 0.012 250);
+  --ring: oklch(0.546 0.245 262.881);
+  --chart-1: oklch(0.546 0.245 262.881);
+  --chart-2: oklch(0.6 0.2 160);
+  --chart-3: oklch(0.7 0.18 45);
+  --chart-4: oklch(0.65 0.22 310);
+  --chart-5: oklch(0.55 0.2 30);
+  --sidebar: oklch(0.17 0.04 265);
+  --sidebar-foreground: oklch(0.9 0.01 248);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(0.985 0.002 247);
+  --sidebar-accent: oklch(0.24 0.04 265);
+  --sidebar-accent-foreground: oklch(0.9 0.01 248);
+  --sidebar-border: oklch(0.28 0.04 265);
+  --sidebar-ring: oklch(0.546 0.245 262.881);
+}
+
+.dark {
+  --background: oklch(0.13 0.035 265);
+  --foreground: oklch(0.985 0.002 247);
+  --card: oklch(0.18 0.04 265);
+  --card-foreground: oklch(0.985 0.002 247);
+  --popover: oklch(0.18 0.04 265);
+  --popover-foreground: oklch(0.985 0.002 247);
+  --primary: oklch(0.62 0.24 262);
+  --primary-foreground: oklch(0.985 0.002 247);
+  --secondary: oklch(0.24 0.04 265);
+  --secondary-foreground: oklch(0.985 0.002 247);
+  --muted: oklch(0.24 0.04 265);
+  --muted-foreground: oklch(0.7 0.03 258);
+  --accent: oklch(0.24 0.04 265);
+  --accent-foreground: oklch(0.985 0.002 247);
+  --destructive: oklch(0.7 0.19 22);
+  --destructive-foreground: oklch(0.985 0.002 247);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.62 0.24 262);
+  --chart-1: oklch(0.62 0.24 262);
+  --chart-2: oklch(0.7 0.17 162);
+  --chart-3: oklch(0.77 0.19 70);
+  --chart-4: oklch(0.63 0.265 304);
+  --chart-5: oklch(0.65 0.246 16);
+  --sidebar: oklch(0.15 0.04 265);
+  --sidebar-foreground: oklch(0.9 0.01 248);
+  --sidebar-primary: oklch(0.62 0.24 262);
+  --sidebar-primary-foreground: oklch(0.985 0.002 247);
+  --sidebar-accent: oklch(0.22 0.04 265);
+  --sidebar-accent-foreground: oklch(0.9 0.01 248);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.62 0.24 262);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer utilities {
+  /* ----------------------------------------------------------------------------
+   * CRM typography (compact + consistent)
+   * --------------------------------------------------------------------------*/
+  .crm-page-title {
+    @apply text-[1.375rem] leading-[1.15] font-semibold tracking-[-0.02em];
+  }
+
+  .crm-page-subtitle {
+    @apply text-sm leading-[1.35] font-normal text-muted-foreground tracking-normal;
+  }
+
+  .crm-section-title {
+    @apply text-[0.95rem] leading-[1.2] font-semibold tracking-[-0.01em];
+  }
+
+  .crm-card-title {
+    @apply text-sm leading-[1.2] font-medium tracking-[-0.005em];
+  }
+
+  .crm-label {
+    @apply text-xs leading-[1.2] font-medium tracking-[0.01em] text-muted-foreground;
+  }
+
+  .crm-muted {
+    @apply text-xs leading-[1.35] font-normal text-muted-foreground;
+  }
+
+  /* ----------------------------------------------------------------------------
+   * CRM density (compact controls)
+   * --------------------------------------------------------------------------*/
+  .crm-compact-card {
+    @apply rounded-[14px] border bg-card text-card-foreground shadow-sm;
+  }
+
+  .crm-compact-table {
+    @apply text-sm;
+  }
+  .crm-compact-table :is(th, td) {
+    @apply py-2 px-2;
+  }
+  .crm-compact-table th {
+    @apply h-9 text-xs font-medium text-muted-foreground;
+  }
+
+  .crm-compact-button {
+    @apply h-9 px-3 text-sm font-medium;
+  }
+
+  .crm-compact-input {
+    @apply h-9 text-sm;
+  }
+}
