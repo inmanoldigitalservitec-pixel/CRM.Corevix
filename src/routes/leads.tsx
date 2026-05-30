@@ -41,6 +41,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { supabase } from "@/integrations/supabase/client";
+import { logActivityEvent } from "@/lib/activity-log";
 
 export const Route = createFileRoute("/leads")({
   component: LeadsPage,
@@ -389,6 +390,12 @@ function LeadsPage() {
     return map;
   }, [team]);
 
+  const assigneeByProfileId = useMemo(() => {
+    const map = new Map<string, TeamMember>();
+    for (const m of team) map.set(m.profile_id, m);
+    return map;
+  }, [team]);
+
   const selectedServiceLabel = useMemo(() => {
     const meta = selectedLead?.metadata;
     if (!meta || typeof meta !== "object") return null;
@@ -549,6 +556,11 @@ function LeadsPage() {
     if (role === "sales_agent") setOwnerFilter("team");
   }, [role]);
 
+  const isLeadAssignedToCurrentUser = (assignedTo?: string | null) => {
+    if (!assignedTo) return false;
+    return assignedTo === profile?.id || assignedTo === user?.id;
+  };
+
   useEffect(() => {
     let cancelled = false;
     const loadTeam = async () => {
@@ -639,9 +651,9 @@ function LeadsPage() {
 
   function getAssigneeLabel(lead: Lead) {
     if (!lead.assigned_to) return "Sin asignar";
-    const member = assigneeByUserId.get(lead.assigned_to);
+    const member = assigneeByProfileId.get(lead.assigned_to) || assigneeByUserId.get(lead.assigned_to);
     const base = member?.full_name || "Asignado";
-    if (user?.id && lead.assigned_to === user.id) return `${base} (Tú)`;
+    if (isLeadAssignedToCurrentUser(lead.assigned_to)) return `${base} (Tú)`;
     return base;
   }
 
@@ -697,7 +709,7 @@ function LeadsPage() {
     const serviceLabel = typeof service === "string" && service.trim().length ? service.trim() : null;
 
     const dealName = serviceLabel ? `${serviceLabel} — ${companyOrName}` : `Oportunidad — ${companyOrName}`;
-    const assignedTo = lead.assigned_to || user?.id || null;
+    const assignedTo = lead.assigned_to || profile.id || null;
     const value = Number(lead.estimated_value || 0);
 
     const payloadBase: Record<string, unknown> = {
@@ -709,7 +721,7 @@ function LeadsPage() {
       expected_close: null,
       stage: stageName,
       assigned_to: assignedTo,
-      created_by: user?.id,
+      created_by: profile.id,
       notes: null,
     };
 
@@ -731,6 +743,15 @@ function LeadsPage() {
         return;
       }
       toast.success("Oportunidad creada");
+      await logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id,
+        action: "deal_created",
+        entityType: "deals",
+        entityId: created2?.id ? String(created2.id) : null,
+        detail: `Oportunidad creada desde prospecto: ${dealName}`,
+        metadata: { lead_id: lead.id, stage: "New Opportunity" },
+      }).catch(() => {});
       window.location.href = "/pipeline";
       return created2;
     }
@@ -741,6 +762,15 @@ function LeadsPage() {
     }
 
     toast.success("Oportunidad creada");
+    await logActivityEvent({
+      companyId: profile.company_id,
+      userId: profile.id,
+      action: "deal_created",
+      entityType: "deals",
+      entityId: created?.id ? String(created.id) : null,
+      detail: `Oportunidad creada desde prospecto: ${dealName}`,
+      metadata: { lead_id: lead.id, stage: stageName },
+    }).catch(() => {});
     window.location.href = "/pipeline";
     return created;
   }
@@ -861,10 +891,7 @@ function LeadsPage() {
       const phone = lead.phone || lead.whatsapp || null;
       const whatsapp = lead.whatsapp || lead.phone || null;
 
-      const assigneeUserId = lead.assigned_to || user?.id || null;
-      const accountManagerProfileId = assigneeUserId
-        ? assigneeByUserId.get(assigneeUserId)?.profile_id || profile?.id || null
-        : profile?.id || null;
+      const accountManagerProfileId = lead.assigned_to || profile.id || null;
 
       const { data: created, error: createErr } = await (supabase as any)
         .from("clients")
@@ -888,6 +915,15 @@ function LeadsPage() {
       }
 
       toast.success("Cliente creado correctamente.");
+      await logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id,
+        action: "client_created",
+        entityType: "clients",
+        entityId: created?.id ? String(created.id) : null,
+        detail: `Cliente creado desde prospecto: ${companyName}`,
+        metadata: { lead_id: lead.id },
+      }).catch(() => {});
       window.location.href = "/clients";
       return created;
     } catch (e) {
@@ -919,7 +955,7 @@ function LeadsPage() {
       return;
     }
 
-    const canCreateFollowUp = can("tasks.create") && (canViewAllLeads || lead.assigned_to === user?.id);
+    const canCreateFollowUp = can("tasks.create") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
     if (!canCreateFollowUp) {
       toast.error("No tienes permiso para crear seguimiento");
       return;
@@ -936,7 +972,7 @@ function LeadsPage() {
 
     setFollowUpSaving(true);
     try {
-      const assignedTo = lead.assigned_to || user?.id || null;
+      const assignedTo = lead.assigned_to || profile.id || null;
       const { error } = await (supabase as any).from("tasks").insert({
         company_id: profile.company_id,
         title: followUpValues.title.trim(),
@@ -945,13 +981,20 @@ function LeadsPage() {
         priority: followUpValues.priority || "Medium",
         due_date: followUpValues.due_date,
         assigned_to: assignedTo,
-        created_by: user?.id,
         related_lead_id: lead.id,
       });
       if (error) {
         toast.error(error.message || "No se pudo crear el seguimiento");
         return;
       }
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id,
+        action: "task_created",
+        entityType: "tasks",
+        detail: `Seguimiento creado desde prospecto: ${followUpValues.title.trim()}`,
+        metadata: { related_lead_id: lead.id, due_date: followUpValues.due_date },
+      }).catch(() => {});
       toast.success("Seguimiento creado correctamente.");
       setFollowUpOpen(false);
     } catch (e) {
@@ -990,7 +1033,7 @@ function LeadsPage() {
 
   const filtered = useMemo(() => {
     return leads.filter((lead) => {
-      const isOwnLead = !!user?.id && lead.assigned_to === user.id;
+      const isOwnLead = isLeadAssignedToCurrentUser(lead.assigned_to);
       const isAssignedLead = Boolean(lead.assigned_to);
       const matchSearch = `${getLeadName(lead)} ${lead.company_name || ""} ${lead.email || ""}`.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === "all" || lead.status === statusFilter;
@@ -999,7 +1042,7 @@ function LeadsPage() {
       const matchOwner = isSalesUser
         ? (ownerFilter === "mine" ? isOwnLead : isAssignedLead)
         : ownerFilter === "all" ||
-          (ownerFilter === "mine" && lead.assigned_to === user?.id) ||
+          (ownerFilter === "mine" && isOwnLead) ||
           (ownerFilter === "team" && !!lead.assigned_to) ||
           (ownerFilter === "unassigned" && !lead.assigned_to);
       const value = Number(lead.estimated_value || 0);
@@ -1043,12 +1086,11 @@ function LeadsPage() {
 
       return matchSearch && matchStatus && matchSource && matchChannel && matchOwner && matchValue && matchTab && matchChip;
     });
-  }, [channelFilter, isSalesUser, leadChipFilter, leads, ownerFilter, search, sourceFilter, stageTab, statusFilter, user?.id, valueFilter]);
+  }, [channelFilter, isSalesUser, leadChipFilter, leads, ownerFilter, search, sourceFilter, stageTab, statusFilter, user?.id, profile?.id, valueFilter]);
 
   function enforceOwnLeadForSales(lead: Lead, message: string) {
     if (!isSalesUser) return true;
-    if (!user?.id) return false;
-    if (lead.assigned_to !== user.id) {
+    if (!isLeadAssignedToCurrentUser(lead.assigned_to)) {
       toast.error(message);
       return false;
     }
@@ -1860,7 +1902,7 @@ function LeadsPage() {
                     size="sm"
                     className="h-9 justify-start gap-2"
                     onClick={() => openFollowUpDialog(selectedLead)}
-                    disabled={!can("tasks.create") || (isSalesUser && selectedLead.assigned_to !== user?.id)}
+                    disabled={!can("tasks.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
                     title={!can("tasks.create") ? "Sin permiso" : undefined}
                   >
                     <Calendar className="h-4 w-4" />
@@ -1880,7 +1922,7 @@ function LeadsPage() {
                     size="sm"
                     className="h-8 gap-2 text-xs"
                     onClick={() => openFollowUpDialog(selectedLead)}
-                    disabled={!can("tasks.create") || (isSalesUser && selectedLead.assigned_to !== user?.id)}
+                    disabled={!can("tasks.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Crear
@@ -1907,7 +1949,7 @@ function LeadsPage() {
                 <Button
                   className="h-9 bg-[#1d62f9] hover:bg-[#0f52dd]"
                   onClick={() => void handleConvertLeadToClient(selectedLead)}
-                  disabled={convertingClient || !can("clients.create") || (isSalesUser && selectedLead.assigned_to !== user?.id)}
+                  disabled={convertingClient || !can("clients.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
                   title={!can("clients.create") ? "Sin permiso" : undefined}
                 >
                   Convertir a cliente
@@ -1921,7 +1963,7 @@ function LeadsPage() {
                     variant="outline"
                     className="h-9"
                     onClick={() => void handleCreateDealFromLead(selectedLead)}
-                    disabled={!can("deals.create") || (isSalesUser && selectedLead.assigned_to !== user?.id)}
+                    disabled={!can("deals.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
                     title={!can("deals.create") ? "Sin permiso" : undefined}
                   >
                     Crear oportunidad

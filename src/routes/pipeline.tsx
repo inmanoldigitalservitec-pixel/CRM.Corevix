@@ -29,6 +29,7 @@ import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { logActivityEvent } from "@/lib/activity-log";
 
 export const Route = createFileRoute("/pipeline")({
   component: PipelinePage,
@@ -40,8 +41,6 @@ interface DealStage {
   name: string;
   display_order: number;
   color: string | null;
-  is_won: boolean;
-  is_lost: boolean;
 }
 
 interface Deal {
@@ -51,7 +50,6 @@ interface Deal {
   probability: number | null;
   expected_close: string | null;
   stage: string;
-  client_id: string | null;
   lead_id?: string | null;
   assigned_to?: string | null;
   notes: string | null;
@@ -222,6 +220,16 @@ function stageDefaults(name: string) {
   return "#1d62f9";
 }
 
+function isWonStageName(name: string) {
+  const s = name.trim().toLowerCase();
+  return s === "won" || s === "closed won" || s.includes("closed won") || s.includes("ganad") || s.includes("win");
+}
+
+function isLostStageName(name: string) {
+  const s = name.trim().toLowerCase();
+  return s === "lost" || s === "closed lost" || s.includes("closed lost") || s.includes("perdid") || s.includes("lost");
+}
+
 function parseIsoDateOnly(input: string) {
   // Expects YYYY-MM-DD. Returns Date at local midnight.
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input);
@@ -284,7 +292,7 @@ function PipelinePage() {
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("board");
   const [boardStagePage, setBoardStagePage] = useState(0);
-  const [newDeal, setNewDeal] = useState({ name: "", value: "", probability: "50", expected_close: "", stage: "" });
+  const [newDeal, setNewDeal] = useState({ name: "", value: "", probability: "50", expected_close: "", stage: "", source_type: "", lead_id: "", client_id: "" });
   const [dealIdsByStage, setDealIdsByStage] = useState<Record<string, string[]>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<{
@@ -331,13 +339,48 @@ function PipelinePage() {
   const [projectCandidateDealId, setProjectCandidateDealId] = useState<string | null>(null);
   const [productCandidates, setProductCandidates] = useState<ProductRow[]>([]);
 
+  const [dealLeadOptions, setDealLeadOptions] = useState<LeadRow[]>([]);
+  const [dealClientOptions, setDealClientOptions] = useState<ClientRow[]>([]);
+  const [dealSourceOptionsLoading, setDealSourceOptionsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!profile?.company_id || !dialogOpen) return;
+
+    const loadDealSourceOptions = async () => {
+      setDealSourceOptionsLoading(true);
+      try {
+        const db = supabase as any;
+        const [{ data: leadsData }, { data: clientsData }] = await Promise.all([
+          db
+            .from("leads")
+            .select("id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,created_at,updated_at")
+            .eq("company_id", profile.company_id)
+            .order("updated_at", { ascending: false })
+            .limit(50),
+          db
+            .from("clients")
+            .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status,created_at,updated_at")
+            .eq("company_id", profile.company_id)
+            .order("updated_at", { ascending: false })
+            .limit(50),
+        ]);
+
+        setDealLeadOptions((leadsData || []) as LeadRow[]);
+        setDealClientOptions((clientsData || []) as ClientRow[]);
+      } finally {
+        setDealSourceOptionsLoading(false);
+      }
+    };
+
+    void loadDealSourceOptions();
+  }, [dialogOpen, profile?.company_id]);
+
   const openWhatsappForDeal = async (deal: Deal) => {
     if (!profile?.company_id) return;
 
     try {
       const db = supabase as any;
       const leadId = deal.lead_id ? String(deal.lead_id) : null;
-      const clientId = deal.client_id ? String(deal.client_id) : null;
 
       if (leadId) {
         const { data, error } = await db
@@ -355,35 +398,6 @@ function PipelinePage() {
         }
       }
 
-      if (clientId) {
-        const { data: client, error: clientErr } = await db
-          .from("clients")
-          .select("id,phone,whatsapp")
-          .eq("company_id", profile.company_id)
-          .eq("id", clientId)
-          .maybeSingle();
-        if (clientErr) throw clientErr;
-
-        const rawPhone = String(client?.whatsapp || client?.phone || "").trim();
-        const digits = rawPhone.replace(/[^\d]/g, "");
-        const needle = digits.length >= 8 ? digits.slice(-10) : digits;
-        if (needle) {
-          const { data, error } = await db
-            .from("crm_whatsapp_conversation_list")
-            .select("conversation_id,phone")
-            .eq("company_id", profile.company_id)
-            .ilike("phone", `%${needle}%`)
-            .order("last_message_at", { ascending: false, nullsFirst: false })
-            .limit(1)
-            .maybeSingle();
-          if (error) throw error;
-          if (data?.conversation_id) {
-            window.location.href = `/whatsapp?conversationId=${encodeURIComponent(String(data.conversation_id))}`;
-            return;
-          }
-        }
-      }
-
       toast.info("No encontré una conversación de WhatsApp para este deal.");
       window.location.href = "/whatsapp";
     } catch (e: any) {
@@ -398,7 +412,6 @@ function PipelinePage() {
   const [activeWorkflowSteps, setActiveWorkflowSteps] = useState<ProductWorkflowStepRow[]>([]);
 
   const [relatedLeadById, setRelatedLeadById] = useState<Record<string, LeadRow | undefined>>({});
-  const [relatedClientById, setRelatedClientById] = useState<Record<string, ClientRow | undefined>>({});
   const [nextTaskByLeadId, setNextTaskByLeadId] = useState<Record<string, TaskRow | undefined>>({});
   const [relatedLoading, setRelatedLoading] = useState(false);
 
@@ -416,8 +429,57 @@ function PipelinePage() {
   const [addingDealProduct, setAddingDealProduct] = useState(false);
   const [removingDealProductId, setRemovingDealProductId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const onDemoOpenDealDetail = (event: Event) => {
+      const detail = (event as CustomEvent<{ dealId?: string; open?: boolean }>).detail;
+      const dealId = detail?.dealId || "10000000-0000-4000-8000-000000000105";
+
+      if (detail?.open === false) {
+        setSelectedDeal(null);
+        return;
+      }
+
+      const foundDeal = deals.find((d) => String(d.id) === String(dealId));
+
+      if (foundDeal) {
+        setSelectedDeal((current) => (current?.id === foundDeal.id ? current : foundDeal));
+        return;
+      }
+
+      try {
+        localStorage.setItem("crm_demo_pending_deal_id", dealId);
+      } catch {}
+    };
+
+    try {
+      const pendingDealId = localStorage.getItem("crm_demo_pending_deal_id");
+      if (pendingDealId) {
+        const foundDeal = deals.find((d) => String(d.id) === String(pendingDealId));
+        if (foundDeal) {
+          setSelectedDeal(foundDeal);
+          localStorage.removeItem("crm_demo_pending_deal_id");
+        }
+      }
+    } catch {}
+
+    window.addEventListener("crm-demo-open-deal-detail", onDemoOpenDealDetail);
+    return () => window.removeEventListener("crm-demo-open-deal-detail", onDemoOpenDealDetail);
+  }, [deals]);
+
+  const closePipelineDetailSafely = () => {
+    try {
+      const storedTour = localStorage.getItem("crm_demo_tour_v1");
+      const storedDemoDealId = localStorage.getItem("crm_demo_deal_id");
+
+      if (storedTour && storedDemoDealId && selectedDeal?.id === storedDemoDealId) {
+        return;
+      }
+    } catch {}
+
+    setSelectedDeal(null);
+  };
+
   const selectedLead = selectedDeal?.lead_id ? relatedLeadById[String(selectedDeal.lead_id)] : undefined;
-  const selectedClient = selectedDeal?.client_id ? relatedClientById[String(selectedDeal.client_id)] : undefined;
   const selectedNextTask = selectedDeal?.lead_id ? nextTaskByLeadId[String(selectedDeal.lead_id)] : undefined;
 
   const db = supabase as any;
@@ -530,7 +592,7 @@ function PipelinePage() {
     void loadDealProducts();
   }, [loadDealProducts]);
 
-  const pipelineStages = useMemo(() => stages.filter((s) => !s.is_won && !s.is_lost), [stages]);
+  const pipelineStages = useMemo(() => stages.filter((s) => !isWonStageName(s.name) && !isLostStageName(s.name)), [stages]);
   const DESKTOP_STAGES_PER_PAGE = 6;
   const stagePages = useMemo(() => {
     const pages: { label: string; from: number; to: number }[] = [];
@@ -548,37 +610,45 @@ function PipelinePage() {
     const window = stagePages[page];
     return pipelineStages.slice(window.from, window.to);
   }, [boardStagePage, pipelineStages, stagePages]);
-  const wonStageNames = useMemo(() => new Set(stages.filter((s) => s.is_won).map((s) => s.name)), [stages]);
+  const wonStageNames = useMemo(() => new Set(stages.filter((s) => isWonStageName(s.name)).map((s) => s.name)), [stages]);
   const lostStageNames = useMemo(() => {
     // Fallback: even if the company doesn't have a `deal_stages` row for "Lost",
     // deals can still be in enum stage "Lost". Treat it as archived.
-    const set = new Set(stages.filter((s) => s.is_lost).map((s) => s.name));
+    const set = new Set(stages.filter((s) => isLostStageName(s.name)).map((s) => s.name));
     set.add("Lost");
     return set;
   }, [stages]);
   const archiveStageName = useMemo(() => {
-    const lost = stages.find((s) => s.is_lost)?.name;
+    const lost = stages.find((s) => isLostStageName(s.name))?.name;
     return lost || "Lost";
   }, [stages]);
 
   const isSalesAgent = useMemo(() => roles?.includes("sales_agent") ?? false, [roles]);
 
+  const isDealAssignedToCurrentUser = useCallback(
+    (assignedTo?: string | null) => {
+      if (!assignedTo) return false;
+      return assignedTo === profile?.id || assignedTo === user?.id;
+    },
+    [profile?.id, user?.id],
+  );
+
   function canEditDeal(deal: Deal) {
     if (!can("deals.edit")) return false;
     if (!isSalesAgent) return true;
-    return !!user?.id && deal.assigned_to === user.id;
+    return isDealAssignedToCurrentUser(deal.assigned_to);
   }
 
   function canCreateTaskForDeal(deal: Deal) {
     if (!can("tasks.create")) return false;
     if (!isSalesAgent) return true;
-    return !!user?.id && deal.assigned_to === user.id;
+    return isDealAssignedToCurrentUser(deal.assigned_to);
   }
 
   function canManageDealProducts(deal: Deal) {
     const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
     if (isAdminLike) return true;
-    if (isSalesAgent) return !!user?.id && deal.assigned_to === user.id;
+    if (isSalesAgent) return isDealAssignedToCurrentUser(deal.assigned_to);
     return false;
   }
 
@@ -588,13 +658,13 @@ function PipelinePage() {
       const hit = stages.find((s) => s.name === name);
       if (hit) return hit.name;
     }
-    const flagged = stages.find((s) => s.is_won);
+    const flagged = stages.find((s) => isWonStageName(s.name));
     if (flagged) return flagged.name;
     const fuzzy = stages.find((s) => {
       const n = s.name.toLowerCase();
       return n.includes("won") || n.includes("ganad");
     });
-    return fuzzy?.name || null;
+    return fuzzy?.name || "Won";
   }
 
   function findLostStageName() {
@@ -603,13 +673,13 @@ function PipelinePage() {
       const hit = stages.find((s) => s.name === name);
       if (hit) return hit.name;
     }
-    const flagged = stages.find((s) => s.is_lost);
+    const flagged = stages.find((s) => isLostStageName(s.name));
     if (flagged) return flagged.name;
     const fuzzy = stages.find((s) => {
       const n = s.name.toLowerCase();
       return n.includes("lost") || n.includes("perdid");
     });
-    return fuzzy?.name || null;
+    return fuzzy?.name || "Lost";
   }
 
   function appendNote(existing: string | null, line: string) {
@@ -707,10 +777,6 @@ function PipelinePage() {
 
   async function openCreateProjectPromptForDeal(deal: Deal) {
     if (!profile?.company_id) return;
-    if (!deal.client_id) {
-      toast.error("Este deal todavía no tiene cliente conectado.");
-      return;
-    }
     setProjectCandidateDealId(deal.id);
     setCreateProjectDialogOpen(true);
     setWorkflowLoading(true);
@@ -721,6 +787,7 @@ function PipelinePage() {
     setDealProductsByProductId({});
 
     try {
+      const lead = deal.lead_id ? relatedLeadById[String(deal.lead_id)] || null : null;
       const { products, dealProducts } = await loadProductCandidatesForDeal(deal);
       setProductCandidates(products);
       const map: Record<string, DealProductRow | undefined> = {};
@@ -777,10 +844,6 @@ function PipelinePage() {
     const deal = deals.find((d) => d.id === projectCandidateDealId) || selectedDeal;
     if (!deal) return;
 
-    if (!deal.client_id) {
-      toast.error("Este deal todavía no tiene cliente conectado.");
-      return;
-    }
     if (!selectedProductId) {
       toast.error("Selecciona un producto para crear el proyecto.");
       return;
@@ -804,6 +867,7 @@ function PipelinePage() {
     setCreatingProject(true);
     try {
       const cid = profile.company_id;
+      const lead = deal.lead_id ? relatedLeadById[String(deal.lead_id)] || null : null;
 
       const { data: existingProject, error: existingErr } = await db
         .from("projects")
@@ -823,16 +887,9 @@ function PipelinePage() {
       const dueDateIso = totalDays > 0 ? toIsoDateOnly(addDays(startDate, totalDays)) : null;
 
       const managerProfileId = deal.assigned_to
-        ? teamByUserId.get(String(deal.assigned_to))?.profile_id || profile.id
+        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id || profile.id
         : profile.id;
-      const managerUserId = deal.assigned_to ? String(deal.assigned_to) : null;
-      const currentUserId = user?.id ? String(user.id) : profile?.user_id ? String(profile.user_id) : null;
-      if (!currentUserId) {
-        toast.error("No se pudo identificar tu usuario (auth.users.id). Inicia sesión nuevamente.");
-        return;
-      }
-      const client = relatedClientById[String(deal.client_id)] || null;
-      const projectName = client?.company_name ? `${product.name} — ${client.company_name}` : `${product.name} — ${deal.name}`;
+      const projectName = lead?.company_name?.trim() ? `${product.name} — ${lead.company_name}` : `${product.name} — ${deal.name}`;
 
       let projectId: string | null = existingProject?.id ? String(existingProject.id) : null;
       if (!projectId) {
@@ -841,18 +898,16 @@ function PipelinePage() {
           .insert({
             company_id: cid,
             name: projectName,
-            client_id: deal.client_id,
             deal_id: deal.id,
             lead_id: deal.lead_id || null,
             product_id: product.id,
-            manager: managerUserId,
+            manager: null,
             start_date: startDateIso,
             due_date: dueDateIso,
             status: "Not Started",
             budget: Number(deal.value || 0),
             description: `Proyecto creado desde oportunidad ganada.\nProducto: ${product.name}\nWorkflow: ${activeWorkflow.name}`,
             progress: 0,
-            created_by: currentUserId,
           })
           .select("id")
           .single();
@@ -861,39 +916,6 @@ function PipelinePage() {
           return;
         }
         projectId = String(createdProject.id);
-      }
-
-      if (deal.client_id) {
-        const { data: existingClientProduct, error: cpErr } = await db
-          .from("client_products")
-          .select("id")
-          .eq("company_id", cid)
-          .eq("client_id", deal.client_id)
-          .eq("product_id", product.id)
-          .eq("deal_id", deal.id)
-          .limit(1)
-          .maybeSingle();
-        if (cpErr) {
-          toast.error(cpErr.message || "No se pudo validar duplicados de client_product");
-          return;
-        }
-        if (!existingClientProduct?.id) {
-          const { error: insertCpErr } = await db.from("client_products").insert({
-            company_id: cid,
-            client_id: deal.client_id,
-            product_id: product.id,
-            deal_id: deal.id,
-            status: "active",
-            start_date: startDateIso,
-            price: Number(deal.value || 0),
-            billing_type: null,
-            notes: "Creado desde oportunidad ganada (Pipeline).",
-          });
-          if (insertCpErr) {
-            toast.error(insertCpErr.message || "No se pudo crear el client_product");
-            return;
-          }
-        }
       }
 
       const { data: existingTasks, error: tErr } = await db
@@ -926,10 +948,9 @@ function PipelinePage() {
             status: "To Do",
             priority: (step.default_priority as any) || "Medium",
             assigned_to: managerProfileId,
-            created_by: profile.id,
             due_date: due,
             related_project_id: projectId,
-            related_client_id: deal.client_id,
+            related_client_id: null,
             related_lead_id: deal.lead_id || null,
             related_deal_id: deal.id,
           };
@@ -1043,8 +1064,12 @@ function PipelinePage() {
     setLoading(true);
     const cid = profile.company_id;
     const [{ data: s, error: sErr }, { data: d, error: dErr }] = await Promise.all([
-      db.from("deal_stages").select("*").eq("company_id", cid).order("display_order"),
-      db.from("deals").select("*").eq("company_id", cid).order("created_at", { ascending: false }),
+      db.from("deal_stages").select("id,company_id,name,display_order,color,created_at,updated_at").eq("company_id", cid).order("display_order"),
+      db
+        .from("deals")
+        .select("id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at")
+        .eq("company_id", cid)
+        .order("created_at", { ascending: false }),
     ]);
     if (sErr) toast.error(sErr.message);
     if (dErr) toast.error(dErr.message);
@@ -1054,7 +1079,7 @@ function PipelinePage() {
     setDeals(nextDeals);
 
     const byStage: Record<string, string[]> = {};
-    for (const stage of nextStages.filter((st) => !st.is_won && !st.is_lost)) {
+    for (const stage of nextStages.filter((st) => !isWonStageName(st.name) && !isLostStageName(st.name))) {
       byStage[stage.name] = [];
     }
     for (const deal of nextDeals) {
@@ -1179,13 +1204,20 @@ function PipelinePage() {
     return m;
   }, [team]);
 
+  const teamByProfileId = useMemo(() => {
+    const m = new Map<string, CompanyTeamMember>();
+    for (const member of team) {
+      if (member?.profile_id) m.set(member.profile_id, member);
+    }
+    return m;
+  }, [team]);
+
   const loadRelated = useCallback(async () => {
     if (!profile?.company_id) return;
     if (!selectedDeal) return;
 
     const leadId = selectedDeal.lead_id ? String(selectedDeal.lead_id) : null;
-    const clientId = selectedDeal.client_id ? String(selectedDeal.client_id) : null;
-    if (!leadId && !clientId) return;
+    if (!leadId) return;
 
     setRelatedLoading(true);
     try {
@@ -1202,7 +1234,7 @@ function PipelinePage() {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null });
 
-      const [leadRes, clientRes, taskRes] = await Promise.all([
+      const [leadRes, taskRes] = await Promise.all([
         leadId
           ? (supabase as any)
               .from("leads")
@@ -1211,22 +1243,11 @@ function PipelinePage() {
               .eq("id", leadId)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
-        clientId
-          ? (supabase as any)
-              .from("clients")
-              .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status")
-              .eq("company_id", profile.company_id)
-              .eq("id", clientId)
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
         tasksPromise,
       ]);
 
       if (!leadRes.error && leadRes.data && leadId) {
         setRelatedLeadById((prev) => ({ ...prev, [leadId]: leadRes.data as LeadRow }));
-      }
-      if (!clientRes.error && clientRes.data && clientId) {
-        setRelatedClientById((prev) => ({ ...prev, [clientId]: clientRes.data as ClientRow }));
       }
       if (!taskRes.error && taskRes.data && leadId) {
         setNextTaskByLeadId((prev) => ({ ...prev, [leadId]: taskRes.data as TaskRow }));
@@ -1331,8 +1352,7 @@ function PipelinePage() {
 
       // Assigned
       if (filters.assigned === "me") {
-        if (!user?.id) return false;
-        if (!deal.assigned_to || deal.assigned_to !== user.id) return false;
+        if (!isDealAssignedToCurrentUser(deal.assigned_to)) return false;
       } else if (filters.assigned === "team") {
         if (!deal.assigned_to) return false;
       } else if (filters.assigned === "unassigned") {
@@ -1459,6 +1479,15 @@ function PipelinePage() {
       toast.error(error.message || "No se pudo mover el deal");
       return;
     }
+    void logActivityEvent({
+      companyId: profile.company_id,
+      userId: profile.id || null,
+      action: "deal_moved",
+      entityType: "deals",
+      entityId: dealId,
+      detail: `Oportunidad movida a ${stageName}: ${deal.name}`,
+      metadata: { stage: stageName, source: "manual" },
+    }).catch(() => {});
     toast.success(`Deal movido a ${stageName}`);
   };
 
@@ -1485,15 +1514,25 @@ function PipelinePage() {
       status: "To Do",
       priority: "High",
       related_lead_id: deal.lead_id || null,
-      related_client_id: deal.client_id || null,
-      created_by: profile.id,
-      assigned_to: (deal.assigned_to ? teamByUserId.get(String(deal.assigned_to))?.profile_id : null) || profile.id,
+      related_client_id: null,
+      assigned_to:
+        (deal.assigned_to
+          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id
+          : null) || profile.id,
     };
     const { error } = await db.from("tasks").insert(payload);
     if (error) {
       toast.error(error.message || "No se pudo crear la tarea");
       return;
     }
+    void logActivityEvent({
+      companyId: profile.company_id,
+      userId: profile.id || null,
+      action: "task_created",
+      entityType: "tasks",
+      detail: `Tarea creada desde pipeline: ${payload.title}`,
+      metadata: { related_deal_id: deal.id, related_lead_id: deal.lead_id || null },
+    }).catch(() => {});
     toast.success("Tarea creada");
   };
 
@@ -1539,7 +1578,10 @@ function PipelinePage() {
 
     setFollowUpSaving(true);
     try {
-      const assignedTo = (deal.assigned_to ? teamByUserId.get(String(deal.assigned_to))?.profile_id : null) || profile.id;
+      const assignedTo =
+        (deal.assigned_to
+          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id
+          : null) || profile.id;
       const payload: Record<string, any> = {
         company_id: profile.company_id,
         title: followUpValues.title.trim(),
@@ -1548,8 +1590,7 @@ function PipelinePage() {
         priority: followUpValues.priority || "Medium",
         due_date: followUpValues.due_date,
         assigned_to: assignedTo,
-        created_by: profile.id,
-        related_client_id: deal.client_id || null,
+        related_client_id: null,
         related_lead_id: deal.lead_id || null,
       };
 
@@ -1645,20 +1686,28 @@ function PipelinePage() {
         return;
       }
 
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "deal_moved",
+        entityType: "deals",
+        entityId: deal.id,
+        detail: `Oportunidad marcada como ganada: ${deal.name}`,
+        metadata: { stage: wonStage, outcome: "won" },
+      }).catch(() => {});
+
       setDeals((prev) => prev.map((d) => (d.id === deal.id ? { ...d, stage: wonStage, notes: nextNotes } : d)));
       setSelectedDeal((prev) => (prev?.id === deal.id ? { ...prev, stage: wonStage, notes: nextNotes } : prev));
 
       toast.success("Oportunidad marcada como ganada.");
 
-      if (!deal.client_id && deal.lead_id) {
+      if (deal.lead_id) {
         setPendingWonDealId(deal.id);
         setConvertClientDialogOpen(true);
         return;
       }
 
-      if (deal.client_id) {
-        void openCreateProjectPromptForDeal(deal);
-      }
+      void openCreateProjectPromptForDeal(deal);
     } finally {
       setClosingAsWon(false);
     }
@@ -1706,7 +1755,10 @@ function PipelinePage() {
     const phone = lead.phone || lead.whatsapp || null;
     const whatsapp = lead.whatsapp || lead.phone || null;
 
-    const accountManagerProfileId = (deal.assigned_to ? teamByUserId.get(String(deal.assigned_to))?.profile_id : null) || profile.id || null;
+    const accountManagerProfileId =
+      (deal.assigned_to
+        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id
+        : null) || profile.id || null;
 
     const { data: created, error: createErr } = await (supabase as any)
       .from("clients")
@@ -1724,6 +1776,15 @@ function PipelinePage() {
       .single();
 
     if (createErr) throw new Error(createErr.message || "No se pudo crear el cliente");
+    void logActivityEvent({
+      companyId: profile.company_id,
+      userId: profile.id || null,
+      action: "client_created",
+      entityType: "clients",
+      entityId: String(created.id),
+      detail: `Cliente creado desde oportunidad ganada: ${companyName}`,
+      metadata: { lead_id: lead.id, deal_id: deal.id },
+    }).catch(() => {});
     return String(created.id);
   }
 
@@ -1753,18 +1814,10 @@ function PipelinePage() {
 
     setConvertingClient(true);
     try {
-      const clientId = await createClientFromLead(lead, deal);
-      const { error: updErr } = await db.from("deals").update({ client_id: clientId }).eq("id", deal.id);
-      if (updErr) {
-        toast.error(updErr.message || "La oportunidad fue marcada como ganada, pero no se pudo vincular el cliente.");
-        setConvertClientDialogOpen(false);
-        return;
-      }
-      setDeals((prev) => prev.map((d) => (d.id === deal.id ? { ...d, client_id: clientId } : d)));
-      setSelectedDeal((prev) => (prev?.id === deal.id ? { ...prev, client_id: clientId } : prev));
-      toast.success("Cliente creado y vinculado a la oportunidad.");
+      await createClientFromLead(lead, deal);
+      toast.success("Cliente creado correctamente.");
       setConvertClientDialogOpen(false);
-      void openCreateProjectPromptForDeal({ ...deal, client_id: clientId });
+      void openCreateProjectPromptForDeal(deal);
     } catch (e) {
       const message = e instanceof Error ? e.message : "La oportunidad fue marcada como ganada, pero no se pudo crear el cliente.";
       toast.error(message);
@@ -1799,6 +1852,16 @@ function PipelinePage() {
         toast.error(error.message || "No se pudo actualizar la oportunidad.");
         return;
       }
+
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "deal_moved",
+        entityType: "deals",
+        entityId: deal.id,
+        detail: `Oportunidad marcada como perdida: ${deal.name}`,
+        metadata: { stage: lostStage, outcome: "lost", reason },
+      }).catch(() => {});
 
       setDeals((prev) => prev.map((d) => (d.id === deal.id ? { ...d, stage: lostStage, notes: nextNotes } : d)));
       setSelectedDeal((prev) => (prev?.id === deal.id ? { ...prev, stage: lostStage, notes: nextNotes } : prev));
@@ -1856,11 +1919,27 @@ function PipelinePage() {
       (async () => {
         if (!profile?.company_id) return;
         const cid = profile.company_id;
-        const [{ data: d2 }] = await Promise.all([db.from("deals").select("*").eq("company_id", cid).order("created_at", { ascending: false })]);
+        const [{ data: d2 }] = await Promise.all([
+          db
+            .from("deals")
+            .select("id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at")
+            .eq("company_id", cid)
+            .order("created_at", { ascending: false }),
+        ]);
         setDeals((d2 || []) as Deal[]);
       })();
       return;
     }
+
+    void logActivityEvent({
+      companyId: profile.company_id,
+      userId: profile.id || null,
+      action: "deal_moved",
+      entityType: "deals",
+      entityId: draggedDealId,
+      detail: `Oportunidad movida a ${stageName}: ${deal.name}`,
+      metadata: { stage: stageName, source: "drag" },
+    }).catch(() => {});
 
     toast.success(`Deal movido a ${stageName}`);
     setDraggedDealId(null);
@@ -1873,6 +1952,18 @@ function PipelinePage() {
       toast.error("No tienes permiso para realizar esta acción");
       return;
     }
+    if (!editDeal) {
+      if (!newDeal.source_type) {
+        toast.error("Selecciona si la oportunidad viene de un prospecto, cliente o sin contacto.");
+        return;
+      }
+
+      if (newDeal.source_type === "lead" && !newDeal.lead_id) {
+        toast.error("Selecciona un prospecto para conectar la oportunidad.");
+        return;
+      }
+    }
+
     if (editDeal) {
       const { error } = await db
         .from("deals")
@@ -1888,6 +1979,15 @@ function PipelinePage() {
         toast.error(error.message);
         return;
       }
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "deal_updated",
+        entityType: "deals",
+        entityId: editDeal.id,
+        detail: `Oportunidad actualizada: ${newDeal.name}`,
+        metadata: { stage: newDealStageOverride || newDeal.stage },
+      }).catch(() => {});
       toast.success("Deal updated");
       setDialogOpen(false);
       setEditDeal(null);
@@ -1899,27 +1999,43 @@ function PipelinePage() {
         probability: Number(newDeal.probability) || 50,
         expected_close: newDeal.expected_close || null,
         stage: newDealStageOverride || newDeal.stage,
-        assigned_to: user?.id || null,
+        lead_id: newDeal.source_type === "lead" && newDeal.lead_id ? newDeal.lead_id : null,
+        assigned_to: null,
         created_by: profile?.id || null,
       });
       if (error) {
         toast.error(error.message);
         return;
       }
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "deal_created",
+        entityType: "deals",
+        detail: `Oportunidad creada: ${newDeal.name}`,
+        metadata: {
+          stage: newDealStageOverride || newDeal.stage,
+          lead_id: newDeal.source_type === "lead" ? newDeal.lead_id || null : null,
+        },
+      }).catch(() => {});
       toast.success("Deal created");
       setDialogOpen(false);
     }
 
     setNewDealStageOverride(null);
-    setNewDeal({ name: "", value: "", probability: "50", expected_close: "", stage: stages[0]?.name || "" });
+    setNewDeal({ name: "", value: "", probability: "50", expected_close: "", stage: stages[0]?.name || "", source_type: "", lead_id: "", client_id: "" });
     // Refetch deals only
     if (!profile?.company_id) return;
     const cid = profile.company_id;
-    const { data: d2 } = await db.from("deals").select("*").eq("company_id", cid).order("created_at", { ascending: false });
+    const { data: d2 } = await db
+      .from("deals")
+      .select("id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at")
+      .eq("company_id", cid)
+      .order("created_at", { ascending: false });
     const nextDeals = (d2 || []) as Deal[];
     setDeals(nextDeals);
     const byStage: Record<string, string[]> = {};
-    for (const stage of stages.filter((st) => !st.is_won && !st.is_lost)) {
+    for (const stage of stages.filter((st) => !isWonStageName(st.name) && !isLostStageName(st.name))) {
       byStage[stage.name] = [];
     }
     for (const deal of nextDeals) {
@@ -1993,6 +2109,7 @@ function PipelinePage() {
 
             {can("deals.create") && (
               <button
+                data-demo="pipeline-new-deal-button"
                 className="h-[42px] px-[14px] rounded-[13px] bg-[#1d62f9] text-white font-semibold text-[13px] flex items-center gap-2 shadow-[0_12px_24px_rgba(29,98,249,0.20)] hover:opacity-95"
                 onClick={() => {
                   setEditDeal(null);
@@ -2085,6 +2202,7 @@ function PipelinePage() {
               ) : null}
 
               <div
+                data-demo="pipeline-board"
                 className="flex gap-3 overflow-x-auto pb-6 lg:grid lg:overflow-x-hidden lg:pb-0"
                 style={{ gridTemplateColumns: `repeat(${visiblePipelineStages.length || 1}, minmax(0, 1fr))` }}
               >
@@ -2104,6 +2222,7 @@ function PipelinePage() {
                   return (
                     <div
                       key={stage.id}
+                      data-demo={`pipeline-stage-${idx + 1}`}
                       data-stage={stage.name}
                       className={
                       "relative overflow-hidden rounded-[20px] border bg-[rgba(255,255,255,0.78)] shadow-[0_10px_26px_rgba(15,23,42,0.06)] transition-all flex flex-col flex-none w-[260px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-290px)] " +
@@ -2215,7 +2334,7 @@ function PipelinePage() {
                                   {deal.name}
                                 </strong>
                                 <span className="block text-[11px] font-medium text-[#667085] line-clamp-1">
-                                  {deal.client_id ? "Cliente conectado" : "Cliente: —"}
+                                {deal.lead_id ? "Prospecto conectado" : "Prospecto: —"}
                                 </span>
                               </div>
                               <DropdownMenu>
@@ -2352,6 +2471,128 @@ function PipelinePage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editDeal ? "Edit Deal" : "New Deal"}</DialogTitle></DialogHeader>
           <form onSubmit={handleCreateOrUpdate} className="space-y-4">
+            {!editDeal ? (
+              <div className="rounded-[14px] border bg-muted/20 p-3">
+                <Label>Origen de la oportunidad</Label>
+                <Select
+                  value={newDeal.source_type || undefined}
+                  onValueChange={(v) =>
+                    setNewDeal({
+                      ...newDeal,
+                      source_type: v,
+                      lead_id: v === "lead" ? newDeal.lead_id : "",
+                      client_id: v === "client" ? newDeal.client_id : "",
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecciona el origen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lead">Prospecto existente</SelectItem>
+                    <SelectItem value="client">Cliente existente</SelectItem>
+                    <SelectItem value="none">Sin contacto todavía</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {newDeal.source_type === "lead" ? (
+                  <div className="mt-3">
+                    <Label>Prospecto</Label>
+                    <Select
+                      value={newDeal.lead_id}
+                      onValueChange={(v) => {
+                        const lead = dealLeadOptions.find((l) => String(l.id) === String(v));
+                        const label =
+                          lead?.company_name ||
+                          [lead?.first_name, lead?.last_name].filter(Boolean).join(" ") ||
+                          lead?.email ||
+                          lead?.phone ||
+                          "Nueva oportunidad";
+
+                        setNewDeal({
+                          ...newDeal,
+                          lead_id: v,
+                          name: newDeal.name || label,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder={dealSourceOptionsLoading ? "Cargando prospectos…" : "Selecciona un prospecto"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dealLeadOptions.map((lead) => {
+                          const label =
+                            lead.company_name ||
+                            [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+                            lead.email ||
+                            lead.phone ||
+                            String(lead.id);
+
+                          return (
+                            <SelectItem key={lead.id} value={lead.id}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
+                {newDeal.source_type === "client" ? (
+                  <div className="mt-3">
+                    <Label>Cliente</Label>
+                    <Select
+                      value={newDeal.client_id}
+                      onValueChange={(v) => {
+                        const client = dealClientOptions.find((c) => String(c.id) === String(v));
+                        const label =
+                          client?.company_name ||
+                          client?.contact_person ||
+                          client?.email ||
+                          client?.phone ||
+                          "Nueva oportunidad";
+
+                        setNewDeal({
+                          ...newDeal,
+                          client_id: v,
+                          name: newDeal.name || label,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder={dealSourceOptionsLoading ? "Cargando clientes…" : "Selecciona un cliente"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dealClientOptions.map((client) => {
+                          const label =
+                            client.company_name ||
+                            client.contact_person ||
+                            client.email ||
+                            client.phone ||
+                            String(client.id);
+
+                          return (
+                            <SelectItem key={client.id} value={client.id}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
+                {newDeal.source_type === "none" ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Puedes crear una oportunidad sin contacto, pero lo ideal es conectarla luego a un prospecto o cliente para mantener el historial completo.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {(editDeal || newDeal.source_type === "none" || (newDeal.source_type === "lead" && newDeal.lead_id) || (newDeal.source_type === "client" && newDeal.client_id)) ? (
+              <>
             <div><Label>Deal Name</Label><Input placeholder="Deal name" value={newDeal.name} onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })} required /></div>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Value ($)</Label><Input type="number" placeholder="0" value={newDeal.value} onChange={(e) => setNewDeal({ ...newDeal, value: e.target.value })} /></div>
@@ -2368,6 +2609,12 @@ function PipelinePage() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button type="submit">{editDeal ? "Save" : "Create Deal"}</Button>
             </div>
+              </>
+            ) : (
+              <div className="rounded-[14px] border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                Selecciona un prospecto, cliente o la opción “Sin contacto todavía” para continuar creando la oportunidad.
+              </div>
+            )}
           </form>
         </DialogContent>
       </Dialog>
@@ -2375,7 +2622,7 @@ function PipelinePage() {
       {selectedDeal && (
 	        <DetailSheet
 	          open={!!selectedDeal}
-	          onClose={() => setSelectedDeal(null)}
+	          onClose={closePipelineDetailSafely}
 	          title={selectedDeal.name}
 	          accent="green"
 	          icon={<BriefcaseBusiness className="h-5 w-5 text-emerald-600" />}
@@ -2388,10 +2635,13 @@ function PipelinePage() {
               probability: String(selectedDeal.probability ?? 50),
               expected_close: selectedDeal.expected_close || "",
               stage: selectedDeal.stage,
+              source_type: selectedDeal.lead_id ? "lead" : "none",
+              lead_id: selectedDeal.lead_id || "",
             });
             setDialogOpen(true);
           } : undefined}
           onDelete={can("deals.delete") ? () => setDeleteDealId(selectedDeal.id) : undefined}
+          fieldGroupDataDemo="pipeline-detail-summary"
           fields={[
             { label: "Stage", value: selectedDeal.stage, type: "badge" },
             { label: "Value", value: selectedDeal.value, type: "currency" },
@@ -2399,9 +2649,9 @@ function PipelinePage() {
             { label: "Expected Close", value: selectedDeal.expected_close },
             {
               label: "Responsable",
-              value: selectedDeal.assigned_to ? (teamByUserId.get(String(selectedDeal.assigned_to))?.full_name || String(selectedDeal.assigned_to)) : null,
+              value: selectedDeal.assigned_to ? (teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name || teamByUserId.get(String(selectedDeal.assigned_to))?.full_name || String(selectedDeal.assigned_to)) : null,
             },
-            { label: "Cliente", value: selectedDeal.client_id ? "Conectado" : null },
+            { label: "Cliente", value: null },
             { label: "Prospecto", value: selectedDeal.lead_id ? "Conectado" : null },
           ]}
           notes={selectedDeal.notes || undefined}
@@ -2411,7 +2661,7 @@ function PipelinePage() {
               const isWon = wonStageNames.has(selectedDeal.stage);
               const isLost = lostStageNames.has(selectedDeal.stage);
               return (
-                <div className="rounded-[16px] border bg-white p-4">
+                <div data-demo="pipeline-close" className="rounded-[16px] border bg-white p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Cierre de oportunidad</div>
@@ -2443,7 +2693,7 @@ function PipelinePage() {
               );
             })()}
 
-            <div className="rounded-[16px] border bg-white p-4">
+            <div data-demo="pipeline-commercial-summary" className="rounded-[16px] border bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Resumen comercial</div>
@@ -2463,7 +2713,7 @@ function PipelinePage() {
                     <div>
                       <div className="text-[11px] font-semibold text-muted-foreground">Responsable</div>
                       <div className="font-semibold">
-                        {selectedDeal.assigned_to ? teamByUserId.get(String(selectedDeal.assigned_to))?.full_name || "—" : "Sin asignar"}
+                        {selectedDeal.assigned_to ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name || teamByUserId.get(String(selectedDeal.assigned_to))?.full_name || "—" : "Sin asignar"}
                       </div>
                     </div>
                   </div>
@@ -2481,7 +2731,7 @@ function PipelinePage() {
               </div>
             </div>
 
-            <div className="rounded-[16px] border bg-white p-4">
+            <div data-demo="pipeline-prospect" className="rounded-[16px] border bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Prospecto</div>
                 {selectedDeal.lead_id ? (
@@ -2532,43 +2782,12 @@ function PipelinePage() {
             <div className="rounded-[16px] border bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Cliente</div>
-                {selectedDeal.client_id ? (
-                  <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => (window.location.href = "/clients")}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Ver
-                  </Button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">No conectado</span>
-                )}
+                <span className="text-xs text-muted-foreground">Sin enlace directo</span>
               </div>
 
-              {relatedLoading && selectedDeal.client_id ? (
-                <div className="mt-2 text-sm text-muted-foreground">Cargando…</div>
-              ) : selectedClient ? (
-                <div className="mt-2 space-y-2 text-sm">
-                  <div className="font-semibold">{selectedClient.company_name || "Cliente"}</div>
-                  <div className="grid grid-cols-2 gap-2 text-[13px]">
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Contacto</div>
-                      <div className="font-medium">{selectedClient.contact_person || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Estado</div>
-                      <div className="font-medium">{selectedClient.status || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Email</div>
-                      <div className="font-medium">{selectedClient.email || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Teléfono</div>
-                      <div className="font-medium">{selectedClient.whatsapp || selectedClient.phone || "—"}</div>
-                    </div>
-                  </div>
-                </div>
-              ) : selectedDeal.client_id ? (
-                <div className="mt-2 text-sm text-muted-foreground">No se pudo cargar el cliente.</div>
-              ) : null}
+              <div className="mt-2 text-sm text-muted-foreground">
+                Este deal no guarda un `client_id` directo en el esquema actual. Usa el prospecto relacionado para el contexto comercial.
+              </div>
             </div>
 
             <div data-demo="pipeline-deal-products" className="rounded-[16px] border bg-white p-3.5">
@@ -2678,7 +2897,7 @@ function PipelinePage() {
               ) : null}
             </div>
 
-            <div className="rounded-[16px] border bg-white p-4">
+            <div data-demo="pipeline-followup" className="rounded-[16px] border bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Seguimiento</div>
                 <Button
@@ -2716,7 +2935,7 @@ function PipelinePage() {
               )}
             </div>
 
-            <div className="rounded-[16px] border bg-white p-4">
+            <div data-demo="pipeline-actions" className="rounded-[16px] border bg-white p-4">
               <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Acciones rápidas</div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button

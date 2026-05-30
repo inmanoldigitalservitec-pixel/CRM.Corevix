@@ -35,6 +35,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
+import { logActivityEvent } from "@/lib/activity-log";
 import { LoadingMetrics, LoadingTable } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
 import { DataCard } from "@/components/crm/data-card";
@@ -203,7 +204,6 @@ interface ProposalRow {
 interface DealRow {
   id: string;
   company_id: string;
-  client_id?: string | null;
   lead_id?: string | null;
   name: string;
   stage: string;
@@ -256,6 +256,16 @@ interface ActivityItem {
   at: string | null;
   icon: ComponentType<{ className?: string }>;
   tone: string;
+}
+
+interface ActivityLogRow {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  detail: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 }
 
 const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
@@ -560,6 +570,7 @@ function ClientsPage() {
   const [contactIsPrimary, setContactIsPrimary] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [createTaskSaving, setCreateTaskSaving] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   const [taskDraft, setTaskDraft] = useState<{ title: string; description: string; due_date: string }>({
     title: "",
     description: "",
@@ -719,13 +730,42 @@ function ClientsPage() {
     return new Map(managers.map((manager) => [manager.id, manager.full_name]));
   }, [managers]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!profile?.company_id) {
+        setActivityLogs([]);
+        return;
+      }
+
+      const { data, error } = await (supabase as any)
+        .from("activity_logs")
+        .select("id,action,entity_type,entity_id,detail,metadata,created_at,user_id")
+        .eq("company_id", profile.company_id)
+        .order("created_at", { ascending: false })
+        .limit(250);
+
+      if (cancelled) return;
+      if (error) {
+        setActivityLogs([]);
+        return;
+      }
+      setActivityLogs((data || []) as ActivityLogRow[]);
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.company_id]);
+
   const contactsByClient = useMemo(() => groupBy(contacts, (contact) => contact.client_id), [contacts]);
   const projectsByClient = useMemo(() => groupBy(projects, (project) => project.client_id), [projects]);
   const tasksByClient = useMemo(() => groupBy(tasks, (task) => task.related_client_id), [tasks]);
   const tasksByProject = useMemo(() => groupBy(tasks, (task) => task.related_project_id || null), [tasks]);
   const invoicesByClient = useMemo(() => groupBy(invoices, (invoice) => invoice.client_id), [invoices]);
   const proposalsByClient = useMemo(() => groupBy(proposals, (proposal) => proposal.client_id), [proposals]);
-  const dealsByClient = useMemo(() => groupBy(deals, (deal) => deal.client_id), [deals]);
+  const dealsByClient = useMemo(() => new Map<string, DealRow[]>(), []);
   const clientProductsByClient = useMemo(() => groupBy(clientProducts, (cp) => cp.client_id), [clientProducts]);
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
@@ -948,7 +988,6 @@ function ClientsPage() {
         status: "To Do",
         priority: "Medium",
         assigned_to: selectedClient.account_manager || profile.id,
-        created_by: profile.id,
         related_client_id: selectedClient.id,
         due_date: taskDraft.due_date || null,
       };
@@ -958,6 +997,15 @@ function ClientsPage() {
         toast.error(error.message || "No se pudo crear la tarea");
         return;
       }
+
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id,
+        action: "task_created",
+        entityType: "tasks",
+        detail: `Tarea creada desde cliente: ${taskDraft.title.trim()}`,
+        metadata: { related_client_id: selectedClient.id, due_date: taskDraft.due_date || null },
+      }).catch(() => {});
 
       toast.success("Tarea creada");
       setCreateTaskOpen(false);
@@ -976,6 +1024,84 @@ function ClientsPage() {
 
   const activityFeed = useMemo<ActivityItem[]>(() => {
     if (!selectedClient) return [];
+
+    const relatedLeadIds = new Set<string>();
+    const relatedEntityIds = new Set<string>([selectedClient.id]);
+    selectedClient.contacts.forEach((contact) => relatedEntityIds.add(contact.id));
+    selectedClient.projects.forEach((project) => relatedEntityIds.add(project.id));
+    selectedClient.tasks.forEach((task) => relatedEntityIds.add(task.id));
+    selectedClient.invoices.forEach((invoice) => relatedEntityIds.add(invoice.id));
+    selectedClient.proposals.forEach((proposal) => relatedEntityIds.add(proposal.id));
+    selectedClient.deals.forEach((deal) => {
+      relatedEntityIds.add(deal.id);
+      if (deal.lead_id) relatedLeadIds.add(deal.lead_id);
+    });
+
+    const activityTitleByAction: Record<string, string> = {
+      lead_created: "Prospecto creado",
+      lead_updated: "Prospecto actualizado",
+      deal_created: "Oportunidad creada",
+      deal_moved: "Oportunidad movida",
+      proposal_created: "Propuesta creada",
+      proposal_sent: "Propuesta enviada",
+      proposal_approved: "Propuesta aprobada",
+      invoice_created: "Factura creada",
+      invoice_sent: "Factura enviada",
+      invoice_paid: "Factura pagada",
+      project_created: "Proyecto creado",
+      project_updated: "Proyecto actualizado",
+      task_created: "Tarea creada",
+      task_completed: "Tarea completada",
+      client_created: "Cliente creado",
+      client_updated: "Cliente actualizado",
+    };
+
+    const activityToneByEntity: Record<string, string> = {
+      leads: "bg-blue-50 text-blue-700",
+      deals: "bg-sky-50 text-sky-700",
+      proposals: "bg-violet-50 text-violet-700",
+      invoices: "bg-amber-50 text-amber-700",
+      projects: "bg-emerald-50 text-emerald-700",
+      tasks: "bg-rose-50 text-rose-700",
+      clients: "bg-emerald-50 text-emerald-700",
+    };
+
+    const activityIconByEntity: Record<string, ComponentType<{ className?: string }>> = {
+      leads: Users,
+      deals: BriefcaseBusiness,
+      proposals: FileText,
+      invoices: Receipt,
+      projects: FolderKanban,
+      tasks: Clock3,
+      clients: Activity,
+    };
+
+    const logItems = activityLogs
+      .filter((log) => {
+        if (!log.entity_id) return false;
+        if (relatedEntityIds.has(log.entity_id)) return true;
+        return log.entity_type === "leads" && relatedLeadIds.has(log.entity_id);
+      })
+      .map((log) => {
+        const entityLabel = activityTitleByAction[log.action] || `${log.entity_type} actualizado`;
+        const detail = log.detail || entityLabel;
+        const icon = activityIconByEntity[log.entity_type] || Activity;
+        const tone = activityToneByEntity[log.entity_type] || "bg-slate-50 text-slate-700";
+        return {
+          id: log.id,
+          title: entityLabel,
+          description: detail,
+          at: log.created_at,
+          icon,
+          tone,
+        } satisfies ActivityItem;
+      });
+
+    if (logItems.length > 0) {
+      return logItems
+        .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
+        .slice(0, 8);
+    }
 
     const items: ActivityItem[] = [];
 
@@ -1057,7 +1183,7 @@ function ClientsPage() {
     return items
       .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
       .slice(0, 8);
-  }, [selectedClient]);
+  }, [activityLogs, selectedClient]);
 
   useEffect(() => {
     if (!contactDialogOpen) {
@@ -1251,6 +1377,57 @@ function ClientsPage() {
     URL.revokeObjectURL(url);
   };
 
+  useEffect(() => {
+    const onDemoOpenClient360 = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+
+      if (detail?.open === false) {
+        setSelectedClientId(null);
+        return;
+      }
+
+      const demoClient =
+        filteredClients.find((client) => String(client.company_name || "").toLowerCase().includes("demo")) ||
+        filteredClients.find((client) => client.projects.length || client.invoices.length || client.proposals.length || client.openDeals.length) ||
+        filteredClients[0] ||
+        snapshots[0];
+
+      if (demoClient?.id) {
+        setSelectedClientId(demoClient.id);
+      }
+    };
+
+    window.addEventListener("crm-demo-open-client-360", onDemoOpenClient360);
+    return () => window.removeEventListener("crm-demo-open-client-360", onDemoOpenClient360);
+  }, [filteredClients, snapshots]);
+
+
+  useEffect(() => {
+    const onDemoClient360Tab = (event: Event) => {
+      const tab = (event as CustomEvent<{ tab?: string }>).detail?.tab;
+      if (!tab) return;
+
+      const selectors = [
+        `[data-demo="client-360-tab-${tab}"]`,
+        `button[value="${tab}"]`,
+        `[role="tab"][value="${tab}"]`,
+        `[role="tab"][data-value="${tab}"]`,
+      ];
+
+      for (const selector of selectors) {
+        const el = document.querySelector(selector) as HTMLElement | null;
+        if (el) {
+          el.click();
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("crm-demo-client360-tab", onDemoClient360Tab);
+    return () => window.removeEventListener("crm-demo-client360-tab", onDemoClient360Tab);
+  }, []);
+
+
   if (loading) {
     return (
       <div className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_30%_0%,rgba(29,98,249,0.08),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6f8fb_54%)] px-5 py-6 text-[#101828] sm:px-7">
@@ -1305,7 +1482,7 @@ function ClientsPage() {
           </div>
         </header>
 
-        <section className="rounded-[22px] border border-[#e6eaf0] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.055)]">
+        <section data-demo="clients-account-center" className="rounded-[22px] border border-[#e6eaf0] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.055)]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-[0.10em] text-[#1d62f9]">Centro de cuenta</p>
@@ -1326,12 +1503,12 @@ function ClientsPage() {
         </section>
 
         {errorMessage && (
-          <div className="rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+          <div data-demo="clients-warning-message" className="rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
             {errorMessage}
           </div>
         )}
 
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+        <section data-demo="clients-metrics" className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
           <MetricCard label="Clientes activos" value={activeClientsCount} icon={Building2} tone="bg-[#eaf1ff] text-[#1d62f9]" meta="Cuentas vigentes" />
           <MetricCard label="VIP" value={vipClientsCount} icon={Star} tone="bg-[#f3ecff] text-[#7c3aed]" meta="Clientes premium" />
           <MetricCard label="En riesgo" value={riskClientsCount} icon={ShieldAlert} tone="bg-[#fff1f3] text-[#e11d48]" meta="Requieren atención" />
@@ -1343,6 +1520,7 @@ function ClientsPage() {
         </section>
 
         <DataCard>
+          <div data-demo="clients-filters-panel">
           <SearchFilters
             searchValue={search}
             onSearchChange={setSearch}
@@ -1429,9 +1607,10 @@ function ClientsPage() {
               },
             ]}
           />
+                  </div>
         </DataCard>
 
-        <DataCard className="overflow-hidden">
+        <DataCard data-demo="clients-list-panel" className="overflow-hidden">
           {filteredClients.length === 0 ? (
             <EmptyState
               icon={<Building2 className="h-6 w-6" />}
@@ -1459,7 +1638,7 @@ function ClientsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredClients.map((client) => (
+                  {filteredClients.map((client, index) => (
                     <TableRow
                       key={client.id}
                       className={cnJoin(
@@ -1626,7 +1805,7 @@ function ClientsPage() {
           if (!open) setSelectedClientId(null);
         }}
       >
-        <SheetContent side="right" className="w-full p-0 sm:max-w-4xl">
+        <SheetContent data-demo="client-360-panel" side="right" className="w-full p-0 sm:max-w-4xl">
           {selectedClient && (
             <div className="flex h-full flex-col">
               <SheetHeader className="relative border-b border-slate-200 px-5 py-4 text-left">
@@ -1676,7 +1855,7 @@ function ClientsPage() {
                     size="sm"
                     variant="outline"
                     className="gap-2"
-                    onClick={() => openCreateTaskForClient(selectedClient)}
+                    data-demo="client-360-create-task" onClick={() => openCreateTaskForClient(selectedClient)}
                     disabled={!canCreateTaskForClient(selectedClient)}
                   >
                     <FileText className="h-4 w-4" />
@@ -1704,24 +1883,83 @@ function ClientsPage() {
 
               <ScrollArea className="h-[calc(100vh-96px)]">
                 <div className="space-y-4 px-5 py-4">
-                  <Tabs defaultValue="overview" className="w-full">
-                    <TabsList className="grid h-auto w-full grid-cols-5 rounded-[14px] bg-slate-100 p-1">
-                      <TabsTrigger value="overview">Resumen</TabsTrigger>
-                      <TabsTrigger value="contacts">Contactos</TabsTrigger>
-                      <TabsTrigger value="projects">Proyectos</TabsTrigger>
-                      <TabsTrigger value="finance">Finanzas</TabsTrigger>
-                      <TabsTrigger value="activity">Actividad</TabsTrigger>
+                  <Tabs defaultValue="overview" className="w-full client-360-single-view space-y-5 [&_[role=tabpanel]]:!block [&_[role=tabpanel][hidden]]:!block [&_[role=tabpanel]]:mt-0">
+                    <TabsList data-demo="client-360-tabs" className="grid h-auto w-full grid-cols-5 rounded-[14px] bg-slate-100 p-1 hidden">
+                      <TabsTrigger data-demo="client-360-tab-summary" value="overview">Resumen</TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-contacts" value="contacts">Contactos</TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-projects" value="projects">Proyectos</TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-finance" value="finance">Finanzas</TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-activity" value="activity">Actividad</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4">
                       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-                        <MetricCard label="Contactos" value={selectedClient.contacts.length} icon={Users} tone="bg-[#eaf1ff] text-[#1d62f9]" meta="Total vinculados" />
-                        <MetricCard label="Proyectos" value={selectedClient.activeProjects.length} icon={FolderKanban} tone="bg-[#fff7e6] text-[#d97706]" meta="Activos" />
-                        <MetricCard label="Tareas abiertas" value={selectedClient.openTasks.length} icon={FileText} tone="bg-[#fef2f2] text-[#ef4444]" meta="Pendientes" />
-                        <MetricCard label="Productos" value={selectedClient.purchasedProducts.length} icon={Package} tone="bg-[#eef2ff] text-[#4338ca]" meta="Comprados" />
-                        <MetricCard label="Facturas pendientes" value={selectedClient.pendingInvoices.length} icon={CircleDollarSign} tone="bg-[#fff3e8] text-[#f97316]" meta={money(selectedClient.pendingInvoiceAmount)} />
-                        <MetricCard label="Pipeline abierto" value={selectedClient.openDeals.length} icon={BriefcaseBusiness} tone="bg-[#ecfdf3] text-[#16a34a]" meta={money(selectedClient.openPipelineValue)} />
-                        <MetricCard label="Propuestas" value={selectedClient.pendingProposals.length} icon={FileText} tone="bg-[#f3ecff] text-[#7c3aed]" meta="En curso" />
+                        <div data-demo="client-360-kpis" className="col-span-full rounded-[22px] border border-slate-200 bg-slate-50/80 p-3">
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+                                <Users className="h-4 w-4 text-blue-600" />
+                                Contactos
+                              </div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.contacts.length}</div>
+                              <div className="text-[11px] text-slate-500">Vinculados</div>
+                            </div>
+
+                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+                                <FolderKanban className="h-4 w-4 text-amber-600" />
+                                Proyectos
+                              </div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.activeProjects.length}</div>
+                              <div className="text-[11px] text-slate-500">Activos</div>
+                            </div>
+
+                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+                                <FileText className="h-4 w-4 text-rose-600" />
+                                Tareas
+                              </div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.openTasks.length}</div>
+                              <div className="text-[11px] text-slate-500">Pendientes</div>
+                            </div>
+
+                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+                                <Package className="h-4 w-4 text-indigo-600" />
+                                Productos
+                              </div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.purchasedProducts.length}</div>
+                              <div className="text-[11px] text-slate-500">Comprados</div>
+                            </div>
+
+                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+                                <CircleDollarSign className="h-4 w-4 text-orange-600" />
+                                Facturas
+                              </div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.pendingInvoices.length}</div>
+                              <div className="text-[11px] text-slate-500">{money(selectedClient.pendingInvoiceAmount)}</div>
+                            </div>
+
+                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+                                <BriefcaseBusiness className="h-4 w-4 text-emerald-600" />
+                                Pipeline
+                              </div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.openDeals.length}</div>
+                              <div className="text-[11px] text-slate-500">{money(selectedClient.openPipelineValue)}</div>
+                            </div>
+
+                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+                                <FileText className="h-4 w-4 text-violet-600" />
+                                Propuestas
+                              </div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.pendingProposals.length}</div>
+                              <div className="text-[11px] text-slate-500">En curso</div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
@@ -1786,7 +2024,7 @@ function ClientsPage() {
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div data-demo="client-360-products" className="rounded-[18px] border border-slate-200 bg-white p-4">
                           <h3 className="text-sm font-bold text-slate-900">Productos comprados</h3>
                           <p className="mt-1 text-sm text-slate-600">Basado en <span className="font-mono">client_products</span> + <span className="font-mono">products</span>.</p>
                           {selectedClient.purchasedProducts.length === 0 ? (
@@ -1848,7 +2086,7 @@ function ClientsPage() {
                           <Separator className="my-4" />
 
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
+                            <div data-demo="client-360-tasks" className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tareas pendientes</p>
                               <p className="mt-1 text-sm font-semibold text-slate-900">{selectedClient.openTasks.length}</p>
                             </div>
@@ -1861,7 +2099,7 @@ function ClientsPage() {
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div data-demo="client-360-deals" className="rounded-[18px] border border-slate-200 bg-white p-4">
                           <h3 className="text-sm font-bold text-slate-900">Oportunidades</h3>
                           {selectedClient.openDeals.length === 0 ? (
                             <p className="mt-4 text-sm text-slate-500">No hay oportunidades abiertas.</p>
@@ -1879,7 +2117,7 @@ function ClientsPage() {
                           )}
                         </div>
 
-                        <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div data-demo="client-360-proposals" className="rounded-[18px] border border-slate-200 bg-white p-4">
                           <h3 className="text-sm font-bold text-slate-900">Propuestas</h3>
                           {selectedClient.proposals.length === 0 ? (
                             <p className="mt-4 text-sm text-slate-500">No hay propuestas vinculadas.</p>
@@ -1901,7 +2139,7 @@ function ClientsPage() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="contacts" className="space-y-4">
+                    <TabsContent data-demo="client-360-contacts-section" forceMount value="contacts" className="space-y-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <h3 className="text-lg font-bold text-slate-900">Contactos</h3>
@@ -1996,7 +2234,7 @@ function ClientsPage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="projects" className="space-y-4">
+                    <TabsContent data-demo="client-360-projects" forceMount value="projects" className="space-y-4">
                       <div>
                         <h3 className="text-lg font-bold text-slate-900">Proyectos</h3>
                         <p className="text-sm text-slate-600">Estado de los proyectos activos y en riesgo.</p>
@@ -2036,7 +2274,7 @@ function ClientsPage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="finance" className="space-y-4">
+                    <TabsContent data-demo="client-360-finance" forceMount value="finance" className="space-y-4">
                       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                         <MetricCard label="Pendientes" value={selectedClient.pendingInvoices.length} icon={CircleDollarSign} tone="bg-[#fff3e8] text-[#f97316]" meta={money(selectedClient.pendingInvoiceAmount)} />
                         <MetricCard label="Vencidas" value={selectedClient.overdueInvoices.length} icon={ShieldAlert} tone="bg-[#fef2f2] text-[#ef4444]" meta="Cobro urgente" />
@@ -2045,7 +2283,7 @@ function ClientsPage() {
                       </div>
 
                       <div className="grid gap-4 xl:grid-cols-2">
-                        <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div data-demo="client-360-invoices" className="rounded-[18px] border border-slate-200 bg-white p-4">
                           <h3 className="text-sm font-bold text-slate-900">Facturas</h3>
                           <div className="mt-4 space-y-3">
                             {selectedClient.invoices.length === 0 ? (
@@ -2116,7 +2354,7 @@ function ClientsPage() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="activity" className="space-y-4">
+                    <TabsContent data-demo="client-360-activity" forceMount value="activity" className="space-y-4">
                       <div>
                         <h3 className="text-lg font-bold text-slate-900">Actividad reciente</h3>
                         <p className="text-sm text-slate-600">Una línea de tiempo unificada con lo último que pasó en esta cuenta.</p>

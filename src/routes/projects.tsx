@@ -22,6 +22,7 @@ import { useCrud } from "@/hooks/use-crud";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
+import { logActivityEvent } from "@/lib/activity-log";
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage,
@@ -47,8 +48,8 @@ interface Project {
   product_id: string | null;
   deal_id: string | null;
   lead_id: string | null;
-  manager: string | null; // auth.users.id (profiles.user_id)
-  created_by: string | null; // auth.users.id
+  manager: string | null; // profiles.id
+  created_by: string | null; // profiles.id
   created_at: string;
   updated_at?: string;
 }
@@ -92,7 +93,7 @@ interface DealRow {
   stage: string;
   value: number | null;
   lead_id: string | null;
-  assigned_to: string | null; // auth.users.id
+  assigned_to: string | null; // profiles.id
   probability: number | null;
   expected_close: string | null;
   updated_at: string;
@@ -152,7 +153,7 @@ function formatLeadLabel(lead: LeadRow) {
 }
 
 function ProjectsPage() {
-  const { profile, roles, user } = useAuth();
+  const { profile, roles } = useAuth();
   const { can } = usePermissions();
   const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
   const isSalesAgent = roles?.includes("sales_agent") ?? false;
@@ -482,9 +483,8 @@ function ProjectsPage() {
       return;
     }
     if (!profile?.company_id || !profile?.id) return;
-    const currentUserId = user?.id ? String(user.id) : profile?.user_id ? String(profile.user_id) : null;
-    if (!currentUserId) {
-      toast.error("No se pudo identificar tu usuario (auth.users.id). Inicia sesión nuevamente.");
+    if (!profile?.id) {
+      toast.error("No se pudo identificar tu perfil de CRM. Inicia sesión nuevamente.");
       return;
     }
 
@@ -493,6 +493,7 @@ function ProjectsPage() {
       toast.error("Selecciona un manager activo de tu compañía.");
       return;
     }
+    const managerProfileId = managerUserId ? profileByUserId.get(managerUserId)?.id || null : null;
     const record: Record<string, any> = {
       company_id: profile.company_id,
       name: form.name.trim(),
@@ -507,9 +508,8 @@ function ProjectsPage() {
       product_id: form.product_id !== "none" ? String(form.product_id) : null,
       deal_id: form.deal_id !== "none" ? String(form.deal_id) : null,
       lead_id: form.lead_id !== "none" ? String(form.lead_id) : null,
-      manager: managerUserId,
+      manager: null,
     };
-    if (!editItem) record.created_by = currentUserId;
     try {
       if (editItem) { await update(editItem.id, record); toast.success("Project updated"); setSelected(null); }
       else { await create(record); toast.success("Project created"); }
@@ -532,6 +532,15 @@ function ProjectsPage() {
       toast.error(error.message || "No se pudo completar la tarea");
       return;
     }
+    void logActivityEvent({
+      companyId: profile.company_id || null,
+      userId: profile.id || null,
+      action: "task_completed",
+      entityType: "tasks",
+      entityId: task.id,
+      detail: `Tarea completada: ${task.title}`,
+      metadata: { related_project_id: task.related_project_id || null },
+    }).catch(() => {});
     toast.success("Tarea marcada como completada");
   }
 
@@ -588,7 +597,7 @@ function ProjectsPage() {
       toast.error("No tienes permiso para crear tareas");
       return;
     }
-    if (isSalesAgent && profile?.user_id && project.manager && String(project.manager) !== String(profile.user_id)) {
+    if (isSalesAgent && profile?.id && project.manager && String(project.manager) !== String(profile.id)) {
       toast.error("Solo puedes crear tareas en proyectos donde eres el manager.");
       return;
     }
@@ -611,15 +620,13 @@ function ProjectsPage() {
     setTaskSaving(true);
     try {
       const db = supabase as any;
-      const createdByUserId = user?.id ? String(user.id) : profile.user_id ? String(profile.user_id) : null;
       const payload = {
         company_id: profile.company_id,
         title: taskForm.title.trim(),
         description: taskForm.description.trim() || null,
         status: "To Do",
         priority: (taskForm.priority as any) || "Medium",
-        assigned_to: null,
-        created_by: createdByUserId,
+        assigned_to: profileByUserId.get(String(selected.manager || ""))?.id || selected.manager || profile.id,
         due_date: taskForm.due_date || null,
         related_project_id: selected.id,
         related_client_id: selected.client_id || null,
@@ -631,12 +638,40 @@ function ProjectsPage() {
         toast.error(error.message || "No se pudo crear la tarea");
         return;
       }
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id,
+        action: "task_created",
+        entityType: "tasks",
+        detail: `Tarea creada desde proyecto: ${taskForm.title.trim()}`,
+        metadata: { related_project_id: selected.id, related_client_id: selected.client_id || null, related_deal_id: selected.deal_id || null },
+      }).catch(() => {});
       toast.success("Tarea creada");
       setTaskDialogOpen(false);
     } finally {
       setTaskSaving(false);
     }
   }
+
+  useEffect(() => {
+    const onDemoOpenProjectDetail = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+
+      if (detail?.open === false) {
+        setSelected(null);
+        return;
+      }
+
+      const firstProject = filtered[0] || projects[0];
+      if (firstProject) {
+        setSelected(firstProject);
+      }
+    };
+
+    window.addEventListener("crm-demo-open-project-detail", onDemoOpenProjectDetail);
+    return () => window.removeEventListener("crm-demo-open-project-detail", onDemoOpenProjectDetail);
+  }, [filtered, projects]);
+
 
   if (loading) return <LoadingState />;
 
@@ -652,7 +687,7 @@ function ProjectsPage() {
         onAction={can("projects.create") ? openNewProject : undefined}
       />
       <DataCard>
-        <div className="space-y-4">
+        <div data-demo="projects-list" className="space-y-4">
           <SearchFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search projects..."
             filters={[
               { key: "status", placeholder: "Status", value: statusFilter, onChange: setStatusFilter, options: PROJECT_STATUSES.map(s => ({ label: s, value: s })) },
@@ -691,8 +726,8 @@ function ProjectsPage() {
                   <TableHead className="hidden lg:table-cell">Due Date</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {filtered.map((p) => (
-                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => setSelected(p)}>
+                  {filtered.map((p, index) => (
+                    <TableRow data-demo={index === 0 ? "projects-first-row" : undefined} key={p.id} className="cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => setSelected(p)}>
                       <TableCell className="font-medium pl-4 sm:pl-5">
                         <div className="min-w-0">
                           <div className="truncate">{p.name}</div>
@@ -703,8 +738,8 @@ function ProjectsPage() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{p.client_id ? clientById.get(String(p.client_id))?.company_name || "—" : "Sin cliente"}</TableCell>
                       <TableCell className="hidden lg:table-cell">{p.product_id ? productById.get(String(p.product_id))?.name || "—" : "Sin producto"}</TableCell>
-                      <TableCell><StatusBadge status={p.status} /></TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell data-demo={index === 0 ? "projects-status" : undefined}><StatusBadge status={p.status} /></TableCell>
+                      <TableCell data-demo={index === 0 ? "projects-progress" : undefined} className="hidden md:table-cell">
                         {(() => {
                           const s = statsByProjectId.get(String(p.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
                           const pct = s.total > 0 ? s.computedPct : (p.progress || 0);
@@ -716,14 +751,14 @@ function ProjectsPage() {
                           );
                         })()}
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell data-demo={index === 0 ? "projects-manager" : undefined} className="hidden xl:table-cell">
                         {p.manager
-                          ? profileByUserId.get(String(p.manager))?.full_name ||
-                            profileByUserId.get(String(p.manager))?.email ||
+                          ? profileById.get(String(p.manager))?.full_name ||
+                            profileById.get(String(p.manager))?.email ||
                             "—"
                           : "—"}
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell data-demo={index === 0 ? "projects-task-summary" : undefined} className="hidden xl:table-cell">
                         {(() => {
                           const s = statsByProjectId.get(String(p.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
                           return s.total ? (
@@ -911,7 +946,7 @@ function ProjectsPage() {
             { label: "Budget", value: selected.budget, type: "currency" },
             { label: "Start Date", value: selected.start_date },
             { label: "Due Date", value: selected.due_date },
-            { label: "Manager", value: selected.manager ? profileByUserId.get(String(selected.manager))?.full_name || profileByUserId.get(String(selected.manager))?.email || selected.manager : "—" },
+            { label: "Manager", value: selected.manager ? profileById.get(String(selected.manager))?.full_name || profileById.get(String(selected.manager))?.email || selected.manager : "—" },
             { label: "Progress (saved)", value: `${selected.progress || 0}%` },
             { label: "Progress (tasks)", value: (() => {
               const s = statsByProjectId.get(String(selected.id));
@@ -922,7 +957,7 @@ function ProjectsPage() {
           ]}
         >
           <div className="space-y-4">
-            <div>
+            <div data-demo="projects-relations">
               <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Relaciones</div>
               <div className="mt-2 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-2">
@@ -981,7 +1016,7 @@ function ProjectsPage() {
               </div>
             </div>
 
-            <div>
+            <div data-demo="projects-progress-detail">
               <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Progreso</div>
               {(() => {
                 const s = statsByProjectId.get(String(selected.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
@@ -1009,6 +1044,7 @@ function ProjectsPage() {
               <div className="flex items-center justify-between">
                 <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Tareas del proyecto</div>
                 <Button
+                  data-demo="projects-create-task"
                   variant="outline"
                   size="sm"
                   className="gap-1.5 text-xs"

@@ -23,7 +23,7 @@ interface UseCrudOptions {
 
 export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) {
   const { table, select = "*", orderBy = "created_at", ascending = false, filters = [], limit = 200, enabled = true } = options;
-  const { profile, user, roles } = useAuth();
+  const { profile, roles } = useAuth();
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,11 +88,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
       projects: "manager",
     };
     const createdByColumnByTable: Record<string, string> = {
-      leads: "created_by",
       deals: "created_by",
-      tasks: "created_by",
-      clients: "created_by",
-      projects: "created_by",
       proposals: "created_by",
       invoices: "created_by",
     };
@@ -100,25 +96,19 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     const payload: Record<string, any> = { ...(record as any), company_id: profile.company_id };
 
     // Assignment columns are mixed by table:
-    // - leads/deals.assigned_to: auth.users.id
-    // - clients.account_manager, projects.manager, tasks.assigned_to: profiles.id
+    // - leads/deals/tasks.assigned_to: profiles.id
+    // - clients.account_manager, projects.manager: profiles.id
     if (isSalesAgentOnly) {
       const col = assignmentColumnByTable[table];
       if (col && payload[col] == null) {
-        if (table === "leads" || table === "deals") {
-          if (user?.id) payload[col] = user.id;
-        } else {
-          if (profile?.id) payload[col] = profile.id;
-        }
+        if (profile?.id) payload[col] = profile.id;
       }
     }
     if (profile?.id) {
       const createdByCol = createdByColumnByTable[table];
       if (createdByCol && payload[createdByCol] == null) {
-        // created_by columns in this CRM reference auth.users.id (not profiles.id).
-        // Prefer the authenticated user id, then profile.user_id as a fallback.
-        if (user?.id) payload[createdByCol] = user.id;
-        else if ((profile as any)?.user_id) payload[createdByCol] = (profile as any).user_id;
+        // Hotfix: only inject created_by for tables confirmed to support it safely.
+        payload[createdByCol] = profile.id;
       }
     }
 
@@ -129,19 +119,6 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     if (err) throw err;
     const typed = row as unknown as T;
     setData((prev) => [typed, ...prev]);
-
-    if (shouldWriteActivityLogs) {
-      try {
-        await (supabase.from("activity_logs") as any).insert({
-          company_id: profile.company_id,
-          user_id: profile.id,
-          entity_type: table,
-          entity_id: (typed as any).id,
-          action: "created",
-          detail: `Created ${table.replace(/_/g, " ")} record`,
-        });
-      } catch {}
-    }
 
     return typed;
   };
@@ -154,43 +131,18 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
       .single();
     if (err) throw err;
     const typed = row as unknown as T;
+    const previousRow = data.find((r) => String((r as any).id) === String(id)) as T | undefined;
     setData((prev) => prev.map((r) => ((r as any).id === id ? typed : r)));
-
-    if (shouldWriteActivityLogs) {
-      try {
-        await (supabase.from("activity_logs") as any).insert({
-          company_id: profile!.company_id!,
-          user_id: profile!.id,
-          entity_type: table,
-          entity_id: id,
-          action: "updated",
-          detail: `Updated ${table.replace(/_/g, " ")} record`,
-        });
-      } catch {}
-    }
 
     return typed;
   };
 
   const remove = async (id: string) => {
+    const previousRow = data.find((r) => String((r as any).id) === String(id)) as T | undefined;
     const { error: err } = await db.from(table).delete().eq("id", id);
     if (err) throw err;
     setData((prev) => prev.filter((r) => (r as any).id !== id));
-
-    if (shouldWriteActivityLogs) {
-      try {
-        await (supabase.from("activity_logs") as any).insert({
-          company_id: profile!.company_id!,
-          user_id: profile!.id,
-          entity_type: table,
-          entity_id: id,
-          action: "deleted",
-          detail: `Deleted ${table.replace(/_/g, " ")} record`,
-        });
-      } catch {}
-    }
   };
 
   return { data, loading, error, fetch, create, update, remove };
 }
-  const shouldWriteActivityLogs = false;

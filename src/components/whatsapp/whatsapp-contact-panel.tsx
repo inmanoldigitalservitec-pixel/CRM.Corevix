@@ -996,7 +996,7 @@ export function WhatsappContactPanel({
       const service = meta ? (meta as any).selected_service ?? (meta as any).service : null;
       const serviceLabel = typeof service === "string" && service.trim().length ? service.trim() : null;
       const dealName = serviceLabel ? `${serviceLabel} — ${leadName}` : `Oportunidad — ${leadName}`;
-      const assignedTo = lead.assigned_to || user?.id || null;
+      const assignedTo = lead.assigned_to || profile?.id || null;
       const value = Number(lead.estimated_value || 0);
       const payloadBase: Record<string, unknown> = {
         company_id: profile.company_id,
@@ -1006,7 +1006,7 @@ export function WhatsappContactPanel({
         probability: 50,
         expected_close: null,
         stage: stageName,
-        assigned_to: assignedTo,
+        assigned_to: null,
         created_by: profile.id,
         notes: null,
       };
@@ -1092,8 +1092,7 @@ export function WhatsappContactPanel({
           status: "To Do",
           priority: followUpValues.priority || "Medium",
           due_date: followUpValues.due_date,
-          assigned_to: assignedTo,
-          created_by: profile.id,
+          assigned_to: null,
           related_lead_id: lead.id,
         })
         .select("id,title,due_date,priority,status,assigned_to")
@@ -1288,7 +1287,7 @@ export function WhatsappContactPanel({
         source: "WhatsApp",
         source_channel: "WhatsApp",
         status: "New",
-        assigned_to: user.id, // auth.users.id
+        assigned_to: profile?.id || null,
         notes: "Prospecto creado desde conversación de WhatsApp.",
       };
 
@@ -1445,7 +1444,7 @@ export function WhatsappContactPanel({
           </Button>
         ) : null}
         <div className="mt-2 grid grid-cols-1 gap-2">
-          <Button
+          <Button data-demo="whatsapp-create-deal"
             variant={deal ? "default" : "default"}
             size="sm"
             className={cn(
@@ -1866,7 +1865,7 @@ export function WhatsappContactPanel({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Sin asignar</SelectItem>
-                  {assignableMembers.map((m) => (
+                  {assignableMembers.map((m, index) => (
                     <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
                       {m.full_name || m.email || m.user_id}
                     </SelectItem>
