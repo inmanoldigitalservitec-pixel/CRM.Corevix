@@ -1465,7 +1465,7 @@ function PipelinePage() {
 
   const moveDealStage = async (dealId: string, stageName: string) => {
     if (!can("deals.edit")) {
-      toast.error("No tienes permiso para editar deals");
+      toast.error("No tienes permiso para editar oportunidades");
       return;
     }
     const deal = dealById.get(dealId);
@@ -1476,7 +1476,7 @@ function PipelinePage() {
 
     const { error } = await db.from("deals").update({ stage: stageName }).eq("id", dealId);
     if (error) {
-      toast.error(error.message || "No se pudo mover el deal");
+      toast.error(error.message || "No se pudo mover la oportunidad");
       return;
     }
     void logActivityEvent({
@@ -1488,7 +1488,7 @@ function PipelinePage() {
       detail: `Oportunidad movida a ${stageName}: ${deal.name}`,
       metadata: { stage: stageName, source: "manual" },
     }).catch(() => {});
-    toast.success(`Deal movido a ${stageName}`);
+    toast.success(`Oportunidad movida a ${stageName}`);
   };
 
   const getNextStageName = (currentStageName: string) => {
@@ -1509,7 +1509,7 @@ function PipelinePage() {
     const payload = {
       company_id: profile.company_id,
       title: `Seguimiento: ${deal.name}`,
-      description: deal.notes ? `Deal: ${deal.name}\n\n${deal.notes}` : `Deal: ${deal.name}`,
+      description: deal.notes ? `Oportunidad: ${deal.name}\n\n${deal.notes}` : `Oportunidad: ${deal.name}`,
       due_date: dueDate,
       status: "To Do",
       priority: "High",
@@ -1988,7 +1988,7 @@ function PipelinePage() {
         detail: `Oportunidad actualizada: ${newDeal.name}`,
         metadata: { stage: newDealStageOverride || newDeal.stage },
       }).catch(() => {});
-      toast.success("Deal updated");
+      toast.success("Oportunidad actualizada");
       setDialogOpen(false);
       setEditDeal(null);
     } else {
@@ -2018,7 +2018,7 @@ function PipelinePage() {
           lead_id: newDeal.source_type === "lead" ? newDeal.lead_id || null : null,
         },
       }).catch(() => {});
-      toast.success("Deal created");
+      toast.success("Oportunidad creada");
       setDialogOpen(false);
     }
 
@@ -2067,7 +2067,7 @@ function PipelinePage() {
       next[firstActive] = [dealId, ...next[firstActive]];
       return next;
     });
-    toast.success("Deal restaurado");
+    toast.success("Oportunidad restaurada");
   };
 
   if (loading) return <div className="p-6"><LoadingMetrics count={6} /></div>;
@@ -2082,7 +2082,7 @@ function PipelinePage() {
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-[26px] leading-none tracking-[-0.03em] font-semibold">Sales Pipeline</h1>
+                <h1 className="text-[26px] leading-none tracking-[-0.03em] font-semibold">Pipeline de Ventas</h1>
                 <div className="mt-2 text-[13px] font-normal text-[#667085] flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span>
                     Pipeline: <strong className="text-[#1d62f9] font-semibold">${pipelineTotal.toLocaleString()}</strong>
@@ -2116,7 +2116,7 @@ function PipelinePage() {
                   setDialogOpen(true);
                 }}
               >
-                <Plus className="h-4 w-4" /> New Deal
+                <Plus className="h-4 w-4" /> Nueva oportunidad
               </button>
             )}
           </div>
@@ -2132,7 +2132,7 @@ function PipelinePage() {
               }
               onClick={() => setViewMode("board")}
             >
-              <BarChart3 className="h-4 w-4" /> Board
+              <BarChart3 className="h-4 w-4" /> Tablero
             </button>
             <button
               className={
@@ -2143,7 +2143,7 @@ function PipelinePage() {
               }
               onClick={() => setViewMode("list")}
             >
-              <Filter className="h-4 w-4" /> List
+              <Filter className="h-4 w-4" /> Lista
             </button>
             <button
               className={
@@ -2174,12 +2174,12 @@ function PipelinePage() {
           </div>
 
       {pipelineStages.length === 0 ? (
-        <EmptyState icon={<DollarSign className="h-6 w-6" />} title="No pipeline stages" description="Pipeline stages will be created when you sign up." />
+        <EmptyState icon={<DollarSign className="h-6 w-6" />} title="No hay etapas en el pipeline" description="Configura etapas para empezar a mover oportunidades." />
       ) : (
         <>
           {viewMode === "list" ? (
             <div className="rounded-[22px] border border-[#e6eaf0] bg-[rgba(255,255,255,0.78)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] p-5">
-              <div className="text-[13px] font-semibold text-[#667085]">List view próximamente (usa el Board para drag & drop).</div>
+              <div className="text-[13px] font-semibold text-[#667085]">La vista de lista estará disponible pronto (usa el tablero para mover oportunidades).</div>
             </div>
           ) : (
             <>
@@ -2268,7 +2268,7 @@ function PipelinePage() {
                             {stage.name}
                           </h3>
                           <div className="mt-0.5 text-[11px] font-semibold text-[#667085]">
-                            {stageDeals.length} deals · ${stageValueTotal.toLocaleString()}
+                            {stageDeals.length} oportunidades · ${stageValueTotal.toLocaleString()}
                           </div>
                         </div>
                         </div>
@@ -2289,13 +2289,18 @@ function PipelinePage() {
                           </button>
                         ) : null}
                       </div>
-                      <div className="text-[11px] font-medium text-[#98a2b3] hidden lg:block">Drag & drop</div>
+                      <div className="text-[11px] font-medium text-[#98a2b3] hidden lg:block">Arrastra y suelta</div>
                     </div>
 
                     <div
                       className="px-2.5 pb-3 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
                       style={{ background: isDragOver ? rgba(stageColor, 0.07) : "transparent" }}
                     >
+                      {stageDeals.length === 0 ? (
+                        <div className="rounded-[12px] border border-dashed border-[#dbe3ee] bg-white/70 px-3 py-4 text-center text-[12px] font-medium text-[#98a2b3]">
+                          No hay oportunidades en esta etapa.
+                        </div>
+                      ) : null}
                       {stageDeals.map((deal) => {
                         const prob = clamp(deal.probability ?? 50, 0, 100);
                         const borderHover = rgba(stageColor, 0.38);
@@ -2421,7 +2426,7 @@ function PipelinePage() {
 
                             <div className="flex flex-wrap gap-2">
                               <span className="inline-flex items-center gap-1 rounded-[9px] px-2 py-1 text-[11px] font-medium" style={{ background: stageSoft, color: stageColor }}>
-                                <DollarSign className="h-3.5 w-3.5" /> Deal
+                                <DollarSign className="h-3.5 w-3.5" /> Oportunidad
                               </span>
                             </div>
 
@@ -2469,7 +2474,7 @@ function PipelinePage() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editDeal ? "Edit Deal" : "New Deal"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editDeal ? "Editar oportunidad" : "Nueva oportunidad"}</DialogTitle></DialogHeader>
           <form onSubmit={handleCreateOrUpdate} className="space-y-4">
             {!editDeal ? (
               <div className="rounded-[14px] border bg-muted/20 p-3">
@@ -2593,21 +2598,21 @@ function PipelinePage() {
 
             {(editDeal || newDeal.source_type === "none" || (newDeal.source_type === "lead" && newDeal.lead_id) || (newDeal.source_type === "client" && newDeal.client_id)) ? (
               <>
-            <div><Label>Deal Name</Label><Input placeholder="Deal name" value={newDeal.name} onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })} required /></div>
+            <div><Label>Nombre de la oportunidad</Label><Input placeholder="Nombre de la oportunidad" value={newDeal.name} onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })} required /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Value ($)</Label><Input type="number" placeholder="0" value={newDeal.value} onChange={(e) => setNewDeal({ ...newDeal, value: e.target.value })} /></div>
-              <div><Label>Probability (%)</Label><Input type="number" placeholder="50" value={newDeal.probability} onChange={(e) => setNewDeal({ ...newDeal, probability: e.target.value })} min="0" max="100" /></div>
+              <div><Label>Valor ($)</Label><Input type="number" placeholder="0" value={newDeal.value} onChange={(e) => setNewDeal({ ...newDeal, value: e.target.value })} /></div>
+              <div><Label>Probabilidad (%)</Label><Input type="number" placeholder="50" value={newDeal.probability} onChange={(e) => setNewDeal({ ...newDeal, probability: e.target.value })} min="0" max="100" /></div>
             </div>
-            <div><Label>Expected Close</Label><Input type="date" value={newDeal.expected_close} onChange={(e) => setNewDeal({ ...newDeal, expected_close: e.target.value })} /></div>
-            <div><Label>Stage</Label>
+            <div><Label>Cierre esperado</Label><Input type="date" value={newDeal.expected_close} onChange={(e) => setNewDeal({ ...newDeal, expected_close: e.target.value })} /></div>
+            <div><Label>Etapa</Label>
               <Select value={newDeal.stage} onValueChange={(v) => setNewDeal({ ...newDeal, stage: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{stages.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">{editDeal ? "Save" : "Create Deal"}</Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit">{editDeal ? "Guardar" : "Crear oportunidad"}</Button>
             </div>
               </>
             ) : (
@@ -2643,10 +2648,10 @@ function PipelinePage() {
           onDelete={can("deals.delete") ? () => setDeleteDealId(selectedDeal.id) : undefined}
           fieldGroupDataDemo="pipeline-detail-summary"
           fields={[
-            { label: "Stage", value: selectedDeal.stage, type: "badge" },
-            { label: "Value", value: selectedDeal.value, type: "currency" },
-            { label: "Probability", value: `${selectedDeal.probability ?? 50}%` },
-            { label: "Expected Close", value: selectedDeal.expected_close },
+            { label: "Etapa", value: selectedDeal.stage, type: "badge" },
+            { label: "Valor", value: selectedDeal.value, type: "currency" },
+            { label: "Probabilidad", value: `${selectedDeal.probability ?? 50}%` },
+            { label: "Cierre esperado", value: selectedDeal.expected_close },
             {
               label: "Responsable",
               value: selectedDeal.assigned_to ? (teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name || teamByUserId.get(String(selectedDeal.assigned_to))?.full_name || String(selectedDeal.assigned_to)) : null,
@@ -2723,10 +2728,11 @@ function PipelinePage() {
                   size="sm"
                   className="h-9 gap-2"
                   disabled={!canCreateTaskForDeal(selectedDeal)}
+                  title={!canCreateTaskForDeal(selectedDeal) ? "No tienes permiso para crear tareas en esta oportunidad." : "Crear seguimiento para esta oportunidad."}
                   onClick={() => openFollowUpDialogForDeal(selectedDeal)}
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  Seguimiento
+                  Crear seguimiento
                 </Button>
               </div>
             </div>
@@ -2905,10 +2911,11 @@ function PipelinePage() {
                   size="sm"
                   className="h-8 px-3"
                   disabled={!canCreateTaskForDeal(selectedDeal)}
+                  title={!canCreateTaskForDeal(selectedDeal) ? "No tienes permiso para crear tareas en esta oportunidad." : "Crear una tarea de seguimiento."}
                   onClick={() => openFollowUpDialogForDeal(selectedDeal)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Crear
+                  Crear tarea
                 </Button>
               </div>
               {wonStageNames.has(selectedDeal.stage) ? (
@@ -2928,7 +2935,7 @@ function PipelinePage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-2 text-sm text-muted-foreground">No hay seguimiento programado.</div>
+                  <div className="mt-2 text-sm text-muted-foreground">No hay seguimiento programado por ahora.</div>
                 )
               ) : (
                 <div className="mt-2 text-sm text-muted-foreground">Conecta un prospecto para ver seguimientos.</div>
@@ -2976,10 +2983,11 @@ function PipelinePage() {
                   variant="outline"
                   className="h-10 justify-start gap-2"
                   disabled={!canCreateTaskForDeal(selectedDeal)}
+                  title={!canCreateTaskForDeal(selectedDeal) ? "No tienes permiso para crear tareas en esta oportunidad." : undefined}
                   onClick={() => openFollowUpDialogForDeal(selectedDeal)}
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  Seguimiento
+                  Crear tarea
                 </Button>
               </div>
             </div>
@@ -3219,7 +3227,7 @@ function PipelinePage() {
                   toast.error(error.message || "No se pudo eliminar");
                   return;
                 }
-                toast.success("Deal eliminado");
+                toast.success("Oportunidad eliminada");
                 setDeals((prev) => prev.filter((d) => d.id !== deleteDealId));
                 setDealIdsByStage((prev) => {
                   const next: Record<string, string[]> = { ...prev };
@@ -3246,7 +3254,7 @@ function PipelinePage() {
         <SheetContent side="right" className="w-full sm:max-w-[560px]">
           <SheetHeader>
             <SheetTitle>Archivados</SheetTitle>
-            <SheetDescription>Deals movidos a etapa perdida. Puedes restaurarlos o eliminarlos.</SheetDescription>
+            <SheetDescription>Oportunidades movidas a etapa perdida. Puedes restaurarlas o eliminarlas.</SheetDescription>
           </SheetHeader>
 
           <div className="mt-5 grid gap-3">
@@ -3254,7 +3262,7 @@ function PipelinePage() {
 
             {archivedDeals.length === 0 ? (
               <div className="rounded-[16px] border border-[#e6eaf0] bg-white p-4 text-sm font-normal text-[#667085]">
-                No hay deals archivados por ahora.
+                No hay oportunidades archivadas por ahora.
               </div>
             ) : (
               <div className="grid gap-3">
@@ -3307,7 +3315,7 @@ function PipelinePage() {
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
         <SheetContent side="right" className="w-full sm:max-w-[560px] p-0">
           <SheetHeader>
-            <SheetTitle>Filtros de deals</SheetTitle>
+            <SheetTitle>Filtros de oportunidades</SheetTitle>
             <SheetDescription>Ajusta la vista del pipeline sin perder tu orden por columna.</SheetDescription>
           </SheetHeader>
 

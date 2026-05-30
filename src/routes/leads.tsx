@@ -121,14 +121,14 @@ function cn(...parts: Array<string | false | null | undefined>) {
 }
 
 function getLeadName(lead: Lead) {
-  return `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "Lead sin nombre";
+  return `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "Prospecto sin nombre";
 }
 
 function getLeadPrimaryLabel(lead: Lead) {
   const company = (lead.company_name || "").trim();
   if (company) return company;
   const person = getLeadName(lead).trim();
-  if (person && person !== "Lead sin nombre") return person;
+  if (person && person !== "Prospecto sin nombre") return person;
   const email = (lead.email || "").trim();
   if (email) return email;
   const phone = (lead.whatsapp || lead.phone || "").trim();
@@ -139,7 +139,7 @@ function getLeadPrimaryLabel(lead: Lead) {
 function getLeadSecondaryLabel(lead: Lead) {
   const person = getLeadName(lead).trim();
   const company = (lead.company_name || "").trim();
-  if (company && person && person !== "Lead sin nombre") return person;
+  if (company && person && person !== "Prospecto sin nombre") return person;
   return lead.email || lead.whatsapp || lead.phone || "—";
 }
 
@@ -317,7 +317,7 @@ function getOwnerLabel(lead: Lead, currentUserId?: string) {
 }
 
 function buildCsv(leads: Lead[]) {
-  const headers = ["Lead", "Empresa", "Email", "Fuente", "Valor"];
+  const headers = ["Prospecto", "Empresa", "Email", "Fuente", "Valor"];
   const rows = leads.map((lead) => [
     getLeadName(lead),
     lead.company_name || "",
@@ -693,7 +693,7 @@ function LeadsPage() {
       return;
     }
     if (existing?.id) {
-      toast.message("Este lead ya tiene una oportunidad creada");
+      toast.message("Este prospecto ya tiene una oportunidad creada");
       window.location.href = "/pipeline";
       return;
     }
@@ -1122,10 +1122,10 @@ function LeadsPage() {
     try {
       if (editLead) {
         await update(editLead.id, data);
-        toast.success("Lead actualizado");
+        toast.success("Prospecto actualizado");
       } else {
         await create(data);
-        toast.success("Lead creado");
+        toast.success("Prospecto creado");
       }
       setDialogOpen(false);
       setEditLead(null);
@@ -1143,7 +1143,7 @@ function LeadsPage() {
     }
     try {
       await remove(deleteId);
-      toast.success("Lead eliminado");
+      toast.success("Prospecto eliminado");
       setDeleteId(null);
       setSelectedIds((current) => current.filter((id) => id !== deleteId));
       if (selectedLeadId === deleteId) {
@@ -1275,7 +1275,7 @@ function LeadsPage() {
                   type="button"
                 >
                   <Plus className="h-4 w-4" />
-                  Nuevo lead
+                  Nuevo prospecto
                   <ChevronDown className="h-4 w-4" />
                 </button>
               )}
@@ -1520,7 +1520,7 @@ function LeadsPage() {
                 {can("leads.create") && (
                   <Button className="mt-4 bg-[#1d62f9]" onClick={() => { setEditLead(null); setDialogOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Nuevo lead
+                    Nuevo prospecto
                   </Button>
                 )}
               </div>
@@ -1549,7 +1549,7 @@ function LeadsPage() {
                             </span>
                           </button>
 	                        </th>
-		                        <th className="w-[260px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Lead</th>
+		                        <th className="w-[260px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Prospecto</th>
 		                        <th className="hidden 2xl:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Interés</th>
 		                        <th className="hidden lg:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Etapa</th>
 		                        <th className="hidden 2xl:table-cell w-[140px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Valor</th>
@@ -1570,7 +1570,7 @@ function LeadsPage() {
 	                        const lastActivity = lead.last_interaction_at || lead.updated_at || lead.created_at;
 	                        const companyLabel = (lead.company_name || "").trim() || getLeadPrimaryLabel(lead);
 	                        const personLabel =
-	                          getLeadName(lead) !== "Lead sin nombre" ? getLeadName(lead) : (lead.email || lead.whatsapp || lead.phone || "—");
+	                          getLeadName(lead) !== "Prospecto sin nombre" ? getLeadName(lead) : (lead.email || lead.whatsapp || lead.phone || "—");
 	                        const sourceLabel = getLeadSourceDisplay(lead);
 
 	                        return (
@@ -1741,7 +1741,7 @@ function LeadsPage() {
 		                                      Editar
 		                                    </DropdownMenuItem>
 		                                    <DropdownMenuItem disabled={!can("deals.create")} onClick={() => void handleCreateDealFromLead(lead)}>
-		                                      Crear deal
+		                                      Crear oportunidad
 		                                    </DropdownMenuItem>
 		                                    <DropdownMenuItem disabled={!can("tasks.create")} onClick={() => { setSelectedLeadId(lead.id); setFollowUpOpen(true); }}>
 		                                      Crear seguimiento
@@ -1862,10 +1862,11 @@ function LeadsPage() {
                     size="sm"
                     className="h-9 justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
                     onClick={() => void handleOpenWhatsAppFromLead(selectedLead)}
-                    disabled={openingWhatsapp}
+                    disabled={openingWhatsapp || !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)}
+                    title={!normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone) ? "Este prospecto no tiene teléfono o WhatsApp válido." : undefined}
                   >
                     <MessageCircle className="h-4 w-4" />
-                    WhatsApp
+                    {openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp"}
                   </Button>
                   <Button
                     variant="outline"
@@ -1873,7 +1874,7 @@ function LeadsPage() {
                     className="h-9 justify-start gap-2"
                     onClick={() => {
                       if (!selectedLead.email) {
-                        toast.message("Este lead no tiene email");
+                        toast.message("Este prospecto no tiene email");
                         return;
                       }
                       window.location.href = `mailto:${selectedLead.email}`;
@@ -1888,7 +1889,7 @@ function LeadsPage() {
                     className="h-9 justify-start gap-2"
                     onClick={() => {
                       if (!selectedLead.phone) {
-                        toast.message("Este lead no tiene teléfono");
+                        toast.message("Este prospecto no tiene teléfono");
                         return;
                       }
                       window.location.href = `tel:${selectedLead.phone}`;
@@ -1903,11 +1904,20 @@ function LeadsPage() {
                     className="h-9 justify-start gap-2"
                     onClick={() => openFollowUpDialog(selectedLead)}
                     disabled={!can("tasks.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
-                    title={!can("tasks.create") ? "Sin permiso" : undefined}
+                    title={
+                      !can("tasks.create")
+                        ? "No tienes permiso para crear seguimiento."
+                        : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                          ? "Solo puedes crear seguimiento para tus propios prospectos."
+                          : undefined
+                    }
                   >
                     <Calendar className="h-4 w-4" />
-                    Seguimiento
+                    Crear seguimiento
                   </Button>
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {!can("leads.edit") ? "No tienes permiso para editar este prospecto." : "Edita, contacta y avanza este prospecto desde aquí."}
                 </div>
               </CrmDetailSection>
               </div>
@@ -1930,7 +1940,7 @@ function LeadsPage() {
                 }
               >
                 {signalsLoading ? (
-                  <CrmDetailEmptyState>Cargando...</CrmDetailEmptyState>
+                  <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
                 ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
                   <div className="space-y-2">
                     <div className="text-sm font-semibold truncate">{signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}</div>
@@ -1950,13 +1960,19 @@ function LeadsPage() {
                   className="h-9 bg-[#1d62f9] hover:bg-[#0f52dd]"
                   onClick={() => void handleConvertLeadToClient(selectedLead)}
                   disabled={convertingClient || !can("clients.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
-                  title={!can("clients.create") ? "Sin permiso" : undefined}
+                  title={
+                    !can("clients.create")
+                      ? "No tienes permiso para convertir prospectos a cliente."
+                      : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                        ? "Solo puedes convertir tus propios prospectos."
+                        : undefined
+                  }
                 >
-                  Convertir a cliente
+                  {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
                 </Button>
                 {signalsByLeadId[selectedLead.id]?.hasDeal ? (
-                  <Button variant="outline" className="h-9" onClick={() => { window.location.href = "/pipeline"; }}>
-                    Ver oportunidad
+                  <Button variant="outline" className="h-9" onClick={() => { window.location.href = "/pipeline"; }} title="Este prospecto ya tiene una oportunidad creada.">
+                    Abrir oportunidad existente
                   </Button>
                 ) : (
                   <Button
@@ -1964,7 +1980,13 @@ function LeadsPage() {
                     className="h-9"
                     onClick={() => void handleCreateDealFromLead(selectedLead)}
                     disabled={!can("deals.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
-                    title={!can("deals.create") ? "Sin permiso" : undefined}
+                    title={
+                      !can("deals.create")
+                        ? "No tienes permiso para crear oportunidades."
+                        : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                          ? "Solo puedes crear oportunidades para tus propios prospectos."
+                          : undefined
+                    }
                   >
                     Crear oportunidad
                   </Button>
@@ -2027,7 +2049,7 @@ function LeadsPage() {
               <div data-demo="leads-last-activity">
               <CrmDetailSection title="Última actividad" icon={<Check className="h-3.5 w-3.5" />}>
                 <div className="text-sm">
-                  <div className="font-medium">{selectedLead.last_interaction_at ? "Interacción registrada" : "Lead creado"}</div>
+                  <div className="font-medium">{selectedLead.last_interaction_at ? "Interacción registrada" : "Prospecto creado"}</div>
                   <div className="mt-1 text-[13px] text-muted-foreground">{formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}</div>
                 </div>
               </CrmDetailSection>
@@ -2039,7 +2061,7 @@ function LeadsPage() {
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditLead(null); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editLead ? "Editar lead" : "Nuevo lead"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editLead ? "Editar prospecto" : "Nuevo prospecto"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Nombre</Label><Input name="first_name" defaultValue={editLead?.first_name} placeholder="Nombre" required /></div>
@@ -2072,7 +2094,7 @@ function LeadsPage() {
             <div className="space-y-1.5"><Label>Notas</Label><Textarea name="notes" defaultValue={editLead?.notes || ""} placeholder="Añade notas..." rows={4} /></div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); setEditLead(null); }}>Cancelar</Button>
-              <Button type="submit">{editLead ? "Guardar cambios" : "Crear lead"}</Button>
+              <Button type="submit">{editLead ? "Guardar cambios" : "Crear prospecto"}</Button>
             </div>
           </form>
         </DialogContent>
