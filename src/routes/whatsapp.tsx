@@ -11,6 +11,10 @@ import { WhatsappContactPanel } from "@/components/whatsapp/whatsapp-contact-pan
 import { WhatsappEmptyState } from "@/components/whatsapp/whatsapp-empty-state";
 import { sendWhatsappMessage } from "@/lib/whatsapp/whatsapp-bot-api";
 
+const DEMO_CONVERSATION_ID = "10000000-0000-4000-8000-000000000103";
+const DEMO_CONVERSATION_STORAGE_KEY = "crm_demo_conversation_id";
+
+
 export const Route = createFileRoute("/whatsapp")({
   component: WhatsAppPage,
   head: () => ({ meta: [{ title: "WhatsApp Inbox — Corevix CRM" }] }),
@@ -24,6 +28,17 @@ function WhatsAppPage() {
   const [conversationsError, setConversationsError] = useState<string | null>(null);
 
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onDemoSelectConversation = (event: Event) => {
+      const detail = (event as CustomEvent<{ conversationId?: string }>).detail;
+      const conversationId = detail?.conversationId || DEMO_CONVERSATION_ID;
+      setSelectedConversationId(conversationId);
+    };
+
+    window.addEventListener("crm-demo-select-conversation", onDemoSelectConversation);
+    return () => window.removeEventListener("crm-demo-select-conversation", onDemoSelectConversation);
+  }, []);
   const desiredConversationId = useMemo(() => {
     try {
       const params = new URLSearchParams(window.location.search);

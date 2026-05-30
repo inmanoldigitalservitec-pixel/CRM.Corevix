@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 
 type DemoTourStep = {
   id: string;
+  module: string;
+  moduleTitle: string;
   title: string;
   description: string;
   to: string;
@@ -27,6 +29,10 @@ export function useDemoTour() {
 }
 
 const STORAGE_KEY = "crm_demo_tour_v1";
+const DEMO_CONVERSATION_ID = "10000000-0000-4000-8000-000000000103";
+const DEMO_CONVERSATION_STORAGE_KEY = "crm_demo_conversation_id";
+const DEMO_LEAD_ID = "10000000-0000-4000-8000-000000000102";
+const DEMO_LEAD_STORAGE_KEY = "crm_demo_lead_id";
 
 function safeGetRect(el: Element | null) {
   if (!el) return null;
@@ -55,113 +61,215 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
     () => [
       {
         id: "whatsapp-start",
-        title: "Inicio del flujo: WhatsApp",
-        description: "El demo empieza donde realmente entra el prospecto: una conversación de WhatsApp. Desde aquí el agente revisa el mensaje, entiende la solicitud y conecta el flujo comercial.",
-        to: "/whatsapp",
-        selector: '[data-demo="whatsapp-main"]',
-      },
-      {
-        id: "whatsapp-list",
-        title: "Lista de conversaciones",
-        description: "Aquí llegan todos los chats. El agente puede buscar, filtrar conversaciones, ver mensajes recientes, no leídos, bot apagado o conversaciones que necesitan atención humana.",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
+        title: "Entrada del lead por WhatsApp",
+        description: "El flujo empieza cuando un prospecto escribe por WhatsApp. Aquí el equipo ve la conversación, el origen del lead y el estado de atención.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-conversation-list"]',
       },
       {
         id: "whatsapp-thread",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
         title: "Conversación activa",
-        description: "En el centro se atiende al prospecto. Si la ventana de 24 horas está abierta, el agente puede responder libremente. Si está cerrada, debe usar una plantilla aprobada.",
+        description: "En el centro se atiende al prospecto. Si la ventana de 24 horas está abierta, puedes responder libremente. Si está cerrada, debes usar una plantilla aprobada.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-active-thread"]',
       },
       {
         id: "whatsapp-crm-panel",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
         title: "Panel CRM del contacto",
-        description: "Este panel convierte la conversación en acción comercial. Aquí se ve el perfil, producto sugerido, datos detectados, propuestas, seguimiento, oportunidad y cliente.",
+        description: "El panel derecho convierte el chat en información accionable: datos detectados, prospecto, seguimiento, oportunidad, propuestas y cliente.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-crm-panel"]',
       },
       {
         id: "whatsapp-utility-actions",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
         title: "Plantillas Utility",
-        description: "Cuando la ventana está cerrada, el agente no debe escribir un mensaje libre. Aquí elige una plantilla Utility: propuesta, factura, seguimiento, documentos, recordatorio o actualización.",
+        description: "Cuando la ventana está cerrada, el agente continúa con una plantilla aprobada. Esto evita enviar mensajes libres fuera de la ventana permitida.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-utility-actions"]',
       },
       {
-        id: "whatsapp-create-lead",
-        title: "Crear prospecto desde WhatsApp",
-        description: "Si la conversación aún no está conectada a un lead, el agente puede crear el prospecto directamente desde WhatsApp sin salir del módulo.",
+        id: "whatsapp-quick-actions",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
+        title: "Acciones rápidas",
+        description: "Desde aquí el agente crea oportunidad, convierte a cliente, abre el prospecto, agenda seguimiento o marca la conversación como resuelta.",
         to: "/whatsapp",
-        selector: '[data-demo="whatsapp-create-lead"]',
+        selector: '[data-demo="whatsapp-quick-actions"]',
       },
       {
         id: "whatsapp-detected-data",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
         title: "Datos detectados",
-        description: "El CRM resume información útil detectada en la conversación: servicio solicitado, necesidad, contexto y datos importantes para vender mejor.",
+        description: "El CRM resume información útil de la conversación: empresa, servicio, necesidad, urgencia, canal y preferencia.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-detected-data"]',
       },
       {
         id: "whatsapp-product",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
         title: "Producto sugerido",
-        description: "Cuando el sistema detecta interés, el agente puede marcar un producto como interés del lead. Esto ayuda a conectar la oportunidad y luego la propuesta.",
+        description: "El sistema relaciona la conversación con un producto de interés. Esto ayuda a conectar el lead con una oportunidad y una propuesta.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-suggested-product"]',
       },
       {
         id: "whatsapp-followup",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
         title: "Seguimiento conectado a tareas",
-        description: "Los seguimientos comerciales deben convertirse en tareas del CRM. Así el equipo sabe qué debe hacer, cuándo hacerlo y con quién.",
+        description: "Los seguimientos comerciales se convierten en tareas. Así el equipo sabe qué hacer, cuándo hacerlo y con quién.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-followup"]',
       },
       {
-        id: "whatsapp-opportunity",
-        title: "Oportunidad comercial",
-        description: "Cuando el prospecto muestra intención real, se crea una oportunidad para moverla por el pipeline: contacto, propuesta, negociación y cierre.",
-        to: "/whatsapp",
-        selector: '[data-demo="whatsapp-opportunity"]',
-      },
-      {
         id: "whatsapp-proposals",
+        module: "Módulo 1",
+        moduleTitle: "WhatsApp",
         title: "Propuestas desde WhatsApp",
-        description: "Aquí el agente selecciona o crea una propuesta para el prospecto. No hace falta convertirlo en cliente antes de enviarle una propuesta.",
+        description: "El agente puede seleccionar una propuesta y continuar el proceso comercial desde el mismo panel de WhatsApp.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-proposals"]',
       },
+
       {
-        id: "leads",
-        title: "Leads: administrar prospectos",
-        description: "En Leads se revisan los prospectos capturados, su responsable, estado, seguimiento y datos comerciales.",
+        id: "leads-main",
+        module: "Módulo 2",
+        moduleTitle: "Prospectos",
+        title: "Administrar leads",
+        description: "Aquí se revisan los prospectos capturados desde WhatsApp, formularios u otros canales. El equipo puede filtrar, asignar y priorizar oportunidades.",
         to: "/leads",
         selector: '[data-demo="leads-main"]',
       },
       {
-        id: "pipeline",
-        title: "Pipeline: mover la oportunidad",
-        description: "En Pipeline se gestiona la venta. El agente mueve la oportunidad por etapas y conecta productos, valor y próximos pasos.",
+        id: "leads-new-lead",
+        module: "Módulo 2",
+        moduleTitle: "Prospectos",
+        title: "Crear lead manualmente",
+        description: "Además de capturar prospectos automáticamente desde WhatsApp, también puedes crear un lead manualmente desde el botón Nuevo lead.",
+        to: "/leads",
+        selector: '[data-demo="leads-new-lead-button"]',
+      },
+      {
+        id: "leads-quick-actions",
+        module: "Módulo 2",
+        moduleTitle: "Prospectos",
+        title: "Acciones rápidas del lead",
+        description: "Cuando abres el detalle de un prospecto, aquí puedes escribir por WhatsApp, enviar email, llamar o crear un seguimiento.",
+        to: "/leads",
+        selector: '[data-demo="leads-quick-actions"]',
+      },
+      {
+        id: "leads-followup",
+        module: "Módulo 2",
+        moduleTitle: "Prospectos",
+        title: "Seguimiento del prospecto",
+        description: "El seguimiento se conecta con tareas del CRM para que el equipo no olvide llamar, escribir o revisar una propuesta pendiente.",
+        to: "/leads",
+        selector: '[data-demo="leads-followup"]',
+      },
+      {
+        id: "leads-assignment",
+        module: "Módulo 2",
+        moduleTitle: "Prospectos",
+        title: "Asignación del responsable",
+        description: "Cada prospecto puede tener un responsable. Esto evita confusión y deja claro quién debe atender el seguimiento.",
+        to: "/leads",
+        selector: '[data-demo="leads-assignment"]',
+      },
+      {
+        id: "leads-contact",
+        module: "Módulo 2",
+        moduleTitle: "Prospectos",
+        title: "Datos de contacto",
+        description: "Aquí están los datos principales del prospecto: teléfono, WhatsApp y servicio de interés.",
+        to: "/leads",
+        selector: '[data-demo="leads-contact"]',
+      },
+      {
+        id: "leads-last-activity",
+        module: "Módulo 2",
+        moduleTitle: "Prospectos",
+        title: "Última actividad",
+        description: "Esta sección muestra cuándo fue la última interacción registrada para entender qué tan reciente está el contacto.",
+        to: "/leads",
+        selector: '[data-demo="leads-last-activity"]',
+      },
+
+
+      {
+        id: "pipeline-main",
+        module: "Módulo 3",
+        moduleTitle: "Pipeline",
+        title: "Mover oportunidades por etapas",
+        description: "El pipeline muestra la venta por etapas. Aquí el equipo ve qué oportunidades están nuevas, en propuesta, negociación, ganadas o perdidas.",
+        to: "/pipeline",
+        selector: '[data-demo="pipeline-main"]',
+      },
+      {
+        id: "pipeline-products",
+        module: "Módulo 3",
+        moduleTitle: "Pipeline",
+        title: "Productos dentro de la oportunidad",
+        description: "Cada oportunidad puede tener productos asociados. Esto permite calcular valor, preparar propuesta y pasar el trabajo a proyecto después del cierre.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-deal-products"]',
       },
+
       {
-        id: "clients",
+        id: "proposals-main",
+        module: "Módulo 4",
+        moduleTitle: "Propuestas",
+        title: "Crear y enviar propuestas",
+        description: "En propuestas se preparan ofertas comerciales conectadas a leads, clientes, productos y oportunidades. Cada propuesta puede tener enlace público.",
+        to: "/proposals",
+        selector: '[data-demo="proposals-main"]',
+      },
+
+      {
+        id: "clients-main",
+        module: "Módulo 5",
+        moduleTitle: "Clientes",
         title: "Cliente 360",
-        description: "Cuando la venta se cierra, el prospecto pasa a cliente. Aquí queda su historial, productos, oportunidades, propuestas, proyectos y tareas.",
+        description: "Cuando se cierra la venta, el prospecto pasa a cliente. Aquí se centralizan datos, productos contratados, oportunidades, proyectos, facturas y actividad.",
         to: "/clients",
         selector: '[data-demo="clients-main"]',
       },
+
       {
-        id: "projects",
-        title: "Proyecto y entrega",
-        description: "Después del cierre, el trabajo pasa a ejecución. El proyecto organiza tareas, responsables, entregables y progreso hasta la entrega final.",
+        id: "projects-main",
+        module: "Módulo 6",
+        moduleTitle: "Proyectos",
+        title: "Ejecución después del cierre",
+        description: "Después de vender, el trabajo pasa a proyectos. Aquí se organiza la entrega, responsables, fechas y progreso.",
+        to: "/projects",
+        selector: '[data-demo="projects-main"]',
+      },
+      {
+        id: "projects-tasks",
+        module: "Módulo 6",
+        moduleTitle: "Proyectos",
+        title: "Tareas del proyecto",
+        description: "Las tareas permiten controlar la ejecución: brief, configuración, integración, revisión y entrega final.",
         to: "/projects",
         selector: '[data-demo="projects-tasks"]',
       },
+
       {
-        id: "products",
-        title: "Workflows de productos",
-        description: "Cada producto puede tener un workflow. Esto permite generar tareas automáticamente cuando se gana una oportunidad o se inicia un proyecto.",
+        id: "products-workflow",
+        module: "Módulo 7",
+        moduleTitle: "Productos y workflows",
+        title: "Productos como base del sistema",
+        description: "Los productos definen qué vendes, cuánto cuesta, qué incluye y qué tareas o workflows se pueden activar después de cerrar una venta.",
         to: "/products",
         selector: '[data-demo="products-workflow"]',
       },
@@ -176,6 +284,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
 
   const rafRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
+  const leadDetailOpenedRef = useRef(false);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -191,6 +300,12 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
     setStepIndex(0);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ open: true, stepIndex: 0 }));
+      localStorage.setItem(DEMO_CONVERSATION_STORAGE_KEY, DEMO_CONVERSATION_ID);
+      window.dispatchEvent(
+        new CustomEvent("crm-demo-select-conversation", {
+          detail: { conversationId: DEMO_CONVERSATION_ID },
+        }),
+      );
     } catch {}
   }, []);
 
@@ -225,6 +340,67 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       navigate({ to: step.to });
     }
   }, [currentPath, isOpen, navigate, stepIndex, steps]);
+
+  // Desde el paso 3 en adelante, abrir automáticamente el chat demo de WhatsApp.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (stepIndex < 2) return;
+
+    const step = steps[stepIndex];
+    if (!step || step.to !== "/whatsapp") return;
+
+    try {
+      localStorage.setItem(DEMO_CONVERSATION_STORAGE_KEY, DEMO_CONVERSATION_ID);
+      window.dispatchEvent(
+        new CustomEvent("crm-demo-select-conversation", {
+          detail: { conversationId: DEMO_CONVERSATION_ID },
+        }),
+      );
+    } catch {}
+  }, [isOpen, stepIndex, steps]);
+
+  // En los pasos internos de Leads, abrir automáticamente el detalle del lead demo.
+  // Se abre una sola vez para evitar que el panel se cierre/abra al cambiar de paso.
+  useEffect(() => {
+    if (!isOpen) {
+      leadDetailOpenedRef.current = false;
+      return;
+    }
+
+    const step = steps[stepIndex];
+    if (!step) return;
+
+    if (step.to !== "/leads") {
+      leadDetailOpenedRef.current = false;
+      return;
+    }
+
+    const stepsThatNeedLeadDetail = new Set([
+      "leads-quick-actions",
+      "leads-followup",
+      "leads-assignment",
+      "leads-contact",
+      "leads-last-activity",
+    ]);
+
+    if (!stepsThatNeedLeadDetail.has(step.id)) return;
+    if (leadDetailOpenedRef.current) return;
+
+    leadDetailOpenedRef.current = true;
+
+    try {
+      localStorage.setItem(DEMO_LEAD_STORAGE_KEY, DEMO_LEAD_ID);
+
+      window.dispatchEvent(
+        new CustomEvent("crm-demo-open-lead-detail", {
+          detail: {
+            leadId: DEMO_LEAD_ID,
+            open: true,
+          },
+        }),
+      );
+    } catch {}
+  }, [isOpen, stepIndex, steps]);
 
   // Find and track target element position (without conditional hooks)
   useEffect(() => {
@@ -355,10 +531,45 @@ function DemoTourCard({
 }) {
   const safeStep = step || {
     id: "unknown",
+    module: "Demo",
+    moduleTitle: "CRM",
     title: "Demo",
     description: "—",
     to: "/",
   };
+
+  const cardPosition = useMemo(() => {
+    const margin = 20;
+
+    if (!anchoredRect) {
+      return {
+        right: margin,
+        bottom: margin,
+      } as React.CSSProperties;
+    }
+
+    const targetIsOnRightPanel = anchoredRect.left > window.innerWidth * 0.62;
+    const targetIsLow = anchoredRect.top > window.innerHeight * 0.52;
+
+    if (targetIsOnRightPanel) {
+      return {
+        left: Math.max(260, margin),
+        bottom: margin,
+      } as React.CSSProperties;
+    }
+
+    if (targetIsLow) {
+      return {
+        right: margin,
+        top: margin + 64,
+      } as React.CSSProperties;
+    }
+
+    return {
+      right: margin,
+      bottom: margin,
+    } as React.CSSProperties;
+  }, [anchoredRect]);
 
   const canPrev = index > 0;
   const canNext = index < total - 1;
@@ -366,9 +577,10 @@ function DemoTourCard({
   return (
     <div
       className={cn(
-        "fixed right-5 bottom-5 z-[1001] pointer-events-auto w-[min(420px,calc(100vw-40px))] rounded-[18px] border bg-white p-4 shadow-[0_28px_80px_rgba(2,6,23,0.55)]",
+        "fixed z-[1001] pointer-events-auto w-[min(420px,calc(100vw-40px))] rounded-[18px] border bg-white p-4 shadow-[0_28px_80px_rgba(2,6,23,0.55)]",
         "dark:bg-slate-950 dark:border-slate-800",
       )}
+      style={cardPosition}
       role="dialog"
       aria-modal="true"
       aria-label="Demo tour"
@@ -377,7 +589,7 @@ function DemoTourCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[.08em] text-slate-500 dark:text-slate-400">
-            Paso {index + 1} de {total}
+            {safeStep.module} · {safeStep.moduleTitle} · Paso {index + 1} de {total}
           </div>
           <div className="mt-1 text-[16px] font-extrabold tracking-[-0.02em] text-slate-900 dark:text-slate-100">
             {safeStep.title}

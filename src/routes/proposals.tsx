@@ -689,12 +689,14 @@ function ProposalsPage() {
 
   return (
     <div className="p-4 sm:p-5 space-y-4">
+      <div data-demo="proposals-main">
       <PageHeader
         title="Propuestas"
         subtitle="Crea y administra propuestas comerciales conectadas a productos, clientes y oportunidades."
         actionLabel={isAdminLike ? "Nueva propuesta" : undefined}
         onAction={isAdminLike ? () => openNew(openNewContext) : undefined}
       />
+      </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <MetricCard

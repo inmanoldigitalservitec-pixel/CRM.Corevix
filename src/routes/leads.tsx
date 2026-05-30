@@ -1137,6 +1137,31 @@ function LeadsPage() {
     setDetailOpen(true);
   };
 
+  useEffect(() => {
+    const openDemoLeadFromStorage = () => {
+      try {
+        const storedLeadId = localStorage.getItem("crm_demo_lead_id");
+        if (!storedLeadId) return;
+        setSelectedLeadId(storedLeadId);
+        setDetailOpen(true);
+      } catch {}
+    };
+
+    const onDemoOpenLeadDetail = (event: Event) => {
+      const detail = (event as CustomEvent<{ leadId?: string; open?: boolean }>).detail;
+      const leadId = detail?.leadId || "10000000-0000-4000-8000-000000000102";
+
+      setSelectedLeadId((current) => (current === leadId ? current : leadId));
+      setDetailOpen((current) => (current ? current : true));
+    };
+
+    openDemoLeadFromStorage();
+
+    window.addEventListener("crm-demo-open-lead-detail", onDemoOpenLeadDetail);
+    return () => window.removeEventListener("crm-demo-open-lead-detail", onDemoOpenLeadDetail);
+  }, []);
+
+
   const exportSelected = () => {
     const selectedLeads = leads.filter((lead) => selectedIds.includes(lead.id));
     if (selectedLeads.length < 2) return;
@@ -1199,6 +1224,7 @@ function LeadsPage() {
               </button>
               {can("leads.create") && (
                 <button
+                  data-demo="leads-new-lead-button"
                   className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#1d62f9] px-[13px] text-[13px] font-semibold text-white shadow-[0_12px_24px_rgba(29,98,249,0.20)] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#0f52dd]"
                   onClick={() => {
                     setEditLead(null);
@@ -1761,6 +1787,7 @@ function LeadsPage() {
 	        >
           {selectedLead ? (
             <div className="space-y-4">
+              <div data-demo="leads-quick-actions">
               <CrmDetailSection
                 title="Acciones rápidas"
                 icon={<Target className="h-3.5 w-3.5" />}
@@ -1841,7 +1868,9 @@ function LeadsPage() {
                   </Button>
                 </div>
               </CrmDetailSection>
+              </div>
 
+              <div data-demo="leads-followup">
               <CrmDetailSection
                 title="Seguimiento"
                 icon={<Calendar className="h-3.5 w-3.5" />}
@@ -1872,6 +1901,7 @@ function LeadsPage() {
                 )}
                 {signalsError ? <div className="mt-2 text-xs font-medium text-destructive">{signalsError}</div> : null}
               </CrmDetailSection>
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -1899,6 +1929,7 @@ function LeadsPage() {
                 )}
               </div>
 
+              <div data-demo="leads-assignment">
               <CrmDetailSection title="Asignación" icon={<Users className="h-3.5 w-3.5" />}>
                 <CrmDetailRow
                   label="Responsable"
@@ -1924,8 +1955,8 @@ function LeadsPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="unassigned">Sin asignar</SelectItem>
-                            {assignableUsers.map((m) => (
-                              <SelectItem key={m.user_id} value={m.user_id}>
+                            {assignableUsers.map((m, index) => (
+                              <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
                                 {m.full_name}
                               </SelectItem>
                             ))}
@@ -1939,7 +1970,9 @@ function LeadsPage() {
                   }
                 />
               </CrmDetailSection>
+              </div>
 
+              <div data-demo="leads-contact">
               <CrmDetailSection title="Contacto" icon={<Phone className="h-3.5 w-3.5" />}>
                 <div className="space-y-2">
                   <CrmDetailRow label="Teléfono" value={selectedLead.phone || "—"} />
@@ -1947,13 +1980,16 @@ function LeadsPage() {
                   <CrmDetailRow label="Servicio de interés" value={selectedServiceLabel || "—"} />
                 </div>
               </CrmDetailSection>
+              </div>
 
+              <div data-demo="leads-last-activity">
               <CrmDetailSection title="Última actividad" icon={<Check className="h-3.5 w-3.5" />}>
                 <div className="text-sm">
                   <div className="font-medium">{selectedLead.last_interaction_at ? "Interacción registrada" : "Lead creado"}</div>
                   <div className="mt-1 text-[13px] text-muted-foreground">{formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}</div>
                 </div>
               </CrmDetailSection>
+              </div>
             </div>
           ) : null}
         </DetailSheet>

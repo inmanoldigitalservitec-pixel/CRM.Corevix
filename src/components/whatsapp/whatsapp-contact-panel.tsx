@@ -733,7 +733,7 @@ export function WhatsappContactPanel({
     try {
       const db = supabase as any;
       const leadId = lead?.id ? String(lead.id) : conversation?.lead_id ? String(conversation.lead_id) : null;
-      const clientId = client?.id ? String(client.id) : deal?.client_id ? String(deal.client_id) : null;
+      const clientId = client?.id ? String(client.id) : null;
       const dealId = deal?.id ? String(deal.id) : null;
       const sentToPhone = (lead?.whatsapp || lead?.phone || conversation?.phone || null) ? String(lead?.whatsapp || lead?.phone || conversation?.phone) : null;
       const publicUrl = buildProposalPublicUrl(selectedProposal);
@@ -888,7 +888,7 @@ export function WhatsappContactPanel({
             .maybeSingle(),
           (supabase as any)
             .from("deals")
-            .select("id,company_id,lead_id,client_id,assigned_to,name,stage,value,probability,expected_close,notes")
+            .select("id,company_id,lead_id,assigned_to,name,stage,value,probability,expected_close,notes,created_at,updated_at")
             .eq("company_id", profile.company_id)
             .eq("lead_id", leadId)
             .order("created_at", { ascending: false })
@@ -1553,6 +1553,7 @@ export function WhatsappContactPanel({
       </CrmDetailSection></div>
 
       {productsLoading || productSuggestions.length ? (
+        <div data-demo="whatsapp-suggested-product">
         <CrmDetailSection
           title="Producto sugerido"
           action={productsLoading ? <span className="text-[10px] text-muted-foreground">Cargando…</span> : null}
@@ -1608,6 +1609,7 @@ export function WhatsappContactPanel({
           <div className="text-[12px] text-muted-foreground">No se detectaron productos en la conversación.</div>
         )}
         </CrmDetailSection>
+        </div>
       ) : null}
 
       <div data-demo="whatsapp-proposals">
@@ -1865,7 +1867,7 @@ export function WhatsappContactPanel({
                 <SelectContent>
                   <SelectItem value="unassigned">Sin asignar</SelectItem>
                   {assignableMembers.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
+                    <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
                       {m.full_name || m.email || m.user_id}
                     </SelectItem>
                   ))}
