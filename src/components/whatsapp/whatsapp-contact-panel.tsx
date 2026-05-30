@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ExternalLink, Copy, Eye, UserRound, CheckCircle2, Calendar, BriefcaseBusiness, UserCog, Mail, Phone } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -240,22 +240,43 @@ export function WhatsappContactPanel({
     return team.filter((m) => m.is_active && allowed.has(m.role));
   }, [team]);
 
+  const actorIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (user?.id) ids.add(String(user.id));
+    if (profile?.id) ids.add(String(profile.id));
+    if ((profile as any)?.user_id) ids.add(String((profile as any).user_id));
+    return ids;
+  }, [profile, user?.id]);
+
+  const matchesAssignedActor = useCallback(
+    (assignedTo?: string | null) => {
+      if (!assignedTo) return false;
+      const target = String(assignedTo);
+      if (actorIds.has(target)) return true;
+      const memberByProfile = team.find((member) => String(member.profile_id) === target);
+      if (memberByProfile?.user_id && actorIds.has(String(memberByProfile.user_id))) return true;
+      const memberByUser = teamByUserId.get(target);
+      if (memberByUser?.profile_id && actorIds.has(String(memberByUser.profile_id))) return true;
+      return false;
+    },
+    [actorIds, team, teamByUserId],
+  );
+
   const canMarkLeadInterest = useMemo(() => {
     if (isViewer) return false;
     if (isAdminLike) return true;
-    if (isSalesAgent) return Boolean(user?.id && lead?.assigned_to && String(lead.assigned_to) === String(user.id));
+    if (isSalesAgent) return matchesAssignedActor(lead?.assigned_to);
     return false;
-  }, [isViewer, isAdminLike, isSalesAgent, lead?.assigned_to, user?.id]);
+  }, [isViewer, isAdminLike, isSalesAgent, lead?.assigned_to, matchesAssignedActor]);
 
   const canRegisterProposalSend = useMemo(() => {
     if (isViewer) return false;
     if (isAdminLike) return true;
     if (!isSalesAgent) return false;
-    if (!user?.id) return false;
-    const ownsLead = Boolean(lead?.assigned_to && String(lead.assigned_to) === String(user.id));
-    const ownsDeal = Boolean(deal?.assigned_to && String(deal.assigned_to) === String(user.id));
+    const ownsLead = matchesAssignedActor(lead?.assigned_to);
+    const ownsDeal = matchesAssignedActor(deal?.assigned_to);
     return ownsLead || ownsDeal;
-  }, [deal?.assigned_to, isAdminLike, isSalesAgent, isViewer, lead?.assigned_to, user?.id]);
+  }, [deal?.assigned_to, isAdminLike, isSalesAgent, isViewer, lead?.assigned_to, matchesAssignedActor]);
 
   const canCreateProposal = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
   const proposalCreateSearch = useMemo(
@@ -271,13 +292,52 @@ export function WhatsappContactPanel({
 
   function enforceOwnLeadForSales(message: string) {
     if (!isSalesAgent) return true;
-    if (!user?.id) return false;
+    if (!actorIds.size) return false;
     if (!lead?.assigned_to) return false;
-    if (String(lead.assigned_to) !== String(user.id)) {
+    if (!matchesAssignedActor(lead.assigned_to)) {
       toast.error(message);
       return false;
     }
     return true;
+  }
+
+  const canCreateDealFromPanel = Boolean(deal || (lead && can("deals.create") && !creatingDeal && (!isSalesAgent || matchesAssignedActor(lead.assigned_to))));
+  const canConvertClientFromPanel = Boolean(client || (lead && can("clients.create") && !convertingClient && (!isSalesAgent || matchesAssignedActor(lead.assigned_to))));
+  const canCreateFollowUpFromPanel = Boolean(lead && can("tasks.create") && (!isSalesAgent || matchesAssignedActor(lead.assigned_to)));
+
+  function panelActionHint(kind: "lead" | "deal" | "task" | "client" | "interest" | "proposal_send") {
+    if (kind === "lead") {
+      if (!can("leads.create")) return "No tienes permiso para crear prospectos.";
+      return "Crea el prospecto en el CRM y enlaza esta conversación.";
+    }
+    if (kind === "deal") {
+      if (deal) return "La oportunidad ya existe; abre Pipeline para verla.";
+      if (!lead) return "Primero crea o vincula un prospecto.";
+      if (!can("deals.create")) return "No tienes permiso para crear oportunidades.";
+      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to)) return "Solo el responsable del lead puede crear la oportunidad.";
+      return "Convierte este lead en una oportunidad comercial.";
+    }
+    if (kind === "task") {
+      if (!lead) return "Necesitas un prospecto vinculado para crear seguimiento.";
+      if (!can("tasks.create")) return "No tienes permiso para crear tareas.";
+      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to)) return "Solo el responsable del lead puede crear seguimiento.";
+      return "Programa la próxima acción comercial sin salir de WhatsApp.";
+    }
+    if (kind === "client") {
+      if (client) return "El cliente ya existe; abre Clientes para revisarlo.";
+      if (!lead) return "Primero crea o vincula un prospecto.";
+      if (!can("clients.create")) return "No tienes permiso para convertir a cliente.";
+      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to)) return "Solo el responsable del lead puede convertirlo a cliente.";
+      return "Convierte el lead en cliente cuando ya esté validado.";
+    }
+    if (kind === "interest") {
+      if (!lead?.id) return "Necesitas un prospecto vinculado para marcar interés.";
+      if (!canMarkLeadInterest) return "No tienes permiso para registrar interés de producto en este lead.";
+      return "Guarda el producto detectado como interés comercial del lead.";
+    }
+    if (!selectedProposal) return "Selecciona una propuesta antes de enviarla.";
+    if (!canRegisterProposalSend) return "No tienes permiso para registrar o enviar esta propuesta.";
+    return "Envía la propuesta y deja trazabilidad de ese envío.";
   }
 
   const name =
@@ -1431,17 +1491,20 @@ export function WhatsappContactPanel({
 
         <div data-demo="whatsapp-quick-actions"><CrmDetailSection title="Acciones rápidas">
         {!conversation.lead_id ? (
-          <Button
-            data-demo="whatsapp-create-lead"
-            variant="default"
-            size="sm"
-            className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
-            onClick={() => void handleCreateLeadFromWhatsapp()}
-            disabled={creatingLeadFromWhatsapp || !can("leads.create")}
-          >
-            <UserRound className="h-4 w-4 text-white" />
-            {creatingLeadFromWhatsapp ? "Creando..." : "Crear prospecto desde WhatsApp"}
-          </Button>
+          <>
+            <Button
+              data-demo="whatsapp-create-lead"
+              variant="default"
+              size="sm"
+              className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
+              onClick={() => void handleCreateLeadFromWhatsapp()}
+              disabled={creatingLeadFromWhatsapp || !can("leads.create")}
+            >
+              <UserRound className="h-4 w-4 text-white" />
+              {creatingLeadFromWhatsapp ? "Creando..." : "Crear prospecto desde WhatsApp"}
+            </Button>
+            <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("lead")}</p>
+          </>
         ) : null}
         <div className="mt-2 grid grid-cols-1 gap-2">
           <Button data-demo="whatsapp-create-deal"
@@ -1458,15 +1521,14 @@ export function WhatsappContactPanel({
               }
               void handleCreateDealFromLead();
             }}
-            disabled={
-              deal ? false : !lead || !can("deals.create") || creatingDeal || (isSalesAgent && String(lead.assigned_to) !== String(user?.id))
-            }
+            disabled={!canCreateDealFromPanel}
           >
             <BriefcaseBusiness className="h-4 w-4 text-white" />
             <span className="truncate">
-              {deal ? "Oportunidad creada" : creatingDeal ? "Creando..." : "Crear oportunidad"}
+              {deal ? "Abrir oportunidad" : creatingDeal ? "Creando oportunidad..." : "Crear oportunidad"}
             </span>
           </Button>
+          <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("deal")}</p>
 
           <Button
             variant={client ? "default" : "default"}
@@ -1482,15 +1544,14 @@ export function WhatsappContactPanel({
               }
               void handleConvertLeadToClient();
             }}
-            disabled={
-              client ? false : !lead || !can("clients.create") || convertingClient || (isSalesAgent && String(lead.assigned_to) !== String(user?.id))
-            }
+            disabled={!canConvertClientFromPanel}
           >
             <UserRound className="h-4 w-4 text-white" />
             <span className="truncate">
-              {client ? "Cliente activo" : convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
+              {client ? "Abrir cliente" : convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
             </span>
           </Button>
+          <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("client")}</p>
 
           <div className="grid grid-cols-2 gap-2">
             <Button
@@ -1531,12 +1592,13 @@ export function WhatsappContactPanel({
               size="sm"
               className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
               onClick={() => openFollowUpDialog()}
-              disabled={!lead || !can("tasks.create") || (isSalesAgent && String(lead.assigned_to) !== String(user?.id))}
+              disabled={!canCreateFollowUpFromPanel}
             >
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">Seguimiento</span>
+              <span className="truncate">Crear seguimiento</span>
             </Button>
           </div>
+          <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("task")}</p>
 
           <Button
             variant="outline"
@@ -1596,8 +1658,9 @@ export function WhatsappContactPanel({
                         void handleMarkLeadInterest(String(p.id));
                       }}
                     >
-                      {markingInterest === String(p.id) ? "Marcando..." : "Marcar como interés del lead"}
+                      {markingInterest === String(p.id) ? "Guardando interés..." : "Marcar interés del lead"}
                     </Button>
+                    <div className="mt-1 text-[10px] text-muted-foreground">{panelActionHint("interest")}</div>
                   </div>
                 </div>
               );
@@ -1694,9 +1757,10 @@ export function WhatsappContactPanel({
                 disabled={!selectedProposal || !canRegisterProposalSend || registeringProposalSend}
                 onClick={() => void handleRegisterProposalSend()}
               >
-                <span className="truncate">{registeringProposalSend ? "Enviando..." : "Enviar propuesta"}</span>
+                <span className="truncate">{registeringProposalSend ? "Enviando propuesta..." : "Enviar propuesta"}</span>
               </Button>
             </div>
+            <div className="text-[10px] text-muted-foreground">{panelActionHint("proposal_send")}</div>
 
             {canCreateProposal ? (
               <Button

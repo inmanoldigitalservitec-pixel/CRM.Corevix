@@ -618,11 +618,12 @@ function InvoicesPage() {
 
   if (loading) return <LoadingState />;
 
+
   const invData =
     editItem?.invoice_data && typeof editItem.invoice_data === "object" ? (editItem.invoice_data as Record<string, any>) : {};
 
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div data-demo="invoices-main" className="p-4 sm:p-6 space-y-5">
       <PageHeader
         title="Invoices"
         subtitle={`${filtered.length} invoices`}
@@ -635,6 +636,7 @@ function InvoicesPage() {
         }}
       />
       <DataCard>
+        <div data-demo="invoices-list">
         <div className="space-y-4">
           <SearchFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search invoices..."
             filters={[{ key: "status", placeholder: "Status", value: statusFilter, onChange: setStatusFilter, options: INVOICE_STATUSES.map(s => ({ label: s, value: s })) }]} />
@@ -671,7 +673,7 @@ function InvoicesPage() {
                   <TableHead className="pr-4 sm:pr-5 text-right"> </TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {filtered.map((i) => (
+                  {filtered.map((i, index) => (
                     <TableRow
                       key={i.id}
                       className="cursor-pointer hover:bg-muted/40 transition-colors"
@@ -682,7 +684,7 @@ function InvoicesPage() {
                         setDrawerOpen(true);
                       }}
                     >
-                      <TableCell className="font-medium pl-4 sm:pl-5">{i.number}</TableCell>
+                      <TableCell data-demo={index === 0 ? "invoice-first-row" : undefined} className="font-medium pl-4 sm:pl-5">{i.number}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">
                         {getClientLabel(i)}
                       </TableCell>
@@ -693,7 +695,7 @@ function InvoicesPage() {
                         <div className="font-mono text-xs">{getProposalNumber(i)}</div>
                         <div className="text-xs text-muted-foreground truncate max-w-[360px]">{getProposalTitle(i)}</div>
                       </TableCell>
-                      <TableCell><StatusBadge status={displayInvoiceStatus(i.status)} /></TableCell>
+                      <TableCell data-demo={index === 0 ? "invoice-status" : undefined}><StatusBadge status={displayInvoiceStatus(i.status)} /></TableCell>
                       <TableCell className="font-medium">USD {Number(i.total || 0).toLocaleString()}</TableCell>
                       <TableCell className="text-muted-foreground text-sm hidden md:table-cell">{i.date_issued}</TableCell>
                       <TableCell className="text-muted-foreground text-sm hidden md:table-cell">{i.due_date}</TableCell>
@@ -706,6 +708,7 @@ function InvoicesPage() {
                           }}
                         >
                           <Button
+                            data-demo={index === 0 ? "invoice-open-public" : undefined}
                             variant="outline"
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -715,6 +718,7 @@ function InvoicesPage() {
                             Ver pública
                           </Button>
                           <Button
+                            data-demo={index === 0 ? "invoice-copy-link" : undefined}
                             variant="outline"
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -723,7 +727,7 @@ function InvoicesPage() {
                             <Copy className="h-3.5 w-3.5" />
                             Copiar link
                           </Button>
-                          <Select value={i.status || "Draft"} onValueChange={(value) => void applyStatusQuick(i, value)}>
+                          <div data-demo={index === 0 ? "invoice-status-control" : undefined}><Select value={i.status || "Draft"} onValueChange={(value) => void applyStatusQuick(i, value)}>
                             <SelectTrigger className="h-8 w-[118px] text-xs">
                               <SelectValue placeholder="Estado" />
                             </SelectTrigger>
@@ -732,9 +736,10 @@ function InvoicesPage() {
                                 <SelectItem key={s} value={s}>{s}</SelectItem>
                               ))}
                             </SelectContent>
-                          </Select>
+                          </Select></div>
                           {i.status !== "Paid" ? (
                             <Button
+                              data-demo={index === 0 ? "invoice-mark-paid" : undefined}
                               variant="outline"
                               size="sm"
                               className="h-8 gap-1.5 text-xs"
@@ -747,6 +752,7 @@ function InvoicesPage() {
                           {i.status === "Paid" ? (
                             projectByInvoiceId[i.id] ? (
                               <Button
+                                data-demo={index === 0 ? "invoice-view-project" : undefined}
                                 variant="outline"
                                 size="sm"
                                 className="h-8 text-xs"
@@ -756,6 +762,7 @@ function InvoicesPage() {
                               </Button>
                             ) : (
                               <Button
+                                data-demo={index === 0 ? "invoice-create-project" : undefined}
                                 variant="outline"
                                 size="sm"
                                 className="h-8 text-xs"
@@ -784,6 +791,7 @@ function InvoicesPage() {
               </Table>
             </div>
           )}
+        </div>
         </div>
       </DataCard>
 
@@ -927,23 +935,22 @@ function InvoicesPage() {
             <input type="hidden" name="client_id" value={editorSelects.client_id} />
             <input type="hidden" name="proposal_id" value={editorSelects.proposal_id} />
             <input type="hidden" name="product_id" value={editorSelects.product_id} />
-            <Tabs defaultValue="general" className="w-full">
-              <TabsList className="flex flex-wrap justify-start">
-                <TabsTrigger value="general">Datos generales</TabsTrigger>
-                <TabsTrigger value="client">Cliente</TabsTrigger>
-                <TabsTrigger value="issuer">Emisor</TabsTrigger>
-                <TabsTrigger value="items">Items</TabsTrigger>
-                <TabsTrigger value="totals">Totales</TabsTrigger>
-                <TabsTrigger value="payment">Pago</TabsTrigger>
-                <TabsTrigger value="link">Enlace público</TabsTrigger>
-              </TabsList>
+            
+            <div className="space-y-5">
+              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="mb-4">
+                  <div className="text-sm font-bold text-slate-900">Origen y estado</div>
+                  <div className="text-xs text-muted-foreground">
+                    Conecta la factura con su cliente, propuesta y producto para mantener el flujo comercial organizado.
+                  </div>
+                </div>
 
-              <TabsContent value="general" className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Número</Label>
                     <Input name="number" defaultValue={editItem?.number || `INV-${Date.now().toString().slice(-6)}`} required />
                   </div>
+
                   <div className="space-y-1.5">
                     <Label>Estado</Label>
                     <Select value={editorSelects.status} onValueChange={(v) => setEditorSelects((p) => ({ ...p, status: v }))}>
@@ -953,11 +960,11 @@ function InvoicesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <Label>Cliente</Label>
                     <Select value={editorSelects.client_id} onValueChange={(v) => setEditorSelects((p) => ({ ...p, client_id: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NO_CLIENT}>Sin cliente</SelectItem>
                         {clients.map((c) => (
@@ -968,6 +975,7 @@ function InvoicesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   <div className="space-y-1.5">
                     <Label>Propuesta relacionada</Label>
                     <Select value={editorSelects.proposal_id} onValueChange={(v) => setEditorSelects((p) => ({ ...p, proposal_id: v }))}>
@@ -982,22 +990,23 @@ function InvoicesPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                        <div className="space-y-1.5">
-                          <Label>Producto/servicio</Label>
-                          <Select
-                            value={editorSelects.product_id}
-                            onValueChange={(v) => {
-                              setEditorSelects((p) => ({ ...p, product_id: v }));
-                              if (v && v !== NO_PRODUCT) {
-                                const product = products.find((p) => p.id === v);
-                                applyProductDefaults(product);
-                              }
-                            }}
-                          >
-                            <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NO_PRODUCT}>Sin producto</SelectItem>
-                              {products.map((p) => (
+
+                  <div className="space-y-1.5">
+                    <Label>Producto / servicio</Label>
+                    <Select
+                      value={editorSelects.product_id}
+                      onValueChange={(v) => {
+                        setEditorSelects((p) => ({ ...p, product_id: v }));
+                        if (v && v !== NO_PRODUCT) {
+                          const product = products.find((p) => p.id === v);
+                          applyProductDefaults(product);
+                        }
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_PRODUCT}>Sin producto</SelectItem>
+                        {products.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
                             {p.name}
                           </SelectItem>
@@ -1006,57 +1015,77 @@ function InvoicesPage() {
                     </Select>
                   </div>
                 </div>
+              </section>
+
+              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="mb-4">
+                  <div className="text-sm font-bold text-slate-900">Fechas y pago</div>
+                  <div className="text-xs text-muted-foreground">
+                    Define cuándo se emitió, cuándo vence y cómo debe pagar el cliente.
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Fecha emitida</Label>
                     <Input name="date_issued" type="date" defaultValue={editItem?.date_issued || new Date().toISOString().split("T")[0]} />
                   </div>
+
                   <div className="space-y-1.5">
                     <Label>Vence</Label>
                     <Input name="due_date" type="date" defaultValue={editItem?.due_date} />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Token público</Label>
-                    <Input name="public_token" defaultValue={editItem?.public_token || ""} readOnly />
-                  </div>
                   <div className="space-y-1.5">
                     <Label>Link de pago</Label>
                     <Input name="payment_link" defaultValue={editItem?.payment_link || ""} placeholder="https://..." />
                   </div>
-                </div>
-              </TabsContent>
 
-              <TabsContent value="client" className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Método de pago</Label>
+                    <Input name="paymentMethod" defaultValue={invData.paymentMethod || ""} placeholder="Ej: transferencia, tarjeta, PayPal" />
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <Label>Instrucciones de pago</Label>
+                  <Textarea name="paymentInstructions" defaultValue={invData.paymentInstructions || ""} rows={3} placeholder="Ej: Cuenta bancaria, instrucciones o condiciones de pago." />
+                </div>
+              </section>
+
+              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="mb-4">
+                  <div className="text-sm font-bold text-slate-900">Datos del cliente</div>
+                  <div className="text-xs text-muted-foreground">
+                    Estos datos aparecerán en la factura pública.
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>Nombre</Label><Input name="clientName" defaultValue={invData.clientName || ""} /></div>
                   <div className="space-y-1.5"><Label>Empresa</Label><Input name="clientCompany" defaultValue={invData.clientCompany || ""} /></div>
                   <div className="space-y-1.5"><Label>Email</Label><Input name="clientEmail" defaultValue={invData.clientEmail || ""} /></div>
                   <div className="space-y-1.5"><Label>Teléfono</Label><Input name="clientPhone" defaultValue={invData.clientPhone || ""} /></div>
+                  <div className="space-y-1.5"><Label>Tax ID / RNC</Label><Input name="clientTaxId" defaultValue={invData.clientTaxId || ""} /></div>
                 </div>
-                <div className="space-y-1.5"><Label>Dirección</Label><Textarea name="clientAddress" defaultValue={invData.clientAddress || ""} rows={2} /></div>
-                <div className="space-y-1.5"><Label>Tax ID / RNC</Label><Input name="clientTaxId" defaultValue={invData.clientTaxId || ""} /></div>
-              </TabsContent>
 
-              <TabsContent value="issuer" className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><Label>Nombre</Label><Input name="issuerName" defaultValue={invData.issuerName || ""} /></div>
-                  <div className="space-y-1.5"><Label>Tax ID</Label><Input name="issuerTaxId" defaultValue={invData.issuerTaxId || ""} /></div>
-                  <div className="space-y-1.5"><Label>Email</Label><Input name="issuerEmail" defaultValue={invData.issuerEmail || ""} /></div>
-                  <div className="space-y-1.5"><Label>Teléfono</Label><Input name="issuerPhone" defaultValue={invData.issuerPhone || ""} /></div>
+                <div className="mt-4 space-y-1.5">
+                  <Label>Dirección</Label>
+                  <Textarea name="clientAddress" defaultValue={invData.clientAddress || ""} rows={2} />
                 </div>
-                <div className="space-y-1.5"><Label>Dirección</Label><Textarea name="issuerAddress" defaultValue={invData.issuerAddress || ""} rows={2} /></div>
-                <div className="space-y-1.5"><Label>Website</Label><Input name="issuerWebsite" defaultValue={invData.issuerWebsite || ""} /></div>
-              </TabsContent>
+              </section>
 
-              <TabsContent value="items" className="space-y-3">
-                <div className="text-sm text-muted-foreground">Items de la factura</div>
+              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="mb-4">
+                  <div className="text-sm font-bold text-slate-900">Items de la factura</div>
+                  <div className="text-xs text-muted-foreground">
+                    Agrega los servicios, cantidades y precios que se cobrarán.
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   {itemsDraft.map((it, idx) => (
-                    <div key={it.id || idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 rounded-lg border p-3">
+                    <div key={it.id || idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 rounded-[16px] border bg-muted/10 p-3">
                       <div className="sm:col-span-6 space-y-1.5">
                         <Label>Descripción</Label>
                         <Input
@@ -1067,6 +1096,7 @@ function InvoicesPage() {
                           }}
                         />
                       </div>
+
                       <div className="sm:col-span-2 space-y-1.5">
                         <Label>Cantidad</Label>
                         <Input
@@ -1083,6 +1113,7 @@ function InvoicesPage() {
                           }}
                         />
                       </div>
+
                       <div className="sm:col-span-2 space-y-1.5">
                         <Label>Precio</Label>
                         <Input
@@ -1099,10 +1130,12 @@ function InvoicesPage() {
                           }}
                         />
                       </div>
+
                       <div className="sm:col-span-2 space-y-1.5">
                         <Label>Total</Label>
                         <Input value={String(it.total)} readOnly />
                       </div>
+
                       <div className="sm:col-span-12 flex justify-end">
                         <Button
                           type="button"
@@ -1112,13 +1145,14 @@ function InvoicesPage() {
                           onClick={() => setItemsDraft((prev) => prev.filter((_, i) => i !== idx))}
                           disabled={itemsDraft.length <= 1}
                         >
-                          Quitar
+                          Quitar item
                         </Button>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div>
+
+                <div className="mt-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -1126,82 +1160,79 @@ function InvoicesPage() {
                     className="h-8 text-xs"
                     onClick={() => setItemsDraft((prev) => [...prev, { description: "", quantity: 1, unit_price: 0, total: 0 }])}
                   >
-                    Agregar item
+                    + Agregar item
                   </Button>
                 </div>
-              </TabsContent>
+              </section>
 
-                    <TabsContent value="totals" className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-1.5">
-                          <Label>Subtotal</Label>
-                          <Input
-                            name="subtotal"
-                            type="number"
-                            step="0.01"
-                            value={totalsDraft.subtotal}
-                            onChange={(e) => {
-                              setTotalsDirty(true);
-                              setTotalsDraft((p) => ({ ...p, subtotal: e.target.value }));
-                            }}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label>Tax</Label>
-                          <Input
-                            name="tax"
-                            type="number"
-                            step="0.01"
-                            value={totalsDraft.tax}
-                            onChange={(e) => {
-                              setTotalsDirty(true);
-                              setTotalsDraft((p) => ({ ...p, tax: e.target.value }));
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label>Discount</Label>
-                          <Input
-                            name="discount"
-                            type="number"
-                            step="0.01"
-                            value={totalsDraft.discount}
-                            onChange={(e) => {
-                              setTotalsDirty(true);
-                              setTotalsDraft((p) => ({ ...p, discount: e.target.value }));
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Total se recalcula al guardar: subtotal + tax - discount.
-                      </div>
-                    </TabsContent>
+              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="mb-4">
+                  <div className="text-sm font-bold text-slate-900">Totales</div>
+                  <div className="text-xs text-muted-foreground">
+                    El total se recalcula al guardar: subtotal + tax - discount.
+                  </div>
+                </div>
 
-              <TabsContent value="payment" className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Método de pago</Label>
-                  <Input name="paymentMethod" defaultValue={invData.paymentMethod || ""} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Instrucciones de pago</Label>
-                  <Textarea name="paymentInstructions" defaultValue={invData.paymentInstructions || ""} rows={3} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><Label>Propuesta #</Label><Input name="relatedProposalNumber" defaultValue={invData.relatedProposalNumber || ""} /></div>
-                  <div className="space-y-1.5"><Label>Producto</Label><Input name="productName" defaultValue={invData.productName || ""} /></div>
-                </div>
-                <div className="space-y-1.5"><Label>Título propuesta</Label><Input name="relatedProposalTitle" defaultValue={invData.relatedProposalTitle || ""} /></div>
-                <div className="space-y-1.5"><Label>Notas internas</Label><Textarea name="notes" defaultValue={editItem?.notes || ""} rows={3} /></div>
-              </TabsContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Subtotal</Label>
+                    <Input
+                      name="subtotal"
+                      type="number"
+                      step="0.01"
+                      value={totalsDraft.subtotal}
+                      onChange={(e) => {
+                        setTotalsDirty(true);
+                        setTotalsDraft((p) => ({ ...p, subtotal: e.target.value }));
+                      }}
+                      required
+                    />
+                  </div>
 
-              <TabsContent value="link" className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Tax</Label>
+                    <Input
+                      name="tax"
+                      type="number"
+                      step="0.01"
+                      value={totalsDraft.tax}
+                      onChange={(e) => {
+                        setTotalsDirty(true);
+                        setTotalsDraft((p) => ({ ...p, tax: e.target.value }));
+                      }}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Discount</Label>
+                    <Input
+                      name="discount"
+                      type="number"
+                      step="0.01"
+                      value={totalsDraft.discount}
+                      onChange={(e) => {
+                        setTotalsDirty(true);
+                        setTotalsDraft((p) => ({ ...p, discount: e.target.value }));
+                      }}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="mb-4">
+                  <div className="text-sm font-bold text-slate-900">Enlace público</div>
+                  <div className="text-xs text-muted-foreground">
+                    Guarda la factura y comparte este enlace para que el cliente pueda verla.
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label>Token público</Label>
-                  <Input value={String(editItem?.public_token || "")} readOnly />
+                  <Input name="public_token" defaultValue={editItem?.public_token || ""} readOnly />
                 </div>
-                <div className="flex flex-wrap gap-2">
+
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -1212,6 +1243,7 @@ function InvoicesPage() {
                   >
                     Copiar enlace
                   </Button>
+
                   <Button
                     type="button"
                     variant="outline"
@@ -1223,8 +1255,39 @@ function InvoicesPage() {
                     Abrir factura pública
                   </Button>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </section>
+
+              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="mb-4">
+                  <div className="text-sm font-bold text-slate-900">Avanzado</div>
+                  <div className="text-xs text-muted-foreground">
+                    Datos del emisor, referencia de propuesta y notas internas.
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5"><Label>Nombre emisor</Label><Input name="issuerName" defaultValue={invData.issuerName || ""} /></div>
+                  <div className="space-y-1.5"><Label>Tax ID emisor</Label><Input name="issuerTaxId" defaultValue={invData.issuerTaxId || ""} /></div>
+                  <div className="space-y-1.5"><Label>Email emisor</Label><Input name="issuerEmail" defaultValue={invData.issuerEmail || ""} /></div>
+                  <div className="space-y-1.5"><Label>Teléfono emisor</Label><Input name="issuerPhone" defaultValue={invData.issuerPhone || ""} /></div>
+                  <div className="space-y-1.5"><Label>Website</Label><Input name="issuerWebsite" defaultValue={invData.issuerWebsite || ""} /></div>
+                  <div className="space-y-1.5"><Label>Propuesta #</Label><Input name="relatedProposalNumber" defaultValue={invData.relatedProposalNumber || ""} /></div>
+                  <div className="space-y-1.5"><Label>Producto</Label><Input name="productName" defaultValue={invData.productName || ""} /></div>
+                  <div className="space-y-1.5"><Label>Título propuesta</Label><Input name="relatedProposalTitle" defaultValue={invData.relatedProposalTitle || ""} /></div>
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <Label>Dirección emisor</Label>
+                  <Textarea name="issuerAddress" defaultValue={invData.issuerAddress || ""} rows={2} />
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <Label>Notas internas</Label>
+                  <Textarea name="notes" defaultValue={editItem?.notes || ""} rows={3} />
+                </div>
+              </section>
+            </div>
+
                 </form>
               ) : null}
             </div>
@@ -1278,6 +1341,7 @@ function InvoicesPage() {
       </AlertDialog>
 
       {/* Drawer handles view/create/edit */}
+
     </div>
   );
 }

@@ -502,6 +502,26 @@ function ProductsPage() {
     }
   }
 
+  useEffect(() => {
+    const onDemoOpenProductDetail = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+
+      if (detail?.open === false) {
+        setSelected(null);
+        return;
+      }
+
+      const firstProduct = filtered[0] || data[0];
+      if (firstProduct) {
+        setSelected(firstProduct);
+      }
+    };
+
+    window.addEventListener("crm-demo-open-product-detail", onDemoOpenProductDetail);
+    return () => window.removeEventListener("crm-demo-open-product-detail", onDemoOpenProductDetail);
+  }, [filtered, data]);
+
+
   if (loading) return <LoadingState />;
 
   return (
@@ -553,7 +573,7 @@ function ProductsPage() {
       </div>
 
       <DataCard>
-        <div className="space-y-4">
+        <div data-demo="products-list" className="space-y-4">
           <SearchFilters
             searchValue={search}
             onSearchChange={setSearch}
@@ -624,8 +644,9 @@ function ProductsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((p) => (
+                  {filtered.map((p, index) => (
                     <TableRow
+                      data-demo={index === 0 ? "products-first-row" : undefined}
                       key={p.id}
                       className="cursor-pointer hover:bg-muted/40 transition-colors"
                       onClick={() => setSelected(p)}
@@ -636,10 +657,10 @@ function ProductsPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{p.category || "—"}</TableCell>
                       <TableCell className="hidden md:table-cell text-sm">{p.type || "—"}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm">{formatMoney(Number(p.base_price || 0), p.currency || "USD")}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm">{p.billing_type || "—"}</TableCell>
+                      <TableCell data-demo={index === 0 ? "products-price" : undefined} className="hidden sm:table-cell text-sm">{formatMoney(Number(p.base_price || 0), p.currency || "USD")}</TableCell>
+                      <TableCell data-demo={index === 0 ? "products-billing" : undefined} className="hidden lg:table-cell text-sm">{p.billing_type || "—"}</TableCell>
                       {isAdminLike ? (
-                        <TableCell className="text-right pr-4 sm:pr-5">
+                        <TableCell data-demo={index === 0 ? "products-active-status" : undefined} className="text-right pr-4 sm:pr-5">
                           <span className={p.is_active ? "text-emerald-700 font-semibold" : "text-slate-500 font-semibold"}>
                             {p.is_active ? "Activo" : "Inactivo"}
                           </span>
@@ -794,7 +815,7 @@ function ProductsPage() {
               </div>
             </DialogHeader>
             <div className="p-5 space-y-3 text-sm max-h-[75vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
+              <div data-demo="products-detail-summary" className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="text-xs text-muted-foreground">Categoría</div>
                   <div className="font-medium">{selected.category || "—"}</div>
@@ -819,7 +840,7 @@ function ProductsPage() {
                 </div>
               ) : null}
               {selected.deliverables ? (
-                <div>
+                <div data-demo="products-deliverables">
                   <div className="text-xs text-muted-foreground">Entregables</div>
                   <div className="whitespace-pre-wrap">{selected.deliverables}</div>
                 </div>
@@ -852,14 +873,14 @@ function ProductsPage() {
                         Duración estimada total: <span className="font-medium">{estimatedTotalDays} día(s)</span>
                       </div>
                       {isAdminLike ? (
-                        <Button variant="outline" size="sm" className="gap-2 h-8" onClick={() => openNewStep()}>
+                        <Button data-demo="products-add-workflow-step" variant="outline" size="sm" className="gap-2 h-8" onClick={() => openNewStep()}>
                           <Plus className="h-4 w-4" /> Agregar paso
                         </Button>
                       ) : null}
                     </div>
 
                     {workflowSteps.length ? (
-                      <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                      <div data-demo="products-workflow-steps" className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
                         {[...workflowSteps]
                           .sort((a, b) => a.step_order - b.step_order)
                           .map((s, idx) => (
@@ -927,7 +948,7 @@ function ProductsPage() {
                 <div className="text-xs text-muted-foreground">
                   {selected.is_active ? "Activo" : "Inactivo"} · Actualizado {new Date(selected.updated_at).toLocaleDateString()}
                 </div>
-                <div className="flex gap-2">
+                <div data-demo="products-actions" className="flex gap-2">
                   {isAdminLike ? (
                     <>
                       <Button

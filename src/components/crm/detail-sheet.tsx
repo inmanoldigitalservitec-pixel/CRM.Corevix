@@ -25,6 +25,7 @@ interface DetailSheetProps {
   accent?: "blue" | "green" | "violet" | "orange" | "amber" | "slate";
   size?: DetailSheetSize;
   fields: DetailField[];
+  fieldGroupDataDemo?: string;
   notes?: string;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -57,6 +58,7 @@ export function DetailSheet({
   accent = "slate",
   size = "md",
   fields,
+  fieldGroupDataDemo,
   notes,
   onEdit,
   onDelete,
@@ -126,7 +128,7 @@ export function DetailSheet({
 
         <ScrollArea className="h-[calc(100vh-118px)]">
           <div className="p-5 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div data-demo={fieldGroupDataDemo} className="grid grid-cols-2 gap-4">
               {fields.map((f) => (
                 <div key={f.label} className={f.type === "tags" ? "col-span-2" : ""}>
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{f.label}</span>

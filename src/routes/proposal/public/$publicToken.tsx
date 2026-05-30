@@ -292,7 +292,7 @@ function PublicProposalView(props: {
     if (!text) return null;
 
     return (
-      <article className="min-w-0 rounded-lg border border-[#dce6f3] bg-white px-[7px] pb-2 pt-[9px]">
+      <article className="min-w-0 rounded-lg border border-[#dce6f3] px-[7px] pb-2 pt-[9px]">
         <Icon className="mb-1 h-[21px] w-[21px] text-[#1d62f9]">{icon}</Icon>
         <h3 className="mb-1 mt-0 text-[11.8px] font-[680] leading-[1.16] tracking-[-0.004em] text-[#151b2c]">
           {title}
@@ -399,7 +399,7 @@ function PublicProposalView(props: {
         : processStepsFromFallback;
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_50%_0%,rgba(29,98,249,.20),transparent_26%),linear-gradient(180deg,#020918_0%,#06142b_34%,#f3f6fb_34%,#f3f6fb_100%)] text-[#101828] print:bg-white">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_50%_0%,rgba(29,98,249,.28),transparent_34%),linear-gradient(180deg,#020817_0%,#07152e_100%)] px-3 py-4 text-[#101828] print:bg-white">
       <article className="mx-auto w-full max-w-[430px] overflow-hidden bg-white shadow-[0_20px_60px_rgba(10,32,80,0.14)] print:max-w-none print:shadow-none">
         {/* Hero */}
         <section className="relative isolate overflow-hidden rounded-b-[24px] bg-[radial-gradient(circle_at_85%_34%,rgba(29,98,249,.45),transparent_34%),linear-gradient(135deg,#030b1d_0%,#07152e_55%,#0b3c94_100%)] px-[18px] pb-[18px] pt-[22px] text-white before:absolute before:inset-0 before:-z-10 before:translate-x-[120px] before:translate-y-5 before:bg-[linear-gradient(30deg,transparent_0_47%,rgba(255,255,255,.06)_48%_49%,transparent_50%),linear-gradient(150deg,transparent_0_47%,rgba(255,255,255,.05)_48%_49%,transparent_50%)] before:bg-[length:86px_86px] before:opacity-55 print:rounded-none">
@@ -468,10 +468,10 @@ function PublicProposalView(props: {
           </div>
         </section>
 
-        <div className="bg-white px-2 pt-3">
+        <div className="px-2 pt-3">
           {/* Investment Card */}
           <section className="relative mb-2.5 overflow-hidden rounded-[10px] bg-[linear-gradient(135deg,#0f5bf4_0%,#1775ff_100%)] px-4 pb-4 pt-[18px] text-white shadow-[0_14px_34px_rgba(29,98,249,.28)] after:absolute after:right-[26px] after:top-5 after:grid after:h-[68px] after:w-[68px] after:place-items-center after:rounded-full after:bg-white/15 after:text-[42px] after:font-normal after:text-white/70 after:content-['$']">
-            <p className="m-0 text-base font-[700] leading-none">Inversión mensual</p>
+            <p className="m-0 text-base font-[700] leading-none">Inversión</p>
             <div className="my-3 mb-[5px] text-[40px] font-[720] leading-[0.9] tracking-[0.005em]">
               {amountLabel}
             </div>
@@ -494,139 +494,69 @@ function PublicProposalView(props: {
             </section>
           ) : null}
 
-          {/* Executive Summary */}
+          {/* Simple Summary */}
           {showExecutiveSummary ? (
             <SectionCard>
-              <SectionTitle title="Resumen de la propuesta" />
-
-              <div className="grid grid-cols-3">
-                {introductionText ? (
-                  <SummaryItem icon={<FileText className="h-5 w-5" />} title="Introducción">
-                    {introductionText}
-                  </SummaryItem>
-                ) : null}
-
-                {objectiveText ? (
-                  <SummaryItem icon={<Target className="h-5 w-5" />} title="Objetivo principal">
-                    {objectiveText}
-                  </SummaryItem>
-                ) : null}
-
-                {serviceDescription ? (
-                  <SummaryItem icon={<MessageCircle className="h-5 w-5" />} title="Descripción del servicio">
-                    {serviceDescription}
-                  </SummaryItem>
-                ) : null}
+              <SectionTitle title="Resumen rápido" />
+              <div className="px-[13px] pb-3 text-[13px] leading-relaxed text-[#344054]">
+                {introductionText || objectiveText || serviceDescription}
               </div>
             </SectionCard>
           ) : null}
 
-          {/* Scope */}
-          {showScope ? (
+          {/* What is included */}
+          {(deliverableItems.length || featuresItems.length) ? (
             <SectionCard>
-              <SectionTitle title="Qué incluye" right={<span className="text-[17px]">⌄</span>} />
-
-              {deliverableItems.length ? <CheckGrid items={deliverableItems.slice(0, 6)} /> : null}
-
-              <div className="border-t border-[#edf2f7]">
-                <AccordionItem
-                  id="features"
-                  title="Características"
-                  icon={<Star className="h-[18px] w-[18px]" />}
-                  items={featuresItems}
-                />
-
-                <AccordionItem
-                  id="optional"
-                  title="Servicios opcionales"
-                  icon={<Plus className="h-[18px] w-[18px]" />}
-                  items={optionalItems}
-                  tone="purple"
-                />
-
-                <AccordionItem
-                  id="outOfScope"
-                  title="Fuera de alcance"
-                  icon={<AlertCircle className="h-[18px] w-[18px]" />}
-                  items={outOfScopeItems}
-                  tone="orange"
-                />
-              </div>
+              <SectionTitle title="Qué incluye" />
+              <CheckGrid items={(deliverableItems.length ? deliverableItems : featuresItems).slice(0, 6)} />
             </SectionCard>
           ) : null}
 
-          {/* Process */}
+          {/* Workflow Process */}
           {showProcess ? (
             <SectionCard>
               <SectionTitle title="Proceso de trabajo" />
-
               <div className="px-[13px] pb-[13px]">
-                <div className="relative grid grid-cols-4 gap-1 pt-0.5">
-                  {processSteps.map((step, index) => (
-                    <ProcessStep
-                      key={step.number}
-                      number={step.number}
-                      title={step.title}
-                      text={step.text}
-                      isLast={index === processSteps.length - 1}
-                    />
-                  ))}
-                </div>
+                {processSteps.length ? (
+                  <div className="grid gap-2">
+                    {processSteps.map((step, index) => (
+                      <div
+                        key={`${step.number}-${index}`}
+                        className="flex gap-3 rounded-[10px] border border-[#e7eef8] bg-[#f8fbff] px-3 py-2.5"
+                      >
+                        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1d62f9] text-[12px] font-[800] text-white">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-[720] leading-tight text-[#151b2c]">
+                            {step.title}
+                          </div>
+                          {step.text ? (
+                            <div className="mt-1 text-[12px] font-medium leading-[1.4] text-[#475467]">
+                              {step.text}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : processText ? (
+                  <div className="rounded-[10px] border border-[#e7eef8] bg-[#f8fbff] px-3 py-2.5 text-[12.5px] leading-relaxed text-[#344054]">
+                    {processText}
+                  </div>
+                ) : null}
               </div>
             </SectionCard>
           ) : null}
 
-          {/* Requirements */}
-          {showRequirements ? (
+          {/* Simple Conditions */}
+          {(estimatedTime || paymentFrequency || proposal?.valid_until || nextStep) ? (
             <SectionCard>
-              <SectionTitle title="Requisitos del cliente" />
-
-              <div className="grid grid-cols-4 gap-1.5 px-2 pb-2">
-                <MiniCard icon={<Info className="h-[21px] w-[21px]" />} title="Información requerida" text={clientRequirementsText} />
-                <MiniCard icon={<Folder className="h-[21px] w-[21px]" />} title="Materiales necesarios" text={requiredMaterialsText} />
-                <MiniCard icon={<Lock className="h-[21px] w-[21px]" />} title="Accesos requeridos" text={requiredAccessText} />
-                <MiniCard icon={<Clock className="h-[21px] w-[21px]" />} title="Tiempo de respuesta" text={clientResponseTimeText} />
-              </div>
-            </SectionCard>
-          ) : null}
-
-          {/* Terms */}
-          {showTerms ? (
-            <SectionCard>
-              <SectionTitle title="Tiempo y condiciones" />
-
-              <div className="grid grid-cols-4 px-2 pb-2">
-                <DetailCard icon={<Calendar className="h-[22px] w-[22px]" />} title="Tiempo estimado" text={estimatedTime} />
-                <DetailCard icon={<RefreshCcw className="h-[22px] w-[22px]" />} title="Rondas de cambios" text={revisionRoundsText} />
-                <DetailCard icon={<Shield className="h-[22px] w-[22px]" />} title="Condiciones importantes" text={termsText} />
-                <DetailCard icon={<ArrowRightCircle className="h-[22px] w-[22px]" />} title="Próximo paso" text={nextStep} />
-              </div>
-            </SectionCard>
-          ) : null}
-
-          {/* Investment Details */}
-          {showInvestment ? (
-            <SectionCard>
-              <SectionTitle title="Inversión detallada" />
-
+              <SectionTitle title="Condiciones principales" />
               <div className="grid grid-cols-3 px-2 pb-2">
-                <InvestmentDetailCard icon={<DollarSign className="h-[22px] w-[22px]" />} title="Detalle de inversión">
-                  {investmentDetailsText || (
-                    <>
-                      Plan mensual
-                      <br />
-                      <strong>{amountLabel}</strong>
-                    </>
-                  )}
-                </InvestmentDetailCard>
-
-                <InvestmentDetailCard icon={<Plus className="h-[22px] w-[22px]" />} title="Costos adicionales">
-                  {additionalCostsText || "No incluye servicios adicionales no especificados."}
-                </InvestmentDetailCard>
-
-                <InvestmentDetailCard icon={<CreditCard className="h-[22px] w-[22px]" />} title="Forma de pago">
-                  {paymentTermsText || "Pago por adelantado mensual."}
-                </InvestmentDetailCard>
+                <DetailCard icon={<Calendar className="h-[22px] w-[22px]" />} title="Tiempo estimado" text={estimatedTime || "A coordinar"} />
+                <DetailCard icon={<CreditCard className="h-[22px] w-[22px]" />} title="Forma de pago" text={paymentFrequency || paymentTermsText || "A coordinar"} />
+                <DetailCard icon={<ArrowRightCircle className="h-[22px] w-[22px]" />} title="Validez" text={proposal?.valid_until || "—"} />
               </div>
             </SectionCard>
           ) : null}
@@ -671,6 +601,10 @@ function PublicProposalView(props: {
               </Icon>
               {approved ? "Propuesta aprobada" : approving ? "Aprobando…" : "Aprobar propuesta"}
             </button>
+
+            <p className="relative z-10 m-0 mt-2 text-center text-[11.5px] font-medium leading-[1.35] text-white/70">
+              Al aprobar, el sistema genera automáticamente una factura en el módulo de Invoices.
+            </p>
           </section>
 
           <div className="px-2.5 pb-3 text-center text-[11.8px] leading-[1.35] text-[#7b8495]">

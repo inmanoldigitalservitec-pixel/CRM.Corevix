@@ -1,3 +1,4 @@
+import { PayPalInvoiceButton } from "@/components/invoices/PayPalInvoiceButton";
 type InvoiceItem = {
   id?: string;
   description?: string | null;
@@ -191,6 +192,66 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
               <DateChip label="Vencimiento" value={formatDate(invoice.due_date)} />
             </div>
           </header>
+
+
+          {String(invoice.status || "").toLowerCase() !== "paid" ? (
+            <section
+              data-demo="invoice-paypal-payment"
+              className="mx-5 -mt-5 mb-5 overflow-hidden rounded-[24px] border border-[#d8e5f7] bg-white shadow-[0_22px_55px_rgba(10,32,80,0.14)] print:hidden"
+            >
+              <div className="bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_55%,#fff8e6_100%)] px-5 py-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="mb-2 inline-flex items-center rounded-full bg-[#eef5ff] px-2.5 py-1 text-[10px] font-[800] uppercase tracking-[0.12em] text-[#1d62f9]">
+                      Pago seguro
+                    </div>
+
+                    <h2 className="m-0 text-[22px] font-[850] leading-[1.05] tracking-[-0.03em] text-[#101828]">
+                      Pagar factura
+                    </h2>
+
+                    <p className="mt-2 max-w-[360px] text-[12.5px] font-medium leading-relaxed text-[#667085]">
+                      Completa el pago de esta factura de forma segura con PayPal.
+                    </p>
+                  </div>
+
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-[#fef7df]">
+                    <img
+                      src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-mark-color.svg"
+                      alt="PayPal"
+                      className="h-8 w-8 object-contain"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[18px] border border-[#e6eef9] bg-white p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-[0.10em] text-[#667085]">
+                        Total a pagar
+                      </div>
+                      <div className="mt-1 text-[26px] font-[850] leading-none tracking-[-0.03em] text-[#101828]">
+                        {formatMoney(invoice.total || 0, currency)}
+                      </div>
+                    </div>
+
+                    <PayPalInvoiceButton
+                      publicToken={invoice.public_token}
+                      disabled={String(invoice.status || "").toLowerCase() === "paid"}
+                      onPaid={() => window.location.reload()}
+                    />
+                  </div>
+
+                  <div className="mt-3 flex items-start gap-2 rounded-[14px] bg-[#f8fafc] px-3 py-2 text-[11.5px] font-medium leading-relaxed text-[#667085]">
+                    <span className="mt-[2px] inline-block h-2 w-2 shrink-0 rounded-full bg-[#1d62f9]" />
+                    Cuando integremos el backend, el CRM podrá confirmar el pago automáticamente, marcar la factura como pagada y crear el proyecto relacionado.
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+
 
           <section className="grid flex-1 content-start gap-[13px] bg-[linear-gradient(180deg,#fff_0%,#fbfdff_100%)] px-3.5 py-4">
             <div className="grid grid-cols-2 gap-[11px] max-[380px]:grid-cols-1">

@@ -120,6 +120,187 @@ interface ProposalProcessStep {
   durationDays: number | null;
 }
 
+function textToEditableItems(value: string) {
+  return String(value || "")
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function editableItemsToText(items: string[]) {
+  return items
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+
+function NumberStepperField({
+  label,
+  value,
+  onChange,
+  min = 0,
+  max = 20,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  onChange: (value: string) => void;
+  min?: number;
+  max?: number;
+}) {
+  const parsed = Number(String(value ?? "").trim());
+  const safeValue = Number.isFinite(parsed) ? parsed : 0;
+
+  const clampValue = (n: number) => Math.max(min, Math.min(max, n));
+
+  const setValue = (n: number) => {
+    onChange(String(clampValue(n)));
+  };
+
+  const decrease = () => setValue(safeValue - 1);
+  const increase = () => setValue(safeValue + 1);
+
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+
+      <div className="flex items-stretch gap-2">
+        <div className="flex h-11 w-[170px] overflow-hidden rounded-[14px] border bg-background shadow-sm">
+          <button
+            type="button"
+            onClick={decrease}
+            className="grid w-11 place-items-center border-r text-[18px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+            disabled={safeValue <= min}
+            title="Disminuir"
+          >
+            −
+          </button>
+
+          <input
+            type="number"
+            min={min}
+            max={max}
+            value={safeValue}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                onChange(String(min));
+                return;
+              }
+              const next = Number(raw);
+              if (Number.isFinite(next)) {
+                onChange(String(clampValue(next)));
+              }
+            }}
+            className="w-full border-0 bg-transparent text-center text-[15px] font-semibold outline-none focus:ring-0"
+          />
+
+          <button
+            type="button"
+            onClick={increase}
+            className="grid w-11 place-items-center border-l text-[18px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+            disabled={safeValue >= max}
+            title="Aumentar"
+          >
+            +
+          </button>
+        </div>
+
+        <div className="flex items-center text-[12px] text-muted-foreground">
+          {safeValue === 1 ? "1 ronda" : `${safeValue} rondas`}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditableListField({
+  label,
+  value,
+  onChange,
+  placeholder = "Escribe un ítem...",
+  addLabel = "Agregar ítem",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  addLabel?: string;
+}) {
+  const items = textToEditableItems(value);
+  const visibleItems = items.length ? items : [""];
+
+  const updateItem = (index: number, nextValue: string) => {
+    const next = [...visibleItems];
+    next[index] = nextValue;
+    onChange(editableItemsToText(next));
+  };
+
+  const addItem = () => {
+    onChange(editableItemsToText([...items, "Nuevo ítem"]));
+  };
+
+  const removeItem = (index: number) => {
+    const next = visibleItems.filter((_, i) => i !== index);
+    onChange(editableItemsToText(next));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label>{label}</Label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 px-3 text-xs"
+          onClick={addItem}
+        >
+          + {addLabel}
+        </Button>
+      </div>
+
+      <div className="space-y-2 rounded-[14px] border bg-muted/10 p-3">
+        {visibleItems.map((item, index) => (
+          <div
+            key={`${label}-${index}`}
+            className="flex items-center gap-2 rounded-[12px] border bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+          >
+            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#eaf1ff] text-[12px] font-bold text-[#1d62f9]">
+              {index + 1}
+            </div>
+
+            <Input
+              value={item}
+              placeholder={placeholder}
+              onChange={(e) => updateItem(index, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onChange(editableItemsToText([...visibleItems, "Nuevo ítem"]));
+                }
+              }}
+            />
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 px-0 text-muted-foreground hover:text-destructive"
+              onClick={() => removeItem(index)}
+              disabled={visibleItems.length === 1 && !item.trim()}
+              title="Quitar"
+            >
+              −
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 function createEmptyProposalForm(context?: ProposalsSearch) {
   return {
     number: generateProposalNumber(),
@@ -189,6 +370,16 @@ function generatePublicToken() {
   }
 }
 
+
+function dateAfterDays(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function isProposalExpired(validUntil: string | null | undefined) {
   if (!validUntil) return false;
   const d = new Date(validUntil);
@@ -242,6 +433,8 @@ function ProposalsPage() {
   const [validityFilter, setValidityFilter] = useState<"all" | "valid" | "expired">("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>("view");
+  const [proposalEditorTab, setProposalEditorTab] = useState("general");
+  const [demoPublicProposalUrl, setDemoPublicProposalUrl] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<Proposal | null>(null);
   const [selected, setSelected] = useState<Proposal | null>(null);
   const [form, setForm] = useState<{
@@ -528,6 +721,23 @@ function ProposalsPage() {
   }
 
   useEffect(() => {
+    const onDemoOpenProposalEditor = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean; tab?: string }>).detail;
+
+      if (detail?.open === false) {
+        setDrawerOpen(false);
+        return;
+      }
+
+      setProposalEditorTab(detail?.tab || "general");
+      openNew(openNewContext);
+    };
+
+    window.addEventListener("crm-demo-open-proposal-editor", onDemoOpenProposalEditor);
+    return () => window.removeEventListener("crm-demo-open-proposal-editor", onDemoOpenProposalEditor);
+  }, [openNew, openNewContext]);
+
+  useEffect(() => {
     if (!isAdminLike) return;
     const hasContext = Boolean(routeSearch.leadId || routeSearch.dealId || routeSearch.conversationId || routeSearch.productId);
     if (!hasContext) {
@@ -645,7 +855,7 @@ function ProposalsPage() {
         toast.success("Propuesta actualizada correctamente.");
         setSelected(null);
       } else {
-        const payload = { ...record, created_by: user.id };
+        const payload = { ...record, created_by: profile.id };
         console.log("Creating proposal payload", {
           userId: user?.id,
           profileId: profile?.id,
@@ -663,6 +873,35 @@ function ProposalsPage() {
       toast.error(err?.message ?? "No se pudo guardar la propuesta.");
     }
   };
+
+  useEffect(() => {
+    const onDemoShowPublicProposal = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+
+      if (detail?.open === false) {
+        setDemoPublicProposalUrl(null);
+        return;
+      }
+
+      const demoProposal =
+        filtered.find((p) => String(p.number || "").includes("DEMO-CRM-001")) ||
+        filtered.find((p) => String(p.title || "").toLowerCase().includes("demo")) ||
+        filtered.find((p) => Boolean((p as any).public_token));
+
+      const token = String((demoProposal as any)?.public_token || "").trim();
+
+      if (!token) {
+        setDemoPublicProposalUrl(null);
+        return;
+      }
+
+      setDemoPublicProposalUrl(`/proposal/public/${token}`);
+    };
+
+    window.addEventListener("crm-demo-show-public-proposal", onDemoShowPublicProposal);
+    return () => window.removeEventListener("crm-demo-show-public-proposal", onDemoShowPublicProposal);
+  }, [filtered]);
+
 
   if (loading) return <LoadingState />;
 
@@ -794,7 +1033,7 @@ function ProposalsPage() {
                     <TableHead className="text-right pr-4 sm:pr-5">Acciones</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                  {filtered.map((p) => (
+                  {filtered.map((p, index) => (
                       <TableRow
                         key={p.id}
                         className="cursor-pointer hover:bg-muted/40 transition-colors"
@@ -836,7 +1075,7 @@ function ProposalsPage() {
                         <TableCell className="text-muted-foreground text-sm hidden md:table-cell">{p.valid_until || "—"}</TableCell>
                         <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">{p.updated_at ? new Date(p.updated_at).toLocaleDateString() : "—"}</TableCell>
                         <TableCell className="text-right pr-4 sm:pr-5">
-                          <div className="flex justify-end gap-1.5">
+                          <div data-demo={index === 0 ? "proposal-row-actions" : undefined} className="flex justify-end gap-1.5">
                             <Button
                               variant="outline"
                               size="sm"
@@ -930,7 +1169,7 @@ function ProposalsPage() {
           }
         }}
       >
-        <SheetContent side="right" className="w-full sm:max-w-[860px] p-0 flex flex-col">
+        <SheetContent side="right" data-demo="proposal-editor" className="w-full sm:max-w-[860px] p-0 flex flex-col">
           <div className="border-b px-5 py-4">
             <SheetHeader className="space-y-1 text-left">
               <SheetTitle>
@@ -1079,285 +1318,312 @@ function ProposalsPage() {
 
               {(drawerMode === "create" || drawerMode === "edit") ? (
                 <form id="proposal-editor-form" onSubmit={handleSubmit} className="space-y-3">
-                  <Tabs defaultValue="general">
-                    <TabsList className="flex flex-wrap h-auto">
-                      <TabsTrigger value="general">Datos generales</TabsTrigger>
-                      <TabsTrigger value="summary">Resumen</TabsTrigger>
-                      <TabsTrigger value="scope">Alcance</TabsTrigger>
-                      <TabsTrigger value="process">Proceso</TabsTrigger>
-                      <TabsTrigger value="requirements">Requisitos</TabsTrigger>
-                      <TabsTrigger value="time">Tiempo</TabsTrigger>
-                      <TabsTrigger value="investment">Inversión</TabsTrigger>
-                      <TabsTrigger value="message">Mensaje</TabsTrigger>
-                      <TabsTrigger value="notes">Notas</TabsTrigger>
+                  <Tabs value={proposalEditorTab} onValueChange={setProposalEditorTab}>
+                    <TabsList data-demo="proposal-editor-tabs" className="grid h-auto w-full grid-cols-3">
+                      <TabsTrigger value="general">Datos principales</TabsTrigger>
+                      <TabsTrigger value="content">Contenido</TabsTrigger>
+                      <TabsTrigger value="advanced">Avanzado</TabsTrigger>
                     </TabsList>
 
             <TabsContent value="general" className="mt-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <Label>Número (opcional)</Label>
-                        <Input value={form.number} onChange={(e) => setForm((p) => ({ ...p, number: e.target.value }))} placeholder={generateProposalNumber()} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Estado</Label>
-                        <Select value={form.status} onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>{PROPOSAL_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label>Título</Label>
-                      <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} required />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="space-y-1.5">
-                        <Label>Prospecto / Cliente (opcional)</Label>
-                        <Select value={form.client_id || "none"} onValueChange={(v) => setForm((p) => ({ ...p, client_id: v === "none" ? null : v }))}>
-                          <SelectTrigger><SelectValue placeholder="Selecciona un destinatario" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin destinatario</SelectItem>
-                            {clientOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Producto</Label>
-                        <Select
-                          value={form.product_id || "none"}
-                          onValueChange={(v) => {
-                            const nextProductId = v === "none" ? null : v;
-                            const product = nextProductId ? productById.get(nextProductId) : null;
-                            setForm((prev) => ({ ...prev, product_id: nextProductId }));
-                            if (product) applyProductData(product);
-                          }}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Selecciona un producto" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin producto</SelectItem>
-                            {productOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Válida hasta</Label>
-                        <Input type="date" value={form.valid_until} onChange={(e) => setForm((p) => ({ ...p, valid_until: e.target.value }))} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label>Token público</Label>
-                      <div className="flex gap-2">
-                        <Input value={form.public_token} readOnly />
-                        <Button type="button" variant="outline" size="sm" className="h-9 px-2" onClick={() => copyPublicLink(form.public_token)} title="Copiar enlace público">
-                          <LinkIcon className="h-4 w-4" />
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" className="h-9 px-2" onClick={() => openPublicLink(form.public_token)} title="Ver propuesta">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        Ruta pública: <span className="font-mono">{`/proposal/public/${form.public_token || ""}`}</span>
-                      </div>
-                    </div>
-
-                    {form.product_id ? (
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => {
-                            const product = productById.get(form.product_id || "");
-                            if (!product) return;
-                            const hasAny =
-                              Boolean(form.amount.trim()) ||
-                              Boolean(form.currency.trim()) ||
-                              Boolean(form.description.trim()) ||
-                              Boolean(form.deliverablesText.trim()) ||
-                              Boolean(form.estimatedTime.trim()) ||
-                              Boolean(form.nextStep.trim()) ||
-                              Boolean(form.introductionText.trim()) ||
-                              Boolean(form.objectiveText.trim()) ||
-                              Boolean(form.featuresText.trim()) ||
-                              Boolean(form.optionalServicesText.trim()) ||
-                              Boolean(form.outOfScopeText.trim()) ||
-                              form.processSteps.length > 0 ||
-                              Boolean(form.initialStageText.trim()) ||
-                              Boolean(form.productionStageText.trim()) ||
-                              Boolean(form.revisionStageText.trim()) ||
-                              Boolean(form.finalStageText.trim()) ||
-                              Boolean(form.clientRequirementsText.trim()) ||
-                              Boolean(form.requiredMaterialsText.trim()) ||
-                              Boolean(form.requiredAccessText.trim()) ||
-                              Boolean(form.clientResponseTimeText.trim()) ||
-                              Boolean(form.revisionRoundsText.trim()) ||
-                              Boolean(form.termsText.trim()) ||
-                              Boolean(form.paymentFrequency.trim()) ||
-                              Boolean(form.investmentDetailsText.trim()) ||
-                              Boolean(form.additionalCostsText.trim()) ||
-                              Boolean(form.paymentTermsText.trim()) ||
-                              Boolean(form.content.trim());
-                            if (hasAny) {
-                              const ok = window.confirm("¿Quieres usar los datos del producto? Esto puede sobrescribir campos existentes.");
-                              if (!ok) return;
-                              applyProductData(product, { force: true });
-                              return;
-                            }
-                            applyProductData(product, { force: false });
-                          }}
-                        >
-                          <Layers className="h-4 w-4" />
-                          Usar datos del producto
-                        </Button>
-                      </div>
-                    ) : null}
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="space-y-1.5 col-span-2">
-                        <Label>Monto</Label>
-                        <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Moneda</Label>
-                        <Input value={form.currency} onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))} />
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="summary" className="mt-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Introducción / resumen ejecutivo</Label>
-                      <Textarea value={form.introductionText} onChange={(e) => setForm((p) => ({ ...p, introductionText: e.target.value }))} rows={4} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Objetivo principal</Label>
-                      <Textarea value={form.objectiveText} onChange={(e) => setForm((p) => ({ ...p, objectiveText: e.target.value }))} rows={3} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Descripción del servicio</Label>
-                      <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={4} />
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="scope" className="mt-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Entregables incluidos</Label>
-                      <Textarea value={form.deliverablesText} onChange={(e) => setForm((p) => ({ ...p, deliverablesText: e.target.value }))} rows={4} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Características / funcionalidades</Label>
-                      <Textarea value={form.featuresText} onChange={(e) => setForm((p) => ({ ...p, featuresText: e.target.value }))} rows={4} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Servicios adicionales opcionales</Label>
-                      <Textarea value={form.optionalServicesText} onChange={(e) => setForm((p) => ({ ...p, optionalServicesText: e.target.value }))} rows={4} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Fuera de alcance / no incluido</Label>
-                      <Textarea value={form.outOfScopeText} onChange={(e) => setForm((p) => ({ ...p, outOfScopeText: e.target.value }))} rows={4} />
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="process" className="mt-4 space-y-4">
-                    {form.processSteps.length > 0 ? (
-                      <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-                        <div className="text-xs font-medium text-muted-foreground">
-                          Pasos del workflow del producto (copiados en la propuesta)
+                    <div data-demo="proposal-main-fields" className="rounded-[16px] border bg-white p-4 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Título</Label>
+                          <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} required />
                         </div>
-                        <div className="space-y-2">
-                          {form.processSteps.map((step, index) => (
-                            <div key={`${step.order}-${index}`} className="rounded border bg-background p-2">
-                              <div className="text-sm font-medium">
-                                {step.order || index + 1}. {step.title || `Paso ${index + 1}`}
-                              </div>
-                              {step.description ? (
-                                <div className="mt-1 text-xs text-muted-foreground">{step.description}</div>
-                              ) : null}
-                            </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Estado</Label>
+                          <Select value={form.status} onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>{PROPOSAL_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Prospecto / Cliente</Label>
+                          <Select value={form.client_id || "none"} onValueChange={(v) => setForm((p) => ({ ...p, client_id: v === "none" ? null : v }))}>
+                            <SelectTrigger><SelectValue placeholder="Selecciona un destinatario" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sin destinatario</SelectItem>
+                              {clientOptions.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div data-demo="proposal-product-selector" className="space-y-1.5">
+                          <Label>Producto</Label>
+                          <Select
+                            value={form.product_id || "none"}
+                            onValueChange={(v) => {
+                              const nextProductId = v === "none" ? null : v;
+                              const product = nextProductId ? productById.get(nextProductId) : null;
+                              setForm((prev) => ({ ...prev, product_id: nextProductId }));
+                              if (product) applyProductData(product);
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Selecciona un producto" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sin producto</SelectItem>
+                              {productOptions.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {form.product_id ? (
+                        <div className="flex justify-end">
+                          <Button
+                            data-demo="proposal-use-product-data"
+                            type="button"
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => {
+                              const product = productById.get(form.product_id || "");
+                              if (!product) return;
+                              const hasAny =
+                                Boolean(form.amount.trim()) ||
+                                Boolean(form.currency.trim()) ||
+                                Boolean(form.description.trim()) ||
+                                Boolean(form.deliverablesText.trim()) ||
+                                Boolean(form.estimatedTime.trim()) ||
+                                Boolean(form.nextStep.trim()) ||
+                                Boolean(form.introductionText.trim()) ||
+                                Boolean(form.objectiveText.trim()) ||
+                                Boolean(form.featuresText.trim()) ||
+                                Boolean(form.paymentFrequency.trim()) ||
+                                Boolean(form.paymentTermsText.trim()) ||
+                                Boolean(form.content.trim());
+                              if (hasAny) {
+                                const ok = window.confirm("¿Quieres usar los datos del producto? Esto puede sobrescribir campos existentes.");
+                                if (!ok) return;
+                                applyProductData(product, { force: true });
+                                return;
+                              }
+                              applyProductData(product, { force: false });
+                            }}
+                          >
+                            <Layers className="h-4 w-4" />
+                            Usar datos del producto
+                          </Button>
+                        </div>
+                      ) : null}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Monto</Label>
+                          <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Moneda</Label>
+                          <Select value={form.currency || "USD"} onValueChange={(v) => setForm((p) => ({ ...p, currency: v }))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USD">USD</SelectItem>
+                              <SelectItem value="DOP">DOP</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Válida hasta</Label>
+                          <Input type="date" value={form.valid_until} onChange={(e) => setForm((p) => ({ ...p, valid_until: e.target.value }))} />
+                        </div>
+                      </div>
+
+                      <div data-demo="proposal-validity" className="space-y-2">
+                        <Label>Validez rápida</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {[7, 15, 30].map((days) => (
+                            <Button
+                              key={days}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setForm((p) => ({ ...p, valid_until: dateAfterDays(days) }))}
+                            >
+                              {days} días
+                            </Button>
                           ))}
+                          <Button type="button" variant="outline" size="sm" onClick={() => setForm((p) => ({ ...p, valid_until: "" }))}>
+                            Personalizado
+                          </Button>
                         </div>
                       </div>
-                    ) : null}
-                    <div className="text-xs text-muted-foreground">
-                      El proceso se toma automáticamente del workflow activo del producto.
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="requirements" className="mt-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Información que debe entregar el cliente</Label>
-                      <Textarea value={form.clientRequirementsText} onChange={(e) => setForm((p) => ({ ...p, clientRequirementsText: e.target.value }))} rows={3} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Materiales necesarios</Label>
-                      <Textarea value={form.requiredMaterialsText} onChange={(e) => setForm((p) => ({ ...p, requiredMaterialsText: e.target.value }))} rows={3} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Accesos requeridos</Label>
-                      <Textarea value={form.requiredAccessText} onChange={(e) => setForm((p) => ({ ...p, requiredAccessText: e.target.value }))} rows={3} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Tiempo de respuesta esperado</Label>
-                      <Textarea value={form.clientResponseTimeText} onChange={(e) => setForm((p) => ({ ...p, clientResponseTimeText: e.target.value }))} rows={2} />
+                  <TabsContent value="content" data-demo="proposal-content-section" className="mt-4 space-y-4">
+                    <div className="rounded-[16px] border bg-white p-4 space-y-4">
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Resumen ejecutivo</Label>
+                          <Textarea value={form.introductionText} onChange={(e) => setForm((p) => ({ ...p, introductionText: e.target.value }))} rows={3} />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Objetivo principal</Label>
+                          <Textarea value={form.objectiveText} onChange={(e) => setForm((p) => ({ ...p, objectiveText: e.target.value }))} rows={2} />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Descripción del servicio</Label>
+                          <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
+                        </div>
+
+                        <EditableListField
+                          label="Entregables incluidos"
+                          value={form.deliverablesText}
+                          onChange={(value) => setForm((p) => ({ ...p, deliverablesText: value }))}
+                          placeholder="Ej: Configuración de CRM"
+                          addLabel="Agregar entregable"
+                        />
+
+                        <EditableListField
+                          label="Características / funcionalidades"
+                          value={form.featuresText}
+                          onChange={(value) => setForm((p) => ({ ...p, featuresText: value }))}
+                          placeholder="Ej: Automatización de seguimiento"
+                          addLabel="Agregar funcionalidad"
+                        />
+
+                        <div className="space-y-1.5">
+                          <Label>Requisitos del cliente</Label>
+                          <Textarea value={form.clientRequirementsText} onChange={(e) => setForm((p) => ({ ...p, clientRequirementsText: e.target.value }))} rows={3} />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label>Tiempo estimado</Label>
+                            <Select value={form.estimatedTime || "custom"} onValueChange={(v) => setForm((p) => ({ ...p, estimatedTime: v === "custom" ? "" : v }))}>
+                              <SelectTrigger><SelectValue placeholder="Selecciona tiempo" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="3 días">3 días</SelectItem>
+                                <SelectItem value="7 días">7 días</SelectItem>
+                                <SelectItem value="15 días">15 días</SelectItem>
+                                <SelectItem value="30 días">30 días</SelectItem>
+                                <SelectItem value="Plan mensual">Plan mensual</SelectItem>
+                                <SelectItem value="custom">Personalizado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {!["3 días", "7 días", "15 días", "30 días", "Plan mensual"].includes(form.estimatedTime) ? (
+                              <Input className="mt-2" value={form.estimatedTime} onChange={(e) => setForm((p) => ({ ...p, estimatedTime: e.target.value }))} placeholder="Ej: 45 días / A coordinar" />
+                            ) : null}
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label>Frecuencia de pago</Label>
+                            <Select value={form.paymentFrequency || "custom"} onValueChange={(v) => setForm((p) => ({ ...p, paymentFrequency: v === "custom" ? "" : v }))}>
+                              <SelectTrigger><SelectValue placeholder="Selecciona pago" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Pago único">Pago único</SelectItem>
+                                <SelectItem value="Inicial + final">Inicial + final</SelectItem>
+                                <SelectItem value="Mensual">Mensual</SelectItem>
+                                <SelectItem value="Por fases">Por fases</SelectItem>
+                                <SelectItem value="custom">Personalizado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {!["Pago único", "Inicial + final", "Mensual", "Por fases"].includes(form.paymentFrequency) ? (
+                              <Input className="mt-2" value={form.paymentFrequency} onChange={(e) => setForm((p) => ({ ...p, paymentFrequency: e.target.value }))} placeholder="Ej: 50% inicial / 50% final" />
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Mensaje adicional para el cliente</Label>
+                          <Textarea value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} rows={3} placeholder="Notas para el cliente, detalles extra, aclaraciones…" />
+                        </div>
+                      </div>
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="time" className="mt-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Tiempo estimado</Label>
-                      <Input value={form.estimatedTime} onChange={(e) => setForm((p) => ({ ...p, estimatedTime: e.target.value }))} placeholder="Ej: 30 días / Plan mensual / A coordinar" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Rondas de cambios incluidas</Label>
-                      <Input value={form.revisionRoundsText} onChange={(e) => setForm((p) => ({ ...p, revisionRoundsText: e.target.value }))} placeholder="Ej: 2 rondas" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Condiciones importantes</Label>
-                      <Textarea value={form.termsText} onChange={(e) => setForm((p) => ({ ...p, termsText: e.target.value }))} rows={4} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Próximo paso</Label>
-                      <Textarea value={form.nextStep} onChange={(e) => setForm((p) => ({ ...p, nextStep: e.target.value }))} rows={2} />
-                    </div>
-                  </TabsContent>
+                  <TabsContent value="advanced" data-demo="proposal-advanced-section" className="mt-4 space-y-4">
+                    <div className="rounded-[16px] border bg-white p-4 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Número interno</Label>
+                          <Input value={form.number} onChange={(e) => setForm((p) => ({ ...p, number: e.target.value }))} placeholder={generateProposalNumber()} />
+                        </div>
 
-                  <TabsContent value="investment" className="mt-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Frecuencia de pago</Label>
-                      <Input value={form.paymentFrequency} onChange={(e) => setForm((p) => ({ ...p, paymentFrequency: e.target.value }))} placeholder="Ej: mensual / one-time" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Detalle de inversión</Label>
-                      <Textarea value={form.investmentDetailsText} onChange={(e) => setForm((p) => ({ ...p, investmentDetailsText: e.target.value }))} rows={4} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Costos adicionales</Label>
-                      <Textarea value={form.additionalCostsText} onChange={(e) => setForm((p) => ({ ...p, additionalCostsText: e.target.value }))} rows={3} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Forma de pago / condiciones de pago</Label>
-                      <Textarea value={form.paymentTermsText} onChange={(e) => setForm((p) => ({ ...p, paymentTermsText: e.target.value }))} rows={3} />
-                    </div>
-                  </TabsContent>
+                        <div className="space-y-1.5">
+                          <Label>Rondas de cambios</Label>
+                          <Input value={form.revisionRoundsText} onChange={(e) => setForm((p) => ({ ...p, revisionRoundsText: e.target.value }))} placeholder="Ej: 2 rondas" />
+                        </div>
+                      </div>
 
-                  <TabsContent value="message" className="mt-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Mensaje adicional (opcional)</Label>
-                      <Textarea value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} rows={5} placeholder="Notas para el cliente, detalles extra, aclaraciones…" />
-                    </div>
-                  </TabsContent>
+                      <div className="space-y-1.5">
+                        <Label>Token público</Label>
+                        <div className="flex gap-2">
+                          <Input value={form.public_token} readOnly />
+                          <Button type="button" variant="outline" size="sm" className="h-9 px-2" onClick={() => copyPublicLink(form.public_token)} title="Copiar enlace público">
+                            <LinkIcon className="h-4 w-4" />
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="h-9 px-2" onClick={() => openPublicLink(form.public_token)} title="Ver propuesta">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          Ruta pública: <span className="font-mono">{`/proposal/public/${form.public_token || ""}`}</span>
+                        </div>
+                      </div>
 
-                  <TabsContent value="notes" className="mt-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label>Notas internas</Label>
-                      <Textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} rows={4} />
+                      <div className="space-y-1.5">
+                        <Label>Proceso manual / notas de proceso</Label>
+                        <Textarea value={form.processText} onChange={(e) => setForm((p) => ({ ...p, processText: e.target.value }))} rows={3} />
+                      </div>
+
+                      {form.processSteps.length > 0 ? (
+                        <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                          <div className="text-xs font-medium text-muted-foreground">
+                            Pasos del workflow del producto
+                          </div>
+                          <div className="space-y-2">
+                            {form.processSteps.map((step, index) => (
+                              <div key={`${step.order}-${index}`} className="rounded border bg-background p-2">
+                                <div className="text-sm font-medium">
+                                  {step.order || index + 1}. {step.title || `Paso ${index + 1}`}
+                                </div>
+                                {step.description ? (
+                                  <div className="mt-1 text-xs text-muted-foreground">{step.description}</div>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="space-y-1.5">
+                        <Label>Servicios adicionales opcionales</Label>
+                        <Textarea value={form.optionalServicesText} onChange={(e) => setForm((p) => ({ ...p, optionalServicesText: e.target.value }))} rows={3} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Fuera de alcance / no incluido</Label>
+                        <Textarea value={form.outOfScopeText} onChange={(e) => setForm((p) => ({ ...p, outOfScopeText: e.target.value }))} rows={3} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Condiciones importantes</Label>
+                        <Textarea value={form.termsText} onChange={(e) => setForm((p) => ({ ...p, termsText: e.target.value }))} rows={3} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Forma de pago / condiciones de pago</Label>
+                        <Textarea value={form.paymentTermsText} onChange={(e) => setForm((p) => ({ ...p, paymentTermsText: e.target.value }))} rows={3} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Notas internas</Label>
+                        <Textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} rows={3} />
+                      </div>
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -1386,6 +1652,26 @@ function ProposalsPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+      {demoPublicProposalUrl ? (
+        <div
+          data-demo="proposal-public-preview"
+          className="fixed left-1/2 top-1/2 z-[1050] hidden h-[86vh] w-[430px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[24px] border bg-white shadow-[0_30px_90px_rgba(2,6,23,0.45)] xl:block"
+        >
+          <div className="flex h-12 items-center justify-between border-b bg-white px-4">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold">Vista pública de la propuesta</div>
+              <div className="truncate text-[11px] text-muted-foreground">{demoPublicProposalUrl}</div>
+            </div>
+
+          </div>
+          <iframe
+            title="Vista pública de propuesta demo"
+            src={demoPublicProposalUrl}
+            className="h-[calc(100%-48px)] w-full border-0 bg-white"
+          />
+        </div>
+      ) : null}
+
     </div>
   );
 }

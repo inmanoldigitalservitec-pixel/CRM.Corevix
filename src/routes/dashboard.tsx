@@ -39,23 +39,33 @@ type LeadRow = {
   source: string;
   created_at: string;
   updated_at: string;
+  last_interaction_at?: string | null;
   next_follow_up?: string | null;
 };
 
 type DealRow = {
   id: string;
+  name?: string | null;
   stage: string;
   value: number | string | null;
+  expected_close?: string | null;
+  updated_at?: string;
 };
 
 type TaskRow = {
   id: string;
+  title?: string | null;
   status: string;
+  priority?: string | null;
   due_date: string | null;
+  related_lead_id?: string | null;
+  related_client_id?: string | null;
+  related_project_id?: string | null;
 };
 
 type ProjectRow = {
   id: string;
+  name?: string | null;
   status: string;
   due_date: string | null;
 };
@@ -66,6 +76,7 @@ type InvoiceRow = {
   total: number | string | null;
   due_date?: string | null;
   number?: string | null;
+  client_id?: string | null;
 };
 
 type ProposalRow = {
@@ -74,6 +85,15 @@ type ProposalRow = {
   valid_until?: string | null;
   title?: string | null;
   number?: string | null;
+  amount?: number | string | null;
+  client_id?: string | null;
+  updated_at?: string;
+};
+
+type ClientSummaryRow = {
+  id: string;
+  company_name: string | null;
+  contact_person: string | null;
 };
 
 type WhatsAppConversationRow = {
@@ -170,7 +190,66 @@ function isClosedLeadStatus(status: string) {
 
 function isClosedDealStage(stage: string) {
   const s = String(stage || "").toLowerCase();
-  return s === "won" || s === "lost";
+  return isWonDealStage(stage) || isLostDealStage(stage);
+}
+
+function isWonDealStage(stage: string) {
+  const s = String(stage || "").trim().toLowerCase();
+  return s === "won" || s === "closed won" || s.includes("closed won") || s.includes("ganad") || s.includes("win");
+}
+
+function isLostDealStage(stage: string) {
+  const s = String(stage || "").trim().toLowerCase();
+  return s === "lost" || s === "closed lost" || s.includes("closed lost") || s.includes("perdid") || s.includes("lost");
+}
+
+function isCompletedTaskStatus(status: string) {
+  const s = String(status || "").trim().toLowerCase();
+  return s === "completed" || s === "done" || s === "cancelled";
+}
+
+function daysSince(iso?: string | null) {
+  const t = Date.parse(String(iso || ""));
+  if (!Number.isFinite(t)) return Infinity;
+  return (Date.now() - t) / 86400000;
+}
+
+function leadLabel(lead: Pick<LeadRow, "first_name" | "last_name" | "company_name">) {
+  return lead.company_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "Lead sin nombre";
+}
+
+function clientLabel(client?: ClientSummaryRow | null) {
+  if (!client) return "Cliente sin nombre";
+  return client.company_name || client.contact_person || "Cliente sin nombre";
+}
+
+function formatShortDate(value?: string | null) {
+  if (!value) return "Sin fecha";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
+}
+
+function buildRelationLabel(args: {
+  task: TaskRow;
+  leadById: Map<string, LeadRow>;
+  clientById: Map<string, ClientSummaryRow>;
+  projectById: Map<string, ProjectRow>;
+}) {
+  const { task, leadById, clientById, projectById } = args;
+  if (task.related_project_id) {
+    const project = projectById.get(String(task.related_project_id));
+    if (project?.name) return `Proyecto: ${project.name}`;
+  }
+  if (task.related_client_id) {
+    const client = clientById.get(String(task.related_client_id));
+    if (client) return `Cliente: ${clientLabel(client)}`;
+  }
+  if (task.related_lead_id) {
+    const lead = leadById.get(String(task.related_lead_id));
+    if (lead) return `Lead: ${leadLabel(lead)}`;
+  }
+  return "Sin relación";
 }
 
 function hoursSince(iso: string) {
@@ -221,6 +300,7 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [clientSummaries, setClientSummaries] = useState<ClientSummaryRow[]>([]);
   const [clientsCount, setClientsCount] = useState(0);
   const [deals, setDeals] = useState<DealRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
@@ -240,14 +320,88 @@ function DashboardPage() {
     const db = supabase as any;
 
     const load = async () => {
+      const loadLeads = async () => {
+        const base = "id,first_name,last_name,company_name,status,source,created_at,updated_at,next_follow_up";
+        const withInteraction = `${base},last_interaction_at`;
+        const res = await db
+          .from("leads")
+          .select(withInteraction)
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(120);
+        if (!res.error) return res;
+        const msg = String(res.error.message || "").toLowerCase();
+        if (!msg.includes("last_interaction_at")) return res;
+        return db
+          .from("leads")
+          .select(base)
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(120);
+      };
+
+      const loadTasks = async () => {
+        const richSelect = "id,title,status,priority,due_date,related_lead_id,related_client_id,related_project_id";
+        const res = await db.from("tasks").select(richSelect).eq("company_id", cid).order("due_date", { ascending: true }).limit(120);
+        if (!res.error) return res;
+        return db.from("tasks").select("id,title,status,priority,due_date").eq("company_id", cid).order("due_date", { ascending: true }).limit(120);
+      };
+
+      const loadDeals = async () =>
+        db
+          .from("deals")
+          .select("id,name,stage,value,expected_close,updated_at")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(120);
+
+      const loadProjects = async () =>
+        db
+          .from("projects")
+          .select("id,name,status,due_date")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(100);
+
+      const loadInvoices = async () =>
+        db
+          .from("invoices")
+          .select("id,status,total,due_date,number,client_id")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(80);
+
+      const loadProposals = async () => {
+        const richSelect = "id,status,valid_until,title,number,amount,client_id,updated_at";
+        const res = await db
+          .from("proposals")
+          .select(richSelect)
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(80);
+        if (!res.error) return res;
+        return db
+          .from("proposals")
+          .select("id,status,valid_until,title,number,updated_at")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(80);
+      };
+
       const results = await Promise.allSettled([
-        db.from("leads").select("*").eq("company_id", cid).order("updated_at", { ascending: false }).limit(300),
+        loadLeads(),
+        db
+          .from("clients")
+          .select("id,company_name,contact_person")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(250),
         db.from("clients").select("id", { count: "exact" }).eq("company_id", cid),
-        db.from("deals").select("id, stage, value").eq("company_id", cid),
-        db.from("tasks").select("id, status, due_date").eq("company_id", cid),
-        db.from("projects").select("id, status, due_date").eq("company_id", cid),
-        db.from("invoices").select("id, status, total, due_date, number").eq("company_id", cid),
-        db.from("proposals").select("id, status, valid_until, title, number").eq("company_id", cid),
+        loadDeals(),
+        loadTasks(),
+        loadProjects(),
+        loadInvoices(),
+        loadProposals(),
         db
           .from("whatsapp_conversations")
           .select("id, status, last_message_body, last_message_at, unread_count, whatsapp_contacts(id, name, phone)")
@@ -281,19 +435,20 @@ function DashboardPage() {
       };
 
       const hadErrors = results.some((r) => r.status === "rejected") || results.some((r) => r.status === "fulfilled" && r.value?.error);
-      if (hadErrors) setError("No se pudieron cargar algunas métricas.");
+      if (hadErrors) setError("Algunas tarjetas no pudieron cargarse. El resto del dashboard sigue disponible.");
 
       setLeads(getData<LeadRow>(0));
-      setClientsCount(getCount(1));
-      setDeals(getData<DealRow>(2));
-      setTasks(getData<TaskRow>(3));
-      setProjects(getData<ProjectRow>(4));
-      setInvoices(getData<InvoiceRow>(5));
-      setProposals(getData<ProposalRow>(6));
-      setWaConversations(getData<WhatsAppConversationRow>(7));
-      setEmailConversations(getData<EmailConversationRow>(8));
+      setClientSummaries(getData<ClientSummaryRow>(1));
+      setClientsCount(getCount(2));
+      setDeals(getData<DealRow>(3));
+      setTasks(getData<TaskRow>(4));
+      setProjects(getData<ProjectRow>(5));
+      setInvoices(getData<InvoiceRow>(6));
+      setProposals(getData<ProposalRow>(7));
+      setWaConversations(getData<WhatsAppConversationRow>(8));
+      setEmailConversations(getData<EmailConversationRow>(9));
 
-      const actRows = getData<ActivityLogRow>(9);
+      const actRows = getData<ActivityLogRow>(10);
       setActivities(
         actRows.map((a) => ({
           id: a.id,
@@ -312,28 +467,36 @@ function DashboardPage() {
   if (loading) return <div className="p-6"><LoadingMetrics count={12} /></div>;
 
   const today = localTodayKey();
+  const leadById = new Map(leads.map((lead) => [String(lead.id), lead]));
+  const clientById = new Map(clientSummaries.map((client) => [String(client.id), client]));
+  const projectById = new Map(projects.map((project) => [String(project.id), project]));
 
   const openDeals = deals.filter((d) => !isClosedDealStage(d.stage));
   const pipelineValue = openDeals.reduce((s, d) => s + toNumber(d.value), 0);
 
   const overdueTasks = tasks.filter((t) => {
-    if (t.status === "Completed" || t.status === "Cancelled") return false;
+    if (isCompletedTaskStatus(t.status)) return false;
     const dueKey = toDateKey(t.due_date);
     if (!dueKey) return false;
     return dueKey < today;
   });
   const tasksDueTodayCount = tasks.filter((t) => {
-    if (t.status === "Completed" || t.status === "Cancelled") return false;
+    if (isCompletedTaskStatus(t.status)) return false;
     const dueKey = toDateKey(t.due_date);
     return dueKey === today;
   }).length;
 
-  const pendingProposals = proposals.filter((p) => ["Sent", "Viewed"].includes(p.status));
+  const pendingProposalStates = new Set(["draft", "pending", "sent", "viewed"]);
+  const pendingProposals = proposals.filter((p) => pendingProposalStates.has(String(p.status || "").toLowerCase()));
   const approvedProposalsNoPaymentCount = proposals.filter((p) => ["Accepted", "Approved"].includes(p.status)).length;
 
-  const invoicesPending = invoices.filter((i) => ["Sent", "Overdue"].includes(i.status));
-  const invoicesOverdue = invoices.filter((i) => i.status === "Overdue");
-  const invoicesSent = invoices.filter((i) => i.status === "Sent");
+  const invoicesPending = invoices.filter((i) => !["paid", "cancelled", "void"].includes(String(i.status || "").toLowerCase()));
+  const invoicesOverdue = invoices.filter((i) => {
+    const dueKey = toDateKey(i.due_date);
+    if (!dueKey) return String(i.status || "").toLowerCase() === "overdue";
+    return String(i.status || "").toLowerCase() !== "paid" && dueKey < today;
+  });
+  const invoicesSent = invoices.filter((i) => String(i.status || "").toLowerCase() === "sent");
   const paidRevenue = invoices.filter((i) => i.status === "Paid").reduce((s, i) => s + toNumber(i.total), 0);
   const receivableTotal = invoicesPending.reduce((s, i) => s + toNumber(i.total), 0);
 
@@ -365,13 +528,58 @@ function DashboardPage() {
 
   const leadsActiveCount = leads.filter((l) => !isClosedLeadStatus(l.status)).length;
   const newLeadsToday = leads.filter((l) => dateKeyFromISO(l.created_at) === today).length;
+  const openTaskLeadIds = new Set(
+    tasks
+      .filter((task) => !isCompletedTaskStatus(task.status) && task.related_lead_id)
+      .map((task) => String(task.related_lead_id)),
+  );
+
+  const leadAttentionItems = leads
+    .filter((lead) => !isClosedLeadStatus(lead.status))
+    .map((lead) => {
+      const reasons: string[] = [];
+      if (!openTaskLeadIds.has(String(lead.id))) reasons.push("Sin próxima tarea");
+      if (lead.last_interaction_at && hoursSince(lead.last_interaction_at) > 72) reasons.push("Sin interacción reciente");
+      if (String(lead.status || "").toLowerCase() === "new" && daysSince(lead.created_at) >= 2) reasons.push("Sigue en New");
+      return { lead, reasons };
+    })
+    .filter((item) => item.reasons.length > 0)
+    .sort((a, b) => b.reasons.length - a.reasons.length || String(a.lead.updated_at).localeCompare(String(b.lead.updated_at)))
+    .slice(0, 8);
 
   const upcomingTasksCount = tasks.filter((t) => {
-    if (t.status === "Completed" || t.status === "Cancelled") return false;
+    if (isCompletedTaskStatus(t.status)) return false;
     const dueKey = toDateKey(t.due_date);
     if (!dueKey) return false;
     return isDateKeyInNextDays(dueKey, 7);
   }).length;
+  const overdueTaskItems = overdueTasks
+    .map((task) => ({
+      ...task,
+      relation: buildRelationLabel({ task, leadById, clientById, projectById }),
+    }))
+    .sort((a, b) => String(a.due_date || "").localeCompare(String(b.due_date || "")))
+    .slice(0, 8);
+  const staleDealItems = deals
+    .filter((deal) => !isClosedDealStage(deal.stage) && daysSince(deal.updated_at) >= 7)
+    .sort((a, b) => daysSince(b.updated_at) - daysSince(a.updated_at))
+    .slice(0, 8);
+  const pendingProposalItems = pendingProposals
+    .map((proposal) => ({
+      ...proposal,
+      clientName: proposal.client_id ? clientLabel(clientById.get(String(proposal.client_id))) : null,
+    }))
+    .slice(0, 8);
+  const pendingInvoiceItems = invoicesPending
+    .map((invoice) => ({
+      ...invoice,
+      isOverdue:
+        String(invoice.status || "").toLowerCase() === "overdue" ||
+        (!!toDateKey(invoice.due_date) && String(invoice.status || "").toLowerCase() !== "paid" && String(toDateKey(invoice.due_date)) < today),
+      clientName: invoice.client_id ? clientLabel(clientById.get(String(invoice.client_id))) : null,
+    }))
+    .sort((a, b) => Number(b.isOverdue) - Number(a.isOverdue) || String(a.due_date || "").localeCompare(String(b.due_date || "")))
+    .slice(0, 8);
 
   const priorities: PriorityItem[] = [];
   if (leadsNeedingFollowUp.length > 0) {
@@ -507,13 +715,119 @@ function DashboardPage() {
       .map((c) => ({ id: `em:${c.id}`, name: "Email", channel: "Email", preview: c.subject || "Sin asunto.", to: "/email" })),
   ].slice(0, 3);
 
+  const attentionCards = [
+    {
+      key: "leads",
+      title: "Leads que necesitan seguimiento",
+      icon: Users,
+      to: "/leads",
+      empty: "No hay leads urgentes por revisar.",
+      items: leadAttentionItems,
+      render: (item: (typeof leadAttentionItems)[number]) => (
+        <>
+          <div className="text-[13px] font-semibold truncate">{leadLabel(item.lead)}</div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.reasons.join(" · ")}</div>
+        </>
+      ),
+    },
+    {
+      key: "tasks",
+      title: "Tareas atrasadas",
+      icon: AlertTriangle,
+      to: "/tasks",
+      empty: "No hay tareas vencidas ahora mismo.",
+      items: overdueTaskItems,
+      render: (item: (typeof overdueTaskItems)[number]) => (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[13px] font-semibold truncate">{item.title || "Tarea sin título"}</div>
+            <span className="shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#fff1f3] text-[#e11d48]">
+              {item.priority || "Media"}
+            </span>
+          </div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.relation}</div>
+          <div className="mt-1 text-[12px] font-semibold text-[#e11d48]">Vence: {formatShortDate(item.due_date)}</div>
+        </>
+      ),
+    },
+    {
+      key: "deals",
+      title: "Deals estancados",
+      icon: GitBranch,
+      to: "/pipeline",
+      empty: "No hay oportunidades estancadas por ahora.",
+      items: staleDealItems,
+      render: (item: (typeof staleDealItems)[number]) => (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[13px] font-semibold truncate">{item.name || "Oportunidad sin nombre"}</div>
+            <span className="text-[12px] font-extrabold text-[#1d62f9]">{formatMoney(toNumber(item.value))}</span>
+          </div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">Etapa: {item.stage}</div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">
+            Cierre: {item.expected_close ? formatShortDate(item.expected_close) : "Sin fecha"} · {Math.floor(daysSince(item.updated_at))}d sin cambios
+          </div>
+        </>
+      ),
+    },
+    {
+      key: "proposals",
+      title: "Propuestas pendientes",
+      icon: FileText,
+      to: "/proposals",
+      empty: "No hay propuestas pendientes de respuesta.",
+      items: pendingProposalItems,
+      render: (item: (typeof pendingProposalItems)[number]) => (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[13px] font-semibold truncate">{item.title || item.number || "Propuesta sin título"}</div>
+            <span className="shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#f4efff] text-[#7c3aed]">
+              {item.status || "Pendiente"}
+            </span>
+          </div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.clientName || "Sin cliente vinculado"}</div>
+          <div className="mt-1 text-[12px] font-semibold text-[#475467]">
+            {item.amount != null ? formatMoney(toNumber(item.amount)) : "Monto no disponible"}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: "invoices",
+      title: "Facturas pendientes o vencidas",
+      icon: Receipt,
+      to: "/invoices",
+      empty: "No hay facturas pendientes por cobrar.",
+      items: pendingInvoiceItems,
+      render: (item: (typeof pendingInvoiceItems)[number]) => (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[13px] font-semibold truncate">{item.number ? `Factura ${item.number}` : "Factura pendiente"}</div>
+            <span
+              className={
+                "shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold " +
+                (item.isOverdue ? "bg-[#fff1f3] text-[#e11d48]" : "bg-[#fff7e6] text-[#d97706]")
+              }
+            >
+              {item.status || (item.isOverdue ? "Overdue" : "Pending")}
+            </span>
+          </div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.clientName || "Sin cliente vinculado"}</div>
+          <div className="mt-1 text-[12px] font-semibold text-[#475467]">
+            {formatMoney(toNumber(item.total))} · {item.due_date ? `Vence ${formatShortDate(item.due_date)}` : "Sin vencimiento"}
+          </div>
+        </>
+      ),
+    },
+  ];
+
   return (
     <div className="bg-[#f6f8fb] text-[#111827] p-4 sm:p-6 space-y-5">
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-extrabold tracking-[-0.04em]">{t("nav.dashboard")}</h1>
           <p className="mt-1 text-[13px] font-medium text-[#667085]">
-            Bienvenido, <strong className="text-[#111827]">{profile?.full_name || "—"}</strong>. Estas son tus prioridades de hoy.
+            Bienvenido, <strong className="text-[#111827]">{profile?.full_name || "—"}</strong>. Este es tu resumen comercial y operativo de hoy.
           </p>
           <p className="mt-2 text-[13px] font-semibold text-[#475467]">
             Hoy tienes <strong className="text-[#111827]">{newLeadsToday}</strong> leads nuevos,{" "}
@@ -548,15 +862,15 @@ function DashboardPage() {
               to={"/tasks" as any}
               className="inline-flex h-10 items-center justify-center rounded-[14px] bg-[#111827] px-4 text-[13px] font-extrabold text-white shadow-[0_14px_24px_rgba(17,24,39,0.22)] hover:opacity-95"
             >
-              Ver todas las prioridades
+              Abrir seguimiento
             </Link>
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {prioritiesSorted.length === 0 ? (
               <div className="xl:col-span-5 rounded-[18px] border border-[#e6eaf0] bg-[#f9fafc] p-6 text-center">
-                <div className="text-[15px] font-extrabold tracking-[-0.02em]">Todo está bajo control por ahora.</div>
-                <div className="mt-1 text-[13px] font-medium text-[#667085]">Sigue avanzando y vuelve a revisar más tarde.</div>
+                <div className="text-[15px] font-extrabold tracking-[-0.02em]">No hay alertas críticas en este momento.</div>
+                <div className="mt-1 text-[13px] font-medium text-[#667085]">Puedes seguir trabajando con normalidad y volver más tarde para revisar cambios.</div>
               </div>
             ) : (
               prioritiesSorted.slice(0, 5).map((p) => {
@@ -617,6 +931,44 @@ function DashboardPage() {
             size="default"
           />
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {attentionCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <DataCard key={card.key} noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-[30px] w-[30px] rounded-[11px] grid place-items-center bg-[#eaf1ff] text-[#1d62f9]">
+                      <Icon className="h-[18px] w-[18px]" />
+                    </div>
+                    <div>
+                      <h3 className="text-[18px] font-semibold tracking-[-0.035em]">{card.title}</h3>
+                      <p className="mt-0.5 text-[13px] font-medium text-[#667085]">Lista corta para actuar rápido sin salir del dashboard.</p>
+                    </div>
+                  </div>
+                  <Link to={card.to as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                    Abrir módulo
+                  </Link>
+                </div>
+
+                <div className="mt-4 rounded-[16px] border border-[#e6eaf0] bg-white overflow-hidden">
+                  {card.items.length === 0 ? (
+                    <div className="px-4 py-4 text-[13px] font-medium text-[#667085]">{card.empty}</div>
+                  ) : (
+                    card.items.map((item: any, index: number) => (
+                      <div key={`${card.key}:${item.id || index}`} className="px-4 py-3 border-t first:border-t-0 border-[#eef2f6]">
+                        {card.render(item)}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </DataCard>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
