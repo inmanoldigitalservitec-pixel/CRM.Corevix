@@ -1354,7 +1354,7 @@ export function WhatsappContactPanel({
   const showDetectedToggle = detectedSummary.length > 260;
 
   return (
-    <aside className={cn("h-full min-h-0 min-w-0 overflow-y-auto bg-[#f0f2f5] px-3.5 py-3.5", className)}>
+    <aside data-demo="whatsapp-crm-panel" className={cn("h-full min-h-0 min-w-0 overflow-y-auto bg-[#f0f2f5] px-3.5 py-3.5", className)}>
       <div className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
         <div className="flex items-start gap-3 min-w-0">
           <WhatsappAvatar name={name} size={42} />
@@ -1381,7 +1381,7 @@ export function WhatsappContactPanel({
 
       <div className="mt-3 space-y-3">
         {serviceWindowClosed ? (
-          <div className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <div data-demo="whatsapp-utility-actions" className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
             <div className="w-full space-y-2">
               <div className="space-y-1">
                 <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-700">
@@ -1430,7 +1430,7 @@ export function WhatsappContactPanel({
           </div>
         ) : null}
 
-        <CrmDetailSection title="Acciones rápidas">
+        <div data-demo="whatsapp-quick-actions"><CrmDetailSection title="Acciones rápidas">
         {!conversation.lead_id ? (
           <Button
             data-demo="whatsapp-create-lead"
@@ -1550,7 +1550,7 @@ export function WhatsappContactPanel({
             <span className="truncate">{updatingConversation ? "Guardando..." : "Marcar resuelto"}</span>
           </Button>
         </div>
-      </CrmDetailSection>
+      </CrmDetailSection></div>
 
       {productsLoading || productSuggestions.length ? (
         <CrmDetailSection
@@ -1748,7 +1748,7 @@ export function WhatsappContactPanel({
         </CrmDetailSection>
       </div>
 
-      <CrmDetailSection
+      <div data-demo="whatsapp-detected-data"><CrmDetailSection
         title="Datos detectados"
         action={
           extracted.rawSummary ? (
@@ -1812,7 +1812,7 @@ export function WhatsappContactPanel({
         ) : (
           <div className="text-[12px] text-muted-foreground">No se detectó un bloque estructurado en los mensajes todavía.</div>
         )}
-      </CrmDetailSection>
+      </CrmDetailSection></div>
 
       <CrmDetailSection title="Perfil CRM">
         {relatedLoading ? (
@@ -1905,7 +1905,7 @@ export function WhatsappContactPanel({
             </div>
           </CrmDetailSection>
 
-          <CrmDetailSection title="Seguimiento">
+          <div data-demo="whatsapp-followup"><CrmDetailSection title="Seguimiento">
             {nextTask ? (
               (() => {
                 const isDone = ["Completed", "Cancelled"].includes(String(nextTask.status || ""));
@@ -1943,9 +1943,9 @@ export function WhatsappContactPanel({
             ) : (
               <div className="text-[12px] text-muted-foreground">No hay seguimiento programado.</div>
             )}
-          </CrmDetailSection>
+          </CrmDetailSection></div>
 
-          <CrmDetailSection title="Oportunidad">
+          <div data-demo="whatsapp-opportunity"><CrmDetailSection title="Oportunidad">
             {deal ? (
               <div>
                 <div className="text-[13px] font-semibold truncate text-slate-900">{deal.name}</div>
@@ -1956,9 +1956,9 @@ export function WhatsappContactPanel({
             ) : (
               <div className="text-[12px] text-muted-foreground">No hay oportunidad creada para este prospecto.</div>
             )}
-          </CrmDetailSection>
+          </CrmDetailSection></div>
 
-          <CrmDetailSection title="Cliente">
+          <div data-demo="whatsapp-client"><CrmDetailSection title="Cliente">
             {client ? (
               <div>
                 <div className="text-[13px] font-semibold truncate text-slate-900">{client.company_name || "Cliente"}</div>
@@ -1967,7 +1967,7 @@ export function WhatsappContactPanel({
             ) : (
               <div className="text-[12px] text-muted-foreground">No hay cliente conectado.</div>
             )}
-          </CrmDetailSection>
+          </CrmDetailSection></div>
         </>
       ) : null}
 

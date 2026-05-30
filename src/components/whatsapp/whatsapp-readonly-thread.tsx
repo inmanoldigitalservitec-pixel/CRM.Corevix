@@ -85,6 +85,7 @@ export function WhatsappReadonlyThread({
 
   return (
     <section
+      data-demo="whatsapp-active-thread"
       className={cn(
         "h-full min-h-0 min-w-0 flex flex-col overflow-hidden bg-[#efeae2] border-r border-black/10",
         className,

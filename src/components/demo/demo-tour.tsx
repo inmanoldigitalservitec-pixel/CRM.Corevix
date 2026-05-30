@@ -54,58 +54,114 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
   const steps: DemoTourStep[] = useMemo(
     () => [
       {
-        id: "whatsapp-entry",
-        title: "WhatsApp: entrada del prospecto",
-        description: "Empieza el demo desde un mensaje entrante. Aquí se ve la conversación y el panel CRM.",
+        id: "whatsapp-start",
+        title: "Inicio del flujo: WhatsApp",
+        description: "El demo empieza donde realmente entra el prospecto: una conversación de WhatsApp. Desde aquí el agente revisa el mensaje, entiende la solicitud y conecta el flujo comercial.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-main"]',
       },
       {
+        id: "whatsapp-list",
+        title: "Lista de conversaciones",
+        description: "Aquí llegan todos los chats. El agente puede buscar, filtrar conversaciones, ver mensajes recientes, no leídos, bot apagado o conversaciones que necesitan atención humana.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-conversation-list"]',
+      },
+      {
+        id: "whatsapp-thread",
+        title: "Conversación activa",
+        description: "En el centro se atiende al prospecto. Si la ventana de 24 horas está abierta, el agente puede responder libremente. Si está cerrada, debe usar una plantilla aprobada.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-active-thread"]',
+      },
+      {
+        id: "whatsapp-crm-panel",
+        title: "Panel CRM del contacto",
+        description: "Este panel convierte la conversación en acción comercial. Aquí se ve el perfil, producto sugerido, datos detectados, propuestas, seguimiento, oportunidad y cliente.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-crm-panel"]',
+      },
+      {
+        id: "whatsapp-utility-actions",
+        title: "Plantillas Utility",
+        description: "Cuando la ventana está cerrada, el agente no debe escribir un mensaje libre. Aquí elige una plantilla Utility: propuesta, factura, seguimiento, documentos, recordatorio o actualización.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-utility-actions"]',
+      },
+      {
         id: "whatsapp-create-lead",
         title: "Crear prospecto desde WhatsApp",
-        description: "Si la conversación no tiene lead conectado, crea el prospecto con un clic (sin salir de WhatsApp).",
+        description: "Si la conversación aún no está conectada a un lead, el agente puede crear el prospecto directamente desde WhatsApp sin salir del módulo.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-create-lead"]',
       },
       {
+        id: "whatsapp-detected-data",
+        title: "Datos detectados",
+        description: "El CRM resume información útil detectada en la conversación: servicio solicitado, necesidad, contexto y datos importantes para vender mejor.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-detected-data"]',
+      },
+      {
+        id: "whatsapp-product",
+        title: "Producto sugerido",
+        description: "Cuando el sistema detecta interés, el agente puede marcar un producto como interés del lead. Esto ayuda a conectar la oportunidad y luego la propuesta.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-suggested-product"]',
+      },
+      {
+        id: "whatsapp-followup",
+        title: "Seguimiento conectado a tareas",
+        description: "Los seguimientos comerciales deben convertirse en tareas del CRM. Así el equipo sabe qué debe hacer, cuándo hacerlo y con quién.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-followup"]',
+      },
+      {
+        id: "whatsapp-opportunity",
+        title: "Oportunidad comercial",
+        description: "Cuando el prospecto muestra intención real, se crea una oportunidad para moverla por el pipeline: contacto, propuesta, negociación y cierre.",
+        to: "/whatsapp",
+        selector: '[data-demo="whatsapp-opportunity"]',
+      },
+      {
         id: "whatsapp-proposals",
-        title: "Propuestas en WhatsApp",
-        description: "Selecciona una propuesta, cópiala y registra el envío para dejar historial.",
+        title: "Propuestas desde WhatsApp",
+        description: "Aquí el agente selecciona o crea una propuesta para el prospecto. No hace falta convertirlo en cliente antes de enviarle una propuesta.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-proposals"]',
       },
       {
         id: "leads",
-        title: "Leads: prospecto y oportunidad",
-        description: "Gestiona asignación, seguimiento y creación de oportunidad desde el lead.",
+        title: "Leads: administrar prospectos",
+        description: "En Leads se revisan los prospectos capturados, su responsable, estado, seguimiento y datos comerciales.",
         to: "/leads",
         selector: '[data-demo="leads-main"]',
       },
       {
         id: "pipeline",
-        title: "Pipeline: oportunidad + producto",
-        description: "Asocia el producto vendido al deal para que el proyecto use el workflow correcto.",
+        title: "Pipeline: mover la oportunidad",
+        description: "En Pipeline se gestiona la venta. El agente mueve la oportunidad por etapas y conecta productos, valor y próximos pasos.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-deal-products"]',
       },
       {
-        id: "projects",
-        title: "Projects: proyecto + tareas",
-        description: "Crea/visualiza el proyecto y ejecuta el trabajo mediante tareas y progreso.",
-        to: "/projects",
-        selector: '[data-demo="projects-tasks"]',
-      },
-      {
         id: "clients",
-        title: "Clients: Cliente 360",
-        description: "Vista 360 del cliente: productos, proyectos, tareas, oportunidades, propuestas y próximo paso.",
+        title: "Cliente 360",
+        description: "Cuando la venta se cierra, el prospecto pasa a cliente. Aquí queda su historial, productos, oportunidades, propuestas, proyectos y tareas.",
         to: "/clients",
         selector: '[data-demo="clients-main"]',
       },
       {
+        id: "projects",
+        title: "Proyecto y entrega",
+        description: "Después del cierre, el trabajo pasa a ejecución. El proyecto organiza tareas, responsables, entregables y progreso hasta la entrega final.",
+        to: "/projects",
+        selector: '[data-demo="projects-tasks"]',
+      },
+      {
         id: "products",
-        title: "Products: workflows del producto",
-        description: "Define el workflow (pasos) del producto para generar tareas automáticamente al ganar el deal.",
+        title: "Workflows de productos",
+        description: "Cada producto puede tener un workflow. Esto permite generar tareas automáticamente cuando se gana una oportunidad o se inicia un proyecto.",
         to: "/products",
         selector: '[data-demo="products-workflow"]',
       },
@@ -217,20 +273,39 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
 
   const overlay = isOpen
     ? createPortal(
-        <div className="fixed inset-0 z-[1000]">
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px]" onClick={close} />
-
+        <div className="fixed inset-0 z-[1000] pointer-events-none">
           {hasTarget && targetRect ? (
-            <div
-              className="absolute pointer-events-none rounded-[14px] ring-2 ring-[#1d62f9] shadow-[0_0_0_6px_rgba(29,98,249,0.12),0_24px_68px_rgba(2,6,23,0.55)]"
-              style={{
-                left: Math.max(8, targetRect.left - 6),
-                top: Math.max(8, targetRect.top - 6),
-                width: Math.max(0, targetRect.width + 12),
-                height: Math.max(0, targetRect.height + 12),
-              }}
-            />
-          ) : null}
+            <>
+              {(() => {
+                const pad = 8;
+                const left = Math.max(0, targetRect.left - pad);
+                const top = Math.max(0, targetRect.top - pad);
+                const right = Math.min(window.innerWidth, targetRect.right + pad);
+                const bottom = Math.min(window.innerHeight, targetRect.bottom + pad);
+
+                return (
+                  <>
+                    <div className="absolute left-0 right-0 top-0 bg-black/55" style={{ height: top }} />
+                    <div className="absolute left-0 bg-black/55" style={{ top, width: left, height: Math.max(0, bottom - top) }} />
+                    <div className="absolute right-0 bg-black/55" style={{ top, left: right, height: Math.max(0, bottom - top) }} />
+                    <div className="absolute left-0 right-0 bottom-0 bg-black/55" style={{ top: bottom }} />
+
+                    <div
+                      className="absolute rounded-[14px] ring-2 ring-[#1d62f9] shadow-[0_0_0_6px_rgba(29,98,249,0.16),0_18px_48px_rgba(29,98,249,0.22)]"
+                      style={{
+                        left,
+                        top,
+                        width: Math.max(0, right - left),
+                        height: Math.max(0, bottom - top),
+                      }}
+                    />
+                  </>
+                );
+              })()}
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-black/55" />
+          )}
 
           <DemoTourCard
             step={steps[stepIndex]}
@@ -285,41 +360,15 @@ function DemoTourCard({
     to: "/",
   };
 
-  const padding = 14;
-  const cardWidth = 360;
-
-  const position = useMemo(() => {
-    if (!anchoredRect) {
-      return {
-        left: `calc(50% - ${cardWidth / 2}px)`,
-        top: "18%",
-      } as React.CSSProperties;
-    }
-    const rightSpace = window.innerWidth - anchoredRect.right;
-    const leftSpace = anchoredRect.left;
-    const placeRight = rightSpace > cardWidth + 24;
-    const placeLeft = leftSpace > cardWidth + 24;
-    const top = clamp(anchoredRect.top, 12, window.innerHeight - 220);
-    if (placeRight) {
-      return { left: anchoredRect.right + padding, top } as React.CSSProperties;
-    }
-    if (placeLeft) {
-      return { left: anchoredRect.left - cardWidth - padding, top } as React.CSSProperties;
-    }
-    const fallbackLeft = clamp(anchoredRect.left, 12, window.innerWidth - cardWidth - 12);
-    return { left: fallbackLeft, top: anchoredRect.bottom + padding } as React.CSSProperties;
-  }, [anchoredRect]);
-
   const canPrev = index > 0;
   const canNext = index < total - 1;
 
   return (
     <div
       className={cn(
-        "absolute z-[1001] w-[360px] max-w-[calc(100vw-24px)] rounded-[18px] border bg-white p-4 shadow-[0_28px_80px_rgba(2,6,23,0.55)]",
+        "fixed right-5 bottom-5 z-[1001] pointer-events-auto w-[min(420px,calc(100vw-40px))] rounded-[18px] border bg-white p-4 shadow-[0_28px_80px_rgba(2,6,23,0.55)]",
         "dark:bg-slate-950 dark:border-slate-800",
       )}
-      style={position}
       role="dialog"
       aria-modal="true"
       aria-label="Demo tour"

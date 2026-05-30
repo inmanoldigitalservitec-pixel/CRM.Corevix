@@ -130,7 +130,7 @@ export function WhatsappReadonlyList({
   }, [conversations, search, filter]);
 
   return (
-    <aside className={cn("h-full min-h-0 w-[350px] max-[1450px]:w-[340px] max-[1180px]:w-[300px] max-[820px]:w-[82px] border-r border-black/10 bg-white min-w-0 overflow-hidden flex flex-col", className)}>
+    <aside data-demo="whatsapp-conversation-list" className={cn("h-full min-h-0 w-[350px] max-[1450px]:w-[340px] max-[1180px]:w-[300px] max-[820px]:w-[82px] border-r border-black/10 bg-white min-w-0 overflow-hidden flex flex-col", className)}>
       <div className="px-3.5 py-3 border-b border-black/10 bg-[#f0f2f5] space-y-2.5">
         <div className="flex items-center justify-between max-[820px]:hidden">
           <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">Chats</h2>
