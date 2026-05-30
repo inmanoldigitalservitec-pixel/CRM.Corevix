@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Search, Bot, UserRound } from "lucide-react";
+import { Search, Bot, UserRound, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CrmWhatsappConversationListRow } from "@/lib/whatsapp/view-types";
 import { WhatsappAvatar } from "@/components/whatsapp/whatsapp-avatar";
@@ -38,7 +38,7 @@ function TinyTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center h-5 px-2 rounded-full border text-[10px] font-medium whitespace-nowrap",
+        "inline-flex items-center h-4.5 px-1.5 rounded-full border text-[9.5px] font-medium whitespace-nowrap",
         toneClass,
         className,
       )}
@@ -88,6 +88,7 @@ export function WhatsappReadonlyList({
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ExtendedInboxFilter>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const filtersToShow = useMemo(() => {
     const base: Array<{ key: ExtendedInboxFilter; label: string }> = [
@@ -102,6 +103,10 @@ export function WhatsappReadonlyList({
     if (canSeeUnassigned) base.splice(2, 0, { key: "unassigned", label: "Sin asignar" });
     return base;
   }, [canSeeUnassigned]);
+
+  const selectedFilterLabel = useMemo(() => {
+    return filtersToShow.find((f) => f.key === filter)?.label || "Todos";
+  }, [filtersToShow, filter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -125,43 +130,68 @@ export function WhatsappReadonlyList({
   }, [conversations, search, filter]);
 
   return (
-    <aside className={cn("h-full min-h-0 w-[330px] max-[1450px]:w-[300px] max-[1180px]:w-[280px] max-[820px]:w-[82px] border-r bg-card min-w-0 overflow-hidden flex flex-col", className)}>
-      <div className="px-3 py-2.5 border-b space-y-2">
+    <aside className={cn("h-full min-h-0 w-[350px] max-[1450px]:w-[340px] max-[1180px]:w-[300px] max-[820px]:w-[82px] border-r border-black/10 bg-white min-w-0 overflow-hidden flex flex-col", className)}>
+      <div className="px-3.5 py-3 border-b border-black/10 bg-[#f0f2f5] space-y-2.5">
         <div className="flex items-center justify-between max-[820px]:hidden">
-          <h2 className="text-sm font-semibold">Conversaciones</h2>
-          <span className="min-w-6 h-5 px-2 rounded-full bg-muted/50 text-foreground/80 text-[11px] grid place-items-center font-semibold border border-border/50">
+          <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">Chats</h2>
+          <span className="min-w-6 h-5 px-2 rounded-full bg-white/80 text-slate-600 text-[11px] grid place-items-center font-semibold border border-black/5">
             {filtered.length}
           </span>
         </div>
         <div className="relative max-[820px]:hidden">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
-            className="w-full h-[34px] rounded-[10px] border bg-background pl-9 pr-3 text-[12px] outline-none focus:ring-2 focus:ring-ring"
+            className="w-full h-[38px] rounded-full border-0 bg-white pl-9 pr-3 text-[13px] text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-sm placeholder:text-slate-400"
             placeholder="Buscar por nombre, teléfono, servicio..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-0.5 max-[820px]:hidden">
-          {filtersToShow.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setFilter(f.key)}
-              className={cn(
-                "h-[24px] px-3 rounded-full border text-[11px] font-medium whitespace-nowrap transition-colors",
-                filter === f.key
-                  ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40"
-                  : "bg-background text-foreground/80 hover:bg-muted/40",
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="relative max-[820px]:hidden">
+          <button
+            type="button"
+            onClick={() => setFilterOpen((v) => !v)}
+            className="h-[34px] w-full rounded-full bg-white px-3.5 text-[12px] font-medium text-slate-700 shadow-sm border border-black/5 flex items-center justify-between gap-2 hover:bg-slate-50 transition-colors"
+          >
+            <span className="inline-flex items-center gap-2 min-w-0">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+              <span className="text-slate-400">Filtro:</span>
+              <span className="truncate">{selectedFilterLabel}</span>
+            </span>
+            <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", filterOpen && "rotate-180")} />
+          </button>
+
+          {filterOpen ? (
+            <div className="absolute left-0 right-0 top-[40px] z-30 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.14)]">
+              <div className="p-1.5">
+                {filtersToShow.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => {
+                      setFilter(f.key);
+                      setFilterOpen(false);
+                    }}
+                    className={cn(
+                      "w-full h-9 rounded-xl px-3 text-left text-[12px] font-medium transition-colors flex items-center justify-between",
+                      filter === f.key
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "text-slate-600 hover:bg-slate-50",
+                    )}
+                  >
+                    <span>{f.label}</span>
+                    {filter === f.key ? (
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-2">
+      <div className="flex-1 min-h-0 overflow-y-auto p-0 bg-white">
         {loading ? (
           <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">Cargando conversaciones…</div>
         ) : error ? (
@@ -169,7 +199,7 @@ export function WhatsappReadonlyList({
         ) : filtered.length === 0 ? (
           <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">No hay conversaciones.</div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-0">
             {filtered.map((c) => {
               const name = c.display_name || c.contact_name || c.whatsapp_profile_name || c.phone || "Sin nombre";
               const unread = Number(c.unread_count ?? 0);
@@ -186,20 +216,20 @@ export function WhatsappReadonlyList({
                     onSelectConversationId(c.conversation_id);
                   }}
                   className={cn(
-                    "relative block w-full text-left rounded-[12px] px-2.5 py-2 transition-colors hover:bg-muted/40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active ? "bg-muted/40" : "bg-transparent",
+                    "relative block w-full text-left rounded-none px-3.5 py-3.5 transition-colors hover:bg-[#f5f6f6] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 border-b border-black/[0.06]",
+                    active ? "bg-[#f0f2f5]" : "bg-transparent",
                   )}
                 >
                   <span
                     aria-hidden
                     className={cn(
                       "absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full transition-colors",
-                      active ? "bg-primary" : "bg-transparent",
+                      active ? "bg-emerald-500" : "bg-transparent",
                     )}
                   />
                   <div className="flex items-start gap-2.5">
                     <div className="relative shrink-0 pt-0.5">
-                      <WhatsappAvatar name={name} size={38} />
+                      <WhatsappAvatar name={name} size={44} />
                       {needsHuman ? (
                         <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-card bg-amber-500 grid place-items-center">
                           <UserRound className="h-2.5 w-2.5 text-white" />
@@ -211,7 +241,7 @@ export function WhatsappReadonlyList({
                         </span>
                       ) : null}
                       {unread > 0 ? (
-                        <span className="absolute -top-1 -left-1 h-4 min-w-4 px-1 rounded-full border-2 border-card bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center max-[820px]:hidden">
+                        <span className="absolute -top-1 -left-1 h-4 min-w-4 px-1 rounded-full border-2 border-card bg-emerald-500 text-white text-[10px] font-semibold grid place-items-center max-[820px]:hidden">
                           {unread > 99 ? "99+" : unread}
                         </span>
                       ) : null}
@@ -223,16 +253,16 @@ export function WhatsappReadonlyList({
                     <div className="min-w-0 flex-1 max-[820px]:hidden">
                       <div className="flex items-start justify-between gap-2 min-w-0">
                         <div className="min-w-0">
-                          <div className="truncate text-[13px] font-semibold tracking-[-0.01em]">{name}</div>
+                          <div className="truncate text-[14px] font-semibold tracking-[-0.015em] text-slate-900 leading-tight">{name}</div>
                         </div>
-                        <div className="shrink-0 text-[11px] text-muted-foreground pt-0.5">
+                        <div className="shrink-0 text-[11px] text-slate-400 pt-0.5">
                           {formatMetaTime(c.last_message_at || c.conversation_updated_at)}
                         </div>
                       </div>
-                      <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                      <div className="mt-1 truncate text-[12px] text-slate-500 leading-tight">
                         {c.last_message || "—"}
                       </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
+                      <div className="mt-1.5 flex flex-wrap gap-1">
                         {leadConnected ? <TinyTag tone="success">Lead</TinyTag> : null}
                         {unassigned ? <TinyTag tone="neutral">Sin asignar</TinyTag> : null}
                         {botOff ? <TinyTag tone="warn">Bot OFF</TinyTag> : null}

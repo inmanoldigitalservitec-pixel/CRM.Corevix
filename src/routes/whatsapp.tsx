@@ -202,10 +202,10 @@ function WhatsAppPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] min-h-0 bg-muted/10 overflow-hidden">
+    <div className="h-[calc(100vh-3.5rem)] min-h-0 bg-[#f0f2f5] overflow-hidden">
       <div
         data-demo="whatsapp-main"
-        className="grid h-full min-h-0 w-full min-w-0 overflow-hidden grid-cols-[330px_minmax(0,1fr)_280px] max-[1180px]:grid-cols-[280px_minmax(0,1fr)] max-[820px]:grid-cols-[82px_minmax(0,1fr)]"
+        className="grid h-full min-h-0 w-full min-w-0 overflow-hidden grid-cols-[350px_minmax(0,1fr)_380px] max-[1500px]:grid-cols-[340px_minmax(0,1fr)_360px] max-[1280px]:grid-cols-[320px_minmax(0,1fr)_330px] max-[1180px]:grid-cols-[300px_minmax(0,1fr)] max-[820px]:grid-cols-[82px_minmax(0,1fr)]"
       >
       <WhatsappReadonlyList
         className="min-h-0"
@@ -249,7 +249,7 @@ function WhatsAppPage() {
       <WhatsappContactPanel
         conversation={selectedConversation}
         messages={messages}
-        className="max-[1180px]:hidden min-h-0"
+        className="max-[1180px]:hidden min-h-0 border-l border-black/10"
         onRefreshConversations={() => void loadConversations()}
         isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
         lastInboundAt={serviceWindow.lastInboundAt}

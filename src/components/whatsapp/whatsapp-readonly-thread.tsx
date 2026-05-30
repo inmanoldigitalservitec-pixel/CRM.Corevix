@@ -86,22 +86,22 @@ export function WhatsappReadonlyThread({
   return (
     <section
       className={cn(
-        "h-full min-h-0 min-w-0 flex flex-col overflow-hidden bg-muted/20 border-r border-border/60",
+        "h-full min-h-0 min-w-0 flex flex-col overflow-hidden bg-[#efeae2] border-r border-black/10",
         className,
       )}
     >
-      <header className="shrink-0 h-[50px] bg-card/80 backdrop-blur border-b border-border/50 flex items-center justify-between px-3 gap-3 min-w-0 sticky top-0 z-10">
+      <header className="shrink-0 h-[60px] bg-[#f0f2f5] border-b border-black/10 flex items-center justify-between px-4.5 gap-3 min-w-0 sticky top-0 z-10">
         <div className="flex items-center gap-2.5 min-w-0">
           <WhatsappAvatar name={title} size={34} />
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="text-[14px] font-semibold tracking-[-0.01em] truncate">{title}</div>
+              <div className="text-[15px] font-semibold tracking-[-0.015em] truncate text-slate-900">{title}</div>
               <div className="hidden sm:block">
                 <WhatsappStatusBadge status={status} className="h-[22px] px-2 text-[10px]" />
               </div>
             </div>
             {subtitle ? (
-              <div className="text-[12px] text-muted-foreground truncate flex items-center gap-1.5">
+              <div className="text-[12px] text-slate-500 truncate flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
                 <span>{subtitle}</span>
                 <span className="mx-1 text-muted-foreground/50">·</span>
@@ -121,13 +121,14 @@ export function WhatsappReadonlyThread({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button className="h-8 w-8 rounded-[10px] border bg-background grid place-items-center text-muted-foreground hover:bg-muted/40">
+          <button className="h-9 w-9 rounded-full border-0 bg-transparent grid place-items-center text-slate-500 hover:bg-black/5">
             <MoreHorizontal className="h-4 w-4" />
           </button>
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4 sm:px-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 sm:px-8 bg-[#efeae2] relative before:absolute before:inset-0 before:pointer-events-none before:opacity-[0.38] before:bg-[radial-gradient(circle_at_12px_12px,rgba(120,113,108,0.22)_1.2px,transparent_1.3px),radial-gradient(circle_at_32px_28px,rgba(120,113,108,0.16)_1px,transparent_1.2px),linear-gradient(45deg,transparent_0_46%,rgba(120,113,108,0.12)_46%_47%,transparent_47%_100%)] before:[background-size:48px_48px,56px_56px,72px_72px]">
+        <div className="relative z-10 h-full">
         {loading ? (
           <div className="text-sm text-muted-foreground">Cargando mensajes…</div>
         ) : error ? (
@@ -135,11 +136,11 @@ export function WhatsappReadonlyThread({
         ) : messages.length === 0 ? (
           <div className="text-sm text-muted-foreground">{emptyHint || "No hay mensajes."}</div>
         ) : (
-          <div className="max-w-[720px] mx-auto">
+          <div className="max-w-[860px] mx-auto">
             {groups.map((g) => (
               <div key={g.day}>
                 <div className="flex justify-center my-4">
-                  <span className="h-6 inline-flex items-center text-[11px] text-muted-foreground bg-card/70 border border-border/50 rounded-full px-3">
+                  <span className="h-6 inline-flex items-center text-[11px] text-slate-500 bg-white/80 border border-black/5 rounded-full px-3 shadow-sm">
                     {g.day}
                   </span>
                 </div>
@@ -151,18 +152,18 @@ export function WhatsappReadonlyThread({
                     "";
                   const statusKey = String(m.delivery_status ?? "").toLowerCase();
                   return (
-                    <div key={m.message_id} className={cn("flex mb-2.5", out ? "justify-end" : "justify-start")}>
-                      <div className="max-w-[min(520px,78%)]">
+                    <div key={m.message_id} className={cn("flex mb-2", out ? "justify-end" : "justify-start")}>
+                      <div className="max-w-[min(560px,76%)]">
                         <div
                           className={cn(
-                            "relative rounded-[14px] px-3.5 py-2.5 pb-5 text-[13px] leading-[1.35] tracking-[-0.01em] border",
+                            "relative rounded-[9px] px-3.5 py-2.5 pb-5 text-[13.5px] leading-[1.38] tracking-[-0.012em] shadow-[0_1px_1px_rgba(0,0,0,0.10)]",
                             out
-                              ? "bg-emerald-50/80 text-foreground border-emerald-200/70 rounded-br-[8px] dark:bg-emerald-900/15 dark:border-emerald-800/40"
-                              : "bg-background text-foreground border-border/60 rounded-bl-[8px]",
+                              ? "bg-[#d9fdd3] text-slate-900 border-transparent rounded-br-[3px]"
+                              : "bg-white text-slate-900 border-transparent rounded-bl-[3px]",
                           )}
                         >
                           <div className="whitespace-pre-wrap break-words">{content}</div>
-                          <div className="absolute right-2.5 bottom-1 text-[10px] text-muted-foreground inline-flex items-center gap-1">
+                          <div className="absolute right-2.5 bottom-1 text-[10px] text-slate-400 inline-flex items-center gap-1">
                             <span>{formatTime(m.created_at)}</span>
                             {out && m.delivery_status ? deliveryIcon[statusKey] ?? null : null}
                           </div>
@@ -176,27 +177,24 @@ export function WhatsappReadonlyThread({
             <div ref={bottomRef} />
           </div>
         )}
+        </div>
       </div>
 
-      <footer className="shrink-0 bg-card/80 backdrop-blur border-t border-border/50 px-3 py-2.5">
-        <div className="max-w-[720px] mx-auto flex items-end gap-2">
+      <footer className="shrink-0 bg-[#f0f2f5] border-t border-black/10 px-5 py-3.5">
+        <div className="max-w-[860px] mx-auto flex items-end gap-2">
           <div className="flex-1 min-w-0 space-y-2">
-            {serviceWindowClosed ? (
-              <div className="rounded-[12px] border border-border/60 bg-background px-3 py-2 text-[12px] leading-[1.45] text-muted-foreground">
-                La ventana está cerrada. Usa una plantilla aprobada desde el panel derecho para continuar.
-              </div>
-            ) : (
+            {!serviceWindowClosed ? (
               <div
-                className="rounded-[14px] border border-emerald-200 bg-emerald-50/70 px-3 py-1.5 text-[11px] text-emerald-900"
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] text-emerald-800 w-fit shadow-sm"
                 title={serviceWindowExpiresAt ? `Expira ${new Date(serviceWindowExpiresAt).toLocaleString()}` : undefined}
               >
                 Ventana activa: puedes responder libremente. Quedan {serviceWindowLabel}.
               </div>
-            )}
+            ) : null}
 
             <div className="flex items-end gap-2">
               <textarea
-                className="flex-1 min-h-10 max-h-28 resize-none rounded-[14px] border bg-background px-3.5 py-2.5 text-[13px] leading-[1.25] outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:bg-muted/40"
+                className="flex-1 min-h-11 max-h-28 resize-none rounded-full border-0 bg-white px-4.5 py-3 text-[13.5px] leading-[1.25] outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:cursor-not-allowed disabled:bg-white/60 shadow-sm placeholder:text-slate-400"
                 placeholder={
                   serviceWindowClosed ? "Usa una plantilla aprobada para continuar esta conversación." : "Escribe una respuesta…"
                 }
@@ -222,7 +220,7 @@ export function WhatsappReadonlyThread({
               <button
                 type="button"
                 className={cn(
-                  "h-10 w-10 rounded-full bg-primary text-primary-foreground grid place-items-center transition-colors hover:bg-primary/90",
+                  "h-11 w-11 rounded-full bg-emerald-500 text-white grid place-items-center transition-colors hover:bg-emerald-600 shadow-sm",
                   !onSendMessage || Boolean(sending) || serviceWindowClosed || text.trim().length === 0 ? "opacity-50 cursor-not-allowed" : "opacity-100",
                 )}
                 disabled={!onSendMessage || Boolean(sending) || serviceWindowClosed || text.trim().length === 0}
@@ -254,7 +252,7 @@ export function WhatsappReadonlyThread({
           </div>
         </div>
         {sendError ? (
-          <div className="mt-2 max-w-[720px] mx-auto text-[11px] text-destructive truncate" title={sendError}>
+          <div className="mt-2 max-w-[860px] mx-auto text-[11px] text-destructive truncate" title={sendError}>
             {sendError}
           </div>
         ) : null}

@@ -1354,17 +1354,17 @@ export function WhatsappContactPanel({
   const showDetectedToggle = detectedSummary.length > 260;
 
   return (
-    <aside className={cn("h-full min-h-0 min-w-0 overflow-y-auto bg-card px-3 py-3", className)}>
-      <div className="rounded-[16px] border bg-background p-3 shadow-[0_10px_24px_rgba(15,23,42,.04)]">
+    <aside className={cn("h-full min-h-0 min-w-0 overflow-y-auto bg-[#f0f2f5] px-3.5 py-3.5", className)}>
+      <div className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
         <div className="flex items-start gap-3 min-w-0">
           <WhatsappAvatar name={name} size={42} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-2 min-w-0">
               <div className="min-w-0">
-                <div className="text-[14px] font-semibold tracking-[-0.01em] truncate">{name}</div>
-                <div className="mt-0.5 text-[12px] text-muted-foreground truncate">{phone || "—"}</div>
+                <div className="text-[16px] font-semibold tracking-[-0.025em] truncate text-slate-900">{name}</div>
+                <div className="mt-1 text-[12px] text-slate-500 truncate">{phone || "—"}</div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
                 <span className="inline-flex items-center h-6 px-2.5 rounded-full border text-[11px] font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/15 dark:text-emerald-200 dark:border-emerald-800/40">
                   WhatsApp
                 </span>
@@ -1381,22 +1381,22 @@ export function WhatsappContactPanel({
 
       <div className="mt-3 space-y-3">
         {serviceWindowClosed ? (
-          <div className="rounded-[16px] border bg-background p-3 shadow-[0_10px_24px_rgba(15,23,42,.04)]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground">
+          <div className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+            <div className="w-full space-y-2">
+              <div className="space-y-1">
+                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-700">
                   Continuar con plantilla aprobada
                 </div>
-                <div className="mt-1 text-[12px] leading-[1.45] text-muted-foreground">
-                  El cliente no ha respondido en las últimas 24 horas. Elige el próximo paso para continuar con una plantilla Utility.
-                  Cuando responda, podrás escribir libremente por 24 horas.
+                <div className="inline-flex w-fit rounded-full border border-black/5 bg-slate-50 px-2.5 py-1 text-[10px] text-slate-500">
+                  {lastInboundAt ? `Último inbound: ${formatDateLabel(lastInboundAt)}` : "Sin inbound"}
                 </div>
               </div>
-              <div className="shrink-0 rounded-full border bg-muted/30 px-2.5 py-1 text-[10px] text-muted-foreground">
-                {lastInboundAt ? `Último inbound: ${formatDateLabel(lastInboundAt)}` : "Sin inbound"}
-              </div>
+
+              <p className="w-full text-[12px] leading-[1.45] text-slate-500">
+                El cliente no ha respondido en las últimas 24 horas. Elige una plantilla Utility para continuar. Cuando responda, podrás escribir libremente por 24 horas.
+              </p>
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-2">
+            <div className="mt-3 grid grid-cols-1 gap-2.5">
               {utilityActions.map((action) => (
                 <button
                   key={action.id}
@@ -1411,14 +1411,14 @@ export function WhatsappContactPanel({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[12px] font-semibold truncate">{action.label}</div>
-                      <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">{action.preview}</div>
+                      <div className="text-[13px] font-semibold truncate text-slate-900">{action.label}</div>
+                      <div className="mt-1 text-[11px] text-slate-500 line-clamp-2 leading-[1.35]">{action.preview}</div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                      <div className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         {action.description}
                       </div>
-                      <div className="mt-1 text-[10px] text-muted-foreground">{action.enabled ? "Disponible" : action.disabledReason}</div>
+                      <div className="mt-1 text-[10px] text-slate-500 leading-tight">{action.enabled ? "Disponible" : action.disabledReason}</div>
                     </div>
                   </div>
                 </button>
@@ -1436,7 +1436,7 @@ export function WhatsappContactPanel({
             data-demo="whatsapp-create-lead"
             variant="default"
             size="sm"
-            className="w-full justify-start gap-2 bg-primary hover:bg-primary/90"
+            className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
             onClick={() => void handleCreateLeadFromWhatsapp()}
             disabled={creatingLeadFromWhatsapp || !can("leads.create")}
           >
@@ -1449,8 +1449,8 @@ export function WhatsappContactPanel({
             variant={deal ? "default" : "default"}
             size="sm"
             className={cn(
-              "w-full justify-start gap-2 min-w-0 overflow-hidden",
-              deal ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:bg-blue-700",
+              "w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl",
+              deal ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700",
             )}
             onClick={() => {
               if (deal) {
@@ -1473,7 +1473,7 @@ export function WhatsappContactPanel({
             variant={client ? "default" : "default"}
             size="sm"
             className={cn(
-              "w-full justify-start gap-2 min-w-0 overflow-hidden",
+              "w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl",
               client ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700",
             )}
             onClick={() => {
@@ -1497,7 +1497,7 @@ export function WhatsappContactPanel({
             <Button
               variant="outline"
               size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden"
+              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
               onClick={() => phone && navigator.clipboard.writeText(phone)}
               disabled={!phone}
             >
@@ -1507,7 +1507,7 @@ export function WhatsappContactPanel({
             <Button
               variant="outline"
               size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden"
+              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
               onClick={() => waMe && window.open(waMe, "_blank", "noopener,noreferrer")}
               disabled={!waMe}
             >
@@ -1520,7 +1520,7 @@ export function WhatsappContactPanel({
             <Button
               variant="outline"
               size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden"
+              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
               onClick={() => (window.location.href = "/leads")}
               disabled={!conversation.lead_id}
             >
@@ -1530,7 +1530,7 @@ export function WhatsappContactPanel({
             <Button
               variant="outline"
               size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden"
+              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
               onClick={() => openFollowUpDialog()}
               disabled={!lead || !can("tasks.create") || (isSalesAgent && String(lead.assigned_to) !== String(user?.id))}
             >
@@ -1542,7 +1542,7 @@ export function WhatsappContactPanel({
           <Button
             variant="outline"
             size="sm"
-            className="w-full justify-start gap-2 min-w-0 overflow-hidden"
+            className="w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
             onClick={() => void handleMarkConversationResolved()}
             disabled={updatingConversation}
           >
@@ -1689,7 +1689,7 @@ export function WhatsappContactPanel({
               <Button
                 type="button"
                 size="sm"
-                className="justify-start bg-blue-600 hover:bg-blue-700 min-w-0 overflow-hidden"
+                className="justify-start bg-emerald-600 hover:bg-emerald-700 min-w-0 overflow-hidden"
                 disabled={!selectedProposal || !canRegisterProposalSend || registeringProposalSend}
                 onClick={() => void handleRegisterProposalSend()}
               >
@@ -1948,7 +1948,7 @@ export function WhatsappContactPanel({
           <CrmDetailSection title="Oportunidad">
             {deal ? (
               <div>
-                <div className="text-[12px] font-semibold truncate">{deal.name}</div>
+                <div className="text-[13px] font-semibold truncate text-slate-900">{deal.name}</div>
                 <div className="text-[11px] text-muted-foreground mt-1">
                   {deal.stage} · ${Number(deal.value || 0).toLocaleString()}
                 </div>
@@ -1961,7 +1961,7 @@ export function WhatsappContactPanel({
           <CrmDetailSection title="Cliente">
             {client ? (
               <div>
-                <div className="text-[12px] font-semibold truncate">{client.company_name || "Cliente"}</div>
+                <div className="text-[13px] font-semibold truncate text-slate-900">{client.company_name || "Cliente"}</div>
                 <div className="text-[11px] text-muted-foreground mt-1">{client.status || "—"}</div>
               </div>
             ) : (
