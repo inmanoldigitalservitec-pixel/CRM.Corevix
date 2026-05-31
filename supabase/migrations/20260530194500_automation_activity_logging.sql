@@ -55,9 +55,9 @@ begin
 
   perform public.log_activity_event(
     v_proposal.company_id,
-    v_proposal.created_by,
     'proposal_approved',
     'proposals',
+    v_proposal.created_by,
     v_proposal.id,
     'Propuesta aprobada desde enlace público',
     jsonb_build_object(
@@ -201,9 +201,9 @@ begin
 
     perform public.log_activity_event(
       v_invoice.company_id,
-      coalesce(v_invoice.created_by, v_proposal.created_by),
       'invoice_created',
       'invoices',
+      coalesce(v_invoice.created_by, v_proposal.created_by),
       v_invoice.id,
       'Factura creada desde propuesta aprobada',
       jsonb_build_object(
@@ -394,9 +394,9 @@ begin
     tasks_created := 0;
     perform public.log_activity_event(
       v_project.company_id,
-      coalesce(v_invoice.created_by, v_proposal.created_by, v_user_id),
       'project_created',
       'projects',
+      coalesce(v_invoice.created_by, v_proposal.created_by, v_user_id),
       v_project.id,
       'Proyecto creado desde factura pagada',
       jsonb_build_object(
@@ -463,9 +463,9 @@ begin
 
   perform public.log_activity_event(
     v_project.company_id,
-    coalesce(v_invoice.created_by, v_proposal.created_by, v_user_id),
     'project_created',
     'projects',
+    coalesce(v_invoice.created_by, v_proposal.created_by, v_user_id),
     v_project.id,
     'Proyecto creado desde factura pagada',
     jsonb_build_object(

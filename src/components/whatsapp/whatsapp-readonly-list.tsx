@@ -71,6 +71,8 @@ export function WhatsappReadonlyList({
   conversations,
   selectedConversationId,
   onSelectConversationId,
+  selectedChannel,
+  onSelectChannel,
   loading,
   error,
   currentUserId,
@@ -80,6 +82,8 @@ export function WhatsappReadonlyList({
   conversations: CrmWhatsappConversationListRow[];
   selectedConversationId: string | null;
   onSelectConversationId: (id: string) => void;
+  selectedChannel: "all" | "whatsapp" | "messenger" | "instagram";
+  onSelectChannel: (channel: "all" | "whatsapp" | "messenger" | "instagram") => void;
   loading: boolean;
   error: string | null;
   currentUserId: string | null;
@@ -137,6 +141,28 @@ export function WhatsappReadonlyList({
           <span className="min-w-6 h-5 px-2 rounded-full bg-white/80 text-slate-600 text-[11px] grid place-items-center font-semibold border border-black/5">
             {filtered.length}
           </span>
+        </div>
+        <div className="grid grid-cols-4 gap-1 max-[820px]:hidden">
+          {[
+            { key: "all", label: "Todos" },
+            { key: "whatsapp", label: "WhatsApp" },
+            { key: "messenger", label: "Messenger" },
+            { key: "instagram", label: "Instagram" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onSelectChannel(item.key as "all" | "whatsapp" | "messenger" | "instagram")}
+              className={cn(
+                "h-8 rounded-full border text-[11px] font-medium transition-colors",
+                selectedChannel === item.key
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
         <div className="relative max-[820px]:hidden">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

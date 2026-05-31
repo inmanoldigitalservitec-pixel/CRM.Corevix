@@ -10,10 +10,12 @@ import { WhatsappReadonlyThread } from "@/components/whatsapp/whatsapp-readonly-
 import { WhatsappContactPanel } from "@/components/whatsapp/whatsapp-contact-panel";
 import { WhatsappEmptyState } from "@/components/whatsapp/whatsapp-empty-state";
 import { sendWhatsappMessage } from "@/lib/whatsapp/whatsapp-bot-api";
-
-const DEMO_CONVERSATION_ID = "10000000-0000-4000-8000-000000000103";
-const DEMO_CONVERSATION_STORAGE_KEY = "crm_demo_conversation_id";
-
+import { MessengerReadonlyList } from "@/components/whatsapp/messenger-readonly-list";
+import { MessengerReadonlyThread } from "@/components/whatsapp/messenger-readonly-thread";
+import { MessengerContextPanel } from "@/components/whatsapp/messenger-context-panel";
+import type { MetaConversationListRow, MetaMessageRow } from "@/lib/meta/view-types";
+import { InboxUnifiedList, type UnifiedInboxConversation } from "@/components/whatsapp/inbox-unified-list";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/whatsapp")({
   component: WhatsAppPage,
@@ -21,26 +23,33 @@ export const Route = createFileRoute("/whatsapp")({
 });
 
 type InboxChannel = "all" | "whatsapp" | "messenger" | "instagram";
+type ConversationChannel = "whatsapp" | "messenger";
+type SelectedConversation = { channel: ConversationChannel; id: string } | null;
 
 function WhatsAppPage() {
   const { profile, user, roles } = useAuth();
 
-  const [conversations, setConversations] = useState<CrmWhatsappConversationListRow[]>([]);
-  const [conversationsLoading, setConversationsLoading] = useState(true);
-  const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [whatsappConversations, setWhatsappConversations] = useState<CrmWhatsappConversationListRow[]>([]);
+  const [whatsappConversationsLoading, setWhatsappConversationsLoading] = useState(true);
+  const [whatsappConversationsError, setWhatsappConversationsError] = useState<string | null>(null);
+  const [whatsappMessages, setWhatsappMessages] = useState<CrmWhatsappMessageRow[]>([]);
+  const [whatsappMessagesLoading, setWhatsappMessagesLoading] = useState(false);
+  const [whatsappMessagesError, setWhatsappMessagesError] = useState<string | null>(null);
+  const [serviceWindowNow, setServiceWindowNow] = useState(() => Date.now());
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendingMessengerMessage, setSendingMessengerMessage] = useState(false);
 
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messengerConversations, setMessengerConversations] = useState<MetaConversationListRow[]>([]);
+  const [messengerConversationsLoading, setMessengerConversationsLoading] = useState(true);
+  const [messengerConversationsError, setMessengerConversationsError] = useState<string | null>(null);
+  const [messengerMessages, setMessengerMessages] = useState<MetaMessageRow[]>([]);
+  const [messengerMessagesLoading, setMessengerMessagesLoading] = useState(false);
+  const [messengerMessagesError, setMessengerMessagesError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const onDemoSelectConversation = (event: Event) => {
-      const detail = (event as CustomEvent<{ conversationId?: string }>).detail;
-      const conversationId = detail?.conversationId || DEMO_CONVERSATION_ID;
-      setSelectedConversationId(conversationId);
-    };
+  const [selectedConversation, setSelectedConversation] = useState<SelectedConversation>(null);
+  const [selectedChannel, setSelectedChannel] = useState<InboxChannel>("all");
 
-    window.addEventListener("crm-demo-select-conversation", onDemoSelectConversation);
-    return () => window.removeEventListener("crm-demo-select-conversation", onDemoSelectConversation);
-  }, []);
   const desiredConversationId = useMemo(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -51,28 +60,112 @@ function WhatsAppPage() {
     }
   }, []);
 
-  const [messages, setMessages] = useState<CrmWhatsappMessageRow[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [messagesError, setMessagesError] = useState<string | null>(null);
-  const [serviceWindowNow, setServiceWindowNow] = useState(() => Date.now());
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [selectedChannel, setSelectedChannel] = useState<InboxChannel>("all");
+  const activeChannel: InboxChannel = selectedChannel;
+  const canSeeUnassigned = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
 
-  const selectedConversation = useMemo(
-    () => conversations.find((c) => c.conversation_id === selectedConversationId) ?? null,
-    [conversations, selectedConversationId],
-  );
-  const channelBlocked = selectedChannel === "messenger" || selectedChannel === "instagram";
+  const selectedMessengerConversation = useMemo(() => {
+    if (!selectedConversation || selectedConversation.channel !== "messenger") return null;
+    return messengerConversations.find((c) => c.id === selectedConversation.id) ?? null;
+  }, [messengerConversations, selectedConversation]);
+
+  const selectedWhatsappConversation = useMemo(() => {
+    if (!selectedConversation || selectedConversation.channel !== "whatsapp") return null;
+    return whatsappConversations.find((c) => c.conversation_id === selectedConversation.id) ?? null;
+  }, [selectedConversation, whatsappConversations]);
+
+  const unifiedConversations = useMemo<UnifiedInboxConversation[]>(() => {
+    const out: UnifiedInboxConversation[] = [];
+
+    for (const row of whatsappConversations) {
+      const id = String(row.conversation_id);
+      const displayName =
+        row.display_name ||
+        row.contact_name ||
+        row.whatsapp_profile_name ||
+        row.phone ||
+        "Sin nombre";
+      const lastMessageText = (row as any).last_message ?? null;
+      const lastMessageAt = row.last_message_at || (row as any).conversation_updated_at || null;
+      const createdAt = (row as any).conversation_updated_at || row.last_message_at || null;
+      const unreadCount = Number(row.unread_count ?? 0);
+      const status = (row as any).conversation_status ?? null;
+      out.push({
+        key: `whatsapp:${id}`,
+        channel: "whatsapp",
+        id,
+        displayName,
+        avatarUrl: null,
+        lastMessageText,
+        lastMessageAt,
+        createdAt,
+        unreadCount,
+        status,
+        raw: row,
+      });
+    }
+
+    for (const row of messengerConversations) {
+      const id = String(row.id);
+      const displayName = row.sender_name || "Usuario de Messenger";
+      const lastMessageText = row.last_message_text ?? null;
+      const lastMessageAt = row.last_message_at || row.created_at || null;
+      const createdAt = row.created_at || null;
+      const unreadCount = Number(row.unread_count ?? 0);
+      const status = row.status ?? null;
+      out.push({
+        key: `messenger:${id}`,
+        channel: "messenger",
+        id,
+        displayName,
+        avatarUrl: row.sender_profile_pic ?? null,
+        lastMessageText,
+        lastMessageAt,
+        createdAt,
+        unreadCount,
+        status,
+        raw: row,
+      });
+    }
+
+    out.sort((a, b) => {
+      const at = a.lastMessageAt ? Date.parse(String(a.lastMessageAt)) : NaN;
+      const bt = b.lastMessageAt ? Date.parse(String(b.lastMessageAt)) : NaN;
+      if (Number.isFinite(at) && Number.isFinite(bt) && at !== bt) return bt - at;
+      if (Number.isFinite(at) && !Number.isFinite(bt)) return -1;
+      if (!Number.isFinite(at) && Number.isFinite(bt)) return 1;
+      const ac = a.createdAt ? Date.parse(String(a.createdAt)) : 0;
+      const bc = b.createdAt ? Date.parse(String(b.createdAt)) : 0;
+      return bc - ac;
+    });
+
+    return out;
+  }, [messengerConversations, whatsappConversations]);
+
+  const listLoading =
+    activeChannel === "all"
+      ? whatsappConversationsLoading || messengerConversationsLoading
+      : activeChannel === "messenger"
+        ? messengerConversationsLoading
+        : activeChannel === "instagram"
+          ? false
+          : whatsappConversationsLoading;
   const channelNotice =
-    selectedChannel === "messenger"
-      ? "Messenger estará disponible cuando conectes tu cuenta Meta."
-        : selectedChannel === "instagram"
+    selectedChannel === "all"
+      ? "Mostrando WhatsApp y Messenger."
+      : selectedChannel === "instagram"
         ? "Instagram DM estará disponible cuando conectes tu cuenta Meta."
         : null;
-  const listConversations = channelBlocked ? [] : conversations;
-  const listLoading = channelBlocked ? false : conversationsLoading;
-  const listError = channelBlocked ? null : conversationsError;
+
+  useEffect(() => {
+    setSelectedConversation(null);
+    setSendError(null);
+    setWhatsappMessages([]);
+    setWhatsappMessagesError(null);
+    setWhatsappMessagesLoading(false);
+    setMessengerMessages([]);
+    setMessengerMessagesError(null);
+    setMessengerMessagesLoading(false);
+  }, [selectedChannel]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -83,11 +176,11 @@ function WhatsAppPage() {
     };
   }, []);
 
-  const serviceWindow = useMemo(() => getServiceWindowState(messages, serviceWindowNow), [messages, serviceWindowNow]);
+  const serviceWindow = useMemo(() => getServiceWindowState(whatsappMessages, serviceWindowNow), [whatsappMessages, serviceWindowNow]);
 
   useEffect(() => {
     setSendError(null);
-  }, [selectedConversationId]);
+  }, [selectedConversation?.id, selectedConversation?.channel]);
 
   useEffect(() => {
     if (serviceWindow.isServiceWindowOpen) {
@@ -95,16 +188,16 @@ function WhatsAppPage() {
     }
   }, [serviceWindow.isServiceWindowOpen]);
 
-  async function loadConversations() {
+  async function loadWhatsappConversations() {
     if (!profile?.company_id) {
-      setConversations([]);
-      setConversationsLoading(false);
-      setConversationsError(null);
+      setWhatsappConversations([]);
+      setWhatsappConversationsLoading(false);
+      setWhatsappConversationsError(null);
       return;
     }
 
-    setConversationsLoading(true);
-    setConversationsError(null);
+    setWhatsappConversationsLoading(true);
+    setWhatsappConversationsError(null);
     const { data, error } = await supabase
       .from("crm_whatsapp_conversation_list")
       .select("*")
@@ -114,17 +207,17 @@ function WhatsAppPage() {
       .limit(100);
 
     if (error) {
-      setConversationsError(error.message);
-      setConversations([]);
+      setWhatsappConversationsError(error.message);
+      setWhatsappConversations([]);
     } else {
-      setConversations((data ?? []) as unknown as CrmWhatsappConversationListRow[]);
+      setWhatsappConversations((data ?? []) as unknown as CrmWhatsappConversationListRow[]);
     }
-    setConversationsLoading(false);
+    setWhatsappConversationsLoading(false);
   }
 
-  async function loadMessages(conversationId: string) {
-    setMessagesLoading(true);
-    setMessagesError(null);
+  async function loadWhatsappMessages(conversationId: string) {
+    setWhatsappMessagesLoading(true);
+    setWhatsappMessagesError(null);
     const { data, error } = await supabase
       .from("crm_whatsapp_messages")
       .select("*")
@@ -132,63 +225,194 @@ function WhatsAppPage() {
       .order("created_at", { ascending: true });
 
     if (error) {
-      setMessagesError(error.message);
-      setMessages([]);
+      setWhatsappMessagesError(error.message);
+      setWhatsappMessages([]);
     } else {
-      setMessages((data ?? []) as unknown as CrmWhatsappMessageRow[]);
+      setWhatsappMessages((data ?? []) as unknown as CrmWhatsappMessageRow[]);
     }
-    setMessagesLoading(false);
+    setWhatsappMessagesLoading(false);
+  }
+
+  async function loadMessengerConversations() {
+    if (!profile?.company_id) {
+      setMessengerConversations([]);
+      setMessengerConversationsLoading(false);
+      setMessengerConversationsError(null);
+      return;
+    }
+
+    setMessengerConversationsLoading(true);
+    setMessengerConversationsError(null);
+    const db = supabase as any;
+    const { data, error } = await db
+      .from("meta_conversations")
+      .select("id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at")
+      .eq("company_id", profile.company_id)
+      .eq("platform", "messenger")
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.warn("No se pudieron cargar las conversaciones de Messenger.", {
+        companyId: profile.company_id,
+        error,
+      });
+      setMessengerConversationsError(error.message);
+      setMessengerConversations([]);
+    } else {
+      const rows = (Array.isArray(data) ? data : []) as MetaConversationListRow[];
+      console.info("Conversaciones de Messenger cargadas", {
+        companyId: profile.company_id,
+        count: rows.length,
+      });
+      setMessengerConversations(rows);
+    }
+    setMessengerConversationsLoading(false);
+  }
+
+  async function loadMessengerMessages(conversationId: string) {
+    setMessengerMessagesLoading(true);
+    setMessengerMessagesError(null);
+    const db = supabase as any;
+    const { data, error } = await db
+      .from("meta_messages")
+      .select("id, company_id, account_id, conversation_id, platform, external_message_id, direction, message_type, text, attachments, raw_payload, sent_at, created_at")
+      .eq("conversation_id", conversationId)
+      .eq("company_id", profile?.company_id || "")
+      .eq("platform", "messenger")
+      .order("sent_at", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.warn("No se pudieron cargar los mensajes de Messenger.", {
+        companyId: profile?.company_id,
+        conversationId,
+        error,
+      });
+      setMessengerMessagesError(error.message);
+      setMessengerMessages([]);
+    } else {
+      setMessengerMessages((Array.isArray(data) ? data : []) as MetaMessageRow[]);
+    }
+    setMessengerMessagesLoading(false);
   }
 
   useEffect(() => {
     let cancelled = false;
-    loadConversations().catch((e: any) => {
+    const load = async () => {
+      if (!profile?.company_id) {
+        setWhatsappConversations([]);
+        setWhatsappMessages([]);
+        setMessengerConversations([]);
+        setMessengerMessages([]);
+        return;
+      }
+
+      if (activeChannel === "messenger") {
+        await loadMessengerConversations();
+      } else if (activeChannel === "all") {
+        await Promise.all([loadWhatsappConversations(), loadMessengerConversations()]);
+      } else if (activeChannel === "instagram") {
+        setWhatsappConversations([]);
+        setMessengerConversations([]);
+      } else {
+        await loadWhatsappConversations();
+      }
+
       if (cancelled) return;
-      setConversationsError(e?.message ?? "Error cargando conversaciones");
-      setConversations([]);
-      setConversationsLoading(false);
+    };
+
+    void load().catch((e: any) => {
+      if (cancelled) return;
+      if (activeChannel === "messenger") {
+        setMessengerConversationsError(e?.message ?? "Error cargando conversaciones de Messenger");
+        setMessengerConversations([]);
+        setMessengerConversationsLoading(false);
+      } else if (activeChannel === "whatsapp") {
+        setWhatsappConversationsError(e?.message ?? "Error cargando conversaciones");
+        setWhatsappConversations([]);
+        setWhatsappConversationsLoading(false);
+      }
     });
+
     return () => {
       cancelled = true;
     };
-  }, [profile?.company_id]);
+  }, [activeChannel, profile?.company_id]);
 
   useEffect(() => {
     if (!desiredConversationId) return;
-    if (selectedConversationId) return;
-    if (conversationsLoading) return;
-    if (!conversations.length) return;
+    if (selectedConversation) return;
+    if (listLoading) return;
+    if (activeChannel === "all" ? unifiedConversations.length === 0 : false) return;
+    if (activeChannel === "whatsapp" && whatsappConversations.length === 0) return;
+    if (activeChannel === "messenger" && messengerConversations.length === 0) return;
 
-    const found = conversations.find((c) => c.conversation_id === desiredConversationId);
-    if (found) setSelectedConversationId(found.conversation_id);
-  }, [conversations, conversationsLoading, desiredConversationId, selectedConversationId]);
+    if (activeChannel === "messenger") {
+      const found = messengerConversations.find((c) => c.id === desiredConversationId);
+      if (found) setSelectedConversation({ channel: "messenger", id: found.id });
+      return;
+    }
+    if (activeChannel === "whatsapp") {
+      const found = whatsappConversations.find((c) => c.conversation_id === desiredConversationId);
+      if (found) setSelectedConversation({ channel: "whatsapp", id: found.conversation_id });
+      return;
+    }
+  }, [
+    activeChannel,
+    desiredConversationId,
+    listLoading,
+    messengerConversations,
+    selectedConversation,
+    unifiedConversations.length,
+    whatsappConversations,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!selectedConversationId) {
-      setMessages([]);
-      setMessagesLoading(false);
-      setMessagesError(null);
+    if (!selectedConversation) {
+      setWhatsappMessages([]);
+      setWhatsappMessagesLoading(false);
+      setWhatsappMessagesError(null);
+      setMessengerMessages([]);
+      setMessengerMessagesLoading(false);
+      setMessengerMessagesError(null);
       return;
     }
 
-    loadMessages(selectedConversationId).catch((e: any) => {
+    const load = async () => {
+      if (selectedConversation.channel === "messenger") {
+        await loadMessengerMessages(selectedConversation.id);
+        return;
+      }
+      await loadWhatsappMessages(selectedConversation.id);
+    };
+
+    void load().catch((e: any) => {
       if (cancelled) return;
-      setMessagesError(e?.message ?? "Error cargando mensajes");
-      setMessages([]);
-      setMessagesLoading(false);
+      if (activeChannel === "messenger") {
+        setMessengerMessagesError(e?.message ?? "Error cargando mensajes de Messenger");
+        setMessengerMessages([]);
+        setMessengerMessagesLoading(false);
+      } else {
+        setWhatsappMessagesError(e?.message ?? "Error cargando mensajes");
+        setWhatsappMessages([]);
+        setWhatsappMessagesLoading(false);
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedConversationId]);
+  }, [selectedConversation]);
 
   useRealtimeTable({
     table: "whatsapp_conversations",
     companyId: profile?.company_id || null,
     enabled: Boolean(profile?.company_id),
     onChange: () => {
-      void loadConversations();
+      if (activeChannel === "messenger" || activeChannel === "instagram") return;
+        void loadWhatsappConversations();
     },
   });
 
@@ -197,18 +421,42 @@ function WhatsAppPage() {
     companyId: profile?.company_id || null,
     enabled: Boolean(profile?.company_id),
     onChange: (payload) => {
-      void loadConversations();
-      const changedConversationId = String(
-        payload.new?.conversation_id || payload.old?.conversation_id || "",
-      ).trim();
-      if (selectedConversationId && (!changedConversationId || changedConversationId === selectedConversationId)) {
-        void loadMessages(selectedConversationId);
+      if (activeChannel === "messenger" || activeChannel === "instagram") return;
+      void loadWhatsappConversations();
+      const changedConversationId = String(payload.new?.conversation_id || payload.old?.conversation_id || "").trim();
+      if (selectedConversation?.channel === "whatsapp" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+        void loadWhatsappMessages(selectedConversation.id);
+      }
+    },
+  });
+
+  useRealtimeTable({
+    table: "meta_conversations",
+    companyId: profile?.company_id || null,
+    enabled: Boolean(profile?.company_id),
+    onChange: () => {
+      if (activeChannel === "messenger" || activeChannel === "all") {
+        void loadMessengerConversations();
+      }
+    },
+  });
+
+  useRealtimeTable({
+    table: "meta_messages",
+    companyId: profile?.company_id || null,
+    enabled: Boolean(profile?.company_id),
+    onChange: (payload) => {
+      if (activeChannel !== "messenger" && activeChannel !== "all") return;
+      void loadMessengerConversations();
+      const changedConversationId = String(payload.new?.conversation_id || payload.old?.conversation_id || "").trim();
+      if (selectedConversation?.channel === "messenger" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+        void loadMessengerMessages(selectedConversation.id);
       }
     },
   });
 
   async function handleSendMessage(content: string) {
-    if (!selectedConversation) return;
+    if (!selectedWhatsappConversation || activeChannel === "messenger" || activeChannel === "instagram") return;
     if (!serviceWindow.isServiceWindowOpen) {
       setSendError("La ventana de WhatsApp está cerrada. Usa una plantilla aprobada para continuar.");
       return;
@@ -217,15 +465,71 @@ function WhatsAppPage() {
     setSendingMessage(true);
     setSendError(null);
     try {
-      await sendWhatsappMessage(selectedConversation.conversation_id, content);
-      await loadMessages(selectedConversation.conversation_id);
-      await loadConversations();
+      await sendWhatsappMessage(selectedWhatsappConversation.conversation_id, content);
+      await loadWhatsappMessages(selectedWhatsappConversation.conversation_id);
+      await loadWhatsappConversations();
     } catch (error) {
       const msg = error instanceof Error ? error.message : "No se pudo enviar el mensaje";
       setSendError(msg);
       throw error;
     } finally {
       setSendingMessage(false);
+    }
+  }
+
+  async function handleSendMessengerMessage(content: string) {
+    if (!selectedMessengerConversation) return;
+    const companyId = profile?.company_id || null;
+    if (!companyId) {
+      toast.error("No se pudo detectar la empresa (company_id).");
+      return;
+    }
+    const conversationId = String(selectedMessengerConversation.id || "").trim();
+    if (!conversationId) {
+      toast.error("No se encontró la conversación de Messenger.");
+      return;
+    }
+    const accountId = String(selectedMessengerConversation.account_id || "").trim();
+    if (!accountId) {
+      toast.error("No se encontró la cuenta de Messenger conectada.");
+      return;
+    }
+    const text = content.trim();
+    if (!text) {
+      toast.error("Escribe un mensaje antes de enviar.");
+      return;
+    }
+
+    setSendingMessengerMessage(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-send-message", {
+        body: {
+          company_id: companyId,
+          account_id: accountId,
+          conversation_id: conversationId,
+          text,
+        },
+      });
+      if (error) throw error;
+      if (data && typeof data === "object" && "error" in (data as any) && (data as any).error) {
+        throw new Error(String((data as any).error));
+      }
+
+      // Refresh UI from DB so we stay consistent with the message ingestion flow.
+      await Promise.all([loadMessengerMessages(conversationId), loadMessengerConversations()]);
+      toast.success("Mensaje enviado por Messenger.");
+
+      return data;
+    } catch (e: any) {
+      const msg =
+        e?.message ||
+        e?.error_description ||
+        (typeof e === "string" ? e : null) ||
+        "No se pudo enviar el mensaje por Messenger.";
+      toast.error(msg);
+      throw e;
+    } finally {
+      setSendingMessengerMessage(false);
     }
   }
 
@@ -262,69 +566,124 @@ function WhatsAppPage() {
           Instagram
         </button>
         <div className="text-xs text-muted-foreground ml-auto">
-          Configura tus canales de Meta en Configuración → Meta.
+          {channelNotice || "Configura tus canales de Meta en Configuración → Meta."}
         </div>
       </div>
+
       <div
         data-demo="whatsapp-main"
         className="grid h-full min-h-0 w-full min-w-0 overflow-hidden grid-cols-[350px_minmax(0,1fr)_380px] max-[1500px]:grid-cols-[340px_minmax(0,1fr)_360px] max-[1280px]:grid-cols-[320px_minmax(0,1fr)_330px] max-[1180px]:grid-cols-[300px_minmax(0,1fr)] max-[820px]:grid-cols-[82px_minmax(0,1fr)]"
       >
-      <WhatsappReadonlyList
-        className="min-h-0"
-        conversations={listConversations}
-        selectedConversationId={selectedConversationId}
-        onSelectConversationId={setSelectedConversationId}
-        loading={listLoading}
-        error={listError}
-        currentUserId={user?.id || null}
-        canSeeUnassigned={roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false}
-      />
+        {activeChannel === "all" ? (
+          <InboxUnifiedList
+            className="min-h-0"
+            items={unifiedConversations}
+            selectedKey={selectedConversation ? `${selectedConversation.channel}:${selectedConversation.id}` : null}
+            onSelectKey={(key) => {
+              const [channel, id] = String(key).split(":");
+              if (channel !== "whatsapp" && channel !== "messenger") return;
+              setSelectedConversation({ channel: channel as ConversationChannel, id: String(id) });
+            }}
+            selectedChannel={selectedChannel}
+            onSelectChannel={setSelectedChannel}
+            loading={whatsappConversationsLoading || messengerConversationsLoading}
+            warning={messengerConversationsError ? "No se pudieron cargar las conversaciones de Messenger." : null}
+          />
+        ) : activeChannel === "messenger" ? (
+          <MessengerReadonlyList
+            className="min-h-0"
+            conversations={messengerConversations}
+            selectedConversationId={selectedConversation?.channel === "messenger" ? selectedConversation.id : null}
+            onSelectConversationId={(id) => setSelectedConversation({ channel: "messenger", id })}
+            selectedChannel={selectedChannel}
+            onSelectChannel={setSelectedChannel}
+            loading={messengerConversationsLoading}
+            error={messengerConversationsError}
+            companyId={profile?.company_id || null}
+          />
+        ) : (
+          <WhatsappReadonlyList
+            className="min-h-0"
+            conversations={whatsappConversations}
+            selectedConversationId={selectedConversation?.channel === "whatsapp" ? selectedConversation.id : null}
+            onSelectConversationId={(id) => setSelectedConversation({ channel: "whatsapp", id })}
+            selectedChannel={selectedChannel}
+            onSelectChannel={setSelectedChannel}
+            loading={whatsappConversationsLoading}
+            error={whatsappConversationsError}
+            currentUserId={user?.id || null}
+            canSeeUnassigned={canSeeUnassigned}
+          />
+        )}
 
-      {channelBlocked ? (
-        <WhatsappEmptyState
-          title="Canal pendiente"
-          subtitle={channelNotice || "Este canal estará disponible cuando conectes tu cuenta Meta."}
-        />
-      ) : selectedConversationId && selectedConversation ? (
-        <WhatsappReadonlyThread
-          className="min-h-0"
-          title={
-            selectedConversation.display_name ||
-            selectedConversation.contact_name ||
-            selectedConversation.whatsapp_profile_name ||
-            selectedConversation.phone ||
-            "Conversación"
-          }
-          subtitle={selectedConversation.phone || undefined}
-          status={selectedConversation.conversation_status}
-          botEnabled={selectedConversation.bot_enabled}
-          messages={messages}
-          loading={messagesLoading}
-          error={messagesError}
-          onSendMessage={handleSendMessage}
-          sending={sendingMessage}
-          sendError={sendError}
-          isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
-          lastInboundAt={serviceWindow.lastInboundAt}
-          serviceWindowExpiresAt={serviceWindow.serviceWindowExpiresAt}
-          remainingServiceWindowMs={serviceWindow.remainingServiceWindowMs}
-        />
-      ) : (
-        <WhatsappEmptyState />
-      )}
+        {selectedChannel === "instagram" ? (
+          <WhatsappEmptyState
+            title="Canal pendiente"
+            subtitle="Instagram DM estará disponible cuando conectes tu cuenta Meta."
+          />
+        ) : (selectedConversation?.channel === "messenger") ? (
+          selectedMessengerConversation ? (
+            <MessengerReadonlyThread
+              className="min-h-0"
+              title={selectedMessengerConversation.sender_name || "Usuario de Messenger"}
+              subtitle={selectedMessengerConversation.external_user_id}
+              status={selectedMessengerConversation.status}
+              avatarUrl={selectedMessengerConversation.sender_profile_pic}
+              messages={messengerMessages}
+              loading={messengerMessagesLoading}
+              error={messengerMessagesError}
+              emptyHint="Cuando recibas mensajes de Messenger, aparecerán aquí."
+              onSendMessage={handleSendMessengerMessage}
+              sending={sendingMessengerMessage}
+            />
+          ) : (
+            <WhatsappEmptyState
+              title="Selecciona una conversación"
+              subtitle="Elige una conversación de Messenger a la izquierda para ver los mensajes"
+            />
+          )
+        ) : selectedWhatsappConversation ? (
+          <WhatsappReadonlyThread
+            className="min-h-0"
+            title={
+              selectedWhatsappConversation.display_name ||
+              selectedWhatsappConversation.contact_name ||
+              selectedWhatsappConversation.whatsapp_profile_name ||
+              selectedWhatsappConversation.phone ||
+              "Conversación"
+            }
+            subtitle={selectedWhatsappConversation.phone || undefined}
+            status={selectedWhatsappConversation.conversation_status}
+            botEnabled={selectedWhatsappConversation.bot_enabled}
+            messages={whatsappMessages}
+            loading={whatsappMessagesLoading}
+            error={whatsappMessagesError}
+            onSendMessage={handleSendMessage}
+            sending={sendingMessage}
+            sendError={sendError}
+            isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
+            lastInboundAt={serviceWindow.lastInboundAt}
+            serviceWindowExpiresAt={serviceWindow.serviceWindowExpiresAt}
+            remainingServiceWindowMs={serviceWindow.remainingServiceWindowMs}
+          />
+        ) : (
+          <WhatsappEmptyState />
+        )}
 
-      {!channelBlocked ? (
-        <WhatsappContactPanel
-          conversation={selectedConversation}
-          messages={messages}
-          className="max-[1180px]:hidden min-h-0 border-l border-black/10"
-          onRefreshConversations={() => void loadConversations()}
-          isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
-          lastInboundAt={serviceWindow.lastInboundAt}
-          serviceWindowExpiresAt={serviceWindow.serviceWindowExpiresAt}
-          remainingServiceWindowMs={serviceWindow.remainingServiceWindowMs}
-        />
-      ) : null}
+        {selectedConversation?.channel === "messenger" ? (
+          <MessengerContextPanel conversation={selectedMessengerConversation} className="max-[1180px]:hidden min-h-0" />
+        ) : selectedChannel !== "instagram" ? (
+          <WhatsappContactPanel
+            conversation={selectedWhatsappConversation}
+            messages={whatsappMessages}
+            className="max-[1180px]:hidden min-h-0 border-l border-black/10"
+            onRefreshConversations={() => void loadWhatsappConversations()}
+            isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
+            lastInboundAt={serviceWindow.lastInboundAt}
+            serviceWindowExpiresAt={serviceWindow.serviceWindowExpiresAt}
+            remainingServiceWindowMs={serviceWindow.remainingServiceWindowMs}
+          />
+        ) : null}
       </div>
     </div>
   );

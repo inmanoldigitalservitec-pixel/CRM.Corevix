@@ -2,9 +2,9 @@
 
 create or replace function public.log_activity_event(
   p_company_id uuid,
-  p_user_id uuid default null,
   p_action text,
   p_entity_type text,
+  p_user_id uuid default null,
   p_entity_id uuid default null,
   p_detail text default null,
   p_metadata jsonb default '{}'::jsonb,
@@ -85,5 +85,5 @@ $$;
 create index if not exists idx_activity_logs_company_created_at
   on public.activity_logs (company_id, created_at desc);
 
-revoke all on function public.log_activity_event(uuid, uuid, text, text, uuid, text, jsonb, integer) from public;
-grant execute on function public.log_activity_event(uuid, uuid, text, text, uuid, text, jsonb, integer) to authenticated, service_role;
+revoke all on function public.log_activity_event(uuid, text, text, uuid, uuid, text, jsonb, integer) from public;
+grant execute on function public.log_activity_event(uuid, text, text, uuid, uuid, text, jsonb, integer) to authenticated, service_role;
