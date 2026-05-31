@@ -129,6 +129,9 @@ type LeadRow = {
   company_name: string | null;
   source: string | null;
   source_channel: string | null;
+  estimated_value?: number | null;
+  notes?: string | null;
+  product_interest?: string | null;
   status: string;
   assigned_to: string | null;
 };
@@ -350,10 +353,10 @@ function PipelinePage() {
       setDealSourceOptionsLoading(true);
       try {
         const db = supabase as any;
-        const [{ data: leadsData }, { data: clientsData }] = await Promise.all([
+        const [{ data: leadsData, error: leadsError }, { data: clientsData }] = await Promise.all([
           db
             .from("leads")
-            .select("id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,created_at,updated_at")
+            .select("id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,estimated_value,notes,product_interest,created_at,updated_at")
             .eq("company_id", profile.company_id)
             .order("updated_at", { ascending: false })
             .limit(50),
@@ -365,7 +368,17 @@ function PipelinePage() {
             .limit(50),
         ]);
 
-        setDealLeadOptions((leadsData || []) as LeadRow[]);
+        if (leadsError) {
+          const { data: fallbackLeadsData } = await db
+            .from("leads")
+            .select("id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,created_at,updated_at")
+            .eq("company_id", profile.company_id)
+            .order("updated_at", { ascending: false })
+            .limit(50);
+          setDealLeadOptions((fallbackLeadsData || []) as LeadRow[]);
+        } else {
+          setDealLeadOptions((leadsData || []) as LeadRow[]);
+        }
         setDealClientOptions((clientsData || []) as ClientRow[]);
       } finally {
         setDealSourceOptionsLoading(false);
@@ -481,6 +494,14 @@ function PipelinePage() {
 
   const selectedLead = selectedDeal?.lead_id ? relatedLeadById[String(selectedDeal.lead_id)] : undefined;
   const selectedNextTask = selectedDeal?.lead_id ? nextTaskByLeadId[String(selectedDeal.lead_id)] : undefined;
+  const selectedSourceLead = useMemo(
+    () => (newDeal.source_type === "lead" && newDeal.lead_id ? dealLeadOptions.find((lead) => String(lead.id) === String(newDeal.lead_id)) || null : null),
+    [dealLeadOptions, newDeal.lead_id, newDeal.source_type],
+  );
+  const selectedSourceClient = useMemo(
+    () => (newDeal.source_type === "client" && newDeal.client_id ? dealClientOptions.find((client) => String(client.id) === String(newDeal.client_id)) || null : null),
+    [dealClientOptions, newDeal.client_id, newDeal.source_type],
+  );
 
   const db = supabase as any;
 
@@ -2518,6 +2539,7 @@ function PipelinePage() {
                           ...newDeal,
                           lead_id: v,
                           name: newDeal.name || label,
+                          value: newDeal.value || (lead?.estimated_value ? String(lead.estimated_value) : ""),
                         });
                       }}
                     >
@@ -2588,10 +2610,92 @@ function PipelinePage() {
                   </div>
                 ) : null}
 
+                {!editDeal && activeProducts.length > 0 ? (
+                  <div className="mt-3">
+                    <Label>Producto o servicio</Label>
+                    <Select
+                      value=""
+                      onValueChange={(v) => {
+                        const product = activeProducts.find((p) => String(p.id) === String(v));
+                        if (!product) return;
+                        const contactLabel =
+                          selectedSourceLead?.company_name ||
+                          formatPersonName(selectedSourceLead?.first_name, selectedSourceLead?.last_name) ||
+                          selectedSourceClient?.company_name ||
+                          selectedSourceClient?.contact_person ||
+                          "";
+                        const suggestedName = contactLabel ? `${product.name} — ${contactLabel}` : product.name;
+                        setNewDeal((current) => ({
+                          ...current,
+                          name: suggestedName,
+                          value: current.value || (product.base_price != null ? String(product.base_price) : ""),
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder={activeProductsLoading ? "Cargando productos…" : "Selecciona un producto para sugerir nombre y valor"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeProducts.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}{product.base_price != null ? ` · ${money(product.base_price)}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
+                {!editDeal && (selectedSourceLead || selectedSourceClient) ? (
+                  <div className="mt-3 rounded-[12px] border bg-white px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
+                    <div className="font-medium text-foreground">Usa la información del prospecto o cliente para crear la oportunidad más rápido.</div>
+                    <div>Los datos de contacto se muestran como referencia y no se guardan dentro de la oportunidad.</div>
+
+                    {selectedSourceLead ? (
+                      <div className="grid gap-1 pt-1">
+                        <div><span className="font-medium text-foreground">Prospecto:</span> {selectedSourceLead.company_name || formatPersonName(selectedSourceLead.first_name, selectedSourceLead.last_name) || "—"}</div>
+                        <div><span className="font-medium text-foreground">Contacto:</span> {formatPersonName(selectedSourceLead.first_name, selectedSourceLead.last_name) || "—"}</div>
+                        <div><span className="font-medium text-foreground">Teléfono:</span> {selectedSourceLead.phone || "—"}</div>
+                        <div><span className="font-medium text-foreground">WhatsApp:</span> {selectedSourceLead.whatsapp || "—"}</div>
+                        <div><span className="font-medium text-foreground">Email:</span> {selectedSourceLead.email || "—"}</div>
+                        <div><span className="font-medium text-foreground">Origen:</span> {selectedSourceLead.source_channel || selectedSourceLead.source || "—"}</div>
+                        <div><span className="font-medium text-foreground">Valor estimado:</span> {selectedSourceLead.estimated_value != null ? money(selectedSourceLead.estimated_value) : "—"}</div>
+                        <div><span className="font-medium text-foreground">Interés de producto:</span> {selectedSourceLead.product_interest || "—"}</div>
+                        <div><span className="font-medium text-foreground">Contexto comercial:</span> {selectedSourceLead.notes || "—"}</div>
+                      </div>
+                    ) : null}
+
+                    {selectedSourceClient ? (
+                      <div className="grid gap-1 pt-1">
+                        <div><span className="font-medium text-foreground">Empresa:</span> {selectedSourceClient.company_name || "—"}</div>
+                        <div><span className="font-medium text-foreground">Contacto:</span> {selectedSourceClient.contact_person || "—"}</div>
+                        <div><span className="font-medium text-foreground">Teléfono:</span> {selectedSourceClient.phone || "—"}</div>
+                        <div><span className="font-medium text-foreground">WhatsApp:</span> {selectedSourceClient.whatsapp || "—"}</div>
+                        <div><span className="font-medium text-foreground">Email:</span> {selectedSourceClient.email || "—"}</div>
+                        <div><span className="font-medium text-foreground">Estado:</span> {selectedSourceClient.status || "—"}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {newDeal.source_type === "none" ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Puedes crear una oportunidad sin contacto, pero lo ideal es conectarla luego a un prospecto o cliente para mantener el historial completo.
-                  </p>
+                  <div className="mt-3 rounded-[12px] border bg-white px-3 py-3 text-xs text-muted-foreground space-y-3">
+                    <p>
+                      Esta oportunidad no tiene un prospecto o cliente conectado. Para mantener el historial completo, primero crea un cliente y luego vuelve a crear la oportunidad.
+                    </p>
+                    <div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8"
+                        onClick={() => {
+                          window.location.href = "/clients";
+                        }}
+                      >
+                        Crear nuevo cliente
+                      </Button>
+                    </div>
+                  </div>
                 ) : null}
               </div>
             ) : null}

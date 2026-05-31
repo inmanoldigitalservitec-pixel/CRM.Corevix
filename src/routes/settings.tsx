@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { WhatsAppSettings } from "@/components/whatsapp/whatsapp-settings";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -91,6 +92,27 @@ type GeminiSettingsRow = {
   updated_at: string | null;
 };
 
+function MetaIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 32" className={className} fill="none" aria-hidden="true">
+      <path
+        d="M6 24c4-14 9-21 14-21 5 0 8 7 12 14 4 7 7 14 12 14 5 0 10-7 14-21"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 24c2.5-7 5-11 8-11 3.5 0 6 4 10 11 4 7 7 11 10 11 3 0 5.5-4 8-11 2.5-7 5-11 8-11 3 0 5.5 4 8 11"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function NoSettingsAccess() {
   useEffect(() => {
     toast.error("No tienes permiso para acceder a Settings");
@@ -175,6 +197,32 @@ function SettingsPage() {
       "Eres el asistente del CRM Corevix. Responde de forma concisa y accionable. Si no tienes datos suficientes, pregunta por lo mínimo necesario. No inventes cifras.",
     is_enabled: false,
   });
+  const [metaWhatsappConfigured, setMetaWhatsappConfigured] = useState(false);
+
+  const loadMetaWhatsappStatus = async () => {
+    if (!companyId) return;
+    const { data, error } = await db
+      .from("company_whatsapp_settings")
+      .select("is_connected,connection_status,phone_number_id,whatsapp_business_account_id")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (error || !data) {
+      setMetaWhatsappConfigured(false);
+      return;
+    }
+    const row = data as {
+      is_connected?: boolean | null;
+      connection_status?: string | null;
+      phone_number_id?: string | null;
+      whatsapp_business_account_id?: string | null;
+    };
+    const configured =
+      Boolean(row.is_connected) ||
+      row.connection_status === "connected" ||
+      Boolean(row.phone_number_id) ||
+      Boolean(row.whatsapp_business_account_id);
+    setMetaWhatsappConfigured(configured);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search || "");
@@ -247,6 +295,10 @@ function SettingsPage() {
     void loadGmailSettings();
     void loadGmailAccount();
   }, [companyId, profileId, authUserId]);
+
+  useEffect(() => {
+    void loadMetaWhatsappStatus();
+  }, [companyId]);
 
   const saveGmailSettings = async () => {
     if (!companyId) return;
@@ -669,7 +721,7 @@ function SettingsPage() {
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+          <TabsTrigger value="whatsapp">Meta</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="drive">Google Drive</TabsTrigger>
           <TabsTrigger value="ai">AI / Gemini</TabsTrigger>
@@ -716,7 +768,103 @@ function SettingsPage() {
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="whatsapp" className="mt-4">
-          <WhatsAppSettings />
+          <div className="space-y-4">
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-md border bg-muted/30 p-1.5">
+                      <MetaIcon className="h-4 w-7 text-[#0866ff]" />
+                    </div>
+                    <CardTitle className="text-base">Configuración de Meta</CardTitle>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Administra las integraciones de mensajería de Meta desde un solo lugar: WhatsApp, Messenger e Instagram DM.
+                </p>
+              </CardHeader>
+            </Card>
+
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between gap-3">
+                <CardTitle className="text-base">WhatsApp Business API</CardTitle>
+                <Badge variant={metaWhatsappConfigured ? "default" : "secondary"}>
+                  {metaWhatsappConfigured ? "Activo" : "No configurado"}
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <WhatsAppSettings />
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between gap-3">
+                <CardTitle className="text-base">Facebook Messenger</CardTitle>
+                <Badge variant="secondary">Pendiente</Badge>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Conecta una página de Facebook para recibir y responder mensajes de Messenger desde el CRM.
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label>ID de página</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                  <div>
+                    <Label>Token de acceso de página</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                  <div>
+                    <Label>Token de verificación</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                  <div>
+                    <Label>Webhook URL</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                </div>
+                <div>
+                  <Label>Estado de conexión</Label>
+                  <Input value="Pendiente de conexión" disabled />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between gap-3">
+                <CardTitle className="text-base">Instagram DM</CardTitle>
+                <Badge variant="secondary">Pendiente</Badge>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Conecta una cuenta profesional de Instagram para gestionar mensajes directos desde el CRM.
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label>ID de cuenta profesional de Instagram</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                  <div>
+                    <Label>Página de Facebook conectada</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                  <div>
+                    <Label>Token de acceso</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                  <div>
+                    <Label>Webhook URL</Label>
+                    <Input placeholder="Pendiente de conexión" disabled />
+                  </div>
+                </div>
+                <div>
+                  <Label>Estado de conexión</Label>
+                  <Input value="Pendiente de conexión" disabled />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         <TabsContent value="email" className="mt-4">
           <Card className="border-0 shadow-sm"><CardHeader><CardTitle className="text-base">Email Integration</CardTitle></CardHeader><CardContent className="space-y-4">

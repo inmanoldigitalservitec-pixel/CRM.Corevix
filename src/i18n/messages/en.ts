@@ -20,7 +20,7 @@ export const en = {
   "nav.leads": "Leads",
   "nav.clients": "Clients",
   "nav.pipeline": "Pipeline",
-  "nav.whatsappInbox": "WhatsApp Inbox",
+  "nav.whatsappInbox": "Bandeja",
   "nav.emailInbox": "Email Inbox",
   "nav.tasks": "Tasks",
   "nav.projects": "Projects",

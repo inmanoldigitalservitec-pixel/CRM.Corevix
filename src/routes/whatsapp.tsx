@@ -17,8 +17,10 @@ const DEMO_CONVERSATION_STORAGE_KEY = "crm_demo_conversation_id";
 
 export const Route = createFileRoute("/whatsapp")({
   component: WhatsAppPage,
-  head: () => ({ meta: [{ title: "WhatsApp Inbox — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Bandeja de entrada — Corevix CRM" }] }),
 });
+
+type InboxChannel = "all" | "whatsapp" | "messenger" | "instagram";
 
 function WhatsAppPage() {
   const { profile, user, roles } = useAuth();
@@ -55,11 +57,22 @@ function WhatsAppPage() {
   const [serviceWindowNow, setServiceWindowNow] = useState(() => Date.now());
   const [sendingMessage, setSendingMessage] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<InboxChannel>("all");
 
   const selectedConversation = useMemo(
     () => conversations.find((c) => c.conversation_id === selectedConversationId) ?? null,
     [conversations, selectedConversationId],
   );
+  const channelBlocked = selectedChannel === "messenger" || selectedChannel === "instagram";
+  const channelNotice =
+    selectedChannel === "messenger"
+      ? "Messenger estará disponible cuando conectes tu cuenta Meta."
+        : selectedChannel === "instagram"
+        ? "Instagram DM estará disponible cuando conectes tu cuenta Meta."
+        : null;
+  const listConversations = channelBlocked ? [] : conversations;
+  const listLoading = channelBlocked ? false : conversationsLoading;
+  const listError = channelBlocked ? null : conversationsError;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -218,22 +231,61 @@ function WhatsAppPage() {
 
   return (
     <div className="h-[calc(100vh-3.5rem)] min-h-0 bg-[#f0f2f5] overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-black/10 bg-white flex flex-wrap items-center gap-2">
+        <div className="text-sm font-semibold text-slate-900 mr-2">Bandeja de entrada</div>
+        <button
+          type="button"
+          onClick={() => setSelectedChannel("all")}
+          className={`h-8 px-3 rounded-full text-xs font-medium border ${selectedChannel === "all" ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+        >
+          Todos
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedChannel("whatsapp")}
+          className={`h-8 px-3 rounded-full text-xs font-medium border ${selectedChannel === "whatsapp" ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+        >
+          WhatsApp
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedChannel("messenger")}
+          className={`h-8 px-3 rounded-full text-xs font-medium border ${selectedChannel === "messenger" ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+        >
+          Messenger
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedChannel("instagram")}
+          className={`h-8 px-3 rounded-full text-xs font-medium border ${selectedChannel === "instagram" ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+        >
+          Instagram
+        </button>
+        <div className="text-xs text-muted-foreground ml-auto">
+          Configura tus canales de Meta en Configuración → Meta.
+        </div>
+      </div>
       <div
         data-demo="whatsapp-main"
         className="grid h-full min-h-0 w-full min-w-0 overflow-hidden grid-cols-[350px_minmax(0,1fr)_380px] max-[1500px]:grid-cols-[340px_minmax(0,1fr)_360px] max-[1280px]:grid-cols-[320px_minmax(0,1fr)_330px] max-[1180px]:grid-cols-[300px_minmax(0,1fr)] max-[820px]:grid-cols-[82px_minmax(0,1fr)]"
       >
       <WhatsappReadonlyList
         className="min-h-0"
-        conversations={conversations}
+        conversations={listConversations}
         selectedConversationId={selectedConversationId}
         onSelectConversationId={setSelectedConversationId}
-        loading={conversationsLoading}
-        error={conversationsError}
+        loading={listLoading}
+        error={listError}
         currentUserId={user?.id || null}
         canSeeUnassigned={roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false}
       />
 
-      {selectedConversationId && selectedConversation ? (
+      {channelBlocked ? (
+        <WhatsappEmptyState
+          title="Canal pendiente"
+          subtitle={channelNotice || "Este canal estará disponible cuando conectes tu cuenta Meta."}
+        />
+      ) : selectedConversationId && selectedConversation ? (
         <WhatsappReadonlyThread
           className="min-h-0"
           title={
@@ -261,16 +313,18 @@ function WhatsAppPage() {
         <WhatsappEmptyState />
       )}
 
-      <WhatsappContactPanel
-        conversation={selectedConversation}
-        messages={messages}
-        className="max-[1180px]:hidden min-h-0 border-l border-black/10"
-        onRefreshConversations={() => void loadConversations()}
-        isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
-        lastInboundAt={serviceWindow.lastInboundAt}
-        serviceWindowExpiresAt={serviceWindow.serviceWindowExpiresAt}
-        remainingServiceWindowMs={serviceWindow.remainingServiceWindowMs}
-      />
+      {!channelBlocked ? (
+        <WhatsappContactPanel
+          conversation={selectedConversation}
+          messages={messages}
+          className="max-[1180px]:hidden min-h-0 border-l border-black/10"
+          onRefreshConversations={() => void loadConversations()}
+          isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
+          lastInboundAt={serviceWindow.lastInboundAt}
+          serviceWindowExpiresAt={serviceWindow.serviceWindowExpiresAt}
+          remainingServiceWindowMs={serviceWindow.remainingServiceWindowMs}
+        />
+      ) : null}
       </div>
     </div>
   );
