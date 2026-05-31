@@ -13,6 +13,9 @@ import { sendWhatsappMessage } from "@/lib/whatsapp/whatsapp-bot-api";
 import { MessengerReadonlyList } from "@/components/whatsapp/messenger-readonly-list";
 import { MessengerReadonlyThread } from "@/components/whatsapp/messenger-readonly-thread";
 import { MessengerContextPanel } from "@/components/whatsapp/messenger-context-panel";
+import { InstagramReadonlyList } from "@/components/whatsapp/instagram-readonly-list";
+import { InstagramReadonlyThread } from "@/components/whatsapp/instagram-readonly-thread";
+import { InstagramContextPanel } from "@/components/whatsapp/instagram-context-panel";
 import type { MetaConversationListRow, MetaMessageRow } from "@/lib/meta/view-types";
 import { InboxUnifiedList, type UnifiedInboxConversation } from "@/components/whatsapp/inbox-unified-list";
 import { toast } from "sonner";
@@ -23,7 +26,7 @@ export const Route = createFileRoute("/whatsapp")({
 });
 
 type InboxChannel = "all" | "whatsapp" | "messenger" | "instagram";
-type ConversationChannel = "whatsapp" | "messenger";
+type ConversationChannel = "whatsapp" | "messenger" | "instagram";
 type SelectedConversation = { channel: ConversationChannel; id: string } | null;
 
 function WhatsAppPage() {
@@ -47,6 +50,13 @@ function WhatsAppPage() {
   const [messengerMessagesLoading, setMessengerMessagesLoading] = useState(false);
   const [messengerMessagesError, setMessengerMessagesError] = useState<string | null>(null);
 
+  const [instagramConversations, setInstagramConversations] = useState<MetaConversationListRow[]>([]);
+  const [instagramConversationsLoading, setInstagramConversationsLoading] = useState(true);
+  const [instagramConversationsError, setInstagramConversationsError] = useState<string | null>(null);
+  const [instagramMessages, setInstagramMessages] = useState<MetaMessageRow[]>([]);
+  const [instagramMessagesLoading, setInstagramMessagesLoading] = useState(false);
+  const [instagramMessagesError, setInstagramMessagesError] = useState<string | null>(null);
+
   const [selectedConversation, setSelectedConversation] = useState<SelectedConversation>(null);
   const [selectedChannel, setSelectedChannel] = useState<InboxChannel>("all");
 
@@ -67,6 +77,11 @@ function WhatsAppPage() {
     if (!selectedConversation || selectedConversation.channel !== "messenger") return null;
     return messengerConversations.find((c) => c.id === selectedConversation.id) ?? null;
   }, [messengerConversations, selectedConversation]);
+
+  const selectedInstagramConversation = useMemo(() => {
+    if (!selectedConversation || selectedConversation.channel !== "instagram") return null;
+    return instagramConversations.find((c) => c.id === selectedConversation.id) ?? null;
+  }, [instagramConversations, selectedConversation]);
 
   const selectedWhatsappConversation = useMemo(() => {
     if (!selectedConversation || selectedConversation.channel !== "whatsapp") return null;
@@ -147,13 +162,13 @@ function WhatsAppPage() {
       : activeChannel === "messenger"
         ? messengerConversationsLoading
         : activeChannel === "instagram"
-          ? false
+          ? instagramConversationsLoading
           : whatsappConversationsLoading;
   const channelNotice =
     selectedChannel === "all"
       ? "Mostrando WhatsApp y Messenger."
       : selectedChannel === "instagram"
-        ? "Instagram DM estará disponible cuando conectes tu cuenta Meta."
+        ? "Mostrando Instagram DM (solo lectura por ahora)."
         : null;
 
   useEffect(() => {
@@ -165,6 +180,9 @@ function WhatsAppPage() {
     setMessengerMessages([]);
     setMessengerMessagesError(null);
     setMessengerMessagesLoading(false);
+    setInstagramMessages([]);
+    setInstagramMessagesError(null);
+    setInstagramMessagesLoading(false);
   }, [selectedChannel]);
 
   useEffect(() => {
@@ -298,6 +316,70 @@ function WhatsAppPage() {
     setMessengerMessagesLoading(false);
   }
 
+  async function loadInstagramConversations() {
+    if (!profile?.company_id) {
+      setInstagramConversations([]);
+      setInstagramConversationsLoading(false);
+      setInstagramConversationsError(null);
+      return;
+    }
+
+    setInstagramConversationsLoading(true);
+    setInstagramConversationsError(null);
+    const db = supabase as any;
+    const { data, error } = await db
+      .from("meta_conversations")
+      .select(
+        "id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at",
+      )
+      .eq("company_id", profile.company_id)
+      .eq("platform", "instagram")
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.warn("No se pudieron cargar las conversaciones de Instagram.", {
+        companyId: profile.company_id,
+        error,
+      });
+      setInstagramConversationsError(error.message);
+      setInstagramConversations([]);
+    } else {
+      setInstagramConversations((Array.isArray(data) ? data : []) as MetaConversationListRow[]);
+    }
+    setInstagramConversationsLoading(false);
+  }
+
+  async function loadInstagramMessages(conversationId: string) {
+    setInstagramMessagesLoading(true);
+    setInstagramMessagesError(null);
+    const db = supabase as any;
+    const { data, error } = await db
+      .from("meta_messages")
+      .select(
+        "id, company_id, account_id, conversation_id, platform, external_message_id, direction, message_type, text, attachments, raw_payload, sent_at, created_at",
+      )
+      .eq("conversation_id", conversationId)
+      .eq("company_id", profile?.company_id || "")
+      .eq("platform", "instagram")
+      .order("sent_at", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.warn("No se pudieron cargar los mensajes de Instagram.", {
+        companyId: profile?.company_id,
+        conversationId,
+        error,
+      });
+      setInstagramMessagesError(error.message);
+      setInstagramMessages([]);
+    } else {
+      setInstagramMessages((Array.isArray(data) ? data : []) as MetaMessageRow[]);
+    }
+    setInstagramMessagesLoading(false);
+  }
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -306,6 +388,8 @@ function WhatsAppPage() {
         setWhatsappMessages([]);
         setMessengerConversations([]);
         setMessengerMessages([]);
+        setInstagramConversations([]);
+        setInstagramMessages([]);
         return;
       }
 
@@ -314,8 +398,7 @@ function WhatsAppPage() {
       } else if (activeChannel === "all") {
         await Promise.all([loadWhatsappConversations(), loadMessengerConversations()]);
       } else if (activeChannel === "instagram") {
-        setWhatsappConversations([]);
-        setMessengerConversations([]);
+        await loadInstagramConversations();
       } else {
         await loadWhatsappConversations();
       }
@@ -329,6 +412,10 @@ function WhatsAppPage() {
         setMessengerConversationsError(e?.message ?? "Error cargando conversaciones de Messenger");
         setMessengerConversations([]);
         setMessengerConversationsLoading(false);
+      } else if (activeChannel === "instagram") {
+        setInstagramConversationsError(e?.message ?? "Error cargando conversaciones de Instagram");
+        setInstagramConversations([]);
+        setInstagramConversationsLoading(false);
       } else if (activeChannel === "whatsapp") {
         setWhatsappConversationsError(e?.message ?? "Error cargando conversaciones");
         setWhatsappConversations([]);
@@ -348,10 +435,16 @@ function WhatsAppPage() {
     if (activeChannel === "all" ? unifiedConversations.length === 0 : false) return;
     if (activeChannel === "whatsapp" && whatsappConversations.length === 0) return;
     if (activeChannel === "messenger" && messengerConversations.length === 0) return;
+    if (activeChannel === "instagram" && instagramConversations.length === 0) return;
 
     if (activeChannel === "messenger") {
       const found = messengerConversations.find((c) => c.id === desiredConversationId);
       if (found) setSelectedConversation({ channel: "messenger", id: found.id });
+      return;
+    }
+    if (activeChannel === "instagram") {
+      const found = instagramConversations.find((c) => c.id === desiredConversationId);
+      if (found) setSelectedConversation({ channel: "instagram", id: found.id });
       return;
     }
     if (activeChannel === "whatsapp") {
@@ -363,6 +456,7 @@ function WhatsAppPage() {
     activeChannel,
     desiredConversationId,
     listLoading,
+    instagramConversations,
     messengerConversations,
     selectedConversation,
     unifiedConversations.length,
@@ -378,12 +472,19 @@ function WhatsAppPage() {
       setMessengerMessages([]);
       setMessengerMessagesLoading(false);
       setMessengerMessagesError(null);
+      setInstagramMessages([]);
+      setInstagramMessagesLoading(false);
+      setInstagramMessagesError(null);
       return;
     }
 
     const load = async () => {
       if (selectedConversation.channel === "messenger") {
         await loadMessengerMessages(selectedConversation.id);
+        return;
+      }
+      if (selectedConversation.channel === "instagram") {
+        await loadInstagramMessages(selectedConversation.id);
         return;
       }
       await loadWhatsappMessages(selectedConversation.id);
@@ -395,6 +496,10 @@ function WhatsAppPage() {
         setMessengerMessagesError(e?.message ?? "Error cargando mensajes de Messenger");
         setMessengerMessages([]);
         setMessengerMessagesLoading(false);
+      } else if (activeChannel === "instagram") {
+        setInstagramMessagesError(e?.message ?? "Error cargando mensajes de Instagram");
+        setInstagramMessages([]);
+        setInstagramMessagesLoading(false);
       } else {
         setWhatsappMessagesError(e?.message ?? "Error cargando mensajes");
         setWhatsappMessages([]);
@@ -438,6 +543,9 @@ function WhatsAppPage() {
       if (activeChannel === "messenger" || activeChannel === "all") {
         void loadMessengerConversations();
       }
+      if (activeChannel === "instagram") {
+        void loadInstagramConversations();
+      }
     },
   });
 
@@ -446,11 +554,18 @@ function WhatsAppPage() {
     companyId: profile?.company_id || null,
     enabled: Boolean(profile?.company_id),
     onChange: (payload) => {
-      if (activeChannel !== "messenger" && activeChannel !== "all") return;
-      void loadMessengerConversations();
+      if (activeChannel === "messenger" || activeChannel === "all") {
+        void loadMessengerConversations();
+      }
+      if (activeChannel === "instagram") {
+        void loadInstagramConversations();
+      }
       const changedConversationId = String(payload.new?.conversation_id || payload.old?.conversation_id || "").trim();
       if (selectedConversation?.channel === "messenger" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
         void loadMessengerMessages(selectedConversation.id);
+      }
+      if (selectedConversation?.channel === "instagram" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+        void loadInstagramMessages(selectedConversation.id);
       }
     },
   });
@@ -601,6 +716,17 @@ function WhatsAppPage() {
             error={messengerConversationsError}
             companyId={profile?.company_id || null}
           />
+        ) : activeChannel === "instagram" ? (
+          <InstagramReadonlyList
+            className="min-h-0"
+            conversations={instagramConversations}
+            selectedConversationId={selectedConversation?.channel === "instagram" ? selectedConversation.id : null}
+            onSelectConversationId={(id) => setSelectedConversation({ channel: "instagram", id })}
+            selectedChannel={selectedChannel}
+            onSelectChannel={setSelectedChannel}
+            loading={instagramConversationsLoading}
+            error={instagramConversationsError}
+          />
         ) : (
           <WhatsappReadonlyList
             className="min-h-0"
@@ -616,11 +742,25 @@ function WhatsAppPage() {
           />
         )}
 
-        {selectedChannel === "instagram" ? (
-          <WhatsappEmptyState
-            title="Canal pendiente"
-            subtitle="Instagram DM estará disponible cuando conectes tu cuenta Meta."
-          />
+        {selectedConversation?.channel === "instagram" ? (
+          selectedInstagramConversation ? (
+            <InstagramReadonlyThread
+              className="min-h-0"
+              title={selectedInstagramConversation.sender_name || "Usuario de Instagram"}
+              subtitle={selectedInstagramConversation.external_user_id}
+              status={selectedInstagramConversation.status}
+              avatarUrl={selectedInstagramConversation.sender_profile_pic}
+              messages={instagramMessages}
+              loading={instagramMessagesLoading}
+              error={instagramMessagesError}
+              emptyHint="Cuando recibas mensajes de Instagram, aparecerán aquí."
+            />
+          ) : (
+            <WhatsappEmptyState
+              title="Selecciona una conversación"
+              subtitle="Elige una conversación de Instagram a la izquierda para ver los mensajes"
+            />
+          )
         ) : (selectedConversation?.channel === "messenger") ? (
           selectedMessengerConversation ? (
             <MessengerReadonlyThread
@@ -672,6 +812,8 @@ function WhatsAppPage() {
 
         {selectedConversation?.channel === "messenger" ? (
           <MessengerContextPanel conversation={selectedMessengerConversation} className="max-[1180px]:hidden min-h-0" />
+        ) : selectedConversation?.channel === "instagram" ? (
+          <InstagramContextPanel conversation={selectedInstagramConversation} className="max-[1180px]:hidden min-h-0" />
         ) : selectedChannel !== "instagram" ? (
           <WhatsappContactPanel
             conversation={selectedWhatsappConversation}

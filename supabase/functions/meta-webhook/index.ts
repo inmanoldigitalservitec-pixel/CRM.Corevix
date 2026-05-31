@@ -234,30 +234,37 @@ Deno.serve(async (req) => {
       for (const event of messagingEvents as MetaMessagingEvent[]) {
         if (event?.message?.is_echo) continue;
 
-        const pageId = cleanOptionalString(event?.recipient?.id);
+        const recipientId = cleanOptionalString(event?.recipient?.id);
         const senderId = cleanOptionalString(event?.sender?.id);
         const messageId = cleanOptionalString(event?.message?.mid);
         const text = extractText(event);
         const attachments = extractAttachments(event);
         const timestamp = asIsoTimestamp(event?.timestamp);
 
-        if (!pageId || !senderId) {
-          errors.push("Evento Messenger incompleto (falta recipient.id o sender.id)");
+        if (!recipientId || !senderId) {
+          errors.push(`Evento ${platform} incompleto (falta recipient.id o sender.id)`);
           continue;
         }
 
-        const { data: account, error: accountError } = await serviceClient
+        const accountQuery = serviceClient
           .from("meta_accounts")
-          .select("id, company_id, platform, page_id, page_name, access_token_secret_id")
-          .eq("platform", "messenger")
-          .eq("page_id", pageId)
-          .maybeSingle();
+          .select("id, company_id, platform, page_id, instagram_business_account_id, page_name, access_token_secret_id")
+          .eq("platform", platform);
+
+        const accountRes =
+          platform === "instagram"
+            ? await accountQuery.or(`instagram_business_account_id.eq.${recipientId},page_id.eq.${recipientId}`).maybeSingle()
+            : await accountQuery.eq("page_id", recipientId).maybeSingle();
+
+        const account = accountRes.data;
+        const accountError = accountRes.error;
         if (accountError) {
           errors.push(accountError.message);
           continue;
         }
         if (!account) {
-          errors.push(`No existe meta_account para page_id ${pageId}`);
+          const hint = platform === "instagram" ? "instagram_business_account_id/page_id" : "page_id";
+          errors.push(`No existe meta_account para ${hint} ${recipientId}`);
           continue;
         }
 
@@ -266,29 +273,31 @@ Deno.serve(async (req) => {
         logCompanyId = logCompanyId || companyId;
         logAccountId = logAccountId || accountId;
 
-        // Best-effort: enrich conversation with sender profile (name/photo). Never fail webhook on this.
+        // Best-effort: enrich Messenger conversation with sender profile (name/photo). Never fail webhook on this.
         let senderName: string | null = null;
         let senderProfilePic: string | null = null;
-        try {
-          const secretId = cleanOptionalString((account as any).access_token_secret_id);
-          if (!secretId) {
-            console.warn("meta_account no tiene access_token_secret_id configurado.", { pageId, senderId });
+        if (platform === "messenger") {
+          try {
+            const secretId = cleanOptionalString((account as any).access_token_secret_id);
+            if (!secretId) {
+              console.warn("meta_account no tiene access_token_secret_id configurado.", { recipientId, senderId });
+            }
+            const profile = await fetchMessengerSenderProfile({
+              serviceClient,
+              companyId,
+              accessTokenSecretId: secretId,
+              senderId,
+            });
+            senderName = profile?.senderName ?? null;
+            senderProfilePic = profile?.profilePic ?? null;
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "Error desconocido";
+            console.warn("No se pudo enriquecer el perfil del remitente de Messenger.", {
+              senderId,
+              recipientId,
+              message: msg,
+            });
           }
-          const profile = await fetchMessengerSenderProfile({
-            serviceClient,
-            companyId,
-            accessTokenSecretId: secretId,
-            senderId,
-          });
-          senderName = profile?.senderName ?? null;
-          senderProfilePic = profile?.profilePic ?? null;
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : "Error desconocido";
-          console.warn("No se pudo enriquecer el perfil del remitente de Messenger.", {
-            senderId,
-            pageId,
-            message: msg,
-          });
         }
 
         const conversationSelect = await serviceClient
@@ -296,7 +305,7 @@ Deno.serve(async (req) => {
           .select("id, unread_count, sender_name, sender_profile_pic")
           .eq("company_id", companyId)
           .eq("account_id", accountId)
-          .eq("platform", "messenger")
+          .eq("platform", platform)
           .eq("external_user_id", senderId)
           .maybeSingle();
         if (conversationSelect.error) {
@@ -308,15 +317,16 @@ Deno.serve(async (req) => {
         const unreadCount = Number(conversationSelect.data?.unread_count ?? 0);
 
         if (!conversationId) {
+          const defaultSenderName = platform === "instagram" ? "Usuario de Instagram" : null;
           const conversationInsert = await serviceClient
             .from("meta_conversations")
             .insert({
               company_id: companyId,
               account_id: accountId,
-              platform: "messenger",
-              page_id: pageId,
+              platform,
+              page_id: recipientId,
               external_user_id: senderId,
-              sender_name: senderName,
+              sender_name: senderName || defaultSenderName,
               sender_profile_pic: senderProfilePic,
               last_message_text: text,
               last_message_at: timestamp,
@@ -339,7 +349,7 @@ Deno.serve(async (req) => {
           const { error: conversationUpdateError } = await serviceClient
             .from("meta_conversations")
             .update({
-              page_id: pageId,
+              page_id: recipientId,
               ...(nextSenderName ? { sender_name: nextSenderName } : {}),
               ...(nextSenderPic ? { sender_profile_pic: nextSenderPic } : {}),
               last_message_text: text,
@@ -364,7 +374,7 @@ Deno.serve(async (req) => {
             .from("meta_messages")
             .select("id")
             .eq("company_id", companyId)
-            .eq("platform", "messenger")
+            .eq("platform", platform)
             .eq("external_message_id", messageId)
             .maybeSingle();
           if (existingMessageError) {
@@ -383,7 +393,7 @@ Deno.serve(async (req) => {
             company_id: companyId,
             account_id: accountId,
             conversation_id: conversationId,
-            platform: "messenger",
+            platform,
             external_message_id: messageId,
             direction: "inbound",
             message_type: text ? "text" : attachments[0]?.type || "attachment",
