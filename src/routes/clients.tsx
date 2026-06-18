@@ -2457,111 +2457,117 @@ function ClientsPage() {
           if (!open) resetClientDialog();
         }}
       >
-        <DialogContent className="max-h-[92vh] max-w-3xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>{editClient ? "Editar cliente" : "Nuevo cliente"}</DialogTitle>
-            <DialogDescription>
-              Completa los datos principales para registrar la cuenta y sus contactos clave.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="h-[92vh] max-w-3xl overflow-hidden p-0">
+          <div className="flex h-full min-h-0 flex-col gap-4 p-6">
+            <DialogHeader>
+              <DialogTitle>{editClient ? "Editar cliente" : "Nuevo cliente"}</DialogTitle>
+              <DialogDescription>
+                Completa los datos principales para registrar la cuenta y sus contactos clave.
+              </DialogDescription>
+            </DialogHeader>
 
-          <form key={editClient?.id || "new-client"} onSubmit={handleClientSubmit} className="space-y-4 overflow-y-auto pr-1">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Nombre de la empresa</Label>
-                <Input name="company_name" defaultValue={editClient?.company_name || ""} required />
+            <form
+              key={editClient?.id || "new-client"}
+              onSubmit={handleClientSubmit}
+              className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Nombre de la empresa</Label>
+                  <Input name="company_name" defaultValue={editClient?.company_name || ""} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Contacto principal rápido</Label>
+                  <Input name="contact_person" defaultValue={editClient?.contact_person || ""} placeholder="Referencia rápida" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Email</Label>
+                  <Input name="email" type="email" defaultValue={editClient?.email || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Teléfono</Label>
+                  <Input name="phone" defaultValue={editClient?.phone || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>WhatsApp</Label>
+                  <Input name="whatsapp" defaultValue={editClient?.whatsapp || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Industria</Label>
+                  <Input name="industry" defaultValue={editClient?.industry || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Account manager</Label>
+                  <Select name="account_manager" defaultValue={editClient?.account_manager || "none"}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin asignar</SelectItem>
+                      {managerOptions.map((manager) => (
+                        <SelectItem key={manager.id} value={manager.id}>
+                          {manager.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estado</Label>
+                  <Select name="status" defaultValue={editClient?.status || "Active"}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_STATUSES.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {clientStatusLabel(status)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Website</Label>
+                  <Input name="website" defaultValue={editClient?.website || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tax ID</Label>
+                  <Input name="tax_id" defaultValue={editClient?.tax_id || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Ciudad</Label>
+                  <Input name="city" defaultValue={editClient?.city || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>País</Label>
+                  <Input name="country" defaultValue={editClient?.country || ""} />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Contacto principal rápido</Label>
-                <Input name="contact_person" defaultValue={editClient?.contact_person || ""} placeholder="Referencia rápida" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input name="email" type="email" defaultValue={editClient?.email || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Teléfono</Label>
-                <Input name="phone" defaultValue={editClient?.phone || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>WhatsApp</Label>
-                <Input name="whatsapp" defaultValue={editClient?.whatsapp || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Industria</Label>
-                <Input name="industry" defaultValue={editClient?.industry || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Account manager</Label>
-                <Select name="account_manager" defaultValue={editClient?.account_manager || "none"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin asignar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin asignar</SelectItem>
-                    {managerOptions.map((manager) => (
-                      <SelectItem key={manager.id} value={manager.id}>
-                        {manager.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Estado</Label>
-                <Select name="status" defaultValue={editClient?.status || "Active"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLIENT_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {clientStatusLabel(status)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Website</Label>
-                <Input name="website" defaultValue={editClient?.website || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Tax ID</Label>
-                <Input name="tax_id" defaultValue={editClient?.tax_id || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Ciudad</Label>
-                <Input name="city" defaultValue={editClient?.city || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>País</Label>
-                <Input name="country" defaultValue={editClient?.country || ""} />
-              </div>
-            </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Dirección</Label>
-                <Input name="address" defaultValue={editClient?.address || ""} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Dirección</Label>
+                  <Input name="address" defaultValue={editClient?.address || ""} />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Etiquetas</Label>
+                  <Input name="tags" defaultValue={(editClient?.tags || []).join(", ")} placeholder="vip, recurrente, saludable" />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Notas</Label>
+                  <Textarea name="notes" defaultValue={editClient?.notes || ""} rows={4} />
+                </div>
               </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Etiquetas</Label>
-                <Input name="tags" defaultValue={(editClient?.tags || []).join(", ")} placeholder="vip, recurrente, saludable" />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Notas</Label>
-                <Textarea name="notes" defaultValue={editClient?.notes || ""} rows={4} />
-              </div>
-            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={resetClientDialog}>
-                Cancelar
-              </Button>
-              <Button type="submit">{editClient ? "Guardar cambios" : "Crear cliente"}</Button>
-            </div>
-          </form>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={resetClientDialog}>
+                  Cancelar
+                </Button>
+                <Button type="submit">{editClient ? "Guardar cambios" : "Crear cliente"}</Button>
+              </div>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
 
