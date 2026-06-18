@@ -295,15 +295,13 @@ function ProjectsPage() {
   const dealById = useMemo(() => new Map(deals.map((d) => [d.id, d])), [deals]);
   const profileById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
   const profileByUserId = useMemo(() => new Map(profiles.filter((p) => p.user_id).map((p) => [String(p.user_id), p])), [profiles]);
-  const userIdByProfileId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of profiles) {
-      const uid = p.user_id ? String(p.user_id) : "";
-      if (p.id && uid) map.set(String(p.id), uid);
-    }
-    return map;
-  }, [profiles]);
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
+  const resolveManagerProfileId = (raw: string | null | undefined) => {
+    const value = String(raw || "").trim();
+    if (!value || value === "none") return null;
+    if (profileById.has(value)) return value;
+    return profileByUserId.get(value)?.id || null;
+  };
 
   const activeWorkflowByProductId = useMemo(() => {
     const map = new Map<string, ProductWorkflowRow>();
@@ -372,7 +370,7 @@ function ProjectsPage() {
     const matchStatus = statusFilter === "all" || p.status === statusFilter;
     const matchClient = clientFilter === "all" || String(p.client_id || "") === clientFilter;
     const matchProduct = productFilter === "all" || String(p.product_id || "") === productFilter;
-    const matchManager = managerFilter === "all" || String(p.manager || "") === managerFilter;
+    const matchManager = managerFilter === "all" || resolveManagerProfileId(p.manager) === managerFilter;
 
     const stats = statsByProjectId.get(String(p.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
     const matchTasks =
@@ -412,23 +410,13 @@ function ProjectsPage() {
 
   const managerOptions = useMemo(() => {
     return activeCompanyProfiles
-      .filter((p) => p.user_id)
       .map((p) => ({
         label: (p.full_name || p.email || p.user_id || "").toString(),
-        value: String(p.user_id),
+        value: String(p.id),
       }));
   }, [activeCompanyProfiles]);
 
-  const allowedManagerUserIds = useMemo(() => new Set(managerOptions.map((o) => o.value)), [managerOptions]);
-
-  function normalizeManagerUserId(raw: string | null | undefined) {
-    const v = String(raw || "").trim();
-    if (!v) return "none";
-    if (profileByUserId.has(v)) return v;
-    const mapped = userIdByProfileId.get(v);
-    if (mapped) return mapped;
-    return "none";
-  }
+  const allowedManagerProfileIds = useMemo(() => new Set(managerOptions.map((o) => o.value)), [managerOptions]);
 
   const leadOptions = useMemo(() => leads.map((l) => ({ label: formatLeadLabel(l), value: l.id })), [leads]);
 
@@ -443,10 +431,9 @@ function ProjectsPage() {
     if (form.manager && form.manager !== "none") return;
     const c = clientById.get(String(form.client_id));
     if (c?.account_manager) {
-      const uid = userIdByProfileId.get(String(c.account_manager)) || "none";
-      if (uid && uid !== "none") setForm((p) => ({ ...p, manager: uid }));
+      setForm((p) => ({ ...p, manager: resolveManagerProfileId(c.account_manager) || String(c.account_manager) }));
     }
-  }, [clientById, dialogOpen, form.client_id, form.manager, userIdByProfileId]);
+  }, [clientById, dialogOpen, form.client_id, form.manager]);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -488,14 +475,9 @@ function ProjectsPage() {
       return;
     }
 
-    const managerUserId = form.manager && form.manager !== "none" ? String(form.manager) : null;
-    if (managerUserId && !allowedManagerUserIds.has(managerUserId)) {
+    const managerProfileId = resolveManagerProfileId(form.manager);
+    if (managerProfileId && !allowedManagerProfileIds.has(managerProfileId)) {
       toast.error("Selecciona un manager activo de tu compañía.");
-      return;
-    }
-    const managerProfileId = managerUserId ? profileByUserId.get(managerUserId)?.id || null : null;
-    if (managerUserId && !managerProfileId) {
-      toast.error("No se pudo resolver el manager seleccionado.");
       return;
     }
     const record: Record<string, any> = {
@@ -591,7 +573,7 @@ function ProjectsPage() {
       product_id: item.product_id ? String(item.product_id) : "none",
       deal_id: item.deal_id ? String(item.deal_id) : "none",
       lead_id: item.lead_id ? String(item.lead_id) : "none",
-      manager: normalizeManagerUserId(item.manager),
+      manager: resolveManagerProfileId(item.manager) || "none",
     });
     setDialogOpen(true);
   }
@@ -624,11 +606,7 @@ function ProjectsPage() {
     setTaskSaving(true);
     try {
       const db = supabase as any;
-      const selectedManagerKey = String(selected.manager || "").trim();
-      const selectedManagerProfileId =
-        selectedManagerKey
-          ? profileByUserId.get(selectedManagerKey)?.id || (profileById.has(selectedManagerKey) ? selectedManagerKey : null)
-          : null;
+      const selectedManagerProfileId = resolveManagerProfileId(selected.manager);
       const payload = {
         company_id: profile.company_id,
         title: taskForm.title.trim(),
@@ -955,7 +933,14 @@ function ProjectsPage() {
             { label: "Budget", value: selected.budget, type: "currency" },
             { label: "Start Date", value: selected.start_date },
             { label: "Due Date", value: selected.due_date },
-            { label: "Manager", value: selected.manager ? profileById.get(String(selected.manager))?.full_name || profileById.get(String(selected.manager))?.email || selected.manager : "—" },
+            {
+              label: "Manager",
+              value: (() => {
+                const managerId = resolveManagerProfileId(selected.manager);
+                if (!managerId) return "—";
+                return profileById.get(managerId)?.full_name || profileById.get(managerId)?.email || managerId;
+              })(),
+            },
             { label: "Progress (saved)", value: `${selected.progress || 0}%` },
             { label: "Progress (tasks)", value: (() => {
               const s = statsByProjectId.get(String(selected.id));
