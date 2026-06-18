@@ -1078,28 +1078,6 @@ function TasksPage() {
               { key: "project", placeholder: "Project", value: projectFilter, onChange: setProjectFilter, options: projectOptions.filter((o) => o.value !== "all") },
             ]} />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[12px] font-semibold text-muted-foreground">Vista rápida:</span>
-            <Button type="button" variant={quickFilter === "all" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setQuick("all")}>
-              Todas
-            </Button>
-            <Button type="button" variant={quickFilter === "today" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setQuick("today")}>
-              Hoy
-            </Button>
-            <Button type="button" variant={quickFilter === "overdue" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setQuick("overdue")}>
-              Atrasadas
-            </Button>
-            <Button type="button" variant={quickFilter === "week" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setQuick("week")}>
-              Esta semana
-            </Button>
-            <Button type="button" variant={quickFilter === "unassigned" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setQuick("unassigned")}>
-              Sin asignar
-            </Button>
-            <Button type="button" variant={quickFilter === "mine" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setQuick("mine")}>
-              Mis tareas
-            </Button>
-          </div>
-
           {canDeleteTasks ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
               <button
