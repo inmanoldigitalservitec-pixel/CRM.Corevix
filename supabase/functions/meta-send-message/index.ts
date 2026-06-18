@@ -194,6 +194,8 @@ Deno.serve(async (req) => {
       .update({
         last_message_text: text,
         last_message_at: nowIso,
+        // If a CRM user is replying, we consider this a human takeover for Messenger.
+        status: "human_mode",
       })
       .eq("id", conversationId)
       .eq("company_id", companyId);

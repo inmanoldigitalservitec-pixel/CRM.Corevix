@@ -264,7 +264,7 @@ function WhatsAppPage() {
     const db = supabase as any;
     const { data, error } = await db
       .from("meta_conversations")
-      .select("id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at")
+      .select("id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, bot_status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at")
       .eq("company_id", profile.company_id)
       .eq("platform", "messenger")
       .order("last_message_at", { ascending: false, nullsFirst: false })
@@ -299,6 +299,7 @@ function WhatsAppPage() {
       .eq("conversation_id", conversationId)
       .eq("company_id", profile?.company_id || "")
       .eq("platform", "messenger")
+      .neq("message_type", "bot_state")
       .order("sent_at", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true });
 
@@ -330,7 +331,7 @@ function WhatsAppPage() {
     const { data, error } = await db
       .from("meta_conversations")
       .select(
-        "id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at",
+        "id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, bot_status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at",
       )
       .eq("company_id", profile.company_id)
       .eq("platform", "instagram")
@@ -648,6 +649,45 @@ function WhatsAppPage() {
     }
   }
 
+
+  async function handleToggleMessengerBotStatus() {
+    if (!selectedMessengerConversation || !profile?.company_id) return;
+
+    const currentBotStatus = String((selectedMessengerConversation as any).bot_status || "active").toLowerCase();
+    const willPause = currentBotStatus !== "paused";
+
+    const nextBotStatus = willPause ? "paused" : "active";
+    const nextConversationStatus = willPause ? "human_mode" : "open";
+
+    const db = supabase as any;
+    const { error } = await db
+      .from("meta_conversations")
+      .update({
+        bot_status: nextBotStatus,
+        status: nextConversationStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", selectedMessengerConversation.id)
+      .eq("company_id", profile.company_id)
+      .eq("platform", "messenger");
+
+    if (error) {
+      console.warn("No se pudo cambiar el estado de Clara.", {
+        conversationId: selectedMessengerConversation.id,
+        error,
+      });
+      return;
+    }
+
+    await loadMessengerConversations();
+
+    if (selectedConversation?.id) {
+      await loadMessengerMessages(selectedConversation.id);
+    }
+  }
+
+
+
   return (
     <div className="h-[calc(100vh-3.5rem)] min-h-0 bg-[#f0f2f5] overflow-hidden">
       <div className="px-4 py-2.5 border-b border-black/10 bg-white flex flex-wrap items-center gap-2">
@@ -811,7 +851,12 @@ function WhatsAppPage() {
         )}
 
         {selectedConversation?.channel === "messenger" ? (
-          <MessengerContextPanel conversation={selectedMessengerConversation} className="max-[1180px]:hidden min-h-0" />
+          <MessengerContextPanel
+            conversation={selectedMessengerConversation}
+            onRefreshConversations={() => void loadMessengerConversations()}
+            onToggleBotStatus={handleToggleMessengerBotStatus}
+              className="max-[1180px]:hidden min-h-0"
+          />
         ) : selectedConversation?.channel === "instagram" ? (
           <InstagramContextPanel conversation={selectedInstagramConversation} className="max-[1180px]:hidden min-h-0" />
         ) : selectedChannel !== "instagram" ? (

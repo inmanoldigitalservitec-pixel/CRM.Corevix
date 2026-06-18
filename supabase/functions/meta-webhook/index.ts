@@ -104,6 +104,8 @@ function metaErrorToMessage(payload: any): string {
   return suffix.length ? `${message} (${suffix.join(", ")})` : message;
 }
 
+// Note: dispatch is implemented inline at call-site to avoid any scope/name issues inside the webhook handler.
+
 async function fetchMessengerSenderProfile(opts: {
   serviceClient: any;
   companyId: string;
@@ -387,6 +389,40 @@ Deno.serve(async (req) => {
           }
         }
 
+          // Skip Messenger non-message events: read receipts, deliveries, reactions, echoes and empty events.
+          const hasRead = Boolean((event as any).read);
+          const hasDelivery = Boolean((event as any).delivery);
+          const hasReaction = Boolean((event as any).reaction);
+          const hasMessage = Boolean((event as any).message);
+          const hasPostback = Boolean((event as any).postback);
+          const messageObj = (event as any).message;
+          const postbackObj = (event as any).postback;
+          const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+          const hasText = Boolean(text);
+          const hasPostbackContent = Boolean(
+            cleanOptionalString(postbackObj?.payload) ||
+            cleanOptionalString(postbackObj?.title)
+          );
+
+          if (
+            hasRead ||
+            hasDelivery ||
+            hasReaction ||
+            messageObj?.is_echo === true ||
+            (!hasMessage && !hasPostback) ||
+            (!hasText && !hasAttachments && !hasPostbackContent)
+          ) {
+            console.info("Messenger webhook skipped non-message event", {
+              has_message: hasMessage,
+              has_read: hasRead,
+              has_delivery: hasDelivery,
+              has_postback: hasPostback,
+              has_reaction: hasReaction,
+            });
+            continue;
+          }
+
+
         const messageInsert = await serviceClient
           .from("meta_messages")
           .insert({
@@ -396,7 +432,7 @@ Deno.serve(async (req) => {
             platform,
             external_message_id: messageId,
             direction: "inbound",
-            message_type: text ? "text" : attachments[0]?.type || "attachment",
+            message_type: text ? "text" : hasAttachments ? attachments[0]?.type || "attachment" : "postback",
             text,
             attachments,
             raw_payload: event,
@@ -407,6 +443,60 @@ Deno.serve(async (req) => {
         if (messageInsert.error) {
           errors.push(messageInsert.error.message);
           continue;
+        }
+
+        // Phase 1: bot auto-responder for Messenger only (best-effort).
+        // For debugging reliability, we await dispatch here; failures must not break webhook processing.
+        const insertedMessageId = messageInsert.data?.id ? String(messageInsert.data.id) : null;
+        const messageText = cleanOptionalString(text);
+        if (platform === "messenger" && insertedMessageId && messageText) {
+          // Best-effort: never break the webhook.
+          try {
+            const dispatchSupabaseUrl = Deno.env.get("SUPABASE_URL") || null;
+            const dispatchServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || null;
+            if (!dispatchSupabaseUrl || !dispatchServiceRoleKey) {
+              console.warn("Messenger bot dispatch skipped: missing SUPABASE_URL or SERVICE_ROLE_KEY");
+            } else {
+              console.info("Messenger bot dispatch preparing", {
+                company_id: companyId,
+                account_id: accountId,
+                conversation_id: conversationId,
+                inbound_message_id: insertedMessageId,
+                external_user_id: senderId,
+                has_text: true,
+              });
+
+              const functionsBaseUrl = dispatchSupabaseUrl.replace(/\/+$/, "");
+              const dispatchResponse = await fetch(`${functionsBaseUrl}/functions/v1/meta-bot-dispatch`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${dispatchServiceRoleKey}`,
+                },
+                body: JSON.stringify({
+                  company_id: companyId,
+                  account_id: accountId,
+                  conversation_id: conversationId,
+                  platform: "messenger",
+                  inbound_message_id: insertedMessageId,
+                  external_user_id: senderId,
+                  text: messageText,
+                }),
+              });
+
+              console.info("Messenger bot dispatch response status", { status: dispatchResponse.status });
+              if (!dispatchResponse.ok) {
+                const body = await dispatchResponse.text().catch(() => "");
+                console.warn("Messenger bot dispatch failed (best-effort)", {
+                  status: dispatchResponse.status,
+                  body: body.slice(0, 300),
+                });
+              }
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "Error desconocido";
+            console.warn("Messenger bot dispatch failed (best-effort)", { message: msg });
+          }
         }
 
         processedCount += 1;
