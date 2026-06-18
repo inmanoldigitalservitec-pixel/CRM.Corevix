@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   MessageCirclePlus,
   Plus,
+  Trash2,
   User,
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -266,6 +267,7 @@ function TasksPage() {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFileName, setUploadingFileName] = useState("");
+  const [driveUrlInput, setDriveUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: tasks, loading, create, update, remove } = useCrud<Task>({ table: "tasks" });
@@ -304,6 +306,10 @@ function TasksPage() {
       { column: "linked_id", op: "eq", value: selectedTask?.id || null },
     ],
   });
+
+  useEffect(() => {
+    setDriveUrlInput("");
+  }, [selectedTask?.id]);
 
   const projectsById = useMemo(() => {
     const m = new Map<string, ProjectRow>();
@@ -778,6 +784,76 @@ function TasksPage() {
     } catch {
       toast.error("No se pudo copiar el enlace");
     }
+  };
+
+  const attachDriveUrl = async () => {
+    if (!selectedTask?.id || !selectedTask.company_id) {
+      toast.error("Selecciona una tarea primero.");
+      return;
+    }
+
+    const rawUrl = driveUrlInput.trim();
+    if (!rawUrl) {
+      toast.error("Pega una URL de Google Drive.");
+      return;
+    }
+
+    const parsed = extractGoogleDriveId(rawUrl);
+    if (!parsed) {
+      toast.error("La URL de Google Drive no es válida.");
+      return;
+    }
+
+    const isFolder = parsed.type === "folder";
+    const name = isFolder ? "Carpeta de Google Drive" : "Archivo de Google Drive";
+    const mimeType = isFolder ? "application/vnd.google-apps.folder" : null;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const authUserId = sessionData.session?.user?.id || profile?.user_id || null;
+
+    const { error } = await (supabase as any).from("drive_files").insert({
+      company_id: selectedTask.company_id,
+      drive_file_id: parsed.id,
+      name,
+      mime_type: mimeType,
+      web_view_link: rawUrl,
+      web_content_link: null,
+      thumbnail_link: null,
+      icon_link: null,
+      size_bytes: null,
+      linked_type: "task",
+      linked_id: selectedTask.id,
+      created_by: authUserId,
+    });
+
+    if (error) {
+      toast.error(error.message || "No se pudo adjuntar el enlace de Drive.");
+      return;
+    }
+
+    setDriveUrlInput("");
+    await fetchDriveFiles();
+    toast.success("Enlace de Drive adjuntado.");
+  };
+
+  const deleteDriveFile = async (file: DriveFileRow) => {
+    if (!can("tasks.edit")) {
+      toast.error("No tienes permiso para borrar adjuntos.");
+      return;
+    }
+    const ok = window.confirm(`¿Eliminar el adjunto "${file.name}" de esta tarea?`);
+    if (!ok) return;
+
+    const { error } = await (supabase as any)
+      .from("drive_files")
+      .delete()
+      .eq("id", file.id);
+    if (error) {
+      toast.error(error.message || "No se pudo borrar el adjunto.");
+      return;
+    }
+
+    await fetchDriveFiles();
+    toast.success("Adjunto eliminado.");
   };
 
   if (loading) return <LoadingState />;
@@ -1467,6 +1543,22 @@ function TasksPage() {
                 </Button>
               </div>
             </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <Input
+                value={driveUrlInput}
+                onChange={(e) => setDriveUrlInput(e.target.value)}
+                placeholder="Pega aquí la URL de Google Drive"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() => void attachDriveUrl()}
+                disabled={!driveUrlInput.trim()}
+              >
+                Pegar URL
+              </Button>
+            </div>
             {isUploadingFile ? (
               <div className="rounded-lg border p-3">
                 <div className="text-xs font-medium truncate">Archivo: {uploadingFileName || "Archivo"}</div>
@@ -1533,6 +1625,16 @@ function TasksPage() {
                         <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => copyFileLink(file)}>
                           <Copy className="h-3.5 w-3.5 mr-1" />
                           Copiar enlace
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-xs text-destructive hover:text-destructive border-red-200 hover:bg-red-50"
+                          onClick={() => void deleteDriveFile(file)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                          Eliminar
                         </Button>
                         <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" disabled>
                           <MessageCirclePlus className="h-3.5 w-3.5 mr-1" />
