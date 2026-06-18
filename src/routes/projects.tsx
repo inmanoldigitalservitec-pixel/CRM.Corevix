@@ -216,7 +216,7 @@ function ProjectsPage() {
     limit: 500,
   });
 
-  const { data: tasks, loading: tasksLoading } = useCrud<TaskRow>({
+  const { data: tasks, loading: tasksLoading, fetch: fetchTasks } = useCrud<TaskRow>({
     table: "tasks",
     select: "id,company_id,title,description,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,updated_at",
     orderBy: "updated_at",
@@ -494,6 +494,10 @@ function ProjectsPage() {
       return;
     }
     const managerProfileId = managerUserId ? profileByUserId.get(managerUserId)?.id || null : null;
+    if (managerUserId && !managerProfileId) {
+      toast.error("No se pudo resolver el manager seleccionado.");
+      return;
+    }
     const record: Record<string, any> = {
       company_id: profile.company_id,
       name: form.name.trim(),
@@ -508,7 +512,7 @@ function ProjectsPage() {
       product_id: form.product_id !== "none" ? String(form.product_id) : null,
       deal_id: form.deal_id !== "none" ? String(form.deal_id) : null,
       lead_id: form.lead_id !== "none" ? String(form.lead_id) : null,
-      manager: null,
+      manager: managerProfileId,
     };
     try {
       if (editItem) { await update(editItem.id, record); toast.success("Project updated"); setSelected(null); }
@@ -620,13 +624,18 @@ function ProjectsPage() {
     setTaskSaving(true);
     try {
       const db = supabase as any;
+      const selectedManagerKey = String(selected.manager || "").trim();
+      const selectedManagerProfileId =
+        selectedManagerKey
+          ? profileByUserId.get(selectedManagerKey)?.id || (profileById.has(selectedManagerKey) ? selectedManagerKey : null)
+          : null;
       const payload = {
         company_id: profile.company_id,
         title: taskForm.title.trim(),
         description: taskForm.description.trim() || null,
         status: "To Do",
         priority: (taskForm.priority as any) || "Medium",
-        assigned_to: profileByUserId.get(String(selected.manager || ""))?.id || selected.manager || profile.id,
+        assigned_to: selectedManagerProfileId || profile.id,
         due_date: taskForm.due_date || null,
         related_project_id: selected.id,
         related_client_id: selected.client_id || null,
@@ -926,7 +935,7 @@ function ProjectsPage() {
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Project</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={async () => { try { await remove(deleteId!); toast.success("Deleted"); setDeleteId(null); setSelected(null); } catch (err: any) { toast.error(err.message); } }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={async () => { const projectId = deleteId; if (!projectId) return; try { const { error: tasksDeleteError } = await supabase.from("tasks").delete().eq("related_project_id", projectId); if (tasksDeleteError) throw tasksDeleteError; await remove(projectId); await fetchTasks(); toast.success("Deleted"); setDeleteId(null); setSelected(null); } catch (err: any) { toast.error(err.message); } }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 

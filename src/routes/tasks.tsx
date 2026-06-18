@@ -11,12 +11,14 @@ import {
   ExternalLink,
   FileUp,
   ListFilter,
+  Minus,
   MoreHorizontal,
   MessageCirclePlus,
   Plus,
   User,
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -257,6 +259,9 @@ function TasksPage() {
   const [presetProjectId, setPresetProjectId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFileName, setUploadingFileName] = useState("");
@@ -365,6 +370,14 @@ function TasksPage() {
     });
   }, [tasks, search, statusFilter, priorityFilter, projectFilter, projectsById, profile?.id, profile?.user_id, quickFilter, user?.id]);
 
+  const filteredTaskIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
+  const filteredTaskIdSet = useMemo(() => new Set(filteredTaskIds), [filteredTaskIds]);
+  const selectedTaskIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const allVisibleSelected = filteredTaskIds.length > 0 && filteredTaskIds.every((id) => selectedTaskIdSet.has(id));
+  const someVisibleSelected = filteredTaskIds.some((id) => selectedTaskIdSet.has(id));
+  const selectedVisibleCount = filteredTaskIds.filter((id) => selectedTaskIdSet.has(id)).length;
+  const canDeleteTasks = can("tasks.delete");
+
   const kpis = useMemo(() => {
     const todayKey = isoTodayLocal();
     const activeProjects = projects.filter((p) => !["Completed", "Cancelled"].includes(String(p.status || ""))).length;
@@ -420,6 +433,63 @@ function TasksPage() {
       toast.success("Estado actualizado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar la tarea.");
+    }
+  };
+
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedIds((current) => (current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]));
+  };
+
+  const toggleSelectVisibleTasks = () => {
+    setSelectedIds((current) => {
+      if (allVisibleSelected) {
+        return current.filter((id) => !filteredTaskIdSet.has(id));
+      }
+      return Array.from(new Set([...current, ...filteredTaskIds]));
+    });
+  };
+
+  const clearTaskSelection = () => {
+    setSelectedIds([]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!canDeleteTasks) {
+      toast.error("No tienes permiso para eliminar tareas.");
+      return;
+    }
+    const idsToDelete = tasks.filter((task) => selectedTaskIdSet.has(task.id)).map((task) => task.id);
+    if (!idsToDelete.length) {
+      toast.info("No hay tareas seleccionadas.");
+      return;
+    }
+
+    setBulkDeleteSaving(true);
+    try {
+      const results = await Promise.allSettled(idsToDelete.map(async (id) => {
+        await remove(id);
+        return id;
+      }));
+      const deletedIds = results.flatMap((result, index) => (result.status === "fulfilled" ? [idsToDelete[index]] : []));
+      const failedCount = results.length - deletedIds.length;
+
+      if (deletedIds.length) {
+        setSelectedIds((current) => current.filter((id) => !deletedIds.includes(id)));
+        if (selectedTask && deletedIds.includes(selectedTask.id)) {
+          setSelectedTask(null);
+        }
+      }
+
+      setBulkDeleteOpen(false);
+      if (failedCount > 0) {
+        toast.error(`Se eliminaron ${deletedIds.length} tareas, pero ${failedCount} no se pudieron borrar.`);
+      } else {
+        toast.success(`Se eliminaron ${deletedIds.length} tareas.`);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudieron eliminar las tareas seleccionadas.");
+    } finally {
+      setBulkDeleteSaving(false);
     }
   };
 
@@ -551,7 +621,15 @@ function TasksPage() {
       toast.error("No tienes permiso para eliminar");
       return;
     }
-    try { await remove(deleteId); toast.success("Task deleted"); setDeleteId(null); setSelectedTask(null); } catch (err: any) { toast.error(err.message); }
+    try {
+      await remove(deleteId);
+      toast.success("Task deleted");
+      setDeleteId(null);
+      setSelectedTask(null);
+      setSelectedIds((current) => current.filter((id) => id !== deleteId));
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   const updateSelectedTaskStatus = async (nextStatus: string) => {
@@ -798,11 +876,23 @@ function TasksPage() {
         key={t.id}
         className={
           "group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)] cursor-pointer " +
-          (isOverdue ? "ring-1 ring-[#fecaca] bg-[#fffafa]" : isDueToday ? "ring-1 ring-amber-200 bg-amber-50/30" : "")
+          (isOverdue ? "ring-1 ring-[#fecaca] bg-[#fffafa]" : isDueToday ? "ring-1 ring-amber-200 bg-amber-50/30" : "") +
+          (selectedTaskIdSet.has(t.id) ? " ring-1 ring-[#1d62f9] bg-[#f4f8ff]" : "")
         }
         onClick={() => setSelectedTask(t)}
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-3 lg:gap-4">
+          {canDeleteTasks ? (
+            <div className="mt-1 shrink-0" onClick={(event) => event.stopPropagation()}>
+              <Checkbox
+                type="button"
+                checked={selectedTaskIdSet.has(t.id)}
+                onCheckedChange={() => toggleTaskSelection(t.id)}
+                aria-label={selectedTaskIdSet.has(t.id) ? "Deseleccionar tarea" : "Seleccionar tarea"}
+              />
+            </div>
+          ) : null}
+
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-0 text-base font-semibold tracking-[-0.01em] text-slate-900">{t.title}</div>
@@ -833,10 +923,7 @@ function TasksPage() {
               </span>
             </div>
           </div>
-
-          <div className="flex flex-col items-start gap-3 lg:items-end">
-            {renderTaskActions(t)}
-          </div>
+          <div className="flex flex-col items-start gap-3 lg:items-end">{renderTaskActions(t)}</div>
         </div>
       </div>
     );
@@ -933,6 +1020,52 @@ function TasksPage() {
               Mis tareas
             </Button>
           </div>
+
+          {canDeleteTasks ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-semibold text-slate-700 transition-colors hover:bg-white hover:text-slate-900"
+                onClick={toggleSelectVisibleTasks}
+              >
+                <span className="grid h-5 w-5 place-items-center rounded-[6px] border border-slate-300 bg-white text-slate-600">
+                  {allVisibleSelected ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : someVisibleSelected ? (
+                    <Minus className="h-4 w-4" />
+                  ) : (
+                    <CheckSquare className="h-4 w-4 opacity-40" />
+                  )}
+                </span>
+                {allVisibleSelected ? "Limpiar visibles" : "Seleccionar visibles"}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">
+                  {selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length} seleccionadas
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 border-slate-200"
+                  onClick={clearTaskSelection}
+                  disabled={!selectedIds.length}
+                >
+                  Limpiar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  disabled={!selectedIds.length}
+                >
+                  Eliminar seleccionadas
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           {tasks.length === 0 ? (
             <EmptyState
@@ -1052,6 +1185,7 @@ function TasksPage() {
                             <Table>
                               <TableHeader>
                                 <TableRow>
+                                  {canDeleteTasks ? <TableHead className="w-[42px] pl-4 pr-0" /> : null}
                                   <TableHead className="pl-4">Tarea</TableHead>
                                   <TableHead className="hidden md:table-cell">Responsable</TableHead>
                                   <TableHead>Priority</TableHead>
@@ -1076,10 +1210,21 @@ function TasksPage() {
                                       key={t.id}
                                       className={
                                         "cursor-pointer hover:bg-slate-50 transition-colors " +
+                                        (selectedTaskIdSet.has(t.id) ? "bg-[#f4f8ff]" : "") +
                                         (isOverdue ? "border-l-2 border-l-[#e11d48] bg-[#fff1f3]/40" : isDueToday ? "border-l-2 border-l-amber-400 bg-amber-50/30" : "")
                                       }
                                       onClick={() => setSelectedTask(t)}
                                     >
+                                      {canDeleteTasks ? (
+                                        <TableCell className="pl-4 pr-0" onClick={(event) => event.stopPropagation()}>
+                                          <Checkbox
+                                            type="button"
+                                            checked={selectedTaskIdSet.has(t.id)}
+                                            onCheckedChange={() => toggleTaskSelection(t.id)}
+                                            aria-label={selectedTaskIdSet.has(t.id) ? "Deseleccionar tarea" : "Seleccionar tarea"}
+                                          />
+                                        </TableCell>
+                                      ) : null}
                                       <TableCell className="pl-4">
                                         <div className="min-w-0">
                                           <div className="font-semibold truncate text-slate-900">{t.title}</div>
@@ -1131,6 +1276,30 @@ function TasksPage() {
           )}
         </div>
       </DataCard>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={(open) => !open && setBulkDeleteOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vas a eliminar {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleteSaving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleBulkDelete();
+              }}
+              disabled={bulkDeleteSaving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleteSaving ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditTask(null); }}>
         <DialogContent className="max-w-lg">

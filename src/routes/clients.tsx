@@ -1227,6 +1227,12 @@ function ClientsPage() {
     setContactDialogOpen(true);
   };
 
+  function normalizeNullableSelectValue(value: FormDataEntryValue | null) {
+    const normalized = String(value ?? "").trim();
+    if (!normalized || normalized === "none") return null;
+    return normalized;
+  }
+
   const handleClientSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!can(editClient ? "clients.edit" : "clients.create")) {
@@ -1247,7 +1253,7 @@ function ClientsPage() {
       website: String(formData.get("website") || "").trim() || null,
       industry: String(formData.get("industry") || "").trim() || null,
       status: (formData.get("status") as ClientStatus) || "Active",
-      account_manager: String(formData.get("account_manager") || "").trim() || null,
+      account_manager: normalizeNullableSelectValue(formData.get("account_manager")),
       tags: splitTags(String(formData.get("tags") || "")),
       notes: String(formData.get("notes") || "").trim() || null,
     };
@@ -2498,7 +2504,7 @@ function ClientsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Account manager</Label>
-                  <Select name="account_manager" defaultValue={editClient?.account_manager || "none"}>
+                  <Select name="account_manager" defaultValue={editClient?.account_manager || undefined}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sin asignar" />
                     </SelectTrigger>
