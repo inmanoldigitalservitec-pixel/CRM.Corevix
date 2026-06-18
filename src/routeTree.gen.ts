@@ -21,6 +21,7 @@ import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
+import { Route as GoogleDriveCallbackRouteImport } from './routes/google-drive-callback'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ClientsRouteImport } from './routes/clients'
@@ -91,6 +92,11 @@ const InvoicesRoute = InvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GoogleDriveCallbackRoute = GoogleDriveCallbackRouteImport.update({
+  id: '/google-drive-callback',
+  path: '/google-drive-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmailRoute = EmailRouteImport.update({
   id: '/email',
   path: '/email',
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/email': typeof EmailRoute
+  '/google-drive-callback': typeof GoogleDriveCallbackRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/email': typeof EmailRoute
+  '/google-drive-callback': typeof GoogleDriveCallbackRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/email': typeof EmailRoute
+  '/google-drive-callback': typeof GoogleDriveCallbackRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/email'
+    | '/google-drive-callback'
     | '/invoices'
     | '/leads'
     | '/login'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/email'
+    | '/google-drive-callback'
     | '/invoices'
     | '/leads'
     | '/login'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/email'
+    | '/google-drive-callback'
     | '/invoices'
     | '/leads'
     | '/login'
@@ -289,6 +301,7 @@ export interface RootRouteChildren {
   ClientsRoute: typeof ClientsRoute
   DashboardRoute: typeof DashboardRoute
   EmailRoute: typeof EmailRoute
+  GoogleDriveCallbackRoute: typeof GoogleDriveCallbackRoute
   InvoicesRoute: typeof InvoicesRoute
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/google-drive-callback': {
+      id: '/google-drive-callback'
+      path: '/google-drive-callback'
+      fullPath: '/google-drive-callback'
+      preLoaderRoute: typeof GoogleDriveCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/email': {
       id: '/email'
       path: '/email'
@@ -465,6 +485,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientsRoute: ClientsRoute,
   DashboardRoute: DashboardRoute,
   EmailRoute: EmailRoute,
+  GoogleDriveCallbackRoute: GoogleDriveCallbackRoute,
   InvoicesRoute: InvoicesRoute,
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,

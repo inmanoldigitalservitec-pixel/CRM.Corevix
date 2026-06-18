@@ -208,7 +208,8 @@ function uploadFileWithProgress(args: {
         payload = null;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(payload?.error || "No se pudo subir el archivo a Google Drive"));
+        const message = payload?.detail ? `${payload.error || "No se pudo subir el archivo a Google Drive"}: ${payload.detail}` : (payload?.error || "No se pudo subir el archivo a Google Drive");
+        reject(new Error(message));
         return;
       }
       resolve(payload);
@@ -746,7 +747,9 @@ function TasksPage() {
         formData: body,
         onProgress: (percent) => setUploadProgress(percent),
       });
-      if (result?.error) throw new Error(String(result.error));
+      if (result?.error) {
+        throw new Error(result.detail ? `${String(result.error)}: ${String(result.detail)}` : String(result.error));
+      }
 
       setUploadProgress(100);
       await fetchDriveFiles();

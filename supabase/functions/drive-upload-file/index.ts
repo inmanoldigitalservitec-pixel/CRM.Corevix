@@ -79,7 +79,16 @@ async function refreshAccessToken(args: {
     // ignore
   }
   if (!res.ok || !json?.access_token) {
-    throw new Error("No se pudo refrescar el token de Google Drive.");
+    const message =
+      json?.error_description ||
+      json?.error ||
+      text ||
+      "No se pudo refrescar el token de Google Drive.";
+    const error = new Error(message);
+    (error as any).googleError = json?.error || null;
+    (error as any).googleErrorDescription = json?.error_description || null;
+    (error as any).googleStatus = res.status;
+    throw error;
   }
   return {
     access_token: String(json.access_token),
@@ -256,6 +265,13 @@ Deno.serve(async (req) => {
     const expiresAt = connection.expires_at ? new Date(String(connection.expires_at)).getTime() : null;
     const isExpired = !!expiresAt && expiresAt - Date.now() < 60_000;
 
+    if (isExpired && !refreshToken) {
+      return jsonResponse({
+        error: "No se pudo refrescar el token de Google Drive.",
+        detail: "La conexión de Google Drive no tiene refresh_token guardado. Vuelve a conectar Drive desde Settings.",
+      }, 400);
+    }
+
     if (isExpired && refreshToken) {
       const { data: driveSettings, error: driveSettingsError } = await serviceClient
         .from("drive_settings")
@@ -274,8 +290,18 @@ Deno.serve(async (req) => {
           clientSecret: String(driveSettings.client_secret_encrypted),
           refreshToken,
         });
-      } catch {
-        return jsonResponse({ error: "No se pudo refrescar el token de Google Drive." }, 400);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "No se pudo refrescar el token de Google Drive.";
+        console.error("drive-upload-file refresh token failed:", {
+          detail,
+          googleError: (error as any)?.googleError || null,
+          googleErrorDescription: (error as any)?.googleErrorDescription || null,
+          googleStatus: (error as any)?.googleStatus || null,
+          hasRefreshToken: Boolean(refreshToken),
+          hasClientSecret: Boolean(driveSettings.client_secret_encrypted),
+          hasClientId: Boolean(driveSettings.client_id),
+        });
+        return jsonResponse({ error: "No se pudo refrescar el token de Google Drive.", detail }, 400);
       }
       accessToken = refreshed.access_token;
       const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();

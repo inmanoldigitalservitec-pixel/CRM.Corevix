@@ -181,7 +181,7 @@ function SettingsPage() {
   const [driveForm, setDriveForm] = useState({
     client_id: "",
     client_secret: "",
-    redirect_uri: "http://localhost:54321/functions/v1/google-drive-callback",
+    redirect_uri: "https://crm.corevix.agency/google-drive-callback",
     scopes: "https://www.googleapis.com/auth/drive.file",
     root_folder_id: "",
     root_folder_url: "",
@@ -1029,8 +1029,11 @@ function SettingsPage() {
                     value={driveForm.redirect_uri}
                     onChange={(e) => setDriveForm((prev) => ({ ...prev, redirect_uri: e.target.value }))}
                     disabled={driveLoading}
-                    placeholder="http://localhost:54321/functions/v1/google-drive-callback"
+                    placeholder="https://crm.corevix.agency/google-drive-callback"
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Usa una URL de tu dominio, por ejemplo <span className="font-mono">https://crm.corevix.agency/google-drive-callback</span>. Esa página redirige al callback interno de Supabase.
+                  </p>
                 </div>
                 <div>
                   <Label>Scopes</Label>
