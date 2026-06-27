@@ -85,6 +85,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  isActiveProjectStatus,
+  isCompletedTaskStatusValue,
+  isOverdueInvoiceStatus,
+  isSentOrOverdueInvoiceStatus,
+  isSentOrViewedProposalStatus,
+  normalizeStatus,
+} from "@/lib/crm/status";
 
 export const Route = createFileRoute("/clients")({
   component: ClientsPage,
@@ -328,7 +336,7 @@ function money(value: number | null | undefined) {
 }
 
 function isOpenTaskStatus(status: string) {
-  return !["Completed", "Cancelled"].includes(status);
+  return !isCompletedTaskStatusValue(status);
 }
 
 function compareDueDateAsc(a: TaskRow, b: TaskRow) {
@@ -442,7 +450,10 @@ function getClientHealth(args: {
   primaryContact: boolean;
   latestActivityAt: string | null;
 }) {
-  if (args.status === "Inactive" || args.status === "Past Client") {
+  if (
+    normalizeStatus(args.status) === "inactive" ||
+    normalizeStatus(args.status) === "past_client"
+  ) {
     return {
       health: "inactive" as ClientHealth,
       reason: "Cuenta histórica o inactiva.",
@@ -887,18 +898,22 @@ function ClientsPage() {
         .map((p) => p.product?.name || null)
         .filter(Boolean) as string[];
 
-      const activeProjects = clientProjects.filter(
-        (project) => !["Completed", "Cancelled"].includes(project.status),
+      const activeProjects = clientProjects.filter((project) =>
+        isActiveProjectStatus(project.status),
       );
       const openTasks = clientTasks.filter((task) => isOpenTaskStatus(task.status));
       const overdueTasks = openTasks.filter((task) => isOverdue(task.due_date));
       const nextOpenTask = openTasks.slice().sort(compareDueDateAsc)[0] || null;
-      const pendingInvoices = clientInvoices.filter((invoice) =>
-        ["Sent", "Overdue", "Partially Paid"].includes(invoice.status),
+      const pendingInvoices = clientInvoices.filter(
+        (invoice) =>
+          isSentOrOverdueInvoiceStatus(invoice.status) ||
+          normalizeStatus(invoice.status) === "partially_paid",
       );
-      const overdueInvoices = clientInvoices.filter((invoice) => invoice.status === "Overdue");
+      const overdueInvoices = clientInvoices.filter((invoice) =>
+        isOverdueInvoiceStatus(invoice.status),
+      );
       const pendingProposals = clientProposals.filter((proposal) =>
-        ["Sent", "Viewed"].includes(proposal.status),
+        isSentOrViewedProposalStatus(proposal.status),
       );
       const openDeals = clientDeals.filter((deal) => !["Won", "Lost"].includes(deal.stage));
 
@@ -973,11 +988,11 @@ function ClientsPage() {
   ]);
 
   const activeClientsCount = useMemo(
-    () => snapshots.filter((client) => client.status === "Active").length,
+    () => snapshots.filter((client) => normalizeStatus(client.status) === "active").length,
     [snapshots],
   );
   const vipClientsCount = useMemo(
-    () => snapshots.filter((client) => client.status === "VIP").length,
+    () => snapshots.filter((client) => normalizeStatus(client.status) === "vip").length,
     [snapshots],
   );
   const riskClientsCount = useMemo(
@@ -986,17 +1001,23 @@ function ClientsPage() {
   );
   const contactsCount = contacts.length;
   const primaryContactsCount = contacts.filter((contact) => contact.is_primary).length;
-  const activeProjectsCount = projects.filter(
-    (project) => !["Completed", "Cancelled"].includes(project.status),
+  const activeProjectsCount = projects.filter((project) =>
+    isActiveProjectStatus(project.status),
   ).length;
-  const pendingInvoicesCount = invoices.filter((invoice) =>
-    ["Sent", "Overdue", "Partially Paid"].includes(invoice.status),
+  const pendingInvoicesCount = invoices.filter(
+    (invoice) =>
+      isSentOrOverdueInvoiceStatus(invoice.status) ||
+      normalizeStatus(invoice.status) === "partially_paid",
   ).length;
   const overdueTasksCount = tasks.filter(
-    (task) => !["Completed", "Cancelled"].includes(task.status) && isOverdue(task.due_date),
+    (task) => !isCompletedTaskStatusValue(task.status) && isOverdue(task.due_date),
   ).length;
   const pendingInvoiceAmount = invoices
-    .filter((invoice) => ["Sent", "Overdue", "Partially Paid"].includes(invoice.status))
+    .filter(
+      (invoice) =>
+        isSentOrOverdueInvoiceStatus(invoice.status) ||
+        normalizeStatus(invoice.status) === "partially_paid",
+    )
     .reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
 
   const managerOptions = useMemo(() => managers.filter((manager) => manager.is_active), [managers]);
@@ -1037,7 +1058,8 @@ function ClientsPage() {
           .toLowerCase()
           .includes(term);
 
-      const matchStatus = statusFilter === "all" || client.status === statusFilter;
+      const matchStatus =
+        statusFilter === "all" || normalizeStatus(client.status) === normalizeStatus(statusFilter);
       const matchManager =
         managerFilter === "all" ||
         (managerFilter === "mine" && client.account_manager === profile?.id) ||
