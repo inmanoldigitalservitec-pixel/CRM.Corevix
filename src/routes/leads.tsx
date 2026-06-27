@@ -2235,11 +2235,11 @@ function LeadsPage() {
                       className="h-9 justify-start gap-2"
                       onClick={() => setQuickProposalOpen(true)}
                       disabled={
-                        !can("proposals.create") ||
+                        !can("deals.create") ||
                         (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
                       }
                       title={
-                        !can("proposals.create")
+                        !can("deals.create")
                           ? "No tienes permiso para crear propuestas."
                           : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
                             ? "Solo puedes crear propuestas para tus propios prospectos."

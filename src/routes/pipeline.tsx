@@ -3357,15 +3357,17 @@ function PipelinePage() {
                       Prospecto
                     </div>
                     {selectedDeal.lead_id ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3"
-                        onClick={() => (window.location.href = "/leads")}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3"
+                          onClick={() => (window.location.href = "/leads")}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver
+                        </Button>
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">No conectado</span>
                     )}
