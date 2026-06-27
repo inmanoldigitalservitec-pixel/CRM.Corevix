@@ -75,6 +75,11 @@ import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  isActiveProjectStatus,
+  isCompletedTaskStatusValue,
+  isInProgressTaskStatusValue,
+} from "@/lib/crm/status";
 
 export const Route = createFileRoute("/tasks")({
   component: TasksPage,
@@ -435,7 +440,14 @@ function TasksPage() {
       const projectName = p?.name || "";
       const matchSearch =
         !q || `${t.title} ${t.description || ""} ${projectName}`.toLowerCase().includes(q);
-      const matchStatus = statusFilter === "all" || t.status === statusFilter;
+      const matchStatus =
+        statusFilter === "all" ||
+        String(t.status || "")
+          .trim()
+          .toLowerCase() ===
+          String(statusFilter || "")
+            .trim()
+            .toLowerCase();
       const matchPriority = priorityFilter === "all" || t.priority === priorityFilter;
       const matchProject =
         projectFilter === "all" ||
@@ -444,7 +456,7 @@ function TasksPage() {
           : t.related_project_id === projectFilter);
 
       const dueKey = toDateKeyLocal(t.due_date);
-      const isActive = !["Completed", "Cancelled"].includes(String(t.status || ""));
+      const isActive = !isCompletedTaskStatusValue(t.status);
       const matchQuick =
         quickFilter === "all" ||
         (quickFilter === "today" && isActive && !!dueKey && dueKey === todayKey) ||
@@ -486,15 +498,11 @@ function TasksPage() {
 
   const kpis = useMemo(() => {
     const todayKey = isoTodayLocal();
-    const activeProjects = projects.filter(
-      (p) => !["Completed", "Cancelled"].includes(String(p.status || "")),
-    ).length;
+    const activeProjects = projects.filter((p) => isActiveProjectStatus(p.status)).length;
 
-    const completed = tasks.filter((t) => String(t.status || "") === "Completed").length;
+    const completed = tasks.filter((t) => isCompletedTaskStatusValue(t.status)).length;
     const inProgress = tasks.filter((t) => String(t.status || "") === "In Progress").length;
-    const active = tasks.filter(
-      (t) => !["Completed", "Cancelled"].includes(String(t.status || "")),
-    );
+    const active = tasks.filter((t) => !isCompletedTaskStatusValue(t.status));
     const unassigned = active.filter((t) => !t.assigned_to).length;
     const dueToday = active.filter((t) => {
       const key = toDateKeyLocal(t.due_date);
@@ -652,9 +660,7 @@ function TasksPage() {
       const total = groupTasks.length;
       const todo = groupTasks.filter((t) => statusOrder(t.status) === 1).length;
       const inProgress = groupTasks.filter((t) => statusOrder(t.status) === 2).length;
-      const completed = groupTasks.filter(
-        (t) => String(t.status || "").toLowerCase() === "completed",
-      ).length;
+      const completed = groupTasks.filter((t) => isCompletedTaskStatusValue(t.status)).length;
       const active = groupTasks.filter((t) => statusOrder(t.status) < 8).length;
 
       const overdue = groupTasks.filter((t) => {
@@ -1037,7 +1043,7 @@ function TasksPage() {
       >
         Abrir
       </Button>
-      {String(t.status || "") !== "Completed" ? (
+      {!isCompletedTaskStatusValue(t.status) ? (
         <Button
           type="button"
           size="sm"
@@ -1104,7 +1110,7 @@ function TasksPage() {
       : "—";
     const dueKey = toDateKeyLocal(t.due_date);
     const todayKey = isoTodayLocal();
-    const isActive = !["Completed", "Cancelled"].includes(String(t.status || ""));
+    const isActive = !isCompletedTaskStatusValue(t.status);
     const isOverdue = isActive && !!dueKey && dueKey < todayKey;
     const isDueToday = isActive && !!dueKey && dueKey === todayKey;
     const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;
@@ -1800,7 +1806,7 @@ function TasksPage() {
                 size="sm"
                 className="h-8 text-xs"
                 onClick={() => void updateSelectedTaskStatus("In Progress")}
-                disabled={selectedTask.status === "In Progress"}
+                disabled={isInProgressTaskStatusValue(selectedTask.status)}
               >
                 Marcar en progreso
               </Button>
@@ -1809,7 +1815,7 @@ function TasksPage() {
                 size="sm"
                 className="h-8 text-xs"
                 onClick={() => void updateSelectedTaskStatus("Completed")}
-                disabled={selectedTask.status === "Completed"}
+                disabled={isCompletedTaskStatusValue(selectedTask.status)}
               >
                 Marcar completada
               </Button>

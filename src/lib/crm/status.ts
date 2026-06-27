@@ -114,3 +114,7 @@ export function isSentOrViewedProposalStatus(status?: string | null) {
   const normalized = normalizeStatus(status);
   return normalized === "sent" || normalized === "viewed";
 }
+
+export function isInProgressTaskStatusValue(status?: string | null) {
+  return normalizeStatus(status) === "in_progress";
+}

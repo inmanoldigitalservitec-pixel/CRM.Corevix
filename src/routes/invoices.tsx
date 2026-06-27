@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { isPaidInvoiceStatus } from "@/lib/crm/status";
 
 export const Route = createFileRoute("/invoices")({
   component: InvoicesPage,
@@ -235,7 +236,14 @@ function InvoicesPage() {
       const haystack =
         `${i.number} ${i.notes || ""} ${p?.number || ""} ${p?.title || ""} ${prod?.name || ""} ${client?.company_name || ""} ${fallbackClient}`.toLowerCase();
       const matchSearch = !q || haystack.includes(q);
-      const matchStatus = statusFilter === "all" || i.status === statusFilter;
+      const matchStatus =
+        statusFilter === "all" ||
+        String(i.status || "")
+          .trim()
+          .toLowerCase() ===
+          String(statusFilter || "")
+            .trim()
+            .toLowerCase();
       return matchSearch && matchStatus;
     });
   }, [data, search, statusFilter, proposalsById, productsById, clientsById]);
@@ -470,7 +478,7 @@ function InvoicesPage() {
       await update(inv.id, { status: nextStatus } as Partial<Invoice>);
       toast.success("Estado actualizado");
 
-      if (nextStatus === "Paid") {
+      if (isPaidInvoiceStatus(nextStatus)) {
         const projectResult = await ensureProjectFromPaidInvoice(inv.id);
         if (projectResult.projectId) {
           setProjectByInvoiceId((prev) => ({ ...prev, [inv.id]: projectResult.projectId! }));
@@ -656,7 +664,7 @@ function InvoicesPage() {
         }
 
         // If invoice is Paid, create project + workflow tasks (idempotent).
-        if (String((record as any).status || "") === "Paid") {
+        if (isPaidInvoiceStatus((record as any).status)) {
           await createProjectFromInvoice(saved.id);
         }
       }
@@ -827,7 +835,7 @@ function InvoicesPage() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            {i.status !== "Paid" ? (
+                            {!isPaidInvoiceStatus(i.status) ? (
                               <Button
                                 data-demo={index === 0 ? "invoice-mark-paid" : undefined}
                                 variant="outline"
@@ -839,7 +847,7 @@ function InvoicesPage() {
                                 Marcar pagada
                               </Button>
                             ) : null}
-                            {i.status === "Paid" ? (
+                            {isPaidInvoiceStatus(i.status) ? (
                               projectByInvoiceId[i.id] ? (
                                 <Button
                                   data-demo={index === 0 ? "invoice-view-project" : undefined}
@@ -939,7 +947,7 @@ function InvoicesPage() {
                     >
                       <ExternalLink className="h-3.5 w-3.5" /> Ver factura pública
                     </Button>
-                    {String(selected.status || "") === "Paid" ? (
+                    {isPaidInvoiceStatus(selected.status) ? (
                       linkedProjectId ? (
                         <Button
                           variant="outline"
