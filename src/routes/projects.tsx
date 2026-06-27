@@ -175,7 +175,7 @@ function formatLeadLabel(lead: LeadRow) {
 }
 
 function ProjectsPage() {
-  const { profile, roles } = useAuth();
+  const { profile, user, roles } = useAuth();
   const { can } = usePermissions();
   const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
   const isSalesAgent = roles?.includes("sales_agent") ?? false;

@@ -584,7 +584,7 @@ function HealthBadge({ health }: { health: ClientHealth }) {
 
 function ClientsPage() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { can, role } = usePermissions();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
