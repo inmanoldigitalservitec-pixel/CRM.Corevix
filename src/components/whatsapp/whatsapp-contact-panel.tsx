@@ -1200,7 +1200,7 @@ export function WhatsappContactPanel({
       const serviceLabel =
         typeof service === "string" && service.trim().length ? service.trim() : null;
       const dealName = serviceLabel ? `${serviceLabel} — ${leadName}` : `Oportunidad — ${leadName}`;
-      const assignedTo = lead.assigned_to || profile?.id || null;
+      const assignedTo = lead.assigned_to || profile?.user_id || user?.id || null;
       const value = Number(lead.estimated_value || 0);
       const payloadBase: Record<string, unknown> = {
         company_id: profile.company_id,
@@ -1210,7 +1210,7 @@ export function WhatsappContactPanel({
         probability: 50,
         expected_close: null,
         stage: stageName,
-        assigned_to: null,
+        assigned_to: assignedTo,
         created_by: profile.id,
         notes: null,
       };
@@ -1300,10 +1300,7 @@ export function WhatsappContactPanel({
 
     setFollowUpSaving(true);
     try {
-      const assigneeProfileId = lead.assigned_to
-        ? teamByUserId.get(String(lead.assigned_to))?.profile_id
-        : null;
-      const assignedTo = assigneeProfileId || profile.id;
+      const assignedTo = lead.assigned_to || profile?.user_id || user?.id || null;
       const { data: created, error } = await (supabase as any)
         .from("tasks")
         .insert({
@@ -1313,7 +1310,7 @@ export function WhatsappContactPanel({
           status: "To Do",
           priority: followUpValues.priority || "Medium",
           due_date: followUpValues.due_date,
-          assigned_to: null,
+          assigned_to: assignedTo,
           related_lead_id: lead.id,
         })
         .select("id,title,due_date,priority,status,assigned_to")
@@ -1518,7 +1515,7 @@ export function WhatsappContactPanel({
         source: "WhatsApp",
         source_channel: "WhatsApp",
         status: "New",
-        assigned_to: profile?.id || null,
+        assigned_to: profile?.user_id || user?.id || null,
         notes: "Prospecto creado desde conversación de WhatsApp.",
       };
 
