@@ -22,6 +22,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useT } from "@/i18n";
 import { DashboardV2 } from "@/components/dashboard-v2/dashboard-v2";
+import {
+  isActiveProjectStatus,
+  isApprovedProposalStatus,
+  isClosedDealStageValue,
+  isClosedLeadStatusValue,
+  isCompletedTaskStatusValue,
+  isOpenConversationStatus,
+  isOpenInvoiceStatus,
+  isOverdueInvoiceStatus,
+  isPaidInvoiceStatus,
+  isPendingProposalStatus,
+  isSentInvoiceStatus,
+  isWonDealStageValue,
+  isLostDealStageValue,
+  isNewLeadStatus,
+  isSentOrOverdueInvoiceStatus,
+  isSentOrViewedProposalStatus,
+} from "@/lib/crm/status";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -213,46 +231,23 @@ function toNumber(value: number | string | null | undefined) {
 }
 
 function isClosedLeadStatus(status: string) {
-  const s = String(status || "").toLowerCase();
-  return s === "won" || s === "lost" || s === "converted";
+  return isClosedLeadStatusValue(status);
 }
 
 function isClosedDealStage(stage: string) {
-  const s = String(stage || "").toLowerCase();
-  return isWonDealStage(stage) || isLostDealStage(stage);
+  return isClosedDealStageValue(stage);
 }
 
 function isWonDealStage(stage: string) {
-  const s = String(stage || "")
-    .trim()
-    .toLowerCase();
-  return (
-    s === "won" ||
-    s === "closed won" ||
-    s.includes("closed won") ||
-    s.includes("ganad") ||
-    s.includes("win")
-  );
+  return isWonDealStageValue(stage);
 }
 
 function isLostDealStage(stage: string) {
-  const s = String(stage || "")
-    .trim()
-    .toLowerCase();
-  return (
-    s === "lost" ||
-    s === "closed lost" ||
-    s.includes("closed lost") ||
-    s.includes("perdid") ||
-    s.includes("lost")
-  );
+  return isLostDealStageValue(stage);
 }
 
 function isCompletedTaskStatus(status: string) {
-  const s = String(status || "")
-    .trim()
-    .toLowerCase();
-  return s === "completed" || s === "done" || s === "cancelled";
+  return isCompletedTaskStatusValue(status);
 }
 
 function daysSince(iso?: string | null) {
@@ -578,53 +573,42 @@ function DashboardPage() {
     return dueKey === today;
   }).length;
 
-  const pendingProposalStates = new Set(["draft", "pending", "sent", "viewed"]);
-  const pendingProposals = proposals.filter((p) =>
-    pendingProposalStates.has(String(p.status || "").toLowerCase()),
-  );
+  const pendingProposals = proposals.filter((p) => isPendingProposalStatus(p.status));
   const approvedProposalsNoPaymentCount = proposals.filter((p) =>
-    ["Accepted", "Approved"].includes(p.status),
+    isApprovedProposalStatus(p.status),
   ).length;
 
-  const invoicesPending = invoices.filter(
-    (i) => !["paid", "cancelled", "void"].includes(String(i.status || "").toLowerCase()),
-  );
+  const invoicesPending = invoices.filter((i) => isOpenInvoiceStatus(i.status));
   const invoicesOverdue = invoices.filter((i) => {
     const dueKey = toDateKey(i.due_date);
-    if (!dueKey) return String(i.status || "").toLowerCase() === "overdue";
-    return String(i.status || "").toLowerCase() !== "paid" && dueKey < today;
+    if (!dueKey) return isOverdueInvoiceStatus(i.status);
+    return !isPaidInvoiceStatus(i.status) && dueKey < today;
   });
-  const invoicesSent = invoices.filter((i) => String(i.status || "").toLowerCase() === "sent");
+  const invoicesSent = invoices.filter((i) => isSentInvoiceStatus(i.status));
   const paidRevenue = invoices
-    .filter((i) => i.status === "Paid")
+    .filter((i) => isPaidInvoiceStatus(i.status))
     .reduce((s, i) => s + toNumber(i.total), 0);
   const receivableTotal = invoicesPending.reduce((s, i) => s + toNumber(i.total), 0);
 
-  const waOpen = waConversations.filter((c) => String(c.status).toLowerCase() === "open").length;
-  const emailOpen = emailConversations.filter(
-    (c) => String(c.status).toLowerCase() === "open",
-  ).length;
+  const waOpen = waConversations.filter((c) => isOpenConversationStatus(c.status)).length;
+  const emailOpen = emailConversations.filter((c) => isOpenConversationStatus(c.status)).length;
   const messengerOpen = metaConversations.filter(
-    (c) =>
-      String(c.platform).toLowerCase() === "messenger" && String(c.status).toLowerCase() === "open",
+    (c) => String(c.platform).toLowerCase() === "messenger" && isOpenConversationStatus(c.status),
   ).length;
   const instagramOpen = metaConversations.filter(
-    (c) =>
-      String(c.platform).toLowerCase() === "instagram" && String(c.status).toLowerCase() === "open",
+    (c) => String(c.platform).toLowerCase() === "instagram" && isOpenConversationStatus(c.status),
   ).length;
   const inboxPendingTotal = waOpen + messengerOpen + instagramOpen + emailOpen;
 
-  const projectsActiveCount = projects.filter(
-    (p) => p.status !== "Completed" && p.status !== "Cancelled",
-  ).length;
+  const projectsActiveCount = projects.filter((p) => isActiveProjectStatus(p.status)).length;
   const projectsAtRisk = projects.filter((p) => {
-    if (p.status === "Completed" || p.status === "Cancelled") return false;
+    if (!isActiveProjectStatus(p.status)) return false;
     const dueKey = toDateKey(p.due_date);
     if (!dueKey) return false;
     return dueKey < today;
   });
   const projectsDueThisWeekCount = projects.filter((p) => {
-    if (p.status === "Completed" || p.status === "Cancelled") return false;
+    if (!isActiveProjectStatus(p.status)) return false;
     const dueKey = toDateKey(p.due_date);
     if (!dueKey) return false;
     return isDateKeyInNextDays(dueKey, 7);
@@ -653,7 +637,7 @@ function DashboardPage() {
       if (!openTaskLeadIds.has(String(lead.id))) reasons.push("Sin próxima tarea");
       if (lead.last_interaction_at && hoursSince(lead.last_interaction_at) > 72)
         reasons.push("Sin interacción reciente");
-      if (String(lead.status || "").toLowerCase() === "new" && daysSince(lead.created_at) >= 2)
+      if (isNewLeadStatus(lead.status) && daysSince(lead.created_at) >= 2)
         reasons.push("Sigue en New");
       return { lead, reasons };
     })
@@ -694,7 +678,7 @@ function DashboardPage() {
     .map((invoice) => ({
       ...invoice,
       isOverdue:
-        String(invoice.status || "").toLowerCase() === "overdue" ||
+        isOverdueInvoiceStatus(invoice.status) ||
         (!!toDateKey(invoice.due_date) &&
           String(invoice.status || "").toLowerCase() !== "paid" &&
           String(toDateKey(invoice.due_date)) < today),
@@ -864,7 +848,7 @@ function DashboardPage() {
 
   const agendaItems = [
     ...tasks
-      .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
+      .filter((t) => !isCompletedTaskStatus(t.status))
       .map((t) => ({
         kind: "Tarea",
         title: t.title || "Tarea sin título",
@@ -872,7 +856,7 @@ function DashboardPage() {
         to: "/tasks",
       })),
     ...invoices
-      .filter((i) => ["Sent", "Overdue"].includes(i.status))
+      .filter((i) => isSentOrOverdueInvoiceStatus(i.status))
       .map((i) => ({
         kind: "Factura",
         title: i.number ? `Factura ${i.number}` : "Factura por cobrar",
@@ -880,7 +864,7 @@ function DashboardPage() {
         to: "/invoices",
       })),
     ...proposals
-      .filter((p) => ["Sent", "Viewed"].includes(p.status))
+      .filter((p) => isSentOrViewedProposalStatus(p.status))
       .map((p) => ({
         kind: "Propuesta",
         title: p.title || (p.number ? `Propuesta ${p.number}` : "Propuesta por vencer"),
@@ -888,7 +872,7 @@ function DashboardPage() {
         to: "/proposals",
       })),
     ...projects
-      .filter((p) => p.status !== "Completed" && p.status !== "Cancelled")
+      .filter((p) => isActiveProjectStatus(p.status))
       .map((p) => ({
         kind: "Proyecto",
         title: "Entrega de proyecto",
@@ -908,7 +892,7 @@ function DashboardPage() {
 
   const pendingConversations = [
     ...waConversations
-      .filter((c) => String(c.status).toLowerCase() === "open")
+      .filter((c) => isOpenConversationStatus(c.status))
       .slice(0, 3)
       .map((c) => ({
         id: `wa:${c.id}`,
@@ -918,7 +902,7 @@ function DashboardPage() {
         to: "/whatsapp",
       })),
     ...metaConversations
-      .filter((c) => String(c.status).toLowerCase() === "open")
+      .filter((c) => isOpenConversationStatus(c.status))
       .slice(0, 4)
       .map((c) => ({
         id: `meta:${c.id}`,
@@ -932,7 +916,7 @@ function DashboardPage() {
         to: "/whatsapp",
       })),
     ...emailConversations
-      .filter((c) => String(c.status).toLowerCase() === "open")
+      .filter((c) => isOpenConversationStatus(c.status))
       .slice(0, 3)
       .map((c) => ({
         id: `em:${c.id}`,
