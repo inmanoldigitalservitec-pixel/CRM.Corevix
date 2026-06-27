@@ -107,6 +107,19 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
       clients: "account_manager",
       projects: "manager",
     };
+
+    const getDefaultAssignmentValue = () => {
+      // CRM owner fields are mixed by table:
+      // - leads/deals/tasks.assigned_to -> auth user id
+      // - clients.account_manager/projects.manager -> profile id
+      if (table === "leads" || table === "deals" || table === "tasks") {
+        return profile?.user_id || null;
+      }
+      if (table === "clients" || table === "projects") {
+        return profile?.id || null;
+      }
+      return null;
+    };
     const createdByColumnByTable: Record<string, string> = {
       deals: "created_by",
       proposals: "created_by",
@@ -115,13 +128,11 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
 
     const payload: Record<string, any> = { ...(record as any), company_id: profile.company_id };
 
-    // Assignment columns are mixed by table:
-    // - leads/deals/tasks.assigned_to: profiles.id
-    // - clients.account_manager, projects.manager: profiles.id
     if (isSalesAgentOnly) {
       const col = assignmentColumnByTable[table];
-      if (col && payload[col] == null) {
-        if (profile?.id) payload[col] = profile.id;
+      const defaultAssignmentValue = getDefaultAssignmentValue();
+      if (col && payload[col] == null && defaultAssignmentValue) {
+        payload[col] = defaultAssignmentValue;
       }
     }
     if (profile?.id) {
