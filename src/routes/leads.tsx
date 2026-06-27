@@ -1264,8 +1264,13 @@ function LeadsPage() {
       setDialogOpen(false);
       setEditLead(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "No se pudo guardar el lead";
-      toast.error(message);
+      const message =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === "object" && "message" in err
+            ? String((err as { message?: unknown }).message || "No se pudo guardar el lead")
+            : "No se pudo guardar el lead";
+      toast.error(`No se pudo guardar lead: ${message}`);
     }
   };
 

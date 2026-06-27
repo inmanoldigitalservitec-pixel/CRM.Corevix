@@ -11,6 +11,20 @@ interface Filter {
   value: any;
 }
 
+function formatCrudErrorMessage(err: unknown, fallback = "Error de base de datos") {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    return (
+      [e.message, e.details, e.hint, e.code ? `Código: ${String(e.code)}` : null]
+        .filter(Boolean)
+        .map(String)
+        .join(" · ") || fallback
+    );
+  }
+  return fallback;
+}
+
 interface UseCrudOptions {
   table: string;
   select?: string;
@@ -62,7 +76,8 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
       }
 
       const { data: rows, error: err } = await query.order(orderBy, { ascending }).limit(limit);
-      if (err) throw err;
+      if (err)
+        throw new Error(formatCrudErrorMessage(err, `No se pudo crear registro en ${table}`));
       setData((rows || []) as unknown as T[]);
     } catch (e: any) {
       setError(e.message);
