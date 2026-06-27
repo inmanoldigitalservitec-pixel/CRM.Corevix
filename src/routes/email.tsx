@@ -426,7 +426,6 @@ function EmailPage() {
           ["--app-pad" as any]: "clamp(10px, 1.3vw, 18px)",
           ["--gap" as any]: "clamp(10px, 1vw, 14px)",
           ["--inbox" as any]: "clamp(340px, 31vw, 470px)",
-          ["--context" as any]: "clamp(260px, 22vw, 340px)",
           ["--control-h" as any]: "clamp(36px, 3.5vh, 42px)",
         } as any
       }
@@ -445,7 +444,7 @@ function EmailPage() {
                 </span>
               </div>
               <p className="truncate text-xs text-muted-foreground">
-                Bandeja viva con auto-sync, realtime y seguimiento CRM.
+                Bandeja viva con auto-sync y actualizaciones en tiempo real.
               </p>
             </div>
           </div>
@@ -470,7 +469,7 @@ function EmailPage() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 grid grid-cols-1 gap-[var(--gap)] xl:grid-cols-[var(--inbox)_minmax(0,1fr)_var(--context)] md:grid-cols-[var(--inbox)_minmax(0,1fr)]">
+        <div className="min-h-0 flex-1 grid grid-cols-1 gap-[var(--gap)] md:grid-cols-[var(--inbox)_minmax(0,1fr)]">
           <div className="min-h-0 rounded-2xl border bg-white/95 shadow-sm overflow-hidden flex flex-col backdrop-blur">
             <div
               className={`grid gap-2 border-b bg-white p-3 transition-[grid-template-columns] duration-200 ${
@@ -798,42 +797,6 @@ function EmailPage() {
                     <div className="text-xs text-muted-foreground">Adjuntar / formato / IA próximamente</div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-
-          <div className="hidden min-h-0 rounded-2xl border bg-white/95 p-4 shadow-sm backdrop-blur xl:flex xl:flex-col">
-            <div className="flex items-center justify-between gap-3 border-b pb-3">
-              <div>
-                <h2 className="text-sm font-black text-slate-950">Contexto CRM</h2>
-                <p className="text-xs text-muted-foreground">Resumen rápido del contacto.</p>
-              </div>
-              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-600">
-                Beta
-              </span>
-            </div>
-            {selectedConvo ? (
-              <div className="mt-4 space-y-4 text-sm">
-                <div className="rounded-2xl border bg-slate-50 p-4">
-                  <div className="text-xs font-bold uppercase text-muted-foreground">Contacto detectado</div>
-                  <div className="mt-1 font-black text-slate-900">{extractDisplayName(selectedSender)}</div>
-                  <div className="mt-1 truncate text-xs text-muted-foreground">{String(selectedSender)}</div>
-                </div>
-                <div className="rounded-2xl border bg-white p-4">
-                  <div className="text-xs font-bold uppercase text-muted-foreground">Siguiente paso sugerido</div>
-                  <p className="mt-2 text-sm text-slate-700">
-                    Vincular este correo a un lead o cliente y crear tarea de seguimiento.
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Button variant="outline" className="justify-start rounded-xl">Crear tarea</Button>
-                  <Button variant="outline" className="justify-start rounded-xl">Vincular cliente</Button>
-                  <Button variant="outline" className="justify-start rounded-xl">Respuesta con IA</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-center text-xs text-muted-foreground">
-                Selecciona un correo para ver contexto CRM.
               </div>
             )}
           </div>
