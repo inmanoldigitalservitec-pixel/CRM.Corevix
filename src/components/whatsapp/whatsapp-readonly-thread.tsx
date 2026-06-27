@@ -16,7 +16,11 @@ function groupByDay(messages: CrmWhatsappMessageRow[]) {
   const groups: Array<{ day: string; items: CrmWhatsappMessageRow[] }> = [];
   let current = "";
   for (const m of messages) {
-    const day = new Date(m.created_at).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+    const day = new Date(m.created_at).toLocaleDateString([], {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
     if (day !== current) {
       current = day;
       groups.push({ day, items: [m] });
@@ -96,7 +100,9 @@ export function WhatsappReadonlyThread({
           <WhatsappAvatar name={title} size={34} />
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="text-[15px] font-semibold tracking-[-0.015em] truncate text-slate-900">{title}</div>
+              <div className="text-[15px] font-semibold tracking-[-0.015em] truncate text-slate-900">
+                {title}
+              </div>
               <div className="hidden sm:block">
                 <WhatsappStatusBadge status={status} className="h-[22px] px-2 text-[10px]" />
               </div>
@@ -130,54 +136,57 @@ export function WhatsappReadonlyThread({
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 sm:px-8 bg-[#efeae2] relative before:absolute before:inset-0 before:pointer-events-none before:opacity-[0.38] before:bg-[radial-gradient(circle_at_12px_12px,rgba(120,113,108,0.22)_1.2px,transparent_1.3px),radial-gradient(circle_at_32px_28px,rgba(120,113,108,0.16)_1px,transparent_1.2px),linear-gradient(45deg,transparent_0_46%,rgba(120,113,108,0.12)_46%_47%,transparent_47%_100%)] before:[background-size:48px_48px,56px_56px,72px_72px]">
         <div className="relative z-10 h-full">
-        {loading ? (
-          <div className="text-sm text-muted-foreground">Cargando mensajes…</div>
-        ) : error ? (
-          <div className="text-sm text-destructive">{error}</div>
-        ) : messages.length === 0 ? (
-          <div className="text-sm text-muted-foreground">{emptyHint || "No hay mensajes."}</div>
-        ) : (
-          <div className="max-w-[860px] mx-auto">
-            {groups.map((g) => (
-              <div key={g.day}>
-                <div className="flex justify-center my-4">
-                  <span className="h-6 inline-flex items-center text-[11px] text-slate-500 bg-white/80 border border-black/5 rounded-full px-3 shadow-sm">
-                    {g.day}
-                  </span>
-                </div>
-                {g.items.map((m) => {
-                  const out = (m.direction || "") === "outbound";
-                  const content =
-                    m.content ||
-                    (m.message_type === "interactive_button" ? m.button_title : null) ||
-                    "";
-                  const statusKey = String(m.delivery_status ?? "").toLowerCase();
-                  return (
-                    <div key={m.message_id} className={cn("flex mb-2", out ? "justify-end" : "justify-start")}>
-                      <div className="max-w-[min(560px,76%)]">
-                        <div
-                          className={cn(
-                            "relative rounded-[9px] px-3.5 py-2.5 pb-5 text-[13.5px] leading-[1.38] tracking-[-0.012em] shadow-[0_1px_1px_rgba(0,0,0,0.10)]",
-                            out
-                              ? "bg-[#d9fdd3] text-slate-900 border-transparent rounded-br-[3px]"
-                              : "bg-white text-slate-900 border-transparent rounded-bl-[3px]",
-                          )}
-                        >
-                          <div className="whitespace-pre-wrap break-words">{content}</div>
-                          <div className="absolute right-2.5 bottom-1 text-[10px] text-slate-400 inline-flex items-center gap-1">
-                            <span>{formatTime(m.created_at)}</span>
-                            {out && m.delivery_status ? deliveryIcon[statusKey] ?? null : null}
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Cargando mensajes…</div>
+          ) : error ? (
+            <div className="text-sm text-destructive">{error}</div>
+          ) : messages.length === 0 ? (
+            <div className="text-sm text-muted-foreground">{emptyHint || "No hay mensajes."}</div>
+          ) : (
+            <div className="max-w-[860px] mx-auto">
+              {groups.map((g) => (
+                <div key={g.day}>
+                  <div className="flex justify-center my-4">
+                    <span className="h-6 inline-flex items-center text-[11px] text-slate-500 bg-white/80 border border-black/5 rounded-full px-3 shadow-sm">
+                      {g.day}
+                    </span>
+                  </div>
+                  {g.items.map((m) => {
+                    const out = (m.direction || "") === "outbound";
+                    const content =
+                      m.content ||
+                      (m.message_type === "interactive_button" ? m.button_title : null) ||
+                      "";
+                    const statusKey = String(m.delivery_status ?? "").toLowerCase();
+                    return (
+                      <div
+                        key={m.message_id}
+                        className={cn("flex mb-2", out ? "justify-end" : "justify-start")}
+                      >
+                        <div className="max-w-[min(560px,76%)]">
+                          <div
+                            className={cn(
+                              "relative rounded-[9px] px-3.5 py-2.5 pb-5 text-[13.5px] leading-[1.38] tracking-[-0.012em] shadow-[0_1px_1px_rgba(0,0,0,0.10)]",
+                              out
+                                ? "bg-[#d9fdd3] text-slate-900 border-transparent rounded-br-[3px]"
+                                : "bg-white text-slate-900 border-transparent rounded-bl-[3px]",
+                            )}
+                          >
+                            <div className="whitespace-pre-wrap break-words">{content}</div>
+                            <div className="absolute right-2.5 bottom-1 text-[10px] text-slate-400 inline-flex items-center gap-1">
+                              <span>{formatTime(m.created_at)}</span>
+                              {out && m.delivery_status ? (deliveryIcon[statusKey] ?? null) : null}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
-        )}
+                    );
+                  })}
+                </div>
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -187,7 +196,11 @@ export function WhatsappReadonlyThread({
             {!serviceWindowClosed ? (
               <div
                 className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] text-emerald-800 w-fit shadow-sm"
-                title={serviceWindowExpiresAt ? `Expira ${new Date(serviceWindowExpiresAt).toLocaleString()}` : undefined}
+                title={
+                  serviceWindowExpiresAt
+                    ? `Expira ${new Date(serviceWindowExpiresAt).toLocaleString()}`
+                    : undefined
+                }
               >
                 Ventana activa: puedes responder libremente. Quedan {serviceWindowLabel}.
               </div>
@@ -197,7 +210,9 @@ export function WhatsappReadonlyThread({
               <textarea
                 className="flex-1 min-h-11 max-h-28 resize-none rounded-full border-0 bg-white px-4.5 py-3 text-[13.5px] leading-[1.25] outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:cursor-not-allowed disabled:bg-white/60 shadow-sm placeholder:text-slate-400"
                 placeholder={
-                  serviceWindowClosed ? "Usa una plantilla aprobada para continuar esta conversación." : "Escribe una respuesta…"
+                  serviceWindowClosed
+                    ? "Usa una plantilla aprobada para continuar esta conversación."
+                    : "Escribe una respuesta…"
                 }
                 value={text}
                 disabled={!onSendMessage || Boolean(sending) || serviceWindowClosed}
@@ -222,9 +237,19 @@ export function WhatsappReadonlyThread({
                 type="button"
                 className={cn(
                   "h-11 w-11 rounded-full bg-emerald-500 text-white grid place-items-center transition-colors hover:bg-emerald-600 shadow-sm",
-                  !onSendMessage || Boolean(sending) || serviceWindowClosed || text.trim().length === 0 ? "opacity-50 cursor-not-allowed" : "opacity-100",
+                  !onSendMessage ||
+                    Boolean(sending) ||
+                    serviceWindowClosed ||
+                    text.trim().length === 0
+                    ? "opacity-50 cursor-not-allowed"
+                    : "opacity-100",
                 )}
-                disabled={!onSendMessage || Boolean(sending) || serviceWindowClosed || text.trim().length === 0}
+                disabled={
+                  !onSendMessage ||
+                  Boolean(sending) ||
+                  serviceWindowClosed ||
+                  text.trim().length === 0
+                }
                 onClick={async () => {
                   if (serviceWindowClosed) return;
                   if (!onSendMessage) return;
@@ -247,18 +272,24 @@ export function WhatsappReadonlyThread({
                         : "Enviar"
                 }
               >
-                {sending ? <span className="text-[12px]">…</span> : <SendHorizontal className="h-4 w-4" />}
+                {sending ? (
+                  <span className="text-[12px]">…</span>
+                ) : (
+                  <SendHorizontal className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
         </div>
         {sendError ? (
-          <div className="mt-2 max-w-[860px] mx-auto text-[11px] text-destructive truncate" title={sendError}>
+          <div
+            className="mt-2 max-w-[860px] mx-auto text-[11px] text-destructive truncate"
+            title={sendError}
+          >
             {sendError}
           </div>
         ) : null}
       </footer>
-
     </section>
   );
 }

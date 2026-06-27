@@ -1,12 +1,28 @@
 import { useState } from "react";
-import { Search, Filter, MessageSquare, Archive, Clock, CheckCircle2, UserX, User } from "lucide-react";
+import {
+  Search,
+  Filter,
+  MessageSquare,
+  Archive,
+  Clock,
+  CheckCircle2,
+  UserX,
+  User,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-export type ConversationFilter = "all" | "open" | "pending" | "resolved" | "archived" | "unassigned" | "mine";
+export type ConversationFilter =
+  | "all"
+  | "open"
+  | "pending"
+  | "resolved"
+  | "archived"
+  | "unassigned"
+  | "mine";
 
 interface Conversation {
   id: string;
@@ -57,11 +73,22 @@ function timeAgo(dateStr: string) {
   return `${days}d`;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect, activeFilter, onFilterChange }: ConversationListProps) {
+export function ConversationList({
+  conversations,
+  selectedId,
+  onSelect,
+  activeFilter,
+  onFilterChange,
+}: ConversationListProps) {
   const [search, setSearch] = useState("");
 
   const filtered = conversations.filter((c) => {
-    if (search && !c.contactName.toLowerCase().includes(search.toLowerCase()) && !c.contactPhone.includes(search)) return false;
+    if (
+      search &&
+      !c.contactName.toLowerCase().includes(search.toLowerCase()) &&
+      !c.contactPhone.includes(search)
+    )
+      return false;
     if (activeFilter === "open") return c.status === "open";
     if (activeFilter === "pending") return c.status === "pending";
     if (activeFilter === "resolved") return c.status === "resolved";
@@ -77,7 +104,9 @@ export function ConversationList({ conversations, selectedId, onSelect, activeFi
       <div className="p-3 border-b space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Conversations</h2>
-          <Badge variant="secondary" className="text-[10px]">{filtered.length}</Badge>
+          <Badge variant="secondary" className="text-[10px]">
+            {filtered.length}
+          </Badge>
         </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -97,7 +126,10 @@ export function ConversationList({ conversations, selectedId, onSelect, activeFi
             key={f.value}
             variant={activeFilter === f.value ? "secondary" : "ghost"}
             size="sm"
-            className={cn("h-6 px-2 text-[10px] shrink-0", activeFilter === f.value && "font-semibold")}
+            className={cn(
+              "h-6 px-2 text-[10px] shrink-0",
+              activeFilter === f.value && "font-semibold",
+            )}
             onClick={() => onFilterChange(f.value)}
           >
             {f.label}
@@ -119,30 +151,46 @@ export function ConversationList({ conversations, selectedId, onSelect, activeFi
               onClick={() => onSelect(conv)}
               className={cn(
                 "w-full flex items-start gap-2.5 p-3 text-left border-b transition-colors hover:bg-muted/50",
-                selectedId === conv.id && "bg-muted/70"
+                selectedId === conv.id && "bg-muted/70",
               )}
             >
               {/* Avatar */}
               <div className="relative shrink-0">
                 <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 text-xs font-semibold">
-                  {conv.contactName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                  {conv.contactName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
                 </div>
-                <span className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card", statusColor[conv.status])} />
+                <span
+                  className={cn(
+                    "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card",
+                    statusColor[conv.status],
+                  )}
+                />
               </div>
 
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium truncate">{conv.contactName}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo(conv.lastMessageAt)}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {timeAgo(conv.lastMessageAt)}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
                 <div className="flex items-center gap-1 mt-1">
                   {conv.tags.slice(0, 2).map((t) => (
-                    <Badge key={t} variant="outline" className="text-[9px] h-4 px-1 py-0">{t}</Badge>
+                    <Badge key={t} variant="outline" className="text-[9px] h-4 px-1 py-0">
+                      {t}
+                    </Badge>
                   ))}
                   {conv.unreadCount > 0 && (
-                    <Badge className="ml-auto h-4 min-w-4 px-1 text-[10px] bg-green-600 hover:bg-green-600 text-white">{conv.unreadCount}</Badge>
+                    <Badge className="ml-auto h-4 min-w-4 px-1 text-[10px] bg-green-600 hover:bg-green-600 text-white">
+                      {conv.unreadCount}
+                    </Badge>
                   )}
                 </div>
               </div>

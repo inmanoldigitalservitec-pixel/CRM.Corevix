@@ -24,14 +24,21 @@ function AIAssistantPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">AI Assistant</h1><p className="text-sm text-muted-foreground">AI-powered features to boost productivity</p></div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">AI Assistant</h1>
+        <p className="text-sm text-muted-foreground">AI-powered features to boost productivity</p>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {features.map(f => (
-          <Card key={f} className="border-0 shadow-sm"><CardContent className="p-4 flex items-center gap-3">
-            <Sparkles className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-sm font-medium flex-1">{f}</span>
-            <Button variant="outline" size="sm" className="text-xs">Coming Soon</Button>
-          </CardContent></Card>
+        {features.map((f) => (
+          <Card key={f} className="border-0 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-sm font-medium flex-1">{f}</span>
+              <Button variant="outline" size="sm" className="text-xs">
+                Coming Soon
+              </Button>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>

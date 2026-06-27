@@ -20,7 +20,11 @@ function redirect(url: string) {
   return new Response(null, { status: 302, headers: { Location: url } });
 }
 
-function safeRedirectUrl(base: string | null, fallback: string | null, status: "connected" | "error") {
+function safeRedirectUrl(
+  base: string | null,
+  fallback: string | null,
+  status: "connected" | "error",
+) {
   const baseStr = (base && String(base).trim()) || (fallback && String(fallback).trim()) || "";
   if (!baseStr) return null;
   try {
@@ -94,7 +98,9 @@ async function fetchGoogleUserEmail(accessToken: string) {
     // ignore
   }
   if (!res.ok) return null;
-  const email = String(json?.email || "").trim().toLowerCase();
+  const email = String(json?.email || "")
+    .trim()
+    .toLowerCase();
   return email || null;
 }
 
@@ -137,7 +143,9 @@ Deno.serve(async (req) => {
     const errorRedirect = safeRedirectUrl(redirectBase, defaultErrorRedirect, "error");
 
     if (!oauthState?.id || !oauthState.company_id || !oauthState.user_auth_id) {
-      return errorRedirect ? redirect(errorRedirect) : new Response("Invalid/expired state", { status: 400 });
+      return errorRedirect
+        ? redirect(errorRedirect)
+        : new Response("Invalid/expired state", { status: 400 });
     }
 
     const { data: settings, error: settingsError } = await serviceClient
@@ -145,8 +153,15 @@ Deno.serve(async (req) => {
       .select("client_id,client_secret_encrypted,redirect_uri,scopes")
       .eq("company_id", oauthState.company_id)
       .maybeSingle();
-    if (settingsError || !settings?.client_id || !settings?.client_secret_encrypted || !settings?.redirect_uri) {
-      return errorRedirect ? redirect(errorRedirect) : new Response("Missing Drive settings", { status: 400 });
+    if (
+      settingsError ||
+      !settings?.client_id ||
+      !settings?.client_secret_encrypted ||
+      !settings?.redirect_uri
+    ) {
+      return errorRedirect
+        ? redirect(errorRedirect)
+        : new Response("Missing Drive settings", { status: 400 });
     }
 
     const tokens = await exchangeCodeForTokens({
@@ -156,10 +171,14 @@ Deno.serve(async (req) => {
       redirectUri: String(settings.redirect_uri),
     });
     if (!tokens.access_token) {
-      return errorRedirect ? redirect(errorRedirect) : new Response("Token exchange failed", { status: 400 });
+      return errorRedirect
+        ? redirect(errorRedirect)
+        : new Response("Token exchange failed", { status: 400 });
     }
 
-    const expiresAt = tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null;
+    const expiresAt = tokens.expires_in
+      ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+      : null;
     const googleEmail = await fetchGoogleUserEmail(tokens.access_token);
     const effectiveScope = String(tokens.scope || settings.scopes || "").trim() || null;
 
@@ -180,7 +199,9 @@ Deno.serve(async (req) => {
     await serviceClient.from("oauth_states").delete().eq("id", oauthState.id);
 
     if (upsertError) {
-      return errorRedirect ? redirect(errorRedirect) : new Response(upsertError.message || "Upsert failed", { status: 400 });
+      return errorRedirect
+        ? redirect(errorRedirect)
+        : new Response(upsertError.message || "Upsert failed", { status: 400 });
     }
 
     const successRedirect = safeRedirectUrl(redirectBase, siteUrl || null, "connected");
@@ -192,4 +213,3 @@ Deno.serve(async (req) => {
     return new Response(message, { status: 500 });
   }
 });
-

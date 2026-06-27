@@ -60,12 +60,11 @@ function safePick(obj: any): DeepSeekInterpretation | null {
 
   const ex = obj.extracted && typeof obj.extracted === "object" ? obj.extracted : {};
   const additionalInterestsRaw = (ex as any).additional_interests;
-  const additionalInterests =
-    Array.isArray(additionalInterestsRaw)
-      ? additionalInterestsRaw
-          .map((v: any) => cleanOptionalString(v))
-          .filter((v: any) => typeof v === "string" && v.length > 0)
-      : null;
+  const additionalInterests = Array.isArray(additionalInterestsRaw)
+    ? additionalInterestsRaw
+        .map((v: any) => cleanOptionalString(v))
+        .filter((v: any) => typeof v === "string" && v.length > 0)
+    : null;
   const extracted = {
     interest: cleanOptionalString(ex.interest),
     additional_interests: additionalInterests,
@@ -120,8 +119,8 @@ export async function interpretWithDeepSeek(input: {
     "",
     "Devuelve SOLO este JSON (sin texto extra):",
     "{",
-      '  "understood": boolean,',
-      '  "confidence": number,',
+    '  "understood": boolean,',
+    '  "confidence": number,',
     '  "stage_action": "save_business_type" | "save_goal" | "save_current_presence" | "save_reference" | "no_reference" | "ask_clarification" | "advisor_request" | "business_hours_question" | "ready_for_advisor" | "ignore",',
     '  "extracted": {',
     '    "interest": string | null,',
@@ -132,9 +131,9 @@ export async function interpretWithDeepSeek(input: {
     '    "reference": string | null',
     "  },",
     '  "next_stage": string | null,',
-      '  "conversation_summary": string,',
-      '  "reply_draft": string,',
-      '  "reason": string',
+    '  "conversation_summary": string,',
+    '  "reply_draft": string,',
+    '  "reason": string',
     "}",
     "",
     "Reglas:",
@@ -192,7 +191,11 @@ export async function interpretWithDeepSeek(input: {
   }
 
   const rawText = await res.text();
-  console.info("DeepSeek interpreter response received", { stage: input.stage, ok: res.ok, status: res.status });
+  console.info("DeepSeek interpreter response received", {
+    stage: input.stage,
+    ok: res.ok,
+    status: res.status,
+  });
   if (!res.ok) {
     console.warn("DeepSeek interpreter failed", { stage: input.stage, status: res.status });
     return { ok: false, status: res.status, error: rawText.slice(0, 400) };
@@ -202,13 +205,19 @@ export async function interpretWithDeepSeek(input: {
   try {
     json = JSON.parse(rawText);
   } catch {
-    console.warn("DeepSeek interpreter failed", { stage: input.stage, message: "invalid_json_response" });
+    console.warn("DeepSeek interpreter failed", {
+      stage: input.stage,
+      message: "invalid_json_response",
+    });
     return { ok: false, error: "invalid_json_response" };
   }
 
   const content = json?.choices?.[0]?.message?.content ?? null;
   if (!content || typeof content !== "string") {
-    console.warn("DeepSeek interpreter failed", { stage: input.stage, message: "missing_message_content" });
+    console.warn("DeepSeek interpreter failed", {
+      stage: input.stage,
+      message: "missing_message_content",
+    });
     return { ok: false, error: "missing_message_content" };
   }
 
@@ -216,7 +225,10 @@ export async function interpretWithDeepSeek(input: {
   try {
     parsed = JSON.parse(content);
   } catch {
-    console.warn("DeepSeek interpreter failed", { stage: input.stage, message: "invalid_json_content" });
+    console.warn("DeepSeek interpreter failed", {
+      stage: input.stage,
+      message: "invalid_json_content",
+    });
     return { ok: false, error: "invalid_json_content" };
   }
 

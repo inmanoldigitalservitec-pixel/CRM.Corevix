@@ -38,7 +38,10 @@ function renderInline(text: string) {
   return parts.map((p, idx) => {
     if (p.type === "code") {
       return (
-        <code key={idx} className="rounded-md bg-[#eef2f6] px-1.5 py-0.5 text-[12px] font-semibold text-[#111827]">
+        <code
+          key={idx}
+          className="rounded-md bg-[#eef2f6] px-1.5 py-0.5 text-[12px] font-semibold text-[#111827]"
+        >
           {p.value}
         </code>
       );
@@ -56,7 +59,10 @@ function renderBasicMarkdown(text: string) {
     const isCode = i % 2 === 1;
     if (isCode) {
       nodes.push(
-        <pre key={`code_${i}`} className="mt-2 overflow-auto rounded-xl border border-[#e6eaf0] bg-[#0b1220] p-3 text-[12px] text-white">
+        <pre
+          key={`code_${i}`}
+          className="mt-2 overflow-auto rounded-xl border border-[#e6eaf0] bg-[#0b1220] p-3 text-[12px] text-white"
+        >
           <code>{chunk.replace(/^\w+\n/, "")}</code>
         </pre>,
       );
@@ -68,7 +74,10 @@ function renderBasicMarkdown(text: string) {
     const flushList = (key: string) => {
       if (listBuffer.length === 0) return;
       nodes.push(
-        <ul key={key} className="mt-2 list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-[#111827]">
+        <ul
+          key={key}
+          className="mt-2 list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-[#111827]"
+        >
           {listBuffer.map((li, idx) => (
             <li key={idx}>{renderInline(li)}</li>
           ))}
@@ -97,7 +106,10 @@ function renderBasicMarkdown(text: string) {
       }
 
       nodes.push(
-        <p key={`p_${i}_${lineIdx}`} className={line.trim() ? "text-[13px] leading-relaxed text-[#111827]" : "h-2"}>
+        <p
+          key={`p_${i}_${lineIdx}`}
+          className={line.trim() ? "text-[13px] leading-relaxed text-[#111827]" : "h-2"}
+        >
           {rendered}
         </p>,
       );
@@ -109,8 +121,13 @@ function renderBasicMarkdown(text: string) {
   return <div className="space-y-1">{nodes}</div>;
 }
 
-async function readInvokeError(err: unknown): Promise<{ message: string; isGeminiNotConfigured: boolean }> {
-  const fallback = { message: "No se pudo procesar tu solicitud. Intenta de nuevo.", isGeminiNotConfigured: false };
+async function readInvokeError(
+  err: unknown,
+): Promise<{ message: string; isGeminiNotConfigured: boolean }> {
+  const fallback = {
+    message: "No se pudo procesar tu solicitud. Intenta de nuevo.",
+    isGeminiNotConfigured: false,
+  };
   if (!err || typeof err !== "object") return fallback;
 
   const anyErr = err as any;
@@ -128,11 +145,18 @@ async function readInvokeError(err: unknown): Promise<{ message: string; isGemin
     if (contentType.includes("application/json")) {
       const json = await response.json().catch(() => null);
       const msgFromJson =
-        (json && (json.error || json.message || json.detail || json?.data?.error || json?.data?.message)) ||
+        (json &&
+          (json.error ||
+            json.message ||
+            json.detail ||
+            json?.data?.error ||
+            json?.data?.message)) ||
         baseMessage ||
         fallback.message;
       const msg = typeof msgFromJson === "string" ? msgFromJson : JSON.stringify(msgFromJson);
-      const notConfigured = /gemini|gemini_settings|not configured|no configurad/i.test(msg) || json?.code === "gemini_not_configured";
+      const notConfigured =
+        /gemini|gemini_settings|not configured|no configurad/i.test(msg) ||
+        json?.code === "gemini_not_configured";
       return { message: msg, isGeminiNotConfigured: Boolean(notConfigured) };
     }
 
@@ -201,7 +225,11 @@ export function CrmAiFloatingChat() {
     setSending(true);
 
     const userMsg: ChatMessage = { id: uid("user"), role: "user", content };
-    const loadingMsg: ChatMessage = { id: "loading", role: "assistant", content: "Analizando CRM..." };
+    const loadingMsg: ChatMessage = {
+      id: "loading",
+      role: "assistant",
+      content: "Analizando CRM...",
+    };
     setMessages((prev) => [...prev, userMsg, loadingMsg]);
 
     try {
@@ -214,22 +242,35 @@ export function CrmAiFloatingChat() {
         const friendly = parsed.isGeminiNotConfigured
           ? "Gemini no está configurado. Ve a Settings > AI / Gemini."
           : parsed.message;
-        setMessages((prev) => prev.filter((m) => m.id !== "loading").concat([{ id: uid("assistant"), role: "assistant", content: friendly }]));
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== "loading")
+            .concat([{ id: uid("assistant"), role: "assistant", content: friendly }]),
+        );
         return;
       }
 
       const reply =
         typeof data === "string"
           ? data
-          : (data && (data.reply || data.response || data.message || data.content)) || JSON.stringify(data ?? "");
+          : (data && (data.reply || data.response || data.message || data.content)) ||
+            JSON.stringify(data ?? "");
 
-      setMessages((prev) => prev.filter((m) => m.id !== "loading").concat([{ id: uid("assistant"), role: "assistant", content: String(reply || "") }]));
+      setMessages((prev) =>
+        prev
+          .filter((m) => m.id !== "loading")
+          .concat([{ id: uid("assistant"), role: "assistant", content: String(reply || "") }]),
+      );
     } catch (err) {
       const parsed = await readInvokeError(err);
       const friendly = parsed.isGeminiNotConfigured
         ? "Gemini no está configurado. Ve a Settings > AI / Gemini."
         : parsed.message;
-      setMessages((prev) => prev.filter((m) => m.id !== "loading").concat([{ id: uid("assistant"), role: "assistant", content: friendly }]));
+      setMessages((prev) =>
+        prev
+          .filter((m) => m.id !== "loading")
+          .concat([{ id: uid("assistant"), role: "assistant", content: friendly }]),
+      );
     } finally {
       setSending(false);
     }
@@ -261,7 +302,9 @@ export function CrmAiFloatingChat() {
                     <Bot className="h-[18px] w-[18px]" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[14px] font-extrabold tracking-[-0.02em] text-[#111827] truncate">Asistente Corevix</div>
+                    <div className="text-[14px] font-extrabold tracking-[-0.02em] text-[#111827] truncate">
+                      Asistente Corevix
+                    </div>
                     <div className="mt-0.5 text-[12px] font-semibold text-[#667085] truncate">
                       Pregunta sobre leads, ventas, tareas o proyectos
                     </div>
@@ -286,7 +329,9 @@ export function CrmAiFloatingChat() {
                     <div
                       className={
                         "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm " +
-                        (isUser ? "bg-[#1d62f9] text-white" : "bg-white border border-[#e6eaf0] text-[#111827]")
+                        (isUser
+                          ? "bg-[#1d62f9] text-white"
+                          : "bg-white border border-[#e6eaf0] text-[#111827]")
                       }
                     >
                       {isUser ? (
@@ -344,4 +389,3 @@ export function CrmAiFloatingChat() {
     </>
   );
 }
-

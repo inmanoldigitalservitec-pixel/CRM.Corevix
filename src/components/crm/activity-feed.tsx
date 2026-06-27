@@ -15,16 +15,16 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ items, title = "Recent Activity" }: ActivityFeedProps) {
   if (items.length === 0) {
-    return (
-      <div className="text-center py-8 text-sm text-muted-foreground">
-        No activity yet
-      </div>
-    );
+    return <div className="text-center py-8 text-sm text-muted-foreground">No activity yet</div>;
   }
 
   return (
     <div>
-      {title && <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{title}</h4>}
+      {title && (
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          {title}
+        </h4>
+      )}
       <div className="space-y-3">
         {items.map((item) => (
           <div key={item.id} className="flex items-start gap-3 text-sm">

@@ -1,6 +1,12 @@
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useT } from "@/i18n";
 
 interface FilterOption {
@@ -36,7 +42,9 @@ export function SearchFilters({
 }: SearchFiltersProps) {
   const { t } = useT();
   return (
-    <div className={["flex flex-col sm:flex-row flex-wrap gap-3", className].filter(Boolean).join(" ")}>
+    <div
+      className={["flex flex-col sm:flex-row flex-wrap gap-3", className].filter(Boolean).join(" ")}
+    >
       <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -53,10 +61,14 @@ export function SearchFilters({
           </SelectTrigger>
           <SelectContent>
             {filter.includeAllOption === false ? null : (
-              <SelectItem value="all">{filter.allLabel || `${t("common.allPrefix")} ${filter.placeholder}`}</SelectItem>
+              <SelectItem value="all">
+                {filter.allLabel || `${t("common.allPrefix")} ${filter.placeholder}`}
+              </SelectItem>
             )}
             {filter.options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

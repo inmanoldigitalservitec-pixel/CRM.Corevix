@@ -20,21 +20,33 @@ export function InstagramContextPanel({
 }) {
   const name = conversation?.sender_name || "Usuario de Instagram";
   return (
-    <aside className={cn("min-h-0 border-l border-black/10 bg-[#f0f2f5] overflow-y-auto p-4", className)}>
+    <aside
+      className={cn("min-h-0 border-l border-black/10 bg-[#f0f2f5] overflow-y-auto p-4", className)}
+    >
       <div className="space-y-3">
         <div className="rounded-2xl border border-black/5 bg-white px-4 py-4 shadow-sm">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-[0.08em]">Contexto</div>
-          <h3 className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-slate-900">Instagram</h3>
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-[0.08em]">
+            Contexto
+          </div>
+          <h3 className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-slate-900">
+            Instagram
+          </h3>
           <p className="mt-1 text-sm text-slate-500">Vista de solo lectura por ahora.</p>
         </div>
 
         <div className="grid gap-3">
           <div className="rounded-2xl border border-black/5 bg-white px-3.5 py-3 shadow-sm flex items-center gap-3">
             <div className="shrink-0">
-              <WhatsappAvatar name={name} imageUrl={conversation?.sender_profile_pic || null} size={44} />
+              <WhatsappAvatar
+                name={name}
+                imageUrl={conversation?.sender_profile_pic || null}
+                size={44}
+              />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] uppercase tracking-[0.08em] text-slate-400">Remitente</div>
+              <div className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                Remitente
+              </div>
               <div className="mt-0.5 text-[13px] text-slate-900 truncate">{name}</div>
             </div>
           </div>
@@ -52,4 +64,3 @@ export function InstagramContextPanel({
     </aside>
   );
 }
-

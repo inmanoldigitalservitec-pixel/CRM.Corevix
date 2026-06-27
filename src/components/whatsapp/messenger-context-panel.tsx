@@ -11,7 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function CardSection({
   title,
@@ -45,7 +51,9 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 }
 
 function formatConversationStatus(status: unknown): string | null {
-  const s = String(status ?? "").trim().toLowerCase();
+  const s = String(status ?? "")
+    .trim()
+    .toLowerCase();
   if (!s) return null;
   if (s === "open") return "Abierta";
   if (s === "awaiting_advisor") return "Esperando asesor";
@@ -77,10 +85,22 @@ export function MessengerContextPanel({
   const [clientMatches, setClientMatches] = useState<any[]>([]);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [followUpSaving, setFollowUpSaving] = useState(false);
-  const [followUpValues, setFollowUpValues] = useState({ title: "Seguimiento Messenger", due_date: "", priority: "Medium", description: "" });
+  const [followUpValues, setFollowUpValues] = useState({
+    title: "Seguimiento Messenger",
+    due_date: "",
+    priority: "Medium",
+    description: "",
+  });
   const [dealOpen, setDealOpen] = useState(false);
   const [dealSaving, setDealSaving] = useState(false);
-  const [dealStages, setDealStages] = useState<Array<{ name: string; display_order: number | null; is_won: boolean | null; is_lost: boolean | null }>>([]);
+  const [dealStages, setDealStages] = useState<
+    Array<{
+      name: string;
+      display_order: number | null;
+      is_won: boolean | null;
+      is_lost: boolean | null;
+    }>
+  >([]);
   const [dealStagesError, setDealStagesError] = useState<string | null>(null);
   const [dealValues, setDealValues] = useState({
     name: "",
@@ -161,7 +181,9 @@ export function MessengerContextPanel({
       setLinkedLeadError(null);
       const { data, error } = await db
         .from("leads")
-        .select("id, first_name, last_name, company_name, email, phone, whatsapp, status, source, source_channel, notes, estimated_value, assigned_to, metadata")
+        .select(
+          "id, first_name, last_name, company_name, email, phone, whatsapp, status, source, source_channel, notes, estimated_value, assigned_to, metadata",
+        )
         .eq("company_id", companyId)
         .eq("id", leadId)
         .maybeSingle();
@@ -250,7 +272,13 @@ export function MessengerContextPanel({
     return () => {
       cancelled = true;
     };
-  }, [conversation?.id, conversation?.linked_lead_id, conversation?.linked_client_id, conversation?.linked_deal_id, profile?.company_id]);
+  }, [
+    conversation?.id,
+    conversation?.linked_lead_id,
+    conversation?.linked_client_id,
+    conversation?.linked_deal_id,
+    profile?.company_id,
+  ]);
 
   const leadDisplayName = useMemo(() => {
     if (!linkedLead) return null;
@@ -297,23 +325,26 @@ export function MessengerContextPanel({
   // Many CRM tables use auth.users(id) for assigned_to/created_by. Prefer profile.user_id (auth uid), not profile.id.
   const actorUserId = profile?.user_id || null;
 
-  const canCreateFollowUp = Boolean(conversation && hasLinkedLead && profile?.company_id && actorUserId && can("tasks.create"));
+  const canCreateFollowUp = Boolean(
+    conversation && hasLinkedLead && profile?.company_id && actorUserId && can("tasks.create"),
+  );
 
   const canCreateDeal = Boolean(
     conversation &&
-      hasLinkedLead &&
-      !hasLinkedDeal &&
-      !linkedDeal &&
-      profile?.company_id &&
-      actorUserId &&
-      can("deals.create"),
+    hasLinkedLead &&
+    !hasLinkedDeal &&
+    !linkedDeal &&
+    profile?.company_id &&
+    actorUserId &&
+    can("deals.create"),
   );
 
   const followUpDisabledReason = useMemo(() => {
     if (!conversation) return "Selecciona una conversación.";
     if (!profile?.company_id) return "No se pudo detectar la empresa actual.";
     if (!actorUserId) return "No se pudo detectar tu usuario.";
-    if (!conversation.linked_lead_id) return "Crea o vincula un prospecto para activar seguimientos.";
+    if (!conversation.linked_lead_id)
+      return "Crea o vincula un prospecto para activar seguimientos.";
     if (!can("tasks.create")) return "No tienes permiso para crear seguimiento.";
     return null;
   }, [actorUserId, can, conversation, profile?.company_id]);
@@ -322,7 +353,8 @@ export function MessengerContextPanel({
     if (!conversation) return "Selecciona una conversación.";
     if (!profile?.company_id) return "No se pudo detectar la empresa actual.";
     if (!actorUserId) return "No se pudo detectar tu usuario.";
-    if (!conversation.linked_lead_id) return "Crea o vincula un prospecto para activar oportunidades.";
+    if (!conversation.linked_lead_id)
+      return "Crea o vincula un prospecto para activar oportunidades.";
     if (conversation.linked_deal_id || linkedDeal) return "Oportunidad ya creada o vinculada.";
     if (!can("deals.create")) return "No tienes permiso para crear oportunidades.";
     return null;
@@ -372,7 +404,8 @@ export function MessengerContextPanel({
       const db = supabase as any;
       const leadId = String(conversation.linked_lead_id);
       // Prefer auth uid for FK correctness (tasks.assigned_to -> auth.users.id).
-      const assignedTo: string | null = (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) || actorUserId;
+      const assignedTo: string | null =
+        (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) || actorUserId;
 
       const basePayload: Record<string, any> = {
         company_id: profile.company_id,
@@ -461,7 +494,9 @@ export function MessengerContextPanel({
 
     // Choose a default stage: first non-won/non-lost, else fallback.
     const stageDefault =
-      dealStages.find((s) => !s.is_won && !s.is_lost)?.name || dealStages[0]?.name || "New Opportunity";
+      dealStages.find((s) => !s.is_won && !s.is_lost)?.name ||
+      dealStages[0]?.name ||
+      "New Opportunity";
 
     setDealValues({
       name: nextName,
@@ -524,14 +559,17 @@ export function MessengerContextPanel({
           return;
         }
         setLinkedDeal(existing);
-        toast.message("Ya existía una oportunidad para este prospecto. Fue vinculada a la conversación.");
+        toast.message(
+          "Ya existía una oportunidad para este prospecto. Fue vinculada a la conversación.",
+        );
         onRefreshConversations?.();
         setDealOpen(false);
         return;
       }
 
       // Prefer auth uid for FK correctness (deals.assigned_to -> auth.users.id).
-      const assignedTo: string | null = (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) || actorUserId;
+      const assignedTo: string | null =
+        (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) || actorUserId;
       const valueNum = Number(String(dealValues.value || "").replace(/,/g, ""));
       const probabilityNum = Number(String(dealValues.probability || "").trim());
       const payloadBase: Record<string, any> = {
@@ -548,11 +586,18 @@ export function MessengerContextPanel({
       };
 
       let created: any = null;
-      const { data: createdTry, error: errTry } = await db.from("deals").insert(payloadBase).select("id,name,stage,value,probability,expected_close,assigned_to").single();
+      const { data: createdTry, error: errTry } = await db
+        .from("deals")
+        .insert(payloadBase)
+        .select("id,name,stage,value,probability,expected_close,assigned_to")
+        .single();
 
       if (errTry) {
         const msg = String(errTry.message || "");
-        if (msg.toLowerCase().includes("created_by") && msg.toLowerCase().includes("does not exist")) {
+        if (
+          msg.toLowerCase().includes("created_by") &&
+          msg.toLowerCase().includes("does not exist")
+        ) {
           const fallbackPayload = { ...payloadBase };
           delete fallbackPayload.created_by;
           const { data: createdFallback, error: errFallback } = await db
@@ -635,7 +680,9 @@ export function MessengerContextPanel({
         if (messengerId) {
           const { data, error } = await db
             .from("leads")
-            .select("id, first_name, last_name, company_name, email, phone, whatsapp, status, source, source_channel, notes, estimated_value, assigned_to, metadata, source, source_channel, notes")
+            .select(
+              "id, first_name, last_name, company_name, email, phone, whatsapp, status, source, source_channel, notes, estimated_value, assigned_to, metadata, source, source_channel, notes",
+            )
             .eq("company_id", companyId)
             .ilike("notes", `%${messengerId}%`)
             .limit(5);
@@ -650,7 +697,9 @@ export function MessengerContextPanel({
           if (fn) {
             const q = db
               .from("leads")
-              .select("id, first_name, last_name, company_name, email, phone, whatsapp, status, source, source_channel, notes, estimated_value, assigned_to, metadata, source, source_channel, notes")
+              .select(
+                "id, first_name, last_name, company_name, email, phone, whatsapp, status, source, source_channel, notes, estimated_value, assigned_to, metadata, source, source_channel, notes",
+              )
               .eq("company_id", companyId)
               .eq("first_name", fn);
             const { data, error } = ln ? await q.eq("last_name", ln).limit(5) : await q.limit(5);
@@ -662,7 +711,9 @@ export function MessengerContextPanel({
             .from("clients")
             .select("id, name, company_name, contact_person, email, phone")
             .eq("company_id", companyId)
-            .or(`company_name.ilike.%${rawName}%,contact_person.ilike.%${rawName}%,name.ilike.%${rawName}%`)
+            .or(
+              `company_name.ilike.%${rawName}%,contact_person.ilike.%${rawName}%,name.ilike.%${rawName}%`,
+            )
             .limit(5);
           if (!cerror && Array.isArray(cdata)) rowsClient.push(...cdata);
         }
@@ -691,7 +742,9 @@ export function MessengerContextPanel({
           return;
         }
       } catch {
-        toast.message("No se pudo revisar si el contacto ya existe. Puedes crear el prospecto manualmente.");
+        toast.message(
+          "No se pudo revisar si el contacto ya existe. Puedes crear el prospecto manualmente.",
+        );
       } finally {
         setSuggestLoading(false);
       }
@@ -720,14 +773,25 @@ export function MessengerContextPanel({
       };
 
       let leadId: string | null = null;
-      const { data: createdWithChannel, error: createErrWithChannel } = await db.from("leads").insert(basePayload).select("id").single();
+      const { data: createdWithChannel, error: createErrWithChannel } = await db
+        .from("leads")
+        .insert(basePayload)
+        .select("id")
+        .single();
 
       if (createErrWithChannel) {
         const msg = String(createErrWithChannel.message || "");
-        if (msg.toLowerCase().includes("source_channel") && msg.toLowerCase().includes("does not exist")) {
+        if (
+          msg.toLowerCase().includes("source_channel") &&
+          msg.toLowerCase().includes("does not exist")
+        ) {
           const fallbackPayload = { ...basePayload };
           delete fallbackPayload.source_channel;
-          const { data: createdFallback, error: createErrFallback } = await db.from("leads").insert(fallbackPayload).select("id").single();
+          const { data: createdFallback, error: createErrFallback } = await db
+            .from("leads")
+            .insert(fallbackPayload)
+            .select("id")
+            .single();
           if (createErrFallback) {
             toast.error(createErrFallback.message || "No se pudo crear el prospecto");
             return;
@@ -797,9 +861,10 @@ export function MessengerContextPanel({
     onRefreshConversations?.();
   }
   return (
-    <aside className={cn("min-h-0 border-l border-black/10 bg-[#f0f2f5] overflow-y-auto p-4", className)}>
+    <aside
+      className={cn("min-h-0 border-l border-black/10 bg-[#f0f2f5] overflow-y-auto p-4", className)}
+    >
       <div className="space-y-3">
-
         <CardSection title="Clara Rodríguez">
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -817,9 +882,7 @@ export function MessengerContextPanel({
               <span
                 className={cn(
                   "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                  claraPaused
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-emerald-100 text-emerald-700",
+                  claraPaused ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700",
                 )}
               >
                 {claraPaused ? "Pausada" : "Activa"}
@@ -841,9 +904,15 @@ export function MessengerContextPanel({
 
         <CardSection title="Identidad">
           <div className="flex items-start gap-3 min-w-0">
-            <WhatsappAvatar name={name} imageUrl={conversation?.sender_profile_pic || null} size={42} />
+            <WhatsappAvatar
+              name={name}
+              imageUrl={conversation?.sender_profile_pic || null}
+              size={42}
+            />
             <div className="min-w-0 flex-1">
-              <div className="text-[16px] font-semibold tracking-[-0.025em] truncate text-slate-900">{name}</div>
+              <div className="text-[16px] font-semibold tracking-[-0.025em] truncate text-slate-900">
+                {name}
+              </div>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 <span className="inline-flex items-center h-6 px-2.5 rounded-full border text-[11px] font-medium bg-blue-50 text-blue-700 border-blue-200">
                   Messenger
@@ -856,7 +925,8 @@ export function MessengerContextPanel({
               </div>
               {showMetaHelper ? (
                 <div className="mt-2 text-[12px] text-slate-600">
-                  Meta no siempre entrega nombre o foto del usuario. Puedes crear o vincular un prospecto para completar su información.
+                  Meta no siempre entrega nombre o foto del usuario. Puedes crear o vincular un
+                  prospecto para completar su información.
                 </div>
               ) : null}
             </div>
@@ -873,7 +943,11 @@ export function MessengerContextPanel({
             <div>
               <div className="text-[12px] font-medium text-slate-800">Prospecto vinculado</div>
               <div className="mt-1 text-[13px] text-slate-900">
-                {!hasLinkedLead ? "Sin vincular" : linkedLeadError ? linkedLeadError : leadDisplayName || "Prospecto vinculado"}
+                {!hasLinkedLead
+                  ? "Sin vincular"
+                  : linkedLeadError
+                    ? linkedLeadError
+                    : leadDisplayName || "Prospecto vinculado"}
               </div>
               {linkedLead && (linkedLead.email || linkedLead.phone) ? (
                 <div className="mt-1 text-[12px] text-slate-500">
@@ -882,12 +956,20 @@ export function MessengerContextPanel({
               ) : null}
               {linkedLead && (linkedLead.stage || linkedLead.status) ? (
                 <div className="mt-1 text-[11px] text-slate-500">
-                  {linkedLead.stage ? `Etapa: ${String(linkedLead.stage)}` : `Estado: ${String(linkedLead.status)}`}
+                  {linkedLead.stage
+                    ? `Etapa: ${String(linkedLead.stage)}`
+                    : `Estado: ${String(linkedLead.status)}`}
                 </div>
               ) : null}
               {hasLinkedLead ? (
                 <div className="mt-2">
-                  <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => (window.location.href = "/leads")}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => (window.location.href = "/leads")}
+                  >
                     Abrir prospecto
                   </Button>
                 </div>
@@ -899,7 +981,11 @@ export function MessengerContextPanel({
             <div>
               <div className="text-[12px] font-medium text-slate-800">Cliente vinculado</div>
               <div className="mt-1 text-[13px] text-slate-900">
-                {!hasLinkedClient ? "Sin vincular" : linkedClientError ? linkedClientError : clientDisplayName || "Cliente vinculado"}
+                {!hasLinkedClient
+                  ? "Sin vincular"
+                  : linkedClientError
+                    ? linkedClientError
+                    : clientDisplayName || "Cliente vinculado"}
               </div>
               {linkedClient && (linkedClient.email || linkedClient.phone) ? (
                 <div className="mt-1 text-[12px] text-slate-500">
@@ -913,13 +999,23 @@ export function MessengerContextPanel({
             <div>
               <div className="text-[12px] font-medium text-slate-800">Oportunidad vinculada</div>
               <div className="mt-1 text-[13px] text-slate-900">
-                {!hasLinkedDeal ? "Sin vincular" : linkedDealError ? linkedDealError : dealDisplayName || "Oportunidad vinculada"}
+                {!hasLinkedDeal
+                  ? "Sin vincular"
+                  : linkedDealError
+                    ? linkedDealError
+                    : dealDisplayName || "Oportunidad vinculada"}
               </div>
-              {linkedDeal && (linkedDeal.stage || (linkedDeal.value !== null && linkedDeal.value !== undefined)) ? (
+              {linkedDeal &&
+              (linkedDeal.stage ||
+                (linkedDeal.value !== null && linkedDeal.value !== undefined)) ? (
                 <div className="mt-1 text-[12px] text-slate-500">
                   {linkedDeal.stage ? `Etapa: ${String(linkedDeal.stage)}` : null}
-                  {linkedDeal.stage && (linkedDeal.value !== null && linkedDeal.value !== undefined) ? " · " : null}
-                  {linkedDeal.value !== null && linkedDeal.value !== undefined ? `Valor: ${String(linkedDeal.value)}` : null}
+                  {linkedDeal.stage && linkedDeal.value !== null && linkedDeal.value !== undefined
+                    ? " · "
+                    : null}
+                  {linkedDeal.value !== null && linkedDeal.value !== undefined
+                    ? `Valor: ${String(linkedDeal.value)}`
+                    : null}
                 </div>
               ) : null}
             </div>
@@ -942,7 +1038,12 @@ export function MessengerContextPanel({
               variant="outline"
               className="justify-start"
               disabled={!canCreateFollowUp}
-              title={!canCreateFollowUp ? followUpDisabledReason || "Crea o vincula un prospecto para activar seguimientos." : "Crear seguimiento"}
+              title={
+                !canCreateFollowUp
+                  ? followUpDisabledReason ||
+                    "Crea o vincula un prospecto para activar seguimientos."
+                  : "Crear seguimiento"
+              }
               onClick={() => {
                 if (!canCreateFollowUp) return;
                 openFollowUpDialog();
@@ -957,7 +1058,10 @@ export function MessengerContextPanel({
               disabled={!canCreateDeal}
               title={
                 !canCreateDeal
-                  ? dealDisabledReason || (hasLinkedDeal || linkedDeal ? "Oportunidad creada" : "Crea o vincula un prospecto para activar oportunidades.")
+                  ? dealDisabledReason ||
+                    (hasLinkedDeal || linkedDeal
+                      ? "Oportunidad creada"
+                      : "Crea o vincula un prospecto para activar oportunidades.")
                   : "Crear oportunidad"
               }
               onClick={() => {
@@ -967,14 +1071,28 @@ export function MessengerContextPanel({
             >
               Crear oportunidad
             </Button>
-            <Button type="button" variant="outline" className="justify-start" disabled title="Disponible en una próxima fase">
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start"
+              disabled
+              title="Disponible en una próxima fase"
+            >
               Convertir a cliente
             </Button>
           </div>
           <div className="mt-2 space-y-1 text-[11px] text-slate-500">
             <div>La vinculación manual estará disponible en una próxima fase.</div>
-            {!canCreateFollowUp ? <div>{followUpDisabledReason || "Crea o vincula un prospecto para activar seguimientos."}</div> : null}
-            {!canCreateDeal ? <div>{dealDisabledReason || "Crea o vincula un prospecto para activar oportunidades."}</div> : null}
+            {!canCreateFollowUp ? (
+              <div>
+                {followUpDisabledReason || "Crea o vincula un prospecto para activar seguimientos."}
+              </div>
+            ) : null}
+            {!canCreateDeal ? (
+              <div>
+                {dealDisabledReason || "Crea o vincula un prospecto para activar oportunidades."}
+              </div>
+            ) : null}
           </div>
         </CardSection>
 
@@ -982,14 +1100,22 @@ export function MessengerContextPanel({
           {nextTask ? (
             <div className="space-y-2">
               <InfoRow label="Título" value={String(nextTask.title || "")} />
-              <InfoRow label="Fecha de vencimiento" value={nextTask.due_date ? String(nextTask.due_date) : "—"} />
-              <InfoRow label="Prioridad" value={nextTask.priority ? String(nextTask.priority) : "—"} />
+              <InfoRow
+                label="Fecha de vencimiento"
+                value={nextTask.due_date ? String(nextTask.due_date) : "—"}
+              />
+              <InfoRow
+                label="Prioridad"
+                value={nextTask.priority ? String(nextTask.priority) : "—"}
+              />
               <InfoRow label="Estado" value={nextTask.status ? String(nextTask.status) : "—"} />
             </div>
           ) : (
             <>
               <div className="text-[13px] text-slate-900">Sin seguimiento activo</div>
-              <div className="mt-1 text-[12px] text-slate-500">Los seguimientos de Messenger estarán disponibles en una próxima fase.</div>
+              <div className="mt-1 text-[12px] text-slate-500">
+                Los seguimientos de Messenger estarán disponibles en una próxima fase.
+              </div>
             </>
           )}
         </CardSection>
@@ -999,17 +1125,33 @@ export function MessengerContextPanel({
             <div className="space-y-2">
               <InfoRow label="Nombre" value={dealDisplayName} />
               <InfoRow label="Etapa" value={linkedDeal.stage ? String(linkedDeal.stage) : null} />
-              <InfoRow label="Valor" value={linkedDeal.value !== null && linkedDeal.value !== undefined ? String(linkedDeal.value) : null} />
+              <InfoRow
+                label="Valor"
+                value={
+                  linkedDeal.value !== null && linkedDeal.value !== undefined
+                    ? String(linkedDeal.value)
+                    : null
+                }
+              />
               <InfoRow
                 label="Probabilidad"
-                value={linkedDeal.probability !== null && linkedDeal.probability !== undefined ? String(linkedDeal.probability) : null}
+                value={
+                  linkedDeal.probability !== null && linkedDeal.probability !== undefined
+                    ? String(linkedDeal.probability)
+                    : null
+                }
               />
-              <InfoRow label="Cierre esperado" value={linkedDeal.expected_close ? String(linkedDeal.expected_close) : null} />
+              <InfoRow
+                label="Cierre esperado"
+                value={linkedDeal.expected_close ? String(linkedDeal.expected_close) : null}
+              />
             </div>
           ) : (
             <>
               <div className="text-[13px] text-slate-900">Sin oportunidad vinculada</div>
-              <div className="mt-1 text-[12px] text-slate-500">Crea una oportunidad para llevar esta conversación al pipeline.</div>
+              <div className="mt-1 text-[12px] text-slate-500">
+                Crea una oportunidad para llevar esta conversación al pipeline.
+              </div>
             </>
           )}
         </CardSection>
@@ -1018,8 +1160,14 @@ export function MessengerContextPanel({
           {linkedClient ? (
             <div className="space-y-2">
               <InfoRow label="Nombre" value={clientDisplayName} />
-              <InfoRow label="Email" value={linkedClient.email ? String(linkedClient.email) : null} />
-              <InfoRow label="Teléfono" value={linkedClient.phone ? String(linkedClient.phone) : null} />
+              <InfoRow
+                label="Email"
+                value={linkedClient.email ? String(linkedClient.email) : null}
+              />
+              <InfoRow
+                label="Teléfono"
+                value={linkedClient.phone ? String(linkedClient.phone) : null}
+              />
             </div>
           ) : (
             <div className="text-[13px] text-slate-900">Sin cliente vinculado</div>
@@ -1029,7 +1177,7 @@ export function MessengerContextPanel({
         <CardSection title="Información de Meta">
           <div className="space-y-2">
             <InfoRow label="ID de Messenger" value={messengerId} />
-            <InfoRow label="Página (ID)" value={conversation?.page_id || null} />
+            <InfoRow label="Página (ID)" value={(conversation as any)?.page_id || null} />
           </div>
         </CardSection>
       </div>
@@ -1048,16 +1196,26 @@ export function MessengerContextPanel({
           >
             <div>
               <Label>Título</Label>
-              <Input value={followUpValues.title} onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))} />
+              <Input
+                value={followUpValues.title}
+                onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Fecha de vencimiento</Label>
-                <Input type="date" value={followUpValues.due_date} onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))} />
+                <Input
+                  type="date"
+                  value={followUpValues.due_date}
+                  onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))}
+                />
               </div>
               <div>
                 <Label>Prioridad</Label>
-                <Select value={followUpValues.priority} onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}>
+                <Select
+                  value={followUpValues.priority}
+                  onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -1078,7 +1236,12 @@ export function MessengerContextPanel({
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setFollowUpOpen(false)} disabled={followUpSaving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFollowUpOpen(false)}
+                disabled={followUpSaving}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={followUpSaving}>
@@ -1103,7 +1266,10 @@ export function MessengerContextPanel({
           >
             <div>
               <Label>Nombre de oportunidad</Label>
-              <Input value={dealValues.name} onChange={(e) => setDealValues((p) => ({ ...p, name: e.target.value }))} />
+              <Input
+                value={dealValues.name}
+                onChange={(e) => setDealValues((p) => ({ ...p, name: e.target.value }))}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -1117,12 +1283,27 @@ export function MessengerContextPanel({
               </div>
               <div>
                 <Label>Etapa</Label>
-                <Select value={dealValues.stage} onValueChange={(v) => setDealValues((p) => ({ ...p, stage: v }))}>
+                <Select
+                  value={dealValues.stage}
+                  onValueChange={(v) => setDealValues((p) => ({ ...p, stage: v }))}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder={dealStagesError ? "New Opportunity" : "Selecciona una etapa"} />
+                    <SelectValue
+                      placeholder={dealStagesError ? "New Opportunity" : "Selecciona una etapa"}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {(dealStages.length ? dealStages : [{ name: "New Opportunity", display_order: 0, is_won: false, is_lost: false }]).map((s) => (
+                    {(dealStages.length
+                      ? dealStages
+                      : [
+                          {
+                            name: "New Opportunity",
+                            display_order: 0,
+                            is_won: false,
+                            is_lost: false,
+                          },
+                        ]
+                    ).map((s) => (
                       <SelectItem key={s.name} value={s.name}>
                         {s.name}
                       </SelectItem>
@@ -1152,10 +1333,19 @@ export function MessengerContextPanel({
             </div>
             <div>
               <Label>Notas</Label>
-              <Textarea value={dealValues.notes} onChange={(e) => setDealValues((p) => ({ ...p, notes: e.target.value }))} rows={4} />
+              <Textarea
+                value={dealValues.notes}
+                onChange={(e) => setDealValues((p) => ({ ...p, notes: e.target.value }))}
+                rows={4}
+              />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setDealOpen(false)} disabled={dealSaving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDealOpen(false)}
+                disabled={dealSaving}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={dealSaving}>
@@ -1187,19 +1377,32 @@ export function MessengerContextPanel({
 
             {leadMatches.length ? (
               <div className="space-y-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Prospectos</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Prospectos
+                </div>
                 {leadMatches.map((l) => (
-                  <div key={String(l.id)} className="rounded-xl border border-black/5 bg-white p-3 flex items-start justify-between gap-3">
+                  <div
+                    key={String(l.id)}
+                    className="rounded-xl border border-black/5 bg-white p-3 flex items-start justify-between gap-3"
+                  >
                     <div className="min-w-0">
-                      <div className="font-medium text-slate-900 truncate">{formatLeadLabel(l)}</div>
+                      <div className="font-medium text-slate-900 truncate">
+                        {formatLeadLabel(l)}
+                      </div>
                       <div className="mt-0.5 text-[12px] text-slate-500 truncate">
                         {[l.email, l.phone].filter(Boolean).join(" · ") || "—"}
                       </div>
                       <div className="mt-0.5 text-[11px] text-slate-500 truncate">
-                        {[l.status, l.stage, l.source_channel || l.source].filter(Boolean).join(" · ") || "—"}
+                        {[l.status, l.stage, l.source_channel || l.source]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
                       </div>
                     </div>
-                    <Button type="button" size="sm" onClick={() => void handleLinkLead(String(l.id))}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void handleLinkLead(String(l.id))}
+                    >
                       Vincular este prospecto
                     </Button>
                   </div>
@@ -1209,16 +1412,27 @@ export function MessengerContextPanel({
 
             {clientMatches.length ? (
               <div className="space-y-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Clientes</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Clientes
+                </div>
                 {clientMatches.map((c) => (
-                  <div key={String(c.id)} className="rounded-xl border border-black/5 bg-white p-3 flex items-start justify-between gap-3">
+                  <div
+                    key={String(c.id)}
+                    className="rounded-xl border border-black/5 bg-white p-3 flex items-start justify-between gap-3"
+                  >
                     <div className="min-w-0">
-                      <div className="font-medium text-slate-900 truncate">{formatClientLabel(c)}</div>
+                      <div className="font-medium text-slate-900 truncate">
+                        {formatClientLabel(c)}
+                      </div>
                       <div className="mt-0.5 text-[12px] text-slate-500 truncate">
                         {[c.email, c.phone].filter(Boolean).join(" · ") || "—"}
                       </div>
                     </div>
-                    <Button type="button" size="sm" onClick={() => void handleLinkClient(String(c.id))}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void handleLinkClient(String(c.id))}
+                    >
                       Vincular este cliente
                     </Button>
                   </div>

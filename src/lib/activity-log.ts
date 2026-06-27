@@ -36,7 +36,10 @@ function firstLabel(...values: unknown[]) {
   return null;
 }
 
-function changedKeys(previous: Record<string, unknown> | null | undefined, next: Record<string, unknown> | null | undefined) {
+function changedKeys(
+  previous: Record<string, unknown> | null | undefined,
+  next: Record<string, unknown> | null | undefined,
+) {
   if (!previous || !next) return [];
   const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
   return Array.from(keys).filter((key) => {
@@ -75,13 +78,17 @@ export function inferCrudActivity(args: {
 
   switch (table) {
     case "leads":
-      if (operation === "create") return { action: "lead_created", detail: `Prospecto creado: ${label}` };
-      if (operation === "delete") return { action: "lead_deleted", detail: `Prospecto eliminado: ${prevLabel}` };
+      if (operation === "create")
+        return { action: "lead_created", detail: `Prospecto creado: ${label}` };
+      if (operation === "delete")
+        return { action: "lead_deleted", detail: `Prospecto eliminado: ${prevLabel}` };
       return { action: "lead_updated", detail: `Prospecto actualizado: ${label}` };
 
     case "deals": {
-      if (operation === "create") return { action: "deal_created", detail: `Oportunidad creada: ${label}` };
-      if (operation === "delete") return { action: "deal_deleted", detail: `Oportunidad eliminada: ${prevLabel}` };
+      if (operation === "create")
+        return { action: "deal_created", detail: `Oportunidad creada: ${label}` };
+      if (operation === "delete")
+        return { action: "deal_deleted", detail: `Oportunidad eliminada: ${prevLabel}` };
       const prevStage = trimText(previousRow?.stage);
       const nextStage = trimText(nextRow?.stage);
       if (prevStage && nextStage && prevStage !== nextStage) {
@@ -97,10 +104,12 @@ export function inferCrudActivity(args: {
     case "proposals": {
       if (operation === "create") {
         const status = trimText(nextRow?.status);
-        if (status === "Sent") return { action: "proposal_sent", detail: `Propuesta enviada: ${label}` };
+        if (status === "Sent")
+          return { action: "proposal_sent", detail: `Propuesta enviada: ${label}` };
         return { action: "proposal_created", detail: `Propuesta creada: ${label}` };
       }
-      if (operation === "delete") return { action: "proposal_deleted", detail: `Propuesta eliminada: ${prevLabel}` };
+      if (operation === "delete")
+        return { action: "proposal_deleted", detail: `Propuesta eliminada: ${prevLabel}` };
       const prevStatus = trimText(previousRow?.status);
       const nextStatus = trimText(nextRow?.status);
       if (nextStatus === "Approved" && prevStatus !== "Approved") {
@@ -115,11 +124,14 @@ export function inferCrudActivity(args: {
     case "invoices": {
       if (operation === "create") {
         const status = trimText(nextRow?.status);
-        if (status === "Sent") return { action: "invoice_sent", detail: `Factura enviada: ${label}` };
-        if (status === "Paid") return { action: "invoice_paid", detail: `Factura pagada: ${label}` };
+        if (status === "Sent")
+          return { action: "invoice_sent", detail: `Factura enviada: ${label}` };
+        if (status === "Paid")
+          return { action: "invoice_paid", detail: `Factura pagada: ${label}` };
         return { action: "invoice_created", detail: `Factura creada: ${label}` };
       }
-      if (operation === "delete") return { action: "invoice_deleted", detail: `Factura eliminada: ${prevLabel}` };
+      if (operation === "delete")
+        return { action: "invoice_deleted", detail: `Factura eliminada: ${prevLabel}` };
       const prevStatus = trimText(previousRow?.status);
       const nextStatus = trimText(nextRow?.status);
       if (nextStatus === "Paid" && prevStatus !== "Paid") {
@@ -132,17 +144,21 @@ export function inferCrudActivity(args: {
     }
 
     case "projects":
-      if (operation === "create") return { action: "project_created", detail: `Proyecto creado: ${label}` };
-      if (operation === "delete") return { action: "project_deleted", detail: `Proyecto eliminado: ${prevLabel}` };
+      if (operation === "create")
+        return { action: "project_created", detail: `Proyecto creado: ${label}` };
+      if (operation === "delete")
+        return { action: "project_deleted", detail: `Proyecto eliminado: ${prevLabel}` };
       return { action: "project_updated", detail: `Proyecto actualizado: ${label}` };
 
     case "tasks": {
       if (operation === "create") {
         const status = trimText(nextRow?.status);
-        if (status === "Completed") return { action: "task_completed", detail: `Tarea completada: ${label}` };
+        if (status === "Completed")
+          return { action: "task_completed", detail: `Tarea completada: ${label}` };
         return { action: "task_created", detail: `Tarea creada: ${label}` };
       }
-      if (operation === "delete") return { action: "task_deleted", detail: `Tarea eliminada: ${prevLabel}` };
+      if (operation === "delete")
+        return { action: "task_deleted", detail: `Tarea eliminada: ${prevLabel}` };
       const prevStatus = trimText(previousRow?.status);
       const nextStatus = trimText(nextRow?.status);
       if (nextStatus === "Completed" && prevStatus !== "Completed") {
@@ -152,8 +168,10 @@ export function inferCrudActivity(args: {
     }
 
     case "clients":
-      if (operation === "create") return { action: "client_created", detail: `Cliente creado: ${label}` };
-      if (operation === "delete") return { action: "client_deleted", detail: `Cliente eliminado: ${prevLabel}` };
+      if (operation === "create")
+        return { action: "client_created", detail: `Cliente creado: ${label}` };
+      if (operation === "delete")
+        return { action: "client_deleted", detail: `Cliente eliminado: ${prevLabel}` };
       return { action: "client_updated", detail: `Cliente actualizado: ${label}` };
 
     default:

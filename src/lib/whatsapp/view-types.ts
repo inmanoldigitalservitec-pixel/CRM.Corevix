@@ -53,4 +53,3 @@ export interface CrmWhatsappMessageRow {
   delivery_status: "sent" | "delivered" | "read" | "failed" | string | null;
   delivery_status_at: string | null;
 }
-

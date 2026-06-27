@@ -67,10 +67,14 @@ function hasReferenceLink(rawText: string): boolean {
 function directMenuIntent(normalized: string): MessengerIntent | null {
   // Direct menu mapping always wins.
   if (!normalized) return null;
-  if (normalized === "1" || normalized.startsWith("1 ") || normalized.startsWith("1.")) return "web_interest";
-  if (normalized === "2" || normalized.startsWith("2 ") || normalized.startsWith("2.")) return "social_interest";
-  if (normalized === "3" || normalized.startsWith("3 ") || normalized.startsWith("3.")) return "crm_interest";
-  if (normalized === "4" || normalized.startsWith("4 ") || normalized.startsWith("4.")) return "advisor_request";
+  if (normalized === "1" || normalized.startsWith("1 ") || normalized.startsWith("1."))
+    return "web_interest";
+  if (normalized === "2" || normalized.startsWith("2 ") || normalized.startsWith("2."))
+    return "social_interest";
+  if (normalized === "3" || normalized.startsWith("3 ") || normalized.startsWith("3."))
+    return "crm_interest";
+  if (normalized === "4" || normalized.startsWith("4 ") || normalized.startsWith("4."))
+    return "advisor_request";
   return null;
 }
 
@@ -85,7 +89,11 @@ function tokenOverlapScore(inputTokens: string[], phraseTokens: string[]): numbe
 }
 
 function bestPhraseMatch(inputNormalized: string, inputTokens: string[], phrases: string[]) {
-  let best = { score: 0, term: null as string | null, mode: "none" as "none" | "contains" | "tokens" };
+  let best = {
+    score: 0,
+    term: null as string | null,
+    mode: "none" as "none" | "contains" | "tokens",
+  };
   for (const raw of phrases) {
     const p = normalizeText(raw);
     if (!p) continue;
@@ -594,9 +602,23 @@ function classifyBusinessTypeOrGoal(normalized: string): IntentMatch | null {
   const t = normalized;
   if (!t) return null;
 
-  const hasBizLeadIn = ["tengo un", "tengo una", "soy", "mi negocio", "mi empresa", "vendo", "trabajo en"].some((k) => t.includes(k));
+  const hasBizLeadIn = [
+    "tengo un",
+    "tengo una",
+    "soy",
+    "mi negocio",
+    "mi empresa",
+    "vendo",
+    "trabajo en",
+  ].some((k) => t.includes(k));
   if (hasBizLeadIn) {
-    return { intent: "business_type", confidence: 0.66, matchedTerm: "heuristica:business_type", method: "heuristic", normalizedText: normalized };
+    return {
+      intent: "business_type",
+      confidence: 0.66,
+      matchedTerm: "heuristica:business_type",
+      method: "heuristic",
+      normalizedText: normalized,
+    };
   }
 
   const hasGoal = [
@@ -622,7 +644,13 @@ function classifyBusinessTypeOrGoal(normalized: string): IntentMatch | null {
     "ventas",
   ].some((k) => t.includes(k));
   if (hasGoal) {
-    return { intent: "goal", confidence: 0.64, matchedTerm: "heuristica:goal", method: "heuristic", normalizedText: normalized };
+    return {
+      intent: "goal",
+      confidence: 0.64,
+      matchedTerm: "heuristica:goal",
+      method: "heuristic",
+      normalizedText: normalized,
+    };
   }
 
   return null;
@@ -634,20 +662,51 @@ export function matchIntent(rawText: string): IntentMatch {
   // Very short text guardrail.
   if (normalized.length <= 2) {
     const menu = directMenuIntent(normalized);
-    if (menu) return { intent: menu, confidence: 1.0, matchedTerm: "menu", method: "direct_menu", normalizedText: normalized };
+    if (menu)
+      return {
+        intent: menu,
+        confidence: 1.0,
+        matchedTerm: "menu",
+        method: "direct_menu",
+        normalizedText: normalized,
+      };
     if (normalized === "ok" || normalized === "?") {
-      return { intent: "waiting", confidence: 0.9, matchedTerm: normalized, method: "keyword", normalizedText: normalized };
+      return {
+        intent: "waiting",
+        confidence: 0.9,
+        matchedTerm: normalized,
+        method: "keyword",
+        normalizedText: normalized,
+      };
     }
-    return { intent: "unknown", confidence: 0, matchedTerm: null, method: "unknown", normalizedText: normalized };
+    return {
+      intent: "unknown",
+      confidence: 0,
+      matchedTerm: null,
+      method: "unknown",
+      normalizedText: normalized,
+    };
   }
 
   const menu = directMenuIntent(normalized);
   if (menu) {
-    return { intent: menu, confidence: 1.0, matchedTerm: "menu", method: "direct_menu", normalizedText: normalized };
+    return {
+      intent: menu,
+      confidence: 1.0,
+      matchedTerm: "menu",
+      method: "direct_menu",
+      normalizedText: normalized,
+    };
   }
 
   if (hasReferenceLink(rawText)) {
-    return { intent: "reference_link", confidence: 0.95, matchedTerm: "link/@", method: "reference", normalizedText: normalized };
+    return {
+      intent: "reference_link",
+      confidence: 0.95,
+      matchedTerm: "link/@",
+      method: "reference",
+      normalizedText: normalized,
+    };
   }
 
   // Keyword/phrase matching by contains + token overlap
@@ -655,7 +714,14 @@ export function matchIntent(rawText: string): IntentMatch {
 
   // Strong keyword/includes match first.
   const picks: Array<{ intent: MessengerIntent; score: number; term: string | null }> = [];
-  for (const key of ["business_hours_question", "advisor_request", "web_interest", "social_interest", "crm_interest", "waiting"] as const) {
+  for (const key of [
+    "business_hours_question",
+    "advisor_request",
+    "web_interest",
+    "social_interest",
+    "crm_interest",
+    "waiting",
+  ] as const) {
     const best = bestPhraseMatch(normalized, inputTokens, (catalog as any)[key] as string[]);
     if (best.score > 0) picks.push({ intent: key, score: best.score, term: best.term });
   }
@@ -665,7 +731,13 @@ export function matchIntent(rawText: string): IntentMatch {
 
   if (top && top.score >= 0.9) {
     // Strong contains match.
-    return { intent: top.intent, confidence: 0.9, matchedTerm: top.term, method: "keyword", normalizedText: normalized };
+    return {
+      intent: top.intent,
+      confidence: 0.9,
+      matchedTerm: top.term,
+      method: "keyword",
+      normalizedText: normalized,
+    };
   }
 
   // Fuse.js fuzzy match layer.
@@ -706,13 +778,25 @@ export function matchIntent(rawText: string): IntentMatch {
 
   // Token overlap fallback (keep existing behavior).
   if (top && top.score >= 0.68) {
-    return { intent: top.intent, confidence: Math.min(0.85, Math.max(0.65, top.score)), matchedTerm: top.term, method: "token_overlap", normalizedText: normalized };
+    return {
+      intent: top.intent,
+      confidence: Math.min(0.85, Math.max(0.65, top.score)),
+      matchedTerm: top.term,
+      method: "token_overlap",
+      normalizedText: normalized,
+    };
   }
 
   const btg = classifyBusinessTypeOrGoal(normalized);
   if (btg) return btg;
 
-  return { intent: "unknown", confidence: 0, matchedTerm: null, method: "unknown", normalizedText: normalized };
+  return {
+    intent: "unknown",
+    confidence: 0,
+    matchedTerm: null,
+    method: "unknown",
+    normalizedText: normalized,
+  };
 }
 
 // Quick sanity checks (examples):

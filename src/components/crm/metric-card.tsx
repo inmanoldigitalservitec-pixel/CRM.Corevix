@@ -55,7 +55,12 @@ export function MetricCard({
           >
             {value}
           </div>
-          <div className={cn(compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]", "font-bold leading-tight text-[#667085]")}>
+          <div
+            className={cn(
+              compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]",
+              "font-bold leading-tight text-[#667085]",
+            )}
+          >
             {label}
           </div>
         </CardContent>

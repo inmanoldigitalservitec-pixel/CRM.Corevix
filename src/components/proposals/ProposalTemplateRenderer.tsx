@@ -28,7 +28,8 @@ export function ProposalTemplateRenderer({
     <div className="p-5">
       <div className="text-lg font-semibold">Plantilla no disponible</div>
       <div className="mt-2 text-sm text-muted-foreground">
-        Esta propuesta no tiene un template compatible. `template_key`: <span className="font-mono">{templateKey || "—"}</span>
+        Esta propuesta no tiene un template compatible. `template_key`:{" "}
+        <span className="font-mono">{templateKey || "—"}</span>
       </div>
       <div className="mt-4 rounded-md border bg-background p-4 text-sm whitespace-pre-wrap">
         {proposal?.content || "—"}
@@ -36,4 +37,3 @@ export function ProposalTemplateRenderer({
     </div>
   );
 }
-

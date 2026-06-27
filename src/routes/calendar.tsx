@@ -30,7 +30,9 @@ function CalendarPage() {
   const { profile } = useAuth();
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState<"all" | "task" | "invoice" | "proposal" | "project">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "task" | "invoice" | "proposal" | "project">(
+    "all",
+  );
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
 
   const db = supabase as any;
@@ -40,12 +42,33 @@ function CalendarPage() {
     const cid = profile.company_id;
     setLoading(true);
 
-    const [{ data: tasks }, { data: invoices }, { data: proposals }, { data: projects }] = await Promise.all([
-      db.from("tasks").select("id, title, due_date, status, priority").eq("company_id", cid).not("due_date", "is", null).order("due_date"),
-      db.from("invoices").select("id, number, due_date, status, total").eq("company_id", cid).not("due_date", "is", null).order("due_date"),
-      db.from("proposals").select("id, number, title, valid_until, status").eq("company_id", cid).not("valid_until", "is", null).order("valid_until"),
-      db.from("projects").select("id, name, due_date, status").eq("company_id", cid).not("due_date", "is", null).order("due_date"),
-    ]);
+    const [{ data: tasks }, { data: invoices }, { data: proposals }, { data: projects }] =
+      await Promise.all([
+        db
+          .from("tasks")
+          .select("id, title, due_date, status, priority")
+          .eq("company_id", cid)
+          .not("due_date", "is", null)
+          .order("due_date"),
+        db
+          .from("invoices")
+          .select("id, number, due_date, status, total")
+          .eq("company_id", cid)
+          .not("due_date", "is", null)
+          .order("due_date"),
+        db
+          .from("proposals")
+          .select("id, number, title, valid_until, status")
+          .eq("company_id", cid)
+          .not("valid_until", "is", null)
+          .order("valid_until"),
+        db
+          .from("projects")
+          .select("id, name, due_date, status")
+          .eq("company_id", cid)
+          .not("due_date", "is", null)
+          .order("due_date"),
+      ]);
 
     const combined: CalEvent[] = [
       ...(tasks || []).map((t: any) => ({
@@ -91,7 +114,9 @@ function CalendarPage() {
     setLoading(false);
   }, [profile?.company_id]);
 
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const filteredEvents = useMemo(() => {
     if (typeFilter === "all") return events;
@@ -111,35 +136,93 @@ function CalendarPage() {
   const counters = useMemo(() => {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
-    const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString().slice(0, 10);
+    const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)
+      .toISOString()
+      .slice(0, 10);
     const overdue = events.filter((event) => event.date < today).length;
     const todayCount = events.filter((event) => event.date === today).length;
     const weekCount = events.filter((event) => event.date >= today && event.date < weekEnd).length;
     return { overdue, today: todayCount, week: weekCount };
   }, [events]);
 
-  if (loading) return <div className="p-6"><LoadingMetrics count={4} /></div>;
+  if (loading)
+    return (
+      <div className="p-6">
+        <LoadingMetrics count={4} />
+      </div>
+    );
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Calendar</h1>
-        <p className="text-sm text-muted-foreground">Fechas importantes de Tasks, Invoices, Proposals y Projects</p>
+        <p className="text-sm text-muted-foreground">
+          Fechas importantes de Tasks, Invoices, Proposals y Projects
+        </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant={typeFilter === "all" ? "default" : "outline"} onClick={() => setTypeFilter("all")}>Todos</Button>
-        <Button size="sm" variant={typeFilter === "task" ? "default" : "outline"} onClick={() => setTypeFilter("task")}>Tasks</Button>
-        <Button size="sm" variant={typeFilter === "invoice" ? "default" : "outline"} onClick={() => setTypeFilter("invoice")}>Invoices</Button>
-        <Button size="sm" variant={typeFilter === "proposal" ? "default" : "outline"} onClick={() => setTypeFilter("proposal")}>Proposals</Button>
-        <Button size="sm" variant={typeFilter === "project" ? "default" : "outline"} onClick={() => setTypeFilter("project")}>Projects</Button>
+        <Button
+          size="sm"
+          variant={typeFilter === "all" ? "default" : "outline"}
+          onClick={() => setTypeFilter("all")}
+        >
+          Todos
+        </Button>
+        <Button
+          size="sm"
+          variant={typeFilter === "task" ? "default" : "outline"}
+          onClick={() => setTypeFilter("task")}
+        >
+          Tasks
+        </Button>
+        <Button
+          size="sm"
+          variant={typeFilter === "invoice" ? "default" : "outline"}
+          onClick={() => setTypeFilter("invoice")}
+        >
+          Invoices
+        </Button>
+        <Button
+          size="sm"
+          variant={typeFilter === "proposal" ? "default" : "outline"}
+          onClick={() => setTypeFilter("proposal")}
+        >
+          Proposals
+        </Button>
+        <Button
+          size="sm"
+          variant={typeFilter === "project" ? "default" : "outline"}
+          onClick={() => setTypeFilter("project")}
+        >
+          Projects
+        </Button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="border-0 shadow-sm"><CardContent className="p-3"><div className="text-xs text-muted-foreground">Vencidos</div><div className="text-xl font-semibold">{counters.overdue}</div></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-3"><div className="text-xs text-muted-foreground">Hoy</div><div className="text-xl font-semibold">{counters.today}</div></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-3"><div className="text-xs text-muted-foreground">Esta semana</div><div className="text-xl font-semibold">{counters.week}</div></CardContent></Card>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground">Vencidos</div>
+            <div className="text-xl font-semibold">{counters.overdue}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground">Hoy</div>
+            <div className="text-xl font-semibold">{counters.today}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground">Esta semana</div>
+            <div className="text-xl font-semibold">{counters.week}</div>
+          </CardContent>
+        </Card>
       </div>
       {filteredEvents.length === 0 ? (
-        <EmptyState icon={<CalendarDays className="h-6 w-6" />} title="No upcoming events" description="Los eventos con fechas aparecerán aquí." />
+        <EmptyState
+          icon={<CalendarDays className="h-6 w-6" />}
+          title="No upcoming events"
+          description="Los eventos con fechas aparecerán aquí."
+        />
       ) : (
         <div className="grid gap-3">
           {groupedEvents.map(([date, dayEvents]) => (
@@ -148,7 +231,9 @@ function CalendarPage() {
                 <div className="flex items-start gap-4">
                   <div className="text-center min-w-[50px]">
                     <div className="text-lg font-bold">{date.split("-")[2]}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase">{new Date(date + "T00:00").toLocaleString("en", { month: "short" })}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase">
+                      {new Date(date + "T00:00").toLocaleString("en", { month: "short" })}
+                    </div>
                   </div>
                   <div className="flex-1 space-y-2">
                     {dayEvents.map((event) => (
@@ -161,7 +246,13 @@ function CalendarPage() {
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-medium text-sm">{event.title}</p>
                           <span className={`text-[10px] px-2 py-0.5 rounded ${event.color}`}>
-                            {event.type === "task" ? "Task" : event.type === "invoice" ? "Invoice" : event.type === "proposal" ? "Proposal" : "Project"}
+                            {event.type === "task"
+                              ? "Task"
+                              : event.type === "invoice"
+                                ? "Invoice"
+                                : event.type === "proposal"
+                                  ? "Proposal"
+                                  : "Project"}
                           </span>
                         </div>
                       </button>
@@ -180,14 +271,27 @@ function CalendarPage() {
           </DialogHeader>
           {selectedEvent ? (
             <div className="space-y-3">
-              <div className="text-sm"><span className="text-muted-foreground">Tipo:</span> {selectedEvent.type}</div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Tipo:</span> {selectedEvent.type}
+              </div>
               <div className="text-sm font-medium">{selectedEvent.title}</div>
-              <div className="text-sm"><span className="text-muted-foreground">Fecha:</span> {selectedEvent.date}</div>
-              {selectedEvent.status ? <div className="text-sm"><StatusBadge status={selectedEvent.status} /></div> : null}
-              {selectedEvent.type === "invoice" && selectedEvent.amount != null ? (
-                <div className="text-sm"><span className="text-muted-foreground">Monto:</span> ${Number(selectedEvent.amount).toLocaleString()}</div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Fecha:</span> {selectedEvent.date}
+              </div>
+              {selectedEvent.status ? (
+                <div className="text-sm">
+                  <StatusBadge status={selectedEvent.status} />
+                </div>
               ) : null}
-              <Button variant="outline" onClick={() => setSelectedEvent(null)}>Cerrar</Button>
+              {selectedEvent.type === "invoice" && selectedEvent.amount != null ? (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Monto:</span> $
+                  {Number(selectedEvent.amount).toLocaleString()}
+                </div>
+              ) : null}
+              <Button variant="outline" onClick={() => setSelectedEvent(null)}>
+                Cerrar
+              </Button>
             </div>
           ) : null}
         </DialogContent>

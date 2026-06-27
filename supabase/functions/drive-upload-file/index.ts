@@ -49,7 +49,8 @@ async function driveRequest(accessToken: string, url: string, init?: RequestInit
     // ignore parse error
   }
   if (!res.ok) {
-    const message = json?.error?.message || json?.error_description || text || "Google Drive request failed";
+    const message =
+      json?.error?.message || json?.error_description || text || "Google Drive request failed";
     throw new Error(`No se pudo subir el archivo a Google Drive. Detalle: ${message}`);
   }
   return json;
@@ -116,14 +117,17 @@ async function getOrCreateFolder(args: {
   const parentFolderId = String(args.parentId || "").trim();
   if (parentFolderId) metadata.parents = [parentFolderId];
 
-  const createRes = await fetch("https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${args.accessToken}`,
-      "Content-Type": "application/json",
+  const createRes = await fetch(
+    "https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${args.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(metadata),
     },
-    body: JSON.stringify(metadata),
-  });
+  );
 
   const createText = await createRes.text();
   let createJson: any = null;
@@ -139,7 +143,9 @@ async function getOrCreateFolder(args: {
       hasParent: Boolean(parentFolderId),
       detail: createText || null,
     });
-    throw new Error(`GOOGLE_FOLDER_CREATE_FAILED|${createRes.status}|${createText || createJson?.error?.message || "Unknown error"}`);
+    throw new Error(
+      `GOOGLE_FOLDER_CREATE_FAILED|${createRes.status}|${createText || createJson?.error?.message || "Unknown error"}`,
+    );
   }
 
   const created = createJson;
@@ -163,9 +169,7 @@ async function uploadFileMultipart(args: {
   const part1 = encoder.encode(
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
   );
-  const part2Header = encoder.encode(
-    `--${boundary}\r\nContent-Type: ${args.mimeType}\r\n\r\n`,
-  );
+  const part2Header = encoder.encode(`--${boundary}\r\nContent-Type: ${args.mimeType}\r\n\r\n`);
   const part3 = encoder.encode(`\r\n--${boundary}--`);
 
   const body = new Uint8Array(part1.length + part2Header.length + args.bytes.length + part3.length);
@@ -235,19 +239,23 @@ Deno.serve(async (req) => {
       .eq("user_id", authUserId)
       .maybeSingle();
     if (profileError) return jsonResponse({ error: profileError.message }, 400);
-    if (!profile?.company_id) return jsonResponse({ error: "No se encontró la compañía del usuario." }, 403);
+    if (!profile?.company_id)
+      return jsonResponse({ error: "No se encontró la compañía del usuario." }, 403);
     if (profile.is_active === false) return jsonResponse({ error: "Cuenta inactiva." }, 403);
     const companyId = String(profile.company_id);
 
     const { data: task, error: taskError } = await callerClient
       .from("tasks")
-      .select("id,company_id,title,related_project_id,drive_folder_id,drive_folder_url,related_client_id,related_lead_id,related_deal_id")
+      .select(
+        "id,company_id,title,related_project_id,drive_folder_id,drive_folder_url,related_client_id,related_lead_id,related_deal_id",
+      )
       .eq("id", taskId)
       .eq("company_id", companyId)
       .maybeSingle();
     if (taskError) return jsonResponse({ error: taskError.message }, 400);
     if (!task?.id) return jsonResponse({ error: "La tarea no existe." }, 404);
-    if (String(task.company_id) !== companyId) return jsonResponse({ error: "La tarea no pertenece a esta compañía." }, 403);
+    if (String(task.company_id) !== companyId)
+      return jsonResponse({ error: "La tarea no pertenece a esta compañía." }, 403);
 
     const { data: connection, error: connError } = await callerClient
       .from("drive_connections")
@@ -257,19 +265,30 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (connError) return jsonResponse({ error: connError.message }, 400);
     if (!connection?.access_token_encrypted) {
-      return jsonResponse({ error: "Google Drive no está conectado. Ve a Settings > Google Drive." }, 400);
+      return jsonResponse(
+        { error: "Google Drive no está conectado. Ve a Settings > Google Drive." },
+        400,
+      );
     }
 
     let accessToken = String(connection.access_token_encrypted || "");
-    const refreshToken = connection.refresh_token_encrypted ? String(connection.refresh_token_encrypted) : "";
-    const expiresAt = connection.expires_at ? new Date(String(connection.expires_at)).getTime() : null;
+    const refreshToken = connection.refresh_token_encrypted
+      ? String(connection.refresh_token_encrypted)
+      : "";
+    const expiresAt = connection.expires_at
+      ? new Date(String(connection.expires_at)).getTime()
+      : null;
     const isExpired = !!expiresAt && expiresAt - Date.now() < 60_000;
 
     if (isExpired && !refreshToken) {
-      return jsonResponse({
-        error: "No se pudo refrescar el token de Google Drive.",
-        detail: "La conexión de Google Drive no tiene refresh_token guardado. Vuelve a conectar Drive desde Settings.",
-      }, 400);
+      return jsonResponse(
+        {
+          error: "No se pudo refrescar el token de Google Drive.",
+          detail:
+            "La conexión de Google Drive no tiene refresh_token guardado. Vuelve a conectar Drive desde Settings.",
+        },
+        400,
+      );
     }
 
     if (isExpired && refreshToken) {
@@ -291,7 +310,8 @@ Deno.serve(async (req) => {
           refreshToken,
         });
       } catch (error) {
-        const detail = error instanceof Error ? error.message : "No se pudo refrescar el token de Google Drive.";
+        const detail =
+          error instanceof Error ? error.message : "No se pudo refrescar el token de Google Drive.";
         console.error("drive-upload-file refresh token failed:", {
           detail,
           googleError: (error as any)?.googleError || null,
@@ -301,7 +321,10 @@ Deno.serve(async (req) => {
           hasClientSecret: Boolean(driveSettings.client_secret_encrypted),
           hasClientId: Boolean(driveSettings.client_id),
         });
-        return jsonResponse({ error: "No se pudo refrescar el token de Google Drive.", detail }, 400);
+        return jsonResponse(
+          { error: "No se pudo refrescar el token de Google Drive.", detail },
+          400,
+        );
       }
       accessToken = refreshed.access_token;
       const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
@@ -340,7 +363,9 @@ Deno.serve(async (req) => {
               .eq("company_id", companyId)
               .maybeSingle();
 
-            const rootFolderId = driveSettings?.root_folder_id ? String(driveSettings.root_folder_id) : null;
+            const rootFolderId = driveSettings?.root_folder_id
+              ? String(driveSettings.root_folder_id)
+              : null;
             let corevixFolder: { id: string; name: string; webViewLink?: string };
             let projectsFolder: { id: string; name: string; webViewLink?: string };
             let projectFolder: { id: string; name: string; webViewLink?: string };
@@ -362,7 +387,10 @@ Deno.serve(async (req) => {
               });
             } catch (folderError) {
               const detail = folderError instanceof Error ? folderError.message : "unknown";
-              return jsonResponse({ error: "No se pudo crear la carpeta en Google Drive.", detail }, 400);
+              return jsonResponse(
+                { error: "No se pudo crear la carpeta en Google Drive.", detail },
+                400,
+              );
             }
             projectFolderId = projectFolder.id;
             projectFolderUrl = String(projectFolder.webViewLink || "");
@@ -385,7 +413,9 @@ Deno.serve(async (req) => {
           .select("root_folder_id")
           .eq("company_id", companyId)
           .maybeSingle();
-        const rootFolderId = driveSettings?.root_folder_id ? String(driveSettings.root_folder_id) : null;
+        const rootFolderId = driveSettings?.root_folder_id
+          ? String(driveSettings.root_folder_id)
+          : null;
         let corevixFolder: { id: string; name: string; webViewLink?: string };
         let tasksFolder: { id: string; name: string; webViewLink?: string };
         try {
@@ -401,7 +431,10 @@ Deno.serve(async (req) => {
           });
         } catch (folderError) {
           const detail = folderError instanceof Error ? folderError.message : "unknown";
-          return jsonResponse({ error: "No se pudo crear la carpeta en Google Drive.", detail }, 400);
+          return jsonResponse(
+            { error: "No se pudo crear la carpeta en Google Drive.", detail },
+            400,
+          );
         }
         folderParentId = tasksFolder.id;
       }
@@ -459,7 +492,7 @@ Deno.serve(async (req) => {
       company_id: companyId,
       drive_file_id: String(uploaded!.id),
       name: String(uploaded!.name || file.name),
-      mime_type: uploaded!.mimeType ? String(uploaded!.mimeType) : (file.type || null),
+      mime_type: uploaded!.mimeType ? String(uploaded!.mimeType) : file.type || null,
       web_view_link: uploaded!.webViewLink ? String(uploaded!.webViewLink) : null,
       web_content_link: uploaded!.webContentLink ? String(uploaded!.webContentLink) : null,
       thumbnail_link: uploaded!.thumbnailLink ? String(uploaded!.thumbnailLink) : null,
@@ -480,7 +513,8 @@ Deno.serve(async (req) => {
     return jsonResponse({ file: saved });
   } catch (error) {
     console.error("drive-upload-file unhandled error:", error);
-    const message = error instanceof Error ? error.message : "Error interno subiendo archivo a Google Drive";
+    const message =
+      error instanceof Error ? error.message : "Error interno subiendo archivo a Google Drive";
     return jsonResponse({ error: message }, 500);
   }
 });

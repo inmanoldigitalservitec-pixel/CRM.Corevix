@@ -25,13 +25,26 @@ export function useToggleUserStatus() {
 }
 
 export function useInviteUser() {
-  const invite = async (args: { email: string; role: AppRole; full_name?: string; department?: string; redirectTo?: string }) => {
+  const invite = async (args: {
+    email: string;
+    role: AppRole;
+    full_name?: string;
+    department?: string;
+    redirectTo?: string;
+  }) => {
     const { data, error } = await (supabase as any).functions.invoke("invite-user", {
       body: args,
     });
     if (error) throw error;
     if (!data?.ok) throw new Error(data?.error || "Invite failed");
-    return data as { ok: true; email_sent: boolean; invitation_link: string; token?: string; invitationId?: string; resend_error?: string };
+    return data as {
+      ok: true;
+      email_sent: boolean;
+      invitation_link: string;
+      token?: string;
+      invitationId?: string;
+      resend_error?: string;
+    };
   };
   return { invite };
 }

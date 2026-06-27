@@ -19,11 +19,26 @@ import {
   Users,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -45,16 +60,51 @@ import { logActivityEvent } from "@/lib/activity-log";
 
 export const Route = createFileRoute("/leads")({
   component: LeadsPage,
-  head: () => ({ meta: [{ title: "Leads — Corevix CRM" }, { name: "description", content: "Gestiona leads y seguimientos" }] }),
+  head: () => ({
+    meta: [
+      { title: "Leads — Corevix CRM" },
+      { name: "description", content: "Gestiona leads y seguimientos" },
+    ],
+  }),
 });
 
-const STATUSES = ["New", "Contacted", "Qualified", "Proposal Sent", "Negotiation", "Won", "Lost"] as const;
-const SOURCES = ["Website", "WhatsApp", "Referral", "Social Media", "Cold Call", "Email Campaign", "Event"] as const;
+const STATUSES = [
+  "New",
+  "Contacted",
+  "Qualified",
+  "Proposal Sent",
+  "Negotiation",
+  "Won",
+  "Lost",
+] as const;
+const SOURCES = [
+  "Website",
+  "WhatsApp",
+  "Referral",
+  "Social Media",
+  "Cold Call",
+  "Email Campaign",
+  "Event",
+] as const;
 
 type LeadStatus = (typeof STATUSES)[number];
 type Source = (typeof SOURCES)[number];
-type StageTab = "all" | "new" | "discovery" | "qualified" | "proposal_ready" | "proposal_sent" | "closed";
-type LeadChipFilter = "all" | "no_followup" | "today" | "high_intent" | "no_owner" | "with_proposal" | "without_proposal";
+type StageTab =
+  | "all"
+  | "new"
+  | "discovery"
+  | "qualified"
+  | "proposal_ready"
+  | "proposal_sent"
+  | "closed";
+type LeadChipFilter =
+  | "all"
+  | "no_followup"
+  | "today"
+  | "high_intent"
+  | "no_owner"
+  | "with_proposal"
+  | "without_proposal";
 type ChannelFilter = "all" | "whatsapp" | "website";
 
 interface Lead {
@@ -574,12 +624,15 @@ function LeadsPage() {
       setTeamLoading(true);
       setTeamError(null);
 
-      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc("get_company_team_members", {
-        _search: null,
-        _role: null,
-        _is_active: true,
-        _department: null,
-      });
+      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc(
+        "get_company_team_members",
+        {
+          _search: null,
+          _role: null,
+          _is_active: true,
+          _department: null,
+        },
+      );
 
       if (!cancelled && !rpcErr && Array.isArray(rpcData)) {
         setTeam(
@@ -651,7 +704,8 @@ function LeadsPage() {
 
   function getAssigneeLabel(lead: Lead) {
     if (!lead.assigned_to) return "Sin asignar";
-    const member = assigneeByProfileId.get(lead.assigned_to) || assigneeByUserId.get(lead.assigned_to);
+    const member =
+      assigneeByProfileId.get(lead.assigned_to) || assigneeByUserId.get(lead.assigned_to);
     const base = member?.full_name || "Asignado";
     if (isLeadAssignedToCurrentUser(lead.assigned_to)) return `${base} (Tú)`;
     return base;
@@ -673,7 +727,10 @@ function LeadsPage() {
       toast.error("No hay contexto de empresa");
       return;
     }
-    if (!enforceOwnLeadForSales(lead, "Solo puedes crear oportunidades para tus propios prospectos")) return;
+    if (
+      !enforceOwnLeadForSales(lead, "Solo puedes crear oportunidades para tus propios prospectos")
+    )
+      return;
     if (!can("deals.create")) {
       toast.error("No tienes permiso para crear oportunidades");
       return;
@@ -703,12 +760,13 @@ function LeadsPage() {
     const leadName = getLeadName(lead);
     const companyOrName = lead.company_name || leadName;
     const meta = lead.metadata && typeof lead.metadata === "object" ? lead.metadata : null;
-    const service = meta
-      ? (meta as any).selected_service ?? (meta as any).service
-      : null;
-    const serviceLabel = typeof service === "string" && service.trim().length ? service.trim() : null;
+    const service = meta ? ((meta as any).selected_service ?? (meta as any).service) : null;
+    const serviceLabel =
+      typeof service === "string" && service.trim().length ? service.trim() : null;
 
-    const dealName = serviceLabel ? `${serviceLabel} — ${companyOrName}` : `Oportunidad — ${companyOrName}`;
+    const dealName = serviceLabel
+      ? `${serviceLabel} — ${companyOrName}`
+      : `Oportunidad — ${companyOrName}`;
     const assignedTo = lead.assigned_to || profile.id || null;
     const value = Number(lead.estimated_value || 0);
 
@@ -732,7 +790,12 @@ function LeadsPage() {
       .single();
 
     // If company has custom stage names but DB still uses enum, retry with a safe default.
-    if (createErr && String(createErr.message || "").toLowerCase().includes("enum")) {
+    if (
+      createErr &&
+      String(createErr.message || "")
+        .toLowerCase()
+        .includes("enum")
+    ) {
       const { data: created2, error: createErr2 } = await (supabase as any)
         .from("deals")
         .insert({ ...payloadBase, stage: "New Opportunity" })
@@ -824,7 +887,8 @@ function LeadsPage() {
       toast.error("No hay contexto de empresa");
       return;
     }
-    if (!enforceOwnLeadForSales(lead, "Solo puedes convertir a cliente tus propios prospectos")) return;
+    if (!enforceOwnLeadForSales(lead, "Solo puedes convertir a cliente tus propios prospectos"))
+      return;
     if (!can("clients.create")) {
       toast.error("No tienes permiso para convertir a cliente");
       return;
@@ -938,7 +1002,13 @@ function LeadsPage() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().slice(0, 10);
-    const leadLabel = lead.company_name || getLeadName(lead) || lead.email || lead.phone || lead.whatsapp || "prospecto";
+    const leadLabel =
+      lead.company_name ||
+      getLeadName(lead) ||
+      lead.email ||
+      lead.phone ||
+      lead.whatsapp ||
+      "prospecto";
     const sourceHint = lead.source_channel || lead.source || "—";
     setFollowUpValues({
       title: `Dar seguimiento a ${leadLabel}`,
@@ -955,7 +1025,8 @@ function LeadsPage() {
       return;
     }
 
-    const canCreateFollowUp = can("tasks.create") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
+    const canCreateFollowUp =
+      can("tasks.create") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
     if (!canCreateFollowUp) {
       toast.error("No tienes permiso para crear seguimiento");
       return;
@@ -1024,23 +1095,39 @@ function LeadsPage() {
     const all = leads.length;
     const newCount = leads.filter((l) => l.status === "New").length;
     const discovery = leads.filter((l) => l.status === "Contacted").length;
-    const qualified = leads.filter((l) => l.status === "Qualified" || l.status === "Negotiation").length;
+    const qualified = leads.filter(
+      (l) => l.status === "Qualified" || l.status === "Negotiation",
+    ).length;
     const proposalReady = leads.filter((l) => l.status === "Qualified").length;
-    const proposalSent = leads.filter((l) => l.status === "Proposal Sent" || l.status === "Negotiation").length;
+    const proposalSent = leads.filter(
+      (l) => l.status === "Proposal Sent" || l.status === "Negotiation",
+    ).length;
     const closed = leads.filter((l) => l.status === "Won" || l.status === "Lost").length;
-    return { all, new: newCount, discovery, qualified, proposal_ready: proposalReady, proposal_sent: proposalSent, closed };
+    return {
+      all,
+      new: newCount,
+      discovery,
+      qualified,
+      proposal_ready: proposalReady,
+      proposal_sent: proposalSent,
+      closed,
+    };
   }, [leads]);
 
   const filtered = useMemo(() => {
     return leads.filter((lead) => {
       const isOwnLead = isLeadAssignedToCurrentUser(lead.assigned_to);
       const isAssignedLead = Boolean(lead.assigned_to);
-      const matchSearch = `${getLeadName(lead)} ${lead.company_name || ""} ${lead.email || ""}`.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = `${getLeadName(lead)} ${lead.company_name || ""} ${lead.email || ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
       const matchStatus = statusFilter === "all" || lead.status === statusFilter;
       const matchSource = sourceFilter === "all" || lead.source === sourceFilter;
       const matchChannel = channelFilter === "all" || getLeadChannelKey(lead) === channelFilter;
       const matchOwner = isSalesUser
-        ? (ownerFilter === "mine" ? isOwnLead : isAssignedLead)
+        ? ownerFilter === "mine"
+          ? isOwnLead
+          : isAssignedLead
         : ownerFilter === "all" ||
           (ownerFilter === "mine" && isOwnLead) ||
           (ownerFilter === "team" && !!lead.assigned_to) ||
@@ -1055,9 +1142,11 @@ function LeadsPage() {
         stageTab === "all" ||
         (stageTab === "new" && lead.status === "New") ||
         (stageTab === "discovery" && lead.status === "Contacted") ||
-        (stageTab === "qualified" && (lead.status === "Qualified" || lead.status === "Negotiation")) ||
+        (stageTab === "qualified" &&
+          (lead.status === "Qualified" || lead.status === "Negotiation")) ||
         (stageTab === "proposal_ready" && lead.status === "Qualified") ||
-        (stageTab === "proposal_sent" && (lead.status === "Proposal Sent" || lead.status === "Negotiation")) ||
+        (stageTab === "proposal_sent" &&
+          (lead.status === "Proposal Sent" || lead.status === "Negotiation")) ||
         (stageTab === "closed" && (lead.status === "Won" || lead.status === "Lost"));
 
       const isToday = (() => {
@@ -1070,7 +1159,13 @@ function LeadsPage() {
       const highIntent = (() => {
         const valueHigh = Number(lead.estimated_value || 0) >= 15000;
         const meta = lead.metadata && typeof lead.metadata === "object" ? lead.metadata : null;
-        const hot = meta ? Boolean((meta as any).is_hot_lead ?? (meta as any).ready_for_sales ?? (meta as any).high_intent) : false;
+        const hot = meta
+          ? Boolean(
+              (meta as any).is_hot_lead ??
+              (meta as any).ready_for_sales ??
+              (meta as any).high_intent,
+            )
+          : false;
         return valueHigh || hot;
       })();
 
@@ -1084,9 +1179,31 @@ function LeadsPage() {
         (leadChipFilter === "with_proposal" && hasProposal) ||
         (leadChipFilter === "without_proposal" && !hasProposal);
 
-      return matchSearch && matchStatus && matchSource && matchChannel && matchOwner && matchValue && matchTab && matchChip;
+      return (
+        matchSearch &&
+        matchStatus &&
+        matchSource &&
+        matchChannel &&
+        matchOwner &&
+        matchValue &&
+        matchTab &&
+        matchChip
+      );
     });
-  }, [channelFilter, isSalesUser, leadChipFilter, leads, ownerFilter, search, sourceFilter, stageTab, statusFilter, user?.id, profile?.id, valueFilter]);
+  }, [
+    channelFilter,
+    isSalesUser,
+    leadChipFilter,
+    leads,
+    ownerFilter,
+    search,
+    sourceFilter,
+    stageTab,
+    statusFilter,
+    user?.id,
+    profile?.id,
+    valueFilter,
+  ]);
 
   function enforceOwnLeadForSales(lead: Lead, message: string) {
     if (!isSalesUser) return true;
@@ -1097,7 +1214,8 @@ function LeadsPage() {
     return true;
   }
 
-  const allVisibleSelected = filtered.length > 0 && filtered.every((lead) => selectedIds.includes(lead.id));
+  const allVisibleSelected =
+    filtered.length > 0 && filtered.every((lead) => selectedIds.includes(lead.id));
   const someVisibleSelected = filtered.some((lead) => selectedIds.includes(lead.id));
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -1163,7 +1281,9 @@ function LeadsPage() {
   };
 
   const toggleSelected = (leadId: string) => {
-    setSelectedIds((current) => (current.includes(leadId) ? current.filter((id) => id !== leadId) : [...current, leadId]));
+    setSelectedIds((current) =>
+      current.includes(leadId) ? current.filter((id) => id !== leadId) : [...current, leadId],
+    );
   };
 
   const toggleSelectAll = () => {
@@ -1171,7 +1291,9 @@ function LeadsPage() {
       setSelectedIds((current) => current.filter((id) => !filtered.some((lead) => lead.id === id)));
       return;
     }
-    setSelectedIds((current) => Array.from(new Set([...current, ...filtered.map((lead) => lead.id)])));
+    setSelectedIds((current) =>
+      Array.from(new Set([...current, ...filtered.map((lead) => lead.id)])),
+    );
   };
 
   const openDetail = (lead: Lead) => {
@@ -1203,7 +1325,6 @@ function LeadsPage() {
     return () => window.removeEventListener("crm-demo-open-lead-detail", onDemoOpenLeadDetail);
   }, []);
 
-
   const exportSelected = () => {
     const selectedLeads = leads.filter((lead) => selectedIds.includes(lead.id));
     if (selectedLeads.length < 2) return;
@@ -1226,7 +1347,12 @@ function LeadsPage() {
       data-demo="leads-main"
       className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_30%_0%,rgba(29,98,249,0.08),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6f8fb_54%)] text-[#101828]"
     >
-      <div className={cn("grid h-[calc(100vh-72px)] min-h-[720px] overflow-hidden", detailOpen ? "2xl:grid-cols-[minmax(0,1fr)_390px]" : "grid-cols-1")}>
+      <div
+        className={cn(
+          "grid h-[calc(100vh-72px)] min-h-[720px] overflow-hidden",
+          detailOpen ? "2xl:grid-cols-[minmax(0,1fr)_390px]" : "grid-cols-1",
+        )}
+      >
         <div className="min-w-0 overflow-auto px-4 py-5 sm:px-6 2xl:px-7 2xl:py-6">
           <div className="mb-4 2xl:mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -1350,7 +1476,9 @@ function LeadsPage() {
                   <span className="hidden 2xl:block mb-0.5 text-[11px] font-medium text-[#667085] transition-colors group-hover:text-[#1d62f9]">
                     {stat.label}
                   </span>
-                  <small className={cn("hidden 2xl:block text-[10px] font-normal", stat.metaTone)}>{stat.meta}</small>
+                  <small className={cn("hidden 2xl:block text-[10px] font-normal", stat.metaTone)}>
+                    {stat.meta}
+                  </small>
                 </div>
               </article>
             ))}
@@ -1359,8 +1487,12 @@ function LeadsPage() {
           {false && import.meta.env.DEV && (
             <div className="mb-5 rounded-[16px] border border-[#e6eaf0] bg-white/75 px-4 py-3 text-xs text-[#667085] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
               <div>Debug (DEV only)</div>
-              <div>User: <span className="font-mono">{user?.email || "—"}</span></div>
-              <div>company_id: <span className="font-mono">{profile?.company_id || "—"}</span></div>
+              <div>
+                User: <span className="font-mono">{user?.email || "—"}</span>
+              </div>
+              <div>
+                company_id: <span className="font-mono">{profile?.company_id || "—"}</span>
+              </div>
             </div>
           )}
 
@@ -1385,7 +1517,9 @@ function LeadsPage() {
                   type="button"
                 >
                   {tab.label}
-                  <span className="opacity-75">{tabCounts[tab.countKey as keyof typeof tabCounts]}</span>
+                  <span className="opacity-75">
+                    {tabCounts[tab.countKey as keyof typeof tabCounts]}
+                  </span>
                 </button>
               ))}
 
@@ -1400,7 +1534,9 @@ function LeadsPage() {
                     type="button"
                     className={cn(
                       "h-[34px] rounded-[12px] px-3 text-[12px] font-semibold transition-all duration-200 hover:-translate-y-[1px]",
-                      channelFilter === c.key ? "bg-[#111827] text-white" : "bg-[#f2f4f7] text-[#475467] hover:bg-[#eaf1ff] hover:text-[#1d62f9]",
+                      channelFilter === c.key
+                        ? "bg-[#111827] text-white"
+                        : "bg-[#f2f4f7] text-[#475467] hover:bg-[#eaf1ff] hover:text-[#1d62f9]",
                     )}
                     onClick={() => setChannelFilter(c.key)}
                   >
@@ -1425,7 +1561,10 @@ function LeadsPage() {
                     includeAllOption: false,
                     options: [
                       { label: "Estado", value: "all" },
-                      ...STATUSES.map((status) => ({ label: getStatusLabel(status), value: status })),
+                      ...STATUSES.map((status) => ({
+                        label: getStatusLabel(status),
+                        value: status,
+                      })),
                     ],
                     width: "w-32 2xl:w-44",
                   },
@@ -1437,7 +1576,10 @@ function LeadsPage() {
                     includeAllOption: false,
                     options: [
                       { label: "Fuente", value: "all" },
-                      ...SOURCES.map((source) => ({ label: getSourceLabel(source), value: source })),
+                      ...SOURCES.map((source) => ({
+                        label: getSourceLabel(source),
+                        value: source,
+                      })),
                     ],
                     width: "w-32 2xl:w-44",
                   },
@@ -1494,7 +1636,9 @@ function LeadsPage() {
                     type="button"
                     className={cn(
                       "h-[32px] rounded-[12px] border px-3 text-[12px] font-semibold transition-all duration-200 hover:-translate-y-[1px]",
-                      leadChipFilter === c.key ? "bg-[#111827] text-white border-[#111827]" : "bg-white text-[#475467] border-[#e6eaf0] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]",
+                      leadChipFilter === c.key
+                        ? "bg-[#111827] text-white border-[#111827]"
+                        : "bg-white text-[#475467] border-[#e6eaf0] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]",
                     )}
                     onClick={() => setLeadChipFilter(c.key as LeadChipFilter)}
                   >
@@ -1510,7 +1654,9 @@ function LeadsPage() {
                   <Users className="h-6 w-6" />
                 </div>
                 <h3 className="text-[16px] font-semibold tracking-[-0.015em]">
-                  {leads.length === 0 ? "No hay prospectos todavía." : "No hay prospectos con este filtro."}
+                  {leads.length === 0
+                    ? "No hay prospectos todavía."
+                    : "No hay prospectos con este filtro."}
                 </h3>
                 <p className="mt-2 text-sm font-[650] text-[#667085]">
                   {leads.length === 0
@@ -1518,7 +1664,13 @@ function LeadsPage() {
                     : "Prueba ajustando los filtros o la búsqueda."}
                 </p>
                 {can("leads.create") && (
-                  <Button className="mt-4 bg-[#1d62f9]" onClick={() => { setEditLead(null); setDialogOpen(true); }}>
+                  <Button
+                    className="mt-4 bg-[#1d62f9]"
+                    onClick={() => {
+                      setEditLead(null);
+                      setDialogOpen(true);
+                    }}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Nuevo prospecto
                   </Button>
@@ -1529,7 +1681,7 @@ function LeadsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse table-fixed">
                     <thead>
-	                      <tr>
+                      <tr>
                         <th className="w-[42px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
                           <button
                             className="grid h-7 w-7 place-items-center rounded-[9px] transition-all duration-200 hover:scale-[1.08] hover:bg-[#eaf1ff]"
@@ -1541,39 +1693,63 @@ function LeadsPage() {
                               className={cn(
                                 "grid h-4 w-4 place-items-center rounded-[5px] border border-[#d8e1ee] bg-white text-white",
                                 allVisibleSelected && "border-[#1d62f9] bg-[#1d62f9]",
-                                !allVisibleSelected && someVisibleSelected && "border-[#1d62f9] bg-[#1d62f9]",
+                                !allVisibleSelected &&
+                                  someVisibleSelected &&
+                                  "border-[#1d62f9] bg-[#1d62f9]",
                               )}
                             >
                               {allVisibleSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
-                              {!allVisibleSelected && someVisibleSelected ? <Minus className="h-3 w-3 stroke-[3]" /> : null}
+                              {!allVisibleSelected && someVisibleSelected ? (
+                                <Minus className="h-3 w-3 stroke-[3]" />
+                              ) : null}
                             </span>
                           </button>
-	                        </th>
-		                        <th className="w-[260px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Prospecto</th>
-		                        <th className="hidden 2xl:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Interés</th>
-		                        <th className="hidden lg:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Etapa</th>
-		                        <th className="hidden 2xl:table-cell w-[140px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Valor</th>
-		                        <th className="hidden lg:table-cell w-[170px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Última actividad</th>
-		                        <th className="hidden 2xl:table-cell w-[190px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">Responsable</th>
-		                        <th className="w-[200px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085] hidden sm:table-cell">Próximo paso</th>
-		                        <th className="w-[220px] 2xl:w-[240px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-right text-[11px] font-semibold text-[#667085]">Acciones</th>
-		                      </tr>
+                        </th>
+                        <th className="w-[260px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                          Prospecto
+                        </th>
+                        <th className="hidden 2xl:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                          Interés
+                        </th>
+                        <th className="hidden lg:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                          Etapa
+                        </th>
+                        <th className="hidden 2xl:table-cell w-[140px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                          Valor
+                        </th>
+                        <th className="hidden lg:table-cell w-[170px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                          Última actividad
+                        </th>
+                        <th className="hidden 2xl:table-cell w-[190px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                          Responsable
+                        </th>
+                        <th className="w-[200px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085] hidden sm:table-cell">
+                          Próximo paso
+                        </th>
+                        <th className="w-[220px] 2xl:w-[240px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-right text-[11px] font-semibold text-[#667085]">
+                          Acciones
+                        </th>
+                      </tr>
                     </thead>
                     <tbody>
-	                      {filtered.map((lead, index) => {
-	                        const isSelected = selectedLeadId === lead.id;
-	                        const isMultiSelected = selectedIds.includes(lead.id);
-	                        const showChecked = isSelected || isMultiSelected;
-	                        const interest = getInterestLabel(lead) || "Sin interés definido";
-	                        const needsFollowUp = leadNeedsFollowUpUi(lead);
-	                        const nextStep = getNextStepLabel(lead, needsFollowUp);
-	                        const lastActivity = lead.last_interaction_at || lead.updated_at || lead.created_at;
-	                        const companyLabel = (lead.company_name || "").trim() || getLeadPrimaryLabel(lead);
-	                        const personLabel =
-	                          getLeadName(lead) !== "Prospecto sin nombre" ? getLeadName(lead) : (lead.email || lead.whatsapp || lead.phone || "—");
-	                        const sourceLabel = getLeadSourceDisplay(lead);
+                      {filtered.map((lead, index) => {
+                        const isSelected = selectedLeadId === lead.id;
+                        const isMultiSelected = selectedIds.includes(lead.id);
+                        const showChecked = isSelected || isMultiSelected;
+                        const interest = getInterestLabel(lead) || "Sin interés definido";
+                        const needsFollowUp = leadNeedsFollowUpUi(lead);
+                        const nextStep = getNextStepLabel(lead, needsFollowUp);
+                        const lastActivity =
+                          lead.last_interaction_at || lead.updated_at || lead.created_at;
+                        const companyLabel =
+                          (lead.company_name || "").trim() || getLeadPrimaryLabel(lead);
+                        const personLabel =
+                          getLeadName(lead) !== "Prospecto sin nombre"
+                            ? getLeadName(lead)
+                            : lead.email || lead.whatsapp || lead.phone || "—";
+                        const sourceLabel = getLeadSourceDisplay(lead);
 
-	                        return (
+                        return (
                           <tr
                             key={lead.id}
                             className={cn(
@@ -1586,7 +1762,10 @@ function LeadsPage() {
                               setDetailOpen(true);
                             }}
                           >
-                            <td className="px-3 py-2 2xl:py-3" onClick={(event) => event.stopPropagation()}>
+                            <td
+                              className="px-3 py-2 2xl:py-3"
+                              onClick={(event) => event.stopPropagation()}
+                            >
                               <button
                                 className="grid h-7 w-7 place-items-center rounded-[9px] transition-all duration-200 hover:scale-[1.08] hover:bg-[#eaf1ff]"
                                 onClick={() => toggleSelected(lead.id)}
@@ -1595,23 +1774,26 @@ function LeadsPage() {
                                 <span
                                   className={cn(
                                     "grid h-[18px] w-[18px] place-items-center rounded-[6px] border border-[#d8e1ee] bg-white text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-all duration-200",
-                                    showChecked && "border-[#1d62f9] bg-[#1d62f9] shadow-[0_0_0_3px_rgba(29,98,249,0.12)]",
+                                    showChecked &&
+                                      "border-[#1d62f9] bg-[#1d62f9] shadow-[0_0_0_3px_rgba(29,98,249,0.12)]",
                                   )}
                                 >
-                                  {showChecked ? <Check className="h-3.5 w-3.5 stroke-[3.2]" /> : null}
+                                  {showChecked ? (
+                                    <Check className="h-3.5 w-3.5 stroke-[3.2]" />
+                                  ) : null}
                                 </span>
                               </button>
                             </td>
 
-	                            <td className="px-3 py-2 2xl:py-3">
-	                              <button
-	                                className="flex w-full items-center gap-3 rounded-[14px] px-2 py-1 text-left transition-all duration-200 hover:translate-x-[2px] hover:bg-[#eef5ff] hover:shadow-[0_10px_24px_rgba(29,98,249,.08)]"
-	                                onClick={(event) => {
-	                                  event.stopPropagation();
-	                                  openDetail(lead);
-	                                }}
-	                                type="button"
-	                              >
+                            <td className="px-3 py-2 2xl:py-3">
+                              <button
+                                className="flex w-full items-center gap-3 rounded-[14px] px-2 py-1 text-left transition-all duration-200 hover:translate-x-[2px] hover:bg-[#eef5ff] hover:shadow-[0_10px_24px_rgba(29,98,249,.08)]"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openDetail(lead);
+                                }}
+                                type="button"
+                              >
                                 <div
                                   className={cn(
                                     "grid h-[42px] w-[42px] shrink-0 aspect-square place-items-center rounded-full text-[14px] font-semibold transition-all duration-200",
@@ -1619,154 +1801,200 @@ function LeadsPage() {
                                   )}
                                 >
                                   {getInitials(lead)}
-	                                </div>
-	                                <div className="min-w-0">
-	                                  <strong className="mb-[2px] block truncate text-[13px] font-semibold tracking-[-0.01em] transition-colors duration-200 hover:text-[#1d62f9]">
-	                                    {companyLabel}
-	                                  </strong>
-	                                  <span className="block truncate text-[12px] font-normal leading-[1.25] text-[#667085]">
-	                                    {personLabel}
-	                                  </span>
-	                                  <div className="mt-[6px] flex flex-wrap items-center gap-2">
-	                                    <span className={cn("inline-flex w-max items-center rounded-full px-2 py-0.5 text-[10px] font-medium", getSourceTone(sourceLabel))}>
-	                                      {getSourceLabel(sourceLabel)}
-	                                    </span>
-	                                  </div>
-	                                  <div className="mt-1.5 text-[11px] font-semibold text-[#98a2b3] 2xl:hidden">
-	                                    Responsable: <span className="text-[#667085]">{getAssigneeLabel(lead)}</span>
-	                                  </div>
-	                                  <div className="mt-1.5 text-[11px] font-semibold text-[#98a2b3] 2xl:hidden">
-	                                    Valor: <span className="text-[#667085]">{formatCurrency(lead.estimated_value)}</span>
-	                                  </div>
-	                                  <div className="mt-1 text-[11px] font-semibold text-[#101828] sm:hidden">
-	                                    Próximo: <span className="text-[#667085]">{nextStep}</span>
-	                                  </div>
-	                                </div>
-	                              </button>
-	                            </td>
+                                </div>
+                                <div className="min-w-0">
+                                  <strong className="mb-[2px] block truncate text-[13px] font-semibold tracking-[-0.01em] transition-colors duration-200 hover:text-[#1d62f9]">
+                                    {companyLabel}
+                                  </strong>
+                                  <span className="block truncate text-[12px] font-normal leading-[1.25] text-[#667085]">
+                                    {personLabel}
+                                  </span>
+                                  <div className="mt-[6px] flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={cn(
+                                        "inline-flex w-max items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                                        getSourceTone(sourceLabel),
+                                      )}
+                                    >
+                                      {getSourceLabel(sourceLabel)}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1.5 text-[11px] font-semibold text-[#98a2b3] 2xl:hidden">
+                                    Responsable:{" "}
+                                    <span className="text-[#667085]">{getAssigneeLabel(lead)}</span>
+                                  </div>
+                                  <div className="mt-1.5 text-[11px] font-semibold text-[#98a2b3] 2xl:hidden">
+                                    Valor:{" "}
+                                    <span className="text-[#667085]">
+                                      {formatCurrency(lead.estimated_value)}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 text-[11px] font-semibold text-[#101828] sm:hidden">
+                                    Próximo: <span className="text-[#667085]">{nextStep}</span>
+                                  </div>
+                                </div>
+                              </button>
+                            </td>
 
-		                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
-		                              <span className="block truncate text-[13px] font-medium text-[#101828]">
-		                                {interest}
-		                              </span>
-		                            </td>
+                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
+                              <span className="block truncate text-[13px] font-medium text-[#101828]">
+                                {interest}
+                              </span>
+                            </td>
 
-		                            <td className="hidden lg:table-cell px-3 py-2 2xl:py-3">
-		                              <div className="flex items-center gap-2">
-		                                <span className={cn("inline-flex w-max items-center rounded-full px-2 py-0.5 text-[10px] font-medium", getStatusTone(lead.status))}>
-		                                  {getStatusLabel(lead.status)}
-		                                </span>
-		                                {needsFollowUp ? (
-		                                  <span className="inline-flex w-max items-center rounded-full bg-[#fff1f3] px-2 py-0.5 text-[10px] font-semibold text-[#e11d48]">
-		                                    Seguimiento
-		                                  </span>
-		                                ) : null}
-		                              </div>
-		                            </td>
+                            <td className="hidden lg:table-cell px-3 py-2 2xl:py-3">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={cn(
+                                    "inline-flex w-max items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                                    getStatusTone(lead.status),
+                                  )}
+                                >
+                                  {getStatusLabel(lead.status)}
+                                </span>
+                                {needsFollowUp ? (
+                                  <span className="inline-flex w-max items-center rounded-full bg-[#fff1f3] px-2 py-0.5 text-[10px] font-semibold text-[#e11d48]">
+                                    Seguimiento
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
 
-	                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
-	                              <span className="whitespace-nowrap text-[13px] font-semibold text-[#111827] transition-all duration-200 hover:scale-[1.02] hover:text-[#16a34a]">
-	                                {formatCurrency(lead.estimated_value)}
-	                              </span>
-	                            </td>
+                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
+                              <span className="whitespace-nowrap text-[13px] font-semibold text-[#111827] transition-all duration-200 hover:scale-[1.02] hover:text-[#16a34a]">
+                                {formatCurrency(lead.estimated_value)}
+                              </span>
+                            </td>
 
-		                            <td className="hidden lg:table-cell px-3 py-2 2xl:py-3">
-		                              <div className="text-[13px] font-medium text-[#101828] truncate">{formatRelativeDate(lastActivity)}</div>
-		                              <div className="mt-0.5 text-[11px] font-semibold text-[#98a2b3]">{formatDateShort(lastActivity)}</div>
-		                            </td>
+                            <td className="hidden lg:table-cell px-3 py-2 2xl:py-3">
+                              <div className="text-[13px] font-medium text-[#101828] truncate">
+                                {formatRelativeDate(lastActivity)}
+                              </div>
+                              <div className="mt-0.5 text-[11px] font-semibold text-[#98a2b3]">
+                                {formatDateShort(lastActivity)}
+                              </div>
+                            </td>
 
-		                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
-		                              <div className="flex items-center gap-[9px] whitespace-nowrap text-[13px] font-medium text-[#344054] min-w-0">
-		                                <span className="grid h-7 w-7 shrink-0 aspect-square place-items-center rounded-full bg-[linear-gradient(135deg,#0f172a,#64748b)] text-[11px] font-semibold text-white">
-		                                  {getAssigneeLabel(lead).slice(0, 2).toUpperCase()}
-		                                </span>
+                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
+                              <div className="flex items-center gap-[9px] whitespace-nowrap text-[13px] font-medium text-[#344054] min-w-0">
+                                <span className="grid h-7 w-7 shrink-0 aspect-square place-items-center rounded-full bg-[linear-gradient(135deg,#0f172a,#64748b)] text-[11px] font-semibold text-white">
+                                  {getAssigneeLabel(lead).slice(0, 2).toUpperCase()}
+                                </span>
                                 <span className="truncate">{getAssigneeLabel(lead)}</span>
                               </div>
                             </td>
 
-		                            <td className="hidden sm:table-cell px-3 py-2 2xl:py-3">
-		                              <div className="text-[13px] font-semibold text-[#101828] truncate">{nextStep}</div>
-		                              {needsFollowUp ? (
-		                                <div className="mt-0.5 text-[11px] font-semibold text-[#e11d48]">Necesita atención</div>
-		                              ) : null}
-		                            </td>
+                            <td className="hidden sm:table-cell px-3 py-2 2xl:py-3">
+                              <div className="text-[13px] font-semibold text-[#101828] truncate">
+                                {nextStep}
+                              </div>
+                              {needsFollowUp ? (
+                                <div className="mt-0.5 text-[11px] font-semibold text-[#e11d48]">
+                                  Necesita atención
+                                </div>
+                              ) : null}
+                            </td>
 
-		                            <td className="px-3 py-2 2xl:py-3">
-		                              <div className="flex items-center justify-end gap-2">
-		                                <button
-		                                  className="inline-flex h-8 items-center rounded-[12px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
-		                                  onClick={(event) => {
-		                                    event.stopPropagation();
-		                                    openDetail(lead);
-		                                  }}
-		                                  type="button"
-		                                >
-		                                  Ver
-		                                </button>
-		                                <button
-		                                  className="inline-flex h-8 items-center rounded-[12px] border border-[#16a34a] bg-[#ecfdf3] px-3 text-[12px] font-semibold text-[#16a34a] hover:opacity-95"
-		                                  onClick={(event) => {
-		                                    event.stopPropagation();
-		                                    void handleOpenWhatsAppFromLead(lead);
-		                                  }}
-		                                  type="button"
-		                                >
-		                                  Contactar
-		                                </button>
-		                                <button
-		                                  className="hidden 2xl:inline-flex h-8 items-center rounded-[12px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
-		                                  onClick={(event) => {
-		                                    event.stopPropagation();
-		                                    toast.message("Crear propuesta próximamente");
-		                                  }}
-		                                  type="button"
-		                                >
-		                                  Crear propuesta
-		                                </button>
-		                                <DropdownMenu>
-		                                  <DropdownMenuTrigger asChild>
-		                                    <button
-		                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-[12px] border border-[#e6eaf0] bg-white text-[#475467] transition-all duration-200 hover:-translate-y-[1px] hover:border-[#bdd1ff] hover:bg-[#f5f9ff] hover:text-[#1d62f9]"
-		                                      onClick={(event) => event.stopPropagation()}
-		                                      type="button"
-		                                      aria-label="Más acciones"
-		                                    >
-		                                      <MoreHorizontal className="h-4 w-4" />
-		                                    </button>
-		                                  </DropdownMenuTrigger>
-		                                  <DropdownMenuContent align="end">
-		                                    <DropdownMenuItem onClick={() => openDetail(lead)}>Ver</DropdownMenuItem>
-		                                    <DropdownMenuItem onClick={() => toast.message("Crear propuesta próximamente")}>Crear propuesta</DropdownMenuItem>
-		                                    <DropdownMenuItem disabled={!can("leads.edit")} onClick={() => can("leads.edit") && openEdit(lead)}>
-		                                      Editar
-		                                    </DropdownMenuItem>
-		                                    <DropdownMenuItem disabled={!can("deals.create")} onClick={() => void handleCreateDealFromLead(lead)}>
-		                                      Crear oportunidad
-		                                    </DropdownMenuItem>
-		                                    <DropdownMenuItem disabled={!can("tasks.create")} onClick={() => { setSelectedLeadId(lead.id); setFollowUpOpen(true); }}>
-		                                      Crear seguimiento
-		                                    </DropdownMenuItem>
-		                                    <DropdownMenuItem
-		                                      disabled={!can("leads.edit")}
-		                                      onClick={() => {
-		                                        if (!enforceOwnLeadForSales(lead, "Solo puedes modificar tus propios prospectos")) return;
-		                                        if (!can("leads.edit")) return;
-		                                        void update(lead.id, { status: "Lost" } as any);
-		                                      }}
-		                                    >
-		                                      Marcar perdido
-		                                    </DropdownMenuItem>
-		                                    <DropdownMenuItem
-		                                      disabled={!can("leads.delete")}
-		                                      onClick={() => can("leads.delete") && setDeleteId(lead.id)}
-		                                      className="text-destructive focus:text-destructive"
-		                                    >
-		                                      Eliminar
-		                                    </DropdownMenuItem>
-		                                  </DropdownMenuContent>
-		                                </DropdownMenu>
-		                              </div>
-		                            </td>
+                            <td className="px-3 py-2 2xl:py-3">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  className="inline-flex h-8 items-center rounded-[12px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openDetail(lead);
+                                  }}
+                                  type="button"
+                                >
+                                  Ver
+                                </button>
+                                <button
+                                  className="inline-flex h-8 items-center rounded-[12px] border border-[#16a34a] bg-[#ecfdf3] px-3 text-[12px] font-semibold text-[#16a34a] hover:opacity-95"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void handleOpenWhatsAppFromLead(lead);
+                                  }}
+                                  type="button"
+                                >
+                                  Contactar
+                                </button>
+                                <button
+                                  className="hidden 2xl:inline-flex h-8 items-center rounded-[12px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toast.message("Crear propuesta próximamente");
+                                  }}
+                                  type="button"
+                                >
+                                  Crear propuesta
+                                </button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-[12px] border border-[#e6eaf0] bg-white text-[#475467] transition-all duration-200 hover:-translate-y-[1px] hover:border-[#bdd1ff] hover:bg-[#f5f9ff] hover:text-[#1d62f9]"
+                                      onClick={(event) => event.stopPropagation()}
+                                      type="button"
+                                      aria-label="Más acciones"
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openDetail(lead)}>
+                                      Ver
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => toast.message("Crear propuesta próximamente")}
+                                    >
+                                      Crear propuesta
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("leads.edit")}
+                                      onClick={() => can("leads.edit") && openEdit(lead)}
+                                    >
+                                      Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("deals.create")}
+                                      onClick={() => void handleCreateDealFromLead(lead)}
+                                    >
+                                      Crear oportunidad
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("tasks.create")}
+                                      onClick={() => {
+                                        setSelectedLeadId(lead.id);
+                                        setFollowUpOpen(true);
+                                      }}
+                                    >
+                                      Crear seguimiento
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("leads.edit")}
+                                      onClick={() => {
+                                        if (
+                                          !enforceOwnLeadForSales(
+                                            lead,
+                                            "Solo puedes modificar tus propios prospectos",
+                                          )
+                                        )
+                                          return;
+                                        if (!can("leads.edit")) return;
+                                        void update(lead.id, { status: "Lost" } as any);
+                                      }}
+                                    >
+                                      Marcar perdido
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("leads.delete")}
+                                      onClick={() => can("leads.delete") && setDeleteId(lead.id)}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      Eliminar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1775,11 +2003,19 @@ function LeadsPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-4 px-[18px] py-[15px] text-[13px] font-[700] text-[#667085]">
-                  <span>Mostrando {filtered.length ? 1 : 0} a {filtered.length} de {leads.length} leads</span>
+                  <span>
+                    Mostrando {filtered.length ? 1 : 0} a {filtered.length} de {leads.length} leads
+                  </span>
                   <div className="flex items-center gap-2">
-                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] text-[#475467] transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.04] hover:bg-[#eaf1ff]">‹</button>
-                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-[#eaf1ff] font-[850] text-[#1d62f9]">1</button>
-                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] text-[#475467] transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.04] hover:bg-[#eaf1ff]">›</button>
+                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] text-[#475467] transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.04] hover:bg-[#eaf1ff]">
+                      ‹
+                    </button>
+                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-[#eaf1ff] font-[850] text-[#1d62f9]">
+                      1
+                    </button>
+                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] text-[#475467] transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.04] hover:bg-[#eaf1ff]">
+                      ›
+                    </button>
                   </div>
                   <label className="flex items-center gap-2">
                     Filas por página
@@ -1806,160 +2042,211 @@ function LeadsPage() {
           icon={<Users className="h-5 w-5 text-blue-600" />}
           badges={
             selectedLead ? (
-              <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium", getSourceTone(getLeadSourceDisplay(selectedLead)))}>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium",
+                  getSourceTone(getLeadSourceDisplay(selectedLead)),
+                )}
+              >
                 {getSourceLabel(getLeadSourceDisplay(selectedLead))}
               </span>
             ) : null
           }
-	          fields={
-	            selectedLead
-	              ? [
-	                  { label: "Empresa", value: selectedLead.company_name || "—" },
-	                  { label: "Email", value: selectedLead.email || "—" },
-	                  { label: "Teléfono", value: selectedLead.phone || "—" },
-	                  { label: "WhatsApp", value: selectedLead.whatsapp || "—" },
-	                  { label: "Responsable", value: getAssigneeLabel(selectedLead) },
-	                  { label: "Interés", value: getInterestLabel(selectedLead) || "Sin interés definido" },
-	                  { label: "Valor estimado", value: selectedLead.estimated_value || 0, type: "currency" },
-	                  { label: "Última actividad", value: formatDate(selectedLead.last_interaction_at || selectedLead.updated_at || selectedLead.created_at) },
-	                  { label: "Próximo paso", value: getNextStepLabel(selectedLead, leadNeedsFollowUpUi(selectedLead)) },
-	                ]
-	              : []
-	          }
-	        >
+          fields={
+            selectedLead
+              ? [
+                  { label: "Empresa", value: selectedLead.company_name || "—" },
+                  { label: "Email", value: selectedLead.email || "—" },
+                  { label: "Teléfono", value: selectedLead.phone || "—" },
+                  { label: "WhatsApp", value: selectedLead.whatsapp || "—" },
+                  { label: "Responsable", value: getAssigneeLabel(selectedLead) },
+                  {
+                    label: "Interés",
+                    value: getInterestLabel(selectedLead) || "Sin interés definido",
+                  },
+                  {
+                    label: "Valor estimado",
+                    value: selectedLead.estimated_value || 0,
+                    type: "currency",
+                  },
+                  {
+                    label: "Última actividad",
+                    value: formatDate(
+                      selectedLead.last_interaction_at ||
+                        selectedLead.updated_at ||
+                        selectedLead.created_at,
+                    ),
+                  },
+                  {
+                    label: "Próximo paso",
+                    value: getNextStepLabel(selectedLead, leadNeedsFollowUpUi(selectedLead)),
+                  },
+                ]
+              : []
+          }
+        >
           {selectedLead ? (
             <div className="space-y-4">
               <div data-demo="leads-quick-actions">
-              <CrmDetailSection
-                title="Acciones rápidas"
-                icon={<Target className="h-3.5 w-3.5" />}
-                action={
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 gap-2 text-xs">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                        Más
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled={!can("leads.edit")} onClick={() => can("leads.edit") && openEdit(selectedLead)}>
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!can("leads.delete")}
-                        onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                }
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-9 justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => void handleOpenWhatsAppFromLead(selectedLead)}
-                    disabled={openingWhatsapp || !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)}
-                    title={!normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone) ? "Este prospecto no tiene teléfono o WhatsApp válido." : undefined}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    {openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-2"
-                    onClick={() => {
-                      if (!selectedLead.email) {
-                        toast.message("Este prospecto no tiene email");
-                        return;
+                <CrmDetailSection
+                  title="Acciones rápidas"
+                  icon={<Target className="h-3.5 w-3.5" />}
+                  action={
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 gap-2 text-xs">
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                          Más
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          disabled={!can("leads.edit")}
+                          onClick={() => can("leads.edit") && openEdit(selectedLead)}
+                        >
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!can("leads.delete")}
+                          onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  }
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-9 justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => void handleOpenWhatsAppFromLead(selectedLead)}
+                      disabled={
+                        openingWhatsapp ||
+                        !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)
                       }
-                      window.location.href = `mailto:${selectedLead.email}`;
-                    }}
-                  >
-                    <Mail className="h-4 w-4" />
-                    Email
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-2"
-                    onClick={() => {
-                      if (!selectedLead.phone) {
-                        toast.message("Este prospecto no tiene teléfono");
-                        return;
-                      }
-                      window.location.href = `tel:${selectedLead.phone}`;
-                    }}
-                  >
-                    <Phone className="h-4 w-4" />
-                    Llamar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-2"
-                    onClick={() => openFollowUpDialog(selectedLead)}
-                    disabled={!can("tasks.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
-                    title={
-                      !can("tasks.create")
-                        ? "No tienes permiso para crear seguimiento."
-                        : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                          ? "Solo puedes crear seguimiento para tus propios prospectos."
+                      title={
+                        !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)
+                          ? "Este prospecto no tiene teléfono o WhatsApp válido."
                           : undefined
-                    }
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Crear seguimiento
-                  </Button>
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {!can("leads.edit") ? "No tienes permiso para editar este prospecto." : "Edita, contacta y avanza este prospecto desde aquí."}
-                </div>
-              </CrmDetailSection>
+                      }
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      {openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 justify-start gap-2"
+                      onClick={() => {
+                        if (!selectedLead.email) {
+                          toast.message("Este prospecto no tiene email");
+                          return;
+                        }
+                        window.location.href = `mailto:${selectedLead.email}`;
+                      }}
+                    >
+                      <Mail className="h-4 w-4" />
+                      Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 justify-start gap-2"
+                      onClick={() => {
+                        if (!selectedLead.phone) {
+                          toast.message("Este prospecto no tiene teléfono");
+                          return;
+                        }
+                        window.location.href = `tel:${selectedLead.phone}`;
+                      }}
+                    >
+                      <Phone className="h-4 w-4" />
+                      Llamar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 justify-start gap-2"
+                      onClick={() => openFollowUpDialog(selectedLead)}
+                      disabled={
+                        !can("tasks.create") ||
+                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                      }
+                      title={
+                        !can("tasks.create")
+                          ? "No tienes permiso para crear seguimiento."
+                          : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                            ? "Solo puedes crear seguimiento para tus propios prospectos."
+                            : undefined
+                      }
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Crear seguimiento
+                    </Button>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {!can("leads.edit")
+                      ? "No tienes permiso para editar este prospecto."
+                      : "Edita, contacta y avanza este prospecto desde aquí."}
+                  </div>
+                </CrmDetailSection>
               </div>
 
               <div data-demo="leads-followup">
-              <CrmDetailSection
-                title="Seguimiento"
-                icon={<Calendar className="h-3.5 w-3.5" />}
-                action={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-2 text-xs"
-                    onClick={() => openFollowUpDialog(selectedLead)}
-                    disabled={!can("tasks.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Crear
-                  </Button>
-                }
-              >
-                {signalsLoading ? (
-                  <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
-                ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold truncate">{signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}</div>
-                    <div className="text-[13px] text-muted-foreground">
-                      {formatDateShort(signalsByLeadId[selectedLead.id]?.nextTaskDueDate)} · {signalsByLeadId[selectedLead.id]?.nextTaskStatus || "—"}
+                <CrmDetailSection
+                  title="Seguimiento"
+                  icon={<Calendar className="h-3.5 w-3.5" />}
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-2 text-xs"
+                      onClick={() => openFollowUpDialog(selectedLead)}
+                      disabled={
+                        !can("tasks.create") ||
+                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Crear
+                    </Button>
+                  }
+                >
+                  {signalsLoading ? (
+                    <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
+                  ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold truncate">
+                        {signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}
+                      </div>
+                      <div className="text-[13px] text-muted-foreground">
+                        {formatDateShort(signalsByLeadId[selectedLead.id]?.nextTaskDueDate)} ·{" "}
+                        {signalsByLeadId[selectedLead.id]?.nextTaskStatus || "—"}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <CrmDetailEmptyState>Este prospecto no tiene seguimiento programado.</CrmDetailEmptyState>
-                )}
-                {signalsError ? <div className="mt-2 text-xs font-medium text-destructive">{signalsError}</div> : null}
-              </CrmDetailSection>
+                  ) : (
+                    <CrmDetailEmptyState>
+                      Este prospecto no tiene seguimiento programado.
+                    </CrmDetailEmptyState>
+                  )}
+                  {signalsError ? (
+                    <div className="mt-2 text-xs font-medium text-destructive">{signalsError}</div>
+                  ) : null}
+                </CrmDetailSection>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   className="h-9 bg-[#1d62f9] hover:bg-[#0f52dd]"
                   onClick={() => void handleConvertLeadToClient(selectedLead)}
-                  disabled={convertingClient || !can("clients.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
+                  disabled={
+                    convertingClient ||
+                    !can("clients.create") ||
+                    (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                  }
                   title={
                     !can("clients.create")
                       ? "No tienes permiso para convertir prospectos a cliente."
@@ -1971,7 +2258,14 @@ function LeadsPage() {
                   {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
                 </Button>
                 {signalsByLeadId[selectedLead.id]?.hasDeal ? (
-                  <Button variant="outline" className="h-9" onClick={() => { window.location.href = "/pipeline"; }} title="Este prospecto ya tiene una oportunidad creada.">
+                  <Button
+                    variant="outline"
+                    className="h-9"
+                    onClick={() => {
+                      window.location.href = "/pipeline";
+                    }}
+                    title="Este prospecto ya tiene una oportunidad creada."
+                  >
                     Abrir oportunidad existente
                   </Button>
                 ) : (
@@ -1979,7 +2273,10 @@ function LeadsPage() {
                     variant="outline"
                     className="h-9"
                     onClick={() => void handleCreateDealFromLead(selectedLead)}
-                    disabled={!can("deals.create") || (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))}
+                    disabled={
+                      !can("deals.create") ||
+                      (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                    }
                     title={
                       !can("deals.create")
                         ? "No tienes permiso para crear oportunidades."
@@ -1994,115 +2291,222 @@ function LeadsPage() {
               </div>
 
               <div data-demo="leads-assignment">
-              <CrmDetailSection title="Asignación" icon={<Users className="h-3.5 w-3.5" />}>
-                <CrmDetailRow
-                  label="Responsable"
-                  value={
-                    canAssign ? (
-                      <div className="min-w-[220px]">
-                        <Select
-                          value={selectedLead.assigned_to || "unassigned"}
-                          onValueChange={async (value) => {
-                            if (!can("leads.edit")) return;
-                            try {
-                              await update(selectedLead.id, { assigned_to: value === "unassigned" ? null : value });
-                              toast.success("Responsable actualizado");
-                            } catch (err: unknown) {
-                              const message = err instanceof Error ? err.message : "No se pudo asignar";
-                              toast.error(message);
-                            }
-                          }}
-                          disabled={!can("leads.edit") || teamLoading}
-                        >
-                          <SelectTrigger className="h-9 rounded-[12px] text-[13px] font-medium">
-                            <SelectValue placeholder="Selecciona vendedor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Sin asignar</SelectItem>
-                            {assignableUsers.map((m, index) => (
-                              <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
-                                {m.full_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {teamError ? <small className="mt-1 block text-xs font-medium text-destructive">{teamError}</small> : null}
-                      </div>
-                    ) : (
-                      <span className="font-medium">{getAssigneeLabel(selectedLead)}</span>
-                    )
-                  }
-                />
-              </CrmDetailSection>
+                <CrmDetailSection title="Asignación" icon={<Users className="h-3.5 w-3.5" />}>
+                  <CrmDetailRow
+                    label="Responsable"
+                    value={
+                      canAssign ? (
+                        <div className="min-w-[220px]">
+                          <Select
+                            value={selectedLead.assigned_to || "unassigned"}
+                            onValueChange={async (value) => {
+                              if (!can("leads.edit")) return;
+                              try {
+                                await update(selectedLead.id, {
+                                  assigned_to: value === "unassigned" ? null : value,
+                                });
+                                toast.success("Responsable actualizado");
+                              } catch (err: unknown) {
+                                const message =
+                                  err instanceof Error ? err.message : "No se pudo asignar";
+                                toast.error(message);
+                              }
+                            }}
+                            disabled={!can("leads.edit") || teamLoading}
+                          >
+                            <SelectTrigger className="h-9 rounded-[12px] text-[13px] font-medium">
+                              <SelectValue placeholder="Selecciona vendedor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unassigned">Sin asignar</SelectItem>
+                              {assignableUsers.map((m, index) => (
+                                <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
+                                  {m.full_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {teamError ? (
+                            <small className="mt-1 block text-xs font-medium text-destructive">
+                              {teamError}
+                            </small>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="font-medium">{getAssigneeLabel(selectedLead)}</span>
+                      )
+                    }
+                  />
+                </CrmDetailSection>
               </div>
 
               <div data-demo="leads-contact">
-              <CrmDetailSection title="Contacto" icon={<Phone className="h-3.5 w-3.5" />}>
-                <div className="space-y-2">
-                  <CrmDetailRow label="Teléfono" value={selectedLead.phone || "—"} />
-                  <CrmDetailRow label="WhatsApp" value={selectedLead.whatsapp || "—"} />
-                  <CrmDetailRow label="Servicio de interés" value={selectedServiceLabel || "—"} />
-                </div>
-              </CrmDetailSection>
+                <CrmDetailSection title="Contacto" icon={<Phone className="h-3.5 w-3.5" />}>
+                  <div className="space-y-2">
+                    <CrmDetailRow label="Teléfono" value={selectedLead.phone || "—"} />
+                    <CrmDetailRow label="WhatsApp" value={selectedLead.whatsapp || "—"} />
+                    <CrmDetailRow label="Servicio de interés" value={selectedServiceLabel || "—"} />
+                  </div>
+                </CrmDetailSection>
               </div>
 
               <div data-demo="leads-last-activity">
-              <CrmDetailSection title="Última actividad" icon={<Check className="h-3.5 w-3.5" />}>
-                <div className="text-sm">
-                  <div className="font-medium">{selectedLead.last_interaction_at ? "Interacción registrada" : "Prospecto creado"}</div>
-                  <div className="mt-1 text-[13px] text-muted-foreground">{formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}</div>
-                </div>
-              </CrmDetailSection>
+                <CrmDetailSection title="Última actividad" icon={<Check className="h-3.5 w-3.5" />}>
+                  <div className="text-sm">
+                    <div className="font-medium">
+                      {selectedLead.last_interaction_at
+                        ? "Interacción registrada"
+                        : "Prospecto creado"}
+                    </div>
+                    <div className="mt-1 text-[13px] text-muted-foreground">
+                      {formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}
+                    </div>
+                  </div>
+                </CrmDetailSection>
               </div>
             </div>
           ) : null}
         </DetailSheet>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditLead(null); }}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditLead(null);
+        }}
+      >
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editLead ? "Editar prospecto" : "Nuevo prospecto"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editLead ? "Editar prospecto" : "Nuevo prospecto"}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Nombre</Label><Input name="first_name" defaultValue={editLead?.first_name} placeholder="Nombre" required /></div>
-              <div className="space-y-1.5"><Label>Apellido</Label><Input name="last_name" defaultValue={editLead?.last_name} placeholder="Apellido" required /></div>
+              <div className="space-y-1.5">
+                <Label>Nombre</Label>
+                <Input
+                  name="first_name"
+                  defaultValue={editLead?.first_name}
+                  placeholder="Nombre"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Apellido</Label>
+                <Input
+                  name="last_name"
+                  defaultValue={editLead?.last_name}
+                  placeholder="Apellido"
+                  required
+                />
+              </div>
             </div>
-            <div className="space-y-1.5"><Label>Empresa</Label><Input name="company_name" defaultValue={editLead?.company_name || ""} placeholder="Empresa" /></div>
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              <Input
+                name="company_name"
+                defaultValue={editLead?.company_name || ""}
+                placeholder="Empresa"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Email</Label><Input name="email" type="email" defaultValue={editLead?.email || ""} placeholder="email@empresa.com" /></div>
-              <div className="space-y-1.5"><Label>Teléfono</Label><Input name="phone" defaultValue={editLead?.phone || ""} placeholder="+1 809 555 0000" /></div>
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input
+                  name="email"
+                  type="email"
+                  defaultValue={editLead?.email || ""}
+                  placeholder="email@empresa.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Teléfono</Label>
+                <Input
+                  name="phone"
+                  defaultValue={editLead?.phone || ""}
+                  placeholder="+1 809 555 0000"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fuente</Label>
                 <Select name="source" defaultValue={editLead?.source || "Website"}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona fuente" /></SelectTrigger>
-                  <SelectContent>{SOURCES.map((source) => <SelectItem key={source} value={source}>{getSourceLabel(source)}</SelectItem>)}</SelectContent>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona fuente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOURCES.map((source) => (
+                      <SelectItem key={source} value={source}>
+                        {getSourceLabel(source)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Estado</Label>
                 <Select name="status" defaultValue={editLead?.status || "New"}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{STATUSES.map((status) => <SelectItem key={status} value={status}>{getStatusLabel(status)}</SelectItem>)}</SelectContent>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {getStatusLabel(status)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Valor estimado</Label><Input name="estimated_value" type="number" defaultValue={editLead?.estimated_value || ""} placeholder="0" /></div>
+              <div className="space-y-1.5">
+                <Label>Valor estimado</Label>
+                <Input
+                  name="estimated_value"
+                  type="number"
+                  defaultValue={editLead?.estimated_value || ""}
+                  placeholder="0"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5"><Label>Notas</Label><Textarea name="notes" defaultValue={editLead?.notes || ""} placeholder="Añade notas..." rows={4} /></div>
+            <div className="space-y-1.5">
+              <Label>Notas</Label>
+              <Textarea
+                name="notes"
+                defaultValue={editLead?.notes || ""}
+                placeholder="Añade notas..."
+                rows={4}
+              />
+            </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); setEditLead(null); }}>Cancelar</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDialogOpen(false);
+                  setEditLead(null);
+                }}
+              >
+                Cancelar
+              </Button>
               <Button type="submit">{editLead ? "Guardar cambios" : "Crear prospecto"}</Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={followUpOpen} onOpenChange={(open) => { setFollowUpOpen(open); }}>
+      <Dialog
+        open={followUpOpen}
+        onOpenChange={(open) => {
+          setFollowUpOpen(open);
+        }}
+      >
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Crear seguimiento</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Crear seguimiento</DialogTitle>
+          </DialogHeader>
           {selectedLead ? (
             <form
               onSubmit={(e) => {
@@ -2135,10 +2539,14 @@ function LeadsPage() {
                     value={followUpValues.priority}
                     onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {["Low", "Medium", "High", "Urgent"].map((p) => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -2148,12 +2556,19 @@ function LeadsPage() {
                 <Label>Nota</Label>
                 <Textarea
                   value={followUpValues.description}
-                  onChange={(e) => setFollowUpValues((p) => ({ ...p, description: e.target.value }))}
+                  onChange={(e) =>
+                    setFollowUpValues((p) => ({ ...p, description: e.target.value }))
+                  }
                   rows={4}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setFollowUpOpen(false)} disabled={followUpSaving}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFollowUpOpen(false)}
+                  disabled={followUpSaving}
+                >
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={followUpSaving || !can("tasks.create")}>
@@ -2167,7 +2582,12 @@ function LeadsPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar lead</AlertDialogTitle>
@@ -2175,7 +2595,10 @@ function LeadsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>

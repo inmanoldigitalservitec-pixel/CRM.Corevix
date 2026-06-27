@@ -72,7 +72,9 @@ export function matchProductInterest({
   messages: Array<{ content?: string | null }>;
   topN?: number;
 }): MatchedProductInterest[] {
-  const conversationTextNormalized = normalizeForMatch(messages.map((m) => m?.content || "").join(" "));
+  const conversationTextNormalized = normalizeForMatch(
+    messages.map((m) => m?.content || "").join(" "),
+  );
   if (!conversationTextNormalized) return [];
 
   const scored: MatchedProductInterest[] = [];
@@ -104,4 +106,3 @@ export function matchProductInterest({
 
   return scored.slice(0, Math.max(0, topN));
 }
-

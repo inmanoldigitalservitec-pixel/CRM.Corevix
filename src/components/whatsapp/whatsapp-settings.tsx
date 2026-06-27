@@ -1,14 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, XCircle, Copy, Eye, EyeOff, AlertTriangle, RefreshCw, ExternalLink, Shield, FileText, Plus } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Copy,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  RefreshCw,
+  ExternalLink,
+  Shield,
+  FileText,
+  Plus,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -60,7 +85,12 @@ const DEFAULTS = {
   subscribed_fields: ["messages"] as string[],
 };
 
-const SUBSCRIBED_FIELD_OPTIONS = ["messages", "message_deliveries", "message_reads", "messaging_postbacks"] as const;
+const SUBSCRIBED_FIELD_OPTIONS = [
+  "messages",
+  "message_deliveries",
+  "message_reads",
+  "messaging_postbacks",
+] as const;
 
 export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
   const { profile } = useAuth();
@@ -144,7 +174,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
         last_error: row.last_error,
         last_event_at: row.last_event_at,
         meta_graph_version: row.meta_graph_version ?? DEFAULTS.meta_graph_version,
-        subscribed_fields: Array.isArray(row.subscribed_fields) ? (row.subscribed_fields as any[]).map((x) => String(x)) : DEFAULTS.subscribed_fields,
+        subscribed_fields: Array.isArray(row.subscribed_fields)
+          ? (row.subscribed_fields as any[]).map((x) => String(x))
+          : DEFAULTS.subscribed_fields,
       });
       setLoading(false);
     }
@@ -159,7 +191,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
     async function loadSecretsMeta() {
       if (!companyId) return;
       try {
-        const { data, error } = await supabase.functions.invoke("whatsapp-credentials-metadata", { body: {} });
+        const { data, error } = await supabase.functions.invoke("whatsapp-credentials-metadata", {
+          body: {},
+        });
         if (cancelled) return;
         if (error) throw error;
         if (!(data as any)?.ok && !(data as any)?.success) return;
@@ -195,7 +229,8 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
           webhookUrl: form.webhook_url.trim() || undefined,
           botApiUrl: form.bot_api_url.trim() || undefined,
           verifyToken: form.verify_token.trim() || undefined,
-          metaGraphVersion: (form.meta_graph_version || DEFAULTS.meta_graph_version).trim() || undefined,
+          metaGraphVersion:
+            (form.meta_graph_version || DEFAULTS.meta_graph_version).trim() || undefined,
           subscribedFields: subscribedFields.length ? subscribedFields : DEFAULTS.subscribed_fields,
           ...(accessTokenClean ? { accessToken: accessTokenClean } : {}),
           ...(appSecretClean ? { appSecret: appSecretClean } : {}),
@@ -252,7 +287,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
     setTestingConnection(true);
     setTestError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("whatsapp-test-connection", { body: {} });
+      const { data, error } = await supabase.functions.invoke("whatsapp-test-connection", {
+        body: {},
+      });
       if (error) throw error;
 
       if (!(data as any)?.ok && !(data as any)?.success) {
@@ -330,15 +367,21 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                 <div className="grid grid-cols-3 gap-4 text-xs">
                   <div className="bg-muted/40 rounded-lg p-3">
                     <span className="text-muted-foreground">Phone Number</span>
-                    <p className="font-semibold mt-0.5">{testResult?.displayPhoneNumber || form.business_phone || "—"}</p>
+                    <p className="font-semibold mt-0.5">
+                      {testResult?.displayPhoneNumber || form.business_phone || "—"}
+                    </p>
                   </div>
                   <div className="bg-muted/40 rounded-lg p-3">
                     <span className="text-muted-foreground">Display Name</span>
-                    <p className="font-semibold mt-0.5">{testResult?.verifiedName || "WhatsApp Cloud API"}</p>
+                    <p className="font-semibold mt-0.5">
+                      {testResult?.verifiedName || "WhatsApp Cloud API"}
+                    </p>
                   </div>
                   <div className="bg-muted/40 rounded-lg p-3">
                     <span className="text-muted-foreground">Quality Rating</span>
-                    <p className="font-semibold mt-0.5 text-green-600">{testResult?.qualityRating || "—"}</p>
+                    <p className="font-semibold mt-0.5 text-green-600">
+                      {testResult?.qualityRating || "—"}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -352,26 +395,27 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                 <Shield className="h-4 w-4 text-muted-foreground" /> API Credentials
               </CardTitle>
               <CardDescription>
-                Credentials are stored securely as encrypted secrets. Values are never exposed in the frontend.
+                Credentials are stored securely as encrypted secrets. Values are never exposed in
+                the frontend.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-	              <div className="grid grid-cols-2 gap-4">
-	                <div>
-	                  <Label className="text-xs">Meta App ID</Label>
-	                  <Input
-	                    placeholder="Enter your Meta App ID"
-	                    className="mt-1"
-	                    value={form.meta_app_id}
-	                    onChange={(e) => setForm((p) => ({ ...p, meta_app_id: e.target.value }))}
-	                    disabled={loading || saving}
-	                  />
-	                  <p className="text-[10px] text-muted-foreground mt-1">
-	                    Este valor se guarda en configuración (no es secreto).
-	                  </p>
-	                </div>
-	                <div>
-	                  <Label className="text-xs">Phone Number ID</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Meta App ID</Label>
+                  <Input
+                    placeholder="Enter your Meta App ID"
+                    className="mt-1"
+                    value={form.meta_app_id}
+                    onChange={(e) => setForm((p) => ({ ...p, meta_app_id: e.target.value }))}
+                    disabled={loading || saving}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Este valor se guarda en configuración (no es secreto).
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs">Phone Number ID</Label>
                   <Input
                     placeholder="Enter your Phone Number ID"
                     className="mt-1"
@@ -387,7 +431,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                   placeholder="Enter your WABA ID"
                   className="mt-1"
                   value={form.whatsapp_business_account_id}
-                  onChange={(e) => setForm((p) => ({ ...p, whatsapp_business_account_id: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, whatsapp_business_account_id: e.target.value }))
+                  }
                   disabled={loading || saving}
                 />
               </div>
@@ -413,88 +459,98 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                   />
                 </div>
               </div>
-	              <div>
-	                <Label className="text-xs">Permanent Access Token</Label>
-	                <div className="flex gap-2 mt-1">
-	                  <div className="relative flex-1">
-	                    <Input
-	                      type={showToken ? "text" : "password"}
-	                      placeholder={secretsMeta?.accessTokenConfigured ? "Reemplazar token…" : "Pegar token…"}
-	                      className="pr-10"
-	                      value={accessToken}
-	                      onChange={(e) => setAccessToken(e.target.value)}
-	                      disabled={loading || saving}
-	                    />
-	                    <button
-	                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-	                      onClick={() => setShowToken(!showToken)}
-	                      type="button"
+              <div>
+                <Label className="text-xs">Permanent Access Token</Label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showToken ? "text" : "password"}
+                      placeholder={
+                        secretsMeta?.accessTokenConfigured ? "Reemplazar token…" : "Pegar token…"
+                      }
+                      className="pr-10"
+                      value={accessToken}
+                      onChange={(e) => setAccessToken(e.target.value)}
+                      disabled={loading || saving}
+                    />
+                    <button
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowToken(!showToken)}
+                      type="button"
                     >
                       {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
-	                  </div>
-	                </div>
-	                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-	                  <AlertTriangle className="h-3 w-3" />
-	                  {secretsMeta?.accessTokenConfigured
-	                    ? `Token configurado ${secretsMeta.accessTokenLast4 ? `••••${secretsMeta.accessTokenLast4}` : ""} · Pega uno nuevo para reemplazarlo`
-	                    : "El token se guarda como secreto. No se puede volver a ver desde el frontend."}
-	                </p>
-	              </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {secretsMeta?.accessTokenConfigured
+                    ? `Token configurado ${secretsMeta.accessTokenLast4 ? `••••${secretsMeta.accessTokenLast4}` : ""} · Pega uno nuevo para reemplazarlo`
+                    : "El token se guarda como secreto. No se puede volver a ver desde el frontend."}
+                </p>
+              </div>
 
-	              <div>
-	                <Label className="text-xs">App Secret (opcional)</Label>
-	                <div className="flex gap-2 mt-1">
-	                  <div className="relative flex-1">
-	                    <Input
-	                      type={showSecret ? "text" : "password"}
-	                      placeholder={secretsMeta?.appSecretConfigured ? "Reemplazar App Secret…" : "Pegar App Secret…"}
-	                      className="pr-10"
-	                      value={appSecret}
-	                      onChange={(e) => setAppSecret(e.target.value)}
-	                      disabled={loading || saving}
-	                    />
-	                    <button
-	                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-	                      onClick={() => setShowSecret(!showSecret)}
-	                      type="button"
-	                    >
-	                      {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-	                    </button>
-	                  </div>
-	                </div>
-	                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-	                  <AlertTriangle className="h-3 w-3" />
-	                  {secretsMeta?.appSecretConfigured
-	                    ? `App Secret configurado ${secretsMeta.appSecretLast4 ? `••••${secretsMeta.appSecretLast4}` : ""} · Pega uno nuevo para reemplazarlo`
-	                    : "Se guarda como secreto. No se puede volver a ver desde el frontend."}
-	                </p>
-	              </div>
+              <div>
+                <Label className="text-xs">App Secret (opcional)</Label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showSecret ? "text" : "password"}
+                      placeholder={
+                        secretsMeta?.appSecretConfigured
+                          ? "Reemplazar App Secret…"
+                          : "Pegar App Secret…"
+                      }
+                      className="pr-10"
+                      value={appSecret}
+                      onChange={(e) => setAppSecret(e.target.value)}
+                      disabled={loading || saving}
+                    />
+                    <button
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowSecret(!showSecret)}
+                      type="button"
+                    >
+                      {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {secretsMeta?.appSecretConfigured
+                    ? `App Secret configurado ${secretsMeta.appSecretLast4 ? `••••${secretsMeta.appSecretLast4}` : ""} · Pega uno nuevo para reemplazarlo`
+                    : "Se guarda como secreto. No se puede volver a ver desde el frontend."}
+                </p>
+              </div>
 
               <Separator />
 
-	              <div className="flex gap-2">
-	                <Button onClick={saveConfig} disabled={loading || saving || !companyId}>
-	                  {saving ? "Guardando..." : "Guardar configuración"}
-	                </Button>
-	                <Button
-	                  variant="outline"
-	                  className="gap-1.5"
-	                  onClick={testConnection}
-	                  disabled={loading || saving || testingConnection || !companyId || !form.phone_number_id.trim()}
-	                >
-	                  <RefreshCw className="h-3.5 w-3.5" />
-	                  {testingConnection ? "Probando conexión…" : "Probar conexión"}
-	                </Button>
-	              </div>
-	              {(testError || form.last_error) && (
-	                <div className="text-xs text-destructive">
-	                  {testError || form.last_error}
-	                </div>
-	              )}
-	            </CardContent>
-	          </Card>
-	        </TabsContent>
+              <div className="flex gap-2">
+                <Button onClick={saveConfig} disabled={loading || saving || !companyId}>
+                  {saving ? "Guardando..." : "Guardar configuración"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={testConnection}
+                  disabled={
+                    loading ||
+                    saving ||
+                    testingConnection ||
+                    !companyId ||
+                    !form.phone_number_id.trim()
+                  }
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  {testingConnection ? "Probando conexión…" : "Probar conexión"}
+                </Button>
+              </div>
+              {(testError || form.last_error) && (
+                <div className="text-xs text-destructive">{testError || form.last_error}</div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Webhook Tab */}
         <TabsContent value="webhook" className="mt-4 space-y-4">
@@ -502,7 +558,8 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Webhook Configuration</CardTitle>
               <CardDescription>
-                Configure this webhook URL in your Meta App dashboard to receive messages and status updates.
+                Configure this webhook URL in your Meta App dashboard to receive messages and status
+                updates.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -510,12 +567,18 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                 <Label className="text-xs">Webhook Callback URL</Label>
                 <div className="flex gap-2 mt-1">
                   <Input readOnly value={webhookUrl} className="font-mono text-xs bg-muted/40" />
-                  <Button variant="outline" size="icon" className="shrink-0" onClick={() => navigator.clipboard.writeText(webhookUrl)}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => navigator.clipboard.writeText(webhookUrl)}
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Copy this URL and paste it in your Meta App → WhatsApp → Configuration → Callback URL
+                  Copy this URL and paste it in your Meta App → WhatsApp → Configuration → Callback
+                  URL
                 </p>
               </div>
 
@@ -540,7 +603,10 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                 <Label className="text-xs mb-2 block">Subscribed Fields</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {SUBSCRIBED_FIELD_OPTIONS.map((field) => (
-                    <div key={field} className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2">
+                    <div
+                      key={field}
+                      className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2"
+                    >
                       <Switch
                         checked={subscribedFields.includes(field)}
                         onCheckedChange={(checked) => {
@@ -564,7 +630,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                   {saving ? "Guardando..." : "Guardar configuración"}
                 </Button>
                 <div className="text-xs text-muted-foreground">
-                  {form.last_verified_at ? `Última verificación: ${new Date(form.last_verified_at).toLocaleString()}` : "Sin verificación aún"}
+                  {form.last_verified_at
+                    ? `Última verificación: ${new Date(form.last_verified_at).toLocaleString()}`
+                    : "Sin verificación aún"}
                   {form.last_error ? ` · Error: ${form.last_error}` : ""}
                 </div>
               </div>
@@ -576,11 +644,24 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
             <CardContent className="pt-4">
               <h4 className="text-sm font-semibold mb-2">Quick Setup Guide</h4>
               <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside">
-                <li>Go to <span className="font-medium text-foreground">Meta for Developers</span> → Your App → WhatsApp → Configuration</li>
-                <li>Paste the <span className="font-medium text-foreground">Callback URL</span> above</li>
-                <li>Enter the same <span className="font-medium text-foreground">Verify Token</span> you set here</li>
-                <li>Subscribe to the <span className="font-medium text-foreground">messages</span> webhook field</li>
-                <li>Click <span className="font-medium text-foreground">Verify and save</span></li>
+                <li>
+                  Go to <span className="font-medium text-foreground">Meta for Developers</span> →
+                  Your App → WhatsApp → Configuration
+                </li>
+                <li>
+                  Paste the <span className="font-medium text-foreground">Callback URL</span> above
+                </li>
+                <li>
+                  Enter the same <span className="font-medium text-foreground">Verify Token</span>{" "}
+                  you set here
+                </li>
+                <li>
+                  Subscribe to the <span className="font-medium text-foreground">messages</span>{" "}
+                  webhook field
+                </li>
+                <li>
+                  Click <span className="font-medium text-foreground">Verify and save</span>
+                </li>
               </ol>
               <Button variant="link" className="text-xs p-0 h-auto mt-2 gap-1">
                 <ExternalLink className="h-3 w-3" /> View full documentation
@@ -623,11 +704,14 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Default Assignment Rules</CardTitle>
-              <CardDescription>Configure how new incoming conversations are assigned to team members</CardDescription>
+              <CardDescription>
+                Configure how new incoming conversations are assigned to team members
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-md border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
-                Las automatizaciones por estado / reglas de asignación se configurarán en una fase posterior.
+                Las automatizaciones por estado / reglas de asignación se configurarán en una fase
+                posterior.
               </div>
               <div>
                 <Label className="text-xs">Assignment Strategy</Label>
@@ -637,9 +721,13 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="round-robin">Round Robin — distribute evenly</SelectItem>
-                    <SelectItem value="least-busy">Least Busy — assign to agent with fewest open chats</SelectItem>
+                    <SelectItem value="least-busy">
+                      Least Busy — assign to agent with fewest open chats
+                    </SelectItem>
                     <SelectItem value="manual">Manual — leave unassigned for pickup</SelectItem>
-                    <SelectItem value="specific">Specific Agent — always assign to one person</SelectItem>
+                    <SelectItem value="specific">
+                      Specific Agent — always assign to one person
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -648,7 +736,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                 <Label className="text-xs">Auto-reply when unassigned</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Switch defaultChecked disabled />
-                  <span className="text-xs text-muted-foreground">Send an automatic reply when no agent is available</span>
+                  <span className="text-xs text-muted-foreground">
+                    Send an automatic reply when no agent is available
+                  </span>
                 </div>
               </div>
 

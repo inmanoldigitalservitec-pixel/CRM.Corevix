@@ -34,7 +34,13 @@ function buildToken() {
   return `${crypto.randomUUID().replaceAll("-", "")}${crypto.randomUUID().replaceAll("-", "")}`;
 }
 
-async function sendResendEmail(args: { apiKey: string; from: string; to: string; subject: string; html: string }) {
+async function sendResendEmail(args: {
+  apiKey: string;
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+}) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -81,7 +87,9 @@ Deno.serve(async (req) => {
     if (!jwt) return jsonResponse({ error: "Missing Authorization bearer token" }, 401);
 
     const body = await req.json().catch(() => null);
-    const email = String(body?.email || "").trim().toLowerCase();
+    const email = String(body?.email || "")
+      .trim()
+      .toLowerCase();
     const fullName = body?.full_name ? String(body.full_name).trim() : null;
     const department = body?.department ? String(body.department).trim() : null;
     const role = String(body?.role || "viewer").trim() as AppRole;
@@ -101,17 +109,21 @@ Deno.serve(async (req) => {
     const { data: authData, error: authErr } = await callerClient.auth.getUser(jwt);
     if (authErr || !authData?.user) return jsonResponse({ error: "Invalid session" }, 401);
 
-    const [{ data: companyId, error: companyErr }, { data: canManage, error: manageErr }, { data: inviterProfileId, error: profileErr }] =
-      await Promise.all([
-        callerClient.rpc("get_current_company_id"),
-        callerClient.rpc("can_manage_users"),
-        callerClient.rpc("get_current_profile_id"),
-      ]);
+    const [
+      { data: companyId, error: companyErr },
+      { data: canManage, error: manageErr },
+      { data: inviterProfileId, error: profileErr },
+    ] = await Promise.all([
+      callerClient.rpc("get_current_company_id"),
+      callerClient.rpc("can_manage_users"),
+      callerClient.rpc("get_current_profile_id"),
+    ]);
 
     if (companyErr) return jsonResponse({ error: companyErr.message }, 403);
     if (manageErr) return jsonResponse({ error: manageErr.message }, 403);
     if (profileErr) return jsonResponse({ error: profileErr.message }, 403);
-    if (!companyId) return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
+    if (!companyId)
+      return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
     if (!canManage) return jsonResponse({ error: "Not authorized (admin/super_admin only)" }, 403);
 
     // Service role client for trusted DB insert
@@ -159,17 +171,36 @@ Deno.serve(async (req) => {
           </div>
         `;
         await sendResendEmail({ apiKey: resendApiKey, from: resendFrom, to: email, subject, html });
-        return jsonResponse({ ok: true, email_sent: true, invitationId: invitation.id, invitation_link: invitationLink, token: invitation.token });
+        return jsonResponse({
+          ok: true,
+          email_sent: true,
+          invitationId: invitation.id,
+          invitation_link: invitationLink,
+          token: invitation.token,
+        });
       } catch (e) {
         const message = e instanceof Error ? e.message : "Resend failed";
         return jsonResponse(
-          { ok: true, email_sent: false, resend_error: message, invitationId: invitation.id, invitation_link: invitationLink, token: invitation.token },
+          {
+            ok: true,
+            email_sent: false,
+            resend_error: message,
+            invitationId: invitation.id,
+            invitation_link: invitationLink,
+            token: invitation.token,
+          },
           200,
         );
       }
     }
 
-    return jsonResponse({ ok: true, email_sent: false, invitationId: invitation.id, invitation_link: invitationLink, token: invitation.token });
+    return jsonResponse({
+      ok: true,
+      email_sent: false,
+      invitationId: invitation.id,
+      invitation_link: invitationLink,
+      token: invitation.token,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unexpected error";
     return jsonResponse({ error: message }, 500);

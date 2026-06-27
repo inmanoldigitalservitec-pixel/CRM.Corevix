@@ -81,7 +81,10 @@ export function InboxUnifiedList({
     const q = search.trim().toLowerCase();
     if (!q) return items;
     return items.filter((c) => {
-      const hay = [c.displayName, c.lastMessageText, c.status, c.channel].filter(Boolean).join(" ").toLowerCase();
+      const hay = [c.displayName, c.lastMessageText, c.status, c.channel]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       return hay.includes(q);
     });
   }, [items, search]);
@@ -96,7 +99,9 @@ export function InboxUnifiedList({
     >
       <div className="px-3.5 py-3 border-b border-black/10 bg-[#f0f2f5] space-y-2.5">
         <div className="flex items-center justify-between max-[820px]:hidden">
-          <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">Conversaciones</h2>
+          <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">
+            Conversaciones
+          </h2>
           <span className="min-w-6 h-5 px-2 rounded-full bg-white/80 text-slate-600 text-[11px] grid place-items-center font-semibold border border-black/5">
             {filtered.length}
           </span>
@@ -152,17 +157,26 @@ export function InboxUnifiedList({
               <span className="text-slate-400">Filtro:</span>
               <span className="truncate">Todos</span>
             </span>
-            <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", filterOpen && "rotate-180")} />
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-slate-400 transition-transform",
+                filterOpen && "rotate-180",
+              )}
+            />
           </button>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-0 bg-white">
         {loading ? (
-          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">Cargando conversaciones…</div>
+          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">
+            Cargando conversaciones…
+          </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground max-[820px]:hidden space-y-1.5">
-            <p className="font-medium text-slate-700">Todavía no hay conversaciones en la bandeja.</p>
+            <p className="font-medium text-slate-700">
+              Todavía no hay conversaciones en la bandeja.
+            </p>
           </div>
         ) : (
           <div className="space-y-0">
@@ -189,7 +203,11 @@ export function InboxUnifiedList({
                   />
                   <div className="flex items-start gap-2.5">
                     <div className="relative shrink-0 pt-0.5">
-                      <WhatsappAvatar name={c.displayName} imageUrl={c.avatarUrl || null} size={44} />
+                      <WhatsappAvatar
+                        name={c.displayName}
+                        imageUrl={c.avatarUrl || null}
+                        size={44}
+                      />
                       {unread > 0 ? (
                         <span className="absolute -top-1 -left-1 h-4 min-w-4 px-1 rounded-full border-2 border-card bg-emerald-500 text-white text-[10px] font-semibold grid place-items-center max-[820px]:hidden">
                           {unread > 99 ? "99+" : unread}

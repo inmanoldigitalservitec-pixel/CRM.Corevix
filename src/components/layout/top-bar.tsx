@@ -66,12 +66,21 @@ export function TopBar() {
 
   const markAllRead = async () => {
     if (!user) return;
-    await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+    await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   const initials = profile?.full_name
-    ? profile.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    ? profile.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
     : "U";
 
   const handleSignOut = async () => {
@@ -136,7 +145,9 @@ export function TopBar() {
             </div>
             <DropdownMenuSeparator />
             {notifications.length === 0 ? (
-              <div className="px-3 py-4 text-center text-sm text-muted-foreground">{t("topbar.noNotifications")}</div>
+              <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                {t("topbar.noNotifications")}
+              </div>
             ) : (
               notifications.slice(0, 5).map((n) => (
                 <DropdownMenuItem
@@ -144,7 +155,9 @@ export function TopBar() {
                   className="flex flex-col items-start gap-0.5 py-2.5"
                   onClick={() => markAsRead(n.id)}
                 >
-                  <span className={`text-sm ${n.read ? "text-muted-foreground" : "font-medium"}`}>{n.title}</span>
+                  <span className={`text-sm ${n.read ? "text-muted-foreground" : "font-medium"}`}>
+                    {n.title}
+                  </span>
                   {n.message && <span className="text-xs text-muted-foreground">{n.message}</span>}
                 </DropdownMenuItem>
               ))
@@ -160,11 +173,11 @@ export function TopBar() {
               </div>
             </Button>
           </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="px-3 py-2">
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-3 py-2">
               <p className="text-sm font-medium">{profile?.full_name || t("common.user")}</p>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
-              </div>
+            </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link to="/settings" className="flex items-center gap-2">

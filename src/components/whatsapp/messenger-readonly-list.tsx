@@ -42,12 +42,7 @@ export function MessengerReadonlyList({
     const q = search.trim().toLowerCase();
     return conversations.filter((c) => {
       if (!q) return true;
-      const hay = [
-        c.sender_name,
-        c.external_user_id,
-        c.last_message_text,
-        c.status,
-      ]
+      const hay = [c.sender_name, c.external_user_id, c.last_message_text, c.status]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -65,7 +60,9 @@ export function MessengerReadonlyList({
     >
       <div className="px-3.5 py-3 border-b border-black/10 bg-[#f0f2f5] space-y-2.5">
         <div className="flex items-center justify-between max-[820px]:hidden">
-          <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">Conversaciones</h2>
+          <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">
+            Conversaciones
+          </h2>
           <span className="min-w-6 h-5 px-2 rounded-full bg-white/80 text-slate-600 text-[11px] grid place-items-center font-semibold border border-black/5">
             {filtered.length}
           </span>
@@ -80,7 +77,9 @@ export function MessengerReadonlyList({
             <button
               key={item.key}
               type="button"
-              onClick={() => onSelectChannel(item.key as "all" | "whatsapp" | "messenger" | "instagram")}
+              onClick={() =>
+                onSelectChannel(item.key as "all" | "whatsapp" | "messenger" | "instagram")
+              }
               className={cn(
                 "h-8 rounded-full border text-[11px] font-medium transition-colors",
                 selectedChannel === item.key
@@ -118,21 +117,30 @@ export function MessengerReadonlyList({
               <span className="text-slate-400">Filtro:</span>
               <span className="truncate">Todos</span>
             </span>
-            <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", filterOpen && "rotate-180")} />
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-slate-400 transition-transform",
+                filterOpen && "rotate-180",
+              )}
+            />
           </button>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-0 bg-white">
         {loading ? (
-          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">Cargando conversaciones de Messenger…</div>
+          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">
+            Cargando conversaciones de Messenger…
+          </div>
         ) : error ? (
           <div className="p-3 text-sm text-destructive max-[820px]:hidden">
             No se pudieron cargar las conversaciones de Messenger.
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground max-[820px]:hidden space-y-1.5">
-            <p className="font-medium text-slate-700">Todavía no hay conversaciones de Messenger.</p>
+            <p className="font-medium text-slate-700">
+              Todavía no hay conversaciones de Messenger.
+            </p>
             <p>Cuando alguien escriba a tu página conectada, aparecerá aquí.</p>
           </div>
         ) : (
@@ -175,7 +183,9 @@ export function MessengerReadonlyList({
                     <div className="min-w-0 flex-1 max-[820px]:hidden">
                       <div className="flex items-start justify-between gap-2 min-w-0">
                         <div className="min-w-0">
-                          <div className="truncate text-[14px] font-semibold tracking-[-0.015em] text-slate-900 leading-tight">{name}</div>
+                          <div className="truncate text-[14px] font-semibold tracking-[-0.015em] text-slate-900 leading-tight">
+                            {name}
+                          </div>
                           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
                             <MessageCircle className="h-3 w-3" />
                             <span className="truncate">Messenger</span>

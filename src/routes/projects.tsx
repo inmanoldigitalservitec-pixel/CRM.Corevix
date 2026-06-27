@@ -1,14 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ExternalLink, FolderOpen, Plus } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -163,7 +185,9 @@ function ProjectsPage() {
   const [clientFilter, setClientFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
   const [managerFilter, setManagerFilter] = useState("all");
-  const [tasksFilter, setTasksFilter] = useState<"all" | "overdue" | "in_progress" | "completed" | "no_tasks">("all");
+  const [tasksFilter, setTasksFilter] = useState<
+    "all" | "overdue" | "in_progress" | "completed" | "no_tasks"
+  >("all");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Project | null>(null);
@@ -209,16 +233,27 @@ function ProjectsPage() {
     priority: "Medium",
   });
 
-  const { data: projects, loading: projectsLoading, create, update, remove } = useCrud<Project>({
+  const {
+    data: projects,
+    loading: projectsLoading,
+    create,
+    update,
+    remove,
+  } = useCrud<Project>({
     table: "projects",
     orderBy: "updated_at",
     ascending: false,
     limit: 500,
   });
 
-  const { data: tasks, loading: tasksLoading, fetch: fetchTasks } = useCrud<TaskRow>({
+  const {
+    data: tasks,
+    loading: tasksLoading,
+    fetch: fetchTasks,
+  } = useCrud<TaskRow>({
     table: "tasks",
-    select: "id,company_id,title,description,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,updated_at",
+    select:
+      "id,company_id,title,description,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,updated_at",
     orderBy: "updated_at",
     ascending: false,
     limit: 2000,
@@ -242,7 +277,8 @@ function ProjectsPage() {
 
   const { data: deals } = useCrud<DealRow>({
     table: "deals",
-    select: "id,company_id,name,stage,value,lead_id,assigned_to,probability,expected_close,updated_at",
+    select:
+      "id,company_id,name,stage,value,lead_id,assigned_to,probability,expected_close,updated_at",
     orderBy: "updated_at",
     ascending: false,
     limit: 2000,
@@ -294,7 +330,10 @@ function ProjectsPage() {
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const dealById = useMemo(() => new Map(deals.map((d) => [d.id, d])), [deals]);
   const profileById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
-  const profileByUserId = useMemo(() => new Map(profiles.filter((p) => p.user_id).map((p) => [String(p.user_id), p])), [profiles]);
+  const profileByUserId = useMemo(
+    () => new Map(profiles.filter((p) => p.user_id).map((p) => [String(p.user_id), p])),
+    [profiles],
+  );
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
   const resolveManagerProfileId = (raw: string | null | undefined) => {
     const value = String(raw || "").trim();
@@ -348,7 +387,10 @@ function ProjectsPage() {
 
   const statsByProjectId = useMemo(() => {
     const today = isoToday();
-    const map = new Map<string, { total: number; completed: number; open: number; overdue: number; computedPct: number }>();
+    const map = new Map<
+      string,
+      { total: number; completed: number; open: number; overdue: number; computedPct: number }
+    >();
     for (const p of projects) {
       const list = tasksByProjectId.get(String(p.id)) || [];
       const total = list.length;
@@ -366,13 +408,22 @@ function ProjectsPage() {
   }, [projects, tasksByProjectId]);
 
   const filtered = projects.filter((p) => {
-    const matchSearch = `${p.name} ${p.description || ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = `${p.name} ${p.description || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || p.status === statusFilter;
     const matchClient = clientFilter === "all" || String(p.client_id || "") === clientFilter;
     const matchProduct = productFilter === "all" || String(p.product_id || "") === productFilter;
-    const matchManager = managerFilter === "all" || resolveManagerProfileId(p.manager) === managerFilter;
+    const matchManager =
+      managerFilter === "all" || resolveManagerProfileId(p.manager) === managerFilter;
 
-    const stats = statsByProjectId.get(String(p.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
+    const stats = statsByProjectId.get(String(p.id)) || {
+      total: 0,
+      completed: 0,
+      open: 0,
+      overdue: 0,
+      computedPct: 0,
+    };
     const matchTasks =
       tasksFilter === "all" ||
       (tasksFilter === "no_tasks" && stats.total === 0) ||
@@ -383,7 +434,10 @@ function ProjectsPage() {
     return matchSearch && matchStatus && matchClient && matchProduct && matchManager && matchTasks;
   });
 
-  const clientOptions = useMemo(() => clients.map((c) => ({ label: c.company_name, value: c.id })), [clients]);
+  const clientOptions = useMemo(
+    () => clients.map((c) => ({ label: c.company_name, value: c.id })),
+    [clients],
+  );
   const selectedClientPurchasedProductIds = useMemo(() => {
     if (!form.client_id || form.client_id === "none") return new Set<string>();
     return purchasedProductIdsByClientId.get(String(form.client_id)) || new Set<string>();
@@ -409,16 +463,21 @@ function ProjectsPage() {
   }, [profile?.company_id, profiles]);
 
   const managerOptions = useMemo(() => {
-    return activeCompanyProfiles
-      .map((p) => ({
-        label: (p.full_name || p.email || p.user_id || "").toString(),
-        value: String(p.id),
-      }));
+    return activeCompanyProfiles.map((p) => ({
+      label: (p.full_name || p.email || p.user_id || "").toString(),
+      value: String(p.id),
+    }));
   }, [activeCompanyProfiles]);
 
-  const allowedManagerProfileIds = useMemo(() => new Set(managerOptions.map((o) => o.value)), [managerOptions]);
+  const allowedManagerProfileIds = useMemo(
+    () => new Set(managerOptions.map((o) => o.value)),
+    [managerOptions],
+  );
 
-  const leadOptions = useMemo(() => leads.map((l) => ({ label: formatLeadLabel(l), value: l.id })), [leads]);
+  const leadOptions = useMemo(
+    () => leads.map((l) => ({ label: formatLeadLabel(l), value: l.id })),
+    [leads],
+  );
 
   const dealOptions = useMemo(() => {
     const base = deals.slice();
@@ -431,7 +490,10 @@ function ProjectsPage() {
     if (form.manager && form.manager !== "none") return;
     const c = clientById.get(String(form.client_id));
     if (c?.account_manager) {
-      setForm((p) => ({ ...p, manager: resolveManagerProfileId(c.account_manager) || String(c.account_manager) }));
+      setForm((p) => ({
+        ...p,
+        manager: resolveManagerProfileId(c.account_manager) || String(c.account_manager),
+      }));
     }
   }, [clientById, dialogOpen, form.client_id, form.manager]);
 
@@ -443,10 +505,12 @@ function ProjectsPage() {
     setForm((prev) => {
       const next = { ...prev };
       if ((!next.lead_id || next.lead_id === "none") && d.lead_id) next.lead_id = String(d.lead_id);
-      if ((!next.budget || Number(next.budget) === 0) && d.value != null && Number(d.value) > 0) next.budget = String(d.value);
+      if ((!next.budget || Number(next.budget) === 0) && d.value != null && Number(d.value) > 0)
+        next.budget = String(d.value);
 
       const dp = dealProductIdsByDealId.get(String(d.id)) || [];
-      if ((!next.product_id || next.product_id === "none") && dp.length) next.product_id = String(dp[0]);
+      if ((!next.product_id || next.product_id === "none") && dp.length)
+        next.product_id = String(dp[0]);
       return next;
     });
   }, [dealById, dealProductIdsByDealId, dialogOpen, form.deal_id]);
@@ -497,10 +561,19 @@ function ProjectsPage() {
       manager: managerProfileId,
     };
     try {
-      if (editItem) { await update(editItem.id, record); toast.success("Project updated"); setSelected(null); }
-      else { await create(record); toast.success("Project created"); }
-      setDialogOpen(false); setEditItem(null);
-    } catch (err: any) { toast.error(err.message); }
+      if (editItem) {
+        await update(editItem.id, record);
+        toast.success("Project updated");
+        setSelected(null);
+      } else {
+        await create(record);
+        toast.success("Project created");
+      }
+      setDialogOpen(false);
+      setEditItem(null);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   async function handleMarkTaskCompleted(task: TaskRow) {
@@ -508,7 +581,12 @@ function ProjectsPage() {
       toast.error("No tienes permiso para actualizar tareas");
       return;
     }
-    if (isSalesAgent && profile?.id && task.assigned_to && String(task.assigned_to) !== String(profile.id)) {
+    if (
+      isSalesAgent &&
+      profile?.id &&
+      task.assigned_to &&
+      String(task.assigned_to) !== String(profile.id)
+    ) {
       toast.error("Solo puedes completar tareas asignadas a ti.");
       return;
     }
@@ -519,8 +597,8 @@ function ProjectsPage() {
       return;
     }
     void logActivityEvent({
-      companyId: profile.company_id || null,
-      userId: profile.id || null,
+      companyId: profile?.company_id ?? "",
+      userId: profile?.id || null,
       action: "task_completed",
       entityType: "tasks",
       entityId: task.id,
@@ -583,7 +661,12 @@ function ProjectsPage() {
       toast.error("No tienes permiso para crear tareas");
       return;
     }
-    if (isSalesAgent && profile?.id && project.manager && String(project.manager) !== String(profile.id)) {
+    if (
+      isSalesAgent &&
+      profile?.id &&
+      project.manager &&
+      String(project.manager) !== String(profile.id)
+    ) {
       toast.error("Solo puedes crear tareas en proyectos donde eres el manager.");
       return;
     }
@@ -626,12 +709,16 @@ function ProjectsPage() {
         return;
       }
       void logActivityEvent({
-        companyId: profile.company_id,
+        companyId: profile?.company_id ?? "",
         userId: profile.id,
         action: "task_created",
         entityType: "tasks",
         detail: `Tarea creada desde proyecto: ${taskForm.title.trim()}`,
-        metadata: { related_project_id: selected.id, related_client_id: selected.client_id || null, related_deal_id: selected.deal_id || null },
+        metadata: {
+          related_project_id: selected.id,
+          related_client_id: selected.client_id || null,
+          related_deal_id: selected.deal_id || null,
+        },
       }).catch(() => {});
       toast.success("Tarea creada");
       setTaskDialogOpen(false);
@@ -656,14 +743,16 @@ function ProjectsPage() {
     };
 
     window.addEventListener("crm-demo-open-project-detail", onDemoOpenProjectDetail);
-    return () => window.removeEventListener("crm-demo-open-project-detail", onDemoOpenProjectDetail);
+    return () =>
+      window.removeEventListener("crm-demo-open-project-detail", onDemoOpenProjectDetail);
   }, [filtered, projects]);
-
 
   if (loading) return <LoadingState />;
 
   const selectedProductWorkflow =
-    form.product_id !== "none" ? activeWorkflowByProductId.get(String(form.product_id)) || null : null;
+    form.product_id !== "none"
+      ? activeWorkflowByProductId.get(String(form.product_id)) || null
+      : null;
 
   return (
     <div data-demo="projects-main" className="p-4 sm:p-5 space-y-4">
@@ -675,12 +764,42 @@ function ProjectsPage() {
       />
       <DataCard>
         <div data-demo="projects-list" className="space-y-4">
-          <SearchFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search projects..."
+          <SearchFilters
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search projects..."
             filters={[
-              { key: "status", placeholder: "Status", value: statusFilter, onChange: setStatusFilter, options: PROJECT_STATUSES.map(s => ({ label: s, value: s })) },
-              { key: "client", placeholder: "Client", value: clientFilter, onChange: setClientFilter, options: clientOptions, width: "w-56" },
-              { key: "product", placeholder: "Product", value: productFilter, onChange: setProductFilter, options: productOptions, width: "w-56" },
-              { key: "manager", placeholder: "Manager", value: managerFilter, onChange: setManagerFilter, options: managerOptions, width: "w-56" },
+              {
+                key: "status",
+                placeholder: "Status",
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: PROJECT_STATUSES.map((s) => ({ label: s, value: s })),
+              },
+              {
+                key: "client",
+                placeholder: "Client",
+                value: clientFilter,
+                onChange: setClientFilter,
+                options: clientOptions,
+                width: "w-56",
+              },
+              {
+                key: "product",
+                placeholder: "Product",
+                value: productFilter,
+                onChange: setProductFilter,
+                options: productOptions,
+                width: "w-56",
+              },
+              {
+                key: "manager",
+                placeholder: "Manager",
+                value: managerFilter,
+                onChange: setManagerFilter,
+                options: managerOptions,
+                width: "w-56",
+              },
               {
                 key: "tasks",
                 placeholder: "Tasks",
@@ -694,42 +813,77 @@ function ProjectsPage() {
                 ],
                 width: "w-44",
               },
-            ]} />
+            ]}
+          />
           {filtered.length === 0 ? (
-            <EmptyState icon={<FolderOpen className="h-6 w-6" />} title="No projects" description="Create your first project." actionLabel="Add Project" onAction={() => setDialogOpen(true)} />
+            <EmptyState
+              icon={<FolderOpen className="h-6 w-6" />}
+              title="No projects"
+              description="Create your first project."
+              actionLabel="Add Project"
+              onAction={() => setDialogOpen(true)}
+            />
           ) : (
             <div className="overflow-x-auto -mx-4 sm:-mx-5">
               <Table>
-                <TableHeader><TableRow>
-                  <TableHead className="pl-4 sm:pl-5">Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Client</TableHead>
-                  <TableHead className="hidden lg:table-cell">Product</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">Progress</TableHead>
-                  <TableHead className="hidden xl:table-cell">Manager</TableHead>
-                  <TableHead className="hidden xl:table-cell">Tasks</TableHead>
-                  <TableHead className="hidden sm:table-cell">Budget</TableHead>
-                  <TableHead className="hidden lg:table-cell">Start</TableHead>
-                  <TableHead className="hidden lg:table-cell">Due Date</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4 sm:pl-5">Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Client</TableHead>
+                    <TableHead className="hidden lg:table-cell">Product</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Progress</TableHead>
+                    <TableHead className="hidden xl:table-cell">Manager</TableHead>
+                    <TableHead className="hidden xl:table-cell">Tasks</TableHead>
+                    <TableHead className="hidden sm:table-cell">Budget</TableHead>
+                    <TableHead className="hidden lg:table-cell">Start</TableHead>
+                    <TableHead className="hidden lg:table-cell">Due Date</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {filtered.map((p, index) => (
-                    <TableRow data-demo={index === 0 ? "projects-first-row" : undefined} key={p.id} className="cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => setSelected(p)}>
+                    <TableRow
+                      data-demo={index === 0 ? "projects-first-row" : undefined}
+                      key={p.id}
+                      className="cursor-pointer hover:bg-muted/40 transition-colors"
+                      onClick={() => setSelected(p)}
+                    >
                       <TableCell className="font-medium pl-4 sm:pl-5">
                         <div className="min-w-0">
                           <div className="truncate">{p.name}</div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {p.deal_id ? `Deal: ${dealById.get(String(p.deal_id))?.name || "—"}` : "Sin oportunidad"}
+                            {p.deal_id
+                              ? `Deal: ${dealById.get(String(p.deal_id))?.name || "—"}`
+                              : "Sin oportunidad"}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">{p.client_id ? clientById.get(String(p.client_id))?.company_name || "—" : "Sin cliente"}</TableCell>
-                      <TableCell className="hidden lg:table-cell">{p.product_id ? productById.get(String(p.product_id))?.name || "—" : "Sin producto"}</TableCell>
-                      <TableCell data-demo={index === 0 ? "projects-status" : undefined}><StatusBadge status={p.status} /></TableCell>
-                      <TableCell data-demo={index === 0 ? "projects-progress" : undefined} className="hidden md:table-cell">
+                      <TableCell className="hidden md:table-cell">
+                        {p.client_id
+                          ? clientById.get(String(p.client_id))?.company_name || "—"
+                          : "Sin cliente"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {p.product_id
+                          ? productById.get(String(p.product_id))?.name || "—"
+                          : "Sin producto"}
+                      </TableCell>
+                      <TableCell data-demo={index === 0 ? "projects-status" : undefined}>
+                        <StatusBadge status={p.status} />
+                      </TableCell>
+                      <TableCell
+                        data-demo={index === 0 ? "projects-progress" : undefined}
+                        className="hidden md:table-cell"
+                      >
                         {(() => {
-                          const s = statsByProjectId.get(String(p.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
-                          const pct = s.total > 0 ? s.computedPct : (p.progress || 0);
+                          const s = statsByProjectId.get(String(p.id)) || {
+                            total: 0,
+                            completed: 0,
+                            open: 0,
+                            overdue: 0,
+                            computedPct: 0,
+                          };
+                          const pct = s.total > 0 ? s.computedPct : p.progress || 0;
                           return (
                             <div className="flex items-center gap-2">
                               <Progress value={pct || 0} className="h-2 w-20" />
@@ -738,28 +892,47 @@ function ProjectsPage() {
                           );
                         })()}
                       </TableCell>
-                      <TableCell data-demo={index === 0 ? "projects-manager" : undefined} className="hidden xl:table-cell">
+                      <TableCell
+                        data-demo={index === 0 ? "projects-manager" : undefined}
+                        className="hidden xl:table-cell"
+                      >
                         {p.manager
                           ? profileById.get(String(p.manager))?.full_name ||
                             profileById.get(String(p.manager))?.email ||
                             "—"
                           : "—"}
                       </TableCell>
-                      <TableCell data-demo={index === 0 ? "projects-task-summary" : undefined} className="hidden xl:table-cell">
+                      <TableCell
+                        data-demo={index === 0 ? "projects-task-summary" : undefined}
+                        className="hidden xl:table-cell"
+                      >
                         {(() => {
-                          const s = statsByProjectId.get(String(p.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
+                          const s = statsByProjectId.get(String(p.id)) || {
+                            total: 0,
+                            completed: 0,
+                            open: 0,
+                            overdue: 0,
+                            computedPct: 0,
+                          };
                           return s.total ? (
                             <span className="text-xs text-muted-foreground">
-                              {s.completed}/{s.total} · {s.open} pendientes{ s.overdue ? ` · ${s.overdue} vencidas` : "" }
+                              {s.completed}/{s.total} · {s.open} pendientes
+                              {s.overdue ? ` · ${s.overdue} vencidas` : ""}
                             </span>
                           ) : (
                             <span className="text-xs text-muted-foreground">Sin tareas</span>
                           );
                         })()}
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell">${(p.budget || 0).toLocaleString()}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{p.start_date || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">{p.due_date || "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        ${(p.budget || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
+                        {p.start_date || "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">
+                        {p.due_date || "—"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -777,22 +950,35 @@ function ProjectsPage() {
         }}
       >
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>{editItem ? "Edit Project" : "New Project"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editItem ? "Edit Project" : "New Project"}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Nombre</Label>
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                required
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Cliente relacionado</Label>
-                <Select value={form.client_id} onValueChange={(v) => setForm((p) => ({ ...p, client_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona cliente" /></SelectTrigger>
+                <Select
+                  value={form.client_id}
+                  onValueChange={(v) => setForm((p) => ({ ...p, client_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sin cliente</SelectItem>
                     {clientOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -800,17 +986,27 @@ function ProjectsPage() {
 
               <div className="space-y-1.5">
                 <Label>Manager / responsable</Label>
-                <Select value={form.manager} onValueChange={(v) => setForm((p) => ({ ...p, manager: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona manager" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin asignar</SelectItem>
-                      {managerOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
+                <Select
+                  value={form.manager}
+                  onValueChange={(v) => setForm((p) => ({ ...p, manager: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin asignar</SelectItem>
+                    {managerOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
-                {form.client_id !== "none" && clientById.get(String(form.client_id))?.account_manager ? (
-                  <p className="text-xs text-muted-foreground">Sugerencia: el cliente tiene account manager.</p>
+                {form.client_id !== "none" &&
+                clientById.get(String(form.client_id))?.account_manager ? (
+                  <p className="text-xs text-muted-foreground">
+                    Sugerencia: el cliente tiene account manager.
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -818,26 +1014,44 @@ function ProjectsPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Oportunidad relacionada</Label>
-                <Select value={form.deal_id} onValueChange={(v) => setForm((p) => ({ ...p, deal_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona oportunidad" /></SelectTrigger>
+                <Select
+                  value={form.deal_id}
+                  onValueChange={(v) => setForm((p) => ({ ...p, deal_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona oportunidad" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sin oportunidad</SelectItem>
                     {dealOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {form.client_id !== "none" ? <p className="text-xs text-muted-foreground">Las oportunidades del cliente aparecen primero.</p> : null}
+                {form.client_id !== "none" ? (
+                  <p className="text-xs text-muted-foreground">
+                    Las oportunidades del cliente aparecen primero.
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-1.5">
                 <Label>Lead relacionado</Label>
-                <Select value={form.lead_id} onValueChange={(v) => setForm((p) => ({ ...p, lead_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona lead" /></SelectTrigger>
+                <Select
+                  value={form.lead_id}
+                  onValueChange={(v) => setForm((p) => ({ ...p, lead_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona lead" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sin lead</SelectItem>
                     {leadOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -847,73 +1061,176 @@ function ProjectsPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Producto relacionado</Label>
-                <Select value={form.product_id} onValueChange={(v) => setForm((p) => ({ ...p, product_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona producto" /></SelectTrigger>
+                <Select
+                  value={form.product_id}
+                  onValueChange={(v) => setForm((p) => ({ ...p, product_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona producto" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sin producto</SelectItem>
                     {productOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {selectedProductWorkflow ? (
                   <p className="text-xs text-muted-foreground">
-                    Workflow activo: <span className="font-medium">{selectedProductWorkflow.name}</span>
+                    Workflow activo:{" "}
+                    <span className="font-medium">{selectedProductWorkflow.name}</span>
                   </p>
                 ) : null}
                 {form.client_id !== "none" && selectedClientPurchasedProductIds.size > 0 ? (
-                  <p className="text-xs text-muted-foreground">Productos comprados del cliente se marcan con ✓.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Productos comprados del cliente se marcan con ✓.
+                  </p>
                 ) : null}
               </div>
 
               <div className="space-y-1.5">
                 <Label>Prioridad</Label>
-                <Select value={form.priority} onValueChange={(v) => setForm((p) => ({ ...p, priority: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{PRIORITIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                <Select
+                  value={form.priority}
+                  onValueChange={(v) => setForm((p) => ({ ...p, priority: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label>Descripción</Label>
-              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label>Estado</Label>
-                <Select value={form.status} onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                <Select
+                  value={form.status}
+                  onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROJECT_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Presupuesto ($)</Label>
-                <Input type="number" value={form.budget} onChange={(e) => setForm((p) => ({ ...p, budget: e.target.value }))} />
+                <Input
+                  type="number"
+                  value={form.budget}
+                  onChange={(e) => setForm((p) => ({ ...p, budget: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Progreso (%)</Label>
-                <Input type="number" min="0" max="100" value={form.progress} onChange={(e) => setForm((p) => ({ ...p, progress: e.target.value }))} />
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={form.progress}
+                  onChange={(e) => setForm((p) => ({ ...p, progress: e.target.value }))}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-1.5"><Label>Fecha inicio</Label><Input type="date" value={form.start_date} onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>Fecha entrega</Label><Input type="date" value={form.due_date} onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))} /></div>
+              <div className="space-y-1.5">
+                <Label>Fecha inicio</Label>
+                <Input
+                  type="date"
+                  value={form.start_date}
+                  onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Fecha entrega</Label>
+                <Input
+                  type="date"
+                  value={form.due_date}
+                  onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+                />
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); setEditItem(null); }}>Cancel</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDialogOpen(false);
+                  setEditItem(null);
+                }}
+              >
+                Cancel
+              </Button>
               <Button type="submit">{editItem ? "Save" : "Create"}</Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Project</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={async () => { const projectId = deleteId; if (!projectId) return; try { const { error: tasksDeleteError } = await supabase.from("tasks").delete().eq("related_project_id", projectId); if (tasksDeleteError) throw tasksDeleteError; await remove(projectId); await fetchTasks(); toast.success("Deleted"); setDeleteId(null); setSelected(null); } catch (err: any) { toast.error(err.message); } }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(o) => {
+          if (!o) setDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                const projectId = deleteId;
+                if (!projectId) return;
+                try {
+                  const { error: tasksDeleteError } = await supabase
+                    .from("tasks")
+                    .delete()
+                    .eq("related_project_id", projectId);
+                  if (tasksDeleteError) throw tasksDeleteError;
+                  await remove(projectId);
+                  await fetchTasks();
+                  toast.success("Deleted");
+                  setDeleteId(null);
+                  setSelected(null);
+                } catch (err: any) {
+                  toast.error(err.message);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -938,31 +1255,47 @@ function ProjectsPage() {
               value: (() => {
                 const managerId = resolveManagerProfileId(selected.manager);
                 if (!managerId) return "—";
-                return profileById.get(managerId)?.full_name || profileById.get(managerId)?.email || managerId;
+                return (
+                  profileById.get(managerId)?.full_name ||
+                  profileById.get(managerId)?.email ||
+                  managerId
+                );
               })(),
             },
             { label: "Progress (saved)", value: `${selected.progress || 0}%` },
-            { label: "Progress (tasks)", value: (() => {
-              const s = statsByProjectId.get(String(selected.id));
-              if (!s || !s.total) return "—";
-              return `${s.completed}/${s.total} (${s.computedPct}%)`;
-            })() },
+            {
+              label: "Progress (tasks)",
+              value: (() => {
+                const s = statsByProjectId.get(String(selected.id));
+                if (!s || !s.total) return "—";
+                return `${s.completed}/${s.total} (${s.computedPct}%)`;
+              })(),
+            },
             { label: "Description", value: selected.description },
           ]}
         >
           <div className="space-y-4">
             <div data-demo="projects-relations">
-              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Relaciones</div>
+              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                Relaciones
+              </div>
               <div className="mt-2 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="text-xs text-muted-foreground">Cliente</div>
                     <div className="font-medium">
-                      {selected.client_id ? clientById.get(String(selected.client_id))?.company_name || "—" : "Este proyecto no tiene cliente conectado."}
+                      {selected.client_id
+                        ? clientById.get(String(selected.client_id))?.company_name || "—"
+                        : "Este proyecto no tiene cliente conectado."}
                     </div>
                   </div>
                   {selected.client_id ? (
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => (window.location.href = "/clients")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => (window.location.href = "/clients")}
+                    >
                       <ExternalLink className="h-3.5 w-3.5" /> Ver cliente
                     </Button>
                   ) : null}
@@ -971,11 +1304,18 @@ function ProjectsPage() {
                   <div>
                     <div className="text-xs text-muted-foreground">Producto</div>
                     <div className="font-medium">
-                      {selected.product_id ? productById.get(String(selected.product_id))?.name || "—" : "Este proyecto no está conectado a un producto."}
+                      {selected.product_id
+                        ? productById.get(String(selected.product_id))?.name || "—"
+                        : "Este proyecto no está conectado a un producto."}
                     </div>
                   </div>
                   {selected.product_id ? (
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => (window.location.href = "/products")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => (window.location.href = "/products")}
+                    >
                       <ExternalLink className="h-3.5 w-3.5" /> Ver producto
                     </Button>
                   ) : null}
@@ -983,13 +1323,22 @@ function ProjectsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="text-xs text-muted-foreground">Oportunidad</div>
-                    <div className="font-medium">{selected.deal_id ? dealById.get(String(selected.deal_id))?.name || "—" : "—"}</div>
+                    <div className="font-medium">
+                      {selected.deal_id ? dealById.get(String(selected.deal_id))?.name || "—" : "—"}
+                    </div>
                     {selected.deal_id ? (
-                      <div className="text-xs text-muted-foreground">Etapa: {dealById.get(String(selected.deal_id))?.stage || "—"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Etapa: {dealById.get(String(selected.deal_id))?.stage || "—"}
+                      </div>
                     ) : null}
                   </div>
                   {selected.deal_id ? (
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => (window.location.href = "/pipeline")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => (window.location.href = "/pipeline")}
+                    >
                       <ExternalLink className="h-3.5 w-3.5" /> Ver pipeline
                     </Button>
                   ) : null}
@@ -998,11 +1347,20 @@ function ProjectsPage() {
                   <div>
                     <div className="text-xs text-muted-foreground">Lead</div>
                     <div className="font-medium">
-                      {selected.lead_id ? (leadById.get(String(selected.lead_id)) ? formatLeadLabel(leadById.get(String(selected.lead_id))!) : String(selected.lead_id)) : "—"}
+                      {selected.lead_id
+                        ? leadById.get(String(selected.lead_id))
+                          ? formatLeadLabel(leadById.get(String(selected.lead_id))!)
+                          : String(selected.lead_id)
+                        : "—"}
                     </div>
                   </div>
                   {selected.lead_id ? (
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => (window.location.href = "/leads")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => (window.location.href = "/leads")}
+                    >
                       <ExternalLink className="h-3.5 w-3.5" /> Ver leads
                     </Button>
                   ) : null}
@@ -1011,11 +1369,23 @@ function ProjectsPage() {
             </div>
 
             <div data-demo="projects-progress-detail">
-              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Progreso</div>
+              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                Progreso
+              </div>
               {(() => {
-                const s = statsByProjectId.get(String(selected.id)) || { total: 0, completed: 0, open: 0, overdue: 0, computedPct: 0 };
+                const s = statsByProjectId.get(String(selected.id)) || {
+                  total: 0,
+                  completed: 0,
+                  open: 0,
+                  overdue: 0,
+                  computedPct: 0,
+                };
                 if (!s.total) {
-                  return <div className="mt-2 text-sm text-muted-foreground">Este proyecto todavía no tiene tareas.</div>;
+                  return (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Este proyecto todavía no tiene tareas.
+                    </div>
+                  );
                 }
                 return (
                   <div className="mt-2">
@@ -1023,11 +1393,16 @@ function ProjectsPage() {
                       <span>
                         {s.completed}/{s.total} completadas · {s.open} pendientes
                       </span>
-                      {s.overdue ? <span className="text-destructive">{s.overdue} vencidas</span> : <span>{s.computedPct}%</span>}
+                      {s.overdue ? (
+                        <span className="text-destructive">{s.overdue} vencidas</span>
+                      ) : (
+                        <span>{s.computedPct}%</span>
+                      )}
                     </div>
                     <Progress value={s.computedPct} className="h-2 mt-2" />
                     <div className="mt-2 text-xs text-muted-foreground">
-                      Progreso sugerido según tareas: <span className="font-medium">{s.computedPct}%</span>
+                      Progreso sugerido según tareas:{" "}
+                      <span className="font-medium">{s.computedPct}%</span>
                     </div>
                   </div>
                 );
@@ -1036,7 +1411,9 @@ function ProjectsPage() {
 
             <div data-demo="projects-tasks">
               <div className="flex items-center justify-between">
-                <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Tareas del proyecto</div>
+                <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Tareas del proyecto
+                </div>
                 <Button
                   data-demo="projects-create-task"
                   variant="outline"
@@ -1067,7 +1444,10 @@ function ProjectsPage() {
                             {t.status} · {t.priority} · {t.due_date || "Sin fecha"}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Asignado: {t.assigned_to ? profileById.get(String(t.assigned_to))?.full_name || "—" : "—"}
+                            Asignado:{" "}
+                            {t.assigned_to
+                              ? profileById.get(String(t.assigned_to))?.full_name || "—"
+                              : "—"}
                           </div>
                         </div>
                         <div className="shrink-0">
@@ -1086,7 +1466,9 @@ function ProjectsPage() {
                     </div>
                   ))}
                 {!(tasksByProjectId.get(String(selected.id)) || []).length ? (
-                  <div className="text-sm text-muted-foreground">Este proyecto todavía no tiene tareas.</div>
+                  <div className="text-sm text-muted-foreground">
+                    Este proyecto todavía no tiene tareas.
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -1114,20 +1496,35 @@ function ProjectsPage() {
           >
             <div className="space-y-1.5">
               <Label>Título</Label>
-              <Input value={taskForm.title} onChange={(e) => setTaskForm((p) => ({ ...p, title: e.target.value }))} required />
+              <Input
+                value={taskForm.title}
+                onChange={(e) => setTaskForm((p) => ({ ...p, title: e.target.value }))}
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Descripción</Label>
-              <Textarea value={taskForm.description} onChange={(e) => setTaskForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
+              <Textarea
+                value={taskForm.description}
+                onChange={(e) => setTaskForm((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fecha</Label>
-                <Input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm((p) => ({ ...p, due_date: e.target.value }))} />
+                <Input
+                  type="date"
+                  value={taskForm.due_date}
+                  onChange={(e) => setTaskForm((p) => ({ ...p, due_date: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Prioridad</Label>
-                <Select value={taskForm.priority} onValueChange={(v) => setTaskForm((p) => ({ ...p, priority: v }))}>
+                <Select
+                  value={taskForm.priority}
+                  onValueChange={(v) => setTaskForm((p) => ({ ...p, priority: v }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -1142,7 +1539,12 @@ function ProjectsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setTaskDialogOpen(false)} disabled={taskSaving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setTaskDialogOpen(false)}
+                disabled={taskSaving}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={taskSaving || !can("tasks.create")}>

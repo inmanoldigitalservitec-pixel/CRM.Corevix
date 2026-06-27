@@ -70,7 +70,12 @@ export function DetailSheet({
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className={getSheetWidth(size) + " p-0"}>
         <SheetHeader className="relative border-b px-5 py-4 text-left">
-          <div className={"pointer-events-none absolute inset-x-0 top-0 h-[84px] bg-gradient-to-b " + ACCENT_CLASS[accent]} />
+          <div
+            className={
+              "pointer-events-none absolute inset-x-0 top-0 h-[84px] bg-gradient-to-b " +
+              ACCENT_CLASS[accent]
+            }
+          />
           <div className="relative flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-3">
               {icon ? (
@@ -79,8 +84,12 @@ export function DetailSheet({
                 </div>
               ) : null}
               <div className="min-w-0">
-                <SheetTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">{title}</SheetTitle>
-                {subtitle ? <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{subtitle}</p> : null}
+                <SheetTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">
+                  {title}
+                </SheetTitle>
+                {subtitle ? (
+                  <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{subtitle}</p>
+                ) : null}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {status ? <StatusBadge status={status} /> : null}
                   {badges ? badges : null}
@@ -107,7 +116,12 @@ export function DetailSheet({
             ) : (
               <>
                 {onEdit ? (
-                  <Button variant="outline" size="sm" onClick={onEdit} className="h-8 gap-1.5 text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onEdit}
+                    className="h-8 gap-1.5 text-xs"
+                  >
                     <Pencil className="h-3.5 w-3.5" /> {t("common.edit")}
                   </Button>
                 ) : null}
@@ -131,16 +145,29 @@ export function DetailSheet({
             <div data-demo={fieldGroupDataDemo} className="grid grid-cols-2 gap-4">
               {fields.map((f) => (
                 <div key={f.label} className={f.type === "tags" ? "col-span-2" : ""}>
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{f.label}</span>
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {f.label}
+                  </span>
                   {f.type === "badge" && f.value ? (
-                    <div className="mt-1"><StatusBadge status={String(f.value)} /></div>
+                    <div className="mt-1">
+                      <StatusBadge status={String(f.value)} />
+                    </div>
                   ) : f.type === "currency" ? (
-                    <p className="text-sm font-semibold mt-0.5">${Number(f.value || 0).toLocaleString()}</p>
+                    <p className="text-sm font-semibold mt-0.5">
+                      ${Number(f.value || 0).toLocaleString()}
+                    </p>
                   ) : f.type === "tags" && f.value ? (
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {String(f.value).split(",").map((t) => (
-                        <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{t.trim()}</span>
-                      ))}
+                      {String(f.value)
+                        .split(",")
+                        .map((t) => (
+                          <span
+                            key={t}
+                            className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                          >
+                            {t.trim()}
+                          </span>
+                        ))}
                     </div>
                   ) : (
                     <p className="text-sm font-medium mt-0.5">{f.value || t("common.none")}</p>
@@ -152,7 +179,9 @@ export function DetailSheet({
               <>
                 <Separator />
                 <div>
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{t("common.notes")}</span>
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t("common.notes")}
+                  </span>
                   <p className="text-sm mt-1 text-muted-foreground whitespace-pre-wrap">{notes}</p>
                 </div>
               </>

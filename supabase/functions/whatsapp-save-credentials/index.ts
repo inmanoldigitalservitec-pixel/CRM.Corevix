@@ -66,11 +66,12 @@ Deno.serve(async (req) => {
     const metaGraphVersion = cleanOptionalString((body as any).metaGraphVersion);
 
     const subscribedFieldsRaw = (body as any).subscribedFields;
-    const subscribedFields = subscribedFieldsRaw === undefined || subscribedFieldsRaw === null
-      ? null
-      : isStringArray(subscribedFieldsRaw)
-      ? subscribedFieldsRaw
-      : null;
+    const subscribedFields =
+      subscribedFieldsRaw === undefined || subscribedFieldsRaw === null
+        ? null
+        : isStringArray(subscribedFieldsRaw)
+          ? subscribedFieldsRaw
+          : null;
     if (subscribedFieldsRaw !== undefined && subscribedFieldsRaw !== null && !subscribedFields) {
       return jsonResponse({ error: "Invalid subscribedFields (must be string[])" }, 400);
     }
@@ -86,22 +87,28 @@ Deno.serve(async (req) => {
     const { data: authData, error: authErr } = await callerClient.auth.getUser(jwt);
     if (authErr || !authData?.user) return jsonResponse({ error: "Invalid session" }, 401);
 
-    const [{ data: companyId, error: companyErr }, { data: isMember, error: memberErr }, { data: hasRole, error: roleErr }] =
-      await Promise.all([
-        callerClient.rpc("get_current_company_id"),
-        callerClient.rpc("is_company_member"),
-        callerClient.rpc("has_any_role", {
-          _user_id: authData.user.id,
-          _roles: ["super_admin", "admin", "manager"] as AllowedRole[],
-        }),
-      ]);
+    const [
+      { data: companyId, error: companyErr },
+      { data: isMember, error: memberErr },
+      { data: hasRole, error: roleErr },
+    ] = await Promise.all([
+      callerClient.rpc("get_current_company_id"),
+      callerClient.rpc("is_company_member"),
+      callerClient.rpc("has_any_role", {
+        _user_id: authData.user.id,
+        _roles: ["super_admin", "admin", "manager"] as AllowedRole[],
+      }),
+    ]);
 
     if (companyErr) return jsonResponse({ error: companyErr.message }, 403);
     if (memberErr) return jsonResponse({ error: memberErr.message }, 403);
     if (roleErr) return jsonResponse({ error: roleErr.message }, 403);
-    if (!companyId) return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
-    if (!isMember) return jsonResponse({ error: "Account is inactive or not a company member" }, 403);
-    if (!hasRole) return jsonResponse({ error: "Not authorized (super_admin/admin/manager only)" }, 403);
+    if (!companyId)
+      return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
+    if (!isMember)
+      return jsonResponse({ error: "Account is inactive or not a company member" }, 403);
+    if (!hasRole)
+      return jsonResponse({ error: "Not authorized (super_admin/admin/manager only)" }, 403);
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false },
@@ -148,21 +155,25 @@ Deno.serve(async (req) => {
       if (secretsErr) return jsonResponse({ error: secretsErr.message }, 500);
     }
 
-    const [{ data: savedSettings, error: readSettingsErr }, { data: savedSecrets, error: readSecretsErr }] =
-      await Promise.all([
-        serviceClient
-          .from("company_whatsapp_settings")
-          .select(
-            "company_id, provider, meta_app_id, phone_number_id, whatsapp_business_account_id, business_phone, webhook_url, bot_api_url, verify_token, meta_graph_version, subscribed_fields",
-          )
-          .eq("company_id", companyId)
-          .maybeSingle(),
-        serviceClient
-          .from("company_whatsapp_secrets")
-          .select("access_token_last4, app_secret_last4, access_token_configured_at, app_secret_configured_at")
-          .eq("company_id", companyId)
-          .maybeSingle(),
-      ]);
+    const [
+      { data: savedSettings, error: readSettingsErr },
+      { data: savedSecrets, error: readSecretsErr },
+    ] = await Promise.all([
+      serviceClient
+        .from("company_whatsapp_settings")
+        .select(
+          "company_id, provider, meta_app_id, phone_number_id, whatsapp_business_account_id, business_phone, webhook_url, bot_api_url, verify_token, meta_graph_version, subscribed_fields",
+        )
+        .eq("company_id", companyId)
+        .maybeSingle(),
+      serviceClient
+        .from("company_whatsapp_secrets")
+        .select(
+          "access_token_last4, app_secret_last4, access_token_configured_at, app_secret_configured_at",
+        )
+        .eq("company_id", companyId)
+        .maybeSingle(),
+    ]);
 
     if (readSettingsErr) return jsonResponse({ error: readSettingsErr.message }, 500);
     if (readSecretsErr) return jsonResponse({ error: readSecretsErr.message }, 500);
@@ -172,31 +183,31 @@ Deno.serve(async (req) => {
       success: true,
       settings: savedSettings
         ? {
-          companyId: savedSettings.company_id,
-          provider: savedSettings.provider,
-          metaAppId: savedSettings.meta_app_id,
-          phoneNumberId: savedSettings.phone_number_id,
-          wabaId: savedSettings.whatsapp_business_account_id,
-          businessPhone: savedSettings.business_phone,
-          webhookUrl: savedSettings.webhook_url,
-          botApiUrl: savedSettings.bot_api_url,
-          verifyToken: savedSettings.verify_token,
-          metaGraphVersion: savedSettings.meta_graph_version,
-          subscribedFields: savedSettings.subscribed_fields,
-        }
+            companyId: savedSettings.company_id,
+            provider: savedSettings.provider,
+            metaAppId: savedSettings.meta_app_id,
+            phoneNumberId: savedSettings.phone_number_id,
+            wabaId: savedSettings.whatsapp_business_account_id,
+            businessPhone: savedSettings.business_phone,
+            webhookUrl: savedSettings.webhook_url,
+            botApiUrl: savedSettings.bot_api_url,
+            verifyToken: savedSettings.verify_token,
+            metaGraphVersion: savedSettings.meta_graph_version,
+            subscribedFields: savedSettings.subscribed_fields,
+          }
         : {
-          companyId,
-          provider: "meta",
-          metaAppId: metaAppId,
-          phoneNumberId,
-          wabaId,
-          businessPhone,
-          webhookUrl,
-          botApiUrl,
-          verifyToken,
-          metaGraphVersion,
-          subscribedFields,
-        },
+            companyId,
+            provider: "meta",
+            metaAppId: metaAppId,
+            phoneNumberId,
+            wabaId,
+            businessPhone,
+            webhookUrl,
+            botApiUrl,
+            verifyToken,
+            metaGraphVersion,
+            subscribedFields,
+          },
       secrets: {
         accessTokenConfigured: Boolean(savedSecrets?.access_token_configured_at),
         accessTokenLast4: savedSecrets?.access_token_last4 || null,

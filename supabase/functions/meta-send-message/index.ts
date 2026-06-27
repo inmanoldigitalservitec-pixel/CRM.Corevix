@@ -79,18 +79,25 @@ Deno.serve(async (req) => {
     const conversationId = cleanOptionalString((body as any).conversation_id);
     const text = cleanOptionalString((body as any).text);
 
-    if (!companyId || !isUuid(companyId)) return jsonResponse({ error: "company_id inválido" }, 400);
-    if (!accountId || !isUuid(accountId)) return jsonResponse({ error: "account_id inválido" }, 400);
-    if (!conversationId || !isUuid(conversationId)) return jsonResponse({ error: "conversation_id inválido" }, 400);
+    if (!companyId || !isUuid(companyId))
+      return jsonResponse({ error: "company_id inválido" }, 400);
+    if (!accountId || !isUuid(accountId))
+      return jsonResponse({ error: "account_id inválido" }, 400);
+    if (!conversationId || !isUuid(conversationId))
+      return jsonResponse({ error: "conversation_id inválido" }, 400);
     if (!text) return jsonResponse({ error: "El mensaje no puede estar vacío" }, 400);
 
-    const [{ data: currentCompanyId, error: companyError }, { data: isMember, error: memberError }] = await Promise.all([
+    const [
+      { data: currentCompanyId, error: companyError },
+      { data: isMember, error: memberError },
+    ] = await Promise.all([
       callerClient.rpc("get_current_company_id"),
       callerClient.rpc("is_company_member"),
     ]);
     if (companyError) return jsonResponse({ error: companyError.message }, 403);
     if (memberError) return jsonResponse({ error: memberError.message }, 403);
-    if (!isMember) return jsonResponse({ error: "Account is inactive or not a company member" }, 403);
+    if (!isMember)
+      return jsonResponse({ error: "Account is inactive or not a company member" }, 403);
     if (!currentCompanyId || String(currentCompanyId) !== companyId) {
       return jsonResponse({ error: "La conversación no pertenece a la empresa actual" }, 403);
     }
@@ -107,18 +114,22 @@ Deno.serve(async (req) => {
       .eq("platform", "messenger")
       .maybeSingle();
     if (accountError) return jsonResponse({ error: accountError.message }, 500);
-    if (!account) return jsonResponse({ error: "Cuenta Meta no encontrada para la empresa indicada" }, 404);
+    if (!account)
+      return jsonResponse({ error: "Cuenta Meta no encontrada para la empresa indicada" }, 404);
 
     const { data: conversation, error: conversationError } = await serviceClient
       .from("meta_conversations")
-      .select("id, company_id, account_id, platform, external_user_id, last_message_text, last_message_at")
+      .select(
+        "id, company_id, account_id, platform, external_user_id, last_message_text, last_message_at",
+      )
       .eq("id", conversationId)
       .eq("company_id", companyId)
       .eq("account_id", accountId)
       .eq("platform", "messenger")
       .maybeSingle();
     if (conversationError) return jsonResponse({ error: conversationError.message }, 500);
-    if (!conversation) return jsonResponse({ error: "La conversación no pertenece a la cuenta indicada" }, 404);
+    if (!conversation)
+      return jsonResponse({ error: "La conversación no pertenece a la cuenta indicada" }, 404);
 
     const secretRef = cleanOptionalString(account.access_token_secret_id);
     if (!secretRef) {
@@ -166,7 +177,10 @@ Deno.serve(async (req) => {
     }
 
     if (!sendRes.ok) {
-      return jsonResponse({ error: metaErrorToMessage(rawJson || rawText) }, sendRes.status >= 400 && sendRes.status < 500 ? 400 : 502);
+      return jsonResponse(
+        { error: metaErrorToMessage(rawJson || rawText) },
+        sendRes.status >= 400 && sendRes.status < 500 ? 400 : 502,
+      );
     }
 
     const nowIso = new Date().toISOString();
@@ -187,7 +201,8 @@ Deno.serve(async (req) => {
       })
       .select("id")
       .maybeSingle();
-    if (outboundMessageInsert.error) return jsonResponse({ error: outboundMessageInsert.error.message }, 500);
+    if (outboundMessageInsert.error)
+      return jsonResponse({ error: outboundMessageInsert.error.message }, 500);
 
     const { error: conversationUpdateError } = await serviceClient
       .from("meta_conversations")
@@ -199,7 +214,8 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversationId)
       .eq("company_id", companyId);
-    if (conversationUpdateError) return jsonResponse({ error: conversationUpdateError.message }, 500);
+    if (conversationUpdateError)
+      return jsonResponse({ error: conversationUpdateError.message }, 500);
 
     return jsonResponse({
       ok: true,

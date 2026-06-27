@@ -1,12 +1,32 @@
 import { useState } from "react";
-import { User, Tag, Plus, Link2, ClipboardList, UserPlus, ChevronDown, ChevronUp, Mail, Phone, Globe, Building2, X } from "lucide-react";
+import {
+  User,
+  Tag,
+  Plus,
+  Link2,
+  ClipboardList,
+  UserPlus,
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Phone,
+  Globe,
+  Building2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +58,16 @@ const teamMembers = [
   { id: "u3", name: "María Santos" },
 ];
 
-export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChangeStatus, onCreateLead, onLinkClient, onCreateTask }: ContactPanelProps) {
+export function ContactPanel({
+  contact,
+  onAssign,
+  onAddTag,
+  onRemoveTag,
+  onChangeStatus,
+  onCreateLead,
+  onLinkClient,
+  onCreateTask,
+}: ContactPanelProps) {
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(true);
@@ -59,7 +88,12 @@ export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChang
           {/* Contact header */}
           <div className="text-center mb-4">
             <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 text-xl font-semibold mx-auto mb-2">
-              {contact.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+              {contact.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()}
             </div>
             <h3 className="font-semibold text-sm">{contact.name}</h3>
             <p className="text-xs text-muted-foreground">{contact.phone}</p>
@@ -75,7 +109,9 @@ export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChang
           {/* Status & Assignment */}
           <div className="space-y-3 mb-4">
             <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Status
+              </Label>
               <Select defaultValue={contact.status} onValueChange={onChangeStatus}>
                 <SelectTrigger className="h-8 text-xs mt-1">
                   <SelectValue />
@@ -90,14 +126,18 @@ export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChang
             </div>
 
             <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Assigned To</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Assigned To
+              </Label>
               <Select defaultValue={contact.assignedTo || ""} onValueChange={onAssign}>
                 <SelectTrigger className="h-8 text-xs mt-1">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
                   {teamMembers.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -109,8 +149,15 @@ export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChang
           {/* Tags */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1.5">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Tags</Label>
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setShowTagInput(!showTagInput)}>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Tags
+              </Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                onClick={() => setShowTagInput(!showTagInput)}
+              >
                 <Plus className="h-3 w-3" />
               </Button>
             </div>
@@ -137,7 +184,9 @@ export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChang
                   onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
                   autoFocus
                 />
-                <Button size="sm" className="h-7 text-xs px-2" onClick={handleAddTag}>Add</Button>
+                <Button size="sm" className="h-7 text-xs px-2" onClick={handleAddTag}>
+                  Add
+                </Button>
               </div>
             )}
           </div>
@@ -146,9 +195,18 @@ export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChang
 
           {/* Details */}
           <div>
-            <button onClick={() => setDetailsOpen(!detailsOpen)} className="flex items-center justify-between w-full mb-2">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer">Contact Details</Label>
-              {detailsOpen ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+            <button
+              onClick={() => setDetailsOpen(!detailsOpen)}
+              className="flex items-center justify-between w-full mb-2"
+            >
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer">
+                Contact Details
+              </Label>
+              {detailsOpen ? (
+                <ChevronUp className="h-3 w-3 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              )}
             </button>
             {detailsOpen && (
               <div className="space-y-2 text-xs">
@@ -185,19 +243,43 @@ export function ContactPanel({ contact, onAssign, onAddTag, onRemoveTag, onChang
 
           {/* Quick Actions */}
           <div>
-            <button onClick={() => setActionsOpen(!actionsOpen)} className="flex items-center justify-between w-full mb-2">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer">Quick Actions</Label>
-              {actionsOpen ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+            <button
+              onClick={() => setActionsOpen(!actionsOpen)}
+              className="flex items-center justify-between w-full mb-2"
+            >
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer">
+                Quick Actions
+              </Label>
+              {actionsOpen ? (
+                <ChevronUp className="h-3 w-3 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              )}
             </button>
             {actionsOpen && (
               <div className="space-y-1.5">
-                <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-8 justify-start" onClick={onCreateLead}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs gap-1.5 h-8 justify-start"
+                  onClick={onCreateLead}
+                >
                   <UserPlus className="h-3.5 w-3.5" /> Create Lead
                 </Button>
-                <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-8 justify-start" onClick={onLinkClient}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs gap-1.5 h-8 justify-start"
+                  onClick={onLinkClient}
+                >
                   <Link2 className="h-3.5 w-3.5" /> Link to Client
                 </Button>
-                <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-8 justify-start" onClick={onCreateTask}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs gap-1.5 h-8 justify-start"
+                  onClick={onCreateTask}
+                >
                   <ClipboardList className="h-3.5 w-3.5" /> Create Task
                 </Button>
               </div>

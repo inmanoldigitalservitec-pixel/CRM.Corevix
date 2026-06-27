@@ -1,7 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Building2, CheckSquare, Clock, DollarSign, FileText, GitBranch, MessageCircle, Receipt, TrendingUp, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  CheckSquare,
+  Clock,
+  DollarSign,
+  FileText,
+  GitBranch,
+  MessageCircle,
+  Receipt,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { MetricCard } from "@/components/crm/metric-card";
 import { DataCard } from "@/components/crm/data-card";
 import { ActivityFeed } from "@/components/crm/activity-feed";
@@ -12,7 +24,12 @@ import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
-  head: () => ({ meta: [{ title: "Dashboard — Corevix CRM" }, { name: "description", content: "Business overview and key metrics" }] }),
+  head: () => ({
+    meta: [
+      { title: "Dashboard — Corevix CRM" },
+      { name: "description", content: "Business overview and key metrics" },
+    ],
+  }),
 });
 
 type Urgency = "alta" | "media" | "baja";
@@ -194,17 +211,35 @@ function isClosedDealStage(stage: string) {
 }
 
 function isWonDealStage(stage: string) {
-  const s = String(stage || "").trim().toLowerCase();
-  return s === "won" || s === "closed won" || s.includes("closed won") || s.includes("ganad") || s.includes("win");
+  const s = String(stage || "")
+    .trim()
+    .toLowerCase();
+  return (
+    s === "won" ||
+    s === "closed won" ||
+    s.includes("closed won") ||
+    s.includes("ganad") ||
+    s.includes("win")
+  );
 }
 
 function isLostDealStage(stage: string) {
-  const s = String(stage || "").trim().toLowerCase();
-  return s === "lost" || s === "closed lost" || s.includes("closed lost") || s.includes("perdid") || s.includes("lost");
+  const s = String(stage || "")
+    .trim()
+    .toLowerCase();
+  return (
+    s === "lost" ||
+    s === "closed lost" ||
+    s.includes("closed lost") ||
+    s.includes("perdid") ||
+    s.includes("lost")
+  );
 }
 
 function isCompletedTaskStatus(status: string) {
-  const s = String(status || "").trim().toLowerCase();
+  const s = String(status || "")
+    .trim()
+    .toLowerCase();
   return s === "completed" || s === "done" || s === "cancelled";
 }
 
@@ -215,7 +250,11 @@ function daysSince(iso?: string | null) {
 }
 
 function leadLabel(lead: Pick<LeadRow, "first_name" | "last_name" | "company_name">) {
-  return lead.company_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "Lead sin nombre";
+  return (
+    lead.company_name ||
+    `${lead.first_name || ""} ${lead.last_name || ""}`.trim() ||
+    "Lead sin nombre"
+  );
 }
 
 function clientLabel(client?: ClientSummaryRow | null) {
@@ -309,7 +348,9 @@ function DashboardPage() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [waConversations, setWaConversations] = useState<WhatsAppConversationRow[]>([]);
   const [emailConversations, setEmailConversations] = useState<EmailConversationRow[]>([]);
-  const [activities, setActivities] = useState<{ id: string; action: string; detail: string; time: string }[]>([]);
+  const [activities, setActivities] = useState<
+    { id: string; action: string; detail: string; time: string }[]
+  >([]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -321,7 +362,8 @@ function DashboardPage() {
 
     const load = async () => {
       const loadLeads = async () => {
-        const base = "id,first_name,last_name,company_name,status,source,created_at,updated_at,next_follow_up";
+        const base =
+          "id,first_name,last_name,company_name,status,source,created_at,updated_at,next_follow_up";
         const withInteraction = `${base},last_interaction_at`;
         const res = await db
           .from("leads")
@@ -341,10 +383,21 @@ function DashboardPage() {
       };
 
       const loadTasks = async () => {
-        const richSelect = "id,title,status,priority,due_date,related_lead_id,related_client_id,related_project_id";
-        const res = await db.from("tasks").select(richSelect).eq("company_id", cid).order("due_date", { ascending: true }).limit(120);
+        const richSelect =
+          "id,title,status,priority,due_date,related_lead_id,related_client_id,related_project_id";
+        const res = await db
+          .from("tasks")
+          .select(richSelect)
+          .eq("company_id", cid)
+          .order("due_date", { ascending: true })
+          .limit(120);
         if (!res.error) return res;
-        return db.from("tasks").select("id,title,status,priority,due_date").eq("company_id", cid).order("due_date", { ascending: true }).limit(120);
+        return db
+          .from("tasks")
+          .select("id,title,status,priority,due_date")
+          .eq("company_id", cid)
+          .order("due_date", { ascending: true })
+          .limit(120);
       };
 
       const loadDeals = async () =>
@@ -404,7 +457,9 @@ function DashboardPage() {
         loadProposals(),
         db
           .from("whatsapp_conversations")
-          .select("id, status, last_message_body, last_message_at, unread_count, whatsapp_contacts(id, name, phone)")
+          .select(
+            "id, status, last_message_body, last_message_at, unread_count, whatsapp_contacts(id, name, phone)",
+          )
           .eq("company_id", cid)
           .order("last_message_at", { ascending: false })
           .limit(50),
@@ -431,11 +486,16 @@ function DashboardPage() {
       const getCount = (index: number) => {
         const r = results[index];
         if (r.status !== "fulfilled") return 0;
-        return (r.value?.count as number | null) ?? (r.value?.data?.length as number | undefined) ?? 0;
+        return (
+          (r.value?.count as number | null) ?? (r.value?.data?.length as number | undefined) ?? 0
+        );
       };
 
-      const hadErrors = results.some((r) => r.status === "rejected") || results.some((r) => r.status === "fulfilled" && r.value?.error);
-      if (hadErrors) setError("Algunas tarjetas no pudieron cargarse. El resto del dashboard sigue disponible.");
+      const hadErrors =
+        results.some((r) => r.status === "rejected") ||
+        results.some((r) => r.status === "fulfilled" && r.value?.error);
+      if (hadErrors)
+        setError("Algunas tarjetas no pudieron cargarse. El resto del dashboard sigue disponible.");
 
       setLeads(getData<LeadRow>(0));
       setClientSummaries(getData<ClientSummaryRow>(1));
@@ -454,7 +514,10 @@ function DashboardPage() {
           id: a.id,
           action: a.action,
           detail: a.detail || `${a.action} ${a.entity_type}`,
-          time: new Date(a.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          time: new Date(a.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         })),
       );
 
@@ -464,7 +527,12 @@ function DashboardPage() {
     load();
   }, [profile?.company_id]);
 
-  if (loading) return <div className="p-6"><LoadingMetrics count={12} /></div>;
+  if (loading)
+    return (
+      <div className="p-6">
+        <LoadingMetrics count={12} />
+      </div>
+    );
 
   const today = localTodayKey();
   const leadById = new Map(leads.map((lead) => [String(lead.id), lead]));
@@ -487,24 +555,36 @@ function DashboardPage() {
   }).length;
 
   const pendingProposalStates = new Set(["draft", "pending", "sent", "viewed"]);
-  const pendingProposals = proposals.filter((p) => pendingProposalStates.has(String(p.status || "").toLowerCase()));
-  const approvedProposalsNoPaymentCount = proposals.filter((p) => ["Accepted", "Approved"].includes(p.status)).length;
+  const pendingProposals = proposals.filter((p) =>
+    pendingProposalStates.has(String(p.status || "").toLowerCase()),
+  );
+  const approvedProposalsNoPaymentCount = proposals.filter((p) =>
+    ["Accepted", "Approved"].includes(p.status),
+  ).length;
 
-  const invoicesPending = invoices.filter((i) => !["paid", "cancelled", "void"].includes(String(i.status || "").toLowerCase()));
+  const invoicesPending = invoices.filter(
+    (i) => !["paid", "cancelled", "void"].includes(String(i.status || "").toLowerCase()),
+  );
   const invoicesOverdue = invoices.filter((i) => {
     const dueKey = toDateKey(i.due_date);
     if (!dueKey) return String(i.status || "").toLowerCase() === "overdue";
     return String(i.status || "").toLowerCase() !== "paid" && dueKey < today;
   });
   const invoicesSent = invoices.filter((i) => String(i.status || "").toLowerCase() === "sent");
-  const paidRevenue = invoices.filter((i) => i.status === "Paid").reduce((s, i) => s + toNumber(i.total), 0);
+  const paidRevenue = invoices
+    .filter((i) => i.status === "Paid")
+    .reduce((s, i) => s + toNumber(i.total), 0);
   const receivableTotal = invoicesPending.reduce((s, i) => s + toNumber(i.total), 0);
 
   const waOpen = waConversations.filter((c) => String(c.status).toLowerCase() === "open").length;
-  const emailOpen = emailConversations.filter((c) => String(c.status).toLowerCase() === "open").length;
+  const emailOpen = emailConversations.filter(
+    (c) => String(c.status).toLowerCase() === "open",
+  ).length;
   const inboxPendingTotal = waOpen + emailOpen;
 
-  const projectsActiveCount = projects.filter((p) => p.status !== "Completed" && p.status !== "Cancelled").length;
+  const projectsActiveCount = projects.filter(
+    (p) => p.status !== "Completed" && p.status !== "Cancelled",
+  ).length;
   const projectsAtRisk = projects.filter((p) => {
     if (p.status === "Completed" || p.status === "Cancelled") return false;
     const dueKey = toDateKey(p.due_date);
@@ -539,12 +619,18 @@ function DashboardPage() {
     .map((lead) => {
       const reasons: string[] = [];
       if (!openTaskLeadIds.has(String(lead.id))) reasons.push("Sin próxima tarea");
-      if (lead.last_interaction_at && hoursSince(lead.last_interaction_at) > 72) reasons.push("Sin interacción reciente");
-      if (String(lead.status || "").toLowerCase() === "new" && daysSince(lead.created_at) >= 2) reasons.push("Sigue en New");
+      if (lead.last_interaction_at && hoursSince(lead.last_interaction_at) > 72)
+        reasons.push("Sin interacción reciente");
+      if (String(lead.status || "").toLowerCase() === "new" && daysSince(lead.created_at) >= 2)
+        reasons.push("Sigue en New");
       return { lead, reasons };
     })
     .filter((item) => item.reasons.length > 0)
-    .sort((a, b) => b.reasons.length - a.reasons.length || String(a.lead.updated_at).localeCompare(String(b.lead.updated_at)))
+    .sort(
+      (a, b) =>
+        b.reasons.length - a.reasons.length ||
+        String(a.lead.updated_at).localeCompare(String(b.lead.updated_at)),
+    )
     .slice(0, 8);
 
   const upcomingTasksCount = tasks.filter((t) => {
@@ -567,7 +653,9 @@ function DashboardPage() {
   const pendingProposalItems = pendingProposals
     .map((proposal) => ({
       ...proposal,
-      clientName: proposal.client_id ? clientLabel(clientById.get(String(proposal.client_id))) : null,
+      clientName: proposal.client_id
+        ? clientLabel(clientById.get(String(proposal.client_id)))
+        : null,
     }))
     .slice(0, 8);
   const pendingInvoiceItems = invoicesPending
@@ -575,10 +663,16 @@ function DashboardPage() {
       ...invoice,
       isOverdue:
         String(invoice.status || "").toLowerCase() === "overdue" ||
-        (!!toDateKey(invoice.due_date) && String(invoice.status || "").toLowerCase() !== "paid" && String(toDateKey(invoice.due_date)) < today),
+        (!!toDateKey(invoice.due_date) &&
+          String(invoice.status || "").toLowerCase() !== "paid" &&
+          String(toDateKey(invoice.due_date)) < today),
       clientName: invoice.client_id ? clientLabel(clientById.get(String(invoice.client_id))) : null,
     }))
-    .sort((a, b) => Number(b.isOverdue) - Number(a.isOverdue) || String(a.due_date || "").localeCompare(String(b.due_date || "")))
+    .sort(
+      (a, b) =>
+        Number(b.isOverdue) - Number(a.isOverdue) ||
+        String(a.due_date || "").localeCompare(String(b.due_date || "")),
+    )
     .slice(0, 8);
 
   const priorities: PriorityItem[] = [];
@@ -661,58 +755,146 @@ function DashboardPage() {
     });
   }
 
-  const priorityOrder = ["leads_followup", "overdue_tasks", "pending_invoices", "pending_proposals", "wa_open", "projects_risk"];
-  const prioritiesSorted = [...priorities].sort((a, b) => priorityOrder.indexOf(a.key) - priorityOrder.indexOf(b.key));
+  const priorityOrder = [
+    "leads_followup",
+    "overdue_tasks",
+    "pending_invoices",
+    "pending_proposals",
+    "wa_open",
+    "projects_risk",
+  ];
+  const prioritiesSorted = [...priorities].sort(
+    (a, b) => priorityOrder.indexOf(a.key) - priorityOrder.indexOf(b.key),
+  );
   const totalActions = prioritiesSorted.reduce((s, p) => s + (p.count || 0), 0);
 
   const kpis = [
-    { label: "Leads activos", value: leadsActiveCount, icon: Users, iconClassName: "text-[#1d62f9]", iconChipClassName: "bg-[#edf5ff]" },
-    { label: "Pipeline abierto", value: formatMoney(pipelineValue), icon: GitBranch, iconClassName: "text-[#1d62f9]", iconChipClassName: "bg-[#edf5ff]" },
-    { label: "Propuestas pendientes", value: pendingProposals.length, icon: FileText, iconClassName: "text-[#7c3aed]", iconChipClassName: "bg-[#f4efff]" },
-    { label: "Facturas por cobrar", value: formatMoney(receivableTotal), icon: Receipt, iconClassName: "text-[#f59e0b]", iconChipClassName: "bg-[#fff7e6]" },
-    { label: "Proyectos activos", value: projectsActiveCount, icon: Building2, iconClassName: "text-[#16a34a]", iconChipClassName: "bg-[#ecfdf3]" },
+    {
+      label: "Leads activos",
+      value: leadsActiveCount,
+      icon: Users,
+      iconClassName: "text-[#1d62f9]",
+      iconChipClassName: "bg-[#edf5ff]",
+    },
+    {
+      label: "Pipeline abierto",
+      value: formatMoney(pipelineValue),
+      icon: GitBranch,
+      iconClassName: "text-[#1d62f9]",
+      iconChipClassName: "bg-[#edf5ff]",
+    },
+    {
+      label: "Propuestas pendientes",
+      value: pendingProposals.length,
+      icon: FileText,
+      iconClassName: "text-[#7c3aed]",
+      iconChipClassName: "bg-[#f4efff]",
+    },
+    {
+      label: "Facturas por cobrar",
+      value: formatMoney(receivableTotal),
+      icon: Receipt,
+      iconClassName: "text-[#f59e0b]",
+      iconChipClassName: "bg-[#fff7e6]",
+    },
+    {
+      label: "Proyectos activos",
+      value: projectsActiveCount,
+      icon: Building2,
+      iconClassName: "text-[#16a34a]",
+      iconChipClassName: "bg-[#ecfdf3]",
+    },
   ];
 
-  const pipelineStageOrder = ["New Lead", "Discovery", "Qualified", "Proposal Sent", "Won"] as const;
+  const pipelineStageOrder = [
+    "New Lead",
+    "Discovery",
+    "Qualified",
+    "Proposal Sent",
+    "Won",
+  ] as const;
   const pipelineDeals = deals.filter((d) => String(d.stage || "").toLowerCase() !== "lost");
-  const stageAgg = pipelineDeals.reduce<Record<string, { count: number; value: number }>>((acc, d) => {
-    const stage = d.stage || "New Lead";
-    const prev = acc[stage] || { count: 0, value: 0 };
-    acc[stage] = { count: prev.count + 1, value: prev.value + toNumber(d.value) };
-    return acc;
-  }, {});
-  const pipelineStages = pipelineStageOrder.map((stage) => ({ stage, count: stageAgg[stage]?.count || 0, value: stageAgg[stage]?.value || 0 }));
+  const stageAgg = pipelineDeals.reduce<Record<string, { count: number; value: number }>>(
+    (acc, d) => {
+      const stage = d.stage || "New Lead";
+      const prev = acc[stage] || { count: 0, value: 0 };
+      acc[stage] = { count: prev.count + 1, value: prev.value + toNumber(d.value) };
+      return acc;
+    },
+    {},
+  );
+  const pipelineStages = pipelineStageOrder.map((stage) => ({
+    stage,
+    count: stageAgg[stage]?.count || 0,
+    value: stageAgg[stage]?.value || 0,
+  }));
   const pipelineTotalValue = pipelineStages.reduce((s, st) => s + st.value, 0);
 
   const agendaItems = [
     ...tasks
       .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
-      .map((t) => ({ kind: "Tarea", title: "Tarea por vencer", dateKey: toDateKey(t.due_date), to: "/tasks" })),
+      .map((t) => ({
+        kind: "Tarea",
+        title: "Tarea por vencer",
+        dateKey: toDateKey(t.due_date),
+        to: "/tasks",
+      })),
     ...invoices
       .filter((i) => ["Sent", "Overdue"].includes(i.status))
-      .map((i) => ({ kind: "Factura", title: i.number ? `Factura ${i.number}` : "Factura por cobrar", dateKey: toDateKey(i.due_date), to: "/invoices" })),
+      .map((i) => ({
+        kind: "Factura",
+        title: i.number ? `Factura ${i.number}` : "Factura por cobrar",
+        dateKey: toDateKey(i.due_date),
+        to: "/invoices",
+      })),
     ...proposals
       .filter((p) => ["Sent", "Viewed"].includes(p.status))
-      .map((p) => ({ kind: "Propuesta", title: p.title || (p.number ? `Propuesta ${p.number}` : "Propuesta por vencer"), dateKey: toDateKey(p.valid_until), to: "/proposals" })),
+      .map((p) => ({
+        kind: "Propuesta",
+        title: p.title || (p.number ? `Propuesta ${p.number}` : "Propuesta por vencer"),
+        dateKey: toDateKey(p.valid_until),
+        to: "/proposals",
+      })),
     ...projects
       .filter((p) => p.status !== "Completed" && p.status !== "Cancelled")
-      .map((p) => ({ kind: "Proyecto", title: "Entrega de proyecto", dateKey: toDateKey(p.due_date), to: "/projects" })),
+      .map((p) => ({
+        kind: "Proyecto",
+        title: "Entrega de proyecto",
+        dateKey: toDateKey(p.due_date),
+        to: "/projects",
+      })),
   ]
-    .filter((x): x is { kind: string; title: string; dateKey: string; to: string } => Boolean(x.dateKey))
+    .filter((x): x is { kind: string; title: string; dateKey: string; to: string } =>
+      Boolean(x.dateKey),
+    )
     .sort((a, b) => String(a.dateKey).localeCompare(String(b.dateKey)));
 
   const agendaToday = agendaItems.filter((i) => i.dateKey === today).slice(0, 6);
-  const agendaWeek = agendaItems.filter((i) => i.dateKey !== today && isDateKeyInNextDays(i.dateKey, 7)).slice(0, 6);
+  const agendaWeek = agendaItems
+    .filter((i) => i.dateKey !== today && isDateKeyInNextDays(i.dateKey, 7))
+    .slice(0, 6);
 
   const pendingConversations = [
     ...waConversations
       .filter((c) => String(c.status).toLowerCase() === "open")
       .slice(0, 3)
-      .map((c) => ({ id: `wa:${c.id}`, name: c.whatsapp_contacts?.name || "Contacto", channel: "WhatsApp", preview: c.last_message_body || "Sin mensaje reciente.", to: "/whatsapp" })),
+      .map((c) => ({
+        id: `wa:${c.id}`,
+        name: c.whatsapp_contacts?.name || "Contacto",
+        channel: "WhatsApp",
+        preview: c.last_message_body || "Sin mensaje reciente.",
+        to: "/whatsapp",
+      })),
     ...emailConversations
       .filter((c) => String(c.status).toLowerCase() === "open")
       .slice(0, 3)
-      .map((c) => ({ id: `em:${c.id}`, name: "Email", channel: "Email", preview: c.subject || "Sin asunto.", to: "/email" })),
+      .map((c) => ({
+        id: `em:${c.id}`,
+        name: "Email",
+        channel: "Email",
+        preview: c.subject || "Sin asunto.",
+        to: "/email",
+      })),
   ].slice(0, 3);
 
   const attentionCards = [
@@ -726,7 +908,9 @@ function DashboardPage() {
       render: (item: (typeof leadAttentionItems)[number]) => (
         <>
           <div className="text-[13px] font-semibold truncate">{leadLabel(item.lead)}</div>
-          <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.reasons.join(" · ")}</div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">
+            {item.reasons.join(" · ")}
+          </div>
         </>
       ),
     },
@@ -740,13 +924,17 @@ function DashboardPage() {
       render: (item: (typeof overdueTaskItems)[number]) => (
         <>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[13px] font-semibold truncate">{item.title || "Tarea sin título"}</div>
+            <div className="text-[13px] font-semibold truncate">
+              {item.title || "Tarea sin título"}
+            </div>
             <span className="shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#fff1f3] text-[#e11d48]">
               {item.priority || "Media"}
             </span>
           </div>
           <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.relation}</div>
-          <div className="mt-1 text-[12px] font-semibold text-[#e11d48]">Vence: {formatShortDate(item.due_date)}</div>
+          <div className="mt-1 text-[12px] font-semibold text-[#e11d48]">
+            Vence: {formatShortDate(item.due_date)}
+          </div>
         </>
       ),
     },
@@ -760,12 +948,17 @@ function DashboardPage() {
       render: (item: (typeof staleDealItems)[number]) => (
         <>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[13px] font-semibold truncate">{item.name || "Oportunidad sin nombre"}</div>
-            <span className="text-[12px] font-extrabold text-[#1d62f9]">{formatMoney(toNumber(item.value))}</span>
+            <div className="text-[13px] font-semibold truncate">
+              {item.name || "Oportunidad sin nombre"}
+            </div>
+            <span className="text-[12px] font-extrabold text-[#1d62f9]">
+              {formatMoney(toNumber(item.value))}
+            </span>
           </div>
           <div className="mt-1 text-[12px] font-medium text-[#667085]">Etapa: {item.stage}</div>
           <div className="mt-1 text-[12px] font-medium text-[#667085]">
-            Cierre: {item.expected_close ? formatShortDate(item.expected_close) : "Sin fecha"} · {Math.floor(daysSince(item.updated_at))}d sin cambios
+            Cierre: {item.expected_close ? formatShortDate(item.expected_close) : "Sin fecha"} ·{" "}
+            {Math.floor(daysSince(item.updated_at))}d sin cambios
           </div>
         </>
       ),
@@ -780,12 +973,16 @@ function DashboardPage() {
       render: (item: (typeof pendingProposalItems)[number]) => (
         <>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[13px] font-semibold truncate">{item.title || item.number || "Propuesta sin título"}</div>
+            <div className="text-[13px] font-semibold truncate">
+              {item.title || item.number || "Propuesta sin título"}
+            </div>
             <span className="shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#f4efff] text-[#7c3aed]">
               {item.status || "Pendiente"}
             </span>
           </div>
-          <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.clientName || "Sin cliente vinculado"}</div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">
+            {item.clientName || "Sin cliente vinculado"}
+          </div>
           <div className="mt-1 text-[12px] font-semibold text-[#475467]">
             {item.amount != null ? formatMoney(toNumber(item.amount)) : "Monto no disponible"}
           </div>
@@ -802,7 +999,9 @@ function DashboardPage() {
       render: (item: (typeof pendingInvoiceItems)[number]) => (
         <>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[13px] font-semibold truncate">{item.number ? `Factura ${item.number}` : "Factura pendiente"}</div>
+            <div className="text-[13px] font-semibold truncate">
+              {item.number ? `Factura ${item.number}` : "Factura pendiente"}
+            </div>
             <span
               className={
                 "shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold " +
@@ -812,9 +1011,12 @@ function DashboardPage() {
               {item.status || (item.isOverdue ? "Overdue" : "Pending")}
             </span>
           </div>
-          <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.clientName || "Sin cliente vinculado"}</div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">
+            {item.clientName || "Sin cliente vinculado"}
+          </div>
           <div className="mt-1 text-[12px] font-semibold text-[#475467]">
-            {formatMoney(toNumber(item.total))} · {item.due_date ? `Vence ${formatShortDate(item.due_date)}` : "Sin vencimiento"}
+            {formatMoney(toNumber(item.total))} ·{" "}
+            {item.due_date ? `Vence ${formatShortDate(item.due_date)}` : "Sin vencimiento"}
           </div>
         </>
       ),
@@ -827,13 +1029,15 @@ function DashboardPage() {
         <div>
           <h1 className="text-[28px] font-extrabold tracking-[-0.04em]">{t("nav.dashboard")}</h1>
           <p className="mt-1 text-[13px] font-medium text-[#667085]">
-            Bienvenido, <strong className="text-[#111827]">{profile?.full_name || "—"}</strong>. Este es tu resumen comercial y operativo de hoy.
+            Bienvenido, <strong className="text-[#111827]">{profile?.full_name || "—"}</strong>.
+            Este es tu resumen comercial y operativo de hoy.
           </p>
           <p className="mt-2 text-[13px] font-semibold text-[#475467]">
             Hoy tienes <strong className="text-[#111827]">{newLeadsToday}</strong> leads nuevos,{" "}
-            <strong className="text-[#111827]">{pendingProposals.length}</strong> propuestas pendientes,{" "}
-            <strong className="text-[#111827]">{invoicesPending.length}</strong> facturas por cobrar y{" "}
-            <strong className="text-[#111827]">{upcomingTasksCount}</strong> tareas próximas.
+            <strong className="text-[#111827]">{pendingProposals.length}</strong> propuestas
+            pendientes, <strong className="text-[#111827]">{invoicesPending.length}</strong>{" "}
+            facturas por cobrar y <strong className="text-[#111827]">{upcomingTasksCount}</strong>{" "}
+            tareas próximas.
           </p>
         </div>
       </div>
@@ -844,7 +1048,10 @@ function DashboardPage() {
         </div>
       )}
 
-      <DataCard noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.07)]">
+      <DataCard
+        noPadding
+        className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.07)]"
+      >
         <div className="p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex gap-3">
@@ -854,7 +1061,8 @@ function DashboardPage() {
               <div>
                 <h2 className="text-[19px] font-semibold tracking-[-0.035em]">Centro de acción</h2>
                 <p className="mt-1 text-[13px] font-medium text-[#667085]">
-                  Hoy tienes <strong className="text-[#111827]">{totalActions}</strong> acciones importantes para no perder oportunidades.
+                  Hoy tienes <strong className="text-[#111827]">{totalActions}</strong> acciones
+                  importantes para no perder oportunidades.
                 </p>
               </div>
             </div>
@@ -869,8 +1077,12 @@ function DashboardPage() {
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {prioritiesSorted.length === 0 ? (
               <div className="xl:col-span-5 rounded-[18px] border border-[#e6eaf0] bg-[#f9fafc] p-6 text-center">
-                <div className="text-[15px] font-extrabold tracking-[-0.02em]">No hay alertas críticas en este momento.</div>
-                <div className="mt-1 text-[13px] font-medium text-[#667085]">Puedes seguir trabajando con normalidad y volver más tarde para revisar cambios.</div>
+                <div className="text-[15px] font-extrabold tracking-[-0.02em]">
+                  No hay alertas críticas en este momento.
+                </div>
+                <div className="mt-1 text-[13px] font-medium text-[#667085]">
+                  Puedes seguir trabajando con normalidad y volver más tarde para revisar cambios.
+                </div>
               </div>
             ) : (
               prioritiesSorted.slice(0, 5).map((p) => {
@@ -887,25 +1099,46 @@ function DashboardPage() {
                       st.card
                     }
                   >
-                    <div className={"h-[42px] w-[42px] rounded-[15px] grid place-items-center " + st.icon}>
+                    <div
+                      className={
+                        "h-[42px] w-[42px] rounded-[15px] grid place-items-center " + st.icon
+                      }
+                    >
                       <Icon className="h-[18px] w-[18px]" />
                     </div>
                     <div>
-                      <div className="text-[11px] font-extrabold text-[#667085] uppercase tracking-[0.08em]">Acción</div>
+                      <div className="text-[11px] font-extrabold text-[#667085] uppercase tracking-[0.08em]">
+                        Acción
+                      </div>
                       <h4 className="text-[15px] font-semibold tracking-[-0.02em]">{p.title}</h4>
-                      <div className={"mt-2 text-[36px] leading-[0.85] font-extrabold tracking-[-0.06em] " + st.number}>
+                      <div
+                        className={
+                          "mt-2 text-[36px] leading-[0.85] font-extrabold tracking-[-0.06em] " +
+                          st.number
+                        }
+                      >
                         {p.count}
                       </div>
-                      <p className="mt-2 text-[13px] leading-[1.5] text-[#475467] min-h-[40px]">{p.description}</p>
+                      <p className="mt-2 text-[13px] leading-[1.5] text-[#475467] min-h-[40px]">
+                        {p.description}
+                      </p>
                     </div>
                     <div className="mt-auto grid gap-3">
-                      <span className={"inline-flex w-fit items-center gap-2 rounded-full px-2.5 py-1 text-[12px] font-extrabold " + tagClass}>
+                      <span
+                        className={
+                          "inline-flex w-fit items-center gap-2 rounded-full px-2.5 py-1 text-[12px] font-extrabold " +
+                          tagClass
+                        }
+                      >
                         <span className="inline-block h-[7px] w-[7px] rounded-full bg-current" />
                         Prioridad: {tagText}
                       </span>
                       <Link
                         to={p.to as any}
-                        className={"inline-flex h-10 items-center justify-center rounded-[14px] px-3 text-[13px] font-extrabold " + st.ctaOutline}
+                        className={
+                          "inline-flex h-10 items-center justify-center rounded-[14px] px-3 text-[13px] font-extrabold " +
+                          st.ctaOutline
+                        }
                       >
                         {p.ctaLabel}
                       </Link>
@@ -937,7 +1170,11 @@ function DashboardPage() {
         {attentionCards.map((card) => {
           const Icon = card.icon;
           return (
-            <DataCard key={card.key} noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+            <DataCard
+              key={card.key}
+              noPadding
+              className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]"
+            >
               <div className="p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-2">
@@ -945,21 +1182,33 @@ function DashboardPage() {
                       <Icon className="h-[18px] w-[18px]" />
                     </div>
                     <div>
-                      <h3 className="text-[18px] font-semibold tracking-[-0.035em]">{card.title}</h3>
-                      <p className="mt-0.5 text-[13px] font-medium text-[#667085]">Lista corta para actuar rápido sin salir del dashboard.</p>
+                      <h3 className="text-[18px] font-semibold tracking-[-0.035em]">
+                        {card.title}
+                      </h3>
+                      <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
+                        Lista corta para actuar rápido sin salir del dashboard.
+                      </p>
                     </div>
                   </div>
-                  <Link to={card.to as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                  <Link
+                    to={card.to as any}
+                    className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                  >
                     Abrir módulo
                   </Link>
                 </div>
 
                 <div className="mt-4 rounded-[16px] border border-[#e6eaf0] bg-white overflow-hidden">
                   {card.items.length === 0 ? (
-                    <div className="px-4 py-4 text-[13px] font-medium text-[#667085]">{card.empty}</div>
+                    <div className="px-4 py-4 text-[13px] font-medium text-[#667085]">
+                      {card.empty}
+                    </div>
                   ) : (
                     card.items.map((item: any, index: number) => (
-                      <div key={`${card.key}:${item.id || index}`} className="px-4 py-3 border-t first:border-t-0 border-[#eef2f6]">
+                      <div
+                        key={`${card.key}:${item.id || index}`}
+                        className="px-4 py-3 border-t first:border-t-0 border-[#eef2f6]"
+                      >
                         {card.render(item)}
                       </div>
                     ))
@@ -973,7 +1222,10 @@ function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="grid gap-4">
-          <DataCard noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+          <DataCard
+            noPadding
+            className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]"
+          >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -981,11 +1233,18 @@ function DashboardPage() {
                     <GitBranch className="h-[18px] w-[18px]" />
                   </div>
                   <div>
-                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">Pipeline de ventas</h3>
-                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">Resumen por etapa.</p>
+                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">
+                      Pipeline de ventas
+                    </h3>
+                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
+                      Resumen por etapa.
+                    </p>
                   </div>
                 </div>
-                <Link to={"/pipeline" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                <Link
+                  to={"/pipeline" as any}
+                  className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                >
                   Ver pipeline
                 </Link>
               </div>
@@ -998,13 +1257,24 @@ function DashboardPage() {
                 ) : (
                   <>
                     {pipelineStages.map((s) => {
-                      const pct = pipelineTotalValue > 0 ? Math.round((s.value / pipelineTotalValue) * 100) : 0;
-                      const bar = pipelineTotalValue > 0 ? Math.max(6, Math.round((s.value / pipelineTotalValue) * 100)) : 0;
+                      const pct =
+                        pipelineTotalValue > 0
+                          ? Math.round((s.value / pipelineTotalValue) * 100)
+                          : 0;
+                      const bar =
+                        pipelineTotalValue > 0
+                          ? Math.max(6, Math.round((s.value / pipelineTotalValue) * 100))
+                          : 0;
                       return (
-                        <div key={s.stage} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
+                        <div
+                          key={s.stage}
+                          className="grid grid-cols-[1fr_auto_auto] items-center gap-3"
+                        >
                           <div className="min-w-0">
                             <strong className="block text-[13px] font-semibold">{s.stage}</strong>
-                            <span className="text-[12px] font-semibold text-[#667085]">{s.count} deal(s)</span>
+                            <span className="text-[12px] font-semibold text-[#667085]">
+                              {s.count} deal(s)
+                            </span>
                             <div className="mt-2 h-2 rounded-full bg-[#edf2f7] overflow-hidden">
                               <span
                                 className="block h-full rounded-full bg-[linear-gradient(90deg,#1d62f9,#60a5fa)]"
@@ -1012,7 +1282,9 @@ function DashboardPage() {
                               />
                             </div>
                           </div>
-                          <div className="text-right text-[13px] font-extrabold whitespace-nowrap">{formatMoney(s.value)}</div>
+                          <div className="text-right text-[13px] font-extrabold whitespace-nowrap">
+                            {formatMoney(s.value)}
+                          </div>
                           <div className="h-7 w-[52px] rounded-full bg-[#f3f6fb] grid place-items-center text-[12px] font-extrabold text-[#667085]">
                             {pct}%
                           </div>
@@ -1021,7 +1293,9 @@ function DashboardPage() {
                     })}
                     <div className="mt-2 pt-4 border-t border-[#e6eaf0] flex items-center justify-between font-extrabold">
                       <span>Total</span>
-                      <span className="text-[18px] text-[#1d62f9]">{formatMoney(pipelineTotalValue)}</span>
+                      <span className="text-[18px] text-[#1d62f9]">
+                        {formatMoney(pipelineTotalValue)}
+                      </span>
                     </div>
                   </>
                 )}
@@ -1029,7 +1303,10 @@ function DashboardPage() {
             </div>
           </DataCard>
 
-          <DataCard noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+          <DataCard
+            noPadding
+            className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]"
+          >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -1037,16 +1314,26 @@ function DashboardPage() {
                     <DollarSign className="h-[18px] w-[18px]" />
                   </div>
                   <div>
-                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">Propuestas y cobros</h3>
-                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">Lo que requiere atención en ventas y finanzas.</p>
+                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">
+                      Propuestas y cobros
+                    </h3>
+                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
+                      Lo que requiere atención en ventas y finanzas.
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Link to={"/proposals" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                  <Link
+                    to={"/proposals" as any}
+                    className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                  >
                     Ver propuestas
                   </Link>
                   <span className="text-[#d0d5dd]">•</span>
-                  <Link to={"/invoices" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                  <Link
+                    to={"/invoices" as any}
+                    className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                  >
                     Ver facturas
                   </Link>
                 </div>
@@ -1054,20 +1341,61 @@ function DashboardPage() {
 
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {[
-                  { icon: FileText, iconChip: "bg-[#f4efff] text-[#7c3aed]", label: "Propuestas pendientes", value: String(pendingProposals.length) },
-                  { icon: CheckSquare, iconChip: "bg-[#ecfdf3] text-[#16a34a]", label: "Aprobadas (sin cobro)", value: String(approvedProposalsNoPaymentCount) },
-                  { icon: Receipt, iconChip: "bg-[#fff7e6] text-[#f59e0b]", label: "Facturas enviadas", value: String(invoicesSent.length) },
-                  { icon: AlertTriangle, iconChip: "bg-[#fff1f3] text-[#e11d48]", label: "Facturas vencidas", value: String(invoicesOverdue.length) },
-                  { icon: Receipt, iconChip: "bg-[#f0f7ff] text-[#1d62f9]", label: "Total por cobrar", value: formatMoney(receivableTotal) },
-                  { icon: TrendingUp, iconChip: "bg-[#ecfdf3] text-[#16a34a]", label: "Ingresos cobrados", value: formatMoney(paidRevenue) },
+                  {
+                    icon: FileText,
+                    iconChip: "bg-[#f4efff] text-[#7c3aed]",
+                    label: "Propuestas pendientes",
+                    value: String(pendingProposals.length),
+                  },
+                  {
+                    icon: CheckSquare,
+                    iconChip: "bg-[#ecfdf3] text-[#16a34a]",
+                    label: "Aprobadas (sin cobro)",
+                    value: String(approvedProposalsNoPaymentCount),
+                  },
+                  {
+                    icon: Receipt,
+                    iconChip: "bg-[#fff7e6] text-[#f59e0b]",
+                    label: "Facturas enviadas",
+                    value: String(invoicesSent.length),
+                  },
+                  {
+                    icon: AlertTriangle,
+                    iconChip: "bg-[#fff1f3] text-[#e11d48]",
+                    label: "Facturas vencidas",
+                    value: String(invoicesOverdue.length),
+                  },
+                  {
+                    icon: Receipt,
+                    iconChip: "bg-[#f0f7ff] text-[#1d62f9]",
+                    label: "Total por cobrar",
+                    value: formatMoney(receivableTotal),
+                  },
+                  {
+                    icon: TrendingUp,
+                    iconChip: "bg-[#ecfdf3] text-[#16a34a]",
+                    label: "Ingresos cobrados",
+                    value: formatMoney(paidRevenue),
+                  },
                 ].map((b) => (
-                  <div key={b.label} className="flex items-center gap-3 rounded-[15px] border border-[#e6eaf0] bg-white p-3.5">
-                    <div className={"h-[34px] w-[34px] rounded-[12px] grid place-items-center " + b.iconChip}>
+                  <div
+                    key={b.label}
+                    className="flex items-center gap-3 rounded-[15px] border border-[#e6eaf0] bg-white p-3.5"
+                  >
+                    <div
+                      className={
+                        "h-[34px] w-[34px] rounded-[12px] grid place-items-center " + b.iconChip
+                      }
+                    >
                       <b.icon className="h-[18px] w-[18px]" />
                     </div>
                     <div className="min-w-0">
-                      <span className="block text-[12px] font-semibold text-[#667085] truncate">{b.label}</span>
-                      <strong className="block text-[15px] font-semibold mt-1 truncate">{b.value}</strong>
+                      <span className="block text-[12px] font-semibold text-[#667085] truncate">
+                        {b.label}
+                      </span>
+                      <strong className="block text-[15px] font-semibold mt-1 truncate">
+                        {b.value}
+                      </strong>
                     </div>
                   </div>
                 ))}
@@ -1075,7 +1403,10 @@ function DashboardPage() {
             </div>
           </DataCard>
 
-          <DataCard noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+          <DataCard
+            noPadding
+            className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]"
+          >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -1083,11 +1414,18 @@ function DashboardPage() {
                     <MessageCircle className="h-[18px] w-[18px]" />
                   </div>
                   <div>
-                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">Inbox pendiente</h3>
-                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">WhatsApp y Email por responder.</p>
+                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">
+                      Inbox pendiente
+                    </h3>
+                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
+                      WhatsApp y Email por responder.
+                    </p>
                   </div>
                 </div>
-                <Link to={"/whatsapp" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                <Link
+                  to={"/whatsapp" as any}
+                  className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                >
                   Abrir inbox
                 </Link>
               </div>
@@ -1100,7 +1438,9 @@ function DashboardPage() {
                     </div>
                     <div>
                       <strong className="block text-[18px]">{waOpen}</strong>
-                      <span className="block text-[12px] font-bold text-[#667085]">WhatsApp abiertos</span>
+                      <span className="block text-[12px] font-bold text-[#667085]">
+                        WhatsApp abiertos
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 rounded-[16px] border border-[#cfe4ff] bg-[#f0f7ff] p-4">
@@ -1109,7 +1449,9 @@ function DashboardPage() {
                     </div>
                     <div>
                       <strong className="block text-[18px]">{emailOpen}</strong>
-                      <span className="block text-[12px] font-bold text-[#667085]">Emails pendientes</span>
+                      <span className="block text-[12px] font-bold text-[#667085]">
+                        Emails pendientes
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1121,13 +1463,20 @@ function DashboardPage() {
                 ) : (
                   <div className="rounded-[16px] border border-[#e6eaf0] bg-white overflow-hidden">
                     {pendingConversations.map((c) => (
-                      <div key={c.id} className="px-4 py-3 border-b last:border-b-0 border-[#eef2f6] flex items-start justify-between gap-3">
+                      <div
+                        key={c.id}
+                        className="px-4 py-3 border-b last:border-b-0 border-[#eef2f6] flex items-start justify-between gap-3"
+                      >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <strong className="text-[13px] truncate">{c.name}</strong>
-                            <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#edf5ff] text-[#1d62f9]">{c.channel}</span>
+                            <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#edf5ff] text-[#1d62f9]">
+                              {c.channel}
+                            </span>
                           </div>
-                          <div className="mt-1 text-[12px] font-semibold text-[#667085] truncate">{c.preview}</div>
+                          <div className="mt-1 text-[12px] font-semibold text-[#667085] truncate">
+                            {c.preview}
+                          </div>
                         </div>
                         <Link
                           to={c.to as any}
@@ -1145,7 +1494,10 @@ function DashboardPage() {
         </div>
 
         <div className="grid gap-4">
-          <DataCard noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+          <DataCard
+            noPadding
+            className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]"
+          >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -1154,15 +1506,23 @@ function DashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-[18px] font-semibold tracking-[-0.035em]">Producción</h3>
-                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">Proyectos y tareas en curso.</p>
+                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
+                      Proyectos y tareas en curso.
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Link to={"/tasks" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                  <Link
+                    to={"/tasks" as any}
+                    className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                  >
                     Ver tareas
                   </Link>
                   <span className="text-[#d0d5dd]">•</span>
-                  <Link to={"/projects" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                  <Link
+                    to={"/projects" as any}
+                    className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                  >
                     Ver proyectos
                   </Link>
                 </div>
@@ -1170,18 +1530,49 @@ function DashboardPage() {
 
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {[
-                  { icon: Building2, iconChip: "bg-[#ecfdf3] text-[#16a34a]", label: "Proyectos activos", value: String(projectsActiveCount) },
-                  { icon: AlertTriangle, iconChip: "bg-[#fff1f3] text-[#e11d48]", label: "Tareas atrasadas", value: String(overdueTasks.length) },
-                  { icon: Clock, iconChip: "bg-[#f0f7ff] text-[#1d62f9]", label: "Tareas para hoy", value: String(tasksDueTodayCount) },
-                  { icon: Clock, iconChip: "bg-[#fff7e6] text-[#f59e0b]", label: "Entregas esta semana", value: String(projectsDueThisWeekCount) },
+                  {
+                    icon: Building2,
+                    iconChip: "bg-[#ecfdf3] text-[#16a34a]",
+                    label: "Proyectos activos",
+                    value: String(projectsActiveCount),
+                  },
+                  {
+                    icon: AlertTriangle,
+                    iconChip: "bg-[#fff1f3] text-[#e11d48]",
+                    label: "Tareas atrasadas",
+                    value: String(overdueTasks.length),
+                  },
+                  {
+                    icon: Clock,
+                    iconChip: "bg-[#f0f7ff] text-[#1d62f9]",
+                    label: "Tareas para hoy",
+                    value: String(tasksDueTodayCount),
+                  },
+                  {
+                    icon: Clock,
+                    iconChip: "bg-[#fff7e6] text-[#f59e0b]",
+                    label: "Entregas esta semana",
+                    value: String(projectsDueThisWeekCount),
+                  },
                 ].map((b) => (
-                  <div key={b.label} className="flex items-center gap-3 rounded-[15px] border border-[#e6eaf0] bg-white p-3.5">
-                    <div className={"h-[34px] w-[34px] rounded-[12px] grid place-items-center " + b.iconChip}>
+                  <div
+                    key={b.label}
+                    className="flex items-center gap-3 rounded-[15px] border border-[#e6eaf0] bg-white p-3.5"
+                  >
+                    <div
+                      className={
+                        "h-[34px] w-[34px] rounded-[12px] grid place-items-center " + b.iconChip
+                      }
+                    >
                       <b.icon className="h-[18px] w-[18px]" />
                     </div>
                     <div className="min-w-0">
-                      <span className="block text-[12px] font-semibold text-[#667085] truncate">{b.label}</span>
-                      <strong className="block text-[15px] font-semibold mt-1 truncate">{b.value}</strong>
+                      <span className="block text-[12px] font-semibold text-[#667085] truncate">
+                        {b.label}
+                      </span>
+                      <strong className="block text-[15px] font-semibold mt-1 truncate">
+                        {b.value}
+                      </strong>
                     </div>
                   </div>
                 ))}
@@ -1189,7 +1580,10 @@ function DashboardPage() {
             </div>
           </DataCard>
 
-          <DataCard noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+          <DataCard
+            noPadding
+            className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]"
+          >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -1197,25 +1591,41 @@ function DashboardPage() {
                     <Clock className="h-[18px] w-[18px]" />
                   </div>
                   <div>
-                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">Agenda próxima</h3>
-                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">Vencimientos y próximos hitos.</p>
+                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">
+                      Agenda próxima
+                    </h3>
+                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
+                      Vencimientos y próximos hitos.
+                    </p>
                   </div>
                 </div>
-                <Link to={"/calendar" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                <Link
+                  to={"/calendar" as any}
+                  className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                >
                   Ver calendario
                 </Link>
               </div>
 
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-[16px] border border-[#e6eaf0] bg-white overflow-hidden">
-                  <div className="px-4 py-3 bg-[#f9fafc] text-[12px] font-extrabold text-[#667085]">Hoy</div>
+                  <div className="px-4 py-3 bg-[#f9fafc] text-[12px] font-extrabold text-[#667085]">
+                    Hoy
+                  </div>
                   {agendaToday.length === 0 ? (
-                    <div className="px-4 py-4 text-[13px] font-medium text-[#667085]">Nada programado para hoy.</div>
+                    <div className="px-4 py-4 text-[13px] font-medium text-[#667085]">
+                      Nada programado para hoy.
+                    </div>
                   ) : (
                     agendaToday.map((i) => (
-                      <div key={`${i.kind}:${i.title}:${i.dateKey}`} className="px-4 py-3 border-t border-[#eef2f6] flex items-start justify-between gap-3">
+                      <div
+                        key={`${i.kind}:${i.title}:${i.dateKey}`}
+                        className="px-4 py-3 border-t border-[#eef2f6] flex items-start justify-between gap-3"
+                      >
                         <div className="min-w-0">
-                          <div className="text-[11px] font-extrabold text-[#667085] uppercase tracking-[0.08em]">{i.kind}</div>
+                          <div className="text-[11px] font-extrabold text-[#667085] uppercase tracking-[0.08em]">
+                            {i.kind}
+                          </div>
                           <div className="text-[13px] font-semibold truncate">{i.title}</div>
                         </div>
                         <Link
@@ -1230,16 +1640,27 @@ function DashboardPage() {
                 </div>
 
                 <div className="rounded-[16px] border border-[#e6eaf0] bg-white overflow-hidden">
-                  <div className="px-4 py-3 bg-[#f9fafc] text-[12px] font-extrabold text-[#667085]">Esta semana</div>
+                  <div className="px-4 py-3 bg-[#f9fafc] text-[12px] font-extrabold text-[#667085]">
+                    Esta semana
+                  </div>
                   {agendaWeek.length === 0 ? (
-                    <div className="px-4 py-4 text-[13px] font-medium text-[#667085]">Sin vencimientos próximos.</div>
+                    <div className="px-4 py-4 text-[13px] font-medium text-[#667085]">
+                      Sin vencimientos próximos.
+                    </div>
                   ) : (
                     agendaWeek.map((i) => (
-                      <div key={`${i.kind}:${i.title}:${i.dateKey}`} className="px-4 py-3 border-t border-[#eef2f6] flex items-start justify-between gap-3">
+                      <div
+                        key={`${i.kind}:${i.title}:${i.dateKey}`}
+                        className="px-4 py-3 border-t border-[#eef2f6] flex items-start justify-between gap-3"
+                      >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#f3f6fb] text-[#667085]">{i.dateKey}</span>
-                            <span className="text-[11px] font-extrabold text-[#667085] uppercase tracking-[0.08em]">{i.kind}</span>
+                            <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#f3f6fb] text-[#667085]">
+                              {i.dateKey}
+                            </span>
+                            <span className="text-[11px] font-extrabold text-[#667085] uppercase tracking-[0.08em]">
+                              {i.kind}
+                            </span>
                           </div>
                           <div className="mt-1 text-[13px] font-semibold truncate">{i.title}</div>
                         </div>
@@ -1257,7 +1678,10 @@ function DashboardPage() {
             </div>
           </DataCard>
 
-          <DataCard noPadding className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]">
+          <DataCard
+            noPadding
+            className="rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)]"
+          >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -1265,11 +1689,18 @@ function DashboardPage() {
                     <CheckSquare className="h-[18px] w-[18px]" />
                   </div>
                   <div>
-                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">Actividad reciente</h3>
-                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">Cambios relevantes en tu CRM.</p>
+                    <h3 className="text-[18px] font-semibold tracking-[-0.035em]">
+                      Actividad reciente
+                    </h3>
+                    <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
+                      Cambios relevantes en tu CRM.
+                    </p>
                   </div>
                 </div>
-                <Link to={"/reports" as any} className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap">
+                <Link
+                  to={"/reports" as any}
+                  className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                >
                   Ver reportes
                 </Link>
               </div>
@@ -1280,7 +1711,14 @@ function DashboardPage() {
                   items={
                     activities.length > 0
                       ? activities
-                      : [{ id: "empty", action: "Sin actividad", detail: "No hay actividad reciente todavía.", time: t("dashboard.now") }]
+                      : [
+                          {
+                            id: "empty",
+                            action: "Sin actividad",
+                            detail: "No hay actividad reciente todavía.",
+                            time: t("dashboard.now"),
+                          },
+                        ]
                   }
                 />
               </div>

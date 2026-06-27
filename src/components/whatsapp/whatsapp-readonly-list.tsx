@@ -48,7 +48,11 @@ function TinyTag({
   );
 }
 
-function matchesFilter(row: CrmWhatsappConversationListRow, filter: ExtendedInboxFilter, currentUserId: string | null) {
+function matchesFilter(
+  row: CrmWhatsappConversationListRow,
+  filter: ExtendedInboxFilter,
+  currentUserId: string | null,
+) {
   const unread = Number(row.unread_count ?? 0);
   const needsHuman = Boolean(row.needs_human) || Boolean(row.lead_wants_human);
   const botOff = row.bot_enabled === false;
@@ -117,27 +121,35 @@ export function WhatsappReadonlyList({
     return conversations
       .filter((c) => matchesFilter(c, filter, currentUserId))
       .filter((c) => {
-      if (!q) return true;
-      const hay = [
-        c.display_name,
-        c.contact_name,
-        c.whatsapp_profile_name,
-        c.phone,
-        c.selected_service,
-        c.business_name,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
+        if (!q) return true;
+        const hay = [
+          c.display_name,
+          c.contact_name,
+          c.whatsapp_profile_name,
+          c.phone,
+          c.selected_service,
+          c.business_name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      });
   }, [conversations, search, filter]);
 
   return (
-    <aside data-demo="whatsapp-conversation-list" className={cn("h-full min-h-0 w-[350px] max-[1450px]:w-[340px] max-[1180px]:w-[300px] max-[820px]:w-[82px] border-r border-black/10 bg-white min-w-0 overflow-hidden flex flex-col", className)}>
+    <aside
+      data-demo="whatsapp-conversation-list"
+      className={cn(
+        "h-full min-h-0 w-[350px] max-[1450px]:w-[340px] max-[1180px]:w-[300px] max-[820px]:w-[82px] border-r border-black/10 bg-white min-w-0 overflow-hidden flex flex-col",
+        className,
+      )}
+    >
       <div className="px-3.5 py-3 border-b border-black/10 bg-[#f0f2f5] space-y-2.5">
         <div className="flex items-center justify-between max-[820px]:hidden">
-          <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">Conversaciones</h2>
+          <h2 className="text-[20px] font-semibold tracking-[-0.04em] text-slate-900">
+            Conversaciones
+          </h2>
           <span className="min-w-6 h-5 px-2 rounded-full bg-white/80 text-slate-600 text-[11px] grid place-items-center font-semibold border border-black/5">
             {filtered.length}
           </span>
@@ -152,7 +164,9 @@ export function WhatsappReadonlyList({
             <button
               key={item.key}
               type="button"
-              onClick={() => onSelectChannel(item.key as "all" | "whatsapp" | "messenger" | "instagram")}
+              onClick={() =>
+                onSelectChannel(item.key as "all" | "whatsapp" | "messenger" | "instagram")
+              }
               className={cn(
                 "h-8 rounded-full border text-[11px] font-medium transition-colors",
                 selectedChannel === item.key
@@ -184,7 +198,12 @@ export function WhatsappReadonlyList({
               <span className="text-slate-400">Filtro:</span>
               <span className="truncate">{selectedFilterLabel}</span>
             </span>
-            <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", filterOpen && "rotate-180")} />
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-slate-400 transition-transform",
+                filterOpen && "rotate-180",
+              )}
+            />
           </button>
 
           {filterOpen ? (
@@ -219,15 +238,24 @@ export function WhatsappReadonlyList({
 
       <div className="flex-1 min-h-0 overflow-y-auto p-0 bg-white">
         {loading ? (
-          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">Cargando conversaciones…</div>
+          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">
+            Cargando conversaciones…
+          </div>
         ) : error ? (
           <div className="p-3 text-sm text-destructive max-[820px]:hidden">{error}</div>
         ) : filtered.length === 0 ? (
-          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">No hay conversaciones.</div>
+          <div className="p-3 text-sm text-muted-foreground max-[820px]:hidden">
+            No hay conversaciones.
+          </div>
         ) : (
           <div className="space-y-0">
             {filtered.map((c) => {
-              const name = c.display_name || c.contact_name || c.whatsapp_profile_name || c.phone || "Sin nombre";
+              const name =
+                c.display_name ||
+                c.contact_name ||
+                c.whatsapp_profile_name ||
+                c.phone ||
+                "Sin nombre";
               const unread = Number(c.unread_count ?? 0);
               const active = selectedConversationId === c.conversation_id;
               const needsHuman = Boolean(c.needs_human) || Boolean(c.lead_wants_human);
@@ -279,7 +307,9 @@ export function WhatsappReadonlyList({
                     <div className="min-w-0 flex-1 max-[820px]:hidden">
                       <div className="flex items-start justify-between gap-2 min-w-0">
                         <div className="min-w-0">
-                          <div className="truncate text-[14px] font-semibold tracking-[-0.015em] text-slate-900 leading-tight">{name}</div>
+                          <div className="truncate text-[14px] font-semibold tracking-[-0.015em] text-slate-900 leading-tight">
+                            {name}
+                          </div>
                         </div>
                         <div className="shrink-0 text-[11px] text-slate-400 pt-0.5">
                           {formatMetaTime(c.last_message_at || c.conversation_updated_at)}
@@ -294,7 +324,9 @@ export function WhatsappReadonlyList({
                         {unassigned ? <TinyTag tone="neutral">Sin asignar</TinyTag> : null}
                         {botOff ? <TinyTag tone="warn">Bot OFF</TinyTag> : null}
                         {c.lead_stage ? <TinyTag>{c.lead_stage}</TinyTag> : null}
-                        {c.selected_service ? <TinyTag tone="info">{c.selected_service}</TinyTag> : null}
+                        {c.selected_service ? (
+                          <TinyTag tone="info">{c.selected_service}</TinyTag>
+                        ) : null}
                       </div>
                     </div>
                   </div>

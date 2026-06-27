@@ -20,7 +20,11 @@ function groupByDay(messages: MetaMessageRow[]) {
   let current = "";
   for (const m of messages) {
     const stamp = resolveMessageStamp(m);
-    const day = new Date(stamp).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+    const day = new Date(stamp).toLocaleDateString([], {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
     if (day !== current) {
       current = day;
       groups.push({ day, items: [m] });
@@ -62,14 +66,19 @@ export function InstagramReadonlyThread({
   return (
     <section
       data-demo="instagram-active-thread"
-      className={cn("h-full min-h-0 min-w-0 flex flex-col overflow-hidden bg-[#efeae2] border-r border-black/10", className)}
+      className={cn(
+        "h-full min-h-0 min-w-0 flex flex-col overflow-hidden bg-[#efeae2] border-r border-black/10",
+        className,
+      )}
     >
       <header className="shrink-0 h-[60px] bg-[#f0f2f5] border-b border-black/10 flex items-center justify-between px-4.5 gap-3 min-w-0 sticky top-0 z-10">
         <div className="flex items-center gap-2.5 min-w-0">
           <WhatsappAvatar name={title} imageUrl={avatarUrl || null} size={34} />
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="text-[15px] font-semibold tracking-[-0.015em] truncate text-slate-900">{title}</div>
+              <div className="text-[15px] font-semibold tracking-[-0.015em] truncate text-slate-900">
+                {title}
+              </div>
               <span className="inline-flex items-center h-[22px] px-2 rounded-full border text-[10px] font-medium bg-pink-50 text-pink-700 border-pink-200">
                 Instagram
               </span>
@@ -95,9 +104,13 @@ export function InstagramReadonlyThread({
           {loading ? (
             <div className="text-sm text-muted-foreground">Cargando mensajes de Instagram…</div>
           ) : error ? (
-            <div className="text-sm text-destructive">No se pudieron cargar los mensajes de Instagram.</div>
+            <div className="text-sm text-destructive">
+              No se pudieron cargar los mensajes de Instagram.
+            </div>
           ) : messages.length === 0 ? (
-            <div className="text-sm text-muted-foreground">{emptyHint || "Sin mensajes todavía."}</div>
+            <div className="text-sm text-muted-foreground">
+              {emptyHint || "Sin mensajes todavía."}
+            </div>
           ) : (
             <div className="max-w-[860px] mx-auto">
               {groups.map((g) => (
@@ -110,9 +123,14 @@ export function InstagramReadonlyThread({
                   {g.items.map((m) => {
                     const out = m.direction === "outbound";
                     const text = m.text || "";
-                    const attachmentsCount = Array.isArray(m.attachments) ? m.attachments.length : 0;
+                    const attachmentsCount = Array.isArray(m.attachments)
+                      ? m.attachments.length
+                      : 0;
                     return (
-                      <div key={m.id} className={cn("flex mb-2", out ? "justify-end" : "justify-start")}>
+                      <div
+                        key={m.id}
+                        className={cn("flex mb-2", out ? "justify-end" : "justify-start")}
+                      >
                         <div className="max-w-[min(560px,76%)]">
                           <div
                             className={cn(
@@ -122,7 +140,9 @@ export function InstagramReadonlyThread({
                                 : "bg-white text-slate-900 border-transparent rounded-bl-[3px]",
                             )}
                           >
-                            <div className="whitespace-pre-wrap break-words">{text || "Mensaje con adjuntos"}</div>
+                            <div className="whitespace-pre-wrap break-words">
+                              {text || "Mensaje con adjuntos"}
+                            </div>
                             {attachmentsCount > 0 ? (
                               <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
                                 <Paperclip className="h-3 w-3" />
@@ -174,4 +194,3 @@ export function InstagramReadonlyThread({
     </section>
   );
 }
-

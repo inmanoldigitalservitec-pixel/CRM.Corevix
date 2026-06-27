@@ -1,6 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, Star, Archive, Trash2, Reply, Mail, Filter, ChevronDown, X, Send } from "lucide-react";
+import {
+  Search,
+  Star,
+  Archive,
+  Trash2,
+  Reply,
+  Mail,
+  Filter,
+  ChevronDown,
+  X,
+  Send,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -72,10 +83,24 @@ function EmailPage() {
     if (!profile?.company_id) return;
     setLoading(true);
     // Prefer server-side provider filter, but gracefully fallback if column doesn't exist.
-    const q = db.from("email_conversations").select("*").eq("company_id", profile.company_id).order("last_message_at", { ascending: false });
+    const q = db
+      .from("email_conversations")
+      .select("*")
+      .eq("company_id", profile.company_id)
+      .order("last_message_at", { ascending: false });
     const { data, error } = await q.eq("provider", provider);
-    if (error && String(error.message || "").toLowerCase().includes("column") && String(error.message || "").includes("provider")) {
-      const r2 = await db.from("email_conversations").select("*").eq("company_id", profile.company_id).order("last_message_at", { ascending: false });
+    if (
+      error &&
+      String(error.message || "")
+        .toLowerCase()
+        .includes("column") &&
+      String(error.message || "").includes("provider")
+    ) {
+      const r2 = await db
+        .from("email_conversations")
+        .select("*")
+        .eq("company_id", profile.company_id)
+        .order("last_message_at", { ascending: false });
       setConversations(r2.data || []);
       setLoading(false);
       return;
@@ -88,7 +113,11 @@ function EmailPage() {
     if (!selectedConvo?.id) return;
     setMessagesLoading(true);
     setMessagesError(null);
-    const { data, error } = await db.from("email_messages").select("*").eq("conversation_id", selectedConvo.id).order("created_at");
+    const { data, error } = await db
+      .from("email_messages")
+      .select("*")
+      .eq("conversation_id", selectedConvo.id)
+      .order("created_at");
     if (error) {
       setMessagesError(error.message || "Could not load messages");
       setMessages([]);
@@ -121,8 +150,13 @@ function EmailPage() {
     enabled: Boolean(profile?.company_id),
     onChange: (payload) => {
       void fetchConversations();
-      const changedConversationId = String(payload.new?.conversation_id || payload.old?.conversation_id || "").trim();
-      if (selectedConvo?.id && (!changedConversationId || changedConversationId === selectedConvo.id)) {
+      const changedConversationId = String(
+        (payload.new as any)?.conversation_id || (payload.old as any)?.conversation_id || "",
+      ).trim();
+      if (
+        selectedConvo?.id &&
+        (!changedConversationId || changedConversationId === selectedConvo.id)
+      ) {
         void loadMessagesForSelected();
       }
     },
@@ -133,7 +167,11 @@ function EmailPage() {
     setMessages([]);
     setMessagesError(null);
     setMessagesLoading(true);
-    const { data, error } = await db.from("email_messages").select("*").eq("conversation_id", convo.id).order("created_at");
+    const { data, error } = await db
+      .from("email_messages")
+      .select("*")
+      .eq("conversation_id", convo.id)
+      .order("created_at");
     if (error) {
       setMessagesError(error.message || "Could not load messages");
       setMessagesLoading(false);
@@ -146,7 +184,9 @@ function EmailPage() {
   const tabCounts = useMemo(() => {
     const all = conversations.length;
     const unread = conversations.filter((c) => (c.unread_count || 0) > 0).length;
-    const starred = conversations.filter((c) => (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred")).length;
+    const starred = conversations.filter((c) =>
+      (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred"),
+    ).length;
     return { all, unread, starred };
   }, [conversations]);
 
@@ -154,7 +194,10 @@ function EmailPage() {
     const q = searchEmail.trim().toLowerCase();
     let list = conversations;
     if (tab === "unread") list = list.filter((c) => (c.unread_count || 0) > 0);
-    if (tab === "starred") list = list.filter((c) => (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred"));
+    if (tab === "starred")
+      list = list.filter((c) =>
+        (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred"),
+      );
     if (!q) return list;
     return list.filter((c) => `${c.subject || ""} ${c.snippet || ""}`.toLowerCase().includes(q));
   }, [conversations, searchEmail, tab]);
@@ -166,7 +209,9 @@ function EmailPage() {
 
   const openReplyComposer = () => {
     if (!selectedConvo) return;
-    const from = String(selectedLastMessage?.from_email || selectedLastMessage?.sender || "").trim();
+    const from = String(
+      selectedLastMessage?.from_email || selectedLastMessage?.sender || "",
+    ).trim();
     setComposerTo(from);
     setComposerSubject(`Re: ${selectedConvo.subject || ""}`.trim());
     setComposerBody("");
@@ -209,7 +254,9 @@ function EmailPage() {
           {/* Controls */}
           <div
             className={`grid gap-2 border-b bg-white p-3 transition-[grid-template-columns] duration-200 ${
-              searching ? "grid-cols-1" : "grid-cols-[clamp(104px,9vw,132px)_1fr_clamp(82px,7vw,104px)]"
+              searching
+                ? "grid-cols-1"
+                : "grid-cols-[clamp(104px,9vw,132px)_1fr_clamp(82px,7vw,104px)]"
             }`}
             style={{ minHeight: "clamp(52px, 6vh, 70px)" }}
           >
@@ -288,7 +335,9 @@ function EmailPage() {
                 <span className="min-w-6 h-[22px] rounded-full bg-primary/10 text-primary grid place-items-center text-xs font-black px-2">
                   {t.count}
                 </span>
-                {tab === t.key && <span className="absolute left-[10%] right-[10%] bottom-0 h-[3px] rounded-t-full bg-primary" />}
+                {tab === t.key && (
+                  <span className="absolute left-[10%] right-[10%] bottom-0 h-[3px] rounded-t-full bg-primary" />
+                )}
               </button>
             ))}
           </div>
@@ -300,29 +349,47 @@ function EmailPage() {
                 <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
               ) : filtered.length === 0 ? (
                 <div className="p-8">
-                  <EmptyState icon={<Mail className="h-6 w-6" />} title="No emails yet" description="Email conversations will appear here when you connect your email account." />
+                  <EmptyState
+                    icon={<Mail className="h-6 w-6" />}
+                    title="No emails yet"
+                    description="Email conversations will appear here when you connect your email account."
+                  />
                 </div>
               ) : (
                 filtered.map((convo) => {
                   const isActive = selectedConvo?.id === convo.id;
                   const unread = (convo.unread_count || 0) > 0;
-                  const time = convo.last_message_at ? new Date(convo.last_message_at).toLocaleDateString() : "";
+                  const time = convo.last_message_at
+                    ? new Date(convo.last_message_at).toLocaleDateString()
+                    : "";
                   return (
                     <div
                       key={convo.id}
                       onClick={() => selectConvo(convo)}
                       className={`relative cursor-pointer border-b bg-white px-4 py-3 transition-colors hover:bg-slate-50 ${
-                        isActive ? "bg-primary/5 shadow-[inset_3px_0_0_theme(colors.primary.DEFAULT)]" : ""
+                        isActive
+                          ? "bg-primary/5 shadow-[inset_3px_0_0_theme(colors.primary.DEFAULT)]"
+                          : ""
                       }`}
                       style={{ minHeight: "clamp(78px, 9vh, 96px)" }}
                     >
-                      {unread && <div className="absolute left-3 top-6 h-2 w-2 rounded-full bg-primary" />}
+                      {unread && (
+                        <div className="absolute left-3 top-6 h-2 w-2 rounded-full bg-primary" />
+                      )}
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className={`truncate text-sm ${unread ? "font-extrabold" : "font-bold"} text-slate-900`}>{convo.subject || "(No Subject)"}</div>
-                          <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{convo.snippet || "—"}</div>
+                          <div
+                            className={`truncate text-sm ${unread ? "font-extrabold" : "font-bold"} text-slate-900`}
+                          >
+                            {convo.subject || "(No Subject)"}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                            {convo.snippet || "—"}
+                          </div>
                         </div>
-                        <div className="shrink-0 text-[12px] font-semibold text-slate-500">{time}</div>
+                        <div className="shrink-0 text-[12px] font-semibold text-slate-500">
+                          {time}
+                        </div>
                       </div>
                     </div>
                   );
@@ -338,34 +405,59 @@ function EmailPage() {
             <>
               <div className="border-b bg-white px-4 py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-lg font-extrabold tracking-tight truncate">{selectedConvo.subject || "(No Subject)"}</div>
+                  <div className="text-lg font-extrabold tracking-tight truncate">
+                    {selectedConvo.subject || "(No Subject)"}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {selectedLastMessage?.from_email || selectedLastMessage?.sender || "—"}
-                    {selectedLastMessage?.sent_at ? ` • ${new Date(selectedLastMessage.sent_at).toLocaleString()}` : ""}
+                    {selectedLastMessage?.sent_at
+                      ? ` • ${new Date(selectedLastMessage.sent_at).toLocaleString()}`
+                      : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={openReplyComposer}><Reply className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-9 w-9"><Star className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-9 w-9"><Archive className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-9 w-9"><Trash2 className="h-4 w-4" /></Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={openReplyComposer}
+                  >
+                    <Reply className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Star className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
               <div className="min-h-0 flex-1">
                 <ScrollArea className="h-full p-4">
                   {messagesLoading ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground">Loading messages...</div>
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      Loading messages...
+                    </div>
                   ) : messagesError ? (
                     <div className="p-4 text-center text-sm text-destructive">{messagesError}</div>
                   ) : messages.length === 0 ? (
                     <div className="p-8">
-                      <EmptyState icon={<Mail className="h-6 w-6" />} title="No messages in this conversation" description="Run Sync Gmail from Settings and try again." />
+                      <EmptyState
+                        icon={<Mail className="h-6 w-6" />}
+                        title="No messages in this conversation"
+                        description="Run Sync Gmail from Settings and try again."
+                      />
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {messages.map((msg) => {
-                        const fromLabel = String(msg.from_email || msg.sender || "Unknown sender").trim();
+                        const fromLabel = String(
+                          msg.from_email || msg.sender || "Unknown sender",
+                        ).trim();
                         const fromAddr = String(msg.from_email || msg.sender || "").trim();
                         const when = msg.sent_at || msg.created_at;
                         return (
@@ -373,15 +465,21 @@ function EmailPage() {
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="font-bold text-sm truncate">{fromLabel}</div>
-                                <div className="text-xs text-muted-foreground truncate">{fromAddr ? `<${fromAddr}>` : "—"}</div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {fromAddr ? `<${fromAddr}>` : "—"}
+                                </div>
                               </div>
-                              <div className="text-xs text-muted-foreground shrink-0">{when ? new Date(when).toLocaleString() : ""}</div>
+                              <div className="text-xs text-muted-foreground shrink-0">
+                                {when ? new Date(when).toLocaleString() : ""}
+                              </div>
                             </div>
                             <div className="mt-3">
                               {msg.body_html ? (
                                 <EmailHtmlViewer html={msg.body_html} />
                               ) : (
-                                <div className="whitespace-pre-wrap text-sm text-slate-800">{msg.body || msg.snippet || "(No content)"}</div>
+                                <div className="whitespace-pre-wrap text-sm text-slate-800">
+                                  {msg.body || msg.snippet || "(No content)"}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -417,14 +515,23 @@ function EmailPage() {
           {composerOpen && (
             <div
               className={`fixed z-50 ${
-                composerExpanded ? "bottom-6 right-6 left-[calc(var(--app-pad)+var(--inbox)+var(--gap))] top-[calc(3.5rem+var(--app-pad))]" : "bottom-6 right-6 w-[min(520px,calc(100vw-48px))]"
+                composerExpanded
+                  ? "bottom-6 right-6 left-[calc(var(--app-pad)+var(--inbox)+var(--gap))] top-[calc(3.5rem+var(--app-pad))]"
+                  : "bottom-6 right-6 w-[min(520px,calc(100vw-48px))]"
               }`}
             >
               <div className="h-full rounded-2xl border bg-white shadow-2xl overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
-                  <div className="font-extrabold text-sm">{composerSubject ? "Responder" : "Nuevo mensaje"}</div>
+                  <div className="font-extrabold text-sm">
+                    {composerSubject ? "Responder" : "Nuevo mensaje"}
+                  </div>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setComposerExpanded((v) => !v)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setComposerExpanded((v) => !v)}
+                    >
                       <span className="text-xs font-black">{composerExpanded ? "▢" : "▣"}</span>
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeComposer}>
@@ -435,11 +542,19 @@ function EmailPage() {
                 <div className="p-4 space-y-3">
                   <div className="grid gap-2">
                     <label className="text-xs font-bold text-muted-foreground">Para</label>
-                    <Input value={composerTo} onChange={(e) => setComposerTo(e.target.value)} placeholder="destinatario@correo.com" />
+                    <Input
+                      value={composerTo}
+                      onChange={(e) => setComposerTo(e.target.value)}
+                      placeholder="destinatario@correo.com"
+                    />
                   </div>
                   <div className="grid gap-2">
                     <label className="text-xs font-bold text-muted-foreground">Asunto</label>
-                    <Input value={composerSubject} onChange={(e) => setComposerSubject(e.target.value)} placeholder="Asunto" />
+                    <Input
+                      value={composerSubject}
+                      onChange={(e) => setComposerSubject(e.target.value)}
+                      placeholder="Asunto"
+                    />
                   </div>
                 </div>
                 <div className="min-h-0 flex-1 px-4 pb-4">
@@ -451,8 +566,12 @@ function EmailPage() {
                   />
                 </div>
                 <div className="border-t bg-white px-4 py-3 flex items-center justify-between">
-                  <Button onClick={sendComposer} className="rounded-xl">Enviar</Button>
-                  <div className="text-xs text-muted-foreground">Adjuntar / formato / IA (próximamente)</div>
+                  <Button onClick={sendComposer} className="rounded-xl">
+                    Enviar
+                  </Button>
+                  <div className="text-xs text-muted-foreground">
+                    Adjuntar / formato / IA (próximamente)
+                  </div>
                 </div>
               </div>
             </div>

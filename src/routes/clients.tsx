@@ -53,11 +53,30 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -72,7 +91,10 @@ export const Route = createFileRoute("/clients")({
   head: () => ({
     meta: [
       { title: "Clients — Corevix CRM" },
-      { name: "description", content: "Gestiona clientes activos, contactos, proyectos y finanzas" },
+      {
+        name: "description",
+        content: "Gestiona clientes activos, contactos, proyectos y finanzas",
+      },
     ],
   }),
 });
@@ -526,11 +548,18 @@ function MetricCard({
 }) {
   return (
     <article className="group flex min-h-[96px] items-center gap-3 rounded-[18px] border border-[#e6eaf0] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.055)] transition-all duration-200 hover:-translate-y-[4px] hover:border-[#cbd8ee] hover:shadow-[0_18px_44px_rgba(15,23,42,0.10)]">
-      <div className={cnJoin("grid h-11 w-11 place-items-center rounded-[15px] transition-transform duration-200 group-hover:scale-[1.08]", tone)}>
+      <div
+        className={cnJoin(
+          "grid h-11 w-11 place-items-center rounded-[15px] transition-transform duration-200 group-hover:scale-[1.08]",
+          tone,
+        )}
+      >
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
-        <p className="text-[12px] font-medium text-[#667085] transition-colors group-hover:text-[#1d62f9]">{label}</p>
+        <p className="text-[12px] font-medium text-[#667085] transition-colors group-hover:text-[#1d62f9]">
+          {label}
+        </p>
         <p className="truncate text-[18px] font-semibold tracking-[-0.02em] text-[#101828] transition-colors group-hover:text-[#1d62f9]">
           {value}
         </p>
@@ -542,7 +571,12 @@ function MetricCard({
 
 function HealthBadge({ health }: { health: ClientHealth }) {
   return (
-    <span className={cnJoin("inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium", healthTone(health))}>
+    <span
+      className={cnJoin(
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
+        healthTone(health),
+      )}
+    >
       {healthLabel(health)}
     </span>
   );
@@ -556,7 +590,8 @@ function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [managerFilter, setManagerFilter] = useState<AccountManagerFilter>("all");
   const [industryFilter, setIndustryFilter] = useState("all");
-  const [contactFilter, setContactFilter] = useState<(typeof CONTACT_PRESENCE_FILTERS)[number]>("all");
+  const [contactFilter, setContactFilter] =
+    useState<(typeof CONTACT_PRESENCE_FILTERS)[number]>("all");
   const [healthFilter, setHealthFilter] = useState<(typeof CLIENT_HEALTH_FILTERS)[number]>("all");
   const [financeFilter, setFinanceFilter] = useState<(typeof FINANCE_FILTERS)[number]>("all");
   const [activityFilter, setActivityFilter] = useState<(typeof ACTIVITY_FILTERS)[number]>("all");
@@ -571,7 +606,11 @@ function ClientsPage() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [createTaskSaving, setCreateTaskSaving] = useState(false);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
-  const [taskDraft, setTaskDraft] = useState<{ title: string; description: string; due_date: string }>({
+  const [taskDraft, setTaskDraft] = useState<{
+    title: string;
+    description: string;
+    due_date: string;
+  }>({
     title: "",
     description: "",
     due_date: "",
@@ -586,7 +625,8 @@ function ClientsPage() {
     remove: removeClient,
   } = useCrud<ClientRow>({
     table: "clients",
-    select: "id,company_id,company_name,contact_person,email,phone,whatsapp,address,city,country,tax_id,website,industry,status,account_manager,tags,notes,created_at,updated_at",
+    select:
+      "id,company_id,company_name,contact_person,email,phone,whatsapp,address,city,country,tax_id,website,industry,status,account_manager,tags,notes,created_at,updated_at",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -601,7 +641,8 @@ function ClientsPage() {
     fetch: fetchContacts,
   } = useCrud<ContactRow>({
     table: "contacts",
-    select: "id,company_id,client_id,first_name,last_name,email,phone,whatsapp,department,position,tags,notes,is_primary,created_at,updated_at",
+    select:
+      "id,company_id,client_id,first_name,last_name,email,phone,whatsapp,department,position,tags,notes,is_primary,created_at,updated_at",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -624,7 +665,8 @@ function ClientsPage() {
     fetch: fetchTasks,
   } = useCrud<TaskRow>({
     table: "tasks",
-    select: "id,company_id,title,status,priority,due_date,updated_at,related_client_id,related_project_id",
+    select:
+      "id,company_id,title,status,priority,due_date,updated_at,related_client_id,related_project_id",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -635,7 +677,8 @@ function ClientsPage() {
     error: clientProductsError,
   } = useCrud<ClientProductRow>({
     table: "client_products",
-    select: "id,company_id,client_id,product_id,deal_id,status,start_date,end_date,price,billing_type,notes,created_at,updated_at",
+    select:
+      "id,company_id,client_id,product_id,deal_id,status,start_date,end_date,price,billing_type,notes,created_at,updated_at",
     orderBy: "updated_at",
     ascending: false,
     limit: 2000,
@@ -724,7 +767,18 @@ function ClientsPage() {
     ].filter(Boolean);
     if (errors.length === 0) return null;
     return "No se pudieron cargar algunas métricas.";
-  }, [clientsError, contactsError, projectsError, tasksError, clientProductsError, productsError, invoicesError, proposalsError, dealsError, managersError]);
+  }, [
+    clientsError,
+    contactsError,
+    projectsError,
+    tasksError,
+    clientProductsError,
+    productsError,
+    invoicesError,
+    proposalsError,
+    dealsError,
+    managersError,
+  ]);
 
   const managerNameById = useMemo(() => {
     return new Map(managers.map((manager) => [manager.id, manager.full_name]));
@@ -759,23 +813,44 @@ function ClientsPage() {
     };
   }, [profile?.company_id]);
 
-  const contactsByClient = useMemo(() => groupBy(contacts, (contact) => contact.client_id), [contacts]);
-  const projectsByClient = useMemo(() => groupBy(projects, (project) => project.client_id), [projects]);
+  const contactsByClient = useMemo(
+    () => groupBy(contacts, (contact) => contact.client_id),
+    [contacts],
+  );
+  const projectsByClient = useMemo(
+    () => groupBy(projects, (project) => project.client_id),
+    [projects],
+  );
   const tasksByClient = useMemo(() => groupBy(tasks, (task) => task.related_client_id), [tasks]);
-  const tasksByProject = useMemo(() => groupBy(tasks, (task) => task.related_project_id || null), [tasks]);
-  const invoicesByClient = useMemo(() => groupBy(invoices, (invoice) => invoice.client_id), [invoices]);
-  const proposalsByClient = useMemo(() => groupBy(proposals, (proposal) => proposal.client_id), [proposals]);
+  const tasksByProject = useMemo(
+    () => groupBy(tasks, (task) => task.related_project_id || null),
+    [tasks],
+  );
+  const invoicesByClient = useMemo(
+    () => groupBy(invoices, (invoice) => invoice.client_id),
+    [invoices],
+  );
+  const proposalsByClient = useMemo(
+    () => groupBy(proposals, (proposal) => proposal.client_id),
+    [proposals],
+  );
   const dealsByClient = useMemo(() => new Map<string, DealRow[]>(), []);
-  const clientProductsByClient = useMemo(() => groupBy(clientProducts, (cp) => cp.client_id), [clientProducts]);
+  const clientProductsByClient = useMemo(
+    () => groupBy(clientProducts, (cp) => cp.client_id),
+    [clientProducts],
+  );
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   const snapshots = useMemo<ClientSnapshot[]>(() => {
     return clients.map((client) => {
       const clientContacts = contactsByClient.get(client.id) || [];
-      const primaryContact = clientContacts.find((contact) => contact.is_primary) || clientContacts[0] || null;
+      const primaryContact =
+        clientContacts.find((contact) => contact.is_primary) || clientContacts[0] || null;
       const clientProjects = projectsByClient.get(client.id) || [];
       const directClientTasks = tasksByClient.get(client.id) || [];
-      const projectTasks = clientProjects.flatMap((p) => (tasksByProject.get(p.id) || []) as TaskRow[]);
+      const projectTasks = clientProjects.flatMap(
+        (p) => (tasksByProject.get(p.id) || []) as TaskRow[],
+      );
       const taskById = new Map<string, TaskRow>();
       for (const t of [...directClientTasks, ...projectTasks]) taskById.set(String(t.id), t);
       const clientTasks = Array.from(taskById.values());
@@ -783,21 +858,33 @@ function ClientsPage() {
       const clientProposals = proposalsByClient.get(client.id) || [];
       const clientDeals = dealsByClient.get(client.id) || [];
       const cps = (clientProductsByClient.get(client.id) || []) as ClientProductRow[];
-      const purchasedProducts = cps.map((cp) => ({ clientProduct: cp, product: productById.get(cp.product_id) || null }));
+      const purchasedProducts = cps.map((cp) => ({
+        clientProduct: cp,
+        product: productById.get(cp.product_id) || null,
+      }));
       const purchasedProductNames = purchasedProducts
         .map((p) => p.product?.name || null)
         .filter(Boolean) as string[];
 
-      const activeProjects = clientProjects.filter((project) => !["Completed", "Cancelled"].includes(project.status));
+      const activeProjects = clientProjects.filter(
+        (project) => !["Completed", "Cancelled"].includes(project.status),
+      );
       const openTasks = clientTasks.filter((task) => isOpenTaskStatus(task.status));
       const overdueTasks = openTasks.filter((task) => isOverdue(task.due_date));
       const nextOpenTask = openTasks.slice().sort(compareDueDateAsc)[0] || null;
-      const pendingInvoices = clientInvoices.filter((invoice) => ["Sent", "Overdue", "Partially Paid"].includes(invoice.status));
+      const pendingInvoices = clientInvoices.filter((invoice) =>
+        ["Sent", "Overdue", "Partially Paid"].includes(invoice.status),
+      );
       const overdueInvoices = clientInvoices.filter((invoice) => invoice.status === "Overdue");
-      const pendingProposals = clientProposals.filter((proposal) => ["Sent", "Viewed"].includes(proposal.status));
+      const pendingProposals = clientProposals.filter((proposal) =>
+        ["Sent", "Viewed"].includes(proposal.status),
+      );
       const openDeals = clientDeals.filter((deal) => !["Won", "Lost"].includes(deal.stage));
 
-      const pendingInvoiceAmount = pendingInvoices.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
+      const pendingInvoiceAmount = pendingInvoices.reduce(
+        (sum, invoice) => sum + Number(invoice.total || 0),
+        0,
+      );
       const openPipelineValue = openDeals.reduce((sum, deal) => sum + Number(deal.value || 0), 0);
       const latestActivityAt = maxDate([
         client.updated_at,
@@ -839,7 +926,9 @@ function ClientsPage() {
         pendingProposals,
         deals: clientDeals,
         openDeals,
-        accountManagerName: client.account_manager ? managerNameById.get(client.account_manager) || "Sin asignar" : "Sin asignar",
+        accountManagerName: client.account_manager
+          ? managerNameById.get(client.account_manager) || "Sin asignar"
+          : "Sin asignar",
         health: health.health,
         healthReason: health.reason,
         healthTone: HEALTH_STYLES[health.health],
@@ -862,32 +951,53 @@ function ClientsPage() {
     tasksByProject,
   ]);
 
-  const activeClientsCount = useMemo(() => snapshots.filter((client) => client.status === "Active").length, [snapshots]);
-  const vipClientsCount = useMemo(() => snapshots.filter((client) => client.status === "VIP").length, [snapshots]);
-  const riskClientsCount = useMemo(() => snapshots.filter((client) => client.health === "risk").length, [snapshots]);
+  const activeClientsCount = useMemo(
+    () => snapshots.filter((client) => client.status === "Active").length,
+    [snapshots],
+  );
+  const vipClientsCount = useMemo(
+    () => snapshots.filter((client) => client.status === "VIP").length,
+    [snapshots],
+  );
+  const riskClientsCount = useMemo(
+    () => snapshots.filter((client) => client.health === "risk").length,
+    [snapshots],
+  );
   const contactsCount = contacts.length;
   const primaryContactsCount = contacts.filter((contact) => contact.is_primary).length;
-  const activeProjectsCount = projects.filter((project) => !["Completed", "Cancelled"].includes(project.status)).length;
-  const pendingInvoicesCount = invoices.filter((invoice) => ["Sent", "Overdue", "Partially Paid"].includes(invoice.status)).length;
-  const overdueTasksCount = tasks.filter((task) => !["Completed", "Cancelled"].includes(task.status) && isOverdue(task.due_date)).length;
+  const activeProjectsCount = projects.filter(
+    (project) => !["Completed", "Cancelled"].includes(project.status),
+  ).length;
+  const pendingInvoicesCount = invoices.filter((invoice) =>
+    ["Sent", "Overdue", "Partially Paid"].includes(invoice.status),
+  ).length;
+  const overdueTasksCount = tasks.filter(
+    (task) => !["Completed", "Cancelled"].includes(task.status) && isOverdue(task.due_date),
+  ).length;
   const pendingInvoiceAmount = invoices
     .filter((invoice) => ["Sent", "Overdue", "Partially Paid"].includes(invoice.status))
     .reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
 
   const managerOptions = useMemo(() => managers.filter((manager) => manager.is_active), [managers]);
   const industryOptions = useMemo(() => {
-    return Array.from(new Set(snapshots.map((client) => client.industry).filter(Boolean))) as string[];
+    return Array.from(
+      new Set(snapshots.map((client) => client.industry).filter(Boolean)),
+    ) as string[];
   }, [snapshots]);
 
   const attentionCount = useMemo(
-    () => snapshots.filter((client) => client.health === "attention" || client.health === "risk").length,
+    () =>
+      snapshots.filter((client) => client.health === "attention" || client.health === "risk")
+        .length,
     [snapshots],
   );
 
   const filteredClients = useMemo(() => {
     const term = search.trim().toLowerCase();
     return snapshots.filter((client) => {
-      const primaryName = client.primaryContact ? getContactName(client.primaryContact) : client.contact_person || "";
+      const primaryName = client.primaryContact
+        ? getContactName(client.primaryContact)
+        : client.contact_person || "";
       const managerName = client.accountManagerName;
       const matchSearch =
         !term ||
@@ -923,14 +1033,25 @@ function ClientsPage() {
         financeFilter === "all" ||
         (financeFilter === "pending" && client.pendingInvoices.length > 0) ||
         (financeFilter === "overdue" && client.overdueInvoices.length > 0) ||
-        (financeFilter === "clear" && client.pendingInvoices.length === 0 && client.overdueInvoices.length === 0);
+        (financeFilter === "clear" &&
+          client.pendingInvoices.length === 0 &&
+          client.overdueInvoices.length === 0);
       const matchActivity =
         activityFilter === "all" ||
         (activityFilter === "recent7" && daysSince(client.latestActivityAt) <= 7) ||
         (activityFilter === "stale30" && daysSince(client.latestActivityAt) > 30) ||
         (activityFilter === "stale60" && daysSince(client.latestActivityAt) > 60);
 
-      return matchSearch && matchStatus && matchManager && matchIndustry && matchContactPresence && matchHealth && matchFinance && matchActivity;
+      return (
+        matchSearch &&
+        matchStatus &&
+        matchManager &&
+        matchIndustry &&
+        matchContactPresence &&
+        matchHealth &&
+        matchFinance &&
+        matchActivity
+      );
     });
   }, [
     activityFilter,
@@ -954,7 +1075,10 @@ function ClientsPage() {
     if (!profile?.company_id || !profile?.id) return false;
     if (!can("tasks.create")) return false;
     if (role === "viewer") return false;
-    if (role === "sales_agent") return Boolean(client.account_manager && String(client.account_manager) === String(profile.id));
+    if (role === "sales_agent")
+      return Boolean(
+        client.account_manager && String(client.account_manager) === String(profile.id),
+      );
     return true;
   };
 
@@ -1393,8 +1517,18 @@ function ClientsPage() {
       }
 
       const demoClient =
-        filteredClients.find((client) => String(client.company_name || "").toLowerCase().includes("demo")) ||
-        filteredClients.find((client) => client.projects.length || client.invoices.length || client.proposals.length || client.openDeals.length) ||
+        filteredClients.find((client) =>
+          String(client.company_name || "")
+            .toLowerCase()
+            .includes("demo"),
+        ) ||
+        filteredClients.find(
+          (client) =>
+            client.projects.length ||
+            client.invoices.length ||
+            client.proposals.length ||
+            client.openDeals.length,
+        ) ||
         filteredClients[0] ||
         snapshots[0];
 
@@ -1406,7 +1540,6 @@ function ClientsPage() {
     window.addEventListener("crm-demo-open-client-360", onDemoOpenClient360);
     return () => window.removeEventListener("crm-demo-open-client-360", onDemoOpenClient360);
   }, [filteredClients, snapshots]);
-
 
   useEffect(() => {
     const onDemoClient360Tab = (event: Event) => {
@@ -1432,7 +1565,6 @@ function ClientsPage() {
     window.addEventListener("crm-demo-client360-tab", onDemoClient360Tab);
     return () => window.removeEventListener("crm-demo-client360-tab", onDemoClient360Tab);
   }, []);
-
 
   if (loading) {
     return (
@@ -1461,7 +1593,8 @@ function ClientsPage() {
               Clientes
             </h1>
             <p className="mt-3 text-[14px] font-[650] text-[#667085]">
-              Gestiona cuentas activas, contactos, proyectos, finanzas y la salud comercial de cada cliente.
+              Gestiona cuentas activas, contactos, proyectos, finanzas y la salud comercial de cada
+              cliente.
             </p>
           </div>
 
@@ -1488,20 +1621,34 @@ function ClientsPage() {
           </div>
         </header>
 
-        <section data-demo="clients-account-center" className="rounded-[22px] border border-[#e6eaf0] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.055)]">
+        <section
+          data-demo="clients-account-center"
+          className="rounded-[22px] border border-[#e6eaf0] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.055)]"
+        >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.10em] text-[#1d62f9]">Centro de cuenta</p>
-              <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-[#101828]">{summaryNote}</h2>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.10em] text-[#1d62f9]">
+                Centro de cuenta
+              </p>
+              <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-[#101828]">
+                {summaryNote}
+              </h2>
               <p className="mt-1 text-[13px] font-[650] text-[#667085]">
-                {activeClientsCount} clientes activos · {vipClientsCount} VIP · {contactsCount} contactos registrados.
+                {activeClientsCount} clientes activos · {vipClientsCount} VIP · {contactsCount}{" "}
+                contactos registrados.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700">
+              <Badge
+                variant="secondary"
+                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700"
+              >
                 {filteredClients.length} visibles
               </Badge>
-              <Badge variant="secondary" className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700">
+              <Badge
+                variant="secondary"
+                className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700"
+              >
                 {attentionCount} con atención
               </Badge>
             </div>
@@ -1509,111 +1656,174 @@ function ClientsPage() {
         </section>
 
         {errorMessage && (
-          <div data-demo="clients-warning-message" className="rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+          <div
+            data-demo="clients-warning-message"
+            className="rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+          >
             {errorMessage}
           </div>
         )}
 
-        <section data-demo="clients-metrics" className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-          <MetricCard label="Clientes activos" value={activeClientsCount} icon={Building2} tone="bg-[#eaf1ff] text-[#1d62f9]" meta="Cuentas vigentes" />
-          <MetricCard label="VIP" value={vipClientsCount} icon={Star} tone="bg-[#f3ecff] text-[#7c3aed]" meta="Clientes premium" />
-          <MetricCard label="En riesgo" value={riskClientsCount} icon={ShieldAlert} tone="bg-[#fff1f3] text-[#e11d48]" meta="Requieren atención" />
-          <MetricCard label="Contactos" value={contactsCount} icon={Users} tone="bg-[#ecfdf3] text-[#16a34a]" meta="Todos los contactos" />
-          <MetricCard label="Primarios" value={primaryContactsCount} icon={UserCheck} tone="bg-[#eff6ff] text-[#2563eb]" meta="Contacto principal" />
-          <MetricCard label="Proyectos activos" value={activeProjectsCount} icon={FolderKanban} tone="bg-[#fff7e6] text-[#d97706]" meta="En ejecución" />
-          <MetricCard label="Facturas pendientes" value={pendingInvoicesCount} icon={CircleDollarSign} tone="bg-[#fff3e8] text-[#f97316]" meta={money(pendingInvoiceAmount)} />
-          <MetricCard label="Tareas atrasadas" value={overdueTasksCount} icon={CalendarClock} tone="bg-[#fef2f2] text-[#ef4444]" meta="Seguimiento urgente" />
+        <section
+          data-demo="clients-metrics"
+          className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8"
+        >
+          <MetricCard
+            label="Clientes activos"
+            value={activeClientsCount}
+            icon={Building2}
+            tone="bg-[#eaf1ff] text-[#1d62f9]"
+            meta="Cuentas vigentes"
+          />
+          <MetricCard
+            label="VIP"
+            value={vipClientsCount}
+            icon={Star}
+            tone="bg-[#f3ecff] text-[#7c3aed]"
+            meta="Clientes premium"
+          />
+          <MetricCard
+            label="En riesgo"
+            value={riskClientsCount}
+            icon={ShieldAlert}
+            tone="bg-[#fff1f3] text-[#e11d48]"
+            meta="Requieren atención"
+          />
+          <MetricCard
+            label="Contactos"
+            value={contactsCount}
+            icon={Users}
+            tone="bg-[#ecfdf3] text-[#16a34a]"
+            meta="Todos los contactos"
+          />
+          <MetricCard
+            label="Primarios"
+            value={primaryContactsCount}
+            icon={UserCheck}
+            tone="bg-[#eff6ff] text-[#2563eb]"
+            meta="Contacto principal"
+          />
+          <MetricCard
+            label="Proyectos activos"
+            value={activeProjectsCount}
+            icon={FolderKanban}
+            tone="bg-[#fff7e6] text-[#d97706]"
+            meta="En ejecución"
+          />
+          <MetricCard
+            label="Facturas pendientes"
+            value={pendingInvoicesCount}
+            icon={CircleDollarSign}
+            tone="bg-[#fff3e8] text-[#f97316]"
+            meta={money(pendingInvoiceAmount)}
+          />
+          <MetricCard
+            label="Tareas atrasadas"
+            value={overdueTasksCount}
+            icon={CalendarClock}
+            tone="bg-[#fef2f2] text-[#ef4444]"
+            meta="Seguimiento urgente"
+          />
         </section>
 
         <DataCard>
           <div data-demo="clients-filters-panel">
-          <SearchFilters
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Buscar clientes, contactos, industria..."
-            filters={[
-              {
-                key: "status",
-                placeholder: "Estado",
-                value: statusFilter,
-                onChange: setStatusFilter,
-                allLabel: "Todos los estados",
-                options: CLIENT_STATUSES.map((status) => ({ label: clientStatusLabel(status), value: status })),
-                width: "w-44",
-              },
-              {
-                key: "manager",
-                placeholder: "Account manager",
-                value: managerFilter,
-                onChange: setManagerFilter,
-                allLabel: "Todos los responsables",
-                options: [
-                  { label: "Solo yo", value: "mine" },
-                  { label: "Sin asignar", value: "unassigned" },
-                  ...managerOptions.map((m) => ({ label: m.full_name, value: m.id })),
-                ],
-                width: "w-56",
-              },
-              {
-                key: "industry",
-                placeholder: "Industria",
-                value: industryFilter,
-                onChange: setIndustryFilter,
-                allLabel: "Todas las industrias",
-                options: industryOptions.map((industry) => ({ label: industry, value: industry })),
-                width: "w-56",
-              },
-              {
-                key: "contacts",
-                placeholder: "Contactos",
-                value: contactFilter,
-                onChange: (v) => setContactFilter(v as (typeof CONTACT_PRESENCE_FILTERS)[number]),
-                allLabel: "Todos los clientes",
-                options: [
-                  { label: "Con contactos", value: "with" },
-                  { label: "Sin contactos", value: "without" },
-                  { label: "Con contacto primario", value: "primary" },
-                ],
-                width: "w-44",
-              },
-              {
-                key: "health",
-                placeholder: "Salud",
-                value: healthFilter,
-                onChange: (v) => setHealthFilter(v as (typeof CLIENT_HEALTH_FILTERS)[number]),
-                allLabel: "Todas las cuentas",
-                options: [
-                  { label: "Activo", value: "active" },
-                  { label: "Atención", value: "attention" },
-                  { label: "En riesgo", value: "risk" },
-                  { label: "Inactivo", value: "inactive" },
-                ],
-                width: "w-44",
-              },
-              {
-                key: "finance",
-                placeholder: "Finanzas",
-                value: financeFilter,
-                onChange: (v) => setFinanceFilter(v as (typeof FINANCE_FILTERS)[number]),
-                options: Object.entries(FINANCE_LABELS).map(([value, label]) => ({ label, value })),
-                width: "w-44",
-              },
-              {
-                key: "activity",
-                placeholder: "Actividad",
-                value: activityFilter,
-                onChange: (v) => setActivityFilter(v as (typeof ACTIVITY_FILTERS)[number]),
-                allLabel: "Toda la actividad",
-                options: [
-                  { label: "Actividad reciente", value: "recent7" },
-                  { label: "Sin actividad 30 días", value: "stale30" },
-                  { label: "Sin actividad 60 días", value: "stale60" },
-                ],
-                width: "w-56",
-              },
-            ]}
-          />
-                  </div>
+            <SearchFilters
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Buscar clientes, contactos, industria..."
+              filters={[
+                {
+                  key: "status",
+                  placeholder: "Estado",
+                  value: statusFilter,
+                  onChange: setStatusFilter,
+                  allLabel: "Todos los estados",
+                  options: CLIENT_STATUSES.map((status) => ({
+                    label: clientStatusLabel(status),
+                    value: status,
+                  })),
+                  width: "w-44",
+                },
+                {
+                  key: "manager",
+                  placeholder: "Account manager",
+                  value: managerFilter,
+                  onChange: setManagerFilter,
+                  allLabel: "Todos los responsables",
+                  options: [
+                    { label: "Solo yo", value: "mine" },
+                    { label: "Sin asignar", value: "unassigned" },
+                    ...managerOptions.map((m) => ({ label: m.full_name, value: m.id })),
+                  ],
+                  width: "w-56",
+                },
+                {
+                  key: "industry",
+                  placeholder: "Industria",
+                  value: industryFilter,
+                  onChange: setIndustryFilter,
+                  allLabel: "Todas las industrias",
+                  options: industryOptions.map((industry) => ({
+                    label: industry,
+                    value: industry,
+                  })),
+                  width: "w-56",
+                },
+                {
+                  key: "contacts",
+                  placeholder: "Contactos",
+                  value: contactFilter,
+                  onChange: (v) => setContactFilter(v as (typeof CONTACT_PRESENCE_FILTERS)[number]),
+                  allLabel: "Todos los clientes",
+                  options: [
+                    { label: "Con contactos", value: "with" },
+                    { label: "Sin contactos", value: "without" },
+                    { label: "Con contacto primario", value: "primary" },
+                  ],
+                  width: "w-44",
+                },
+                {
+                  key: "health",
+                  placeholder: "Salud",
+                  value: healthFilter,
+                  onChange: (v) => setHealthFilter(v as (typeof CLIENT_HEALTH_FILTERS)[number]),
+                  allLabel: "Todas las cuentas",
+                  options: [
+                    { label: "Activo", value: "active" },
+                    { label: "Atención", value: "attention" },
+                    { label: "En riesgo", value: "risk" },
+                    { label: "Inactivo", value: "inactive" },
+                  ],
+                  width: "w-44",
+                },
+                {
+                  key: "finance",
+                  placeholder: "Finanzas",
+                  value: financeFilter,
+                  onChange: (v) => setFinanceFilter(v as (typeof FINANCE_FILTERS)[number]),
+                  options: Object.entries(FINANCE_LABELS).map(([value, label]) => ({
+                    label,
+                    value,
+                  })),
+                  width: "w-44",
+                },
+                {
+                  key: "activity",
+                  placeholder: "Actividad",
+                  value: activityFilter,
+                  onChange: (v) => setActivityFilter(v as (typeof ACTIVITY_FILTERS)[number]),
+                  allLabel: "Toda la actividad",
+                  options: [
+                    { label: "Actividad reciente", value: "recent7" },
+                    { label: "Sin actividad 30 días", value: "stale30" },
+                    { label: "Sin actividad 60 días", value: "stale60" },
+                  ],
+                  width: "w-56",
+                },
+              ]}
+            />
+          </div>
         </DataCard>
 
         <DataCard data-demo="clients-list-panel" className="overflow-hidden">
@@ -1656,16 +1866,24 @@ function ClientsPage() {
                       <TableCell className="pl-5">
                         <div className="space-y-0.5">
                           <p className="font-semibold text-[#101828]">{client.company_name}</p>
-                          <p className="text-xs text-[#667085]">{client.industry || "Sin industria"}</p>
+                          <p className="text-xs text-[#667085]">
+                            {client.industry || "Sin industria"}
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
                           <p className="font-medium text-[#344054]">
-                            {client.primaryContact ? getContactName(client.primaryContact) : client.contact_person || "—"}
+                            {client.primaryContact
+                              ? getContactName(client.primaryContact)
+                              : client.contact_person || "—"}
                           </p>
                           <p className="text-xs text-[#667085]">
-                            {client.primaryContact?.position || client.primaryContact?.department || client.email || client.phone || "Sin detalle"}
+                            {client.primaryContact?.position ||
+                              client.primaryContact?.department ||
+                              client.email ||
+                              client.phone ||
+                              "Sin detalle"}
                           </p>
                         </div>
                       </TableCell>
@@ -1676,36 +1894,53 @@ function ClientsPage() {
                         <HealthBadge health={client.health} />
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        <p className="text-sm font-medium text-[#344054]">{client.accountManagerName}</p>
+                        <p className="text-sm font-medium text-[#344054]">
+                          {client.accountManagerName}
+                        </p>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell">
                         <div className="space-y-0.5">
-                          <p className="text-sm font-semibold text-[#101828]">{client.purchasedProducts.length}</p>
+                          <p className="text-sm font-semibold text-[#101828]">
+                            {client.purchasedProducts.length}
+                          </p>
                           <p className="text-xs text-[#667085]">
-                            {(client.purchasedProductNames.slice(0, 2).join(", ") || "—") + (client.purchasedProductNames.length > 2 ? "…" : "")}
+                            {(client.purchasedProductNames.slice(0, 2).join(", ") || "—") +
+                              (client.purchasedProductNames.length > 2 ? "…" : "")}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell">
                         <div className="space-y-0.5">
-                          <p className="text-sm font-semibold text-[#101828]">{client.activeProjects.length}</p>
+                          <p className="text-sm font-semibold text-[#101828]">
+                            {client.activeProjects.length}
+                          </p>
                           <p className="text-xs text-[#667085]">activos</p>
                         </div>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell">
                         <div className="space-y-0.5">
-                          <p className="text-sm font-semibold text-[#101828]">{client.openTasks.length}</p>
-                          <p className="text-xs text-[#667085]">{client.overdueTasks.length} vencidas</p>
+                          <p className="text-sm font-semibold text-[#101828]">
+                            {client.openTasks.length}
+                          </p>
+                          <p className="text-xs text-[#667085]">
+                            {client.overdueTasks.length} vencidas
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell">
                         <div className="space-y-0.5">
-                          <p className="text-sm font-semibold text-[#101828]">{clientFinanceLabel(client)}</p>
-                          <p className="text-xs text-[#667085]">{money(client.pendingInvoiceAmount)}</p>
+                          <p className="text-sm font-semibold text-[#101828]">
+                            {clientFinanceLabel(client)}
+                          </p>
+                          <p className="text-xs text-[#667085]">
+                            {money(client.pendingInvoiceAmount)}
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell className="hidden 2xl:table-cell">
-                        <p className="text-sm font-medium text-[#344054]">{relativeLabel(client.latestActivityAt)}</p>
+                        <p className="text-sm font-medium text-[#344054]">
+                          {relativeLabel(client.latestActivityAt)}
+                        </p>
                       </TableCell>
                       <TableCell className="pr-5">
                         <DropdownMenu>
@@ -1759,7 +1994,16 @@ function ClientsPage() {
                             <DropdownMenuItem
                               onClick={(event) => {
                                 event.stopPropagation();
-                                navigate({ to: "/proposals" });
+                                navigate({
+                                  to: "/proposals",
+                                  search: {
+                                    leadId: undefined,
+                                    dealId: undefined,
+                                    conversationId: undefined,
+                                    productId: undefined,
+                                    clientId: undefined,
+                                  },
+                                });
                               }}
                             >
                               <BriefcaseBusiness className="mr-2 h-4 w-4" />
@@ -1826,8 +2070,11 @@ function ClientsPage() {
                         {selectedClient.company_name}
                       </SheetTitle>
                       <SheetDescription className="mt-0.5 text-[13px] text-[#667085] truncate">
-                        {selectedClient.primaryContact ? getContactName(selectedClient.primaryContact) : selectedClient.contact_person || "Sin contacto principal"} ·{" "}
-                        {selectedClient.contacts.length} contacto{selectedClient.contacts.length === 1 ? "" : "s"}
+                        {selectedClient.primaryContact
+                          ? getContactName(selectedClient.primaryContact)
+                          : selectedClient.contact_person || "Sin contacto principal"}{" "}
+                        · {selectedClient.contacts.length} contacto
+                        {selectedClient.contacts.length === 1 ? "" : "s"}
                       </SheetDescription>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge status={selectedClient.status} />
@@ -1861,17 +2108,39 @@ function ClientsPage() {
                     size="sm"
                     variant="outline"
                     className="gap-2"
-                    data-demo="client-360-create-task" onClick={() => openCreateTaskForClient(selectedClient)}
+                    data-demo="client-360-create-task"
+                    onClick={() => openCreateTaskForClient(selectedClient)}
                     disabled={!canCreateTaskForClient(selectedClient)}
                   >
                     <FileText className="h-4 w-4" />
                     Crear tarea
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-2" onClick={() => navigate({ to: "/proposals" })}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() =>
+                      navigate({
+                        to: "/proposals",
+                        search: {
+                          leadId: undefined,
+                          dealId: undefined,
+                          conversationId: undefined,
+                          productId: undefined,
+                          clientId: undefined,
+                        },
+                      })
+                    }
+                  >
                     <BriefcaseBusiness className="h-4 w-4" />
                     Crear propuesta
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-2" onClick={() => navigate({ to: "/invoices" })}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => navigate({ to: "/invoices" })}
+                  >
                     <Receipt className="h-4 w-4" />
                     Crear factura
                   </Button>
@@ -1889,25 +2158,46 @@ function ClientsPage() {
 
               <ScrollArea className="h-[calc(100vh-96px)]">
                 <div className="space-y-4 px-5 py-4">
-                  <Tabs defaultValue="overview" className="w-full client-360-single-view space-y-5 [&_[role=tabpanel]]:!block [&_[role=tabpanel][hidden]]:!block [&_[role=tabpanel]]:mt-0">
-                    <TabsList data-demo="client-360-tabs" className="grid h-auto w-full grid-cols-5 rounded-[14px] bg-slate-100 p-1 hidden">
-                      <TabsTrigger data-demo="client-360-tab-summary" value="overview">Resumen</TabsTrigger>
-                      <TabsTrigger data-demo="client-360-tab-contacts" value="contacts">Contactos</TabsTrigger>
-                      <TabsTrigger data-demo="client-360-tab-projects" value="projects">Proyectos</TabsTrigger>
-                      <TabsTrigger data-demo="client-360-tab-finance" value="finance">Finanzas</TabsTrigger>
-                      <TabsTrigger data-demo="client-360-tab-activity" value="activity">Actividad</TabsTrigger>
+                  <Tabs
+                    defaultValue="overview"
+                    className="w-full client-360-single-view space-y-5 [&_[role=tabpanel]]:!block [&_[role=tabpanel][hidden]]:!block [&_[role=tabpanel]]:mt-0"
+                  >
+                    <TabsList
+                      data-demo="client-360-tabs"
+                      className="grid h-auto w-full grid-cols-5 rounded-[14px] bg-slate-100 p-1 hidden"
+                    >
+                      <TabsTrigger data-demo="client-360-tab-summary" value="overview">
+                        Resumen
+                      </TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-contacts" value="contacts">
+                        Contactos
+                      </TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-projects" value="projects">
+                        Proyectos
+                      </TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-finance" value="finance">
+                        Finanzas
+                      </TabsTrigger>
+                      <TabsTrigger data-demo="client-360-tab-activity" value="activity">
+                        Actividad
+                      </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4">
                       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-                        <div data-demo="client-360-kpis" className="col-span-full rounded-[22px] border border-slate-200 bg-slate-50/80 p-3">
+                        <div
+                          data-demo="client-360-kpis"
+                          className="col-span-full rounded-[22px] border border-slate-200 bg-slate-50/80 p-3"
+                        >
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
                             <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
                               <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
                                 <Users className="h-4 w-4 text-blue-600" />
                                 Contactos
                               </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.contacts.length}</div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
+                                {selectedClient.contacts.length}
+                              </div>
                               <div className="text-[11px] text-slate-500">Vinculados</div>
                             </div>
 
@@ -1916,7 +2206,9 @@ function ClientsPage() {
                                 <FolderKanban className="h-4 w-4 text-amber-600" />
                                 Proyectos
                               </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.activeProjects.length}</div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
+                                {selectedClient.activeProjects.length}
+                              </div>
                               <div className="text-[11px] text-slate-500">Activos</div>
                             </div>
 
@@ -1925,7 +2217,9 @@ function ClientsPage() {
                                 <FileText className="h-4 w-4 text-rose-600" />
                                 Tareas
                               </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.openTasks.length}</div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
+                                {selectedClient.openTasks.length}
+                              </div>
                               <div className="text-[11px] text-slate-500">Pendientes</div>
                             </div>
 
@@ -1934,7 +2228,9 @@ function ClientsPage() {
                                 <Package className="h-4 w-4 text-indigo-600" />
                                 Productos
                               </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.purchasedProducts.length}</div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
+                                {selectedClient.purchasedProducts.length}
+                              </div>
                               <div className="text-[11px] text-slate-500">Comprados</div>
                             </div>
 
@@ -1943,8 +2239,12 @@ function ClientsPage() {
                                 <CircleDollarSign className="h-4 w-4 text-orange-600" />
                                 Facturas
                               </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.pendingInvoices.length}</div>
-                              <div className="text-[11px] text-slate-500">{money(selectedClient.pendingInvoiceAmount)}</div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
+                                {selectedClient.pendingInvoices.length}
+                              </div>
+                              <div className="text-[11px] text-slate-500">
+                                {money(selectedClient.pendingInvoiceAmount)}
+                              </div>
                             </div>
 
                             <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
@@ -1952,8 +2252,12 @@ function ClientsPage() {
                                 <BriefcaseBusiness className="h-4 w-4 text-emerald-600" />
                                 Pipeline
                               </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.openDeals.length}</div>
-                              <div className="text-[11px] text-slate-500">{money(selectedClient.openPipelineValue)}</div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
+                                {selectedClient.openDeals.length}
+                              </div>
+                              <div className="text-[11px] text-slate-500">
+                                {money(selectedClient.openPipelineValue)}
+                              </div>
                             </div>
 
                             <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
@@ -1961,7 +2265,9 @@ function ClientsPage() {
                                 <FileText className="h-4 w-4 text-violet-600" />
                                 Propuestas
                               </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">{selectedClient.pendingProposals.length}</div>
+                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
+                                {selectedClient.pendingProposals.length}
+                              </div>
                               <div className="text-[11px] text-slate-500">En curso</div>
                             </div>
                           </div>
@@ -1971,10 +2277,20 @@ function ClientsPage() {
                       <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="text-sm font-semibold text-slate-900">Salud de la cuenta</p>
-                            <p className="mt-1 text-sm text-slate-600">{selectedClient.healthReason}</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              Salud de la cuenta
+                            </p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {selectedClient.healthReason}
+                            </p>
                           </div>
-                          <Badge variant="secondary" className={cnJoin("rounded-full border px-3 py-1 text-xs font-bold", selectedClient.healthTone)}>
+                          <Badge
+                            variant="secondary"
+                            className={cnJoin(
+                              "rounded-full border px-3 py-1 text-xs font-bold",
+                              selectedClient.healthTone,
+                            )}
+                          >
                             {healthLabel(selectedClient.health)}
                           </Badge>
                         </div>
@@ -1994,8 +2310,13 @@ function ClientsPage() {
                               ["Ciudad", selectedClient.city || "—"],
                               ["País", selectedClient.country || "—"],
                             ].map(([label, value]) => (
-                              <div key={label as string} className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                              <div
+                                key={label as string}
+                                className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                              >
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                  {label}
+                                </p>
                                 <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
                               </div>
                             ))}
@@ -2006,13 +2327,19 @@ function ClientsPage() {
                           <h3 className="text-sm font-bold text-slate-900">Notas y etiquetas</h3>
                           <div className="mt-4 space-y-4">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Etiquetas</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Etiquetas
+                              </p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {(selectedClient.tags || []).length === 0 ? (
                                   <span className="text-sm text-slate-500">Sin etiquetas</span>
                                 ) : (
                                   (selectedClient.tags || []).map((tag) => (
-                                    <Badge key={tag} variant="secondary" className="rounded-full bg-slate-100 text-slate-700">
+                                    <Badge
+                                      key={tag}
+                                      variant="secondary"
+                                      className="rounded-full bg-slate-100 text-slate-700"
+                                    >
                                       {tag}
                                     </Badge>
                                   ))
@@ -2020,7 +2347,9 @@ function ClientsPage() {
                               </div>
                             </div>
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notas</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Notas
+                              </p>
                               <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
                                 {selectedClient.notes || "Sin notas registradas todavía."}
                               </p>
@@ -2030,29 +2359,48 @@ function ClientsPage() {
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        <div data-demo="client-360-products" className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div
+                          data-demo="client-360-products"
+                          className="rounded-[18px] border border-slate-200 bg-white p-4"
+                        >
                           <h3 className="text-sm font-bold text-slate-900">Productos comprados</h3>
-                          <p className="mt-1 text-sm text-slate-600">Basado en <span className="font-mono">client_products</span> + <span className="font-mono">products</span>.</p>
+                          <p className="mt-1 text-sm text-slate-600">
+                            Basado en <span className="font-mono">client_products</span> +{" "}
+                            <span className="font-mono">products</span>.
+                          </p>
                           {selectedClient.purchasedProducts.length === 0 ? (
-                            <p className="mt-4 text-sm text-slate-500">Sin productos comprados registrados.</p>
+                            <p className="mt-4 text-sm text-slate-500">
+                              Sin productos comprados registrados.
+                            </p>
                           ) : (
                             <div className="mt-4 space-y-2">
                               {selectedClient.purchasedProducts.slice(0, 8).map((row) => (
-                                <div key={row.clientProduct.id} className="flex items-start justify-between gap-3 rounded-[14px] border border-slate-100 bg-slate-50 p-3">
+                                <div
+                                  key={row.clientProduct.id}
+                                  className="flex items-start justify-between gap-3 rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                                >
                                   <div>
-                                    <p className="text-sm font-semibold text-slate-900">{row.product?.name || row.clientProduct.product_id}</p>
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {row.product?.name || row.clientProduct.product_id}
+                                    </p>
                                     <p className="mt-0.5 text-xs text-slate-600">
-                                      {[row.product?.category, row.clientProduct.status].filter(Boolean).join(" · ") || "—"}
+                                      {[row.product?.category, row.clientProduct.status]
+                                        .filter(Boolean)
+                                        .join(" · ") || "—"}
                                     </p>
                                   </div>
                                   <div className="text-right">
                                     <p className="text-xs font-semibold text-slate-500">Inicio</p>
-                                    <p className="text-sm font-semibold text-slate-900">{row.clientProduct.start_date || "—"}</p>
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {row.clientProduct.start_date || "—"}
+                                    </p>
                                   </div>
                                 </div>
                               ))}
                               {selectedClient.purchasedProducts.length > 8 ? (
-                                <p className="text-xs text-slate-500">Mostrando 8 de {selectedClient.purchasedProducts.length}.</p>
+                                <p className="text-xs text-slate-500">
+                                  Mostrando 8 de {selectedClient.purchasedProducts.length}.
+                                </p>
                               ) : null}
                             </div>
                           )}
@@ -2062,7 +2410,9 @@ function ClientsPage() {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <h3 className="text-sm font-bold text-slate-900">Próximo paso</h3>
-                              <p className="mt-1 text-sm text-slate-600">Tarea pendiente más cercana por fecha de vencimiento.</p>
+                              <p className="mt-1 text-sm text-slate-600">
+                                Tarea pendiente más cercana por fecha de vencimiento.
+                              </p>
                             </div>
                             <Button
                               size="sm"
@@ -2079,12 +2429,19 @@ function ClientsPage() {
                           </div>
 
                           {!selectedClient.nextOpenTask ? (
-                            <p className="mt-4 text-sm text-slate-500">No hay tareas pendientes con fecha.</p>
+                            <p className="mt-4 text-sm text-slate-500">
+                              No hay tareas pendientes con fecha.
+                            </p>
                           ) : (
                             <div className="mt-4 rounded-[14px] border border-slate-100 bg-slate-50 p-3">
-                              <p className="text-sm font-semibold text-slate-900">{selectedClient.nextOpenTask.title}</p>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {selectedClient.nextOpenTask.title}
+                              </p>
                               <p className="mt-1 text-xs text-slate-600">
-                                {selectedClient.nextOpenTask.due_date ? `Vence ${selectedClient.nextOpenTask.due_date}` : "Sin fecha"} · {selectedClient.nextOpenTask.priority}
+                                {selectedClient.nextOpenTask.due_date
+                                  ? `Vence ${selectedClient.nextOpenTask.due_date}`
+                                  : "Sin fecha"}{" "}
+                                · {selectedClient.nextOpenTask.priority}
                               </p>
                             </div>
                           )}
@@ -2092,30 +2449,52 @@ function ClientsPage() {
                           <Separator className="my-4" />
 
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div data-demo="client-360-tasks" className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tareas pendientes</p>
-                              <p className="mt-1 text-sm font-semibold text-slate-900">{selectedClient.openTasks.length}</p>
+                            <div
+                              data-demo="client-360-tasks"
+                              className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                            >
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Tareas pendientes
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-900">
+                                {selectedClient.openTasks.length}
+                              </p>
                             </div>
                             <div className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tareas vencidas</p>
-                              <p className="mt-1 text-sm font-semibold text-slate-900">{selectedClient.overdueTasks.length}</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Tareas vencidas
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-900">
+                                {selectedClient.overdueTasks.length}
+                              </p>
                             </div>
                           </div>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        <div data-demo="client-360-deals" className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div
+                          data-demo="client-360-deals"
+                          className="rounded-[18px] border border-slate-200 bg-white p-4"
+                        >
                           <h3 className="text-sm font-bold text-slate-900">Oportunidades</h3>
                           {selectedClient.openDeals.length === 0 ? (
-                            <p className="mt-4 text-sm text-slate-500">No hay oportunidades abiertas.</p>
+                            <p className="mt-4 text-sm text-slate-500">
+                              No hay oportunidades abiertas.
+                            </p>
                           ) : (
                             <div className="mt-4 space-y-2">
                               {selectedClient.openDeals.slice(0, 6).map((deal) => (
-                                <div key={deal.id} className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
-                                  <p className="text-sm font-semibold text-slate-900">{deal.name}</p>
+                                <div
+                                  key={deal.id}
+                                  className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                                >
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    {deal.name}
+                                  </p>
                                   <p className="mt-1 text-xs text-slate-600">
-                                    {deal.stage} · {money(deal.value)} {deal.expected_close ? `· Cierre ${deal.expected_close}` : ""}
+                                    {deal.stage} · {money(deal.value)}{" "}
+                                    {deal.expected_close ? `· Cierre ${deal.expected_close}` : ""}
                                   </p>
                                 </div>
                               ))}
@@ -2123,19 +2502,28 @@ function ClientsPage() {
                           )}
                         </div>
 
-                        <div data-demo="client-360-proposals" className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div
+                          data-demo="client-360-proposals"
+                          className="rounded-[18px] border border-slate-200 bg-white p-4"
+                        >
                           <h3 className="text-sm font-bold text-slate-900">Propuestas</h3>
                           {selectedClient.proposals.length === 0 ? (
-                            <p className="mt-4 text-sm text-slate-500">No hay propuestas vinculadas.</p>
+                            <p className="mt-4 text-sm text-slate-500">
+                              No hay propuestas vinculadas.
+                            </p>
                           ) : (
                             <div className="mt-4 space-y-2">
                               {selectedClient.proposals.slice(0, 6).map((proposal) => (
-                                <div key={proposal.id} className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
+                                <div
+                                  key={proposal.id}
+                                  className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                                >
                                   <p className="text-sm font-semibold text-slate-900">
                                     {proposal.number} · {proposal.title}
                                   </p>
                                   <p className="mt-1 text-xs text-slate-600">
-                                    {proposal.status} · {money(proposal.amount)} {proposal.valid_until ? `· Vence ${proposal.valid_until}` : ""}
+                                    {proposal.status} · {money(proposal.amount)}{" "}
+                                    {proposal.valid_until ? `· Vence ${proposal.valid_until}` : ""}
                                   </p>
                                 </div>
                               ))}
@@ -2145,13 +2533,24 @@ function ClientsPage() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent data-demo="client-360-contacts-section" forceMount value="contacts" className="space-y-4">
+                    <TabsContent
+                      data-demo="client-360-contacts-section"
+                      forceMount
+                      value="contacts"
+                      className="space-y-4"
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <h3 className="text-lg font-bold text-slate-900">Contactos</h3>
-                          <p className="text-sm text-slate-600">Gestiona los contactos activos de esta cuenta.</p>
+                          <p className="text-sm text-slate-600">
+                            Gestiona los contactos activos de esta cuenta.
+                          </p>
                         </div>
-                        <Button size="sm" onClick={() => openContactCreator(selectedClient.id)} className="gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => openContactCreator(selectedClient.id)}
+                          className="gap-2"
+                        >
                           <MessageSquarePlus className="h-4 w-4" />
                           Añadir contacto
                         </Button>
@@ -2168,23 +2567,38 @@ function ClientsPage() {
                       ) : (
                         <div className="space-y-3">
                           {selectedClient.contacts.map((contact) => (
-                            <div key={contact.id} className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                            <div
+                              key={contact.id}
+                              className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+                            >
                               <div className="flex items-start justify-between gap-4">
                                 <div>
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <h4 className="text-base font-bold text-slate-900">{getContactName(contact)}</h4>
+                                    <h4 className="text-base font-bold text-slate-900">
+                                      {getContactName(contact)}
+                                    </h4>
                                     {contact.is_primary && (
-                                      <Badge variant="secondary" className="rounded-full bg-blue-50 text-blue-700">
+                                      <Badge
+                                        variant="secondary"
+                                        className="rounded-full bg-blue-50 text-blue-700"
+                                      >
                                         Principal
                                       </Badge>
                                     )}
                                   </div>
                                   <p className="mt-1 text-sm text-slate-600">
-                                    {[contact.position, contact.department].filter(Boolean).join(" · ") || "Sin cargo definido"}
+                                    {[contact.position, contact.department]
+                                      .filter(Boolean)
+                                      .join(" · ") || "Sin cargo definido"}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openContactEditor(contact)}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => openContactEditor(contact)}
+                                  >
                                     <Pencil className="h-4 w-4" />
                                   </Button>
                                   <Button
@@ -2204,24 +2618,32 @@ function ClientsPage() {
                                     <Mail className="h-3.5 w-3.5" />
                                     Email
                                   </p>
-                                  <p className="text-sm font-medium text-slate-900">{contact.email || "—"}</p>
+                                  <p className="text-sm font-medium text-slate-900">
+                                    {contact.email || "—"}
+                                  </p>
                                 </div>
                                 <div className="space-y-1 rounded-[14px] border border-slate-100 bg-slate-50 p-3">
                                   <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     <Phone className="h-3.5 w-3.5" />
                                     Teléfono
                                   </p>
-                                  <p className="text-sm font-medium text-slate-900">{contact.phone || "—"}</p>
+                                  <p className="text-sm font-medium text-slate-900">
+                                    {contact.phone || "—"}
+                                  </p>
                                 </div>
                                 <div className="space-y-1 rounded-[14px] border border-slate-100 bg-slate-50 p-3">
                                   <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     <Globe className="h-3.5 w-3.5" />
                                     WhatsApp
                                   </p>
-                                  <p className="text-sm font-medium text-slate-900">{contact.whatsapp || "—"}</p>
+                                  <p className="text-sm font-medium text-slate-900">
+                                    {contact.whatsapp || "—"}
+                                  </p>
                                 </div>
                                 <div className="space-y-1 rounded-[14px] border border-slate-100 bg-slate-50 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Etiquetas</p>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Etiquetas
+                                  </p>
                                   <p className="text-sm font-medium text-slate-900">
                                     {(contact.tags || []).length ? contact.tags!.join(", ") : "—"}
                                   </p>
@@ -2230,8 +2652,12 @@ function ClientsPage() {
 
                               {contact.notes && (
                                 <div className="mt-3 rounded-[14px] border border-slate-100 bg-slate-50 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notas</p>
-                                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{contact.notes}</p>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Notas
+                                  </p>
+                                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">
+                                    {contact.notes}
+                                  </p>
                                 </div>
                               )}
                             </div>
@@ -2240,10 +2666,17 @@ function ClientsPage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent data-demo="client-360-projects" forceMount value="projects" className="space-y-4">
+                    <TabsContent
+                      data-demo="client-360-projects"
+                      forceMount
+                      value="projects"
+                      className="space-y-4"
+                    >
                       <div>
                         <h3 className="text-lg font-bold text-slate-900">Proyectos</h3>
-                        <p className="text-sm text-slate-600">Estado de los proyectos activos y en riesgo.</p>
+                        <p className="text-sm text-slate-600">
+                          Estado de los proyectos activos y en riesgo.
+                        </p>
                       </div>
                       {selectedClient.projects.length === 0 ? (
                         <EmptyState
@@ -2256,23 +2689,34 @@ function ClientsPage() {
                       ) : (
                         <div className="space-y-3">
                           {selectedClient.projects.map((project) => (
-                            <div key={project.id} className="rounded-[18px] border border-slate-200 bg-white p-4">
+                            <div
+                              key={project.id}
+                              className="rounded-[18px] border border-slate-200 bg-white p-4"
+                            >
                               <div className="flex items-start justify-between gap-4">
                                 <div>
-                                  <h4 className="text-base font-bold text-slate-900">{project.name}</h4>
-                                  <p className="mt-1 text-sm text-slate-600">Vence {formatDate(project.due_date)}</p>
+                                  <h4 className="text-base font-bold text-slate-900">
+                                    {project.name}
+                                  </h4>
+                                  <p className="mt-1 text-sm text-slate-600">
+                                    Vence {formatDate(project.due_date)}
+                                  </p>
                                 </div>
                                 <StatusBadge status={project.status} />
                               </div>
                               <div className="mt-4 h-2 rounded-full bg-slate-100">
                                 <div
                                   className="h-2 rounded-full bg-blue-500 transition-all"
-                                  style={{ width: `${Math.max(0, Math.min(Number(project.progress || 0), 100))}%` }}
+                                  style={{
+                                    width: `${Math.max(0, Math.min(Number(project.progress || 0), 100))}%`,
+                                  }}
                                 />
                               </div>
                               <div className="mt-2 flex items-center justify-between text-sm text-slate-600">
                                 <span>Progreso</span>
-                                <span className="font-semibold text-slate-900">{Math.max(0, Math.min(Number(project.progress || 0), 100))}%</span>
+                                <span className="font-semibold text-slate-900">
+                                  {Math.max(0, Math.min(Number(project.progress || 0), 100))}%
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -2280,33 +2724,74 @@ function ClientsPage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent data-demo="client-360-finance" forceMount value="finance" className="space-y-4">
+                    <TabsContent
+                      data-demo="client-360-finance"
+                      forceMount
+                      value="finance"
+                      className="space-y-4"
+                    >
                       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <MetricCard label="Pendientes" value={selectedClient.pendingInvoices.length} icon={CircleDollarSign} tone="bg-[#fff3e8] text-[#f97316]" meta={money(selectedClient.pendingInvoiceAmount)} />
-                        <MetricCard label="Vencidas" value={selectedClient.overdueInvoices.length} icon={ShieldAlert} tone="bg-[#fef2f2] text-[#ef4444]" meta="Cobro urgente" />
-                        <MetricCard label="Propuestas" value={selectedClient.pendingProposals.length} icon={FileText} tone="bg-[#f3ecff] text-[#7c3aed]" meta="Enviado / visto" />
-                        <MetricCard label="Pipeline" value={selectedClient.openDeals.length} icon={BriefcaseBusiness} tone="bg-[#ecfdf3] text-[#16a34a]" meta={money(selectedClient.openPipelineValue)} />
+                        <MetricCard
+                          label="Pendientes"
+                          value={selectedClient.pendingInvoices.length}
+                          icon={CircleDollarSign}
+                          tone="bg-[#fff3e8] text-[#f97316]"
+                          meta={money(selectedClient.pendingInvoiceAmount)}
+                        />
+                        <MetricCard
+                          label="Vencidas"
+                          value={selectedClient.overdueInvoices.length}
+                          icon={ShieldAlert}
+                          tone="bg-[#fef2f2] text-[#ef4444]"
+                          meta="Cobro urgente"
+                        />
+                        <MetricCard
+                          label="Propuestas"
+                          value={selectedClient.pendingProposals.length}
+                          icon={FileText}
+                          tone="bg-[#f3ecff] text-[#7c3aed]"
+                          meta="Enviado / visto"
+                        />
+                        <MetricCard
+                          label="Pipeline"
+                          value={selectedClient.openDeals.length}
+                          icon={BriefcaseBusiness}
+                          tone="bg-[#ecfdf3] text-[#16a34a]"
+                          meta={money(selectedClient.openPipelineValue)}
+                        />
                       </div>
 
                       <div className="grid gap-4 xl:grid-cols-2">
-                        <div data-demo="client-360-invoices" className="rounded-[18px] border border-slate-200 bg-white p-4">
+                        <div
+                          data-demo="client-360-invoices"
+                          className="rounded-[18px] border border-slate-200 bg-white p-4"
+                        >
                           <h3 className="text-sm font-bold text-slate-900">Facturas</h3>
                           <div className="mt-4 space-y-3">
                             {selectedClient.invoices.length === 0 ? (
                               <p className="text-sm text-slate-500">No hay facturas registradas.</p>
                             ) : (
                               selectedClient.invoices.slice(0, 5).map((invoice) => (
-                                <div key={invoice.id} className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
+                                <div
+                                  key={invoice.id}
+                                  className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                                >
                                   <div className="flex items-start justify-between gap-3">
                                     <div>
-                                      <p className="text-sm font-semibold text-slate-900">Factura {invoice.number}</p>
-                                      <p className="text-xs text-slate-500">Vence {formatDate(invoice.due_date)}</p>
+                                      <p className="text-sm font-semibold text-slate-900">
+                                        Factura {invoice.number}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        Vence {formatDate(invoice.due_date)}
+                                      </p>
                                     </div>
                                     <StatusBadge status={invoice.status} />
                                   </div>
                                   <div className="mt-2 flex items-center justify-between text-sm">
                                     <span className="text-slate-600">{money(invoice.total)}</span>
-                                    <span className="text-slate-500">{formatDateTime(invoice.updated_at)}</span>
+                                    <span className="text-slate-500">
+                                      {formatDateTime(invoice.updated_at)}
+                                    </span>
                                   </div>
                                 </div>
                               ))
@@ -2315,41 +2800,67 @@ function ClientsPage() {
                         </div>
 
                         <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-                          <h3 className="text-sm font-bold text-slate-900">Propuestas y pipeline</h3>
+                          <h3 className="text-sm font-bold text-slate-900">
+                            Propuestas y pipeline
+                          </h3>
                           <div className="mt-4 space-y-3">
-                            {selectedClient.pendingProposals.length === 0 && selectedClient.openDeals.length === 0 ? (
-                              <p className="text-sm text-slate-500">No hay propuestas ni oportunidades abiertas.</p>
+                            {selectedClient.pendingProposals.length === 0 &&
+                            selectedClient.openDeals.length === 0 ? (
+                              <p className="text-sm text-slate-500">
+                                No hay propuestas ni oportunidades abiertas.
+                              </p>
                             ) : (
                               <>
                                 {selectedClient.pendingProposals.slice(0, 4).map((proposal) => (
-                                  <div key={proposal.id} className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
+                                  <div
+                                    key={proposal.id}
+                                    className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                                  >
                                     <div className="flex items-start justify-between gap-3">
                                       <div>
-                                        <p className="text-sm font-semibold text-slate-900">{proposal.title}</p>
-                                        <p className="text-xs text-slate-500">Propuesta {proposal.number}</p>
+                                        <p className="text-sm font-semibold text-slate-900">
+                                          {proposal.title}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                          Propuesta {proposal.number}
+                                        </p>
                                       </div>
                                       <StatusBadge status={proposal.status} />
                                     </div>
                                     <div className="mt-2 flex items-center justify-between text-sm">
-                                      <span className="text-slate-600">{money(proposal.amount)}</span>
-                                      <span className="text-slate-500">{formatDateTime(proposal.updated_at)}</span>
+                                      <span className="text-slate-600">
+                                        {money(proposal.amount)}
+                                      </span>
+                                      <span className="text-slate-500">
+                                        {formatDateTime(proposal.updated_at)}
+                                      </span>
                                     </div>
                                   </div>
                                 ))}
                                 {selectedClient.openDeals.slice(0, 4).map((deal) => (
-                                  <div key={deal.id} className="rounded-[14px] border border-slate-100 bg-slate-50 p-3">
+                                  <div
+                                    key={deal.id}
+                                    className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"
+                                  >
                                     <div className="flex items-start justify-between gap-3">
                                       <div>
-                                        <p className="text-sm font-semibold text-slate-900">{deal.name}</p>
+                                        <p className="text-sm font-semibold text-slate-900">
+                                          {deal.name}
+                                        </p>
                                         <p className="text-xs text-slate-500">Etapa {deal.stage}</p>
                                       </div>
-                                      <Badge variant="secondary" className="rounded-full bg-emerald-50 text-emerald-700">
+                                      <Badge
+                                        variant="secondary"
+                                        className="rounded-full bg-emerald-50 text-emerald-700"
+                                      >
                                         {deal.probability || 0}%
                                       </Badge>
                                     </div>
                                     <div className="mt-2 flex items-center justify-between text-sm">
                                       <span className="text-slate-600">{money(deal.value)}</span>
-                                      <span className="text-slate-500">{formatDateTime(deal.updated_at)}</span>
+                                      <span className="text-slate-500">
+                                        {formatDateTime(deal.updated_at)}
+                                      </span>
                                     </div>
                                   </div>
                                 ))}
@@ -2360,10 +2871,17 @@ function ClientsPage() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent data-demo="client-360-activity" forceMount value="activity" className="space-y-4">
+                    <TabsContent
+                      data-demo="client-360-activity"
+                      forceMount
+                      value="activity"
+                      className="space-y-4"
+                    >
                       <div>
                         <h3 className="text-lg font-bold text-slate-900">Actividad reciente</h3>
-                        <p className="text-sm text-slate-600">Una línea de tiempo unificada con lo último que pasó en esta cuenta.</p>
+                        <p className="text-sm text-slate-600">
+                          Una línea de tiempo unificada con lo último que pasó en esta cuenta.
+                        </p>
                       </div>
 
                       {activityFeed.length === 0 ? (
@@ -2379,8 +2897,16 @@ function ClientsPage() {
                           {activityFeed.map((item) => {
                             const Icon = item.icon;
                             return (
-                              <div key={item.id} className="flex items-start gap-3 rounded-[16px] border border-slate-200 bg-white p-4">
-                                <div className={cnJoin("grid h-10 w-10 shrink-0 place-items-center rounded-[14px]", item.tone)}>
+                              <div
+                                key={item.id}
+                                className="flex items-start gap-3 rounded-[16px] border border-slate-200 bg-white p-4"
+                              >
+                                <div
+                                  className={cnJoin(
+                                    "grid h-10 w-10 shrink-0 place-items-center rounded-[14px]",
+                                    item.tone,
+                                  )}
+                                >
                                   <Icon className="h-4 w-4" />
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -2389,7 +2915,9 @@ function ClientsPage() {
                                       <p className="font-semibold text-slate-900">{item.title}</p>
                                       <p className="text-sm text-slate-600">{item.description}</p>
                                     </div>
-                                    <span className="text-xs font-semibold text-slate-500">{relativeLabel(item.at)}</span>
+                                    <span className="text-xs font-semibold text-slate-500">
+                                      {relativeLabel(item.at)}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -2449,7 +2977,11 @@ function ClientsPage() {
               <Button type="button" variant="outline" onClick={() => setCreateTaskOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="button" onClick={() => void handleCreateTaskForClient()} disabled={createTaskSaving}>
+              <Button
+                type="button"
+                onClick={() => void handleCreateTaskForClient()}
+                disabled={createTaskSaving}
+              >
                 {createTaskSaving ? "Creando..." : "Crear tarea"}
               </Button>
             </div>
@@ -2480,11 +3012,19 @@ function ClientsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Nombre de la empresa</Label>
-                  <Input name="company_name" defaultValue={editClient?.company_name || ""} required />
+                  <Input
+                    name="company_name"
+                    defaultValue={editClient?.company_name || ""}
+                    required
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Contacto principal rápido</Label>
-                  <Input name="contact_person" defaultValue={editClient?.contact_person || ""} placeholder="Referencia rápida" />
+                  <Input
+                    name="contact_person"
+                    defaultValue={editClient?.contact_person || ""}
+                    placeholder="Referencia rápida"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Email</Label>
@@ -2504,7 +3044,10 @@ function ClientsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Account manager</Label>
-                  <Select name="account_manager" defaultValue={editClient?.account_manager || undefined}>
+                  <Select
+                    name="account_manager"
+                    defaultValue={editClient?.account_manager || undefined}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Sin asignar" />
                     </SelectTrigger>
@@ -2558,7 +3101,11 @@ function ClientsPage() {
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <Label>Etiquetas</Label>
-                  <Input name="tags" defaultValue={(editClient?.tags || []).join(", ")} placeholder="vip, recurrente, saludable" />
+                  <Input
+                    name="tags"
+                    defaultValue={(editClient?.tags || []).join(", ")}
+                    placeholder="vip, recurrente, saludable"
+                  />
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <Label>Notas</Label>
@@ -2587,11 +3134,16 @@ function ClientsPage() {
           <DialogHeader>
             <DialogTitle>{editContact ? "Editar contacto" : "Nuevo contacto"}</DialogTitle>
             <DialogDescription>
-              {selectedClient?.company_name || "Selecciona un cliente"} · Completa la información del contacto operativo.
+              {selectedClient?.company_name || "Selecciona un cliente"} · Completa la información
+              del contacto operativo.
             </DialogDescription>
           </DialogHeader>
 
-          <form key={editContact?.id || "new-contact"} onSubmit={handleContactSubmit} className="space-y-4 overflow-y-auto pr-1">
+          <form
+            key={editContact?.id || "new-contact"}
+            onSubmit={handleContactSubmit}
+            className="space-y-4 overflow-y-auto pr-1"
+          >
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Nombre</Label>
@@ -2623,7 +3175,11 @@ function ClientsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Etiquetas</Label>
-                <Input name="tags" defaultValue={(editContact?.tags || []).join(", ")} placeholder="principal, finanzas" />
+                <Input
+                  name="tags"
+                  defaultValue={(editContact?.tags || []).join(", ")}
+                  placeholder="principal, finanzas"
+                />
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <Label>Notas</Label>
@@ -2634,10 +3190,15 @@ function ClientsPage() {
             <div className="flex items-center justify-between rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Contacto primario</p>
-                <p className="text-sm text-slate-600">Marca este contacto como el principal para la cuenta.</p>
+                <p className="text-sm text-slate-600">
+                  Marca este contacto como el principal para la cuenta.
+                </p>
               </div>
               <div className="flex items-center gap-2">
-                <Checkbox checked={contactIsPrimary} onCheckedChange={(checked) => setContactIsPrimary(Boolean(checked))} />
+                <Checkbox
+                  checked={contactIsPrimary}
+                  onCheckedChange={(checked) => setContactIsPrimary(Boolean(checked))}
+                />
               </div>
             </div>
 

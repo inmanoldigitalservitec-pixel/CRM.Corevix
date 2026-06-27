@@ -22,7 +22,9 @@ export function CrmDetailSection({
               {icon}
             </span>
           ) : null}
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide truncate">{title}</div>
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide truncate">
+            {title}
+          </div>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
@@ -53,4 +55,3 @@ export function CrmDetailRow({
 export function CrmDetailEmptyState({ children }: { children: React.ReactNode }) {
   return <div className="text-sm text-muted-foreground">{children}</div>;
 }
-

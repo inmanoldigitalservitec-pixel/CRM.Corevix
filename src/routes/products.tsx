@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, BadgeDollarSign, Layers, Package, Pencil, Plus, Power, ShieldCheck } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  BadgeDollarSign,
+  Layers,
+  Package,
+  Pencil,
+  Plus,
+  Power,
+  ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
@@ -10,12 +20,25 @@ import { SearchFilters } from "@/components/crm/search-filters";
 import { EmptyState } from "@/components/crm/empty-state";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { MetricCard } from "@/components/crm/metric-card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -100,7 +123,9 @@ function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [billingFilter, setBillingFilter] = useState<string>("all");
-  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">(isAdminLike ? "all" : "active");
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">(
+    isAdminLike ? "all" : "active",
+  );
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Product | null>(null);
@@ -111,7 +136,10 @@ function ProductsPage() {
   const [workflowSteps, setWorkflowSteps] = useState<ProductWorkflowStep[]>([]);
 
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false);
-  const [workflowForm, setWorkflowForm] = useState({ name: "Proceso de ejecución", description: "" });
+  const [workflowForm, setWorkflowForm] = useState({
+    name: "Proceso de ejecución",
+    description: "",
+  });
   const [workflowSaving, setWorkflowSaving] = useState(false);
 
   const [stepDialogOpen, setStepDialogOpen] = useState(false);
@@ -164,17 +192,20 @@ function ProductsPage() {
     const total = data.length;
     const active = data.filter((p) => p.is_active).length;
     const inactive = total - active;
-    const avgPrice = total > 0 ? Math.round(data.reduce((s, p) => s + Number(p.base_price || 0), 0) / total) : 0;
+    const avgPrice =
+      total > 0 ? Math.round(data.reduce((s, p) => s + Number(p.base_price || 0), 0) / total) : 0;
     return { total, active, inactive, avgPrice };
   }, [data]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return data.filter((p) => {
-      const matchSearch = !q || `${p.name} ${p.category || ""} ${p.description || ""}`.toLowerCase().includes(q);
+      const matchSearch =
+        !q || `${p.name} ${p.category || ""} ${p.description || ""}`.toLowerCase().includes(q);
       const matchCategory = categoryFilter === "all" || (p.category || "") === categoryFilter;
       const matchType = typeFilter === "all" || String(p.type || "") === typeFilter;
-      const matchBilling = billingFilter === "all" || String(p.billing_type || "") === billingFilter;
+      const matchBilling =
+        billingFilter === "all" || String(p.billing_type || "") === billingFilter;
       const matchActive =
         activeFilter === "all" ||
         (activeFilter === "active" && p.is_active) ||
@@ -232,7 +263,12 @@ function ProductsPage() {
   const estimatedTotalDays = useMemo(() => {
     return workflowSteps
       .filter((s) => s.is_active)
-      .reduce((sum, s) => sum + (Number.isFinite(Number(s.default_duration_days)) ? Number(s.default_duration_days) : 0), 0);
+      .reduce(
+        (sum, s) =>
+          sum +
+          (Number.isFinite(Number(s.default_duration_days)) ? Number(s.default_duration_days) : 0),
+        0,
+      );
   }, [workflowSteps]);
 
   useEffect(() => {
@@ -343,7 +379,9 @@ function ProductsPage() {
 
   function openNewStep() {
     if (!activeWorkflow || !selected) return;
-    const nextOrder = workflowSteps.length ? Math.max(...workflowSteps.map((s) => Number(s.step_order || 0))) + 1 : 1;
+    const nextOrder = workflowSteps.length
+      ? Math.max(...workflowSteps.map((s) => Number(s.step_order || 0))) + 1
+      : 1;
     setEditingStep(null);
     setStepForm({
       title: "",
@@ -413,7 +451,9 @@ function ProductsPage() {
           toast.error(error.message || "No se pudo actualizar el paso");
           return;
         }
-        setWorkflowSteps((prev) => prev.map((s) => (s.id === editingStep.id ? (updated as ProductWorkflowStep) : s)));
+        setWorkflowSteps((prev) =>
+          prev.map((s) => (s.id === editingStep.id ? (updated as ProductWorkflowStep) : s)),
+        );
         toast.success("Paso actualizado");
       } else {
         const { data: created, error } = await db
@@ -427,7 +467,9 @@ function ProductsPage() {
           toast.error(error.message || "No se pudo crear el paso");
           return;
         }
-        setWorkflowSteps((prev) => [...prev, created as ProductWorkflowStep].sort((a, b) => a.step_order - b.step_order));
+        setWorkflowSteps((prev) =>
+          [...prev, created as ProductWorkflowStep].sort((a, b) => a.step_order - b.step_order),
+        );
         toast.success("Paso creado");
       }
       setStepDialogOpen(false);
@@ -455,7 +497,9 @@ function ProductsPage() {
       toast.error(error.message || "No se pudo actualizar el paso");
       return;
     }
-    setWorkflowSteps((prev) => prev.map((s) => (s.id === step.id ? (updated as ProductWorkflowStep) : s)));
+    setWorkflowSteps((prev) =>
+      prev.map((s) => (s.id === step.id ? (updated as ProductWorkflowStep) : s)),
+    );
   }
 
   async function handleMoveStep(stepId: string, direction: "up" | "down") {
@@ -471,8 +515,16 @@ function ProductsPage() {
     const b = sorted[swapWith];
     const db = supabase as any;
 
-    const { error: e1 } = await db.from("product_workflow_steps").update({ step_order: b.step_order }).eq("company_id", profile.company_id).eq("id", a.id);
-    const { error: e2 } = await db.from("product_workflow_steps").update({ step_order: a.step_order }).eq("company_id", profile.company_id).eq("id", b.id);
+    const { error: e1 } = await db
+      .from("product_workflow_steps")
+      .update({ step_order: b.step_order })
+      .eq("company_id", profile.company_id)
+      .eq("id", a.id);
+    const { error: e2 } = await db
+      .from("product_workflow_steps")
+      .update({ step_order: a.step_order })
+      .eq("company_id", profile.company_id)
+      .eq("id", b.id);
     if (e1 || e2) {
       toast.error((e1 || e2)?.message || "No se pudo reordenar");
       return;
@@ -496,7 +548,9 @@ function ProductsPage() {
     }
     try {
       await update(item.id, { is_active: !item.is_active } as any);
-      toast.success(item.is_active ? "Producto desactivado correctamente." : "Producto activado correctamente.");
+      toast.success(
+        item.is_active ? "Producto desactivado correctamente." : "Producto activado correctamente.",
+      );
     } catch (err: any) {
       toast.error(err?.message ?? "No se pudo actualizar el producto.");
     }
@@ -518,9 +572,9 @@ function ProductsPage() {
     };
 
     window.addEventListener("crm-demo-open-product-detail", onDemoOpenProductDetail);
-    return () => window.removeEventListener("crm-demo-open-product-detail", onDemoOpenProductDetail);
+    return () =>
+      window.removeEventListener("crm-demo-open-product-detail", onDemoOpenProductDetail);
   }, [filtered, data]);
-
 
   if (loading) return <LoadingState />;
 
@@ -530,7 +584,14 @@ function ProductsPage() {
         title="Productos"
         subtitle="Administra los servicios, paquetes y ofertas que vende tu negocio."
         actionLabel={isAdminLike ? "Nuevo producto" : undefined}
-        onAction={isAdminLike ? () => { setEditItem(null); setDialogOpen(true); } : undefined}
+        onAction={
+          isAdminLike
+            ? () => {
+                setEditItem(null);
+                setDialogOpen(true);
+              }
+            : undefined
+        }
       />
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
@@ -640,7 +701,9 @@ function ProductsPage() {
                     <TableHead className="hidden md:table-cell">Tipo</TableHead>
                     <TableHead className="hidden sm:table-cell">Precio</TableHead>
                     <TableHead className="hidden lg:table-cell">Cobro</TableHead>
-                    {isAdminLike ? <TableHead className="text-right pr-4 sm:pr-5">Estado</TableHead> : null}
+                    {isAdminLike ? (
+                      <TableHead className="text-right pr-4 sm:pr-5">Estado</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -653,15 +716,42 @@ function ProductsPage() {
                     >
                       <TableCell className="font-medium pl-4 sm:pl-5">
                         <div className="font-semibold">{p.name}</div>
-                        {p.description ? <div className="text-xs text-muted-foreground line-clamp-1">{p.description}</div> : null}
+                        {p.description ? (
+                          <div className="text-xs text-muted-foreground line-clamp-1">
+                            {p.description}
+                          </div>
+                        ) : null}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.category || "—"}</TableCell>
-                      <TableCell className="hidden md:table-cell text-sm">{p.type || "—"}</TableCell>
-                      <TableCell data-demo={index === 0 ? "products-price" : undefined} className="hidden sm:table-cell text-sm">{formatMoney(Number(p.base_price || 0), p.currency || "USD")}</TableCell>
-                      <TableCell data-demo={index === 0 ? "products-billing" : undefined} className="hidden lg:table-cell text-sm">{p.billing_type || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {p.category || "—"}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm">
+                        {p.type || "—"}
+                      </TableCell>
+                      <TableCell
+                        data-demo={index === 0 ? "products-price" : undefined}
+                        className="hidden sm:table-cell text-sm"
+                      >
+                        {formatMoney(Number(p.base_price || 0), p.currency || "USD")}
+                      </TableCell>
+                      <TableCell
+                        data-demo={index === 0 ? "products-billing" : undefined}
+                        className="hidden lg:table-cell text-sm"
+                      >
+                        {p.billing_type || "—"}
+                      </TableCell>
                       {isAdminLike ? (
-                        <TableCell data-demo={index === 0 ? "products-active-status" : undefined} className="text-right pr-4 sm:pr-5">
-                          <span className={p.is_active ? "text-emerald-700 font-semibold" : "text-slate-500 font-semibold"}>
+                        <TableCell
+                          data-demo={index === 0 ? "products-active-status" : undefined}
+                          className="text-right pr-4 sm:pr-5"
+                        >
+                          <span
+                            className={
+                              p.is_active
+                                ? "text-emerald-700 font-semibold"
+                                : "text-slate-500 font-semibold"
+                            }
+                          >
                             {p.is_active ? "Activo" : "Inactivo"}
                           </span>
                         </TableCell>
@@ -695,7 +785,11 @@ function ProductsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Categoría</Label>
-                <Input name="category" defaultValue={editItem?.category || ""} placeholder="Ej: Desarrollo Web" />
+                <Input
+                  name="category"
+                  defaultValue={editItem?.category || ""}
+                  placeholder="Ej: Desarrollo Web"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Tipo</Label>
@@ -717,7 +811,11 @@ function ProductsPage() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5 col-span-2">
                 <Label>Precio base</Label>
-                <Input name="base_price" type="number" defaultValue={String(editItem?.base_price ?? 0)} />
+                <Input
+                  name="base_price"
+                  type="number"
+                  defaultValue={String(editItem?.base_price ?? 0)}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Moneda</Label>
@@ -743,13 +841,22 @@ function ProductsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Duración (días)</Label>
-                <Input name="duration_days" type="number" defaultValue={editItem?.duration_days ?? ""} placeholder="Opcional" />
+                <Input
+                  name="duration_days"
+                  type="number"
+                  defaultValue={editItem?.duration_days ?? ""}
+                  placeholder="Opcional"
+                />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label>Slug (opcional)</Label>
-              <Input name="slug" defaultValue={editItem?.slug || ""} placeholder="ej: desarrollo-web-premium" />
+              <Input
+                name="slug"
+                defaultValue={editItem?.slug || ""}
+                placeholder="ej: desarrollo-web-premium"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -807,9 +914,12 @@ function ProductsPage() {
                   <Package className="h-5 w-5 text-blue-600" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">{selected.name}</DialogTitle>
+                  <DialogTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">
+                    {selected.name}
+                  </DialogTitle>
                   <div className="mt-0.5 text-[13px] text-muted-foreground truncate">
-                    {(selected.category || "Producto") + (selected.type ? ` · ${selected.type}` : "")}
+                    {(selected.category || "Producto") +
+                      (selected.type ? ` · ${selected.type}` : "")}
                   </div>
                 </div>
               </div>
@@ -826,7 +936,9 @@ function ProductsPage() {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Precio</div>
-                  <div className="font-medium">{formatMoney(Number(selected.base_price || 0), selected.currency || "USD")}</div>
+                  <div className="font-medium">
+                    {formatMoney(Number(selected.base_price || 0), selected.currency || "USD")}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Cobro</div>
@@ -846,19 +958,30 @@ function ProductsPage() {
                 </div>
               ) : null}
 
-              <div data-demo="products-workflow" className="rounded-[12px] border bg-background p-3">
+              <div
+                data-demo="products-workflow"
+                className="rounded-[12px] border bg-background p-3"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Proceso de ejecución</div>
                     <div className="font-medium">
-                      {activeWorkflow ? activeWorkflow.name : "Este producto todavía no tiene proceso definido."}
+                      {activeWorkflow
+                        ? activeWorkflow.name
+                        : "Este producto todavía no tiene proceso definido."}
                     </div>
                     {activeWorkflow?.description ? (
-                      <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{activeWorkflow.description}</div>
+                      <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                        {activeWorkflow.description}
+                      </div>
                     ) : null}
                   </div>
                   {isAdminLike && !activeWorkflow ? (
-                    <Button variant="outline" className="gap-2" onClick={() => openCreateWorkflow()}>
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => openCreateWorkflow()}
+                    >
                       <Plus className="h-4 w-4" /> Crear workflow
                     </Button>
                   ) : null}
@@ -870,17 +993,27 @@ function ProductsPage() {
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-muted-foreground">
-                        Duración estimada total: <span className="font-medium">{estimatedTotalDays} día(s)</span>
+                        Duración estimada total:{" "}
+                        <span className="font-medium">{estimatedTotalDays} día(s)</span>
                       </div>
                       {isAdminLike ? (
-                        <Button data-demo="products-add-workflow-step" variant="outline" size="sm" className="gap-2 h-8" onClick={() => openNewStep()}>
+                        <Button
+                          data-demo="products-add-workflow-step"
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 h-8"
+                          onClick={() => openNewStep()}
+                        >
                           <Plus className="h-4 w-4" /> Agregar paso
                         </Button>
                       ) : null}
                     </div>
 
                     {workflowSteps.length ? (
-                      <div data-demo="products-workflow-steps" className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                      <div
+                        data-demo="products-workflow-steps"
+                        className="space-y-2 max-h-[340px] overflow-y-auto pr-1"
+                      >
                         {[...workflowSteps]
                           .sort((a, b) => a.step_order - b.step_order)
                           .map((s, idx) => (
@@ -889,14 +1022,20 @@ function ProductsPage() {
                                 <div className="min-w-0">
                                   <div className="font-medium truncate">
                                     {idx + 1}. {s.title}{" "}
-                                    {!s.is_active ? <span className="text-xs text-muted-foreground">(inactivo)</span> : null}
+                                    {!s.is_active ? (
+                                      <span className="text-xs text-muted-foreground">
+                                        (inactivo)
+                                      </span>
+                                    ) : null}
                                   </div>
                                   <div className="text-xs text-muted-foreground mt-1">
                                     {s.default_duration_days} día(s) · {s.default_priority}
                                     {s.assigned_role ? ` · Rol: ${s.assigned_role}` : ""}
                                   </div>
                                   {s.description ? (
-                                    <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{s.description}</div>
+                                    <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                                      {s.description}
+                                    </div>
                                   ) : null}
                                 </div>
 
@@ -920,7 +1059,12 @@ function ProductsPage() {
                                     >
                                       <ArrowDown className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditStep(s)}>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => openEditStep(s)}
+                                    >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
                                     <Button
@@ -938,7 +1082,9 @@ function ProductsPage() {
                           ))}
                       </div>
                     ) : (
-                      <div className="text-xs text-muted-foreground">Este workflow no tiene pasos todavía.</div>
+                      <div className="text-xs text-muted-foreground">
+                        Este workflow no tiene pasos todavía.
+                      </div>
                     )}
                   </div>
                 ) : null}
@@ -946,7 +1092,8 @@ function ProductsPage() {
 
               <div className="flex items-center justify-between pt-2">
                 <div className="text-xs text-muted-foreground">
-                  {selected.is_active ? "Activo" : "Inactivo"} · Actualizado {new Date(selected.updated_at).toLocaleDateString()}
+                  {selected.is_active ? "Activo" : "Inactivo"} · Actualizado{" "}
+                  {new Date(selected.updated_at).toLocaleDateString()}
                 </div>
                 <div data-demo="products-actions" className="flex gap-2">
                   {isAdminLike ? (
@@ -995,7 +1142,10 @@ function ProductsPage() {
           >
             <div className="space-y-1.5">
               <Label>Nombre</Label>
-              <Input value={workflowForm.name} onChange={(e) => setWorkflowForm((p) => ({ ...p, name: e.target.value }))} />
+              <Input
+                value={workflowForm.name}
+                onChange={(e) => setWorkflowForm((p) => ({ ...p, name: e.target.value }))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Descripción</Label>
@@ -1006,7 +1156,12 @@ function ProductsPage() {
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setWorkflowDialogOpen(false)} disabled={workflowSaving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setWorkflowDialogOpen(false)}
+                disabled={workflowSaving}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={!isAdminLike || workflowSaving}>
@@ -1037,11 +1192,18 @@ function ProductsPage() {
           >
             <div className="space-y-1.5">
               <Label>Título</Label>
-              <Input value={stepForm.title} onChange={(e) => setStepForm((p) => ({ ...p, title: e.target.value }))} />
+              <Input
+                value={stepForm.title}
+                onChange={(e) => setStepForm((p) => ({ ...p, title: e.target.value }))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Descripción</Label>
-              <Textarea value={stepForm.description} onChange={(e) => setStepForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
+              <Textarea
+                value={stepForm.description}
+                onChange={(e) => setStepForm((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -1059,14 +1221,19 @@ function ProductsPage() {
                   type="number"
                   min={1}
                   value={stepForm.default_duration_days}
-                  onChange={(e) => setStepForm((p) => ({ ...p, default_duration_days: e.target.value }))}
+                  onChange={(e) =>
+                    setStepForm((p) => ({ ...p, default_duration_days: e.target.value }))
+                  }
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Prioridad</Label>
-                <Select value={stepForm.default_priority} onValueChange={(v) => setStepForm((p) => ({ ...p, default_priority: v }))}>
+                <Select
+                  value={stepForm.default_priority}
+                  onValueChange={(v) => setStepForm((p) => ({ ...p, default_priority: v }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -1088,7 +1255,12 @@ function ProductsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setStepDialogOpen(false)} disabled={stepSaving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStepDialogOpen(false)}
+                disabled={stepSaving}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={!isAdminLike || stepSaving}>

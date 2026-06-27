@@ -158,7 +158,11 @@ async function fetchMessengerSenderProfile(opts: {
   const last = cleanOptionalString(json?.last_name) || "";
   const senderName = cleanOptionalString(`${first} ${last}`);
   const profilePic = cleanOptionalString(json?.profile_pic);
-  console.info("Perfil de Messenger obtenido.", { senderId, hasName: Boolean(senderName), hasPic: Boolean(profilePic) });
+  console.info("Perfil de Messenger obtenido.", {
+    senderId,
+    hasName: Boolean(senderName),
+    hasPic: Boolean(profilePic),
+  });
   return { senderName, profilePic };
 }
 
@@ -250,12 +254,16 @@ Deno.serve(async (req) => {
 
         const accountQuery = serviceClient
           .from("meta_accounts")
-          .select("id, company_id, platform, page_id, instagram_business_account_id, page_name, access_token_secret_id")
+          .select(
+            "id, company_id, platform, page_id, instagram_business_account_id, page_name, access_token_secret_id",
+          )
           .eq("platform", platform);
 
         const accountRes =
           platform === "instagram"
-            ? await accountQuery.or(`instagram_business_account_id.eq.${recipientId},page_id.eq.${recipientId}`).maybeSingle()
+            ? await accountQuery
+                .or(`instagram_business_account_id.eq.${recipientId},page_id.eq.${recipientId}`)
+                .maybeSingle()
             : await accountQuery.eq("page_id", recipientId).maybeSingle();
 
         const account = accountRes.data;
@@ -265,7 +273,8 @@ Deno.serve(async (req) => {
           continue;
         }
         if (!account) {
-          const hint = platform === "instagram" ? "instagram_business_account_id/page_id" : "page_id";
+          const hint =
+            platform === "instagram" ? "instagram_business_account_id/page_id" : "page_id";
           errors.push(`No existe meta_account para ${hint} ${recipientId}`);
           continue;
         }
@@ -282,7 +291,10 @@ Deno.serve(async (req) => {
           try {
             const secretId = cleanOptionalString((account as any).access_token_secret_id);
             if (!secretId) {
-              console.warn("meta_account no tiene access_token_secret_id configurado.", { recipientId, senderId });
+              console.warn("meta_account no tiene access_token_secret_id configurado.", {
+                recipientId,
+                senderId,
+              });
             }
             const profile = await fetchMessengerSenderProfile({
               serviceClient,
@@ -344,9 +356,14 @@ Deno.serve(async (req) => {
           conversationId = conversationInsert.data?.id as string | undefined;
         } else {
           const nextSenderName =
-            senderName && !cleanOptionalString((conversationSelect.data as any)?.sender_name) ? senderName : null;
+            senderName && !cleanOptionalString((conversationSelect.data as any)?.sender_name)
+              ? senderName
+              : null;
           const nextSenderPic =
-            senderProfilePic && !cleanOptionalString((conversationSelect.data as any)?.sender_profile_pic) ? senderProfilePic : null;
+            senderProfilePic &&
+            !cleanOptionalString((conversationSelect.data as any)?.sender_profile_pic)
+              ? senderProfilePic
+              : null;
 
           const { error: conversationUpdateError } = await serviceClient
             .from("meta_conversations")
@@ -389,39 +406,37 @@ Deno.serve(async (req) => {
           }
         }
 
-          // Skip Messenger non-message events: read receipts, deliveries, reactions, echoes and empty events.
-          const hasRead = Boolean((event as any).read);
-          const hasDelivery = Boolean((event as any).delivery);
-          const hasReaction = Boolean((event as any).reaction);
-          const hasMessage = Boolean((event as any).message);
-          const hasPostback = Boolean((event as any).postback);
-          const messageObj = (event as any).message;
-          const postbackObj = (event as any).postback;
-          const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
-          const hasText = Boolean(text);
-          const hasPostbackContent = Boolean(
-            cleanOptionalString(postbackObj?.payload) ||
-            cleanOptionalString(postbackObj?.title)
-          );
+        // Skip Messenger non-message events: read receipts, deliveries, reactions, echoes and empty events.
+        const hasRead = Boolean((event as any).read);
+        const hasDelivery = Boolean((event as any).delivery);
+        const hasReaction = Boolean((event as any).reaction);
+        const hasMessage = Boolean((event as any).message);
+        const hasPostback = Boolean((event as any).postback);
+        const messageObj = (event as any).message;
+        const postbackObj = (event as any).postback;
+        const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+        const hasText = Boolean(text);
+        const hasPostbackContent = Boolean(
+          cleanOptionalString(postbackObj?.payload) || cleanOptionalString(postbackObj?.title),
+        );
 
-          if (
-            hasRead ||
-            hasDelivery ||
-            hasReaction ||
-            messageObj?.is_echo === true ||
-            (!hasMessage && !hasPostback) ||
-            (!hasText && !hasAttachments && !hasPostbackContent)
-          ) {
-            console.info("Messenger webhook skipped non-message event", {
-              has_message: hasMessage,
-              has_read: hasRead,
-              has_delivery: hasDelivery,
-              has_postback: hasPostback,
-              has_reaction: hasReaction,
-            });
-            continue;
-          }
-
+        if (
+          hasRead ||
+          hasDelivery ||
+          hasReaction ||
+          messageObj?.is_echo === true ||
+          (!hasMessage && !hasPostback) ||
+          (!hasText && !hasAttachments && !hasPostbackContent)
+        ) {
+          console.info("Messenger webhook skipped non-message event", {
+            has_message: hasMessage,
+            has_read: hasRead,
+            has_delivery: hasDelivery,
+            has_postback: hasPostback,
+            has_reaction: hasReaction,
+          });
+          continue;
+        }
 
         const messageInsert = await serviceClient
           .from("meta_messages")
@@ -432,7 +447,11 @@ Deno.serve(async (req) => {
             platform,
             external_message_id: messageId,
             direction: "inbound",
-            message_type: text ? "text" : hasAttachments ? attachments[0]?.type || "attachment" : "postback",
+            message_type: text
+              ? "text"
+              : hasAttachments
+                ? attachments[0]?.type || "attachment"
+                : "postback",
             text,
             attachments,
             raw_payload: event,
@@ -455,7 +474,9 @@ Deno.serve(async (req) => {
             const dispatchSupabaseUrl = Deno.env.get("SUPABASE_URL") || null;
             const dispatchServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || null;
             if (!dispatchSupabaseUrl || !dispatchServiceRoleKey) {
-              console.warn("Messenger bot dispatch skipped: missing SUPABASE_URL or SERVICE_ROLE_KEY");
+              console.warn(
+                "Messenger bot dispatch skipped: missing SUPABASE_URL or SERVICE_ROLE_KEY",
+              );
             } else {
               console.info("Messenger bot dispatch preparing", {
                 company_id: companyId,
@@ -467,24 +488,29 @@ Deno.serve(async (req) => {
               });
 
               const functionsBaseUrl = dispatchSupabaseUrl.replace(/\/+$/, "");
-              const dispatchResponse = await fetch(`${functionsBaseUrl}/functions/v1/meta-bot-dispatch`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${dispatchServiceRoleKey}`,
+              const dispatchResponse = await fetch(
+                `${functionsBaseUrl}/functions/v1/meta-bot-dispatch`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${dispatchServiceRoleKey}`,
+                  },
+                  body: JSON.stringify({
+                    company_id: companyId,
+                    account_id: accountId,
+                    conversation_id: conversationId,
+                    platform: "messenger",
+                    inbound_message_id: insertedMessageId,
+                    external_user_id: senderId,
+                    text: messageText,
+                  }),
                 },
-                body: JSON.stringify({
-                  company_id: companyId,
-                  account_id: accountId,
-                  conversation_id: conversationId,
-                  platform: "messenger",
-                  inbound_message_id: insertedMessageId,
-                  external_user_id: senderId,
-                  text: messageText,
-                }),
-              });
+              );
 
-              console.info("Messenger bot dispatch response status", { status: dispatchResponse.status });
+              console.info("Messenger bot dispatch response status", {
+                status: dispatchResponse.status,
+              });
               if (!dispatchResponse.ok) {
                 const body = await dispatchResponse.text().catch(() => "");
                 console.warn("Messenger bot dispatch failed (best-effort)", {

@@ -61,7 +61,8 @@ export const en = {
   "auth.passwordTooShort": "Password must be at least 8 characters",
   "auth.signedInSuccess": "Signed in successfully",
   "auth.signInFailed": "Sign in failed",
-  "auth.accountCreatedVerifyEmail": "Account created! Please check your email to verify your account.",
+  "auth.accountCreatedVerifyEmail":
+    "Account created! Please check your email to verify your account.",
   "auth.signUpFailed": "Sign up failed",
 
   // 404 / Errors

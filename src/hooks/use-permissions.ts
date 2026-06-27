@@ -112,7 +112,8 @@ export function usePermissions() {
     const row = dbPerms[module];
     if (!row) return null;
     if (action === "view") return row.can_view;
-    if (action === "manage") return row.can_edit || row.can_create || row.can_delete || row.can_assign;
+    if (action === "manage")
+      return row.can_edit || row.can_create || row.can_delete || row.can_assign;
     if (action === "create") return row.can_create;
     if (action === "edit") return row.can_edit;
     if (action === "delete") return row.can_delete;
@@ -131,7 +132,8 @@ export function usePermissions() {
       const fromDb = resolveFromDb(key);
       if (fromDb !== null) {
         // Enforce invariant roles even if the table is misconfigured.
-        if (role === "viewer" && !key.endsWith(".view_all") && key !== "settings.view") return false;
+        if (role === "viewer" && !key.endsWith(".view_all") && key !== "settings.view")
+          return false;
         if (role === "sales_agent" && key.endsWith(".delete")) return false;
         return fromDb;
       }

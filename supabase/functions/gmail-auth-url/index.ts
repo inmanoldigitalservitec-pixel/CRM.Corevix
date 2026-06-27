@@ -52,13 +52,17 @@ Deno.serve(async (req) => {
     if (!jwt) return jsonResponse({ error: "No estás autenticado." }, 401);
 
     const body = await req.json().catch(() => ({}));
-    const redirectTo = body?.redirectTo ? String(body.redirectTo) : `${siteUrl.replace(/\/$/, "")}/settings`;
+    const redirectTo = body?.redirectTo
+      ? String(body.redirectTo)
+      : `${siteUrl.replace(/\/$/, "")}/settings`;
 
     const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
       auth: { persistSession: false },
     });
-    const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
+    const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false },
+    });
 
     const { data: authData, error: authErr } = await callerClient.auth.getUser(jwt);
     if (authErr || !authData?.user) return jsonResponse({ error: "Sesión inválida." }, 401);
@@ -69,8 +73,10 @@ Deno.serve(async (req) => {
       .eq("user_id", authData.user.id)
       .maybeSingle();
     if (profileErr) return jsonResponse({ error: profileErr.message }, 400);
-    if (!profile?.id || !profile?.company_id) return jsonResponse({ error: "No se encontró la compañía del usuario." }, 403);
-    if (profile.is_active === false) return jsonResponse({ error: "Tu usuario está inactivo." }, 403);
+    if (!profile?.id || !profile?.company_id)
+      return jsonResponse({ error: "No se encontró la compañía del usuario." }, 403);
+    if (profile.is_active === false)
+      return jsonResponse({ error: "Tu usuario está inactivo." }, 403);
 
     const { data: settings, error: settingsError } = await serviceClient
       .from("gmail_settings")

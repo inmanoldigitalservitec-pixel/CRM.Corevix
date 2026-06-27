@@ -60,7 +60,11 @@ function LoginPage() {
   );
 }
 
-function SignInForm({ onSubmit }: { onSubmit: (email: string, password: string) => Promise<void> }) {
+function SignInForm({
+  onSubmit,
+}: {
+  onSubmit: (email: string, password: string) => Promise<void>;
+}) {
   const { t } = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -89,11 +93,23 @@ function SignInForm({ onSubmit }: { onSubmit: (email: string, password: string) 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>{t("auth.email")}</Label>
-            <Input type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t("auth.password")}</Label>
-            <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting ? t("auth.signingIn") : t("auth.signIn")}
@@ -104,7 +120,17 @@ function SignInForm({ onSubmit }: { onSubmit: (email: string, password: string) 
   );
 }
 
-function SignUpForm({ onSubmit }: { onSubmit: (email: string, password: string, fullName: string, companyName?: string, invitationToken?: string) => Promise<void> }) {
+function SignUpForm({
+  onSubmit,
+}: {
+  onSubmit: (
+    email: string,
+    password: string,
+    fullName: string,
+    companyName?: string,
+    invitationToken?: string,
+  ) => Promise<void>;
+}) {
   const { t } = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -148,23 +174,49 @@ function SignUpForm({ onSubmit }: { onSubmit: (email: string, password: string, 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>{t("auth.fullName")}</Label>
-            <Input placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            <Input
+              placeholder="John Doe"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t("auth.companyName")}</Label>
-            <Input placeholder="My Company" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+            <Input
+              placeholder="My Company"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Invitation Token (optional)</Label>
-            <Input placeholder="Paste token from your admin" value={invitationToken} onChange={(e) => setInvitationToken(e.target.value)} />
+            <Input
+              placeholder="Paste token from your admin"
+              value={invitationToken}
+              onChange={(e) => setInvitationToken(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t("auth.email")}</Label>
-            <Input type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t("auth.password")}</Label>
-            <Input type="password" placeholder={t("auth.passwordMinChars")} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+            <Input
+              type="password"
+              placeholder={t("auth.passwordMinChars")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+            />
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting ? t("auth.creatingAccount") : t("auth.createAccount")}

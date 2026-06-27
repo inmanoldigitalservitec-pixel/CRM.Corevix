@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -20,7 +28,13 @@ interface AuthState {
   roles: string[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, companyName?: string, invitationToken?: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    companyName?: string,
+    invitationToken?: string,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasAnyRole: (roles: string[]) => boolean;
@@ -37,10 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const inactiveSignOutOnce = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const [{ data: prof, error: profErr }, { data: userRoles, error: rolesErr }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("user_id", userId).single(),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
-    ]);
+    const [{ data: prof, error: profErr }, { data: userRoles, error: rolesErr }] =
+      await Promise.all([
+        supabase.from("profiles").select("*").eq("user_id", userId).single(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+      ]);
     if (profErr) console.error("[Auth] Failed to load profile:", profErr);
     if (rolesErr) console.error("[Auth] Failed to load roles:", rolesErr);
 
@@ -62,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -93,7 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (email: string, password: string, fullName: string, companyName?: string, invitationToken?: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    companyName?: string,
+    invitationToken?: string,
+  ) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -120,7 +143,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasAnyRole = (r: string[]) => r.some((role) => roles.includes(role));
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, roles, loading, signIn, signUp, signOut, hasRole, hasAnyRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        profile,
+        roles,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        hasRole,
+        hasAnyRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

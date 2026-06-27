@@ -18,17 +18,50 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -80,7 +113,13 @@ type ProjectRow = {
 
 type ClientRow = { id: string; company_name: string; contact_person: string | null };
 type ProductRow = { id: string; name: string };
-type ProfileRow = { id: string; user_id: string | null; full_name: string | null; email: string | null; is_active?: boolean | null };
+type ProfileRow = {
+  id: string;
+  user_id: string | null;
+  full_name: string | null;
+  email: string | null;
+  is_active?: boolean | null;
+};
 type DriveFileRow = {
   id: string;
   company_id: string;
@@ -157,7 +196,9 @@ function formatBytes(size: number | null | undefined) {
   return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
 }
 
-function extractGoogleDriveId(rawUrl: string): { id: string; type: "file" | "folder" | "unknown" } | null {
+function extractGoogleDriveId(
+  rawUrl: string,
+): { id: string; type: "file" | "folder" | "unknown" } | null {
   const value = String(rawUrl || "").trim();
   if (!value) return null;
   let url: URL;
@@ -209,7 +250,9 @@ function uploadFileWithProgress(args: {
         payload = null;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        const message = payload?.detail ? `${payload.error || "No se pudo subir el archivo a Google Drive"}: ${payload.detail}` : (payload?.error || "No se pudo subir el archivo a Google Drive");
+        const message = payload?.detail
+          ? `${payload.error || "No se pudo subir el archivo a Google Drive"}: ${payload.detail}`
+          : payload?.error || "No se pudo subir el archivo a Google Drive";
         reject(new Error(message));
         return;
       }
@@ -254,7 +297,9 @@ function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
-  const [quickFilter, setQuickFilter] = useState<"all" | "today" | "overdue" | "week" | "unassigned" | "mine">("all");
+  const [quickFilter, setQuickFilter] = useState<
+    "all" | "today" | "overdue" | "week" | "unassigned" | "mine"
+  >("all");
   const [expandedProjectId, setExpandedProjectId] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
@@ -278,10 +323,33 @@ function TasksPage() {
     ascending: false,
     limit: 500,
   });
-  const { data: clients } = useCrud<ClientRow>({ table: "clients", select: "id, company_name, contact_person", orderBy: "company_name", ascending: true, limit: 500 });
-  const { data: products } = useCrud<ProductRow>({ table: "products", select: "id, name", orderBy: "name", ascending: true, limit: 500 });
-  const { data: profiles } = useCrud<ProfileRow>({ table: "profiles", select: "id, user_id, full_name, email, is_active", orderBy: "full_name", ascending: true, limit: 500 });
-  const { data: taskDriveFilesIndex } = useCrud<Pick<DriveFileRow, "id" | "linked_id" | "linked_type"> & { linked_type: "task"; linked_id: string }>({
+  const { data: clients } = useCrud<ClientRow>({
+    table: "clients",
+    select: "id, company_name, contact_person",
+    orderBy: "company_name",
+    ascending: true,
+    limit: 500,
+  });
+  const { data: products } = useCrud<ProductRow>({
+    table: "products",
+    select: "id, name",
+    orderBy: "name",
+    ascending: true,
+    limit: 500,
+  });
+  const { data: profiles } = useCrud<ProfileRow>({
+    table: "profiles",
+    select: "id, user_id, full_name, email, is_active",
+    orderBy: "full_name",
+    ascending: true,
+    limit: 500,
+  });
+  const { data: taskDriveFilesIndex } = useCrud<
+    Pick<DriveFileRow, "id" | "linked_id" | "linked_type"> & {
+      linked_type: "task";
+      linked_id: string;
+    }
+  >({
     table: "drive_files",
     select: "id,linked_id,linked_type",
     orderBy: "created_at",
@@ -296,7 +364,8 @@ function TasksPage() {
     fetch: fetchDriveFiles,
   } = useCrud<DriveFileRow>({
     table: "drive_files",
-    select: "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at",
+    select:
+      "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at",
     orderBy: "created_at",
     ascending: false,
     limit: 200,
@@ -343,25 +412,36 @@ function TasksPage() {
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((p) => ({ label: p.name, value: p.id }));
-    return [{ label: "Todos", value: "all" }, ...opts, { label: "Sin proyecto", value: NO_PROJECT }];
+    return [
+      { label: "Todos", value: "all" },
+      ...opts,
+      { label: "Sin proyecto", value: NO_PROJECT },
+    ];
   }, [projects]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const todayKey = isoTodayLocal();
     const weekKey = addDaysKeyLocal(7);
-    const myAnyId = new Set<string>([String(user?.id || ""), String(profile?.user_id || ""), String(profile?.id || "")].filter(Boolean));
+    const myAnyId = new Set<string>(
+      [String(user?.id || ""), String(profile?.user_id || ""), String(profile?.id || "")].filter(
+        Boolean,
+      ),
+    );
 
     return tasks.filter((t) => {
       const projectId = t.related_project_id || NO_PROJECT;
       const p = t.related_project_id ? projectsById.get(t.related_project_id) : null;
       const projectName = p?.name || "";
-      const matchSearch = !q || `${t.title} ${t.description || ""} ${projectName}`.toLowerCase().includes(q);
+      const matchSearch =
+        !q || `${t.title} ${t.description || ""} ${projectName}`.toLowerCase().includes(q);
       const matchStatus = statusFilter === "all" || t.status === statusFilter;
       const matchPriority = priorityFilter === "all" || t.priority === priorityFilter;
       const matchProject =
         projectFilter === "all" ||
-        (projectFilter === NO_PROJECT ? projectId === NO_PROJECT : t.related_project_id === projectFilter);
+        (projectFilter === NO_PROJECT
+          ? projectId === NO_PROJECT
+          : t.related_project_id === projectFilter);
 
       const dueKey = toDateKeyLocal(t.due_date);
       const isActive = !["Completed", "Cancelled"].includes(String(t.status || ""));
@@ -369,29 +449,52 @@ function TasksPage() {
         quickFilter === "all" ||
         (quickFilter === "today" && isActive && !!dueKey && dueKey === todayKey) ||
         (quickFilter === "overdue" && isActive && !!dueKey && dueKey < todayKey) ||
-        (quickFilter === "week" && isActive && !!dueKey && dueKey >= todayKey && dueKey <= weekKey) ||
+        (quickFilter === "week" &&
+          isActive &&
+          !!dueKey &&
+          dueKey >= todayKey &&
+          dueKey <= weekKey) ||
         (quickFilter === "unassigned" && isActive && !t.assigned_to) ||
-        (quickFilter === "mine" && isActive && !!t.assigned_to && myAnyId.has(String(t.assigned_to)));
+        (quickFilter === "mine" &&
+          isActive &&
+          !!t.assigned_to &&
+          myAnyId.has(String(t.assigned_to)));
 
       return matchSearch && matchStatus && matchPriority && matchProject && matchQuick;
     });
-  }, [tasks, search, statusFilter, priorityFilter, projectFilter, projectsById, profile?.id, profile?.user_id, quickFilter, user?.id]);
+  }, [
+    tasks,
+    search,
+    statusFilter,
+    priorityFilter,
+    projectFilter,
+    projectsById,
+    profile?.id,
+    profile?.user_id,
+    quickFilter,
+    user?.id,
+  ]);
 
   const filteredTaskIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
   const filteredTaskIdSet = useMemo(() => new Set(filteredTaskIds), [filteredTaskIds]);
   const selectedTaskIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const allVisibleSelected = filteredTaskIds.length > 0 && filteredTaskIds.every((id) => selectedTaskIdSet.has(id));
+  const allVisibleSelected =
+    filteredTaskIds.length > 0 && filteredTaskIds.every((id) => selectedTaskIdSet.has(id));
   const someVisibleSelected = filteredTaskIds.some((id) => selectedTaskIdSet.has(id));
   const selectedVisibleCount = filteredTaskIds.filter((id) => selectedTaskIdSet.has(id)).length;
   const canDeleteTasks = can("tasks.delete");
 
   const kpis = useMemo(() => {
     const todayKey = isoTodayLocal();
-    const activeProjects = projects.filter((p) => !["Completed", "Cancelled"].includes(String(p.status || ""))).length;
+    const activeProjects = projects.filter(
+      (p) => !["Completed", "Cancelled"].includes(String(p.status || "")),
+    ).length;
 
     const completed = tasks.filter((t) => String(t.status || "") === "Completed").length;
     const inProgress = tasks.filter((t) => String(t.status || "") === "In Progress").length;
-    const active = tasks.filter((t) => !["Completed", "Cancelled"].includes(String(t.status || "")));
+    const active = tasks.filter(
+      (t) => !["Completed", "Cancelled"].includes(String(t.status || "")),
+    );
     const unassigned = active.filter((t) => !t.assigned_to).length;
     const dueToday = active.filter((t) => {
       const key = toDateKeyLocal(t.due_date);
@@ -402,7 +505,15 @@ function TasksPage() {
       return !!key && key < todayKey;
     }).length;
 
-    return { total: tasks.length, overdue, dueToday, inProgress, unassigned, completed, activeProjects };
+    return {
+      total: tasks.length,
+      overdue,
+      dueToday,
+      inProgress,
+      unassigned,
+      completed,
+      activeProjects,
+    };
   }, [profile?.id, profile?.user_id, projects, tasks, user?.id]);
 
   const driveFileCountByTaskId = useMemo(() => {
@@ -436,7 +547,8 @@ function TasksPage() {
     }
     try {
       await update(task.id, { status: nextStatus } as Partial<Task>);
-      if (selectedTask?.id === task.id) setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      if (selectedTask?.id === task.id)
+        setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
       toast.success("Estado actualizado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar la tarea.");
@@ -444,7 +556,9 @@ function TasksPage() {
   };
 
   const toggleTaskSelection = (taskId: string) => {
-    setSelectedIds((current) => (current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]));
+    setSelectedIds((current) =>
+      current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId],
+    );
   };
 
   const toggleSelectVisibleTasks = () => {
@@ -465,7 +579,9 @@ function TasksPage() {
       toast.error("No tienes permiso para eliminar tareas.");
       return;
     }
-    const idsToDelete = tasks.filter((task) => selectedTaskIdSet.has(task.id)).map((task) => task.id);
+    const idsToDelete = tasks
+      .filter((task) => selectedTaskIdSet.has(task.id))
+      .map((task) => task.id);
     if (!idsToDelete.length) {
       toast.info("No hay tareas seleccionadas.");
       return;
@@ -473,11 +589,15 @@ function TasksPage() {
 
     setBulkDeleteSaving(true);
     try {
-      const results = await Promise.allSettled(idsToDelete.map(async (id) => {
-        await remove(id);
-        return id;
-      }));
-      const deletedIds = results.flatMap((result, index) => (result.status === "fulfilled" ? [idsToDelete[index]] : []));
+      const results = await Promise.allSettled(
+        idsToDelete.map(async (id) => {
+          await remove(id);
+          return id;
+        }),
+      );
+      const deletedIds = results.flatMap((result, index) =>
+        result.status === "fulfilled" ? [idsToDelete[index]] : [],
+      );
       const failedCount = results.length - deletedIds.length;
 
       if (deletedIds.length) {
@@ -489,7 +609,9 @@ function TasksPage() {
 
       setBulkDeleteOpen(false);
       if (failedCount > 0) {
-        toast.error(`Se eliminaron ${deletedIds.length} tareas, pero ${failedCount} no se pudieron borrar.`);
+        toast.error(
+          `Se eliminaron ${deletedIds.length} tareas, pero ${failedCount} no se pudieron borrar.`,
+        );
       } else {
         toast.success(`Se eliminaron ${deletedIds.length} tareas.`);
       }
@@ -501,7 +623,10 @@ function TasksPage() {
   };
 
   const standaloneTasks = useMemo(() => {
-    return filtered.filter((t) => !t.related_project_id).slice().sort(sortTaskRows);
+    return filtered
+      .filter((t) => !t.related_project_id)
+      .slice()
+      .sort(sortTaskRows);
   }, [filtered]);
 
   const projectGroups = useMemo(() => {
@@ -527,7 +652,9 @@ function TasksPage() {
       const total = groupTasks.length;
       const todo = groupTasks.filter((t) => statusOrder(t.status) === 1).length;
       const inProgress = groupTasks.filter((t) => statusOrder(t.status) === 2).length;
-      const completed = groupTasks.filter((t) => String(t.status || "").toLowerCase() === "completed").length;
+      const completed = groupTasks.filter(
+        (t) => String(t.status || "").toLowerCase() === "completed",
+      ).length;
       const active = groupTasks.filter((t) => statusOrder(t.status) < 8).length;
 
       const overdue = groupTasks.filter((t) => {
@@ -545,11 +672,13 @@ function TasksPage() {
         .filter((t) => statusOrder(t.status) < 8)
         .map((t) => parseDate(t.due_date))
         .filter(Boolean)
-        .sort((a, b) => (a!.getTime() - b!.getTime()))[0] as Date | undefined;
+        .sort((a, b) => a!.getTime() - b!.getTime())[0] as Date | undefined;
 
       const progress = total ? Math.round((completed / total) * 100) : 0;
 
-      const nextDueKey = nextDue ? `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, "0")}-${String(nextDue.getDate()).padStart(2, "0")}` : "";
+      const nextDueKey = nextDue
+        ? `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, "0")}-${String(nextDue.getDate()).padStart(2, "0")}`
+        : "";
       const dueBucket = (() => {
         if (!active) return 9; // completed/cancelled only
         if (!nextDueKey) return 8; // active but no due date
@@ -567,7 +696,11 @@ function TasksPage() {
         projectStatus: project?.status || "",
         projectProgress: typeof project?.progress === "number" ? project.progress : null,
         projectDueDate: project?.due_date || "",
-        clientLabel: client ? (client.contact_person ? `${client.company_name} · ${client.contact_person}` : client.company_name) : "",
+        clientLabel: client
+          ? client.contact_person
+            ? `${client.company_name} · ${client.contact_person}`
+            : client.company_name
+          : "",
         productLabel: product?.name || "",
         total,
         todo,
@@ -612,14 +745,26 @@ function TasksPage() {
       status: (fd.get("status") as string) || "To Do",
       priority: (fd.get("priority") as string) || "Medium",
       due_date: (fd.get("due_date") as string) || null,
-      related_project_id: (fd.get("related_project_id") as string) === "no-project" ? null : ((fd.get("related_project_id") as string) || null),
+      related_project_id:
+        (fd.get("related_project_id") as string) === "no-project"
+          ? null
+          : (fd.get("related_project_id") as string) || null,
     };
     try {
-      if (editTask) { await update(editTask.id, data); toast.success("Task updated"); setSelectedTask(null); }
-      else { await create(data); toast.success("Task created"); }
-      setDialogOpen(false); setEditTask(null);
+      if (editTask) {
+        await update(editTask.id, data);
+        toast.success("Task updated");
+        setSelectedTask(null);
+      } else {
+        await create(data);
+        toast.success("Task created");
+      }
+      setDialogOpen(false);
+      setEditTask(null);
       setPresetProjectId(null);
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   const handleDelete = async () => {
@@ -754,7 +899,11 @@ function TasksPage() {
         onProgress: (percent) => setUploadProgress(percent),
       });
       if (result?.error) {
-        throw new Error(result.detail ? `${String(result.error)}: ${String(result.detail)}` : String(result.error));
+        throw new Error(
+          result.detail
+            ? `${String(result.error)}: ${String(result.detail)}`
+            : String(result.error),
+        );
       }
 
       setUploadProgress(100);
@@ -843,10 +992,7 @@ function TasksPage() {
     const ok = window.confirm(`¿Eliminar el adjunto "${file.name}" de esta tarea?`);
     if (!ok) return;
 
-    const { error } = await (supabase as any)
-      .from("drive_files")
-      .delete()
-      .eq("id", file.id);
+    const { error } = await (supabase as any).from("drive_files").delete().eq("id", file.id);
     if (error) {
       toast.error(error.message || "No se pudo borrar el adjunto.");
       return;
@@ -858,15 +1004,23 @@ function TasksPage() {
 
   if (loading) return <LoadingState />;
 
-  const selectedProject = selectedTask?.related_project_id ? projectsById.get(selectedTask.related_project_id) || null : null;
+  const selectedProject = selectedTask?.related_project_id
+    ? projectsById.get(selectedTask.related_project_id) || null
+    : null;
   const selectedClientId = selectedTask?.related_client_id || selectedProject?.client_id || null;
   const selectedClient = selectedClientId ? clientsById.get(selectedClientId) || null : null;
-  const selectedProduct = selectedProject?.product_id ? productsById.get(selectedProject.product_id) || null : null;
-  const selectedAssignee = selectedTask?.assigned_to ? assigneesByAnyId.get(selectedTask.assigned_to) || null : null;
+  const selectedProduct = selectedProject?.product_id
+    ? productsById.get(selectedProject.product_id) || null
+    : null;
+  const selectedAssignee = selectedTask?.assigned_to
+    ? assigneesByAnyId.get(selectedTask.assigned_to) || null
+    : null;
   const selectedAssigneeLabel = selectedAssignee
     ? String(selectedAssignee.full_name || selectedAssignee.email || "").trim() || "Sin asignar"
     : "Sin asignar";
-  const selectedCreated = selectedTask?.created_at ? new Date(selectedTask.created_at).toLocaleDateString() : "—";
+  const selectedCreated = selectedTask?.created_at
+    ? new Date(selectedTask.created_at).toLocaleDateString()
+    : "—";
 
   const renderTaskActions = (t: Task) => (
     <div className="flex justify-end gap-2">
@@ -915,7 +1069,10 @@ function TasksPage() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => void updateTaskStatusInline(t, "In Progress")} disabled={String(t.status || "") === "In Progress"}>
+          <DropdownMenuItem
+            onSelect={() => void updateTaskStatusInline(t, "In Progress")}
+            disabled={String(t.status || "") === "In Progress"}
+          >
             Marcar en progreso
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -942,7 +1099,9 @@ function TasksPage() {
 
   const renderStandaloneTaskCard = (t: Task) => {
     const assignee = t.assigned_to ? assigneesByAnyId.get(t.assigned_to) : null;
-    const assigneeLabel = assignee ? String(assignee.full_name || assignee.email || "").trim() || "—" : "—";
+    const assigneeLabel = assignee
+      ? String(assignee.full_name || assignee.email || "").trim() || "—"
+      : "—";
     const dueKey = toDateKeyLocal(t.due_date);
     const todayKey = isoTodayLocal();
     const isActive = !["Completed", "Cancelled"].includes(String(t.status || ""));
@@ -955,7 +1114,11 @@ function TasksPage() {
         key={t.id}
         className={
           "group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)] cursor-pointer " +
-          (isOverdue ? "ring-1 ring-[#fecaca] bg-[#fffafa]" : isDueToday ? "ring-1 ring-amber-200 bg-amber-50/30" : "") +
+          (isOverdue
+            ? "ring-1 ring-[#fecaca] bg-[#fffafa]"
+            : isDueToday
+              ? "ring-1 ring-amber-200 bg-amber-50/30"
+              : "") +
           (selectedTaskIdSet.has(t.id) ? " ring-1 ring-[#1d62f9] bg-[#f4f8ff]" : "")
         }
         onClick={() => setSelectedTask(t)}
@@ -967,14 +1130,18 @@ function TasksPage() {
                 type="button"
                 checked={selectedTaskIdSet.has(t.id)}
                 onCheckedChange={() => toggleTaskSelection(t.id)}
-                aria-label={selectedTaskIdSet.has(t.id) ? "Deseleccionar tarea" : "Seleccionar tarea"}
+                aria-label={
+                  selectedTaskIdSet.has(t.id) ? "Deseleccionar tarea" : "Seleccionar tarea"
+                }
               />
             </div>
           ) : null}
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="min-w-0 text-base font-semibold tracking-[-0.01em] text-slate-900">{t.title}</div>
+              <div className="min-w-0 text-base font-semibold tracking-[-0.01em] text-slate-900">
+                {t.title}
+              </div>
               {isOverdue ? (
                 <span className="inline-flex rounded-full border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 text-[10px] font-bold text-[#b91c1c]">
                   Atrasada
@@ -987,9 +1154,7 @@ function TasksPage() {
               <StatusBadge status={t.priority} />
               <StatusBadge status={t.status} />
             </div>
-            <div className="mt-1 text-sm text-slate-600">
-              {t.description || "Sin descripción."}
-            </div>
+            <div className="mt-1 text-sm text-slate-600">{t.description || "Sin descripción."}</div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
               <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium">
                 {t.assigned_to ? assigneeLabel : "Sin asignar"}
@@ -1027,35 +1192,70 @@ function TasksPage() {
       <DataCard>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-            <div className={"rounded-xl border p-3 text-left transition-colors cursor-default " + (quickFilter === "overdue" ? "border-[#fecaca] bg-[#fef2f2]" : "bg-background")}>
+            <div
+              className={
+                "rounded-xl border p-3 text-left transition-colors cursor-default " +
+                (quickFilter === "overdue" ? "border-[#fecaca] bg-[#fef2f2]" : "bg-background")
+              }
+            >
               <div className="flex items-center gap-2">
-                <AlertTriangle className={"h-4 w-4 " + (kpis.overdue ? "text-[#e11d48]" : "text-muted-foreground")} />
+                <AlertTriangle
+                  className={
+                    "h-4 w-4 " + (kpis.overdue ? "text-[#e11d48]" : "text-muted-foreground")
+                  }
+                />
                 <span className="text-[12px] font-bold text-muted-foreground">Atrasadas</span>
               </div>
               <div className="mt-1 text-[18px] font-semibold">{kpis.overdue}</div>
             </div>
-            <div className={"rounded-xl border p-3 text-left transition-colors cursor-default " + (quickFilter === "today" ? "border-amber-200 bg-amber-50" : "bg-background")}>
+            <div
+              className={
+                "rounded-xl border p-3 text-left transition-colors cursor-default " +
+                (quickFilter === "today" ? "border-amber-200 bg-amber-50" : "bg-background")
+              }
+            >
               <div className="flex items-center gap-2">
-                <CalendarClock className={"h-4 w-4 " + (kpis.dueToday ? "text-amber-700" : "text-muted-foreground")} />
+                <CalendarClock
+                  className={
+                    "h-4 w-4 " + (kpis.dueToday ? "text-amber-700" : "text-muted-foreground")
+                  }
+                />
                 <span className="text-[12px] font-bold text-muted-foreground">Para hoy</span>
               </div>
               <div className="mt-1 text-[18px] font-semibold">{kpis.dueToday}</div>
             </div>
-            <div className={"rounded-xl border p-3 text-left transition-colors cursor-default " + (statusFilter === "In Progress" ? "border-blue-200 bg-blue-50" : "bg-background")}>
+            <div
+              className={
+                "rounded-xl border p-3 text-left transition-colors cursor-default " +
+                (statusFilter === "In Progress" ? "border-blue-200 bg-blue-50" : "bg-background")
+              }
+            >
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[12px] font-bold text-muted-foreground">En progreso</span>
               </div>
               <div className="mt-1 text-[18px] font-semibold">{kpis.inProgress}</div>
             </div>
-            <div className={"rounded-xl border p-3 text-left transition-colors cursor-default " + (statusFilter === "Completed" ? "border-emerald-200 bg-emerald-50" : "bg-background")}>
+            <div
+              className={
+                "rounded-xl border p-3 text-left transition-colors cursor-default " +
+                (statusFilter === "Completed"
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "bg-background")
+              }
+            >
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[12px] font-bold text-muted-foreground">Completadas</span>
               </div>
               <div className="mt-1 text-[18px] font-semibold">{kpis.completed}</div>
             </div>
-            <div className={"rounded-xl border p-3 text-left transition-colors cursor-default " + (quickFilter === "unassigned" ? "border-slate-200 bg-slate-50" : "bg-background")}>
+            <div
+              className={
+                "rounded-xl border p-3 text-left transition-colors cursor-default " +
+                (quickFilter === "unassigned" ? "border-slate-200 bg-slate-50" : "bg-background")
+              }
+            >
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[12px] font-bold text-muted-foreground">Sin asignar</span>
@@ -1065,18 +1265,42 @@ function TasksPage() {
             <div className="rounded-xl border p-3">
               <div className="flex items-center gap-2">
                 <ListFilter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[12px] font-bold text-muted-foreground">Proyectos activos</span>
+                <span className="text-[12px] font-bold text-muted-foreground">
+                  Proyectos activos
+                </span>
               </div>
               <div className="mt-1 text-[18px] font-semibold">{kpis.activeProjects}</div>
             </div>
           </div>
 
-          <SearchFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search tasks..."
+          <SearchFilters
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search tasks..."
             filters={[
-              { key: "status", placeholder: "Status", value: statusFilter, onChange: setStatusFilter, options: TASK_STATUSES.map(s => ({ label: s, value: s })) },
-              { key: "priority", placeholder: "Priority", value: priorityFilter, onChange: setPriorityFilter, options: PRIORITIES.map(s => ({ label: s, value: s })) },
-              { key: "project", placeholder: "Project", value: projectFilter, onChange: setProjectFilter, options: projectOptions.filter((o) => o.value !== "all") },
-            ]} />
+              {
+                key: "status",
+                placeholder: "Status",
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: TASK_STATUSES.map((s) => ({ label: s, value: s })),
+              },
+              {
+                key: "priority",
+                placeholder: "Priority",
+                value: priorityFilter,
+                onChange: setPriorityFilter,
+                options: PRIORITIES.map((s) => ({ label: s, value: s })),
+              },
+              {
+                key: "project",
+                placeholder: "Project",
+                value: projectFilter,
+                onChange: setProjectFilter,
+                options: projectOptions.filter((o) => o.value !== "all"),
+              },
+            ]}
+          />
 
           {canDeleteTasks ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
@@ -1099,7 +1323,8 @@ function TasksPage() {
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-500">
-                  {selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length} seleccionadas
+                  {selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length}{" "}
+                  seleccionadas
                 </span>
                 <Button
                   type="button"
@@ -1153,13 +1378,19 @@ function TasksPage() {
                     onValueChange={(v) => setExpandedProjectId(v)}
                   >
                     {projectGroups.map((g) => (
-                      <AccordionItem key={g.projectId} value={g.projectId} className="border-b border-slate-100 last:border-b-0">
+                      <AccordionItem
+                        key={g.projectId}
+                        value={g.projectId}
+                        className="border-b border-slate-100 last:border-b-0"
+                      >
                         <AccordionTrigger className="group w-full items-start gap-3 rounded-none border-0 bg-white px-4 py-4 text-left no-underline hover:bg-slate-50 hover:no-underline data-[state=open]:bg-slate-50">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <div className="font-semibold text-[14px] truncate text-slate-900">{g.projectName}</div>
+                                  <div className="font-semibold text-[14px] truncate text-slate-900">
+                                    {g.projectName}
+                                  </div>
                                   {g.isOverdue ? (
                                     <span className="shrink-0 inline-flex items-center rounded-full border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 text-[10px] font-extrabold text-[#b91c1c]">
                                       Vencido
@@ -1176,8 +1407,14 @@ function TasksPage() {
                                   ) : null}
                                 </div>
                                 <div className="mt-1 text-[12px] text-slate-500 truncate">
-                                  {g.clientLabel ? <span>{g.clientLabel}</span> : <span>Sin cliente</span>}
-                                  {g.productLabel ? <span className="text-slate-400"> · {g.productLabel}</span> : null}
+                                  {g.clientLabel ? (
+                                    <span>{g.clientLabel}</span>
+                                  ) : (
+                                    <span>Sin cliente</span>
+                                  )}
+                                  {g.productLabel ? (
+                                    <span className="text-slate-400"> · {g.productLabel}</span>
+                                  ) : null}
                                 </div>
                               </div>
 
@@ -1216,7 +1453,14 @@ function TasksPage() {
                               <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold">
                                 {g.inProgress} en progreso
                               </span>
-                              <span className={"inline-flex items-center rounded-full border px-2 py-0.5 font-semibold " + (g.overdue ? "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]" : "border-slate-200 bg-slate-50")}>
+                              <span
+                                className={
+                                  "inline-flex items-center rounded-full border px-2 py-0.5 font-semibold " +
+                                  (g.overdue
+                                    ? "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]"
+                                    : "border-slate-200 bg-slate-50")
+                                }
+                              >
                                 {g.overdue} atrasadas
                               </span>
                               <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold">
@@ -1242,9 +1486,13 @@ function TasksPage() {
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  {canDeleteTasks ? <TableHead className="w-[42px] pl-4 pr-0" /> : null}
+                                  {canDeleteTasks ? (
+                                    <TableHead className="w-[42px] pl-4 pr-0" />
+                                  ) : null}
                                   <TableHead className="pl-4">Tarea</TableHead>
-                                  <TableHead className="hidden md:table-cell">Responsable</TableHead>
+                                  <TableHead className="hidden md:table-cell">
+                                    Responsable
+                                  </TableHead>
                                   <TableHead>Priority</TableHead>
                                   <TableHead>Status</TableHead>
                                   <TableHead>Vence</TableHead>
@@ -1254,11 +1502,18 @@ function TasksPage() {
                               </TableHeader>
                               <TableBody>
                                 {g.tasks.map((t) => {
-                                  const assignee = t.assigned_to ? assigneesByAnyId.get(t.assigned_to) : null;
-                                  const assigneeLabel = assignee ? String(assignee.full_name || assignee.email || "").trim() || "—" : "—";
+                                  const assignee = t.assigned_to
+                                    ? assigneesByAnyId.get(t.assigned_to)
+                                    : null;
+                                  const assigneeLabel = assignee
+                                    ? String(assignee.full_name || assignee.email || "").trim() ||
+                                      "—"
+                                    : "—";
                                   const dueKey = toDateKeyLocal(t.due_date);
                                   const todayKey = isoTodayLocal();
-                                  const isActive = !["Completed", "Cancelled"].includes(String(t.status || ""));
+                                  const isActive = !["Completed", "Cancelled"].includes(
+                                    String(t.status || ""),
+                                  );
                                   const isOverdue = isActive && !!dueKey && dueKey < todayKey;
                                   const isDueToday = isActive && !!dueKey && dueKey === todayKey;
                                   const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;
@@ -1268,31 +1523,58 @@ function TasksPage() {
                                       className={
                                         "cursor-pointer hover:bg-slate-50 transition-colors " +
                                         (selectedTaskIdSet.has(t.id) ? "bg-[#f4f8ff]" : "") +
-                                        (isOverdue ? "border-l-2 border-l-[#e11d48] bg-[#fff1f3]/40" : isDueToday ? "border-l-2 border-l-amber-400 bg-amber-50/30" : "")
+                                        (isOverdue
+                                          ? "border-l-2 border-l-[#e11d48] bg-[#fff1f3]/40"
+                                          : isDueToday
+                                            ? "border-l-2 border-l-amber-400 bg-amber-50/30"
+                                            : "")
                                       }
                                       onClick={() => setSelectedTask(t)}
                                     >
                                       {canDeleteTasks ? (
-                                        <TableCell className="pl-4 pr-0" onClick={(event) => event.stopPropagation()}>
+                                        <TableCell
+                                          className="pl-4 pr-0"
+                                          onClick={(event) => event.stopPropagation()}
+                                        >
                                           <Checkbox
                                             type="button"
                                             checked={selectedTaskIdSet.has(t.id)}
                                             onCheckedChange={() => toggleTaskSelection(t.id)}
-                                            aria-label={selectedTaskIdSet.has(t.id) ? "Deseleccionar tarea" : "Seleccionar tarea"}
+                                            aria-label={
+                                              selectedTaskIdSet.has(t.id)
+                                                ? "Deseleccionar tarea"
+                                                : "Seleccionar tarea"
+                                            }
                                           />
                                         </TableCell>
                                       ) : null}
                                       <TableCell className="pl-4">
                                         <div className="min-w-0">
-                                          <div className="font-semibold truncate text-slate-900">{t.title}</div>
-                                          {t.description ? <div className="mt-0.5 text-[12px] text-slate-500 truncate">{t.description}</div> : null}
+                                          <div className="font-semibold truncate text-slate-900">
+                                            {t.title}
+                                          </div>
+                                          {t.description ? (
+                                            <div className="mt-0.5 text-[12px] text-slate-500 truncate">
+                                              {t.description}
+                                            </div>
+                                          ) : null}
                                         </div>
                                       </TableCell>
                                       <TableCell className="hidden md:table-cell text-slate-500 truncate max-w-[220px]">
-                                        {t.assigned_to ? assigneeLabel : <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500">Sin asignar</span>}
+                                        {t.assigned_to ? (
+                                          assigneeLabel
+                                        ) : (
+                                          <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                                            Sin asignar
+                                          </span>
+                                        )}
                                       </TableCell>
-                                      <TableCell><StatusBadge status={t.priority} /></TableCell>
-                                      <TableCell><StatusBadge status={t.status} /></TableCell>
+                                      <TableCell>
+                                        <StatusBadge status={t.priority} />
+                                      </TableCell>
+                                      <TableCell>
+                                        <StatusBadge status={t.status} />
+                                      </TableCell>
                                       <TableCell className="text-slate-500 text-sm">
                                         <div className="flex items-center gap-2">
                                           <span>{formatShortDate(t.due_date)}</span>
@@ -1316,7 +1598,9 @@ function TasksPage() {
                                           <span className="text-slate-400">—</span>
                                         )}
                                       </TableCell>
-                                      <TableCell className="pr-4 text-right">{renderTaskActions(t)}</TableCell>
+                                      <TableCell className="pr-4 text-right">
+                                        {renderTaskActions(t)}
+                                      </TableCell>
                                     </TableRow>
                                   );
                                 })}
@@ -1339,7 +1623,8 @@ function TasksPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle>
             <AlertDialogDescription>
-              Vas a eliminar {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}. Esta acción no se puede deshacer.
+              Vas a eliminar {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}. Esta
+              acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1358,9 +1643,17 @@ function TasksPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditTask(null); }}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o);
+          if (!o) setEditTask(null);
+        }}
+      >
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editTask ? "Edit Task" : "New Task"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editTask ? "Edit Task" : "New Task"}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Title</Label>
@@ -1374,8 +1667,13 @@ function TasksPage() {
 
             <div className="space-y-1.5">
               <Label>Project</Label>
-              <Select name="related_project_id" defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}>
-                <SelectTrigger><SelectValue placeholder="Sin proyecto" /></SelectTrigger>
+              <Select
+                name="related_project_id"
+                defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin proyecto" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no-project">Sin proyecto</SelectItem>
                   {projects
@@ -1390,38 +1688,99 @@ function TasksPage() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Status</Label>
-                <Select name="status" defaultValue={editTask?.status || "To Do"}><SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{TASK_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-1.5"><Label>Priority</Label>
-                <Select name="priority" defaultValue={editTask?.priority || "Medium"}><SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{PRIORITIES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select name="status" defaultValue={editTask?.status || "To Do"}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Priority</Label>
+                <Select name="priority" defaultValue={editTask?.priority || "Medium"}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Due Date</Label>
               <Input name="due_date" type="date" defaultValue={editTask?.due_date || ""} />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); setEditTask(null); }}>Cancel</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDialogOpen(false);
+                  setEditTask(null);
+                }}
+              >
+                Cancel
+              </Button>
               <Button type="submit">{editTask ? "Save" : "Create Task"}</Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Task</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(o) => {
+          if (!o) setDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {selectedTask && (
-        <DetailSheet open={!!selectedTask} onClose={() => setSelectedTask(null)}
-          title={selectedTask.title} status={selectedTask.status}
+        <DetailSheet
+          open={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          title={selectedTask.title}
+          status={selectedTask.status}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               {can("tasks.edit") ? (
-                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setEditTask(selectedTask); setDialogOpen(true); }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => {
+                    setEditTask(selectedTask);
+                    setDialogOpen(true);
+                  }}
+                >
                   Edit
                 </Button>
               ) : null}
@@ -1471,16 +1830,28 @@ function TasksPage() {
               <h3 className="text-sm font-semibold">Contexto</h3>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="rounded-lg border p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Proyecto</p>
-                  <p className="mt-1 text-sm font-medium">{selectedProject?.name || "Sin proyecto"}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Proyecto
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {selectedProject?.name || "Sin proyecto"}
+                  </p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente</p>
-                  <p className="mt-1 text-sm font-medium">{selectedClient?.company_name || "Sin cliente"}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Cliente
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {selectedClient?.company_name || "Sin cliente"}
+                  </p>
                 </div>
                 <div className="rounded-lg border p-3 sm:col-span-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Servicio / Producto</p>
-                  <p className="mt-1 text-sm font-medium">{selectedProduct?.name || "Sin servicio relacionado"}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Servicio / Producto
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {selectedProduct?.name || "Sin servicio relacionado"}
+                  </p>
                 </div>
               </div>
               {selectedTask.related_project_id ? (
@@ -1512,11 +1883,23 @@ function TasksPage() {
                   className="hidden"
                   onChange={handleFilePicked}
                 />
-                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={handleUploadClick}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={handleUploadClick}
+                >
                   <FileUp className="h-3.5 w-3.5 mr-1" />
                   {isUploadingFile ? "Subiendo..." : "Subir archivo"}
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={openDriveAttachmentPicker}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={openDriveAttachmentPicker}
+                >
                   Adjuntar desde Drive
                 </Button>
               </div>
@@ -1539,7 +1922,9 @@ function TasksPage() {
             </div>
             {isUploadingFile ? (
               <div className="rounded-lg border p-3">
-                <div className="text-xs font-medium truncate">Archivo: {uploadingFileName || "Archivo"}</div>
+                <div className="text-xs font-medium truncate">
+                  Archivo: {uploadingFileName || "Archivo"}
+                </div>
                 <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full bg-blue-600 transition-all duration-150"
@@ -1575,7 +1960,7 @@ function TasksPage() {
                         ) : null}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {(file.mime_type || "Tipo desconocido")} · {formatBytes(file.size_bytes)}
+                        {file.mime_type || "Tipo desconocido"} · {formatBytes(file.size_bytes)}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Button
@@ -1584,7 +1969,10 @@ function TasksPage() {
                           size="sm"
                           className="h-8 px-2 text-xs"
                           disabled={!hasView}
-                          onClick={() => hasView && window.open(file.web_view_link!, "_blank", "noopener,noreferrer")}
+                          onClick={() =>
+                            hasView &&
+                            window.open(file.web_view_link!, "_blank", "noopener,noreferrer")
+                          }
                         >
                           <ExternalLink className="h-3.5 w-3.5 mr-1" />
                           Abrir
@@ -1595,12 +1983,21 @@ function TasksPage() {
                           size="sm"
                           className="h-8 px-2 text-xs"
                           disabled={!hasDownload}
-                          onClick={() => hasDownload && window.open(file.web_content_link!, "_blank", "noopener,noreferrer")}
+                          onClick={() =>
+                            hasDownload &&
+                            window.open(file.web_content_link!, "_blank", "noopener,noreferrer")
+                          }
                         >
                           <Download className="h-3.5 w-3.5 mr-1" />
                           Descargar
                         </Button>
-                        <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => copyFileLink(file)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          onClick={() => copyFileLink(file)}
+                        >
                           <Copy className="h-3.5 w-3.5 mr-1" />
                           Copiar enlace
                         </Button>
@@ -1614,7 +2011,13 @@ function TasksPage() {
                           <Trash2 className="h-3.5 w-3.5 mr-1" />
                           Eliminar
                         </Button>
-                        <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" disabled>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          disabled
+                        >
                           <MessageCirclePlus className="h-3.5 w-3.5 mr-1" />
                           Enviar por WhatsApp
                         </Button>

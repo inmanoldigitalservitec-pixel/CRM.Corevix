@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (profileError) return jsonResponse({ error: profileError.message }, 400);
-    if (!profile?.id || !profile?.company_id) return jsonResponse({ error: "No company/profile context" }, 403);
+    if (!profile?.id || !profile?.company_id)
+      return jsonResponse({ error: "No company/profile context" }, 403);
     if (profile.is_active === false) return jsonResponse({ error: "Account inactive" }, 403);
 
     const { data: settings, error: settingsError } = await callerClient
@@ -82,9 +83,12 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (settingsError) return jsonResponse({ error: settingsError.message }, 400);
-    if (!settings?.client_id) return jsonResponse({ error: "Missing Google Drive Client ID in settings" }, 400);
-    if (!settings?.redirect_uri) return jsonResponse({ error: "Missing Google Drive Redirect URI in settings" }, 400);
-    if (settings?.is_enabled === false) return jsonResponse({ error: "Google Drive integration is disabled" }, 400);
+    if (!settings?.client_id)
+      return jsonResponse({ error: "Missing Google Drive Client ID in settings" }, 400);
+    if (!settings?.redirect_uri)
+      return jsonResponse({ error: "Missing Google Drive Redirect URI in settings" }, 400);
+    if (settings?.is_enabled === false)
+      return jsonResponse({ error: "Google Drive integration is disabled" }, 400);
 
     const scope = String(settings.scopes || "https://www.googleapis.com/auth/drive.file").trim();
     const stateRaw = base64Url(crypto.getRandomValues(new Uint8Array(32)));
@@ -121,4 +125,3 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: message }, 500);
   }
 });
-

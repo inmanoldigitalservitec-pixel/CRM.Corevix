@@ -139,7 +139,9 @@ export function PayPalInvoiceButton({ publicToken, disabled, onPaid }: PayPalInv
     return (
       <button
         type="button"
-        onClick={() => window.alert("PayPal todavía no está conectado. Falta VITE_PAYPAL_CLIENT_ID.")}
+        onClick={() =>
+          window.alert("PayPal todavía no está conectado. Falta VITE_PAYPAL_CLIENT_ID.")
+        }
         className="inline-flex h-12 min-w-[170px] items-center justify-center rounded-[14px] bg-[#ffc439] px-5 shadow-[0_14px_28px_rgba(255,196,57,0.30)]"
       >
         <img

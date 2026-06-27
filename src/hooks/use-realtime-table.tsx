@@ -2,7 +2,9 @@ import { useEffect, useRef } from "react";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type RealtimeChangeListener = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void | Promise<void>;
+type RealtimeChangeListener = (
+  payload: RealtimePostgresChangesPayload<Record<string, unknown>>,
+) => void | Promise<void>;
 
 type SubscriptionEntry = {
   channel: ReturnType<typeof supabase.channel>;
@@ -23,8 +25,10 @@ type UseRealtimeTableOptions = {
 
 const subscriptions = new Map<string, SubscriptionEntry>();
 
-function buildKey(options: Required<Pick<UseRealtimeTableOptions, "schema" | "table">> &
-  Pick<UseRealtimeTableOptions, "companyId" | "companyColumn" | "filter">) {
+function buildKey(
+  options: Required<Pick<UseRealtimeTableOptions, "schema" | "table">> &
+    Pick<UseRealtimeTableOptions, "companyId" | "companyColumn" | "filter">,
+) {
   return [
     options.schema,
     options.table,
@@ -34,13 +38,19 @@ function buildKey(options: Required<Pick<UseRealtimeTableOptions, "schema" | "ta
   ].join("|");
 }
 
-function buildFilter(options: Pick<UseRealtimeTableOptions, "companyId" | "companyColumn" | "filter">) {
+function buildFilter(
+  options: Pick<UseRealtimeTableOptions, "companyId" | "companyColumn" | "filter">,
+) {
   if (options.filter) return options.filter;
   if (options.companyId) return `${options.companyColumn || "company_id"}=eq.${options.companyId}`;
   return null;
 }
 
-function notify(entry: SubscriptionEntry, payload: RealtimePostgresChangesPayload<Record<string, unknown>>, debounceMs: number) {
+function notify(
+  entry: SubscriptionEntry,
+  payload: RealtimePostgresChangesPayload<Record<string, unknown>>,
+  debounceMs: number,
+) {
   if (entry.notifyTimer) return;
   entry.notifyTimer = setTimeout(() => {
     entry.notifyTimer = null;
@@ -88,10 +98,14 @@ export function useRealtimeTable(options: UseRealtimeTableOptions) {
       const config: Record<string, string> = { event: "*", schema, table };
       if (channelFilter) config.filter = channelFilter;
 
-      channel.on("postgres_changes", config, (payload) => {
+      channel.on("postgres_changes" as any, config as any, (payload: any) => {
         const current = subscriptions.get(key);
         if (!current) return;
-        notify(current, payload as RealtimePostgresChangesPayload<Record<string, unknown>>, debounceMs);
+        notify(
+          current,
+          payload as RealtimePostgresChangesPayload<Record<string, unknown>>,
+          debounceMs,
+        );
       });
       channel.subscribe();
     }

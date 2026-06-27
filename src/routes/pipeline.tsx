@@ -1,14 +1,44 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, BriefcaseBusiness, Calendar as CalendarIcon, DollarSign, Eye, Filter, Mail, MessageCircle, Phone, Plus, Trophy, TrendingUp, Package, Trash2 } from "lucide-react";
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  Calendar as CalendarIcon,
+  DollarSign,
+  Eye,
+  Filter,
+  Mail,
+  MessageCircle,
+  Phone,
+  Plus,
+  Trophy,
+  TrendingUp,
+  Package,
+  Trash2,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DetailSheet } from "@/components/crm/detail-sheet";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +57,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { usePermissions } from "@/hooks/use-permissions";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { logActivityEvent } from "@/lib/activity-log";
 
@@ -174,7 +210,8 @@ function normalizeHex(input: string) {
   if (!c) return null;
   if (c.startsWith("#")) {
     const hex = c.slice(1);
-    if (hex.length === 3) return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`.toLowerCase();
+    if (hex.length === 3)
+      return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`.toLowerCase();
     if (hex.length === 6) return `#${hex}`.toLowerCase();
   }
   return null;
@@ -225,12 +262,24 @@ function stageDefaults(name: string) {
 
 function isWonStageName(name: string) {
   const s = name.trim().toLowerCase();
-  return s === "won" || s === "closed won" || s.includes("closed won") || s.includes("ganad") || s.includes("win");
+  return (
+    s === "won" ||
+    s === "closed won" ||
+    s.includes("closed won") ||
+    s.includes("ganad") ||
+    s.includes("win")
+  );
 }
 
 function isLostStageName(name: string) {
   const s = name.trim().toLowerCase();
-  return s === "lost" || s === "closed lost" || s.includes("closed lost") || s.includes("perdid") || s.includes("lost");
+  return (
+    s === "lost" ||
+    s === "closed lost" ||
+    s.includes("closed lost") ||
+    s.includes("perdid") ||
+    s.includes("lost")
+  );
 }
 
 function parseIsoDateOnly(input: string) {
@@ -295,7 +344,16 @@ function PipelinePage() {
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("board");
   const [boardStagePage, setBoardStagePage] = useState(0);
-  const [newDeal, setNewDeal] = useState({ name: "", value: "", probability: "50", expected_close: "", stage: "", source_type: "", lead_id: "", client_id: "" });
+  const [newDeal, setNewDeal] = useState({
+    name: "",
+    value: "",
+    probability: "50",
+    expected_close: "",
+    stage: "",
+    source_type: "",
+    lead_id: "",
+    client_id: "",
+  });
   const [dealIdsByStage, setDealIdsByStage] = useState<Record<string, string[]>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<{
@@ -327,7 +385,12 @@ function PipelinePage() {
   const [team, setTeam] = useState<CompanyTeamMember[]>([]);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [followUpSaving, setFollowUpSaving] = useState(false);
-  const [followUpValues, setFollowUpValues] = useState({ title: "", due_date: "", priority: "Medium", description: "" });
+  const [followUpValues, setFollowUpValues] = useState({
+    title: "",
+    due_date: "",
+    priority: "Medium",
+    description: "",
+  });
   const [closingAsWon, setClosingAsWon] = useState(false);
   const [closingAsLost, setClosingAsLost] = useState(false);
   const [lostDialogOpen, setLostDialogOpen] = useState(false);
@@ -356,13 +419,17 @@ function PipelinePage() {
         const [{ data: leadsData, error: leadsError }, { data: clientsData }] = await Promise.all([
           db
             .from("leads")
-            .select("id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,estimated_value,notes,product_interest,created_at,updated_at")
+            .select(
+              "id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,estimated_value,notes,product_interest,created_at,updated_at",
+            )
             .eq("company_id", profile.company_id)
             .order("updated_at", { ascending: false })
             .limit(50),
           db
             .from("clients")
-            .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status,created_at,updated_at")
+            .select(
+              "id,company_id,company_name,contact_person,email,phone,whatsapp,status,created_at,updated_at",
+            )
             .eq("company_id", profile.company_id)
             .order("updated_at", { ascending: false })
             .limit(50),
@@ -371,7 +438,9 @@ function PipelinePage() {
         if (leadsError) {
           const { data: fallbackLeadsData } = await db
             .from("leads")
-            .select("id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,created_at,updated_at")
+            .select(
+              "id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,created_at,updated_at",
+            )
             .eq("company_id", profile.company_id)
             .order("updated_at", { ascending: false })
             .limit(50);
@@ -418,7 +487,9 @@ function PipelinePage() {
       window.location.href = "/whatsapp";
     }
   };
-  const [dealProductsByProductId, setDealProductsByProductId] = useState<Record<string, DealProductRow | undefined>>({});
+  const [dealProductsByProductId, setDealProductsByProductId] = useState<
+    Record<string, DealProductRow | undefined>
+  >({});
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [activeWorkflow, setActiveWorkflow] = useState<ProductWorkflowRow | null>(null);
@@ -432,9 +503,15 @@ function PipelinePage() {
   const [activeProductsLoading, setActiveProductsLoading] = useState(false);
   const [dealProducts, setDealProducts] = useState<DealProductRow[]>([]);
   const [dealProductsLoading, setDealProductsLoading] = useState(false);
-  const [dealProductsProductById, setDealProductsProductById] = useState<Record<string, ProductRow | undefined>>({});
+  const [dealProductsProductById, setDealProductsProductById] = useState<
+    Record<string, ProductRow | undefined>
+  >({});
 
-  const [addDealProductValues, setAddDealProductValues] = useState<{ product_id: string; quantity: string; unit_price: string }>({
+  const [addDealProductValues, setAddDealProductValues] = useState<{
+    product_id: string;
+    quantity: string;
+    unit_price: string;
+  }>({
     product_id: "",
     quantity: "1",
     unit_price: "",
@@ -492,14 +569,25 @@ function PipelinePage() {
     setSelectedDeal(null);
   };
 
-  const selectedLead = selectedDeal?.lead_id ? relatedLeadById[String(selectedDeal.lead_id)] : undefined;
-  const selectedNextTask = selectedDeal?.lead_id ? nextTaskByLeadId[String(selectedDeal.lead_id)] : undefined;
+  const selectedLead = selectedDeal?.lead_id
+    ? relatedLeadById[String(selectedDeal.lead_id)]
+    : undefined;
+  const selectedNextTask = selectedDeal?.lead_id
+    ? nextTaskByLeadId[String(selectedDeal.lead_id)]
+    : undefined;
   const selectedSourceLead = useMemo(
-    () => (newDeal.source_type === "lead" && newDeal.lead_id ? dealLeadOptions.find((lead) => String(lead.id) === String(newDeal.lead_id)) || null : null),
+    () =>
+      newDeal.source_type === "lead" && newDeal.lead_id
+        ? dealLeadOptions.find((lead) => String(lead.id) === String(newDeal.lead_id)) || null
+        : null,
     [dealLeadOptions, newDeal.lead_id, newDeal.source_type],
   );
   const selectedSourceClient = useMemo(
-    () => (newDeal.source_type === "client" && newDeal.client_id ? dealClientOptions.find((client) => String(client.id) === String(newDeal.client_id)) || null : null),
+    () =>
+      newDeal.source_type === "client" && newDeal.client_id
+        ? dealClientOptions.find((client) => String(client.id) === String(newDeal.client_id)) ||
+          null
+        : null,
     [dealClientOptions, newDeal.client_id, newDeal.source_type],
   );
 
@@ -613,7 +701,10 @@ function PipelinePage() {
     void loadDealProducts();
   }, [loadDealProducts]);
 
-  const pipelineStages = useMemo(() => stages.filter((s) => !isWonStageName(s.name) && !isLostStageName(s.name)), [stages]);
+  const pipelineStages = useMemo(
+    () => stages.filter((s) => !isWonStageName(s.name) && !isLostStageName(s.name)),
+    [stages],
+  );
   const DESKTOP_STAGES_PER_PAGE = 6;
   const stagePages = useMemo(() => {
     const pages: { label: string; from: number; to: number }[] = [];
@@ -631,7 +722,10 @@ function PipelinePage() {
     const window = stagePages[page];
     return pipelineStages.slice(window.from, window.to);
   }, [boardStagePage, pipelineStages, stagePages]);
-  const wonStageNames = useMemo(() => new Set(stages.filter((s) => isWonStageName(s.name)).map((s) => s.name)), [stages]);
+  const wonStageNames = useMemo(
+    () => new Set(stages.filter((s) => isWonStageName(s.name)).map((s) => s.name)),
+    [stages],
+  );
   const lostStageNames = useMemo(() => {
     // Fallback: even if the company doesn't have a `deal_stages` row for "Lost",
     // deals can still be in enum stage "Lost". Treat it as archived.
@@ -667,7 +761,8 @@ function PipelinePage() {
   }
 
   function canManageDealProducts(deal: Deal) {
-    const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
+    const isAdminLike =
+      roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
     if (isAdminLike) return true;
     if (isSalesAgent) return isDealAssignedToCurrentUser(deal.assigned_to);
     return false;
@@ -710,7 +805,8 @@ function PipelinePage() {
   }
 
   async function loadProductCandidatesForDeal(deal: Deal) {
-    if (!profile?.company_id) return { products: [] as ProductRow[], dealProducts: [] as DealProductRow[] };
+    if (!profile?.company_id)
+      return { products: [] as ProductRow[], dealProducts: [] as DealProductRow[] };
     const cid = profile.company_id;
 
     const { data: dealProducts, error: dpErr } = await db
@@ -721,7 +817,9 @@ function PipelinePage() {
       .order("created_at", { ascending: false });
     if (dpErr) throw new Error(dpErr.message || "No se pudieron cargar los productos del deal");
 
-    const idsFromDealProducts = Array.isArray(dealProducts) ? dealProducts.map((r: any) => String(r.product_id)) : [];
+    const idsFromDealProducts = Array.isArray(dealProducts)
+      ? dealProducts.map((r: any) => String(r.product_id))
+      : [];
 
     let candidateIds = idsFromDealProducts;
 
@@ -735,7 +833,9 @@ function PipelinePage() {
         .order("created_at", { ascending: false })
         .limit(10);
       if (pErr) throw new Error(pErr.message || "No se pudieron cargar propuestas del deal");
-      candidateIds = Array.isArray(proposals) ? proposals.map((r: any) => String(r.product_id)) : [];
+      candidateIds = Array.isArray(proposals)
+        ? proposals.map((r: any) => String(r.product_id))
+        : [];
     }
 
     if (!candidateIds.length && deal.lead_id) {
@@ -748,11 +848,14 @@ function PipelinePage() {
         .order("created_at", { ascending: false })
         .limit(10);
       if (pErr) throw new Error(pErr.message || "No se pudieron cargar propuestas del lead");
-      candidateIds = Array.isArray(proposals) ? proposals.map((r: any) => String(r.product_id)) : [];
+      candidateIds = Array.isArray(proposals)
+        ? proposals.map((r: any) => String(r.product_id))
+        : [];
     }
 
     const uniqueCandidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
-    if (!uniqueCandidateIds.length) return { products: [], dealProducts: (dealProducts || []) as DealProductRow[] };
+    if (!uniqueCandidateIds.length)
+      return { products: [], dealProducts: (dealProducts || []) as DealProductRow[] };
 
     const { data: products, error: prodErr } = await db
       .from("products")
@@ -762,11 +865,15 @@ function PipelinePage() {
       .order("name", { ascending: true });
     if (prodErr) throw new Error(prodErr.message || "No se pudieron cargar productos");
 
-    return { products: (products || []) as ProductRow[], dealProducts: (dealProducts || []) as DealProductRow[] };
+    return {
+      products: (products || []) as ProductRow[],
+      dealProducts: (dealProducts || []) as DealProductRow[],
+    };
   }
 
   async function loadActiveWorkflowForProduct(productId: string) {
-    if (!profile?.company_id) return { workflow: null as ProductWorkflowRow | null, steps: [] as ProductWorkflowStepRow[] };
+    if (!profile?.company_id)
+      return { workflow: null as ProductWorkflowRow | null, steps: [] as ProductWorkflowStepRow[] };
     const cid = profile.company_id;
 
     const { data: wf, error: wfErr } = await db
@@ -784,14 +891,17 @@ function PipelinePage() {
 
     const { data: steps, error: stepsErr } = await db
       .from("product_workflow_steps")
-      .select("id,workflow_id,product_id,title,description,step_order,default_priority,default_duration_days,assigned_role,is_active")
+      .select(
+        "id,workflow_id,product_id,title,description,step_order,default_priority,default_duration_days,assigned_role,is_active",
+      )
       .eq("company_id", cid)
       .eq("workflow_id", workflow.id)
       .eq("product_id", productId)
       .eq("is_active", true)
       .order("step_order", { ascending: true })
       .order("created_at", { ascending: true });
-    if (stepsErr) throw new Error(stepsErr.message || "No se pudieron cargar los pasos del workflow");
+    if (stepsErr)
+      throw new Error(stepsErr.message || "No se pudieron cargar los pasos del workflow");
 
     return { workflow, steps: (steps || []) as ProductWorkflowStepRow[] };
   }
@@ -816,7 +926,9 @@ function PipelinePage() {
       setDealProductsByProductId(map);
 
       if (!products.length) {
-        toast.message("Esta oportunidad no tiene producto asociado. Asocia un producto para crear un proyecto automáticamente.");
+        toast.message(
+          "Esta oportunidad no tiene producto asociado. Asocia un producto para crear un proyecto automáticamente.",
+        );
         setWorkflowLoading(false);
         return;
       }
@@ -870,14 +982,17 @@ function PipelinePage() {
       return;
     }
 
-    const product = productCandidates.find((p) => String(p.id) === String(selectedProductId)) || null;
+    const product =
+      productCandidates.find((p) => String(p.id) === String(selectedProductId)) || null;
     if (!product) {
       toast.error("No se pudo cargar el producto seleccionado.");
       return;
     }
 
     if (!activeWorkflow?.id) {
-      toast.error("Este producto no tiene workflow activo. Define un workflow en /products primero.");
+      toast.error(
+        "Este producto no tiene workflow activo. Define un workflow en /products primero.",
+      );
       return;
     }
     if (!activeWorkflowSteps.length) {
@@ -904,13 +1019,20 @@ function PipelinePage() {
       }
       const startDate = new Date();
       const startDateIso = toIsoDateOnly(startDate);
-      const totalDays = activeWorkflowSteps.reduce((sum, s) => sum + Math.max(0, Number(s.default_duration_days || 0)), 0);
+      const totalDays = activeWorkflowSteps.reduce(
+        (sum, s) => sum + Math.max(0, Number(s.default_duration_days || 0)),
+        0,
+      );
       const dueDateIso = totalDays > 0 ? toIsoDateOnly(addDays(startDate, totalDays)) : null;
 
       const managerProfileId = deal.assigned_to
-        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id || profile.id
+        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
+          teamByUserId.get(String(deal.assigned_to))?.profile_id ||
+          profile.id
         : profile.id;
-      const projectName = lead?.company_name?.trim() ? `${product.name} — ${lead.company_name}` : `${product.name} — ${deal.name}`;
+      const projectName = lead?.company_name?.trim()
+        ? `${product.name} — ${lead.company_name}`
+        : `${product.name} — ${deal.name}`;
 
       let projectId: string | null = existingProject?.id ? String(existingProject.id) : null;
       if (!projectId) {
@@ -979,7 +1101,9 @@ function PipelinePage() {
 
       const { error: insertTasksErr } = await db.from("tasks").insert(tasksPayload);
       if (insertTasksErr) {
-        toast.error(insertTasksErr.message || "Proyecto creado, pero no se pudieron generar tareas.");
+        toast.error(
+          insertTasksErr.message || "Proyecto creado, pero no se pudieron generar tareas.",
+        );
         setCreateProjectDialogOpen(false);
         return;
       }
@@ -1009,7 +1133,10 @@ function PipelinePage() {
     }
 
     const qty = Math.max(1, Math.round(Number(addDealProductValues.quantity || 1)));
-    const product = activeProducts.find((p) => String(p.id) === productId) || dealProductsProductById[productId] || null;
+    const product =
+      activeProducts.find((p) => String(p.id) === productId) ||
+      dealProductsProductById[productId] ||
+      null;
     const suggestedUnit = product?.base_price ?? deal.value ?? 0;
     const unitPriceRaw = addDealProductValues.unit_price.trim();
     const unitPrice = unitPriceRaw ? Number(unitPriceRaw) : Number(suggestedUnit || 0);
@@ -1033,7 +1160,9 @@ function PipelinePage() {
         return;
       }
       toast.success("Producto asociado a la oportunidad");
-      const insertedProduct = activeProducts.find((p) => String(p.id) === productId) || (product ? (product as ProductRow) : null);
+      const insertedProduct =
+        activeProducts.find((p) => String(p.id) === productId) ||
+        (product ? (product as ProductRow) : null);
       if (insertedProduct) {
         setDealProductsProductById((prev) => ({ ...prev, [productId]: insertedProduct }));
       }
@@ -1061,7 +1190,11 @@ function PipelinePage() {
     }
     setRemovingDealProductId(rowId);
     try {
-      const { error } = await db.from("deal_products").delete().eq("company_id", profile.company_id).eq("id", rowId);
+      const { error } = await db
+        .from("deal_products")
+        .delete()
+        .eq("company_id", profile.company_id)
+        .eq("id", rowId);
       if (error) {
         toast.error(error.message || "No se pudo quitar el producto");
         return;
@@ -1085,10 +1218,16 @@ function PipelinePage() {
     setLoading(true);
     const cid = profile.company_id;
     const [{ data: s, error: sErr }, { data: d, error: dErr }] = await Promise.all([
-      db.from("deal_stages").select("id,company_id,name,display_order,color,created_at,updated_at").eq("company_id", cid).order("display_order"),
+      db
+        .from("deal_stages")
+        .select("id,company_id,name,display_order,color,created_at,updated_at")
+        .eq("company_id", cid)
+        .order("display_order"),
       db
         .from("deals")
-        .select("id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at")
+        .select(
+          "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+        )
         .eq("company_id", cid)
         .order("created_at", { ascending: false }),
     ]);
@@ -1100,7 +1239,9 @@ function PipelinePage() {
     setDeals(nextDeals);
 
     const byStage: Record<string, string[]> = {};
-    for (const stage of nextStages.filter((st) => !isWonStageName(st.name) && !isLostStageName(st.name))) {
+    for (const stage of nextStages.filter(
+      (st) => !isWonStageName(st.name) && !isLostStageName(st.name),
+    )) {
       byStage[stage.name] = [];
     }
     for (const deal of nextDeals) {
@@ -1125,12 +1266,15 @@ function PipelinePage() {
       return;
     }
 
-    const { data: rpcData, error: rpcErr } = await (supabase as any).rpc("get_company_team_members", {
-      _search: null,
-      _role: null,
-      _is_active: true,
-      _department: null,
-    });
+    const { data: rpcData, error: rpcErr } = await (supabase as any).rpc(
+      "get_company_team_members",
+      {
+        _search: null,
+        _role: null,
+        _is_active: true,
+        _department: null,
+      },
+    );
 
     if (!rpcErr && Array.isArray(rpcData)) {
       setTeam(
@@ -1259,7 +1403,9 @@ function PipelinePage() {
         leadId
           ? (supabase as any)
               .from("leads")
-              .select("id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to")
+              .select(
+                "id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to",
+              )
               .eq("company_id", profile.company_id)
               .eq("id", leadId)
               .maybeSingle()
@@ -1323,11 +1469,23 @@ function PipelinePage() {
       .reduce((s, d) => s + toNumber(d.value), 0);
   }, [deals, wonStageNames, lostStageNames]);
 
-  const wonTotal = useMemo(() => deals.filter((d) => wonStageNames.has(d.stage)).reduce((s, d) => s + toNumber(d.value), 0), [deals, wonStageNames]);
-  const openDealsCount = useMemo(() => deals.filter((d) => !wonStageNames.has(d.stage) && !lostStageNames.has(d.stage)).length, [deals, wonStageNames, lostStageNames]);
-  const avgDeal = useMemo(() => (openDealsCount > 0 ? Math.round(pipelineTotal / openDealsCount) : 0), [pipelineTotal, openDealsCount]);
+  const wonTotal = useMemo(
+    () =>
+      deals.filter((d) => wonStageNames.has(d.stage)).reduce((s, d) => s + toNumber(d.value), 0),
+    [deals, wonStageNames],
+  );
+  const openDealsCount = useMemo(
+    () => deals.filter((d) => !wonStageNames.has(d.stage) && !lostStageNames.has(d.stage)).length,
+    [deals, wonStageNames, lostStageNames],
+  );
+  const avgDeal = useMemo(
+    () => (openDealsCount > 0 ? Math.round(pipelineTotal / openDealsCount) : 0),
+    [pipelineTotal, openDealsCount],
+  );
   const winRate = useMemo(() => {
-    const closed = deals.filter((d) => wonStageNames.has(d.stage) || lostStageNames.has(d.stage)).length;
+    const closed = deals.filter(
+      (d) => wonStageNames.has(d.stage) || lostStageNames.has(d.stage),
+    ).length;
     const won = deals.filter((d) => wonStageNames.has(d.stage)).length;
     return closed > 0 ? Math.round((won / closed) * 100) : 0;
   }, [deals, wonStageNames, lostStageNames]);
@@ -1342,7 +1500,10 @@ function PipelinePage() {
     });
   }, [deals, lostStageNames, archivedSearch]);
 
-  const selectedStagesSet = useMemo(() => new Set(filters.selectedStages), [filters.selectedStages]);
+  const selectedStagesSet = useMemo(
+    () => new Set(filters.selectedStages),
+    [filters.selectedStages],
+  );
 
   const dealMatchesFilters = useMemo(() => {
     const now = new Date();
@@ -1353,7 +1514,8 @@ function PipelinePage() {
     const valueMax = filters.valueMax.trim() === "" ? null : Number(filters.valueMax);
     const probMin = filters.probMin.trim() === "" ? null : Number(filters.probMin);
     const probMax = filters.probMax.trim() === "" ? null : Number(filters.probMax);
-    const staleDays = filters.followUpStaleDays.trim() === "" ? null : Number(filters.followUpStaleDays);
+    const staleDays =
+      filters.followUpStaleDays.trim() === "" ? null : Number(filters.followUpStaleDays);
 
     const closeFrom = filters.closeFrom ? parseIsoDateOnly(filters.closeFrom) : null;
     const closeTo = filters.closeTo ? parseIsoDateOnly(filters.closeTo) : null;
@@ -1501,8 +1663,8 @@ function PipelinePage() {
       return;
     }
     void logActivityEvent({
-      companyId: profile.company_id,
-      userId: profile.id || null,
+      companyId: profile?.company_id ?? "",
+      userId: profile?.id || null,
       action: "deal_moved",
       entityType: "deals",
       entityId: dealId,
@@ -1530,7 +1692,9 @@ function PipelinePage() {
     const payload = {
       company_id: profile.company_id,
       title: `Seguimiento: ${deal.name}`,
-      description: deal.notes ? `Oportunidad: ${deal.name}\n\n${deal.notes}` : `Oportunidad: ${deal.name}`,
+      description: deal.notes
+        ? `Oportunidad: ${deal.name}\n\n${deal.notes}`
+        : `Oportunidad: ${deal.name}`,
       due_date: dueDate,
       status: "To Do",
       priority: "High",
@@ -1538,7 +1702,8 @@ function PipelinePage() {
       related_client_id: null,
       assigned_to:
         (deal.assigned_to
-          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id
+          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
+            teamByUserId.get(String(deal.assigned_to))?.profile_id
           : null) || profile.id,
     };
     const { error } = await db.from("tasks").insert(payload);
@@ -1547,8 +1712,8 @@ function PipelinePage() {
       return;
     }
     void logActivityEvent({
-      companyId: profile.company_id,
-      userId: profile.id || null,
+      companyId: profile?.company_id ?? "",
+      userId: profile?.id || null,
       action: "task_created",
       entityType: "tasks",
       detail: `Tarea creada desde pipeline: ${payload.title}`,
@@ -1601,7 +1766,8 @@ function PipelinePage() {
     try {
       const assignedTo =
         (deal.assigned_to
-          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id
+          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
+            teamByUserId.get(String(deal.assigned_to))?.profile_id
           : null) || profile.id;
       const payload: Record<string, any> = {
         company_id: profile.company_id,
@@ -1701,15 +1867,18 @@ function PipelinePage() {
     try {
       const ts = new Date().toISOString();
       const nextNotes = appendNote(deal.notes, `[${ts}] Oportunidad marcada como ganada.`);
-      const { error } = await db.from("deals").update({ stage: wonStage, notes: nextNotes }).eq("id", deal.id);
+      const { error } = await db
+        .from("deals")
+        .update({ stage: wonStage, notes: nextNotes })
+        .eq("id", deal.id);
       if (error) {
         toast.error(error.message || "No se pudo actualizar la oportunidad.");
         return;
       }
 
       void logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id || null,
+        companyId: profile?.company_id ?? "",
+        userId: profile?.id || null,
         action: "deal_moved",
         entityType: "deals",
         entityId: deal.id,
@@ -1717,8 +1886,12 @@ function PipelinePage() {
         metadata: { stage: wonStage, outcome: "won" },
       }).catch(() => {});
 
-      setDeals((prev) => prev.map((d) => (d.id === deal.id ? { ...d, stage: wonStage, notes: nextNotes } : d)));
-      setSelectedDeal((prev) => (prev?.id === deal.id ? { ...prev, stage: wonStage, notes: nextNotes } : prev));
+      setDeals((prev) =>
+        prev.map((d) => (d.id === deal.id ? { ...d, stage: wonStage, notes: nextNotes } : d)),
+      );
+      setSelectedDeal((prev) =>
+        prev?.id === deal.id ? { ...prev, stage: wonStage, notes: nextNotes } : prev,
+      );
 
       toast.success("Oportunidad marcada como ganada.");
 
@@ -1771,15 +1944,24 @@ function PipelinePage() {
     }
 
     const leadName = formatPersonName(lead.first_name, lead.last_name);
-    const companyName = lead.company_name?.trim() || leadName || lead.email || lead.phone || lead.whatsapp || "Cliente sin nombre";
+    const companyName =
+      lead.company_name?.trim() ||
+      leadName ||
+      lead.email ||
+      lead.phone ||
+      lead.whatsapp ||
+      "Cliente sin nombre";
     const contactPerson = leadName || null;
     const phone = lead.phone || lead.whatsapp || null;
     const whatsapp = lead.whatsapp || lead.phone || null;
 
     const accountManagerProfileId =
       (deal.assigned_to
-        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id || teamByUserId.get(String(deal.assigned_to))?.profile_id
-        : null) || profile.id || null;
+        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
+          teamByUserId.get(String(deal.assigned_to))?.profile_id
+        : null) ||
+      profile.id ||
+      null;
 
     const { data: created, error: createErr } = await (supabase as any)
       .from("clients")
@@ -1798,8 +1980,8 @@ function PipelinePage() {
 
     if (createErr) throw new Error(createErr.message || "No se pudo crear el cliente");
     void logActivityEvent({
-      companyId: profile.company_id,
-      userId: profile.id || null,
+      companyId: profile?.company_id ?? "",
+      userId: profile?.id || null,
       action: "client_created",
       entityType: "clients",
       entityId: String(created.id),
@@ -1840,7 +2022,10 @@ function PipelinePage() {
       setConvertClientDialogOpen(false);
       void openCreateProjectPromptForDeal(deal);
     } catch (e) {
-      const message = e instanceof Error ? e.message : "La oportunidad fue marcada como ganada, pero no se pudo crear el cliente.";
+      const message =
+        e instanceof Error
+          ? e.message
+          : "La oportunidad fue marcada como ganada, pero no se pudo crear el cliente.";
       toast.error(message);
       setConvertClientDialogOpen(false);
     } finally {
@@ -1868,15 +2053,18 @@ function PipelinePage() {
         : `[${ts}] Oportunidad marcada como perdida. Razón: ${reason}.`;
       const nextNotes = appendNote(deal.notes, msg);
 
-      const { error } = await db.from("deals").update({ stage: lostStage, notes: nextNotes }).eq("id", deal.id);
+      const { error } = await db
+        .from("deals")
+        .update({ stage: lostStage, notes: nextNotes })
+        .eq("id", deal.id);
       if (error) {
         toast.error(error.message || "No se pudo actualizar la oportunidad.");
         return;
       }
 
       void logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id || null,
+        companyId: profile?.company_id ?? "",
+        userId: profile?.id || null,
         action: "deal_moved",
         entityType: "deals",
         entityId: deal.id,
@@ -1884,8 +2072,12 @@ function PipelinePage() {
         metadata: { stage: lostStage, outcome: "lost", reason },
       }).catch(() => {});
 
-      setDeals((prev) => prev.map((d) => (d.id === deal.id ? { ...d, stage: lostStage, notes: nextNotes } : d)));
-      setSelectedDeal((prev) => (prev?.id === deal.id ? { ...prev, stage: lostStage, notes: nextNotes } : prev));
+      setDeals((prev) =>
+        prev.map((d) => (d.id === deal.id ? { ...d, stage: lostStage, notes: nextNotes } : d)),
+      );
+      setSelectedDeal((prev) =>
+        prev?.id === deal.id ? { ...prev, stage: lostStage, notes: nextNotes } : prev,
+      );
       toast.success("Oportunidad marcada como perdida.");
       setLostDialogOpen(false);
       setLostNote("");
@@ -1943,7 +2135,9 @@ function PipelinePage() {
         const [{ data: d2 }] = await Promise.all([
           db
             .from("deals")
-            .select("id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at")
+            .select(
+              "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+            )
             .eq("company_id", cid)
             .order("created_at", { ascending: false }),
         ]);
@@ -1953,8 +2147,8 @@ function PipelinePage() {
     }
 
     void logActivityEvent({
-      companyId: profile.company_id,
-      userId: profile.id || null,
+      companyId: profile?.company_id ?? "",
+      userId: profile?.id || null,
       action: "deal_moved",
       entityType: "deals",
       entityId: draggedDealId,
@@ -2001,8 +2195,8 @@ function PipelinePage() {
         return;
       }
       void logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id || null,
+        companyId: profile?.company_id ?? "",
+        userId: profile?.id || null,
         action: "deal_updated",
         entityType: "deals",
         entityId: editDeal.id,
@@ -2029,8 +2223,8 @@ function PipelinePage() {
         return;
       }
       void logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id || null,
+        companyId: profile?.company_id ?? "",
+        userId: profile?.id || null,
         action: "deal_created",
         entityType: "deals",
         detail: `Oportunidad creada: ${newDeal.name}`,
@@ -2044,19 +2238,32 @@ function PipelinePage() {
     }
 
     setNewDealStageOverride(null);
-    setNewDeal({ name: "", value: "", probability: "50", expected_close: "", stage: stages[0]?.name || "", source_type: "", lead_id: "", client_id: "" });
+    setNewDeal({
+      name: "",
+      value: "",
+      probability: "50",
+      expected_close: "",
+      stage: stages[0]?.name || "",
+      source_type: "",
+      lead_id: "",
+      client_id: "",
+    });
     // Refetch deals only
     if (!profile?.company_id) return;
     const cid = profile.company_id;
     const { data: d2 } = await db
       .from("deals")
-      .select("id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at")
+      .select(
+        "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+      )
       .eq("company_id", cid)
       .order("created_at", { ascending: false });
     const nextDeals = (d2 || []) as Deal[];
     setDeals(nextDeals);
     const byStage: Record<string, string[]> = {};
-    for (const stage of stages.filter((st) => !isWonStageName(st.name) && !isLostStageName(st.name))) {
+    for (const stage of stages.filter(
+      (st) => !isWonStageName(st.name) && !isLostStageName(st.name),
+    )) {
       byStage[stage.name] = [];
     }
     for (const deal of nextDeals) {
@@ -2091,7 +2298,12 @@ function PipelinePage() {
     toast.success("Oportunidad restaurada");
   };
 
-  if (loading) return <div className="p-6"><LoadingMetrics count={6} /></div>;
+  if (loading)
+    return (
+      <div className="p-6">
+        <LoadingMetrics count={6} />
+      </div>
+    );
 
   return (
     <div data-demo="pipeline-main" className="min-h-[calc(100vh-72px)] bg-[#f6f8fb] text-[#101828]">
@@ -2103,18 +2315,27 @@ function PipelinePage() {
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-[26px] leading-none tracking-[-0.03em] font-semibold">Pipeline de Ventas</h1>
+                <h1 className="text-[26px] leading-none tracking-[-0.03em] font-semibold">
+                  Pipeline de Ventas
+                </h1>
                 <div className="mt-2 text-[13px] font-normal text-[#667085] flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span>
-                    Pipeline: <strong className="text-[#1d62f9] font-semibold">${pipelineTotal.toLocaleString()}</strong>
+                    Pipeline:{" "}
+                    <strong className="text-[#1d62f9] font-semibold">
+                      ${pipelineTotal.toLocaleString()}
+                    </strong>
                   </span>
                   <span className="text-[#cbd5e1]">·</span>
                   <span>
-                    Abiertas: <strong className="text-[#101828] font-semibold">{openDealsCount}</strong>
+                    Abiertas:{" "}
+                    <strong className="text-[#101828] font-semibold">{openDealsCount}</strong>
                   </span>
                   <span className="text-[#cbd5e1]">·</span>
                   <span>
-                    Ticket: <strong className="text-[#101828] font-semibold">${avgDeal.toLocaleString()}</strong>
+                    Ticket:{" "}
+                    <strong className="text-[#101828] font-semibold">
+                      ${avgDeal.toLocaleString()}
+                    </strong>
                   </span>
                   <span className="text-[#cbd5e1]">·</span>
                   <span>
@@ -2122,7 +2343,10 @@ function PipelinePage() {
                   </span>
                   <span className="text-[#cbd5e1]">·</span>
                   <span>
-                    Ganado: <strong className="text-[#1d62f9] font-semibold">${wonTotal.toLocaleString()}</strong>
+                    Ganado:{" "}
+                    <strong className="text-[#1d62f9] font-semibold">
+                      ${wonTotal.toLocaleString()}
+                    </strong>
                   </span>
                 </div>
               </div>
@@ -2194,1398 +2418,1901 @@ function PipelinePage() {
             </div>
           </div>
 
-      {pipelineStages.length === 0 ? (
-        <EmptyState icon={<DollarSign className="h-6 w-6" />} title="No hay etapas en el pipeline" description="Configura etapas para empezar a mover oportunidades." />
-      ) : (
-        <>
-          {viewMode === "list" ? (
-            <div className="rounded-[22px] border border-[#e6eaf0] bg-[rgba(255,255,255,0.78)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] p-5">
-              <div className="text-[13px] font-semibold text-[#667085]">La vista de lista estará disponible pronto (usa el tablero para mover oportunidades).</div>
-            </div>
+          {pipelineStages.length === 0 ? (
+            <EmptyState
+              icon={<DollarSign className="h-6 w-6" />}
+              title="No hay etapas en el pipeline"
+              description="Configura etapas para empezar a mover oportunidades."
+            />
           ) : (
             <>
-              {pipelineStages.length > DESKTOP_STAGES_PER_PAGE ? (
-                <div className="hidden lg:flex items-center justify-end gap-2 mb-3">
-                  <span className="text-[12px] font-semibold text-[#667085]">Etapas visibles</span>
-                  <Select value={String(Math.min(boardStagePage, stagePages.length - 1))} onValueChange={(v) => setBoardStagePage(Number(v) || 0)}>
-                    <SelectTrigger className="h-9 w-[140px] bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stagePages.map((p, i) => (
-                        <SelectItem key={p.label} value={String(i)}>
-                          {p.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-
-              <div
-                data-demo="pipeline-board"
-                className="flex gap-3 overflow-x-auto pb-6 lg:grid lg:overflow-x-hidden lg:pb-0"
-                style={{ gridTemplateColumns: `repeat(${visiblePipelineStages.length || 1}, minmax(0, 1fr))` }}
-              >
-                {visiblePipelineStages.map((stage, localIdx) => {
-                  const pageOffset = pipelineStages.length > DESKTOP_STAGES_PER_PAGE ? stagePages[Math.min(Math.max(0, boardStagePage), stagePages.length - 1)]?.from || 0 : 0;
-                  const idx = pageOffset + localIdx;
-                  const stageColor = normalizeHex(stage.color || "") || stageDefaults(stage.name);
-                  const stageSoft = rgba(stageColor, 0.1);
-                  const stageShadow = rgba(stageColor, 0.22);
-                  const stageIds = dealIdsByStage[stage.name] || [];
-                  const stageDeals = stageIds
-                    .map((id) => dealById.get(id))
-                    .filter((d): d is Deal => Boolean(d) && dealMatchesFilters(d as Deal));
-                  const isDragOver = dragOverStage === stage.name;
-                  const stageValueTotal = stageDeals.reduce((s, d) => s + toNumber(d.value), 0);
-
-                  return (
-                    <div
-                      key={stage.id}
-                      data-demo={`pipeline-stage-${idx + 1}`}
-                      data-stage={stage.name}
-                      className={
-                      "relative overflow-hidden rounded-[20px] border bg-[rgba(255,255,255,0.78)] shadow-[0_10px_26px_rgba(15,23,42,0.06)] transition-all flex flex-col flex-none w-[260px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-290px)] " +
-                      (isDragOver ? " -translate-y-[2px]" : "")
-                      }
-                      style={{
-                        borderColor: isDragOver ? stageColor : "#e6eaf0",
-                        boxShadow: isDragOver ? "0 20px 56px rgba(15, 23, 42, 0.11)" : undefined,
-                      }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      if (!draggedDealId) return;
-                      setDragOverStage(stage.name);
-                      const ordered = dealIdsByStage[stage.name] || [];
-                      const afterId = getDragAfterId(ordered, draggedDealId, e.clientY);
-                      moveDealInState(draggedDealId, stage.name, afterId);
-                    }}
-                    onDragLeave={(e) => {
-                      const related = e.relatedTarget as Node | null;
-                      if (related && (e.currentTarget as HTMLElement).contains(related)) return;
-                      setDragOverStage((prev) => (prev === stage.name ? null : prev));
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverStage(null);
-                      setDraggedDealId(null);
-                      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                      handleDropCommit(stage.name);
-                    }}
-                    >
-                      <div className="absolute left-0 right-0 top-0 h-1" style={{ background: stageColor }} />
-                    <div className="px-3.5 pt-3.5 pb-3 grid gap-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className="h-6 w-6 rounded-[9px] grid place-items-center text-white text-[12px] font-black shrink-0"
-                          style={{ background: stageColor, boxShadow: `0 10px 20px ${stageShadow}` }}
-                        >
-                          {idx + 1}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="text-[13px] font-semibold tracking-[-0.015em] truncate" style={{ color: stageColor }}>
-                            {stage.name}
-                          </h3>
-                          <div className="mt-0.5 text-[11px] font-semibold text-[#667085]">
-                            {stageDeals.length} oportunidades · ${stageValueTotal.toLocaleString()}
-                          </div>
-                        </div>
-                        </div>
-
-                        {can("deals.create") ? (
-                          <button
-                            type="button"
-                            className="h-8 w-8 rounded-[12px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)] hover:bg-[#f0f6ff] shrink-0"
-                            onClick={() => {
-                              setNewDealStageOverride(stage.name);
-                              setNewDeal((p) => ({ ...p, stage: stage.name }));
-                              setEditDeal(null);
-                              setDialogOpen(true);
-                            }}
-                            aria-label="Nuevo deal en esta etapa"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="text-[11px] font-medium text-[#98a2b3] hidden lg:block">Arrastra y suelta</div>
-                    </div>
-
-                    <div
-                      className="px-2.5 pb-3 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
-                      style={{ background: isDragOver ? rgba(stageColor, 0.07) : "transparent" }}
-                    >
-                      {stageDeals.length === 0 ? (
-                        <div className="rounded-[12px] border border-dashed border-[#dbe3ee] bg-white/70 px-3 py-4 text-center text-[12px] font-medium text-[#98a2b3]">
-                          No hay oportunidades en esta etapa.
-                        </div>
-                      ) : null}
-                      {stageDeals.map((deal) => {
-                        const prob = clamp(deal.probability ?? 50, 0, 100);
-                        const borderHover = rgba(stageColor, 0.38);
-                        return (
-                          <div
-                            key={deal.id}
-                            ref={(el) => {
-                              dealRefs.current[deal.id] = el;
-                            }}
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedDealId(deal.id);
-                              setDragOverStage(stage.name);
-                              // Some browsers require dataTransfer to be set to enable drag.
-                              e.dataTransfer.setData("text/plain", deal.id);
-                            }}
-                            onDragEnd={() => {
-                              setDraggedDealId(null);
-                              setDragOverStage(null);
-                            }}
-                            className={
-                              "group relative select-none cursor-grab rounded-[16px] border bg-white p-2.5 shadow-[0_10px_18px_rgba(15,23,42,0.05)] transition-all " +
-                              (draggedDealId === deal.id ? "opacity-50 rotate-[2deg] scale-[0.98] cursor-grabbing" : "")
-                            }
-                            style={{ borderColor: "#e6eaf0" }}
-                            onMouseEnter={(e) => {
-                              (e.currentTarget as HTMLDivElement).style.borderColor = borderHover;
-                            }}
-                            onMouseLeave={(e) => {
-                              (e.currentTarget as HTMLDivElement).style.borderColor = "#e6eaf0";
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="min-w-0">
-                                <strong className="block text-[13px] font-semibold tracking-[-0.015em] line-clamp-2">
-                                  {deal.name}
-                                </strong>
-                                <span className="block text-[11px] font-medium text-[#667085] line-clamp-1">
-                                {deal.lead_id ? "Prospecto conectado" : "Prospecto: —"}
-                                </span>
-                              </div>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button className="h-[26px] w-[26px] rounded-[10px] grid place-items-center text-[#667085] hover:bg-[#f2f5f9]">
-                                    •••
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                  <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => setSelectedDeal(deal)}>Ver detalle</DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setEditDeal(deal);
-                                      setNewDeal({
-                                        name: deal.name,
-                                        value: String(deal.value ?? 0),
-                                        probability: String(deal.probability ?? 50),
-                                        expected_close: deal.expected_close || "",
-                                        stage: deal.stage,
-                                      });
-                                      setDialogOpen(true);
-                                    }}
-                                  >
-                                    Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => createFollowUpTask(deal)}>Crear tarea</DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={async () => {
-                                      const next = getNextStageName(deal.stage);
-                                      if (!next) {
-                                        toast.error("No hay siguiente etapa");
-                                        return;
-                                      }
-                                      await moveDealStage(deal.id, next);
-                                    }}
-                                  >
-                                    Mover a la siguiente etapa
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>Mover a…</DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent className="max-h-72 overflow-auto">
-                                      {pipelineStages.map((s) => (
-                                        <DropdownMenuItem key={s.id} onClick={() => moveDealStage(deal.id, s.name)}>
-                                          {s.name}
-                                        </DropdownMenuItem>
-                                      ))}
-                                    </DropdownMenuSubContent>
-                                  </DropdownMenuSub>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => moveDealStage(deal.id, archiveStageName)}>
-                                    Archivar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => setDeleteDealId(deal.id)}
-                                  >
-                                    Eliminar
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-
-                            <div className="flex items-center justify-between gap-3 mb-2.5">
-                              <div className="text-[16px] font-semibold tracking-[-0.02em]" style={{ color: stageColor }}>
-                                ${toNumber(deal.value).toLocaleString()}
-                              </div>
-                              <div className="flex items-center gap-2.5">
-                                <div className="text-[12px] font-medium text-[#475467]">{prob}%</div>
-                                <div className="h-1.5 w-[74px] rounded-full bg-[#e8edf3] overflow-hidden">
-                                  <span className="block h-full rounded-full" style={{ width: `${prob}%`, background: stageColor }} />
-                                </div>
-                              </div>
-                            </div>
-
-                            {deal.expected_close && (
-                              <div className="flex items-center gap-2 text-[11px] font-medium text-[#475467] mb-2">
-                                <CalendarIcon className="h-4 w-4" />
-                                <span>{formatDateLabel(deal.expected_close)}</span>
-                              </div>
-                            )}
-
-                            <div className="flex flex-wrap gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-[9px] px-2 py-1 text-[11px] font-medium" style={{ background: stageSoft, color: stageColor }}>
-                                <DollarSign className="h-3.5 w-3.5" /> Oportunidad
-                              </span>
-                            </div>
-
-                            <div className="absolute right-3.5 bottom-3.5 flex gap-1.5 opacity-0 translate-y-1 pointer-events-none transition-all group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto">
-                              <button
-                                className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setSelectedDeal(deal);
-                                }}
-                                type="button"
-                                aria-label="Abrir detalles del deal"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  void openWhatsappForDeal(deal);
-                                }}
-                                type="button"
-                                aria-label="Abrir conversación de WhatsApp"
-                              >
-                                <MessageCircle className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
+              {viewMode === "list" ? (
+                <div className="rounded-[22px] border border-[#e6eaf0] bg-[rgba(255,255,255,0.78)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] p-5">
+                  <div className="text-[13px] font-semibold text-[#667085]">
+                    La vista de lista estará disponible pronto (usa el tablero para mover
+                    oportunidades).
                   </div>
-                );
-              })}
-              </div>
-            </>
-          )}
-        </>
-      )}
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editDeal ? "Editar oportunidad" : "Nueva oportunidad"}</DialogTitle></DialogHeader>
-          <form onSubmit={handleCreateOrUpdate} className="space-y-4">
-            {!editDeal ? (
-              <div className="rounded-[14px] border bg-muted/20 p-3">
-                <Label>Origen de la oportunidad</Label>
-                <Select
-                  value={newDeal.source_type || undefined}
-                  onValueChange={(v) =>
-                    setNewDeal({
-                      ...newDeal,
-                      source_type: v,
-                      lead_id: v === "lead" ? newDeal.lead_id : "",
-                      client_id: v === "client" ? newDeal.client_id : "",
-                    })
-                  }
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecciona el origen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lead">Prospecto existente</SelectItem>
-                    <SelectItem value="client">Cliente existente</SelectItem>
-                    <SelectItem value="none">Sin contacto todavía</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {newDeal.source_type === "lead" ? (
-                  <div className="mt-3">
-                    <Label>Prospecto</Label>
-                    <Select
-                      value={newDeal.lead_id}
-                      onValueChange={(v) => {
-                        const lead = dealLeadOptions.find((l) => String(l.id) === String(v));
-                        const label =
-                          lead?.company_name ||
-                          [lead?.first_name, lead?.last_name].filter(Boolean).join(" ") ||
-                          lead?.email ||
-                          lead?.phone ||
-                          "Nueva oportunidad";
-
-                        setNewDeal({
-                          ...newDeal,
-                          lead_id: v,
-                          name: newDeal.name || label,
-                          value: newDeal.value || (lead?.estimated_value ? String(lead.estimated_value) : ""),
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder={dealSourceOptionsLoading ? "Cargando prospectos…" : "Selecciona un prospecto"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dealLeadOptions.map((lead) => {
-                          const label =
-                            lead.company_name ||
-                            [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
-                            lead.email ||
-                            lead.phone ||
-                            String(lead.id);
-
-                          return (
-                            <SelectItem key={lead.id} value={lead.id}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-
-                {newDeal.source_type === "client" ? (
-                  <div className="mt-3">
-                    <Label>Cliente</Label>
-                    <Select
-                      value={newDeal.client_id}
-                      onValueChange={(v) => {
-                        const client = dealClientOptions.find((c) => String(c.id) === String(v));
-                        const label =
-                          client?.company_name ||
-                          client?.contact_person ||
-                          client?.email ||
-                          client?.phone ||
-                          "Nueva oportunidad";
-
-                        setNewDeal({
-                          ...newDeal,
-                          client_id: v,
-                          name: newDeal.name || label,
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder={dealSourceOptionsLoading ? "Cargando clientes…" : "Selecciona un cliente"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dealClientOptions.map((client) => {
-                          const label =
-                            client.company_name ||
-                            client.contact_person ||
-                            client.email ||
-                            client.phone ||
-                            String(client.id);
-
-                          return (
-                            <SelectItem key={client.id} value={client.id}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-
-                {!editDeal && activeProducts.length > 0 ? (
-                  <div className="mt-3">
-                    <Label>Producto o servicio</Label>
-                    <Select
-                      value=""
-                      onValueChange={(v) => {
-                        const product = activeProducts.find((p) => String(p.id) === String(v));
-                        if (!product) return;
-                        const contactLabel =
-                          selectedSourceLead?.company_name ||
-                          formatPersonName(selectedSourceLead?.first_name, selectedSourceLead?.last_name) ||
-                          selectedSourceClient?.company_name ||
-                          selectedSourceClient?.contact_person ||
-                          "";
-                        const suggestedName = contactLabel ? `${product.name} — ${contactLabel}` : product.name;
-                        setNewDeal((current) => ({
-                          ...current,
-                          name: suggestedName,
-                          value: current.value || (product.base_price != null ? String(product.base_price) : ""),
-                        }));
-                      }}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder={activeProductsLoading ? "Cargando productos…" : "Selecciona un producto para sugerir nombre y valor"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeProducts.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name}{product.base_price != null ? ` · ${money(product.base_price)}` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-
-                {!editDeal && (selectedSourceLead || selectedSourceClient) ? (
-                  <div className="mt-3 rounded-[12px] border bg-white px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
-                    <div className="font-medium text-foreground">Usa la información del prospecto o cliente para crear la oportunidad más rápido.</div>
-                    <div>Los datos de contacto se muestran como referencia y no se guardan dentro de la oportunidad.</div>
-
-                    {selectedSourceLead ? (
-                      <div className="grid gap-1 pt-1">
-                        <div><span className="font-medium text-foreground">Prospecto:</span> {selectedSourceLead.company_name || formatPersonName(selectedSourceLead.first_name, selectedSourceLead.last_name) || "—"}</div>
-                        <div><span className="font-medium text-foreground">Contacto:</span> {formatPersonName(selectedSourceLead.first_name, selectedSourceLead.last_name) || "—"}</div>
-                        <div><span className="font-medium text-foreground">Teléfono:</span> {selectedSourceLead.phone || "—"}</div>
-                        <div><span className="font-medium text-foreground">WhatsApp:</span> {selectedSourceLead.whatsapp || "—"}</div>
-                        <div><span className="font-medium text-foreground">Email:</span> {selectedSourceLead.email || "—"}</div>
-                        <div><span className="font-medium text-foreground">Origen:</span> {selectedSourceLead.source_channel || selectedSourceLead.source || "—"}</div>
-                        <div><span className="font-medium text-foreground">Valor estimado:</span> {selectedSourceLead.estimated_value != null ? money(selectedSourceLead.estimated_value) : "—"}</div>
-                        <div><span className="font-medium text-foreground">Interés de producto:</span> {selectedSourceLead.product_interest || "—"}</div>
-                        <div><span className="font-medium text-foreground">Contexto comercial:</span> {selectedSourceLead.notes || "—"}</div>
-                      </div>
-                    ) : null}
-
-                    {selectedSourceClient ? (
-                      <div className="grid gap-1 pt-1">
-                        <div><span className="font-medium text-foreground">Empresa:</span> {selectedSourceClient.company_name || "—"}</div>
-                        <div><span className="font-medium text-foreground">Contacto:</span> {selectedSourceClient.contact_person || "—"}</div>
-                        <div><span className="font-medium text-foreground">Teléfono:</span> {selectedSourceClient.phone || "—"}</div>
-                        <div><span className="font-medium text-foreground">WhatsApp:</span> {selectedSourceClient.whatsapp || "—"}</div>
-                        <div><span className="font-medium text-foreground">Email:</span> {selectedSourceClient.email || "—"}</div>
-                        <div><span className="font-medium text-foreground">Estado:</span> {selectedSourceClient.status || "—"}</div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {newDeal.source_type === "none" ? (
-                  <div className="mt-3 rounded-[12px] border bg-white px-3 py-3 text-xs text-muted-foreground space-y-3">
-                    <p>
-                      Esta oportunidad no tiene un prospecto o cliente conectado. Para mantener el historial completo, primero crea un cliente y luego vuelve a crear la oportunidad.
-                    </p>
-                    <div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-8"
-                        onClick={() => {
-                          window.location.href = "/clients";
-                        }}
-                      >
-                        Crear nuevo cliente
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {(editDeal || newDeal.source_type === "none" || (newDeal.source_type === "lead" && newDeal.lead_id) || (newDeal.source_type === "client" && newDeal.client_id)) ? (
-              <>
-            <div><Label>Nombre de la oportunidad</Label><Input placeholder="Nombre de la oportunidad" value={newDeal.name} onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })} required /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Valor ($)</Label><Input type="number" placeholder="0" value={newDeal.value} onChange={(e) => setNewDeal({ ...newDeal, value: e.target.value })} /></div>
-              <div><Label>Probabilidad (%)</Label><Input type="number" placeholder="50" value={newDeal.probability} onChange={(e) => setNewDeal({ ...newDeal, probability: e.target.value })} min="0" max="100" /></div>
-            </div>
-            <div><Label>Cierre esperado</Label><Input type="date" value={newDeal.expected_close} onChange={(e) => setNewDeal({ ...newDeal, expected_close: e.target.value })} /></div>
-            <div><Label>Etapa</Label>
-              <Select value={newDeal.stage} onValueChange={(v) => setNewDeal({ ...newDeal, stage: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{stages.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-              <Button type="submit">{editDeal ? "Guardar" : "Crear oportunidad"}</Button>
-            </div>
-              </>
-            ) : (
-              <div className="rounded-[14px] border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-                Selecciona un prospecto, cliente o la opción “Sin contacto todavía” para continuar creando la oportunidad.
-              </div>
-            )}
-          </form>
-        </DialogContent>
-      </Dialog>
-      
-      {selectedDeal && (
-	        <DetailSheet
-	          open={!!selectedDeal}
-	          onClose={closePipelineDetailSafely}
-	          title={selectedDeal.name}
-	          accent="green"
-	          icon={<BriefcaseBusiness className="h-5 w-5 text-emerald-600" />}
-	          status={selectedDeal.stage}
-	          onEdit={can("deals.edit") ? () => {
-            setEditDeal(selectedDeal);
-            setNewDeal({
-              name: selectedDeal.name,
-              value: String(selectedDeal.value ?? 0),
-              probability: String(selectedDeal.probability ?? 50),
-              expected_close: selectedDeal.expected_close || "",
-              stage: selectedDeal.stage,
-              source_type: selectedDeal.lead_id ? "lead" : "none",
-              lead_id: selectedDeal.lead_id || "",
-            });
-            setDialogOpen(true);
-          } : undefined}
-          onDelete={can("deals.delete") ? () => setDeleteDealId(selectedDeal.id) : undefined}
-          fieldGroupDataDemo="pipeline-detail-summary"
-          fields={[
-            { label: "Etapa", value: selectedDeal.stage, type: "badge" },
-            { label: "Valor", value: selectedDeal.value, type: "currency" },
-            { label: "Probabilidad", value: `${selectedDeal.probability ?? 50}%` },
-            { label: "Cierre esperado", value: selectedDeal.expected_close },
-            {
-              label: "Responsable",
-              value: selectedDeal.assigned_to ? (teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name || teamByUserId.get(String(selectedDeal.assigned_to))?.full_name || String(selectedDeal.assigned_to)) : null,
-            },
-            { label: "Cliente", value: null },
-            { label: "Prospecto", value: selectedDeal.lead_id ? "Conectado" : null },
-          ]}
-          notes={selectedDeal.notes || undefined}
-        >
-          <div className="space-y-4">
-            {(() => {
-              const isWon = wonStageNames.has(selectedDeal.stage);
-              const isLost = lostStageNames.has(selectedDeal.stage);
-              return (
-                <div data-demo="pipeline-close" className="rounded-[16px] border bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Cierre de oportunidad</div>
-                      <div className="mt-1 text-sm font-medium text-muted-foreground">
-                        {isWon ? "Oportunidad cerrada como ganada." : isLost ? "Oportunidad cerrada como perdida." : "Marca el resultado final cuando esté listo."}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9"
-                        disabled={!canEditDeal(selectedDeal) || isWon || isLost || closingAsLost || closingAsWon}
-                        onClick={() => setLostDialogOpen(true)}
-                      >
-                        Marcar perdida
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-9"
-                        disabled={!canEditDeal(selectedDeal) || isWon || isLost || closingAsLost || closingAsWon}
-                        onClick={() => void handleMarkDealAsWon(selectedDeal)}
-                      >
-                        Marcar ganada
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div data-demo="pipeline-commercial-summary" className="rounded-[16px] border bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Resumen comercial</div>
-                  <div className="mt-1 grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Valor</div>
-                      <div className="font-semibold">${toNumber(selectedDeal.value).toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Probabilidad</div>
-                      <div className="font-semibold">{clamp(selectedDeal.probability ?? 50, 0, 100)}%</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Cierre esperado</div>
-                      <div className="font-semibold">{selectedDeal.expected_close ? formatDateLabel(selectedDeal.expected_close) : "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Responsable</div>
-                      <div className="font-semibold">
-                        {selectedDeal.assigned_to ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name || teamByUserId.get(String(selectedDeal.assigned_to))?.full_name || "—" : "Sin asignar"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-2"
-                  disabled={!canCreateTaskForDeal(selectedDeal)}
-                  title={!canCreateTaskForDeal(selectedDeal) ? "No tienes permiso para crear tareas en esta oportunidad." : "Crear seguimiento para esta oportunidad."}
-                  onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  Crear seguimiento
-                </Button>
-              </div>
-            </div>
-
-            <div data-demo="pipeline-prospect" className="rounded-[16px] border bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Prospecto</div>
-                {selectedDeal.lead_id ? (
-                  <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => (window.location.href = "/leads")}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Ver
-                  </Button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">No conectado</span>
-                )}
-              </div>
-
-              {relatedLoading && selectedDeal.lead_id ? (
-                <div className="mt-2 text-sm text-muted-foreground">Cargando…</div>
-              ) : selectedLead ? (
-                <div className="mt-2 space-y-2 text-sm">
-                  <div className="font-semibold">
-                    {selectedLead.company_name ||
-                      formatPersonName(selectedLead.first_name, selectedLead.last_name) ||
-                      selectedLead.email ||
-                      selectedLead.phone ||
-                      "Prospecto"}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[13px]">
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Email</div>
-                      <div className="font-medium">{selectedLead.email || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Teléfono</div>
-                      <div className="font-medium">{selectedLead.whatsapp || selectedLead.phone || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Fuente</div>
-                      <div className="font-medium">{selectedLead.source_channel || selectedLead.source || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-muted-foreground">Estado</div>
-                      <div className="font-medium">{selectedLead.status || "—"}</div>
-                    </div>
-                  </div>
-                </div>
-              ) : selectedDeal.lead_id ? (
-                <div className="mt-2 text-sm text-muted-foreground">No se pudo cargar el prospecto.</div>
-              ) : null}
-            </div>
-
-            <div className="rounded-[16px] border bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Cliente</div>
-                <span className="text-xs text-muted-foreground">Sin enlace directo</span>
-              </div>
-
-              <div className="mt-2 text-sm text-muted-foreground">
-                Este deal no guarda un `client_id` directo en el esquema actual. Usa el prospecto relacionado para el contexto comercial.
-              </div>
-            </div>
-
-            <div data-demo="pipeline-deal-products" className="rounded-[16px] border bg-white p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Productos de la oportunidad</div>
-                <div className="text-xs text-muted-foreground">{dealProducts.length ? `${dealProducts.length} asociado(s)` : "Sin productos"}</div>
-              </div>
-
-              {dealProductsLoading ? (
-                <div className="mt-2 text-sm text-muted-foreground">Cargando productos…</div>
-              ) : dealProducts.length ? (
-                <div className="mt-3 space-y-2">
-                  {dealProducts.map((row) => {
-                    const product = dealProductsProductById[String(row.product_id)];
-                    const qty = Math.max(1, Number(row.quantity || 1));
-                    const unit = toNumber(row.unit_price);
-                    const total = row.total_price != null ? toNumber(row.total_price) : qty * unit;
-                    return (
-                      <div key={row.id} className="flex items-start justify-between gap-3 rounded-[12px] border bg-background p-2.5">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                            <div className="text-[13px] font-medium truncate">{product?.name || String(row.product_id)}</div>
-                          </div>
-                          <div className="mt-1 text-[12px] text-muted-foreground">
-                            {qty} × {money(unit)} = <span className="font-medium text-foreground">{money(total)}</span>
-                          </div>
-                        </div>
-                        {canManageDealProducts(selectedDeal) ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            disabled={removingDealProductId === row.id}
-                            onClick={() => void handleRemoveDealProduct(selectedDeal, row.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        ) : null}
-                      </div>
-                    );
-                  })}
                 </div>
               ) : (
-                <div className="mt-2 text-sm text-muted-foreground">
-                  No hay productos asociados. Asocia el producto vendido para crear proyectos con el workflow correcto.
-                </div>
-              )}
-
-              {canManageDealProducts(selectedDeal) ? (
-                <div className="mt-4 rounded-[12px] border bg-background p-3">
-                  <div className="text-xs font-semibold text-muted-foreground">Agregar producto</div>
-                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <div className="md:col-span-2">
+                <>
+                  {pipelineStages.length > DESKTOP_STAGES_PER_PAGE ? (
+                    <div className="hidden lg:flex items-center justify-end gap-2 mb-3">
+                      <span className="text-[12px] font-semibold text-[#667085]">
+                        Etapas visibles
+                      </span>
                       <Select
-                        value={addDealProductValues.product_id}
-                        onValueChange={(v) => {
-                          const nextProductId = String(v || "");
-                          const product = activeProducts.find((p) => String(p.id) === nextProductId) || null;
-                          const suggestedUnit = product?.base_price ?? selectedDeal.value ?? 0;
-                          setAddDealProductValues((p) => ({
-                            ...p,
-                            product_id: nextProductId,
-                            unit_price: p.unit_price.trim() ? p.unit_price : String(toNumber(suggestedUnit) || 0),
-                          }));
-                        }}
+                        value={String(Math.min(boardStagePage, stagePages.length - 1))}
+                        onValueChange={(v) => setBoardStagePage(Number(v) || 0)}
                       >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder={activeProductsLoading ? "Cargando productos…" : "Selecciona un producto"} />
+                        <SelectTrigger className="h-9 w-[140px] bg-white">
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {activeProducts.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.category ? `${p.name} · ${p.category}` : p.name}
+                          {stagePages.map((p, i) => (
+                            <SelectItem key={p.label} value={String(i)}>
+                              {p.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    <Input
-                      className="h-9"
-                      type="number"
-                      min="1"
-                      value={addDealProductValues.quantity}
-                      onChange={(e) => setAddDealProductValues((p) => ({ ...p, quantity: e.target.value }))}
-                      placeholder="Qty"
-                    />
-                    <Input
-                      className="h-9"
-                      type="number"
-                      value={addDealProductValues.unit_price}
-                      onChange={(e) => setAddDealProductValues((p) => ({ ...p, unit_price: e.target.value }))}
-                      placeholder="Unit $"
-                    />
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      size="sm"
-                      className="h-8"
-                      disabled={addingDealProduct || !addDealProductValues.product_id}
-                      onClick={() => void handleAddDealProduct(selectedDeal)}
-                    >
-                      {addingDealProduct ? "Agregando…" : "Agregar"}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+                  ) : null}
 
-            <div data-demo="pipeline-followup" className="rounded-[16px] border bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Seguimiento</div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-3"
-                  disabled={!canCreateTaskForDeal(selectedDeal)}
-                  title={!canCreateTaskForDeal(selectedDeal) ? "No tienes permiso para crear tareas en esta oportunidad." : "Crear una tarea de seguimiento."}
-                  onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Crear tarea
-                </Button>
-              </div>
-              {wonStageNames.has(selectedDeal.stage) ? (
-                <div className="mt-2 text-sm text-muted-foreground">Oportunidad cerrada como ganada.</div>
-              ) : lostStageNames.has(selectedDeal.stage) ? (
-                <div className="mt-2 text-sm text-muted-foreground">Oportunidad cerrada como perdida.</div>
-              ) : selectedDeal.lead_id ? (
-                selectedNextTask ? (
-                  <div className="mt-2 space-y-1 text-sm">
-                    <div className="font-semibold truncate">{selectedNextTask.title}</div>
-                    <div className="text-[13px] text-muted-foreground">
-                      {selectedNextTask.due_date ? `Para ${formatDateLabel(selectedNextTask.due_date)}` : "Sin fecha"}
-                      {" · "}
-                      {selectedNextTask.priority || "—"}
-                      {" · "}
-                      {selectedNextTask.status}
-                    </div>
+                  <div
+                    data-demo="pipeline-board"
+                    className="flex gap-3 overflow-x-auto pb-6 lg:grid lg:overflow-x-hidden lg:pb-0"
+                    style={{
+                      gridTemplateColumns: `repeat(${visiblePipelineStages.length || 1}, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {visiblePipelineStages.map((stage, localIdx) => {
+                      const pageOffset =
+                        pipelineStages.length > DESKTOP_STAGES_PER_PAGE
+                          ? stagePages[Math.min(Math.max(0, boardStagePage), stagePages.length - 1)]
+                              ?.from || 0
+                          : 0;
+                      const idx = pageOffset + localIdx;
+                      const stageColor =
+                        normalizeHex(stage.color || "") || stageDefaults(stage.name);
+                      const stageSoft = rgba(stageColor, 0.1);
+                      const stageShadow = rgba(stageColor, 0.22);
+                      const stageIds = dealIdsByStage[stage.name] || [];
+                      const stageDeals = stageIds
+                        .map((id) => dealById.get(id))
+                        .filter((d): d is Deal => Boolean(d) && dealMatchesFilters(d as Deal));
+                      const isDragOver = dragOverStage === stage.name;
+                      const stageValueTotal = stageDeals.reduce((s, d) => s + toNumber(d.value), 0);
+
+                      return (
+                        <div
+                          key={stage.id}
+                          data-demo={`pipeline-stage-${idx + 1}`}
+                          data-stage={stage.name}
+                          className={
+                            "relative overflow-hidden rounded-[20px] border bg-[rgba(255,255,255,0.78)] shadow-[0_10px_26px_rgba(15,23,42,0.06)] transition-all flex flex-col flex-none w-[260px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-290px)] " +
+                            (isDragOver ? " -translate-y-[2px]" : "")
+                          }
+                          style={{
+                            borderColor: isDragOver ? stageColor : "#e6eaf0",
+                            boxShadow: isDragOver
+                              ? "0 20px 56px rgba(15, 23, 42, 0.11)"
+                              : undefined,
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            if (!draggedDealId) return;
+                            setDragOverStage(stage.name);
+                            const ordered = dealIdsByStage[stage.name] || [];
+                            const afterId = getDragAfterId(ordered, draggedDealId, e.clientY);
+                            moveDealInState(draggedDealId, stage.name, afterId);
+                          }}
+                          onDragLeave={(e) => {
+                            const related = e.relatedTarget as Node | null;
+                            if (related && (e.currentTarget as HTMLElement).contains(related))
+                              return;
+                            setDragOverStage((prev) => (prev === stage.name ? null : prev));
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setDragOverStage(null);
+                            setDraggedDealId(null);
+                            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                            handleDropCommit(stage.name);
+                          }}
+                        >
+                          <div
+                            className="absolute left-0 right-0 top-0 h-1"
+                            style={{ background: stageColor }}
+                          />
+                          <div className="px-3.5 pt-3.5 pb-3 grid gap-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div
+                                  className="h-6 w-6 rounded-[9px] grid place-items-center text-white text-[12px] font-black shrink-0"
+                                  style={{
+                                    background: stageColor,
+                                    boxShadow: `0 10px 20px ${stageShadow}`,
+                                  }}
+                                >
+                                  {idx + 1}
+                                </div>
+                                <div className="min-w-0">
+                                  <h3
+                                    className="text-[13px] font-semibold tracking-[-0.015em] truncate"
+                                    style={{ color: stageColor }}
+                                  >
+                                    {stage.name}
+                                  </h3>
+                                  <div className="mt-0.5 text-[11px] font-semibold text-[#667085]">
+                                    {stageDeals.length} oportunidades · $
+                                    {stageValueTotal.toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {can("deals.create") ? (
+                                <button
+                                  type="button"
+                                  className="h-8 w-8 rounded-[12px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)] hover:bg-[#f0f6ff] shrink-0"
+                                  onClick={() => {
+                                    setNewDealStageOverride(stage.name);
+                                    setNewDeal((p) => ({ ...p, stage: stage.name }));
+                                    setEditDeal(null);
+                                    setDialogOpen(true);
+                                  }}
+                                  aria-label="Nuevo deal en esta etapa"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              ) : null}
+                            </div>
+                            <div className="text-[11px] font-medium text-[#98a2b3] hidden lg:block">
+                              Arrastra y suelta
+                            </div>
+                          </div>
+
+                          <div
+                            className="px-2.5 pb-3 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
+                            style={{
+                              background: isDragOver ? rgba(stageColor, 0.07) : "transparent",
+                            }}
+                          >
+                            {stageDeals.length === 0 ? (
+                              <div className="rounded-[12px] border border-dashed border-[#dbe3ee] bg-white/70 px-3 py-4 text-center text-[12px] font-medium text-[#98a2b3]">
+                                No hay oportunidades en esta etapa.
+                              </div>
+                            ) : null}
+                            {stageDeals.map((deal) => {
+                              const prob = clamp(deal.probability ?? 50, 0, 100);
+                              const borderHover = rgba(stageColor, 0.38);
+                              return (
+                                <div
+                                  key={deal.id}
+                                  ref={(el) => {
+                                    dealRefs.current[deal.id] = el;
+                                  }}
+                                  draggable
+                                  onDragStart={(e) => {
+                                    setDraggedDealId(deal.id);
+                                    setDragOverStage(stage.name);
+                                    // Some browsers require dataTransfer to be set to enable drag.
+                                    e.dataTransfer.setData("text/plain", deal.id);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedDealId(null);
+                                    setDragOverStage(null);
+                                  }}
+                                  className={
+                                    "group relative select-none cursor-grab rounded-[16px] border bg-white p-2.5 shadow-[0_10px_18px_rgba(15,23,42,0.05)] transition-all " +
+                                    (draggedDealId === deal.id
+                                      ? "opacity-50 rotate-[2deg] scale-[0.98] cursor-grabbing"
+                                      : "")
+                                  }
+                                  style={{ borderColor: "#e6eaf0" }}
+                                  onMouseEnter={(e) => {
+                                    (e.currentTarget as HTMLDivElement).style.borderColor =
+                                      borderHover;
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    (e.currentTarget as HTMLDivElement).style.borderColor =
+                                      "#e6eaf0";
+                                  }}
+                                >
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="min-w-0">
+                                      <strong className="block text-[13px] font-semibold tracking-[-0.015em] line-clamp-2">
+                                        {deal.name}
+                                      </strong>
+                                      <span className="block text-[11px] font-medium text-[#667085] line-clamp-1">
+                                        {deal.lead_id ? "Prospecto conectado" : "Prospecto: —"}
+                                      </span>
+                                    </div>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button className="h-[26px] w-[26px] rounded-[10px] grid place-items-center text-[#667085] hover:bg-[#f2f5f9]">
+                                          •••
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => setSelectedDeal(deal)}>
+                                          Ver detalle
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setEditDeal(deal);
+                                            setNewDeal({
+                                              name: deal.name,
+                                              value: String(deal.value ?? 0),
+                                              probability: String(deal.probability ?? 50),
+                                              expected_close: deal.expected_close || "",
+                                              stage: deal.stage,
+                                              source_type: deal.lead_id ? "lead" : "none",
+                                              lead_id: deal.lead_id || "",
+                                              client_id: "",
+                                            });
+                                            setDialogOpen(true);
+                                          }}
+                                        >
+                                          Editar
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => createFollowUpTask(deal)}>
+                                          Crear tarea
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={async () => {
+                                            const next = getNextStageName(deal.stage);
+                                            if (!next) {
+                                              toast.error("No hay siguiente etapa");
+                                              return;
+                                            }
+                                            await moveDealStage(deal.id, next);
+                                          }}
+                                        >
+                                          Mover a la siguiente etapa
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSub>
+                                          <DropdownMenuSubTrigger>Mover a…</DropdownMenuSubTrigger>
+                                          <DropdownMenuSubContent className="max-h-72 overflow-auto">
+                                            {pipelineStages.map((s) => (
+                                              <DropdownMenuItem
+                                                key={s.id}
+                                                onClick={() => moveDealStage(deal.id, s.name)}
+                                              >
+                                                {s.name}
+                                              </DropdownMenuItem>
+                                            ))}
+                                          </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => moveDealStage(deal.id, archiveStageName)}
+                                        >
+                                          Archivar
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-destructive focus:text-destructive"
+                                          onClick={() => setDeleteDealId(deal.id)}
+                                        >
+                                          Eliminar
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-3 mb-2.5">
+                                    <div
+                                      className="text-[16px] font-semibold tracking-[-0.02em]"
+                                      style={{ color: stageColor }}
+                                    >
+                                      ${toNumber(deal.value).toLocaleString()}
+                                    </div>
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="text-[12px] font-medium text-[#475467]">
+                                        {prob}%
+                                      </div>
+                                      <div className="h-1.5 w-[74px] rounded-full bg-[#e8edf3] overflow-hidden">
+                                        <span
+                                          className="block h-full rounded-full"
+                                          style={{ width: `${prob}%`, background: stageColor }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {deal.expected_close && (
+                                    <div className="flex items-center gap-2 text-[11px] font-medium text-[#475467] mb-2">
+                                      <CalendarIcon className="h-4 w-4" />
+                                      <span>{formatDateLabel(deal.expected_close)}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-wrap gap-2">
+                                    <span
+                                      className="inline-flex items-center gap-1 rounded-[9px] px-2 py-1 text-[11px] font-medium"
+                                      style={{ background: stageSoft, color: stageColor }}
+                                    >
+                                      <DollarSign className="h-3.5 w-3.5" /> Oportunidad
+                                    </span>
+                                  </div>
+
+                                  <div className="absolute right-3.5 bottom-3.5 flex gap-1.5 opacity-0 translate-y-1 pointer-events-none transition-all group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto">
+                                    <button
+                                      className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSelectedDeal(deal);
+                                      }}
+                                      type="button"
+                                      aria-label="Abrir detalles del deal"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void openWhatsappForDeal(deal);
+                                      }}
+                                      type="button"
+                                      aria-label="Abrir conversación de WhatsApp"
+                                    >
+                                      <MessageCircle className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <div className="mt-2 text-sm text-muted-foreground">No hay seguimiento programado por ahora.</div>
-                )
-              ) : (
-                <div className="mt-2 text-sm text-muted-foreground">Conecta un prospecto para ver seguimientos.</div>
+                </>
               )}
-            </div>
+            </>
+          )}
 
-            <div data-demo="pipeline-actions" className="rounded-[16px] border bg-white p-4">
-              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Acciones rápidas</div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="h-10 justify-start gap-2"
-                  disabled={!selectedLead || !(selectedLead.whatsapp || selectedLead.phone)}
-                  onClick={() => selectedLead && void handleOpenWhatsAppFromLead(selectedLead)}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  WhatsApp
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-10 justify-start gap-2"
-                  disabled={!selectedLead?.email}
-                  onClick={() => {
-                    if (!selectedLead?.email) return;
-                    window.open(`mailto:${selectedLead.email}`, "_blank");
-                  }}
-                >
-                  <Mail className="h-4 w-4" />
-                  Email
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-10 justify-start gap-2"
-                  disabled={!selectedLead || !(selectedLead.phone || selectedLead.whatsapp)}
-                  onClick={() => {
-                    const phone = selectedLead?.phone || selectedLead?.whatsapp;
-                    if (!phone) return;
-                    window.open(`tel:${phone}`, "_self");
-                  }}
-                >
-                  <Phone className="h-4 w-4" />
-                  Llamar
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-10 justify-start gap-2"
-                  disabled={!canCreateTaskForDeal(selectedDeal)}
-                  title={!canCreateTaskForDeal(selectedDeal) ? "No tienes permiso para crear tareas en esta oportunidad." : undefined}
-                  onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  Crear tarea
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DetailSheet>
-      )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editDeal ? "Editar oportunidad" : "Nueva oportunidad"}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateOrUpdate} className="space-y-4">
+                {!editDeal ? (
+                  <div className="rounded-[14px] border bg-muted/20 p-3">
+                    <Label>Origen de la oportunidad</Label>
+                    <Select
+                      value={newDeal.source_type || undefined}
+                      onValueChange={(v) =>
+                        setNewDeal({
+                          ...newDeal,
+                          source_type: v,
+                          lead_id: v === "lead" ? newDeal.lead_id : "",
+                          client_id: v === "client" ? newDeal.client_id : "",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Selecciona el origen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lead">Prospecto existente</SelectItem>
+                        <SelectItem value="client">Cliente existente</SelectItem>
+                        <SelectItem value="none">Sin contacto todavía</SelectItem>
+                      </SelectContent>
+                    </Select>
 
-      <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear seguimiento</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!selectedDeal) return;
-              void handleCreateFollowUpTaskFromDeal(selectedDeal);
-            }}
-          >
-            <div>
-              <Label>Título</Label>
-              <Input value={followUpValues.title} onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Fecha</Label>
-                <Input type="date" value={followUpValues.due_date} onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Prioridad</Label>
-                <Select value={followUpValues.priority} onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Low">Low</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Descripción</Label>
-              <Input value={followUpValues.description} onChange={(e) => setFollowUpValues((p) => ({ ...p, description: e.target.value }))} />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setFollowUpOpen(false)} disabled={followUpSaving}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={followUpSaving || !selectedDeal}>
-                {followUpSaving ? "Guardando..." : "Crear"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+                    {newDeal.source_type === "lead" ? (
+                      <div className="mt-3">
+                        <Label>Prospecto</Label>
+                        <Select
+                          value={newDeal.lead_id}
+                          onValueChange={(v) => {
+                            const lead = dealLeadOptions.find((l) => String(l.id) === String(v));
+                            const label =
+                              lead?.company_name ||
+                              [lead?.first_name, lead?.last_name].filter(Boolean).join(" ") ||
+                              lead?.email ||
+                              lead?.phone ||
+                              "Nueva oportunidad";
 
-      <Dialog
-        open={lostDialogOpen}
-        onOpenChange={(open) => {
-          setLostDialogOpen(open);
-          if (!open) {
-            setLostNote("");
-            setLostReason("Precio");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Marcar oportunidad como perdida</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!selectedDeal) return;
-              void handleMarkDealAsLost(selectedDeal, lostReason, lostNote);
-            }}
-          >
-            <div>
-              <Label>Razón</Label>
-              <Select value={lostReason} onValueChange={setLostReason}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Precio">Precio</SelectItem>
-                  <SelectItem value="No respondió">No respondió</SelectItem>
-                  <SelectItem value="No era el momento">No era el momento</SelectItem>
-                  <SelectItem value="Eligió otra opción">Eligió otra opción</SelectItem>
-                  <SelectItem value="No era buen fit">No era buen fit</SelectItem>
-                  <SelectItem value="Otro">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Nota (opcional)</Label>
-              <Input value={lostNote} onChange={(e) => setLostNote(e.target.value)} placeholder="Ej: presupuesto fuera de rango" />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setLostDialogOpen(false)} disabled={closingAsLost}>
-                Cancelar
-              </Button>
-              <Button type="submit" variant="destructive" disabled={closingAsLost || !selectedDeal}>
-                {closingAsLost ? "Guardando..." : "Marcar perdida"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+                            setNewDeal({
+                              ...newDeal,
+                              lead_id: v,
+                              name: newDeal.name || label,
+                              value:
+                                newDeal.value ||
+                                (lead?.estimated_value ? String(lead.estimated_value) : ""),
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue
+                              placeholder={
+                                dealSourceOptionsLoading
+                                  ? "Cargando prospectos…"
+                                  : "Selecciona un prospecto"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {dealLeadOptions.map((lead) => {
+                              const label =
+                                lead.company_name ||
+                                [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+                                lead.email ||
+                                lead.phone ||
+                                String(lead.id);
 
-      <AlertDialog
-        open={convertClientDialogOpen}
-        onOpenChange={(open) => {
-          setConvertClientDialogOpen(open);
-          if (!open) {
-            setPendingWonDealId(null);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Convertir a cliente</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta oportunidad no tiene cliente conectado. ¿Quieres convertir el prospecto en cliente ahora?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={convertingClient}>Más tarde</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleConvertWonDealToClient()} disabled={convertingClient}>
-              {convertingClient ? "Convirtiendo..." : "Convertir ahora"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                              return (
+                                <SelectItem key={lead.id} value={lead.id}>
+                                  {label}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
 
-      <AlertDialog
-        open={createProjectDialogOpen}
-        onOpenChange={(open) => {
-          setCreateProjectDialogOpen(open);
-          if (!open) {
-            setProjectCandidateDealId(null);
-            setProductCandidates([]);
-            setSelectedProductId(null);
-            setActiveWorkflow(null);
-            setActiveWorkflowSteps([]);
-            setDealProductsByProductId({});
-          }
-        }}
-      >
-        <AlertDialogContent className="max-w-xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Crear proyecto desde producto</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Quieres crear un proyecto para ejecutar el producto vendido y generar tareas desde su workflow?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+                    {newDeal.source_type === "client" ? (
+                      <div className="mt-3">
+                        <Label>Cliente</Label>
+                        <Select
+                          value={newDeal.client_id}
+                          onValueChange={(v) => {
+                            const client = dealClientOptions.find(
+                              (c) => String(c.id) === String(v),
+                            );
+                            const label =
+                              client?.company_name ||
+                              client?.contact_person ||
+                              client?.email ||
+                              client?.phone ||
+                              "Nueva oportunidad";
 
-          <div className="space-y-3">
-            {productCandidates.length ? (
-              <div>
-                <Label>Producto</Label>
-                <Select value={selectedProductId || ""} onValueChange={(v) => setSelectedProductId(v || null)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecciona un producto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {productCandidates.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedProductId && dealProductsByProductId[selectedProductId]?.quantity ? (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Cantidad: {dealProductsByProductId[selectedProductId]?.quantity}
+                            setNewDeal({
+                              ...newDeal,
+                              client_id: v,
+                              name: newDeal.name || label,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue
+                              placeholder={
+                                dealSourceOptionsLoading
+                                  ? "Cargando clientes…"
+                                  : "Selecciona un cliente"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {dealClientOptions.map((client) => {
+                              const label =
+                                client.company_name ||
+                                client.contact_person ||
+                                client.email ||
+                                client.phone ||
+                                String(client.id);
+
+                              return (
+                                <SelectItem key={client.id} value={client.id}>
+                                  {label}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
+
+                    {!editDeal && activeProducts.length > 0 ? (
+                      <div className="mt-3">
+                        <Label>Producto o servicio</Label>
+                        <Select
+                          value=""
+                          onValueChange={(v) => {
+                            const product = activeProducts.find((p) => String(p.id) === String(v));
+                            if (!product) return;
+                            const contactLabel =
+                              selectedSourceLead?.company_name ||
+                              formatPersonName(
+                                selectedSourceLead?.first_name,
+                                selectedSourceLead?.last_name,
+                              ) ||
+                              selectedSourceClient?.company_name ||
+                              selectedSourceClient?.contact_person ||
+                              "";
+                            const suggestedName = contactLabel
+                              ? `${product.name} — ${contactLabel}`
+                              : product.name;
+                            setNewDeal((current) => ({
+                              ...current,
+                              name: suggestedName,
+                              value:
+                                current.value ||
+                                (product.base_price != null ? String(product.base_price) : ""),
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue
+                              placeholder={
+                                activeProductsLoading
+                                  ? "Cargando productos…"
+                                  : "Selecciona un producto para sugerir nombre y valor"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activeProducts.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name}
+                                {product.base_price != null
+                                  ? ` · ${money(product.base_price)}`
+                                  : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
+
+                    {!editDeal && (selectedSourceLead || selectedSourceClient) ? (
+                      <div className="mt-3 rounded-[12px] border bg-white px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
+                        <div className="font-medium text-foreground">
+                          Usa la información del prospecto o cliente para crear la oportunidad más
+                          rápido.
+                        </div>
+                        <div>
+                          Los datos de contacto se muestran como referencia y no se guardan dentro
+                          de la oportunidad.
+                        </div>
+
+                        {selectedSourceLead ? (
+                          <div className="grid gap-1 pt-1">
+                            <div>
+                              <span className="font-medium text-foreground">Prospecto:</span>{" "}
+                              {selectedSourceLead.company_name ||
+                                formatPersonName(
+                                  selectedSourceLead.first_name,
+                                  selectedSourceLead.last_name,
+                                ) ||
+                                "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Contacto:</span>{" "}
+                              {formatPersonName(
+                                selectedSourceLead.first_name,
+                                selectedSourceLead.last_name,
+                              ) || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Teléfono:</span>{" "}
+                              {selectedSourceLead.phone || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">WhatsApp:</span>{" "}
+                              {selectedSourceLead.whatsapp || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Email:</span>{" "}
+                              {selectedSourceLead.email || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Origen:</span>{" "}
+                              {selectedSourceLead.source_channel ||
+                                selectedSourceLead.source ||
+                                "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Valor estimado:</span>{" "}
+                              {selectedSourceLead.estimated_value != null
+                                ? money(selectedSourceLead.estimated_value)
+                                : "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">
+                                Interés de producto:
+                              </span>{" "}
+                              {selectedSourceLead.product_interest || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">
+                                Contexto comercial:
+                              </span>{" "}
+                              {selectedSourceLead.notes || "—"}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {selectedSourceClient ? (
+                          <div className="grid gap-1 pt-1">
+                            <div>
+                              <span className="font-medium text-foreground">Empresa:</span>{" "}
+                              {selectedSourceClient.company_name || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Contacto:</span>{" "}
+                              {selectedSourceClient.contact_person || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Teléfono:</span>{" "}
+                              {selectedSourceClient.phone || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">WhatsApp:</span>{" "}
+                              {selectedSourceClient.whatsapp || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Email:</span>{" "}
+                              {selectedSourceClient.email || "—"}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Estado:</span>{" "}
+                              {selectedSourceClient.status || "—"}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {newDeal.source_type === "none" ? (
+                      <div className="mt-3 rounded-[12px] border bg-white px-3 py-3 text-xs text-muted-foreground space-y-3">
+                        <p>
+                          Esta oportunidad no tiene un prospecto o cliente conectado. Para mantener
+                          el historial completo, primero crea un cliente y luego vuelve a crear la
+                          oportunidad.
+                        </p>
+                        <div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8"
+                            onClick={() => {
+                              window.location.href = "/clients";
+                            }}
+                          >
+                            Crear nuevo cliente
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                Esta oportunidad no tiene producto asociado. Asocia un producto para crear un proyecto automáticamente.
-              </div>
-            )}
 
-            {workflowLoading ? (
-              <div className="text-sm text-muted-foreground">Cargando workflow…</div>
-            ) : selectedProductId ? (
-              activeWorkflow ? (
-                <div className="rounded-[12px] border bg-background p-3 text-sm">
-                  <div className="font-semibold">{activeWorkflow.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Pasos activos: {activeWorkflowSteps.length}
+                {editDeal ||
+                newDeal.source_type === "none" ||
+                (newDeal.source_type === "lead" && newDeal.lead_id) ||
+                (newDeal.source_type === "client" && newDeal.client_id) ? (
+                  <>
+                    <div>
+                      <Label>Nombre de la oportunidad</Label>
+                      <Input
+                        placeholder="Nombre de la oportunidad"
+                        value={newDeal.name}
+                        onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Valor ($)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={newDeal.value}
+                          onChange={(e) => setNewDeal({ ...newDeal, value: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Probabilidad (%)</Label>
+                        <Input
+                          type="number"
+                          placeholder="50"
+                          value={newDeal.probability}
+                          onChange={(e) => setNewDeal({ ...newDeal, probability: e.target.value })}
+                          min="0"
+                          max="100"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Cierre esperado</Label>
+                      <Input
+                        type="date"
+                        value={newDeal.expected_close}
+                        onChange={(e) => setNewDeal({ ...newDeal, expected_close: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Etapa</Label>
+                      <Select
+                        value={newDeal.stage}
+                        onValueChange={(v) => setNewDeal({ ...newDeal, stage: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {stages.map((s) => (
+                            <SelectItem key={s.id} value={s.name}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit">{editDeal ? "Guardar" : "Crear oportunidad"}</Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-[14px] border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                    Selecciona un prospecto, cliente o la opción “Sin contacto todavía” para
+                    continuar creando la oportunidad.
                   </div>
-                </div>
-              ) : (
-                <div className="rounded-[12px] border bg-background p-3 text-sm text-muted-foreground">
-                  Este producto no tiene workflow activo. Defínelo en <span className="font-mono">/products</span>.
-                </div>
-              )
-            ) : null}
-          </div>
+                )}
+              </form>
+            </DialogContent>
+          </Dialog>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={creatingProject}>Más tarde</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void handleCreateProjectFromWonDeal()}
-              disabled={creatingProject || !selectedProductId || !activeWorkflow?.id || !activeWorkflowSteps.length}
+          {selectedDeal && (
+            <DetailSheet
+              open={!!selectedDeal}
+              onClose={closePipelineDetailSafely}
+              title={selectedDeal.name}
+              accent="green"
+              icon={<BriefcaseBusiness className="h-5 w-5 text-emerald-600" />}
+              status={selectedDeal.stage}
+              onEdit={
+                can("deals.edit")
+                  ? () => {
+                      setEditDeal(selectedDeal);
+                      setNewDeal({
+                        name: selectedDeal.name,
+                        value: String(selectedDeal.value ?? 0),
+                        probability: String(selectedDeal.probability ?? 50),
+                        expected_close: selectedDeal.expected_close || "",
+                        stage: selectedDeal.stage,
+                        source_type: selectedDeal.lead_id ? "lead" : "none",
+                        lead_id: selectedDeal.lead_id || "",
+                        client_id: "",
+                      });
+                      setDialogOpen(true);
+                    }
+                  : undefined
+              }
+              onDelete={can("deals.delete") ? () => setDeleteDealId(selectedDeal.id) : undefined}
+              fieldGroupDataDemo="pipeline-detail-summary"
+              fields={[
+                { label: "Etapa", value: selectedDeal.stage, type: "badge" },
+                { label: "Valor", value: selectedDeal.value, type: "currency" },
+                { label: "Probabilidad", value: `${selectedDeal.probability ?? 50}%` },
+                { label: "Cierre esperado", value: selectedDeal.expected_close },
+                {
+                  label: "Responsable",
+                  value: selectedDeal.assigned_to
+                    ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name ||
+                      teamByUserId.get(String(selectedDeal.assigned_to))?.full_name ||
+                      String(selectedDeal.assigned_to)
+                    : null,
+                },
+                { label: "Cliente", value: null },
+                { label: "Prospecto", value: selectedDeal.lead_id ? "Conectado" : null },
+              ]}
+              notes={selectedDeal.notes || undefined}
             >
-              {creatingProject ? "Creando..." : "Crear proyecto"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={!!deleteDealId} onOpenChange={(o) => { if (!o) setDeleteDealId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar deal</AlertDialogTitle>
-            <AlertDialogDescription>Esto no se puede deshacer.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={async () => {
-                if (!deleteDealId) return;
-                if (!can("deals.delete")) {
-                  toast.error("No tienes permiso para eliminar");
-                  return;
-                }
-                const { error } = await db.from("deals").delete().eq("id", deleteDealId);
-                if (error) {
-                  toast.error(error.message || "No se pudo eliminar");
-                  return;
-                }
-                toast.success("Oportunidad eliminada");
-                setDeals((prev) => prev.filter((d) => d.id !== deleteDealId));
-                setDealIdsByStage((prev) => {
-                  const next: Record<string, string[]> = { ...prev };
-                  for (const k of Object.keys(next)) next[k] = next[k].filter((id) => id !== deleteDealId);
-                  return next;
-                });
-                if (selectedDeal?.id === deleteDealId) setSelectedDeal(null);
-                setDeleteDealId(null);
-              }}
-            >
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Sheet
-        open={archivedOpen}
-        onOpenChange={(open) => {
-          setArchivedOpen(open);
-          if (!open) setArchivedSearch("");
-        }}
-      >
-        <SheetContent side="right" className="w-full sm:max-w-[560px]">
-          <SheetHeader>
-            <SheetTitle>Archivados</SheetTitle>
-            <SheetDescription>Oportunidades movidas a etapa perdida. Puedes restaurarlas o eliminarlas.</SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-5 grid gap-3">
-            <Input placeholder="Buscar archivados..." value={archivedSearch} onChange={(e) => setArchivedSearch(e.target.value)} />
-
-            {archivedDeals.length === 0 ? (
-              <div className="rounded-[16px] border border-[#e6eaf0] bg-white p-4 text-sm font-normal text-[#667085]">
-                No hay oportunidades archivadas por ahora.
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {archivedDeals
-                  .slice()
-                  .sort((a, b) => {
-                    const at = a.updated_at ? new Date(a.updated_at).getTime() : 0;
-                    const bt = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-                    return bt - at;
-                  })
-                  .slice(0, 200)
-                  .map((deal) => (
-                    <div key={deal.id} className="rounded-[16px] border border-[#e6eaf0] bg-white p-3.5 shadow-[0_10px_22px_rgba(15,23,42,0.055)]">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-semibold tracking-[-0.01em] truncate">{deal.name}</div>
-                          <div className="text-[12px] font-normal text-[#667085]">
-                            Etapa: <span className="font-medium text-[#344054]">{deal.stage}</span>
+              <div className="space-y-4">
+                {(() => {
+                  const isWon = wonStageNames.has(selectedDeal.stage);
+                  const isLost = lostStageNames.has(selectedDeal.stage);
+                  return (
+                    <div data-demo="pipeline-close" className="rounded-[16px] border bg-white p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            Cierre de oportunidad
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-muted-foreground">
+                            {isWon
+                              ? "Oportunidad cerrada como ganada."
+                              : isLost
+                                ? "Oportunidad cerrada como perdida."
+                                : "Marca el resultado final cuando esté listo."}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => setSelectedDeal(deal)}>
-                            Ver
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            disabled={
+                              !canEditDeal(selectedDeal) ||
+                              isWon ||
+                              isLost ||
+                              closingAsLost ||
+                              closingAsWon
+                            }
+                            onClick={() => setLostDialogOpen(true)}
+                          >
+                            Marcar perdida
                           </Button>
-                          <Button className="h-8 px-3 text-xs" onClick={() => { void restoreArchivedDeal(deal.id); }}>
-                            Restaurar
+                          <Button
+                            size="sm"
+                            className="h-9"
+                            disabled={
+                              !canEditDeal(selectedDeal) ||
+                              isWon ||
+                              isLost ||
+                              closingAsLost ||
+                              closingAsWon
+                            }
+                            onClick={() => void handleMarkDealAsWon(selectedDeal)}
+                          >
+                            Marcar ganada
                           </Button>
                         </div>
                       </div>
+                    </div>
+                  );
+                })()}
 
-                      <div className="mt-3 flex items-center justify-end">
+                <div
+                  data-demo="pipeline-commercial-summary"
+                  className="rounded-[16px] border bg-white p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                        Resumen comercial
+                      </div>
+                      <div className="mt-1 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Valor
+                          </div>
+                          <div className="font-semibold">
+                            ${toNumber(selectedDeal.value).toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Probabilidad
+                          </div>
+                          <div className="font-semibold">
+                            {clamp(selectedDeal.probability ?? 50, 0, 100)}%
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Cierre esperado
+                          </div>
+                          <div className="font-semibold">
+                            {selectedDeal.expected_close
+                              ? formatDateLabel(selectedDeal.expected_close)
+                              : "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Responsable
+                          </div>
+                          <div className="font-semibold">
+                            {selectedDeal.assigned_to
+                              ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name ||
+                                teamByUserId.get(String(selectedDeal.assigned_to))?.full_name ||
+                                "—"
+                              : "Sin asignar"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 gap-2"
+                      disabled={!canCreateTaskForDeal(selectedDeal)}
+                      title={
+                        !canCreateTaskForDeal(selectedDeal)
+                          ? "No tienes permiso para crear tareas en esta oportunidad."
+                          : "Crear seguimiento para esta oportunidad."
+                      }
+                      onClick={() => openFollowUpDialogForDeal(selectedDeal)}
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                      Crear seguimiento
+                    </Button>
+                  </div>
+                </div>
+
+                <div data-demo="pipeline-prospect" className="rounded-[16px] border bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Prospecto
+                    </div>
+                    {selectedDeal.lead_id ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3"
+                        onClick={() => (window.location.href = "/leads")}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No conectado</span>
+                    )}
+                  </div>
+
+                  {relatedLoading && selectedDeal.lead_id ? (
+                    <div className="mt-2 text-sm text-muted-foreground">Cargando…</div>
+                  ) : selectedLead ? (
+                    <div className="mt-2 space-y-2 text-sm">
+                      <div className="font-semibold">
+                        {selectedLead.company_name ||
+                          formatPersonName(selectedLead.first_name, selectedLead.last_name) ||
+                          selectedLead.email ||
+                          selectedLead.phone ||
+                          "Prospecto"}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[13px]">
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Email
+                          </div>
+                          <div className="font-medium">{selectedLead.email || "—"}</div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Teléfono
+                          </div>
+                          <div className="font-medium">
+                            {selectedLead.whatsapp || selectedLead.phone || "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Fuente
+                          </div>
+                          <div className="font-medium">
+                            {selectedLead.source_channel || selectedLead.source || "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            Estado
+                          </div>
+                          <div className="font-medium">{selectedLead.status || "—"}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : selectedDeal.lead_id ? (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      No se pudo cargar el prospecto.
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-[16px] border bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Cliente
+                    </div>
+                    <span className="text-xs text-muted-foreground">Sin enlace directo</span>
+                  </div>
+
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Este deal no guarda un `client_id` directo en el esquema actual. Usa el
+                    prospecto relacionado para el contexto comercial.
+                  </div>
+                </div>
+
+                <div
+                  data-demo="pipeline-deal-products"
+                  className="rounded-[16px] border bg-white p-3.5"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Productos de la oportunidad
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {dealProducts.length ? `${dealProducts.length} asociado(s)` : "Sin productos"}
+                    </div>
+                  </div>
+
+                  {dealProductsLoading ? (
+                    <div className="mt-2 text-sm text-muted-foreground">Cargando productos…</div>
+                  ) : dealProducts.length ? (
+                    <div className="mt-3 space-y-2">
+                      {dealProducts.map((row) => {
+                        const product = dealProductsProductById[String(row.product_id)];
+                        const qty = Math.max(1, Number(row.quantity || 1));
+                        const unit = toNumber(row.unit_price);
+                        const total =
+                          row.total_price != null ? toNumber(row.total_price) : qty * unit;
+                        return (
+                          <div
+                            key={row.id}
+                            className="flex items-start justify-between gap-3 rounded-[12px] border bg-background p-2.5"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                                <div className="text-[13px] font-medium truncate">
+                                  {product?.name || String(row.product_id)}
+                                </div>
+                              </div>
+                              <div className="mt-1 text-[12px] text-muted-foreground">
+                                {qty} × {money(unit)} ={" "}
+                                <span className="font-medium text-foreground">{money(total)}</span>
+                              </div>
+                            </div>
+                            {canManageDealProducts(selectedDeal) ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                disabled={removingDealProductId === row.id}
+                                onClick={() => void handleRemoveDealProduct(selectedDeal, row.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      No hay productos asociados. Asocia el producto vendido para crear proyectos
+                      con el workflow correcto.
+                    </div>
+                  )}
+
+                  {canManageDealProducts(selectedDeal) ? (
+                    <div className="mt-4 rounded-[12px] border bg-background p-3">
+                      <div className="text-xs font-semibold text-muted-foreground">
+                        Agregar producto
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <div className="md:col-span-2">
+                          <Select
+                            value={addDealProductValues.product_id}
+                            onValueChange={(v) => {
+                              const nextProductId = String(v || "");
+                              const product =
+                                activeProducts.find((p) => String(p.id) === nextProductId) || null;
+                              const suggestedUnit = product?.base_price ?? selectedDeal.value ?? 0;
+                              setAddDealProductValues((p) => ({
+                                ...p,
+                                product_id: nextProductId,
+                                unit_price: p.unit_price.trim()
+                                  ? p.unit_price
+                                  : String(toNumber(suggestedUnit) || 0),
+                              }));
+                            }}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue
+                                placeholder={
+                                  activeProductsLoading
+                                    ? "Cargando productos…"
+                                    : "Selecciona un producto"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {activeProducts.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.category ? `${p.name} · ${p.category}` : p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Input
+                          className="h-9"
+                          type="number"
+                          min="1"
+                          value={addDealProductValues.quantity}
+                          onChange={(e) =>
+                            setAddDealProductValues((p) => ({ ...p, quantity: e.target.value }))
+                          }
+                          placeholder="Qty"
+                        />
+                        <Input
+                          className="h-9"
+                          type="number"
+                          value={addDealProductValues.unit_price}
+                          onChange={(e) =>
+                            setAddDealProductValues((p) => ({ ...p, unit_price: e.target.value }))
+                          }
+                          placeholder="Unit $"
+                        />
+                      </div>
+                      <div className="mt-3 flex justify-end">
                         <Button
-                          variant="destructive"
-                          className="h-8 px-3 text-xs"
-                          onClick={() => {
-                            setDeleteDealId(deal.id);
-                          }}
+                          size="sm"
+                          className="h-8"
+                          disabled={addingDealProduct || !addDealProductValues.product_id}
+                          onClick={() => void handleAddDealProduct(selectedDeal)}
                         >
-                          Eliminar
+                          {addingDealProduct ? "Agregando…" : "Agregar"}
                         </Button>
                       </div>
                     </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-[560px] p-0">
-          <SheetHeader>
-            <SheetTitle>Filtros de oportunidades</SheetTitle>
-            <SheetDescription>Ajusta la vista del pipeline sin perder tu orden por columna.</SheetDescription>
-          </SheetHeader>
-
-          <div className="px-5 pb-5 pt-4 grid gap-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-[#344054]">Activos: {activeFilterCount}</div>
-              <Button
-                variant="outline"
-                className="h-9"
-                onClick={() =>
-                  setFilters({
-                    status: "active",
-                    selectedStages: [],
-                    assigned: "all",
-                    valueMin: "",
-                    valueMax: "",
-                    probMin: "",
-                    probMax: "",
-                    closePreset: "any",
-                    closeFrom: "",
-                    closeTo: "",
-                    followUpStaleDays: "",
-                  })
-                }
-              >
-                Reset
-              </Button>
-            </div>
-
-            {/* 1) Status */}
-            <div className="grid gap-2">
-              <Label>Estado</Label>
-              <Select value={filters.status} onValueChange={(v) => setFilters((p) => ({ ...p, status: v as DealStatusFilter }))}>
-                <SelectTrigger className="h-9 bg-muted/30 border-border/50"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Activos</SelectItem>
-                  <SelectItem value="won">Ganados</SelectItem>
-                  <SelectItem value="lost">Perdidos / Archivados</SelectItem>
-                  <SelectItem value="all">Todos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 2) Stage multi-select */}
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Etapas</Label>
-                <Button
-                  variant="ghost"
-                  className="h-8 px-2 text-xs"
-                  onClick={() => {
-                    const all = stages.map((s) => s.name);
-                    setFilters((p) => ({ ...p, selectedStages: p.selectedStages.length === all.length ? [] : all }));
-                  }}
-                  type="button"
-                >
-                  {filters.selectedStages.length === stages.length ? "Limpiar" : "Seleccionar todo"}
-                </Button>
-              </div>
-              <div className="max-h-48 overflow-auto rounded-[16px] border border-[#e6eaf0] bg-white p-3 grid gap-2">
-                {stages.map((s) => {
-                  const checked = selectedStagesSet.has(s.name);
-                  return (
-                    <label key={s.id} className="flex items-center gap-2 text-sm font-medium text-[#344054]">
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(next) => {
-                          setFilters((p) => {
-                            const set = new Set(p.selectedStages);
-                            if (next) set.add(s.name);
-                            else set.delete(s.name);
-                            return { ...p, selectedStages: Array.from(set) };
-                          });
-                        }}
-                      />
-                      <span className="truncate">{s.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 3) Assigned */}
-            <div className="grid gap-2">
-              <Label>Asignado a</Label>
-              <Select value={filters.assigned} onValueChange={(v) => setFilters((p) => ({ ...p, assigned: v as AssignedFilter }))}>
-                <SelectTrigger className="h-9 bg-muted/30 border-border/50"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="me">Solo yo</SelectItem>
-                  <SelectItem value="team">Asignados</SelectItem>
-                  <SelectItem value="unassigned">Sin asignar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 4) Value range */}
-            <div className="grid gap-2">
-              <Label>Rango de valor</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <Input className="h-9 bg-muted/30 border-border/50" inputMode="numeric" placeholder="Mínimo" value={filters.valueMin} onChange={(e) => setFilters((p) => ({ ...p, valueMin: e.target.value }))} />
-                <Input className="h-9 bg-muted/30 border-border/50" inputMode="numeric" placeholder="Máximo" value={filters.valueMax} onChange={(e) => setFilters((p) => ({ ...p, valueMax: e.target.value }))} />
-              </div>
-            </div>
-
-            {/* 5) Probability */}
-            <div className="grid gap-2">
-              <Label>Probabilidad (%)</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <Input className="h-9 bg-muted/30 border-border/50" inputMode="numeric" placeholder="0" value={filters.probMin} onChange={(e) => setFilters((p) => ({ ...p, probMin: e.target.value }))} />
-                <Input className="h-9 bg-muted/30 border-border/50" inputMode="numeric" placeholder="100" value={filters.probMax} onChange={(e) => setFilters((p) => ({ ...p, probMax: e.target.value }))} />
-              </div>
-            </div>
-
-            {/* 6) Expected close */}
-            <div className="grid gap-2">
-              <Label>Cierre estimado</Label>
-              <Select value={filters.closePreset} onValueChange={(v) => setFilters((p) => ({ ...p, closePreset: v as CloseDatePreset }))}>
-                <SelectTrigger className="h-9 bg-muted/30 border-border/50"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Cualquiera</SelectItem>
-                  <SelectItem value="today">Hoy</SelectItem>
-                  <SelectItem value="week">Esta semana</SelectItem>
-                  <SelectItem value="month">Este mes</SelectItem>
-                  <SelectItem value="range">Rango</SelectItem>
-                  <SelectItem value="none">Sin fecha</SelectItem>
-                </SelectContent>
-              </Select>
-              {filters.closePreset === "range" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Input className="h-9 bg-muted/30 border-border/50" type="date" value={filters.closeFrom} onChange={(e) => setFilters((p) => ({ ...p, closeFrom: e.target.value }))} />
-                  <Input className="h-9 bg-muted/30 border-border/50" type="date" value={filters.closeTo} onChange={(e) => setFilters((p) => ({ ...p, closeTo: e.target.value }))} />
+                  ) : null}
                 </div>
-              )}
-            </div>
 
-            {/* 7) Follow-up */}
-            <div className="grid gap-2">
-              <Label>Necesita seguimiento</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  inputMode="numeric"
-                  placeholder="Sin update en (días)"
-                  value={filters.followUpStaleDays}
-                  onChange={(e) => setFilters((p) => ({ ...p, followUpStaleDays: e.target.value }))}
-                  className="h-9 bg-muted/30 border-border/50"
-                />
-                <Button
-                  variant="outline"
-                  className="h-9"
-                  onClick={() => setFilters((p) => ({ ...p, followUpStaleDays: p.followUpStaleDays ? "" : "7" }))}
-                  type="button"
-                >
-                  {filters.followUpStaleDays ? "Desactivar" : "Activar (7d)"}
-                </Button>
+                <div data-demo="pipeline-followup" className="rounded-[16px] border bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Seguimiento
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3"
+                      disabled={!canCreateTaskForDeal(selectedDeal)}
+                      title={
+                        !canCreateTaskForDeal(selectedDeal)
+                          ? "No tienes permiso para crear tareas en esta oportunidad."
+                          : "Crear una tarea de seguimiento."
+                      }
+                      onClick={() => openFollowUpDialogForDeal(selectedDeal)}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Crear tarea
+                    </Button>
+                  </div>
+                  {wonStageNames.has(selectedDeal.stage) ? (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Oportunidad cerrada como ganada.
+                    </div>
+                  ) : lostStageNames.has(selectedDeal.stage) ? (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Oportunidad cerrada como perdida.
+                    </div>
+                  ) : selectedDeal.lead_id ? (
+                    selectedNextTask ? (
+                      <div className="mt-2 space-y-1 text-sm">
+                        <div className="font-semibold truncate">{selectedNextTask.title}</div>
+                        <div className="text-[13px] text-muted-foreground">
+                          {selectedNextTask.due_date
+                            ? `Para ${formatDateLabel(selectedNextTask.due_date)}`
+                            : "Sin fecha"}
+                          {" · "}
+                          {selectedNextTask.priority || "—"}
+                          {" · "}
+                          {selectedNextTask.status}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        No hay seguimiento programado por ahora.
+                      </div>
+                    )
+                  ) : (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Conecta un prospecto para ver seguimientos.
+                    </div>
+                  )}
+                </div>
+
+                <div data-demo="pipeline-actions" className="rounded-[16px] border bg-white p-4">
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    Acciones rápidas
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-10 justify-start gap-2"
+                      disabled={!selectedLead || !(selectedLead.whatsapp || selectedLead.phone)}
+                      onClick={() => selectedLead && void handleOpenWhatsAppFromLead(selectedLead)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      WhatsApp
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10 justify-start gap-2"
+                      disabled={!selectedLead?.email}
+                      onClick={() => {
+                        if (!selectedLead?.email) return;
+                        window.open(`mailto:${selectedLead.email}`, "_blank");
+                      }}
+                    >
+                      <Mail className="h-4 w-4" />
+                      Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10 justify-start gap-2"
+                      disabled={!selectedLead || !(selectedLead.phone || selectedLead.whatsapp)}
+                      onClick={() => {
+                        const phone = selectedLead?.phone || selectedLead?.whatsapp;
+                        if (!phone) return;
+                        window.open(`tel:${phone}`, "_self");
+                      }}
+                    >
+                      <Phone className="h-4 w-4" />
+                      Llamar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10 justify-start gap-2"
+                      disabled={!canCreateTaskForDeal(selectedDeal)}
+                      title={
+                        !canCreateTaskForDeal(selectedDeal)
+                          ? "No tienes permiso para crear tareas en esta oportunidad."
+                          : undefined
+                      }
+                      onClick={() => openFollowUpDialogForDeal(selectedDeal)}
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                      Crear tarea
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="text-[12px] font-semibold text-[#667085]">Tip: usa 3, 7 o 14 días para priorizar.</div>
-            </div>
+            </DetailSheet>
+          )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setFiltersOpen(false)}>Cerrar</Button>
-              <Button onClick={() => setFiltersOpen(false)}>Aplicar</Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+          <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Crear seguimiento</DialogTitle>
+              </DialogHeader>
+              <form
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!selectedDeal) return;
+                  void handleCreateFollowUpTaskFromDeal(selectedDeal);
+                }}
+              >
+                <div>
+                  <Label>Título</Label>
+                  <Input
+                    value={followUpValues.title}
+                    onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Fecha</Label>
+                    <Input
+                      type="date"
+                      value={followUpValues.due_date}
+                      onChange={(e) =>
+                        setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Prioridad</Label>
+                    <Select
+                      value={followUpValues.priority}
+                      onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Low">Low</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label>Descripción</Label>
+                  <Input
+                    value={followUpValues.description}
+                    onChange={(e) =>
+                      setFollowUpValues((p) => ({ ...p, description: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setFollowUpOpen(false)}
+                    disabled={followUpSaving}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={followUpSaving || !selectedDeal}>
+                    {followUpSaving ? "Guardando..." : "Crear"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={lostDialogOpen}
+            onOpenChange={(open) => {
+              setLostDialogOpen(open);
+              if (!open) {
+                setLostNote("");
+                setLostReason("Precio");
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Marcar oportunidad como perdida</DialogTitle>
+              </DialogHeader>
+              <form
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!selectedDeal) return;
+                  void handleMarkDealAsLost(selectedDeal, lostReason, lostNote);
+                }}
+              >
+                <div>
+                  <Label>Razón</Label>
+                  <Select value={lostReason} onValueChange={setLostReason}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Precio">Precio</SelectItem>
+                      <SelectItem value="No respondió">No respondió</SelectItem>
+                      <SelectItem value="No era el momento">No era el momento</SelectItem>
+                      <SelectItem value="Eligió otra opción">Eligió otra opción</SelectItem>
+                      <SelectItem value="No era buen fit">No era buen fit</SelectItem>
+                      <SelectItem value="Otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Nota (opcional)</Label>
+                  <Input
+                    value={lostNote}
+                    onChange={(e) => setLostNote(e.target.value)}
+                    placeholder="Ej: presupuesto fuera de rango"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setLostDialogOpen(false)}
+                    disabled={closingAsLost}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={closingAsLost || !selectedDeal}
+                  >
+                    {closingAsLost ? "Guardando..." : "Marcar perdida"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <AlertDialog
+            open={convertClientDialogOpen}
+            onOpenChange={(open) => {
+              setConvertClientDialogOpen(open);
+              if (!open) {
+                setPendingWonDealId(null);
+              }
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Convertir a cliente</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta oportunidad no tiene cliente conectado. ¿Quieres convertir el prospecto en
+                  cliente ahora?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={convertingClient}>Más tarde</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => void handleConvertWonDealToClient()}
+                  disabled={convertingClient}
+                >
+                  {convertingClient ? "Convirtiendo..." : "Convertir ahora"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog
+            open={createProjectDialogOpen}
+            onOpenChange={(open) => {
+              setCreateProjectDialogOpen(open);
+              if (!open) {
+                setProjectCandidateDealId(null);
+                setProductCandidates([]);
+                setSelectedProductId(null);
+                setActiveWorkflow(null);
+                setActiveWorkflowSteps([]);
+                setDealProductsByProductId({});
+              }
+            }}
+          >
+            <AlertDialogContent className="max-w-xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Crear proyecto desde producto</AlertDialogTitle>
+                <AlertDialogDescription>
+                  ¿Quieres crear un proyecto para ejecutar el producto vendido y generar tareas
+                  desde su workflow?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <div className="space-y-3">
+                {productCandidates.length ? (
+                  <div>
+                    <Label>Producto</Label>
+                    <Select
+                      value={selectedProductId || ""}
+                      onValueChange={(v) => setSelectedProductId(v || null)}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Selecciona un producto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productCandidates.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedProductId && dealProductsByProductId[selectedProductId]?.quantity ? (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Cantidad: {dealProductsByProductId[selectedProductId]?.quantity}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Esta oportunidad no tiene producto asociado. Asocia un producto para crear un
+                    proyecto automáticamente.
+                  </div>
+                )}
+
+                {workflowLoading ? (
+                  <div className="text-sm text-muted-foreground">Cargando workflow…</div>
+                ) : selectedProductId ? (
+                  activeWorkflow ? (
+                    <div className="rounded-[12px] border bg-background p-3 text-sm">
+                      <div className="font-semibold">{activeWorkflow.name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Pasos activos: {activeWorkflowSteps.length}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-[12px] border bg-background p-3 text-sm text-muted-foreground">
+                      Este producto no tiene workflow activo. Defínelo en{" "}
+                      <span className="font-mono">/products</span>.
+                    </div>
+                  )
+                ) : null}
+              </div>
+
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={creatingProject}>Más tarde</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => void handleCreateProjectFromWonDeal()}
+                  disabled={
+                    creatingProject ||
+                    !selectedProductId ||
+                    !activeWorkflow?.id ||
+                    !activeWorkflowSteps.length
+                  }
+                >
+                  {creatingProject ? "Creando..." : "Crear proyecto"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog
+            open={!!deleteDealId}
+            onOpenChange={(o) => {
+              if (!o) setDeleteDealId(null);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Eliminar deal</AlertDialogTitle>
+                <AlertDialogDescription>Esto no se puede deshacer.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={async () => {
+                    if (!deleteDealId) return;
+                    if (!can("deals.delete")) {
+                      toast.error("No tienes permiso para eliminar");
+                      return;
+                    }
+                    const { error } = await db.from("deals").delete().eq("id", deleteDealId);
+                    if (error) {
+                      toast.error(error.message || "No se pudo eliminar");
+                      return;
+                    }
+                    toast.success("Oportunidad eliminada");
+                    setDeals((prev) => prev.filter((d) => d.id !== deleteDealId));
+                    setDealIdsByStage((prev) => {
+                      const next: Record<string, string[]> = { ...prev };
+                      for (const k of Object.keys(next))
+                        next[k] = next[k].filter((id) => id !== deleteDealId);
+                      return next;
+                    });
+                    if (selectedDeal?.id === deleteDealId) setSelectedDeal(null);
+                    setDeleteDealId(null);
+                  }}
+                >
+                  Eliminar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Sheet
+            open={archivedOpen}
+            onOpenChange={(open) => {
+              setArchivedOpen(open);
+              if (!open) setArchivedSearch("");
+            }}
+          >
+            <SheetContent side="right" className="w-full sm:max-w-[560px]">
+              <SheetHeader>
+                <SheetTitle>Archivados</SheetTitle>
+                <SheetDescription>
+                  Oportunidades movidas a etapa perdida. Puedes restaurarlas o eliminarlas.
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-5 grid gap-3">
+                <Input
+                  placeholder="Buscar archivados..."
+                  value={archivedSearch}
+                  onChange={(e) => setArchivedSearch(e.target.value)}
+                />
+
+                {archivedDeals.length === 0 ? (
+                  <div className="rounded-[16px] border border-[#e6eaf0] bg-white p-4 text-sm font-normal text-[#667085]">
+                    No hay oportunidades archivadas por ahora.
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {archivedDeals
+                      .slice()
+                      .sort((a, b) => {
+                        const at = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+                        const bt = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+                        return bt - at;
+                      })
+                      .slice(0, 200)
+                      .map((deal) => (
+                        <div
+                          key={deal.id}
+                          className="rounded-[16px] border border-[#e6eaf0] bg-white p-3.5 shadow-[0_10px_22px_rgba(15,23,42,0.055)]"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-[13px] font-semibold tracking-[-0.01em] truncate">
+                                {deal.name}
+                              </div>
+                              <div className="text-[12px] font-normal text-[#667085]">
+                                Etapa:{" "}
+                                <span className="font-medium text-[#344054]">{deal.stage}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                className="h-8 px-3 text-xs"
+                                onClick={() => setSelectedDeal(deal)}
+                              >
+                                Ver
+                              </Button>
+                              <Button
+                                className="h-8 px-3 text-xs"
+                                onClick={() => {
+                                  void restoreArchivedDeal(deal.id);
+                                }}
+                              >
+                                Restaurar
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-end">
+                            <Button
+                              variant="destructive"
+                              className="h-8 px-3 text-xs"
+                              onClick={() => {
+                                setDeleteDealId(deal.id);
+                              }}
+                            >
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <SheetContent side="right" className="w-full sm:max-w-[560px] p-0">
+              <SheetHeader>
+                <SheetTitle>Filtros de oportunidades</SheetTitle>
+                <SheetDescription>
+                  Ajusta la vista del pipeline sin perder tu orden por columna.
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="px-5 pb-5 pt-4 grid gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-[#344054]">
+                    Activos: {activeFilterCount}
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="h-9"
+                    onClick={() =>
+                      setFilters({
+                        status: "active",
+                        selectedStages: [],
+                        assigned: "all",
+                        valueMin: "",
+                        valueMax: "",
+                        probMin: "",
+                        probMax: "",
+                        closePreset: "any",
+                        closeFrom: "",
+                        closeTo: "",
+                        followUpStaleDays: "",
+                      })
+                    }
+                  >
+                    Reset
+                  </Button>
+                </div>
+
+                {/* 1) Status */}
+                <div className="grid gap-2">
+                  <Label>Estado</Label>
+                  <Select
+                    value={filters.status}
+                    onValueChange={(v) =>
+                      setFilters((p) => ({ ...p, status: v as DealStatusFilter }))
+                    }
+                  >
+                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Activos</SelectItem>
+                      <SelectItem value="won">Ganados</SelectItem>
+                      <SelectItem value="lost">Perdidos / Archivados</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 2) Stage multi-select */}
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Etapas</Label>
+                    <Button
+                      variant="ghost"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => {
+                        const all = stages.map((s) => s.name);
+                        setFilters((p) => ({
+                          ...p,
+                          selectedStages: p.selectedStages.length === all.length ? [] : all,
+                        }));
+                      }}
+                      type="button"
+                    >
+                      {filters.selectedStages.length === stages.length
+                        ? "Limpiar"
+                        : "Seleccionar todo"}
+                    </Button>
+                  </div>
+                  <div className="max-h-48 overflow-auto rounded-[16px] border border-[#e6eaf0] bg-white p-3 grid gap-2">
+                    {stages.map((s) => {
+                      const checked = selectedStagesSet.has(s.name);
+                      return (
+                        <label
+                          key={s.id}
+                          className="flex items-center gap-2 text-sm font-medium text-[#344054]"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(next) => {
+                              setFilters((p) => {
+                                const set = new Set(p.selectedStages);
+                                if (next) set.add(s.name);
+                                else set.delete(s.name);
+                                return { ...p, selectedStages: Array.from(set) };
+                              });
+                            }}
+                          />
+                          <span className="truncate">{s.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3) Assigned */}
+                <div className="grid gap-2">
+                  <Label>Asignado a</Label>
+                  <Select
+                    value={filters.assigned}
+                    onValueChange={(v) =>
+                      setFilters((p) => ({ ...p, assigned: v as AssignedFilter }))
+                    }
+                  >
+                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="me">Solo yo</SelectItem>
+                      <SelectItem value="team">Asignados</SelectItem>
+                      <SelectItem value="unassigned">Sin asignar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 4) Value range */}
+                <div className="grid gap-2">
+                  <Label>Rango de valor</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      className="h-9 bg-muted/30 border-border/50"
+                      inputMode="numeric"
+                      placeholder="Mínimo"
+                      value={filters.valueMin}
+                      onChange={(e) => setFilters((p) => ({ ...p, valueMin: e.target.value }))}
+                    />
+                    <Input
+                      className="h-9 bg-muted/30 border-border/50"
+                      inputMode="numeric"
+                      placeholder="Máximo"
+                      value={filters.valueMax}
+                      onChange={(e) => setFilters((p) => ({ ...p, valueMax: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* 5) Probability */}
+                <div className="grid gap-2">
+                  <Label>Probabilidad (%)</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      className="h-9 bg-muted/30 border-border/50"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={filters.probMin}
+                      onChange={(e) => setFilters((p) => ({ ...p, probMin: e.target.value }))}
+                    />
+                    <Input
+                      className="h-9 bg-muted/30 border-border/50"
+                      inputMode="numeric"
+                      placeholder="100"
+                      value={filters.probMax}
+                      onChange={(e) => setFilters((p) => ({ ...p, probMax: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* 6) Expected close */}
+                <div className="grid gap-2">
+                  <Label>Cierre estimado</Label>
+                  <Select
+                    value={filters.closePreset}
+                    onValueChange={(v) =>
+                      setFilters((p) => ({ ...p, closePreset: v as CloseDatePreset }))
+                    }
+                  >
+                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Cualquiera</SelectItem>
+                      <SelectItem value="today">Hoy</SelectItem>
+                      <SelectItem value="week">Esta semana</SelectItem>
+                      <SelectItem value="month">Este mes</SelectItem>
+                      <SelectItem value="range">Rango</SelectItem>
+                      <SelectItem value="none">Sin fecha</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {filters.closePreset === "range" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        className="h-9 bg-muted/30 border-border/50"
+                        type="date"
+                        value={filters.closeFrom}
+                        onChange={(e) => setFilters((p) => ({ ...p, closeFrom: e.target.value }))}
+                      />
+                      <Input
+                        className="h-9 bg-muted/30 border-border/50"
+                        type="date"
+                        value={filters.closeTo}
+                        onChange={(e) => setFilters((p) => ({ ...p, closeTo: e.target.value }))}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 7) Follow-up */}
+                <div className="grid gap-2">
+                  <Label>Necesita seguimiento</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      inputMode="numeric"
+                      placeholder="Sin update en (días)"
+                      value={filters.followUpStaleDays}
+                      onChange={(e) =>
+                        setFilters((p) => ({ ...p, followUpStaleDays: e.target.value }))
+                      }
+                      className="h-9 bg-muted/30 border-border/50"
+                    />
+                    <Button
+                      variant="outline"
+                      className="h-9"
+                      onClick={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          followUpStaleDays: p.followUpStaleDays ? "" : "7",
+                        }))
+                      }
+                      type="button"
+                    >
+                      {filters.followUpStaleDays ? "Desactivar" : "Activar (7d)"}
+                    </Button>
+                  </div>
+                  <div className="text-[12px] font-semibold text-[#667085]">
+                    Tip: usa 3, 7 o 14 días para priorizar.
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setFiltersOpen(false)}>
+                    Cerrar
+                  </Button>
+                  <Button onClick={() => setFiltersOpen(false)}>Aplicar</Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </div>

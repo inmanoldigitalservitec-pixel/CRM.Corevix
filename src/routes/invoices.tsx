@@ -1,13 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Copy, ExternalLink, Receipt } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -84,7 +106,13 @@ type InvoiceItemDraft = {
   total: number;
 };
 
-type ProductOption = { id: string; name: string; base_price?: number | null; currency?: string | null; description?: string | null };
+type ProductOption = {
+  id: string;
+  name: string;
+  base_price?: number | null;
+  currency?: string | null;
+  description?: string | null;
+};
 type ClientOption = { id: string; company_name: string; contact_person: string | null };
 type ProposalOption = { id: string; number: string; title: string | null };
 
@@ -198,10 +226,14 @@ function InvoicesPage() {
       const p = i.proposal_id ? proposalsById[i.proposal_id] : null;
       const prod = i.product_id ? productsById[i.product_id] : null;
       const client = i.client_id ? clientsById[i.client_id] : null;
-      const proposalCompany = p?.proposal_data && typeof p.proposal_data === "object" ? p.proposal_data : {};
-      const fallbackClient = String((proposalCompany as any)?.companyName || (proposalCompany as any)?.clientName || "");
+      const proposalCompany =
+        p?.proposal_data && typeof p.proposal_data === "object" ? p.proposal_data : {};
+      const fallbackClient = String(
+        (proposalCompany as any)?.companyName || (proposalCompany as any)?.clientName || "",
+      );
 
-      const haystack = `${i.number} ${i.notes || ""} ${p?.number || ""} ${p?.title || ""} ${prod?.name || ""} ${client?.company_name || ""} ${fallbackClient}`.toLowerCase();
+      const haystack =
+        `${i.number} ${i.notes || ""} ${p?.number || ""} ${p?.title || ""} ${prod?.name || ""} ${client?.company_name || ""} ${fallbackClient}`.toLowerCase();
       const matchSearch = !q || haystack.includes(q);
       const matchStatus = statusFilter === "all" || i.status === statusFilter;
       return matchSearch && matchStatus;
@@ -237,7 +269,11 @@ function InvoicesPage() {
   };
 
   const [itemsDraft, setItemsDraft] = useState<InvoiceItemDraft[]>([]);
-  const [totalsDraft, setTotalsDraft] = useState<{ subtotal: string; tax: string; discount: string }>({
+  const [totalsDraft, setTotalsDraft] = useState<{
+    subtotal: string;
+    tax: string;
+    discount: string;
+  }>({
     subtotal: "",
     tax: "0",
     discount: "0",
@@ -267,7 +303,10 @@ function InvoicesPage() {
     });
   }, [drawerOpen, drawerMode, editItem?.id]);
 
-  const applyProductDefaults = (product: ProductOption | undefined | null, opts?: { force?: boolean }) => {
+  const applyProductDefaults = (
+    product: ProductOption | undefined | null,
+    opts?: { force?: boolean },
+  ) => {
     if (!product) return;
     const force = Boolean(opts?.force);
     const price = Number(product.base_price || 0) || 0;
@@ -307,9 +346,7 @@ function InvoicesPage() {
       const editorOpen = drawerOpen && (drawerMode === "create" || drawerMode === "edit");
       if (!editorOpen || !editItem?.id) {
         if (editorOpen && !editItem) {
-          setItemsDraft([
-            { description: "", quantity: 1, unit_price: 0, total: 0 },
-          ]);
+          setItemsDraft([{ description: "", quantity: 1, unit_price: 0, total: 0 }]);
         }
         return;
       }
@@ -328,7 +365,10 @@ function InvoicesPage() {
           unit_price: Number(r.unit_price || 0) || 0,
           total: Number(r.total || 0) || 0,
         }));
-        if (!cancelled) setItemsDraft(next.length ? next : [{ description: "", quantity: 1, unit_price: 0, total: 0 }]);
+        if (!cancelled)
+          setItemsDraft(
+            next.length ? next : [{ description: "", quantity: 1, unit_price: 0, total: 0 }],
+          );
       } catch {
         if (!cancelled) setItemsDraft([{ description: "", quantity: 1, unit_price: 0, total: 0 }]);
       }
@@ -397,7 +437,9 @@ function InvoicesPage() {
     setCreatingProject(true);
     try {
       const db = supabase as any;
-      const { data, error } = await db.rpc("create_project_from_paid_invoice", { p_invoice_id: invoiceId });
+      const { data, error } = await db.rpc("create_project_from_paid_invoice", {
+        p_invoice_id: invoiceId,
+      });
       if (error) throw error;
       const result = Array.isArray(data) ? data[0] : data;
       const projectId = result?.project_id ? String(result.project_id) : null;
@@ -413,7 +455,9 @@ function InvoicesPage() {
 
   const ensureProjectFromPaidInvoice = async (invoiceId: string) => {
     const db = supabase as any;
-    const { data, error } = await db.rpc("create_project_from_paid_invoice", { p_invoice_id: invoiceId });
+    const { data, error } = await db.rpc("create_project_from_paid_invoice", {
+      p_invoice_id: invoiceId,
+    });
     if (error) throw error;
     const result = Array.isArray(data) ? data[0] : data;
     const projectId = result?.project_id ? String(result.project_id) : null;
@@ -535,7 +579,9 @@ function InvoicesPage() {
     const discount = Number(fd.get("discount")) || 0;
 
     const prevInvoiceData =
-      editItem?.invoice_data && typeof editItem.invoice_data === "object" ? (editItem.invoice_data as Record<string, any>) : {};
+      editItem?.invoice_data && typeof editItem.invoice_data === "object"
+        ? (editItem.invoice_data as Record<string, any>)
+        : {};
     const invoice_data = {
       ...prevInvoiceData,
       clientName: readText("clientName"),
@@ -562,10 +608,15 @@ function InvoicesPage() {
       client_id: asUuidOrNull(fd.get("client_id")),
       proposal_id: asUuidOrNull(fd.get("proposal_id")),
       product_id: asUuidOrNull(fd.get("product_id")),
-      subtotal, tax, discount, total: subtotal + tax - discount,
+      subtotal,
+      tax,
+      discount,
+      total: subtotal + tax - discount,
       status: (fd.get("status") as string) || "Draft",
       date_issued: (fd.get("date_issued") as string) || new Date().toISOString().split("T")[0],
-      due_date: (fd.get("due_date") as string) || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+      due_date:
+        (fd.get("due_date") as string) ||
+        new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
       notes: (fd.get("notes") as string) || null,
       payment_link: readText("payment_link"),
       invoice_data,
@@ -613,14 +664,17 @@ function InvoicesPage() {
       setDrawerOpen(false);
       setDrawerMode("view");
       setEditItem(null);
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   if (loading) return <LoadingState />;
 
-
   const invData =
-    editItem?.invoice_data && typeof editItem.invoice_data === "object" ? (editItem.invoice_data as Record<string, any>) : {};
+    editItem?.invoice_data && typeof editItem.invoice_data === "object"
+      ? (editItem.invoice_data as Record<string, any>)
+      : {};
 
   return (
     <div data-demo="invoices-main" className="p-4 sm:p-6 space-y-5">
@@ -637,161 +691,206 @@ function InvoicesPage() {
       />
       <DataCard>
         <div data-demo="invoices-list">
-        <div className="space-y-4">
-          <SearchFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search invoices..."
-            filters={[{ key: "status", placeholder: "Status", value: statusFilter, onChange: setStatusFilter, options: INVOICE_STATUSES.map(s => ({ label: s, value: s })) }]} />
-          {error ? (
-            <div className="rounded-lg border bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              Error loading invoices: {error}
-            </div>
-          ) : null}
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="h-6 w-6" />}
-              title="No invoices"
-              description="Create your first invoice."
-              actionLabel="New Invoice"
-              onAction={() => {
-                setSelected(null);
-                setEditItem(null);
-                setDrawerMode("create");
-                setDrawerOpen(true);
-              }}
+          <div className="space-y-4">
+            <SearchFilters
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search invoices..."
+              filters={[
+                {
+                  key: "status",
+                  placeholder: "Status",
+                  value: statusFilter,
+                  onChange: setStatusFilter,
+                  options: INVOICE_STATUSES.map((s) => ({ label: s, value: s })),
+                },
+              ]}
             />
-          ) : (
-            <div className="overflow-x-auto -mx-4 sm:-mx-5">
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead className="pl-4 sm:pl-5">Number</TableHead>
-                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
-                  <TableHead className="hidden lg:table-cell">Servicio</TableHead>
-                  <TableHead className="hidden lg:table-cell">Propuesta</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead className="hidden md:table-cell">Issued</TableHead>
-                  <TableHead className="hidden md:table-cell">Due</TableHead>
-                  <TableHead className="pr-4 sm:pr-5 text-right"> </TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {filtered.map((i, index) => (
-                    <TableRow
-                      key={i.id}
-                      className="cursor-pointer hover:bg-muted/40 transition-colors"
-                      onClick={() => {
-                        setSelected(i);
-                        setEditItem(null);
-                        setDrawerMode("view");
-                        setDrawerOpen(true);
-                      }}
-                    >
-                      <TableCell data-demo={index === 0 ? "invoice-first-row" : undefined} className="font-medium pl-4 sm:pl-5">{i.number}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {getClientLabel(i)}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {getProductName(i)}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        <div className="font-mono text-xs">{getProposalNumber(i)}</div>
-                        <div className="text-xs text-muted-foreground truncate max-w-[360px]">{getProposalTitle(i)}</div>
-                      </TableCell>
-                      <TableCell data-demo={index === 0 ? "invoice-status" : undefined}><StatusBadge status={displayInvoiceStatus(i.status)} /></TableCell>
-                      <TableCell className="font-medium">USD {Number(i.total || 0).toLocaleString()}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm hidden md:table-cell">{i.date_issued}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm hidden md:table-cell">{i.due_date}</TableCell>
-                      <TableCell className="pr-4 sm:pr-5 text-right">
-                        <div
-                          className="flex flex-wrap justify-end gap-1.5"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
+            {error ? (
+              <div className="rounded-lg border bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                Error loading invoices: {error}
+              </div>
+            ) : null}
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon={<Receipt className="h-6 w-6" />}
+                title="No invoices"
+                description="Create your first invoice."
+                actionLabel="New Invoice"
+                onAction={() => {
+                  setSelected(null);
+                  setEditItem(null);
+                  setDrawerMode("create");
+                  setDrawerOpen(true);
+                }}
+              />
+            ) : (
+              <div className="overflow-x-auto -mx-4 sm:-mx-5">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="pl-4 sm:pl-5">Number</TableHead>
+                      <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                      <TableHead className="hidden lg:table-cell">Servicio</TableHead>
+                      <TableHead className="hidden lg:table-cell">Propuesta</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead className="hidden md:table-cell">Issued</TableHead>
+                      <TableHead className="hidden md:table-cell">Due</TableHead>
+                      <TableHead className="pr-4 sm:pr-5 text-right"> </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((i, index) => (
+                      <TableRow
+                        key={i.id}
+                        className="cursor-pointer hover:bg-muted/40 transition-colors"
+                        onClick={() => {
+                          setSelected(i);
+                          setEditItem(null);
+                          setDrawerMode("view");
+                          setDrawerOpen(true);
+                        }}
+                      >
+                        <TableCell
+                          data-demo={index === 0 ? "invoice-first-row" : undefined}
+                          className="font-medium pl-4 sm:pl-5"
                         >
-                          <Button
-                            data-demo={index === 0 ? "invoice-open-public" : undefined}
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs"
-                            onClick={() => openPublicInvoice(i)}
+                          {i.number}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                          {getClientLabel(i)}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                          {getProductName(i)}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                          <div className="font-mono text-xs">{getProposalNumber(i)}</div>
+                          <div className="text-xs text-muted-foreground truncate max-w-[360px]">
+                            {getProposalTitle(i)}
+                          </div>
+                        </TableCell>
+                        <TableCell data-demo={index === 0 ? "invoice-status" : undefined}>
+                          <StatusBadge status={displayInvoiceStatus(i.status)} />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          USD {Number(i.total || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm hidden md:table-cell">
+                          {i.date_issued}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm hidden md:table-cell">
+                          {i.due_date}
+                        </TableCell>
+                        <TableCell className="pr-4 sm:pr-5 text-right">
+                          <div
+                            className="flex flex-wrap justify-end gap-1.5"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
                           >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Ver pública
-                          </Button>
-                          <Button
-                            data-demo={index === 0 ? "invoice-copy-link" : undefined}
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs"
-                            onClick={() => void copyPublicInvoiceLink(i)}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            Copiar link
-                          </Button>
-                          <div data-demo={index === 0 ? "invoice-status-control" : undefined}><Select value={i.status || "Draft"} onValueChange={(value) => void applyStatusQuick(i, value)}>
-                            <SelectTrigger className="h-8 w-[118px] text-xs">
-                              <SelectValue placeholder="Estado" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {INVOICE_STATUSES.map((s) => (
-                                <SelectItem key={s} value={s}>{s}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select></div>
-                          {i.status !== "Paid" ? (
                             <Button
-                              data-demo={index === 0 ? "invoice-mark-paid" : undefined}
+                              data-demo={index === 0 ? "invoice-open-public" : undefined}
                               variant="outline"
                               size="sm"
                               className="h-8 gap-1.5 text-xs"
-                              onClick={() => void applyStatusQuick(i, "Paid")}
+                              onClick={() => openPublicInvoice(i)}
                             >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Marcar pagada
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Ver pública
                             </Button>
-                          ) : null}
-                          {i.status === "Paid" ? (
-                            projectByInvoiceId[i.id] ? (
-                              <Button
-                                data-demo={index === 0 ? "invoice-view-project" : undefined}
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs"
-                                onClick={() => window.open("/projects", "_blank", "noopener,noreferrer")}
+                            <Button
+                              data-demo={index === 0 ? "invoice-copy-link" : undefined}
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs"
+                              onClick={() => void copyPublicInvoiceLink(i)}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              Copiar link
+                            </Button>
+                            <div data-demo={index === 0 ? "invoice-status-control" : undefined}>
+                              <Select
+                                value={i.status || "Draft"}
+                                onValueChange={(value) => void applyStatusQuick(i, value)}
                               >
-                                Ver proyecto
-                              </Button>
-                            ) : (
+                                <SelectTrigger className="h-8 w-[118px] text-xs">
+                                  <SelectValue placeholder="Estado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {INVOICE_STATUSES.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                      {s}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {i.status !== "Paid" ? (
                               <Button
-                                data-demo={index === 0 ? "invoice-create-project" : undefined}
+                                data-demo={index === 0 ? "invoice-mark-paid" : undefined}
                                 variant="outline"
                                 size="sm"
-                                className="h-8 text-xs"
-                                onClick={async () => {
-                                  try {
-                                    const result = await ensureProjectFromPaidInvoice(i.id);
-                                    if (result.projectId) {
-                                      setProjectByInvoiceId((prev) => ({ ...prev, [i.id]: result.projectId! }));
-                                    }
-                                    toast.success(result.created ? "Proyecto creado." : "Proyecto ya existente.");
-                                  } catch (e: any) {
-                                    console.error("create project quick action error:", e);
-                                    toast.error("No se pudo crear el proyecto.");
+                                className="h-8 gap-1.5 text-xs"
+                                onClick={() => void applyStatusQuick(i, "Paid")}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Marcar pagada
+                              </Button>
+                            ) : null}
+                            {i.status === "Paid" ? (
+                              projectByInvoiceId[i.id] ? (
+                                <Button
+                                  data-demo={index === 0 ? "invoice-view-project" : undefined}
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs"
+                                  onClick={() =>
+                                    window.open("/projects", "_blank", "noopener,noreferrer")
                                   }
-                                }}
-                              >
-                                Crear proyecto
-                              </Button>
-                            )
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+                                >
+                                  Ver proyecto
+                                </Button>
+                              ) : (
+                                <Button
+                                  data-demo={index === 0 ? "invoice-create-project" : undefined}
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs"
+                                  onClick={async () => {
+                                    try {
+                                      const result = await ensureProjectFromPaidInvoice(i.id);
+                                      if (result.projectId) {
+                                        setProjectByInvoiceId((prev) => ({
+                                          ...prev,
+                                          [i.id]: result.projectId!,
+                                        }));
+                                      }
+                                      toast.success(
+                                        result.created
+                                          ? "Proyecto creado."
+                                          : "Proyecto ya existente.",
+                                      );
+                                    } catch (e: any) {
+                                      console.error("create project quick action error:", e);
+                                      toast.error("No se pudo crear el proyecto.");
+                                    }
+                                  }}
+                                >
+                                  Crear proyecto
+                                </Button>
+                              )
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
         </div>
       </DataCard>
 
@@ -818,7 +917,10 @@ function InvoicesPage() {
               </SheetTitle>
               {drawerMode === "view" && selected ? (
                 <div className="text-sm text-muted-foreground">
-                  Estado: <span className="font-medium text-foreground">{displayInvoiceStatus(selected.status)}</span>
+                  Estado:{" "}
+                  <span className="font-medium text-foreground">
+                    {displayInvoiceStatus(selected.status)}
+                  </span>
                 </div>
               ) : null}
             </SheetHeader>
@@ -884,416 +986,584 @@ function InvoicesPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Cliente</div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Cliente
+                      </div>
                       <div className="mt-1 text-sm font-medium">{getClientLabel(selected)}</div>
                     </div>
                     <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Servicio</div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Servicio
+                      </div>
                       <div className="mt-1 text-sm font-medium">{getProductName(selected)}</div>
                     </div>
                     <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Propuesta</div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Propuesta
+                      </div>
                       <div className="mt-1 text-sm font-mono">{getProposalNumber(selected)}</div>
-                      <div className="text-xs text-muted-foreground">{getProposalTitle(selected)}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Total</div>
-                      <div className="mt-1 text-sm font-semibold">USD {Number(selected.total || 0).toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Subtotal</div>
-                      <div className="mt-1 text-sm font-medium">USD {Number(selected.subtotal || 0).toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Tax / Discount</div>
-                      <div className="mt-1 text-sm font-medium">
-                        USD {Number(selected.tax || 0).toLocaleString()} / USD {Number(selected.discount || 0).toLocaleString()}
+                      <div className="text-xs text-muted-foreground">
+                        {getProposalTitle(selected)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Fecha emitida</div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Total
+                      </div>
+                      <div className="mt-1 text-sm font-semibold">
+                        USD {Number(selected.total || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Subtotal
+                      </div>
+                      <div className="mt-1 text-sm font-medium">
+                        USD {Number(selected.subtotal || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Tax / Discount
+                      </div>
+                      <div className="mt-1 text-sm font-medium">
+                        USD {Number(selected.tax || 0).toLocaleString()} / USD{" "}
+                        {Number(selected.discount || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Fecha emitida
+                      </div>
                       <div className="mt-1 text-sm font-medium">{selected.date_issued || "—"}</div>
                     </div>
                     <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Vence</div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Vence
+                      </div>
                       <div className="mt-1 text-sm font-medium">{selected.due_date || "—"}</div>
                     </div>
                   </div>
 
                   {selected.notes ? (
                     <div>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Notas</div>
-                      <div className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{selected.notes}</div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Notas
+                      </div>
+                      <div className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                        {selected.notes}
+                      </div>
                     </div>
                   ) : null}
                 </>
               ) : null}
 
-              {(drawerMode === "create" || drawerMode === "edit") ? (
+              {drawerMode === "create" || drawerMode === "edit" ? (
                 <form id="invoice-editor-form" onSubmit={handleSubmit} className="space-y-4">
-            <input type="hidden" name="status" value={editorSelects.status} />
-            <input type="hidden" name="client_id" value={editorSelects.client_id} />
-            <input type="hidden" name="proposal_id" value={editorSelects.proposal_id} />
-            <input type="hidden" name="product_id" value={editorSelects.product_id} />
-            
-            <div className="space-y-5">
-              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                <div className="mb-4">
-                  <div className="text-sm font-bold text-slate-900">Origen y estado</div>
-                  <div className="text-xs text-muted-foreground">
-                    Conecta la factura con su cliente, propuesta y producto para mantener el flujo comercial organizado.
-                  </div>
-                </div>
+                  <input type="hidden" name="status" value={editorSelects.status} />
+                  <input type="hidden" name="client_id" value={editorSelects.client_id} />
+                  <input type="hidden" name="proposal_id" value={editorSelects.proposal_id} />
+                  <input type="hidden" name="product_id" value={editorSelects.product_id} />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Número</Label>
-                    <Input name="number" defaultValue={editItem?.number || `INV-${Date.now().toString().slice(-6)}`} required />
-                  </div>
+                  <div className="space-y-5">
+                    <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                      <div className="mb-4">
+                        <div className="text-sm font-bold text-slate-900">Origen y estado</div>
+                        <div className="text-xs text-muted-foreground">
+                          Conecta la factura con su cliente, propuesta y producto para mantener el
+                          flujo comercial organizado.
+                        </div>
+                      </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Estado</Label>
-                    <Select value={editorSelects.status} onValueChange={(v) => setEditorSelects((p) => ({ ...p, status: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{INVOICE_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Número</Label>
+                          <Input
+                            name="number"
+                            defaultValue={
+                              editItem?.number || `INV-${Date.now().toString().slice(-6)}`
+                            }
+                            required
+                          />
+                        </div>
 
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Cliente</Label>
-                    <Select value={editorSelects.client_id} onValueChange={(v) => setEditorSelects((p) => ({ ...p, client_id: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NO_CLIENT}>Sin cliente</SelectItem>
-                        {clients.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.contact_person ? `${c.company_name} · ${c.contact_person}` : c.company_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        <div className="space-y-1.5">
+                          <Label>Estado</Label>
+                          <Select
+                            value={editorSelects.status}
+                            onValueChange={(v) => setEditorSelects((p) => ({ ...p, status: v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {INVOICE_STATUSES.map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Propuesta relacionada</Label>
-                    <Select value={editorSelects.proposal_id} onValueChange={(v) => setEditorSelects((p) => ({ ...p, proposal_id: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NO_PROPOSAL}>Sin propuesta</SelectItem>
-                        {proposals.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.title ? `${p.number} · ${p.title}` : p.number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Cliente</Label>
+                          <Select
+                            value={editorSelects.client_id}
+                            onValueChange={(v) => setEditorSelects((p) => ({ ...p, client_id: v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar cliente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NO_CLIENT}>Sin cliente</SelectItem>
+                              {clients.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.contact_person
+                                    ? `${c.company_name} · ${c.contact_person}`
+                                    : c.company_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Producto / servicio</Label>
-                    <Select
-                      value={editorSelects.product_id}
-                      onValueChange={(v) => {
-                        setEditorSelects((p) => ({ ...p, product_id: v }));
-                        if (v && v !== NO_PRODUCT) {
-                          const product = products.find((p) => p.id === v);
-                          applyProductDefaults(product);
-                        }
-                      }}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NO_PRODUCT}>Sin producto</SelectItem>
-                        {products.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </section>
+                        <div className="space-y-1.5">
+                          <Label>Propuesta relacionada</Label>
+                          <Select
+                            value={editorSelects.proposal_id}
+                            onValueChange={(v) =>
+                              setEditorSelects((p) => ({ ...p, proposal_id: v }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Opcional" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NO_PROPOSAL}>Sin propuesta</SelectItem>
+                              {proposals.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.title ? `${p.number} · ${p.title}` : p.number}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                <div className="mb-4">
-                  <div className="text-sm font-bold text-slate-900">Fechas y pago</div>
-                  <div className="text-xs text-muted-foreground">
-                    Define cuándo se emitió, cuándo vence y cómo debe pagar el cliente.
-                  </div>
-                </div>
+                        <div className="space-y-1.5">
+                          <Label>Producto / servicio</Label>
+                          <Select
+                            value={editorSelects.product_id}
+                            onValueChange={(v) => {
+                              setEditorSelects((p) => ({ ...p, product_id: v }));
+                              if (v && v !== NO_PRODUCT) {
+                                const product = products.find((p) => p.id === v);
+                                applyProductDefaults(product);
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Opcional" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NO_PRODUCT}>Sin producto</SelectItem>
+                              {products.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </section>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Fecha emitida</Label>
-                    <Input name="date_issued" type="date" defaultValue={editItem?.date_issued || new Date().toISOString().split("T")[0]} />
-                  </div>
+                    <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                      <div className="mb-4">
+                        <div className="text-sm font-bold text-slate-900">Fechas y pago</div>
+                        <div className="text-xs text-muted-foreground">
+                          Define cuándo se emitió, cuándo vence y cómo debe pagar el cliente.
+                        </div>
+                      </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Vence</Label>
-                    <Input name="due_date" type="date" defaultValue={editItem?.due_date} />
-                  </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Fecha emitida</Label>
+                          <Input
+                            name="date_issued"
+                            type="date"
+                            defaultValue={
+                              editItem?.date_issued || new Date().toISOString().split("T")[0]
+                            }
+                          />
+                        </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Link de pago</Label>
-                    <Input name="payment_link" defaultValue={editItem?.payment_link || ""} placeholder="https://..." />
-                  </div>
+                        <div className="space-y-1.5">
+                          <Label>Vence</Label>
+                          <Input name="due_date" type="date" defaultValue={editItem?.due_date} />
+                        </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Método de pago</Label>
-                    <Input name="paymentMethod" defaultValue={invData.paymentMethod || ""} placeholder="Ej: transferencia, tarjeta, PayPal" />
-                  </div>
-                </div>
+                        <div className="space-y-1.5">
+                          <Label>Link de pago</Label>
+                          <Input
+                            name="payment_link"
+                            defaultValue={editItem?.payment_link || ""}
+                            placeholder="https://..."
+                          />
+                        </div>
 
-                <div className="mt-4 space-y-1.5">
-                  <Label>Instrucciones de pago</Label>
-                  <Textarea name="paymentInstructions" defaultValue={invData.paymentInstructions || ""} rows={3} placeholder="Ej: Cuenta bancaria, instrucciones o condiciones de pago." />
-                </div>
-              </section>
+                        <div className="space-y-1.5">
+                          <Label>Método de pago</Label>
+                          <Input
+                            name="paymentMethod"
+                            defaultValue={invData.paymentMethod || ""}
+                            placeholder="Ej: transferencia, tarjeta, PayPal"
+                          />
+                        </div>
+                      </div>
 
-              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                <div className="mb-4">
-                  <div className="text-sm font-bold text-slate-900">Datos del cliente</div>
-                  <div className="text-xs text-muted-foreground">
-                    Estos datos aparecerán en la factura pública.
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><Label>Nombre</Label><Input name="clientName" defaultValue={invData.clientName || ""} /></div>
-                  <div className="space-y-1.5"><Label>Empresa</Label><Input name="clientCompany" defaultValue={invData.clientCompany || ""} /></div>
-                  <div className="space-y-1.5"><Label>Email</Label><Input name="clientEmail" defaultValue={invData.clientEmail || ""} /></div>
-                  <div className="space-y-1.5"><Label>Teléfono</Label><Input name="clientPhone" defaultValue={invData.clientPhone || ""} /></div>
-                  <div className="space-y-1.5"><Label>Tax ID / RNC</Label><Input name="clientTaxId" defaultValue={invData.clientTaxId || ""} /></div>
-                </div>
-
-                <div className="mt-4 space-y-1.5">
-                  <Label>Dirección</Label>
-                  <Textarea name="clientAddress" defaultValue={invData.clientAddress || ""} rows={2} />
-                </div>
-              </section>
-
-              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                <div className="mb-4">
-                  <div className="text-sm font-bold text-slate-900">Items de la factura</div>
-                  <div className="text-xs text-muted-foreground">
-                    Agrega los servicios, cantidades y precios que se cobrarán.
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {itemsDraft.map((it, idx) => (
-                    <div key={it.id || idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 rounded-[16px] border bg-muted/10 p-3">
-                      <div className="sm:col-span-6 space-y-1.5">
-                        <Label>Descripción</Label>
-                        <Input
-                          value={it.description}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setItemsDraft((prev) => prev.map((p, i) => (i === idx ? { ...p, description: v } : p)));
-                          }}
+                      <div className="mt-4 space-y-1.5">
+                        <Label>Instrucciones de pago</Label>
+                        <Textarea
+                          name="paymentInstructions"
+                          defaultValue={invData.paymentInstructions || ""}
+                          rows={3}
+                          placeholder="Ej: Cuenta bancaria, instrucciones o condiciones de pago."
                         />
                       </div>
+                    </section>
 
-                      <div className="sm:col-span-2 space-y-1.5">
-                        <Label>Cantidad</Label>
-                        <Input
-                          type="number"
-                          step="1"
-                          value={String(it.quantity)}
-                          onChange={(e) => {
-                            const q = Number(e.target.value || 0);
-                            setItemsDraft((prev) =>
-                              prev.map((p, i) =>
-                                i === idx ? { ...p, quantity: q, total: q * Number(p.unit_price || 0) } : p,
-                              ),
-                            );
-                          }}
+                    <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                      <div className="mb-4">
+                        <div className="text-sm font-bold text-slate-900">Datos del cliente</div>
+                        <div className="text-xs text-muted-foreground">
+                          Estos datos aparecerán en la factura pública.
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Nombre</Label>
+                          <Input name="clientName" defaultValue={invData.clientName || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Empresa</Label>
+                          <Input name="clientCompany" defaultValue={invData.clientCompany || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Email</Label>
+                          <Input name="clientEmail" defaultValue={invData.clientEmail || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Teléfono</Label>
+                          <Input name="clientPhone" defaultValue={invData.clientPhone || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Tax ID / RNC</Label>
+                          <Input name="clientTaxId" defaultValue={invData.clientTaxId || ""} />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 space-y-1.5">
+                        <Label>Dirección</Label>
+                        <Textarea
+                          name="clientAddress"
+                          defaultValue={invData.clientAddress || ""}
+                          rows={2}
                         />
                       </div>
+                    </section>
 
-                      <div className="sm:col-span-2 space-y-1.5">
-                        <Label>Precio</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={String(it.unit_price)}
-                          onChange={(e) => {
-                            const up = Number(e.target.value || 0);
-                            setItemsDraft((prev) =>
-                              prev.map((p, i) =>
-                                i === idx ? { ...p, unit_price: up, total: Number(p.quantity || 0) * up } : p,
-                              ),
-                            );
-                          }}
-                        />
+                    <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                      <div className="mb-4">
+                        <div className="text-sm font-bold text-slate-900">Items de la factura</div>
+                        <div className="text-xs text-muted-foreground">
+                          Agrega los servicios, cantidades y precios que se cobrarán.
+                        </div>
                       </div>
 
-                      <div className="sm:col-span-2 space-y-1.5">
-                        <Label>Total</Label>
-                        <Input value={String(it.total)} readOnly />
+                      <div className="space-y-3">
+                        {itemsDraft.map((it, idx) => (
+                          <div
+                            key={it.id || idx}
+                            className="grid grid-cols-1 sm:grid-cols-12 gap-3 rounded-[16px] border bg-muted/10 p-3"
+                          >
+                            <div className="sm:col-span-6 space-y-1.5">
+                              <Label>Descripción</Label>
+                              <Input
+                                value={it.description}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setItemsDraft((prev) =>
+                                    prev.map((p, i) => (i === idx ? { ...p, description: v } : p)),
+                                  );
+                                }}
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2 space-y-1.5">
+                              <Label>Cantidad</Label>
+                              <Input
+                                type="number"
+                                step="1"
+                                value={String(it.quantity)}
+                                onChange={(e) => {
+                                  const q = Number(e.target.value || 0);
+                                  setItemsDraft((prev) =>
+                                    prev.map((p, i) =>
+                                      i === idx
+                                        ? {
+                                            ...p,
+                                            quantity: q,
+                                            total: q * Number(p.unit_price || 0),
+                                          }
+                                        : p,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2 space-y-1.5">
+                              <Label>Precio</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={String(it.unit_price)}
+                                onChange={(e) => {
+                                  const up = Number(e.target.value || 0);
+                                  setItemsDraft((prev) =>
+                                    prev.map((p, i) =>
+                                      i === idx
+                                        ? {
+                                            ...p,
+                                            unit_price: up,
+                                            total: Number(p.quantity || 0) * up,
+                                          }
+                                        : p,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2 space-y-1.5">
+                              <Label>Total</Label>
+                              <Input value={String(it.total)} readOnly />
+                            </div>
+
+                            <div className="sm:col-span-12 flex justify-end">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() =>
+                                  setItemsDraft((prev) => prev.filter((_, i) => i !== idx))
+                                }
+                                disabled={itemsDraft.length <= 1}
+                              >
+                                Quitar item
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
 
-                      <div className="sm:col-span-12 flex justify-end">
+                      <div className="mt-3">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="h-8 text-xs"
-                          onClick={() => setItemsDraft((prev) => prev.filter((_, i) => i !== idx))}
-                          disabled={itemsDraft.length <= 1}
+                          onClick={() =>
+                            setItemsDraft((prev) => [
+                              ...prev,
+                              { description: "", quantity: 1, unit_price: 0, total: 0 },
+                            ])
+                          }
                         >
-                          Quitar item
+                          + Agregar item
                         </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </section>
 
-                <div className="mt-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => setItemsDraft((prev) => [...prev, { description: "", quantity: 1, unit_price: 0, total: 0 }])}
-                  >
-                    + Agregar item
-                  </Button>
-                </div>
-              </section>
+                    <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                      <div className="mb-4">
+                        <div className="text-sm font-bold text-slate-900">Totales</div>
+                        <div className="text-xs text-muted-foreground">
+                          El total se recalcula al guardar: subtotal + tax - discount.
+                        </div>
+                      </div>
 
-              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                <div className="mb-4">
-                  <div className="text-sm font-bold text-slate-900">Totales</div>
-                  <div className="text-xs text-muted-foreground">
-                    El total se recalcula al guardar: subtotal + tax - discount.
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Subtotal</Label>
+                          <Input
+                            name="subtotal"
+                            type="number"
+                            step="0.01"
+                            value={totalsDraft.subtotal}
+                            onChange={(e) => {
+                              setTotalsDirty(true);
+                              setTotalsDraft((p) => ({ ...p, subtotal: e.target.value }));
+                            }}
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Tax</Label>
+                          <Input
+                            name="tax"
+                            type="number"
+                            step="0.01"
+                            value={totalsDraft.tax}
+                            onChange={(e) => {
+                              setTotalsDirty(true);
+                              setTotalsDraft((p) => ({ ...p, tax: e.target.value }));
+                            }}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Discount</Label>
+                          <Input
+                            name="discount"
+                            type="number"
+                            step="0.01"
+                            value={totalsDraft.discount}
+                            onChange={(e) => {
+                              setTotalsDirty(true);
+                              setTotalsDraft((p) => ({ ...p, discount: e.target.value }));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                      <div className="mb-4">
+                        <div className="text-sm font-bold text-slate-900">Enlace público</div>
+                        <div className="text-xs text-muted-foreground">
+                          Guarda la factura y comparte este enlace para que el cliente pueda verla.
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Token público</Label>
+                        <Input
+                          name="public_token"
+                          defaultValue={editItem?.public_token || ""}
+                          readOnly
+                        />
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() =>
+                            editItem
+                              ? void copyPublicInvoiceLink(editItem)
+                              : toast.error("Guarda la factura para generar enlace")
+                          }
+                          disabled={!editItem?.public_token}
+                        >
+                          Copiar enlace
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() =>
+                            editItem
+                              ? openPublicInvoice(editItem)
+                              : toast.error("Guarda la factura para ver el enlace")
+                          }
+                          disabled={!editItem?.public_token}
+                        >
+                          Abrir factura pública
+                        </Button>
+                      </div>
+                    </section>
+
+                    <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                      <div className="mb-4">
+                        <div className="text-sm font-bold text-slate-900">Avanzado</div>
+                        <div className="text-xs text-muted-foreground">
+                          Datos del emisor, referencia de propuesta y notas internas.
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Nombre emisor</Label>
+                          <Input name="issuerName" defaultValue={invData.issuerName || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Tax ID emisor</Label>
+                          <Input name="issuerTaxId" defaultValue={invData.issuerTaxId || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Email emisor</Label>
+                          <Input name="issuerEmail" defaultValue={invData.issuerEmail || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Teléfono emisor</Label>
+                          <Input name="issuerPhone" defaultValue={invData.issuerPhone || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Website</Label>
+                          <Input name="issuerWebsite" defaultValue={invData.issuerWebsite || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Propuesta #</Label>
+                          <Input
+                            name="relatedProposalNumber"
+                            defaultValue={invData.relatedProposalNumber || ""}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Producto</Label>
+                          <Input name="productName" defaultValue={invData.productName || ""} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Título propuesta</Label>
+                          <Input
+                            name="relatedProposalTitle"
+                            defaultValue={invData.relatedProposalTitle || ""}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 space-y-1.5">
+                        <Label>Dirección emisor</Label>
+                        <Textarea
+                          name="issuerAddress"
+                          defaultValue={invData.issuerAddress || ""}
+                          rows={2}
+                        />
+                      </div>
+
+                      <div className="mt-4 space-y-1.5">
+                        <Label>Notas internas</Label>
+                        <Textarea name="notes" defaultValue={editItem?.notes || ""} rows={3} />
+                      </div>
+                    </section>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Subtotal</Label>
-                    <Input
-                      name="subtotal"
-                      type="number"
-                      step="0.01"
-                      value={totalsDraft.subtotal}
-                      onChange={(e) => {
-                        setTotalsDirty(true);
-                        setTotalsDraft((p) => ({ ...p, subtotal: e.target.value }));
-                      }}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Tax</Label>
-                    <Input
-                      name="tax"
-                      type="number"
-                      step="0.01"
-                      value={totalsDraft.tax}
-                      onChange={(e) => {
-                        setTotalsDirty(true);
-                        setTotalsDraft((p) => ({ ...p, tax: e.target.value }));
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Discount</Label>
-                    <Input
-                      name="discount"
-                      type="number"
-                      step="0.01"
-                      value={totalsDraft.discount}
-                      onChange={(e) => {
-                        setTotalsDirty(true);
-                        setTotalsDraft((p) => ({ ...p, discount: e.target.value }));
-                      }}
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                <div className="mb-4">
-                  <div className="text-sm font-bold text-slate-900">Enlace público</div>
-                  <div className="text-xs text-muted-foreground">
-                    Guarda la factura y comparte este enlace para que el cliente pueda verla.
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Token público</Label>
-                  <Input name="public_token" defaultValue={editItem?.public_token || ""} readOnly />
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => editItem ? void copyPublicInvoiceLink(editItem) : toast.error("Guarda la factura para generar enlace")}
-                    disabled={!editItem?.public_token}
-                  >
-                    Copiar enlace
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => editItem ? openPublicInvoice(editItem) : toast.error("Guarda la factura para ver el enlace")}
-                    disabled={!editItem?.public_token}
-                  >
-                    Abrir factura pública
-                  </Button>
-                </div>
-              </section>
-
-              <section className="rounded-[18px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                <div className="mb-4">
-                  <div className="text-sm font-bold text-slate-900">Avanzado</div>
-                  <div className="text-xs text-muted-foreground">
-                    Datos del emisor, referencia de propuesta y notas internas.
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><Label>Nombre emisor</Label><Input name="issuerName" defaultValue={invData.issuerName || ""} /></div>
-                  <div className="space-y-1.5"><Label>Tax ID emisor</Label><Input name="issuerTaxId" defaultValue={invData.issuerTaxId || ""} /></div>
-                  <div className="space-y-1.5"><Label>Email emisor</Label><Input name="issuerEmail" defaultValue={invData.issuerEmail || ""} /></div>
-                  <div className="space-y-1.5"><Label>Teléfono emisor</Label><Input name="issuerPhone" defaultValue={invData.issuerPhone || ""} /></div>
-                  <div className="space-y-1.5"><Label>Website</Label><Input name="issuerWebsite" defaultValue={invData.issuerWebsite || ""} /></div>
-                  <div className="space-y-1.5"><Label>Propuesta #</Label><Input name="relatedProposalNumber" defaultValue={invData.relatedProposalNumber || ""} /></div>
-                  <div className="space-y-1.5"><Label>Producto</Label><Input name="productName" defaultValue={invData.productName || ""} /></div>
-                  <div className="space-y-1.5"><Label>Título propuesta</Label><Input name="relatedProposalTitle" defaultValue={invData.relatedProposalTitle || ""} /></div>
-                </div>
-
-                <div className="mt-4 space-y-1.5">
-                  <Label>Dirección emisor</Label>
-                  <Textarea name="issuerAddress" defaultValue={invData.issuerAddress || ""} rows={2} />
-                </div>
-
-                <div className="mt-4 space-y-1.5">
-                  <Label>Notas internas</Label>
-                  <Textarea name="notes" defaultValue={editItem?.notes || ""} rows={3} />
-                </div>
-              </section>
-            </div>
-
                 </form>
               ) : null}
             </div>
           </ScrollArea>
 
-          {(drawerMode === "create" || drawerMode === "edit") ? (
+          {drawerMode === "create" || drawerMode === "edit" ? (
             <div className="border-t bg-background px-5 py-3 flex items-center justify-end gap-2">
               <Button
                 type="button"
@@ -1314,8 +1584,17 @@ function InvoicesPage() {
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Invoice</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(o) => {
+          if (!o) setDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -1341,7 +1620,6 @@ function InvoicesPage() {
       </AlertDialog>
 
       {/* Drawer handles view/create/edit */}
-
     </div>
   );
 }

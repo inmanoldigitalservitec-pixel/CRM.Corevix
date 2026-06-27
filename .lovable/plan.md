@@ -1,4 +1,3 @@
-
 # Plan: Complete the CRM Foundation
 
 The CRM has a solid structure — 31 database tables, 19 routes, auth system, shared components, and 6 modules connected to the database via `useCrud`. However, several critical gaps remain.
@@ -10,6 +9,7 @@ The CRM has a solid structure — 31 database tables, 19 routes, auth system, sh
 The `handle_new_user()` function exists but **no trigger is attached** to `auth.users`. Sign-up creates an auth user but no profile, company, roles, or permissions — breaking the entire app post-registration.
 
 **Fix:** Create a migration to attach the trigger:
+
 ```sql
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -24,14 +24,14 @@ Email verification is currently required, which blocks testing. Will enable auto
 
 These routes currently use hardcoded/mock data and need to be wired to the DB:
 
-| Route | Current State | Action |
-|-------|--------------|--------|
-| **Pipeline** | Mock deal stages | Connect to `deals` + `deal_stages` tables, build drag-drop Kanban |
-| **Email** | Static mock inbox | Connect to `email_conversations` + `email_messages` tables |
-| **Calendar** | Placeholder | Connect to `tasks` (by due_date) and show in calendar view |
-| **Reports** | Placeholder | Build real aggregation queries from leads/deals/invoices |
-| **AI Assistant** | Placeholder | Add Lovable AI integration for CRM insights |
-| **Team** | Mock data | Connect to `profiles` + `user_roles` tables for team management |
+| Route            | Current State     | Action                                                            |
+| ---------------- | ----------------- | ----------------------------------------------------------------- |
+| **Pipeline**     | Mock deal stages  | Connect to `deals` + `deal_stages` tables, build drag-drop Kanban |
+| **Email**        | Static mock inbox | Connect to `email_conversations` + `email_messages` tables        |
+| **Calendar**     | Placeholder       | Connect to `tasks` (by due_date) and show in calendar view        |
+| **Reports**      | Placeholder       | Build real aggregation queries from leads/deals/invoices          |
+| **AI Assistant** | Placeholder       | Add Lovable AI integration for CRM insights                       |
+| **Team**         | Mock data         | Connect to `profiles` + `user_roles` tables for team management   |
 
 ## 4. Dashboard — Wire Real Metrics
 

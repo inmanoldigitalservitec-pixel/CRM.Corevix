@@ -29,7 +29,8 @@ function getEnv(name: string) {
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-    if (req.method !== "POST" && req.method !== "GET") return jsonResponse({ error: "Method not allowed" }, 405);
+    if (req.method !== "POST" && req.method !== "GET")
+      return jsonResponse({ error: "Method not allowed" }, 405);
 
     const supabaseUrl = getEnv("SUPABASE_URL");
     const supabaseAnonKey = getEnv("SUPABASE_ANON_KEY");
@@ -37,7 +38,11 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") || "";
     const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
-    if (!jwt) return jsonResponse({ ok: false, success: false, error: "Missing Authorization bearer token" }, 401);
+    if (!jwt)
+      return jsonResponse(
+        { ok: false, success: false, error: "Missing Authorization bearer token" },
+        401,
+      );
 
     const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
@@ -49,22 +54,39 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false, success: false, error: "Invalid session" }, 401);
     }
 
-    const [{ data: companyId, error: companyErr }, { data: isMember, error: memberErr }, { data: hasRole, error: roleErr }] =
-      await Promise.all([
-        callerClient.rpc("get_current_company_id"),
-        callerClient.rpc("is_company_member"),
-        callerClient.rpc("has_any_role", {
-          _user_id: authData.user.id,
-          _roles: ["super_admin", "admin", "manager"] as AllowedRole[],
-        }),
-      ]);
+    const [
+      { data: companyId, error: companyErr },
+      { data: isMember, error: memberErr },
+      { data: hasRole, error: roleErr },
+    ] = await Promise.all([
+      callerClient.rpc("get_current_company_id"),
+      callerClient.rpc("is_company_member"),
+      callerClient.rpc("has_any_role", {
+        _user_id: authData.user.id,
+        _roles: ["super_admin", "admin", "manager"] as AllowedRole[],
+      }),
+    ]);
 
-    if (companyErr) return jsonResponse({ ok: false, success: false, error: companyErr.message }, 403);
-    if (memberErr) return jsonResponse({ ok: false, success: false, error: memberErr.message }, 403);
+    if (companyErr)
+      return jsonResponse({ ok: false, success: false, error: companyErr.message }, 403);
+    if (memberErr)
+      return jsonResponse({ ok: false, success: false, error: memberErr.message }, 403);
     if (roleErr) return jsonResponse({ ok: false, success: false, error: roleErr.message }, 403);
-    if (!companyId) return jsonResponse({ ok: false, success: false, error: "No company context (missing profile.company_id)" }, 403);
-    if (!isMember) return jsonResponse({ ok: false, success: false, error: "Account is inactive or not a company member" }, 403);
-    if (!hasRole) return jsonResponse({ ok: false, success: false, error: "Not authorized (super_admin/admin/manager only)" }, 403);
+    if (!companyId)
+      return jsonResponse(
+        { ok: false, success: false, error: "No company context (missing profile.company_id)" },
+        403,
+      );
+    if (!isMember)
+      return jsonResponse(
+        { ok: false, success: false, error: "Account is inactive or not a company member" },
+        403,
+      );
+    if (!hasRole)
+      return jsonResponse(
+        { ok: false, success: false, error: "Not authorized (super_admin/admin/manager only)" },
+        403,
+      );
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false },
@@ -72,10 +94,13 @@ Deno.serve(async (req) => {
 
     const { data: secrets, error: secretsErr } = await serviceClient
       .from("company_whatsapp_secrets")
-      .select("access_token_last4, app_secret_last4, access_token_configured_at, app_secret_configured_at")
+      .select(
+        "access_token_last4, app_secret_last4, access_token_configured_at, app_secret_configured_at",
+      )
       .eq("company_id", companyId)
       .maybeSingle();
-    if (secretsErr) return jsonResponse({ ok: false, success: false, error: secretsErr.message }, 500);
+    if (secretsErr)
+      return jsonResponse({ ok: false, success: false, error: secretsErr.message }, 500);
 
     return jsonResponse({
       ok: true,

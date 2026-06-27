@@ -1,10 +1,25 @@
 import { useState } from "react";
-import { Send, Paperclip, Smile, StickyNote, FileText, MoreHorizontal, Check, CheckCheck, Clock } from "lucide-react";
+import {
+  Send,
+  Paperclip,
+  Smile,
+  StickyNote,
+  FileText,
+  MoreHorizontal,
+  Check,
+  CheckCheck,
+  Clock,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -41,7 +56,11 @@ function groupByDate(messages: Message[]) {
   const groups: { date: string; messages: Message[] }[] = [];
   let currentDate = "";
   for (const msg of messages) {
-    const d = new Date(msg.createdAt).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+    const d = new Date(msg.createdAt).toLocaleDateString([], {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
     if (d !== currentDate) {
       currentDate = d;
       groups.push({ date: d, messages: [msg] });
@@ -52,7 +71,13 @@ function groupByDate(messages: Message[]) {
   return groups;
 }
 
-export function MessageThread({ contactName, contactPhone, messages, onSendMessage, onSendTemplate }: MessageThreadProps) {
+export function MessageThread({
+  contactName,
+  contactPhone,
+  messages,
+  onSendMessage,
+  onSendTemplate,
+}: MessageThreadProps) {
   const [text, setText] = useState("");
   const [isNoteMode, setIsNoteMode] = useState(false);
 
@@ -70,7 +95,12 @@ export function MessageThread({ contactName, contactPhone, messages, onSendMessa
       <div className="flex items-center justify-between px-4 py-2.5 border-b bg-card">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 text-xs font-semibold">
-            {contactName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+            {contactName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
           </div>
           <div>
             <h3 className="text-sm font-semibold leading-tight">{contactName}</h3>
@@ -97,7 +127,9 @@ export function MessageThread({ contactName, contactPhone, messages, onSendMessa
           {groups.map((group) => (
             <div key={group.date}>
               <div className="flex justify-center my-3">
-                <span className="text-[10px] text-muted-foreground bg-muted/60 px-2.5 py-0.5 rounded-full">{group.date}</span>
+                <span className="text-[10px] text-muted-foreground bg-muted/60 px-2.5 py-0.5 rounded-full">
+                  {group.date}
+                </span>
               </div>
               {group.messages.map((msg) => {
                 if (msg.isInternalNote || msg.type === "note") {
@@ -117,20 +149,30 @@ export function MessageThread({ contactName, contactPhone, messages, onSendMessa
 
                 const isOut = msg.direction === "outbound";
                 return (
-                  <div key={msg.id} className={cn("flex mb-1", isOut ? "justify-end" : "justify-start")}>
+                  <div
+                    key={msg.id}
+                    className={cn("flex mb-1", isOut ? "justify-end" : "justify-start")}
+                  >
                     <div
                       className={cn(
                         "max-w-[70%] px-3 py-2 rounded-2xl text-sm shadow-sm",
                         isOut
                           ? "bg-primary text-primary-foreground rounded-br-md"
-                          : "bg-muted rounded-bl-md"
+                          : "bg-muted rounded-bl-md",
                       )}
                     >
                       {!isOut && (
-                        <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.senderName}</p>
+                        <p className="text-[10px] font-semibold mb-0.5 opacity-70">
+                          {msg.senderName}
+                        </p>
                       )}
                       <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                      <div className={cn("flex items-center gap-1 mt-1 justify-end", isOut ? "text-primary-foreground/60" : "text-muted-foreground")}>
+                      <div
+                        className={cn(
+                          "flex items-center gap-1 mt-1 justify-end",
+                          isOut ? "text-primary-foreground/60" : "text-muted-foreground",
+                        )}
+                      >
                         <span className="text-[10px]">{formatTime(msg.createdAt)}</span>
                         {isOut && msg.status && statusIcon[msg.status]}
                       </div>
@@ -144,22 +186,37 @@ export function MessageThread({ contactName, contactPhone, messages, onSendMessa
       </ScrollArea>
 
       {/* Input area */}
-      <div className={cn("border-t px-3 py-2.5", isNoteMode && "bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/40")}>
+      <div
+        className={cn(
+          "border-t px-3 py-2.5",
+          isNoteMode &&
+            "bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/40",
+        )}
+      >
         {isNoteMode && (
           <div className="flex items-center gap-1.5 mb-1.5 text-amber-700 dark:text-amber-400">
             <StickyNote className="h-3 w-3" />
-            <span className="text-[10px] font-semibold">Internal note — only visible to your team</span>
+            <span className="text-[10px] font-semibold">
+              Internal note — only visible to your team
+            </span>
           </div>
         )}
         <div className="flex items-center gap-1.5 max-w-2xl mx-auto">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setIsNoteMode(!isNoteMode)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setIsNoteMode(!isNoteMode)}
+                >
                   <StickyNote className={cn("h-4 w-4", isNoteMode && "text-amber-600")} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{isNoteMode ? "Switch to message" : "Write internal note"}</TooltipContent>
+              <TooltipContent>
+                {isNoteMode ? "Switch to message" : "Write internal note"}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
@@ -177,7 +234,12 @@ export function MessageThread({ contactName, contactPhone, messages, onSendMessa
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onSendTemplate}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={onSendTemplate}
+                >
                   <FileText className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -189,7 +251,12 @@ export function MessageThread({ contactName, contactPhone, messages, onSendMessa
             placeholder={isNoteMode ? "Write an internal note..." : "Type a message..."}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             className={cn("h-9 text-sm", isNoteMode && "border-amber-300 dark:border-amber-700")}
           />
 

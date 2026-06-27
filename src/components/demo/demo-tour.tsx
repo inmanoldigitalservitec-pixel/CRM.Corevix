@@ -1,4 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
@@ -70,7 +78,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Entrada del lead por WhatsApp",
-        description: "El flujo empieza cuando un prospecto escribe por WhatsApp. Aquí el equipo ve todas las conversaciones entrantes.",
+        description:
+          "El flujo empieza cuando un prospecto escribe por WhatsApp. Aquí el equipo ve todas las conversaciones entrantes.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-conversation-list"]',
       },
@@ -79,7 +88,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Selecciona la conversación demo",
-        description: "Haz clic en la conversación demo para abrir el historial del prospecto y ver el contexto antes de tomar acción.",
+        description:
+          "Haz clic en la conversación demo para abrir el historial del prospecto y ver el contexto antes de tomar acción.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-conversation-list"]',
         mode: "action",
@@ -90,7 +100,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Conversación activa",
-        description: "En el centro se atiende al prospecto. Aquí puedes leer mensajes, entender la necesidad y responder si la ventana está disponible.",
+        description:
+          "En el centro se atiende al prospecto. Aquí puedes leer mensajes, entender la necesidad y responder si la ventana está disponible.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-active-thread"]',
       },
@@ -99,7 +110,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Panel CRM conectado",
-        description: "A la derecha aparece el panel CRM. Desde aquí puedes convertir una conversación en lead, oportunidad, propuesta, tarea o cliente.",
+        description:
+          "A la derecha aparece el panel CRM. Desde aquí puedes convertir una conversación en lead, oportunidad, propuesta, tarea o cliente.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-crm-panel"]',
       },
@@ -108,7 +120,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Crea el prospecto desde WhatsApp",
-        description: "Haz clic en Crear prospecto desde WhatsApp. Esta acción conecta la conversación con el módulo de Prospectos.",
+        description:
+          "Haz clic en Crear prospecto desde WhatsApp. Esta acción conecta la conversación con el módulo de Prospectos.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-create-lead"]',
         mode: "action",
@@ -119,7 +132,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Acciones rápidas",
-        description: "Después de crear o detectar un prospecto, el panel permite avanzar el proceso comercial sin salir de WhatsApp.",
+        description:
+          "Después de crear o detectar un prospecto, el panel permite avanzar el proceso comercial sin salir de WhatsApp.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-quick-actions"]',
       },
@@ -128,7 +142,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Crea una oportunidad",
-        description: "Haz clic en Crear oportunidad para pasar de una simple conversación a una oportunidad dentro del pipeline comercial.",
+        description:
+          "Haz clic en Crear oportunidad para pasar de una simple conversación a una oportunidad dentro del pipeline comercial.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-create-deal"]',
         mode: "action",
@@ -139,7 +154,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Datos detectados",
-        description: "El CRM puede mostrar datos útiles detectados en la conversación, como nombre, teléfono, intención, servicio o información comercial.",
+        description:
+          "El CRM puede mostrar datos útiles detectados en la conversación, como nombre, teléfono, intención, servicio o información comercial.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-detected-data"]',
       },
@@ -148,7 +164,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Producto sugerido",
-        description: "El sistema relaciona la conversación con un producto de interés. Esto ayuda a conectar el lead con una oportunidad y una propuesta.",
+        description:
+          "El sistema relaciona la conversación con un producto de interés. Esto ayuda a conectar el lead con una oportunidad y una propuesta.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-suggested-product"]',
       },
@@ -157,7 +174,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Seguimiento conectado a tareas",
-        description: "Los seguimientos comerciales se convierten en tareas. Así el equipo sabe qué hacer, cuándo hacerlo y con quién.",
+        description:
+          "Los seguimientos comerciales se convierten en tareas. Así el equipo sabe qué hacer, cuándo hacerlo y con quién.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-followup"]',
       },
@@ -166,7 +184,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 1",
         moduleTitle: "WhatsApp",
         title: "Propuestas desde WhatsApp",
-        description: "El agente puede seleccionar una propuesta y continuar el proceso comercial desde el mismo panel de WhatsApp.",
+        description:
+          "El agente puede seleccionar una propuesta y continuar el proceso comercial desde el mismo panel de WhatsApp.",
         to: "/whatsapp",
         selector: '[data-demo="whatsapp-proposals"]',
       },
@@ -176,7 +195,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Administrar leads",
-        description: "Aquí se revisan los prospectos capturados desde WhatsApp, formularios u otros canales. El equipo puede filtrar, asignar y priorizar oportunidades.",
+        description:
+          "Aquí se revisan los prospectos capturados desde WhatsApp, formularios u otros canales. El equipo puede filtrar, asignar y priorizar oportunidades.",
         to: "/leads",
         selector: '[data-demo="leads-main"]',
       },
@@ -185,7 +205,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Crear lead manualmente",
-        description: "Además de capturar prospectos automáticamente desde WhatsApp, también puedes crear un lead manualmente desde el botón Nuevo lead.",
+        description:
+          "Además de capturar prospectos automáticamente desde WhatsApp, también puedes crear un lead manualmente desde el botón Nuevo lead.",
         to: "/leads",
         selector: '[data-demo="leads-new-lead-button"]',
       },
@@ -194,7 +215,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Detalles del prospecto",
-        description: "Esta parte resume la información principal del lead: empresa, email, teléfono, responsable, interés, valor estimado, última actividad y próximo paso.",
+        description:
+          "Esta parte resume la información principal del lead: empresa, email, teléfono, responsable, interés, valor estimado, última actividad y próximo paso.",
         to: "/leads",
         selector: '[data-demo="leads-detail-summary"]',
       },
@@ -203,7 +225,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Acciones rápidas del lead",
-        description: "Cuando abres el detalle de un prospecto, aquí puedes escribir por WhatsApp, enviar email, llamar o crear un seguimiento.",
+        description:
+          "Cuando abres el detalle de un prospecto, aquí puedes escribir por WhatsApp, enviar email, llamar o crear un seguimiento.",
         to: "/leads",
         selector: '[data-demo="leads-quick-actions"]',
       },
@@ -212,7 +235,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Seguimiento del prospecto",
-        description: "El seguimiento se conecta con tareas del CRM para que el equipo no olvide llamar, escribir o revisar una propuesta pendiente.",
+        description:
+          "El seguimiento se conecta con tareas del CRM para que el equipo no olvide llamar, escribir o revisar una propuesta pendiente.",
         to: "/leads",
         selector: '[data-demo="leads-followup"]',
       },
@@ -221,7 +245,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Asignación del responsable",
-        description: "Cada prospecto puede tener un responsable. Esto evita confusión y deja claro quién debe atender el seguimiento.",
+        description:
+          "Cada prospecto puede tener un responsable. Esto evita confusión y deja claro quién debe atender el seguimiento.",
         to: "/leads",
         selector: '[data-demo="leads-assignment"]',
       },
@@ -230,7 +255,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Datos de contacto",
-        description: "Aquí están los datos principales del prospecto: teléfono, WhatsApp y servicio de interés.",
+        description:
+          "Aquí están los datos principales del prospecto: teléfono, WhatsApp y servicio de interés.",
         to: "/leads",
         selector: '[data-demo="leads-contact"]',
       },
@@ -239,18 +265,19 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 2",
         moduleTitle: "Prospectos",
         title: "Última actividad",
-        description: "Esta sección muestra cuándo fue la última interacción registrada para entender qué tan reciente está el contacto.",
+        description:
+          "Esta sección muestra cuándo fue la última interacción registrada para entender qué tan reciente está el contacto.",
         to: "/leads",
         selector: '[data-demo="leads-last-activity"]',
       },
-
 
       {
         id: "pipeline-main",
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Vista general del pipeline",
-        description: "El pipeline muestra las oportunidades comerciales por etapa. Aquí puedes ver el valor total, cantidad de oportunidades, ticket promedio, tasa de cierre y ventas ganadas.",
+        description:
+          "El pipeline muestra las oportunidades comerciales por etapa. Aquí puedes ver el valor total, cantidad de oportunidades, ticket promedio, tasa de cierre y ventas ganadas.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-main"]',
       },
@@ -259,7 +286,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Crear oportunidad manual",
-        description: "La mayoría de oportunidades nacen desde WhatsApp o Prospectos, pero también puedes crear una oportunidad manual. Lo ideal es conectarla a un prospecto existente o a un cliente actual que quiere comprar otro producto.",
+        description:
+          "La mayoría de oportunidades nacen desde WhatsApp o Prospectos, pero también puedes crear una oportunidad manual. Lo ideal es conectarla a un prospecto existente o a un cliente actual que quiere comprar otro producto.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-new-deal-button"]',
       },
@@ -268,7 +296,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Board de oportunidades",
-        description: "El board organiza las oportunidades en columnas. Cada columna representa una etapa del proceso comercial: nuevo, discovery, calificado, propuesta, negociación y cierre.",
+        description:
+          "El board organiza las oportunidades en columnas. Cada columna representa una etapa del proceso comercial: nuevo, discovery, calificado, propuesta, negociación y cierre.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-board"]',
       },
@@ -277,7 +306,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Etapa 1: Nueva oportunidad",
-        description: "Aquí entran las oportunidades recién creadas. Normalmente todavía necesitan validación, primer contacto o revisión inicial.",
+        description:
+          "Aquí entran las oportunidades recién creadas. Normalmente todavía necesitan validación, primer contacto o revisión inicial.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-stage-1"]',
       },
@@ -286,7 +316,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Etapa 2: Discovery",
-        description: "En Discovery se entiende mejor la necesidad del prospecto: qué quiere resolver, presupuesto, urgencia y si realmente encaja con el servicio.",
+        description:
+          "En Discovery se entiende mejor la necesidad del prospecto: qué quiere resolver, presupuesto, urgencia y si realmente encaja con el servicio.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-stage-2"]',
       },
@@ -295,7 +326,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Etapa 3: Calificado",
-        description: "Una oportunidad calificada ya tiene señales claras de interés. Aquí el equipo puede preparar propuesta o definir el siguiente paso comercial.",
+        description:
+          "Una oportunidad calificada ya tiene señales claras de interés. Aquí el equipo puede preparar propuesta o definir el siguiente paso comercial.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-stage-3"]',
       },
@@ -304,7 +336,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Etapa 4: Propuesta enviada",
-        description: "Aquí están las oportunidades que ya recibieron una propuesta. El foco es dar seguimiento, resolver dudas y mover la venta hacia cierre.",
+        description:
+          "Aquí están las oportunidades que ya recibieron una propuesta. El foco es dar seguimiento, resolver dudas y mover la venta hacia cierre.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-stage-4"]',
       },
@@ -313,7 +346,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Etapa 5: Negociación",
-        description: "En negociación se ajustan condiciones, alcance o precio. Es la etapa previa a marcar la oportunidad como ganada o perdida.",
+        description:
+          "En negociación se ajustan condiciones, alcance o precio. Es la etapa previa a marcar la oportunidad como ganada o perdida.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-stage-5"]',
       },
@@ -322,7 +356,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Detalle de oportunidad",
-        description: "Al abrir una oportunidad, el panel derecho resume etapa, valor, probabilidad, cierre esperado, responsable, cliente y prospecto conectado.",
+        description:
+          "Al abrir una oportunidad, el panel derecho resume etapa, valor, probabilidad, cierre esperado, responsable, cliente y prospecto conectado.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-detail-summary"]',
       },
@@ -331,7 +366,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Cierre de oportunidad",
-        description: "Cuando la negociación termina, puedes marcar la oportunidad como ganada o perdida. Esto alimenta las métricas de ventas y el historial comercial.",
+        description:
+          "Cuando la negociación termina, puedes marcar la oportunidad como ganada o perdida. Esto alimenta las métricas de ventas y el historial comercial.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-close"]',
       },
@@ -340,7 +376,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Resumen comercial",
-        description: "Esta sección muestra el valor, probabilidad, fecha estimada de cierre y responsable. Sirve para tomar decisiones rápidas sobre la oportunidad.",
+        description:
+          "Esta sección muestra el valor, probabilidad, fecha estimada de cierre y responsable. Sirve para tomar decisiones rápidas sobre la oportunidad.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-commercial-summary"]',
       },
@@ -349,7 +386,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Prospecto conectado",
-        description: "La oportunidad queda conectada al prospecto original. Así puedes regresar al lead, ver su contacto y entender de dónde viene la venta.",
+        description:
+          "La oportunidad queda conectada al prospecto original. Así puedes regresar al lead, ver su contacto y entender de dónde viene la venta.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-prospect"]',
       },
@@ -358,7 +396,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Productos de la oportunidad",
-        description: "Aquí se asocia el producto vendido. Esto permite calcular valor, preparar propuesta y luego crear proyectos con el workflow correcto.",
+        description:
+          "Aquí se asocia el producto vendido. Esto permite calcular valor, preparar propuesta y luego crear proyectos con el workflow correcto.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-deal-products"]',
       },
@@ -367,7 +406,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Seguimiento de oportunidad",
-        description: "El seguimiento evita que una oportunidad quede olvidada. Puedes crear tareas comerciales con fecha, prioridad y responsable.",
+        description:
+          "El seguimiento evita que una oportunidad quede olvidada. Puedes crear tareas comerciales con fecha, prioridad y responsable.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-followup"]',
       },
@@ -376,7 +416,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 3",
         moduleTitle: "Pipeline",
         title: "Acciones rápidas",
-        description: "Desde acciones rápidas puedes escribir por WhatsApp, enviar email, llamar o crear seguimiento sin salir de la oportunidad.",
+        description:
+          "Desde acciones rápidas puedes escribir por WhatsApp, enviar email, llamar o crear seguimiento sin salir de la oportunidad.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-actions"]',
       },
@@ -386,7 +427,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 4",
         moduleTitle: "Propuestas",
         title: "Crear y enviar propuestas",
-        description: "En propuestas se preparan ofertas comerciales conectadas a leads, clientes, productos y oportunidades. Cada propuesta puede tener enlace público.",
+        description:
+          "En propuestas se preparan ofertas comerciales conectadas a leads, clientes, productos y oportunidades. Cada propuesta puede tener enlace público.",
         to: "/proposals",
         selector: '[data-demo="proposals-main"]',
       },
@@ -396,7 +438,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 4",
         moduleTitle: "Propuestas",
         title: "Crear una nueva propuesta",
-        description: "Desde aquí puedes crear una propuesta conectada a un prospecto, cliente, oportunidad y producto. La idea es que la propuesta salga rápida usando datos ya existentes.",
+        description:
+          "Desde aquí puedes crear una propuesta conectada a un prospecto, cliente, oportunidad y producto. La idea es que la propuesta salga rápida usando datos ya existentes.",
         to: "/proposals",
         selector: '[data-demo="proposal-editor"]',
       },
@@ -405,7 +448,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 4",
         moduleTitle: "Propuestas",
         title: "Datos principales",
-        description: "Aquí se define lo esencial: título, estado, destinatario, producto, monto, moneda y fecha de validez. Esta parte debe ser rápida y clara.",
+        description:
+          "Aquí se define lo esencial: título, estado, destinatario, producto, monto, moneda y fecha de validez. Esta parte debe ser rápida y clara.",
         to: "/proposals",
         selector: '[data-demo="proposal-main-fields"]',
       },
@@ -414,7 +458,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 4",
         moduleTitle: "Propuestas",
         title: "Producto y datos automáticos",
-        description: "Al seleccionar un producto, puedes usar sus datos base para llenar entregables, precio, tiempo y condiciones. Así no tienes que escribir todo desde cero.",
+        description:
+          "Al seleccionar un producto, puedes usar sus datos base para llenar entregables, precio, tiempo y condiciones. Así no tienes que escribir todo desde cero.",
         to: "/proposals",
         selector: '[data-demo="proposal-product-selector"]',
       },
@@ -423,7 +468,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 4",
         moduleTitle: "Propuestas",
         title: "Validez rápida",
-        description: "La propuesta puede tener una fecha de validez. Usa opciones rápidas como 7, 15 o 30 días para evitar escribir fechas manualmente.",
+        description:
+          "La propuesta puede tener una fecha de validez. Usa opciones rápidas como 7, 15 o 30 días para evitar escribir fechas manualmente.",
         to: "/proposals",
         selector: '[data-demo="proposal-validity"]',
       },
@@ -432,7 +478,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 4",
         moduleTitle: "Propuestas",
         title: "Aprobación y factura automática",
-        description: "Cuando el cliente abre el enlace público y hace clic en Aprobar propuesta, el CRM marca la propuesta como aprobada y genera automáticamente una factura en el módulo de Invoices.",
+        description:
+          "Cuando el cliente abre el enlace público y hace clic en Aprobar propuesta, el CRM marca la propuesta como aprobada y genera automáticamente una factura en el módulo de Invoices.",
         to: "/proposals",
         selector: '[data-demo="proposal-public-preview"]',
       },
@@ -441,7 +488,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 4",
         moduleTitle: "Propuestas",
         title: "Acciones rápidas de propuesta",
-        description: "Cada propuesta tiene acciones rápidas: ver detalles, copiar el enlace público, abrir la versión que verá el cliente y editar el contenido cuando haga falta.",
+        description:
+          "Cada propuesta tiene acciones rápidas: ver detalles, copiar el enlace público, abrir la versión que verá el cliente y editar el contenido cuando haga falta.",
         to: "/proposals",
         selector: '[data-demo="proposal-row-actions"]',
       },
@@ -450,7 +498,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "Módulo de facturas",
-        description: "Invoices centraliza las facturas generadas por el CRM. Cuando un cliente aprueba una propuesta pública, el sistema puede crear una factura automáticamente.",
+        description:
+          "Invoices centraliza las facturas generadas por el CRM. Cuando un cliente aprueba una propuesta pública, el sistema puede crear una factura automáticamente.",
         to: "/invoices",
         selector: '[data-demo="invoices-main"]',
       },
@@ -459,7 +508,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "Factura generada desde propuesta",
-        description: "Esta factura viene conectada a una propuesta aprobada. Así el flujo queda organizado: prospecto, oportunidad, propuesta, factura y luego proyecto.",
+        description:
+          "Esta factura viene conectada a una propuesta aprobada. Así el flujo queda organizado: prospecto, oportunidad, propuesta, factura y luego proyecto.",
         to: "/invoices",
         selector: '[data-demo="invoice-first-row"]',
       },
@@ -468,7 +518,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "Estado de la factura",
-        description: "El estado indica si la factura está pendiente, enviada, pagada o vencida. Esto permite saber rápidamente qué clientes ya avanzaron al siguiente paso.",
+        description:
+          "El estado indica si la factura está pendiente, enviada, pagada o vencida. Esto permite saber rápidamente qué clientes ya avanzaron al siguiente paso.",
         to: "/invoices",
         selector: '[data-demo="invoice-status"]',
       },
@@ -477,7 +528,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "Copiar enlace de factura",
-        description: "Este botón copia el enlace público de la factura para enviarlo por WhatsApp, email o cualquier canal de comunicación.",
+        description:
+          "Este botón copia el enlace público de la factura para enviarlo por WhatsApp, email o cualquier canal de comunicación.",
         to: "/invoices",
         selector: '[data-demo="invoice-copy-link"]',
       },
@@ -486,7 +538,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "Ver factura pública",
-        description: "Este botón abre la factura como la verá el cliente. Sirve para revisar el monto, los ítems, los datos de pago y el diseño antes de enviarla.",
+        description:
+          "Este botón abre la factura como la verá el cliente. Sirve para revisar el monto, los ítems, los datos de pago y el diseño antes de enviarla.",
         to: "/invoices",
         selector: '[data-demo="invoice-open-public"]',
       },
@@ -495,7 +548,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "Factura pública para el cliente",
-        description: "Esta es la factura como la verá el cliente desde el enlace público. Aquí podrá revisar el monto, los ítems, la fecha de vencimiento y el botón de pago con PayPal.",
+        description:
+          "Esta es la factura como la verá el cliente desde el enlace público. Aquí podrá revisar el monto, los ítems, la fecha de vencimiento y el botón de pago con PayPal.",
         to: "/invoices",
         selector: '[data-demo="invoice-public-preview"]',
       },
@@ -504,7 +558,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "Marcar como pagada",
-        description: "Cuando la factura se marca como pagada, el CRM puede crear automáticamente el proyecto relacionado y activar el trabajo operativo.",
+        description:
+          "Cuando la factura se marca como pagada, el CRM puede crear automáticamente el proyecto relacionado y activar el trabajo operativo.",
         to: "/invoices",
         selector: '[data-demo="invoice-mark-paid"], [data-demo="invoice-status-control"]',
       },
@@ -513,19 +568,19 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 5",
         moduleTitle: "Invoices",
         title: "De factura a proyecto",
-        description: "Después del pago, el siguiente paso es crear o abrir el proyecto. Así el equipo pasa de venta cerrada a ejecución del servicio.",
+        description:
+          "Después del pago, el siguiente paso es crear o abrir el proyecto. Así el equipo pasa de venta cerrada a ejecución del servicio.",
         to: "/invoices",
         selector: '[data-demo="invoice-create-project"], [data-demo="invoice-view-project"]',
       },
-
-
 
       {
         id: "projects-main",
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Módulo de proyectos",
-        description: "Projects es donde empieza la ejecución real del trabajo. Después de una factura pagada, el equipo puede convertir la venta en un proyecto operativo.",
+        description:
+          "Projects es donde empieza la ejecución real del trabajo. Después de una factura pagada, el equipo puede convertir la venta en un proyecto operativo.",
         to: "/projects",
         selector: '[data-demo="projects-main"]',
       },
@@ -534,7 +589,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Panel de proyectos",
-        description: "Aquí se organiza todo el portafolio de proyectos. Puedes buscar, filtrar por estado, cliente, producto, manager o tareas para saber qué necesita atención.",
+        description:
+          "Aquí se organiza todo el portafolio de proyectos. Puedes buscar, filtrar por estado, cliente, producto, manager o tareas para saber qué necesita atención.",
         to: "/projects",
         selector: '[data-demo="projects-list"]',
       },
@@ -543,7 +599,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Proyecto creado desde la venta",
-        description: "Cada fila representa un proyecto. Normalmente nace después de una oportunidad ganada, una propuesta aprobada o una factura pagada.",
+        description:
+          "Cada fila representa un proyecto. Normalmente nace después de una oportunidad ganada, una propuesta aprobada o una factura pagada.",
         to: "/projects",
         selector: '[data-demo="projects-first-row"]',
       },
@@ -552,7 +609,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Estado del proyecto",
-        description: "El estado permite saber si el proyecto no ha iniciado, está en progreso, está pausado, completado o cancelado.",
+        description:
+          "El estado permite saber si el proyecto no ha iniciado, está en progreso, está pausado, completado o cancelado.",
         to: "/projects",
         selector: '[data-demo="projects-status"]',
       },
@@ -561,7 +619,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Progreso por tareas",
-        description: "El progreso se puede calcular según las tareas completadas. Esto ayuda a ver rápidamente cuánto avance real tiene el proyecto.",
+        description:
+          "El progreso se puede calcular según las tareas completadas. Esto ayuda a ver rápidamente cuánto avance real tiene el proyecto.",
         to: "/projects",
         selector: '[data-demo="projects-progress"]',
       },
@@ -570,7 +629,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Responsable del proyecto",
-        description: "El manager o responsable mantiene el control operativo. Así el equipo sabe quién debe dar seguimiento y coordinar la entrega.",
+        description:
+          "El manager o responsable mantiene el control operativo. Así el equipo sabe quién debe dar seguimiento y coordinar la entrega.",
         to: "/projects",
         selector: '[data-demo="projects-manager"]',
       },
@@ -579,7 +639,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Resumen de tareas",
-        description: "Esta columna resume cuántas tareas tiene el proyecto, cuántas están completadas, cuántas siguen pendientes y si hay tareas vencidas.",
+        description:
+          "Esta columna resume cuántas tareas tiene el proyecto, cuántas están completadas, cuántas siguen pendientes y si hay tareas vencidas.",
         to: "/projects",
         selector: '[data-demo="projects-task-summary"]',
       },
@@ -588,7 +649,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Relaciones del proyecto",
-        description: "Dentro del detalle se conectan cliente, producto, oportunidad y lead. Esto mantiene el contexto completo desde la venta hasta la ejecución.",
+        description:
+          "Dentro del detalle se conectan cliente, producto, oportunidad y lead. Esto mantiene el contexto completo desde la venta hasta la ejecución.",
         to: "/projects",
         selector: '[data-demo="projects-relations"]',
       },
@@ -597,7 +659,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Seguimiento del progreso",
-        description: "El detalle muestra el avance del proyecto con base en las tareas. Si hay tareas vencidas, el equipo puede detectarlo rápido.",
+        description:
+          "El detalle muestra el avance del proyecto con base en las tareas. Si hay tareas vencidas, el equipo puede detectarlo rápido.",
         to: "/projects",
         selector: '[data-demo="projects-progress-detail"]',
       },
@@ -606,7 +669,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Tareas del proyecto",
-        description: "Aquí vive el trabajo diario. Las tareas convierten el proyecto en pasos concretos con estado, prioridad, fecha y responsable.",
+        description:
+          "Aquí vive el trabajo diario. Las tareas convierten el proyecto en pasos concretos con estado, prioridad, fecha y responsable.",
         to: "/projects",
         selector: '[data-demo="projects-tasks"]',
       },
@@ -615,7 +679,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Proyectos",
         title: "Crear tareas operativas",
-        description: "Desde el proyecto puedes crear nuevas tareas para el equipo. Así cada entrega queda asignada y con seguimiento dentro del CRM.",
+        description:
+          "Desde el proyecto puedes crear nuevas tareas para el equipo. Así cada entrega queda asignada y con seguimiento dentro del CRM.",
         to: "/projects",
         selector: '[data-demo="projects-create-task"]',
       },
@@ -624,7 +689,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Módulo Cliente 360",
-        description: "Cliente 360 centraliza toda la relación con cada cuenta: contacto, responsable, productos, oportunidades, propuestas, facturas, proyectos, tareas y actividad.",
+        description:
+          "Cliente 360 centraliza toda la relación con cada cuenta: contacto, responsable, productos, oportunidades, propuestas, facturas, proyectos, tareas y actividad.",
         to: "/clients",
         selector: '[data-demo="clients-main"]',
       },
@@ -633,7 +699,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Centro de cuenta",
-        description: "Este resumen te dice si todo está bajo control o si hay cuentas que necesitan atención. Es una alerta rápida para no perder seguimiento comercial.",
+        description:
+          "Este resumen te dice si todo está bajo control o si hay cuentas que necesitan atención. Es una alerta rápida para no perder seguimiento comercial.",
         to: "/clients",
         selector: '[data-demo="clients-account-center"]',
       },
@@ -642,7 +709,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Métricas de clientes",
-        description: "Estas métricas resumen clientes activos, VIP, cuentas en riesgo, contactos, proyectos activos, facturas pendientes y tareas atrasadas.",
+        description:
+          "Estas métricas resumen clientes activos, VIP, cuentas en riesgo, contactos, proyectos activos, facturas pendientes y tareas atrasadas.",
         to: "/clients",
         selector: '[data-demo="clients-metrics"]',
       },
@@ -651,7 +719,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Panel de clientes",
-        description: "Desde aquí puedes buscar y filtrar clientes por estado, responsable, industria, contactos, salud, finanzas y actividad reciente.",
+        description:
+          "Desde aquí puedes buscar y filtrar clientes por estado, responsable, industria, contactos, salud, finanzas y actividad reciente.",
         to: "/clients",
         selector: '[data-demo="clients-list-panel"]',
       },
@@ -660,7 +729,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Cliente como centro del historial",
-        description: "Cada fila representa un cliente. Al hacer clic en cualquier cliente, se abre su panel Cliente 360 con todo el historial de esa cuenta.",
+        description:
+          "Cada fila representa un cliente. Al hacer clic en cualquier cliente, se abre su panel Cliente 360 con todo el historial de esa cuenta.",
         to: "/clients",
         selector: '[data-demo="clients-list-panel"]',
       },
@@ -669,7 +739,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Panel Cliente 360",
-        description: "Este panel lateral concentra toda la información del cliente en una sola vista: datos principales, salud, productos, proyectos, tareas, finanzas, oportunidades y actividad reciente.",
+        description:
+          "Este panel lateral concentra toda la información del cliente en una sola vista: datos principales, salud, productos, proyectos, tareas, finanzas, oportunidades y actividad reciente.",
         to: "/clients",
         selector: '[data-demo="client-360-panel"]',
       },
@@ -678,7 +749,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Contactos del cliente",
-        description: "Cliente 360 puede manejar varios contactos de una misma empresa y marcar cuál es el contacto principal.",
+        description:
+          "Cliente 360 puede manejar varios contactos de una misma empresa y marcar cuál es el contacto principal.",
         to: "/clients",
         selector: '[data-demo="client-360-contacts-section"]',
       },
@@ -687,7 +759,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Productos comprados",
-        description: "Aquí puedes ver qué productos o servicios tiene asociado este cliente. Esto ayuda a entender qué compró y qué se le puede ofrecer después.",
+        description:
+          "Aquí puedes ver qué productos o servicios tiene asociado este cliente. Esto ayuda a entender qué compró y qué se le puede ofrecer después.",
         to: "/clients",
         selector: '[data-demo="client-360-products"]',
       },
@@ -696,7 +769,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Oportunidades conectadas",
-        description: "Las oportunidades muestran ventas abiertas o históricas del cliente. Así puedes revisar el valor comercial y en qué etapa está cada negociación.",
+        description:
+          "Las oportunidades muestran ventas abiertas o históricas del cliente. Así puedes revisar el valor comercial y en qué etapa está cada negociación.",
         to: "/clients",
         selector: '[data-demo="client-360-deals"]',
       },
@@ -705,7 +779,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Propuestas del cliente",
-        description: "Desde Cliente 360 puedes ver propuestas enviadas, pendientes o aprobadas para saber qué ofertas tiene el cliente sobre la mesa.",
+        description:
+          "Desde Cliente 360 puedes ver propuestas enviadas, pendientes o aprobadas para saber qué ofertas tiene el cliente sobre la mesa.",
         to: "/clients",
         selector: '[data-demo="client-360-proposals"], [data-demo="client-360-finance"]',
       },
@@ -714,7 +789,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Facturas y finanzas",
-        description: "Esta sección ayuda a ver si el cliente tiene facturas pendientes, vencidas o pagadas. Es clave para seguimiento financiero.",
+        description:
+          "Esta sección ayuda a ver si el cliente tiene facturas pendientes, vencidas o pagadas. Es clave para seguimiento financiero.",
         to: "/clients",
         selector: '[data-demo="client-360-invoices"], [data-demo="client-360-finance"]',
       },
@@ -723,7 +799,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Proyectos activos",
-        description: "Los proyectos muestran qué trabajos están en ejecución para este cliente y el estado operativo de cada entrega.",
+        description:
+          "Los proyectos muestran qué trabajos están en ejecución para este cliente y el estado operativo de cada entrega.",
         to: "/clients",
         selector: '[data-demo="client-360-projects"]',
       },
@@ -732,7 +809,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Tareas y próximos pasos",
-        description: "Aquí aparece el seguimiento pendiente: tareas abiertas, tareas vencidas y próximos pasos para mantener viva la relación con el cliente.",
+        description:
+          "Aquí aparece el seguimiento pendiente: tareas abiertas, tareas vencidas y próximos pasos para mantener viva la relación con el cliente.",
         to: "/clients",
         selector: '[data-demo="client-360-next-step"], [data-demo="client-360-projects"]',
       },
@@ -741,7 +819,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Actividad reciente",
-        description: "La actividad reúne señales importantes: contactos actualizados, facturas, propuestas, tareas y oportunidades recientes.",
+        description:
+          "La actividad reúne señales importantes: contactos actualizados, facturas, propuestas, tareas y oportunidades recientes.",
         to: "/clients",
         selector: '[data-demo="client-360-activity"]',
       },
@@ -750,7 +829,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 6",
         moduleTitle: "Cliente 360",
         title: "Crear seguimiento desde Cliente 360",
-        description: "Desde la ficha del cliente puedes crear una tarea de seguimiento sin salir del contexto. Así ningún próximo paso queda perdido.",
+        description:
+          "Desde la ficha del cliente puedes crear una tarea de seguimiento sin salir del contexto. Así ningún próximo paso queda perdido.",
         to: "/clients",
         selector: '[data-demo="client-360-create-task"], [data-demo="client-360-next-step"]',
       },
@@ -759,7 +839,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Módulo de productos",
-        description: "Productos es el catálogo de lo que vende la empresa. No es solo una lista: aquí se define precio, modalidad de cobro, entregables y proceso de ejecución.",
+        description:
+          "Productos es el catálogo de lo que vende la empresa. No es solo una lista: aquí se define precio, modalidad de cobro, entregables y proceso de ejecución.",
         to: "/products",
         selector: '[data-demo="products-main"]',
       },
@@ -768,7 +849,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Panel de productos",
-        description: "Este panel permite buscar y filtrar productos por categoría, tipo, modalidad de cobro y estado. Así el equipo sabe qué servicios están disponibles para vender.",
+        description:
+          "Este panel permite buscar y filtrar productos por categoría, tipo, modalidad de cobro y estado. Así el equipo sabe qué servicios están disponibles para vender.",
         to: "/products",
         selector: '[data-demo="products-list"]',
       },
@@ -777,7 +859,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Producto como servicio vendible",
-        description: "Cada fila representa un producto, servicio, paquete o suscripción. Estos productos pueden conectarse a prospectos, oportunidades, propuestas, facturas y proyectos.",
+        description:
+          "Cada fila representa un producto, servicio, paquete o suscripción. Estos productos pueden conectarse a prospectos, oportunidades, propuestas, facturas y proyectos.",
         to: "/products",
         selector: '[data-demo="products-first-row"]',
       },
@@ -786,7 +869,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Precio base",
-        description: "El precio base ayuda a llenar propuestas y facturas más rápido. Luego puede ajustarse según el caso, pero sirve como punto de partida comercial.",
+        description:
+          "El precio base ayuda a llenar propuestas y facturas más rápido. Luego puede ajustarse según el caso, pero sirve como punto de partida comercial.",
         to: "/products",
         selector: '[data-demo="products-price"]',
       },
@@ -795,7 +879,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Modalidad de cobro",
-        description: "La modalidad de cobro indica si el producto se cobra una sola vez, mensual, anual o de forma personalizada. Esto ayuda a preparar propuestas más claras.",
+        description:
+          "La modalidad de cobro indica si el producto se cobra una sola vez, mensual, anual o de forma personalizada. Esto ayuda a preparar propuestas más claras.",
         to: "/products",
         selector: '[data-demo="products-billing"]',
       },
@@ -804,7 +889,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Estado activo o inactivo",
-        description: "Los productos activos están disponibles para usarse en ventas. Los inactivos pueden quedar guardados sin aparecer como opción principal para el equipo.",
+        description:
+          "Los productos activos están disponibles para usarse en ventas. Los inactivos pueden quedar guardados sin aparecer como opción principal para el equipo.",
         to: "/products",
         selector: '[data-demo="products-active-status"]',
       },
@@ -813,7 +899,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Detalle del producto",
-        description: "Al abrir un producto ves su categoría, tipo, precio y cobro. Esto permite validar rápido qué se vende y bajo qué condiciones.",
+        description:
+          "Al abrir un producto ves su categoría, tipo, precio y cobro. Esto permite validar rápido qué se vende y bajo qué condiciones.",
         to: "/products",
         selector: '[data-demo="products-detail-summary"]',
       },
@@ -822,7 +909,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Entregables del producto",
-        description: "Los entregables definen lo que recibirá el cliente. Esta información puede reutilizarse al crear propuestas para no escribir todo desde cero.",
+        description:
+          "Los entregables definen lo que recibirá el cliente. Esta información puede reutilizarse al crear propuestas para no escribir todo desde cero.",
         to: "/products",
         selector: '[data-demo="products-deliverables"]',
       },
@@ -831,7 +919,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Workflow de ejecución",
-        description: "El workflow define cómo se ejecuta el producto después de venderse. Es la base para convertir una venta en tareas operativas dentro de proyectos.",
+        description:
+          "El workflow define cómo se ejecuta el producto después de venderse. Es la base para convertir una venta en tareas operativas dentro de proyectos.",
         to: "/products",
         selector: '[data-demo="products-workflow"]',
       },
@@ -840,7 +929,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Pasos del workflow",
-        description: "Cada paso del workflow representa una etapa de trabajo: qué se debe hacer, duración estimada, prioridad y rol responsable.",
+        description:
+          "Cada paso del workflow representa una etapa de trabajo: qué se debe hacer, duración estimada, prioridad y rol responsable.",
         to: "/products",
         selector: '[data-demo="products-workflow-steps"]',
       },
@@ -849,7 +939,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Agregar pasos al proceso",
-        description: "Puedes agregar pasos al workflow para estandarizar cómo se entrega cada servicio. Esto hace que los proyectos sean más consistentes.",
+        description:
+          "Puedes agregar pasos al workflow para estandarizar cómo se entrega cada servicio. Esto hace que los proyectos sean más consistentes.",
         to: "/products",
         selector: '[data-demo="products-add-workflow-step"]',
       },
@@ -858,7 +949,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         module: "Módulo 7",
         moduleTitle: "Productos y workflows",
         title: "Acciones del producto",
-        description: "Desde aquí puedes editar el producto o activar/desactivar su disponibilidad. Así controlas qué servicios se venden y cuáles quedan pausados.",
+        description:
+          "Desde aquí puedes editar el producto o activar/desactivar su disponibilidad. Así controlas qué servicios se venden y cuáles quedan pausados.",
         to: "/products",
         selector: '[data-demo="products-actions"]',
       },
@@ -1089,7 +1181,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       "products-actions",
     ]);
 
-    const shouldOpenProductDetail = step?.to === "/products" && stepsThatNeedProductDetail.has(step.id);
+    const shouldOpenProductDetail =
+      step?.to === "/products" && stepsThatNeedProductDetail.has(step.id);
 
     try {
       window.dispatchEvent(
@@ -1121,7 +1214,8 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       "projects-create-task",
     ]);
 
-    const shouldOpenProjectDetail = step?.to === "/projects" && stepsThatNeedProjectDetail.has(step.id);
+    const shouldOpenProjectDetail =
+      step?.to === "/projects" && stepsThatNeedProjectDetail.has(step.id);
 
     try {
       window.dispatchEvent(
@@ -1325,10 +1419,22 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
 
                 return (
                   <>
-                    <div className="absolute left-0 right-0 top-0 bg-black/55" style={{ height: top }} />
-                    <div className="absolute left-0 bg-black/55" style={{ top, width: left, height: Math.max(0, bottom - top) }} />
-                    <div className="absolute right-0 bg-black/55" style={{ top, left: right, height: Math.max(0, bottom - top) }} />
-                    <div className="absolute left-0 right-0 bottom-0 bg-black/55" style={{ top: bottom }} />
+                    <div
+                      className="absolute left-0 right-0 top-0 bg-black/55"
+                      style={{ height: top }}
+                    />
+                    <div
+                      className="absolute left-0 bg-black/55"
+                      style={{ top, width: left, height: Math.max(0, bottom - top) }}
+                    />
+                    <div
+                      className="absolute right-0 bg-black/55"
+                      style={{ top, left: right, height: Math.max(0, bottom - top) }}
+                    />
+                    <div
+                      className="absolute left-0 right-0 bottom-0 bg-black/55"
+                      style={{ top: bottom }}
+                    />
 
                     <div
                       className="absolute rounded-[14px] ring-2 ring-[#1d62f9] shadow-[0_0_0_6px_rgba(29,98,249,0.16),0_18px_48px_rgba(29,98,249,0.22)]"
@@ -1347,27 +1453,29 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
             <div className="absolute inset-0 bg-black/55" />
           )}
 
-                      {steps[stepIndex]?.id === "invoices-public-preview" ? (
-              <div
-                data-demo="invoice-public-preview"
-                className="fixed left-1/2 top-1/2 z-[1050] hidden h-[86vh] w-[430px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[24px] border bg-white shadow-[0_30px_90px_rgba(2,6,23,0.45)] xl:block"
-              >
-                <div className="flex h-12 items-center justify-between border-b bg-white px-4">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold">Vista pública de la factura</div>
-                    <div className="truncate text-[11px] text-muted-foreground">{DEMO_INVOICE_PUBLIC_URL}</div>
+          {steps[stepIndex]?.id === "invoices-public-preview" ? (
+            <div
+              data-demo="invoice-public-preview"
+              className="fixed left-1/2 top-1/2 z-[1050] hidden h-[86vh] w-[430px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[24px] border bg-white shadow-[0_30px_90px_rgba(2,6,23,0.45)] xl:block"
+            >
+              <div className="flex h-12 items-center justify-between border-b bg-white px-4">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold">Vista pública de la factura</div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {DEMO_INVOICE_PUBLIC_URL}
                   </div>
                 </div>
-
-                <iframe
-                  title="Vista pública de factura demo"
-                  src={DEMO_INVOICE_PUBLIC_URL}
-                  className="h-[calc(100%-48px)] w-full border-0 bg-white"
-                />
               </div>
-            ) : null}
 
-<DemoTourCard
+              <iframe
+                title="Vista pública de factura demo"
+                src={DEMO_INVOICE_PUBLIC_URL}
+                className="h-[calc(100%-48px)] w-full border-0 bg-white"
+              />
+            </div>
+          ) : null}
+
+          <DemoTourCard
             step={steps[stepIndex]}
             index={stepIndex}
             total={steps.length}
@@ -1498,9 +1606,9 @@ function DemoTourCard({
       </div>
 
       <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-        Tip: usa <span className="font-mono">←</span>/<span className="font-mono">→</span> para navegar y <span className="font-mono">Esc</span> para cerrar.
+        Tip: usa <span className="font-mono">←</span>/<span className="font-mono">→</span> para
+        navegar y <span className="font-mono">Esc</span> para cerrar.
       </div>
     </div>
   );
 }
-

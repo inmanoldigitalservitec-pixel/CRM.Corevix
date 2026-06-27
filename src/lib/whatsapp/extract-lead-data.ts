@@ -63,7 +63,7 @@ function looksLikeBotSummary(text: string) {
     t.includes("resumen de tu solicitud") ||
     t.includes("resumen de la solicitud") ||
     t.includes("empresa:") ||
-    t.includes("servicio") && t.includes("inter") ||
+    (t.includes("servicio") && t.includes("inter")) ||
     t.includes("necesidad") ||
     t.includes("urgencia") ||
     t.includes("preferencia")
@@ -79,7 +79,11 @@ export function extractLeadDataFromMessages(messages: CrmWhatsappMessageRow[]): 
     .map((m) => ({
       id: m.message_id,
       created_at: m.created_at,
-      text: (m.content || (m.message_type === "interactive_button" ? m.button_title : null) || "").trim(),
+      text: (
+        m.content ||
+        (m.message_type === "interactive_button" ? m.button_title : null) ||
+        ""
+      ).trim(),
     }))
     .filter((m) => m.text.length > 0)
     .filter((m) => looksLikeBotSummary(m.text));
@@ -88,11 +92,25 @@ export function extractLeadDataFromMessages(messages: CrmWhatsappMessageRow[]): 
   const block = best?.text || "";
 
   const company = extractByLabel(block, ["Empresa", "Negocio", "Business", "Company"]);
-  const serviceInterest = extractByLabel(block, ["Servicio de interés", "Servicio", "Servicio interesado", "Servicio interesado/a"]);
-  const mainNeed = extractByLabel(block, ["Necesidad principal", "Necesidad", "Objetivo", "Problema"]);
+  const serviceInterest = extractByLabel(block, [
+    "Servicio de interés",
+    "Servicio",
+    "Servicio interesado",
+    "Servicio interesado/a",
+  ]);
+  const mainNeed = extractByLabel(block, [
+    "Necesidad principal",
+    "Necesidad",
+    "Objetivo",
+    "Problema",
+  ]);
   const currentChannel = extractByLabel(block, ["Canal actual", "Canal", "Plataforma"]);
   const urgency = extractByLabel(block, ["Urgencia", "Prioridad"]);
-  const contactPreference = extractByLabel(block, ["Preferencia", "Preferencia de contacto", "Contacto preferido"]);
+  const contactPreference = extractByLabel(block, [
+    "Preferencia",
+    "Preferencia de contacto",
+    "Contacto preferido",
+  ]);
   const budget = extractByLabel(block, ["Presupuesto", "Budget"]);
 
   const email = pickFirst(
@@ -118,4 +136,3 @@ export function extractLeadDataFromMessages(messages: CrmWhatsappMessageRow[]): 
     sourceMessageId: best?.id ?? null,
   };
 }
-

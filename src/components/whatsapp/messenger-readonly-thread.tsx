@@ -20,7 +20,11 @@ function groupByDay(messages: MetaMessageRow[]) {
   let current = "";
   for (const m of messages) {
     const stamp = resolveMessageStamp(m);
-    const day = new Date(stamp).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+    const day = new Date(stamp).toLocaleDateString([], {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
     if (day !== current) {
       current = day;
       groups.push({ day, items: [m] });
@@ -78,7 +82,9 @@ export function MessengerReadonlyThread({
           <WhatsappAvatar name={title} imageUrl={avatarUrl || null} size={34} />
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="text-[15px] font-semibold tracking-[-0.015em] truncate text-slate-900">{title}</div>
+              <div className="text-[15px] font-semibold tracking-[-0.015em] truncate text-slate-900">
+                {title}
+              </div>
               <span className="inline-flex items-center h-[22px] px-2 rounded-full border text-[10px] font-medium bg-blue-50 text-blue-700 border-blue-200">
                 Messenger
               </span>
@@ -104,9 +110,13 @@ export function MessengerReadonlyThread({
           {loading ? (
             <div className="text-sm text-muted-foreground">Cargando mensajes de Messenger…</div>
           ) : error ? (
-            <div className="text-sm text-destructive">No se pudieron cargar los mensajes de Messenger.</div>
+            <div className="text-sm text-destructive">
+              No se pudieron cargar los mensajes de Messenger.
+            </div>
           ) : messages.length === 0 ? (
-            <div className="text-sm text-muted-foreground">{emptyHint || "Sin mensajes todavía."}</div>
+            <div className="text-sm text-muted-foreground">
+              {emptyHint || "Sin mensajes todavía."}
+            </div>
           ) : (
             <div className="max-w-[860px] mx-auto">
               {groups.map((g) => (
@@ -119,9 +129,14 @@ export function MessengerReadonlyThread({
                   {g.items.map((m) => {
                     const out = m.direction === "outbound";
                     const text = m.text || "";
-                    const attachmentsCount = Array.isArray(m.attachments) ? m.attachments.length : 0;
+                    const attachmentsCount = Array.isArray(m.attachments)
+                      ? m.attachments.length
+                      : 0;
                     return (
-                      <div key={m.id} className={cn("flex mb-2", out ? "justify-end" : "justify-start")}>
+                      <div
+                        key={m.id}
+                        className={cn("flex mb-2", out ? "justify-end" : "justify-start")}
+                      >
                         <div className="max-w-[min(560px,76%)]">
                           <div
                             className={cn(
@@ -131,11 +146,15 @@ export function MessengerReadonlyThread({
                                 : "bg-white text-slate-900 border-transparent rounded-bl-[3px]",
                             )}
                           >
-                            <div className="whitespace-pre-wrap break-words">{text || "Mensaje con adjuntos"}</div>
+                            <div className="whitespace-pre-wrap break-words">
+                              {text || "Mensaje con adjuntos"}
+                            </div>
                             {attachmentsCount > 0 ? (
                               <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
                                 <Paperclip className="h-3 w-3" />
-                                <span>{attachmentsCount} adjunto{attachmentsCount === 1 ? "" : "s"}</span>
+                                <span>
+                                  {attachmentsCount} adjunto{attachmentsCount === 1 ? "" : "s"}
+                                </span>
                               </div>
                             ) : null}
                             <div className="absolute right-2.5 bottom-1 text-[10px] text-slate-400">
@@ -181,7 +200,9 @@ export function MessengerReadonlyThread({
             type="button"
             className={cn(
               "h-11 rounded-full bg-emerald-500 text-white inline-flex items-center justify-center gap-2 px-4 transition-colors hover:bg-emerald-600 shadow-sm",
-              !onSendMessage || Boolean(sending) || text.trim().length === 0 ? "opacity-50 cursor-not-allowed" : "opacity-100",
+              !onSendMessage || Boolean(sending) || text.trim().length === 0
+                ? "opacity-50 cursor-not-allowed"
+                : "opacity-100",
             )}
             disabled={!onSendMessage || Boolean(sending) || text.trim().length === 0}
             onClick={async () => {
@@ -195,9 +216,15 @@ export function MessengerReadonlyThread({
                 // Keep input as-is on failure.
               }
             }}
-            title={!onSendMessage ? "Selecciona una conversación" : sending ? "Enviando…" : "Enviar"}
+            title={
+              !onSendMessage ? "Selecciona una conversación" : sending ? "Enviando…" : "Enviar"
+            }
           >
-            {sending ? <span className="text-[12px]">Enviando…</span> : <span className="text-[12px] font-semibold">Enviar</span>}
+            {sending ? (
+              <span className="text-[12px]">Enviando…</span>
+            ) : (
+              <span className="text-[12px] font-semibold">Enviar</span>
+            )}
             {sending ? null : <SendHorizontal className="h-4 w-4" />}
           </button>
         </div>

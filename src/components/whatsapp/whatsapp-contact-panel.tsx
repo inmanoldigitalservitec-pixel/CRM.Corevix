@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ExternalLink, Copy, Eye, UserRound, CheckCircle2, Calendar, BriefcaseBusiness, UserCog, Mail, Phone } from "lucide-react";
+import {
+  ExternalLink,
+  Copy,
+  Eye,
+  UserRound,
+  CheckCircle2,
+  Calendar,
+  BriefcaseBusiness,
+  UserCog,
+  Mail,
+  Phone,
+} from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import type { CrmWhatsappConversationListRow, CrmWhatsappMessageRow } from "@/lib/whatsapp/view-types";
+import type {
+  CrmWhatsappConversationListRow,
+  CrmWhatsappMessageRow,
+} from "@/lib/whatsapp/view-types";
 import { WhatsappAvatar } from "@/components/whatsapp/whatsapp-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -13,9 +27,18 @@ import { CrmDetailSection } from "@/components/crm/crm-detail";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { extractLeadDataFromMessages } from "@/lib/whatsapp/extract-lead-data";
-import { matchProductInterest, type ProductInterestInputProduct } from "@/lib/products/match-product-interest";
+import {
+  matchProductInterest,
+  type ProductInterestInputProduct,
+} from "@/lib/products/match-product-interest";
 import { sendWhatsappMessage } from "@/lib/whatsapp/whatsapp-bot-api";
 import {
   buildWhatsappUtilityActions,
@@ -178,7 +201,12 @@ export function WhatsappContactPanel({
 
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [followUpSaving, setFollowUpSaving] = useState(false);
-  const [followUpValues, setFollowUpValues] = useState({ title: "", due_date: "", priority: "Medium", description: "" });
+  const [followUpValues, setFollowUpValues] = useState({
+    title: "",
+    due_date: "",
+    priority: "Medium",
+    description: "",
+  });
 
   const [creatingDeal, setCreatingDeal] = useState(false);
   const [convertingClient, setConvertingClient] = useState(false);
@@ -205,7 +233,8 @@ export function WhatsappContactPanel({
   const [registeringProposalSend, setRegisteringProposalSend] = useState(false);
   const [copyingProposalLink, setCopyingProposalLink] = useState(false);
   const [detectedExpanded, setDetectedExpanded] = useState(false);
-  const [activeUtilityActionId, setActiveUtilityActionId] = useState<WhatsappUtilityActionId | null>(null);
+  const [activeUtilityActionId, setActiveUtilityActionId] =
+    useState<WhatsappUtilityActionId | null>(null);
 
   const extracted = useMemo(() => extractLeadDataFromMessages(messages || []), [messages]);
 
@@ -276,14 +305,24 @@ export function WhatsappContactPanel({
     const ownsLead = matchesAssignedActor(lead?.assigned_to);
     const ownsDeal = matchesAssignedActor(deal?.assigned_to);
     return ownsLead || ownsDeal;
-  }, [deal?.assigned_to, isAdminLike, isSalesAgent, isViewer, lead?.assigned_to, matchesAssignedActor]);
+  }, [
+    deal?.assigned_to,
+    isAdminLike,
+    isSalesAgent,
+    isViewer,
+    lead?.assigned_to,
+    matchesAssignedActor,
+  ]);
 
-  const canCreateProposal = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
+  const canCreateProposal =
+    roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
   const proposalCreateSearch = useMemo(
     () => ({
       ...(lead?.id ? { leadId: String(lead.id) } : {}),
       ...(deal?.id ? { dealId: String(deal.id) } : {}),
-      ...(conversation?.conversation_id ? { conversationId: String(conversation.conversation_id) } : {}),
+      ...(conversation?.conversation_id
+        ? { conversationId: String(conversation.conversation_id) }
+        : {}),
       ...(selectedProductId ? { productId: String(selectedProductId) } : {}),
       ...(client?.id ? { clientId: String(client.id) } : {}),
     }),
@@ -301,11 +340,27 @@ export function WhatsappContactPanel({
     return true;
   }
 
-  const canCreateDealFromPanel = Boolean(deal || (lead && can("deals.create") && !creatingDeal && (!isSalesAgent || matchesAssignedActor(lead.assigned_to))));
-  const canConvertClientFromPanel = Boolean(client || (lead && can("clients.create") && !convertingClient && (!isSalesAgent || matchesAssignedActor(lead.assigned_to))));
-  const canCreateFollowUpFromPanel = Boolean(lead && can("tasks.create") && (!isSalesAgent || matchesAssignedActor(lead.assigned_to)));
+  const canCreateDealFromPanel = Boolean(
+    deal ||
+    (lead &&
+      can("deals.create") &&
+      !creatingDeal &&
+      (!isSalesAgent || matchesAssignedActor(lead.assigned_to))),
+  );
+  const canConvertClientFromPanel = Boolean(
+    client ||
+    (lead &&
+      can("clients.create") &&
+      !convertingClient &&
+      (!isSalesAgent || matchesAssignedActor(lead.assigned_to))),
+  );
+  const canCreateFollowUpFromPanel = Boolean(
+    lead && can("tasks.create") && (!isSalesAgent || matchesAssignedActor(lead.assigned_to)),
+  );
 
-  function panelActionHint(kind: "lead" | "deal" | "task" | "client" | "interest" | "proposal_send") {
+  function panelActionHint(
+    kind: "lead" | "deal" | "task" | "client" | "interest" | "proposal_send",
+  ) {
     if (kind === "lead") {
       if (!can("leads.create")) return "No tienes permiso para crear prospectos.";
       return "Crea el prospecto en el CRM y enlaza esta conversación.";
@@ -314,29 +369,34 @@ export function WhatsappContactPanel({
       if (deal) return "La oportunidad ya existe; abre Pipeline para verla.";
       if (!lead) return "Primero crea o vincula un prospecto.";
       if (!can("deals.create")) return "No tienes permiso para crear oportunidades.";
-      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to)) return "Solo el responsable del lead puede crear la oportunidad.";
+      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to))
+        return "Solo el responsable del lead puede crear la oportunidad.";
       return "Convierte este lead en una oportunidad comercial.";
     }
     if (kind === "task") {
       if (!lead) return "Necesitas un prospecto vinculado para crear seguimiento.";
       if (!can("tasks.create")) return "No tienes permiso para crear tareas.";
-      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to)) return "Solo el responsable del lead puede crear seguimiento.";
+      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to))
+        return "Solo el responsable del lead puede crear seguimiento.";
       return "Programa la próxima acción comercial sin salir de WhatsApp.";
     }
     if (kind === "client") {
       if (client) return "El cliente ya existe; abre Clientes para revisarlo.";
       if (!lead) return "Primero crea o vincula un prospecto.";
       if (!can("clients.create")) return "No tienes permiso para convertir a cliente.";
-      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to)) return "Solo el responsable del lead puede convertirlo a cliente.";
+      if (isSalesAgent && !matchesAssignedActor(lead.assigned_to))
+        return "Solo el responsable del lead puede convertirlo a cliente.";
       return "Convierte el lead en cliente cuando ya esté validado.";
     }
     if (kind === "interest") {
       if (!lead?.id) return "Necesitas un prospecto vinculado para marcar interés.";
-      if (!canMarkLeadInterest) return "No tienes permiso para registrar interés de producto en este lead.";
+      if (!canMarkLeadInterest)
+        return "No tienes permiso para registrar interés de producto en este lead.";
       return "Guarda el producto detectado como interés comercial del lead.";
     }
     if (!selectedProposal) return "Selecciona una propuesta antes de enviarla.";
-    if (!canRegisterProposalSend) return "No tienes permiso para registrar o enviar esta propuesta.";
+    if (!canRegisterProposalSend)
+      return "No tienes permiso para registrar o enviar esta propuesta.";
     return "Envía la propuesta y deja trazabilidad de ese envío.";
   }
 
@@ -358,12 +418,15 @@ export function WhatsappContactPanel({
       }
       setTeamLoading(true);
 
-      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc("get_company_team_members", {
-        _search: null,
-        _role: null,
-        _is_active: true,
-        _department: null,
-      });
+      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc(
+        "get_company_team_members",
+        {
+          _search: null,
+          _role: null,
+          _is_active: true,
+          _department: null,
+        },
+      );
 
       if (!cancelled && !rpcErr && Array.isArray(rpcData)) {
         setTeam(
@@ -380,14 +443,16 @@ export function WhatsappContactPanel({
         return;
       }
 
-      const [{ data: profiles, error: pErr }, { data: rolesRows, error: rErr }] = await Promise.all([
-        (supabase as any)
-          .from("profiles")
-          .select("id, user_id, full_name, email, is_active")
-          .eq("company_id", profile.company_id)
-          .eq("is_active", true),
-        (supabase as any).from("user_roles").select("user_id, role"),
-      ]);
+      const [{ data: profiles, error: pErr }, { data: rolesRows, error: rErr }] = await Promise.all(
+        [
+          (supabase as any)
+            .from("profiles")
+            .select("id, user_id, full_name, email, is_active")
+            .eq("company_id", profile.company_id)
+            .eq("is_active", true),
+          (supabase as any).from("user_roles").select("user_id, role"),
+        ],
+      );
 
       if (cancelled) return;
       if (pErr || rErr) {
@@ -458,7 +523,11 @@ export function WhatsappContactPanel({
       setSelectedProductId(null);
       return;
     }
-    if (selectedProductId && productSuggestions.some((s) => String(s.product.id) === String(selectedProductId))) return;
+    if (
+      selectedProductId &&
+      productSuggestions.some((s) => String(s.product.id) === String(selectedProductId))
+    )
+      return;
     setSelectedProductId(String(productSuggestions[0].product.id));
   }, [productSuggestions, selectedProductId]);
 
@@ -474,7 +543,9 @@ export function WhatsappContactPanel({
         const db = supabase as any;
         const { data, error } = await db
           .from("proposals")
-          .select("id,title,amount,currency,content,status,product_id,lead_id,client_id,deal_id,whatsapp_conversation_id,public_token,created_at,updated_at")
+          .select(
+            "id,title,amount,currency,content,status,product_id,lead_id,client_id,deal_id,whatsapp_conversation_id,public_token,created_at,updated_at",
+          )
           .eq("company_id", profile.company_id)
           .order("updated_at", { ascending: false })
           .limit(200);
@@ -516,10 +587,18 @@ export function WhatsappContactPanel({
         const db = supabase as any;
         const [dealProductsRes, leadProductsRes] = await Promise.all([
           dealId
-            ? db.from("deal_products").select("product_id").eq("company_id", profile.company_id).eq("deal_id", dealId)
+            ? db
+                .from("deal_products")
+                .select("product_id")
+                .eq("company_id", profile.company_id)
+                .eq("deal_id", dealId)
             : Promise.resolve({ data: [], error: null }),
           leadId
-            ? db.from("lead_products").select("product_id").eq("company_id", profile.company_id).eq("lead_id", leadId)
+            ? db
+                .from("lead_products")
+                .select("product_id")
+                .eq("company_id", profile.company_id)
+                .eq("lead_id", leadId)
             : Promise.resolve({ data: [], error: null }),
         ]);
 
@@ -561,7 +640,9 @@ export function WhatsappContactPanel({
   }, [dealProductIds, leadProductIds, selectedProductId]);
 
   const orderedProposals = useMemo(() => {
-    const conversationId = conversation?.conversation_id ? String(conversation.conversation_id) : null;
+    const conversationId = conversation?.conversation_id
+      ? String(conversation.conversation_id)
+      : null;
     const leadId = lead?.id ? String(lead.id) : null;
     const dealId = deal?.id ? String(deal.id) : null;
     const clientId = client?.id ? String(client.id) : null;
@@ -577,38 +658,49 @@ export function WhatsappContactPanel({
     };
 
     return [...proposals].sort((a, b) => {
-      const aContextRank = conversationId && String(a.whatsapp_conversation_id || "") === conversationId
-        ? 0
-        : dealId && String(a.deal_id || "") === dealId
-          ? 1
-          : leadId && String(a.lead_id || "") === leadId
-            ? 2
-            : clientId && String(a.client_id || "") === clientId
-              ? 3
-              : a.product_id && relevantProposalProductIds.has(String(a.product_id))
-                ? 4
-                : 5;
-      const bContextRank = conversationId && String(b.whatsapp_conversation_id || "") === conversationId
-        ? 0
-        : dealId && String(b.deal_id || "") === dealId
-          ? 1
-          : leadId && String(b.lead_id || "") === leadId
-            ? 2
-            : clientId && String(b.client_id || "") === clientId
-              ? 3
-              : b.product_id && relevantProposalProductIds.has(String(b.product_id))
-                ? 4
-                : 5;
+      const aContextRank =
+        conversationId && String(a.whatsapp_conversation_id || "") === conversationId
+          ? 0
+          : dealId && String(a.deal_id || "") === dealId
+            ? 1
+            : leadId && String(a.lead_id || "") === leadId
+              ? 2
+              : clientId && String(a.client_id || "") === clientId
+                ? 3
+                : a.product_id && relevantProposalProductIds.has(String(a.product_id))
+                  ? 4
+                  : 5;
+      const bContextRank =
+        conversationId && String(b.whatsapp_conversation_id || "") === conversationId
+          ? 0
+          : dealId && String(b.deal_id || "") === dealId
+            ? 1
+            : leadId && String(b.lead_id || "") === leadId
+              ? 2
+              : clientId && String(b.client_id || "") === clientId
+                ? 3
+                : b.product_id && relevantProposalProductIds.has(String(b.product_id))
+                  ? 4
+                  : 5;
       if (aContextRank !== bContextRank) return aContextRank - bContextRank;
 
       const sa = statusScore(a.status);
       const sb = statusScore(b.status);
       if (sa !== sb) return sa - sb;
-      const ad = a.updated_at || a.created_at ? new Date(a.updated_at || a.created_at || "").getTime() : 0;
-      const bd = b.updated_at || b.created_at ? new Date(b.updated_at || b.created_at || "").getTime() : 0;
+      const ad =
+        a.updated_at || a.created_at ? new Date(a.updated_at || a.created_at || "").getTime() : 0;
+      const bd =
+        b.updated_at || b.created_at ? new Date(b.updated_at || b.created_at || "").getTime() : 0;
       return bd - ad;
     });
-  }, [client?.id, conversation?.conversation_id, deal?.id, lead?.id, proposals, relevantProposalProductIds]);
+  }, [
+    client?.id,
+    conversation?.conversation_id,
+    deal?.id,
+    lead?.id,
+    proposals,
+    relevantProposalProductIds,
+  ]);
 
   const selectedProposal = useMemo(() => {
     if (!selectedProposalId) return null;
@@ -631,13 +723,17 @@ export function WhatsappContactPanel({
           id: String(selectedProposal.id),
           title: String(selectedProposal.title || "Propuesta"),
           publicUrl: buildProposalPublicUrl(selectedProposal) || "",
-          productName: selectedProposal.product_id ? productNameById.get(String(selectedProposal.product_id)) || null : null,
+          productName: selectedProposal.product_id
+            ? productNameById.get(String(selectedProposal.product_id)) || null
+            : null,
         }
       : null;
-    const validProposalContext = proposalContext && proposalContext.publicUrl ? proposalContext : null;
+    const validProposalContext =
+      proposalContext && proposalContext.publicUrl ? proposalContext : null;
 
     const dealName = deal?.name || null;
-    const leadName = lead?.company_name || formatPersonName(lead?.first_name, lead?.last_name) || null;
+    const leadName =
+      lead?.company_name || formatPersonName(lead?.first_name, lead?.last_name) || null;
     const clientName = client?.company_name || null;
     const productName = selectedProduct?.name || proposalContext?.productName || null;
     const conversationTopic =
@@ -664,7 +760,25 @@ export function WhatsappContactPanel({
       nextTaskDueDate: nextTask?.due_date || null,
       conversationTopic: String(conversationTopic || "").trim() || null,
     };
-  }, [client?.company_name, conversation, deal?.name, lead?.company_name, lead?.first_name, lead?.last_name, lead?.metadata, lead?.phone, lead?.source, lead?.source_channel, lead?.whatsapp, nextTask?.due_date, nextTask?.title, productNameById, project?.name, selectedProduct?.name, selectedProposal]);
+  }, [
+    client?.company_name,
+    conversation,
+    deal?.name,
+    lead?.company_name,
+    lead?.first_name,
+    lead?.last_name,
+    lead?.metadata,
+    lead?.phone,
+    lead?.source,
+    lead?.source_channel,
+    lead?.whatsapp,
+    nextTask?.due_date,
+    nextTask?.title,
+    productNameById,
+    project?.name,
+    selectedProduct?.name,
+    selectedProposal,
+  ]);
 
   const utilityActions = useMemo<WhatsappUtilityActionDefinition[]>(
     () => buildWhatsappUtilityActions(utilityActionContext),
@@ -677,27 +791,32 @@ export function WhatsappContactPanel({
   );
 
   const serviceWindowClosed = isServiceWindowOpen === false;
-  const serviceWindowLabelText = serviceWindowLabel || formatServiceWindowRemaining(remainingServiceWindowMs || 0);
+  const serviceWindowLabelText =
+    serviceWindowLabel || formatServiceWindowRemaining(remainingServiceWindowMs || 0);
 
   async function handleConfirmUtilityAction() {
     if (!activeUtilityAction) return;
     try {
       await navigator.clipboard.writeText(activeUtilityAction.preview);
-      toast.success("Plantilla preparada. Configura el envío de templates para enviarla automáticamente.");
+      toast.success(
+        "Plantilla preparada. Configura el envío de templates para enviarla automáticamente.",
+      );
       setActiveUtilityActionId(null);
     } catch {
       toast.error("No se pudo copiar la plantilla preparada.");
     }
   }
 
-
-
   useEffect(() => {
     if (!orderedProposals.length) {
       setSelectedProposalId(null);
       return;
     }
-    if (selectedProposalId && orderedProposals.some((p) => String(p.id) === String(selectedProposalId))) return;
+    if (
+      selectedProposalId &&
+      orderedProposals.some((p) => String(p.id) === String(selectedProposalId))
+    )
+      return;
     setSelectedProposalId(String(orderedProposals[0].id));
   }, [orderedProposals, selectedProposalId]);
 
@@ -729,7 +848,9 @@ export function WhatsappContactPanel({
         const db = supabase as any;
         const { data, error } = await db
           .from("proposal_sends")
-          .select("id,proposal_id,product_id,lead_id,client_id,deal_id,whatsapp_conversation_id,sent_at,status,created_by,sent_to_phone,proposal:proposals(id,title,product_id,public_token)")
+          .select(
+            "id,proposal_id,product_id,lead_id,client_id,deal_id,whatsapp_conversation_id,sent_at,status,created_by,sent_to_phone,proposal:proposals(id,title,product_id,public_token)",
+          )
           .eq("company_id", profile.company_id)
           .or(filters.join(","))
           .order("sent_at", { ascending: false })
@@ -792,10 +913,17 @@ export function WhatsappContactPanel({
     setRegisteringProposalSend(true);
     try {
       const db = supabase as any;
-      const leadId = lead?.id ? String(lead.id) : conversation?.lead_id ? String(conversation.lead_id) : null;
+      const leadId = lead?.id
+        ? String(lead.id)
+        : conversation?.lead_id
+          ? String(conversation.lead_id)
+          : null;
       const clientId = client?.id ? String(client.id) : null;
       const dealId = deal?.id ? String(deal.id) : null;
-      const sentToPhone = (lead?.whatsapp || lead?.phone || conversation?.phone || null) ? String(lead?.whatsapp || lead?.phone || conversation?.phone) : null;
+      const sentToPhone =
+        lead?.whatsapp || lead?.phone || conversation?.phone || null
+          ? String(lead?.whatsapp || lead?.phone || conversation?.phone)
+          : null;
       const publicUrl = buildProposalPublicUrl(selectedProposal);
 
       const { error } = await db
@@ -849,9 +977,13 @@ export function WhatsappContactPanel({
       }
       const { data, error: reloadErr } = await db
         .from("proposal_sends")
-        .select("id,proposal_id,product_id,lead_id,client_id,deal_id,whatsapp_conversation_id,sent_at,status,created_by,sent_to_phone,proposal:proposals(id,title,product_id,public_token)")
+        .select(
+          "id,proposal_id,product_id,lead_id,client_id,deal_id,whatsapp_conversation_id,sent_at,status,created_by,sent_to_phone,proposal:proposals(id,title,product_id,public_token)",
+        )
         .eq("company_id", profile.company_id)
-        .or(`whatsapp_conversation_id.eq.${convId}${leadId ? `,lead_id.eq.${leadId}` : ""}${clientId ? `,client_id.eq.${clientId}` : ""}${dealId ? `,deal_id.eq.${dealId}` : ""}`)
+        .or(
+          `whatsapp_conversation_id.eq.${convId}${leadId ? `,lead_id.eq.${leadId}` : ""}${clientId ? `,client_id.eq.${clientId}` : ""}${dealId ? `,deal_id.eq.${dealId}` : ""}`,
+        )
         .order("sent_at", { ascending: false })
         .limit(15);
       if (!reloadErr) setProposalSends(Array.isArray(data) ? data : []);
@@ -942,13 +1074,17 @@ export function WhatsappContactPanel({
         const [leadRes, dealRes, taskRes] = await Promise.all([
           (supabase as any)
             .from("leads")
-            .select("id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to,notes,estimated_value,metadata")
+            .select(
+              "id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to,notes,estimated_value,metadata",
+            )
             .eq("company_id", profile.company_id)
             .eq("id", leadId)
             .maybeSingle(),
           (supabase as any)
             .from("deals")
-            .select("id,company_id,lead_id,assigned_to,name,stage,value,probability,expected_close,notes,created_at,updated_at")
+            .select(
+              "id,company_id,lead_id,assigned_to,name,stage,value,probability,expected_close,notes,created_at,updated_at",
+            )
             .eq("company_id", profile.company_id)
             .eq("lead_id", leadId)
             .order("created_at", { ascending: false })
@@ -971,7 +1107,8 @@ export function WhatsappContactPanel({
         setDeal(!dealRes.error ? ((dealRes.data as DealRow) ?? null) : null);
         setNextTask(!taskRes.error ? ((taskRes.data as TaskRow) ?? null) : null);
 
-        const clientId = !dealRes.error && dealRes.data?.client_id ? String(dealRes.data.client_id) : null;
+        const clientId =
+          !dealRes.error && dealRes.data?.client_id ? String(dealRes.data.client_id) : null;
         const dealId = !dealRes.error && dealRes.data?.id ? String(dealRes.data.id) : null;
         const projectOrLeadIds = [`lead_id.eq.${leadId}`];
         if (dealId) projectOrLeadIds.push(`deal_id.eq.${dealId}`);
@@ -1024,7 +1161,8 @@ export function WhatsappContactPanel({
 
   async function handleCreateDealFromLead() {
     if (!profile?.company_id || !lead) return;
-    if (!enforceOwnLeadForSales("Solo puedes crear oportunidades para tus propios prospectos")) return;
+    if (!enforceOwnLeadForSales("Solo puedes crear oportunidades para tus propios prospectos"))
+      return;
     if (!can("deals.create")) {
       toast.error("No tienes permiso para crear oportunidades");
       return;
@@ -1051,10 +1189,16 @@ export function WhatsappContactPanel({
       }
 
       const stageName = await getInitialDealStageName(profile.company_id);
-      const leadName = lead.company_name || formatPersonName(lead.first_name, lead.last_name) || lead.email || lead.phone || "Prospecto";
+      const leadName =
+        lead.company_name ||
+        formatPersonName(lead.first_name, lead.last_name) ||
+        lead.email ||
+        lead.phone ||
+        "Prospecto";
       const meta = lead.metadata && typeof lead.metadata === "object" ? lead.metadata : null;
-      const service = meta ? (meta as any).selected_service ?? (meta as any).service : null;
-      const serviceLabel = typeof service === "string" && service.trim().length ? service.trim() : null;
+      const service = meta ? ((meta as any).selected_service ?? (meta as any).service) : null;
+      const serviceLabel =
+        typeof service === "string" && service.trim().length ? service.trim() : null;
       const dealName = serviceLabel ? `${serviceLabel} — ${leadName}` : `Oportunidad — ${leadName}`;
       const assignedTo = lead.assigned_to || profile?.id || null;
       const value = Number(lead.estimated_value || 0);
@@ -1071,9 +1215,18 @@ export function WhatsappContactPanel({
         notes: null,
       };
 
-      const { data: created, error: createErr } = await (supabase as any).from("deals").insert(payloadBase).select("*").single();
+      const { data: created, error: createErr } = await (supabase as any)
+        .from("deals")
+        .insert(payloadBase)
+        .select("*")
+        .single();
 
-      if (createErr && String(createErr.message || "").toLowerCase().includes("enum")) {
+      if (
+        createErr &&
+        String(createErr.message || "")
+          .toLowerCase()
+          .includes("enum")
+      ) {
         const { data: created2, error: createErr2 } = await (supabase as any)
           .from("deals")
           .insert({ ...payloadBase, stage: "New Opportunity" })
@@ -1107,7 +1260,12 @@ export function WhatsappContactPanel({
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().slice(0, 10);
-    const leadLabel = lead.company_name || formatPersonName(lead.first_name, lead.last_name) || lead.email || lead.phone || "prospecto";
+    const leadLabel =
+      lead.company_name ||
+      formatPersonName(lead.first_name, lead.last_name) ||
+      lead.email ||
+      lead.phone ||
+      "prospecto";
     const sourceHint = lead.source_channel || lead.source || "—";
     setFollowUpValues({
       title: `Dar seguimiento a ${leadLabel}`,
@@ -1128,7 +1286,8 @@ export function WhatsappContactPanel({
       toast.error("No tienes permiso para crear seguimiento");
       return;
     }
-    if (!enforceOwnLeadForSales("Solo puedes crear seguimiento para tus propios prospectos")) return;
+    if (!enforceOwnLeadForSales("Solo puedes crear seguimiento para tus propios prospectos"))
+      return;
 
     if (!followUpValues.title.trim()) {
       toast.error("El título es requerido");
@@ -1141,7 +1300,9 @@ export function WhatsappContactPanel({
 
     setFollowUpSaving(true);
     try {
-      const assigneeProfileId = lead.assigned_to ? teamByUserId.get(String(lead.assigned_to))?.profile_id : null;
+      const assigneeProfileId = lead.assigned_to
+        ? teamByUserId.get(String(lead.assigned_to))?.profile_id
+        : null;
       const assignedTo = assigneeProfileId || profile.id;
       const { data: created, error } = await (supabase as any)
         .from("tasks")
@@ -1225,7 +1386,13 @@ export function WhatsappContactPanel({
       }
 
       const leadName = formatPersonName(lead.first_name, lead.last_name);
-      const companyName = lead.company_name?.trim() || leadName || lead.email || lead.phone || lead.whatsapp || "Cliente sin nombre";
+      const companyName =
+        lead.company_name?.trim() ||
+        leadName ||
+        lead.email ||
+        lead.phone ||
+        lead.whatsapp ||
+        "Cliente sin nombre";
       const contactPerson = leadName || null;
       const phone = lead.phone || lead.whatsapp || null;
       const whatsapp = lead.whatsapp || lead.phone || null;
@@ -1290,7 +1457,11 @@ export function WhatsappContactPanel({
 
   async function handleMarkConversationResolved() {
     if (!profile?.company_id) return;
-    if (!can("whatsapp.edit") && !can("whatsapp.manage") && !can("whatsapp_conversations.edit")) {
+    if (
+      !can("whatsapp.edit" as any) &&
+      !can("whatsapp.manage" as any) &&
+      !can("whatsapp_conversations.edit" as any)
+    ) {
       // If permissions are not defined, fall back to allowing only admins to change status.
       if (!isAdminLike) {
         toast.error("No tienes permiso para actualizar la conversación");
@@ -1303,7 +1474,7 @@ export function WhatsappContactPanel({
         .from("whatsapp_conversations")
         .update({ status: "resolved" })
         .eq("company_id", profile?.company_id)
-        .eq("id", conversation.conversation_id);
+        .eq("id", conversation?.conversation_id ?? "");
       if (error) {
         toast.error(error.message || "No se pudo marcar como resuelto");
         return;
@@ -1355,18 +1526,25 @@ export function WhatsappContactPanel({
       const { data: createdWithChannel, error: createErrWithChannel } = await db
         .from("leads")
         .insert(basePayload)
-        .select("id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to,notes,estimated_value,metadata")
+        .select(
+          "id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to,notes,estimated_value,metadata",
+        )
         .single();
 
       if (createErrWithChannel) {
         const msg = String(createErrWithChannel.message || "");
-        if (msg.toLowerCase().includes("source_channel") && msg.toLowerCase().includes("does not exist")) {
+        if (
+          msg.toLowerCase().includes("source_channel") &&
+          msg.toLowerCase().includes("does not exist")
+        ) {
           const fallbackPayload = { ...basePayload };
           delete fallbackPayload.source_channel;
           const { data: createdFallback, error: createErrFallback } = await db
             .from("leads")
             .insert(fallbackPayload)
-            .select("id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to,notes,estimated_value,metadata")
+            .select(
+              "id,company_id,first_name,last_name,email,phone,whatsapp,company_name,source,source_channel,status,assigned_to,notes,estimated_value,metadata",
+            )
             .single();
           if (createErrFallback) {
             toast.error(createErrFallback.message || "No se pudo crear el prospecto");
@@ -1392,7 +1570,7 @@ export function WhatsappContactPanel({
         .from("whatsapp_conversations")
         .update({ lead_id: leadId })
         .eq("company_id", profile.company_id)
-        .eq("id", conversation.conversation_id);
+        .eq("id", conversation?.conversation_id ?? "");
 
       if (linkErr) {
         toast.message("Prospecto creado. Refresca la conversación para verlo conectado.");
@@ -1409,18 +1587,24 @@ export function WhatsappContactPanel({
   if (!conversation) return null;
 
   const detectedSummary = extracted.rawSummary ? String(extracted.rawSummary) : "";
-  const detectedPreview = detectedSummary.length > 260 ? `${detectedSummary.slice(0, 260).trim()}…` : detectedSummary;
+  const detectedPreview =
+    detectedSummary.length > 260 ? `${detectedSummary.slice(0, 260).trim()}…` : detectedSummary;
   const showDetectedToggle = detectedSummary.length > 260;
 
   return (
-    <aside data-demo="whatsapp-crm-panel" className={cn("h-full min-h-0 min-w-0 overflow-y-auto bg-[#f0f2f5] px-3.5 py-3.5", className)}>
+    <aside
+      data-demo="whatsapp-crm-panel"
+      className={cn("h-full min-h-0 min-w-0 overflow-y-auto bg-[#f0f2f5] px-3.5 py-3.5", className)}
+    >
       <div className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
         <div className="flex items-start gap-3 min-w-0">
           <WhatsappAvatar name={name} size={42} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-2 min-w-0">
               <div className="min-w-0">
-                <div className="text-[16px] font-semibold tracking-[-0.025em] truncate text-slate-900">{name}</div>
+                <div className="text-[16px] font-semibold tracking-[-0.025em] truncate text-slate-900">
+                  {name}
+                </div>
                 <div className="mt-1 text-[12px] text-slate-500 truncate">{phone || "—"}</div>
               </div>
               <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -1440,19 +1624,25 @@ export function WhatsappContactPanel({
 
       <div className="mt-3 space-y-3">
         {serviceWindowClosed ? (
-          <div data-demo="whatsapp-utility-actions" className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <div
+            data-demo="whatsapp-utility-actions"
+            className="rounded-[18px] border border-black/5 bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+          >
             <div className="w-full space-y-2">
               <div className="space-y-1">
                 <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-700">
                   Continuar con plantilla aprobada
                 </div>
                 <div className="inline-flex w-fit rounded-full border border-black/5 bg-slate-50 px-2.5 py-1 text-[10px] text-slate-500">
-                  {lastInboundAt ? `Último inbound: ${formatDateLabel(lastInboundAt)}` : "Sin inbound"}
+                  {lastInboundAt
+                    ? `Último inbound: ${formatDateLabel(lastInboundAt)}`
+                    : "Sin inbound"}
                 </div>
               </div>
 
               <p className="w-full text-[12px] leading-[1.45] text-slate-500">
-                El cliente no ha respondido en las últimas 24 horas. Elige una plantilla Utility para continuar. Cuando responda, podrás escribir libremente por 24 horas.
+                El cliente no ha respondido en las últimas 24 horas. Elige una plantilla Utility
+                para continuar. Cuando responda, podrás escribir libremente por 24 horas.
               </p>
             </div>
             <div className="mt-3 grid grid-cols-1 gap-2.5">
@@ -1470,591 +1660,773 @@ export function WhatsappContactPanel({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[13px] font-semibold truncate text-slate-900">{action.label}</div>
-                      <div className="mt-1 text-[11px] text-slate-500 line-clamp-2 leading-[1.35]">{action.preview}</div>
+                      <div className="text-[13px] font-semibold truncate text-slate-900">
+                        {action.label}
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-500 line-clamp-2 leading-[1.35]">
+                        {action.preview}
+                      </div>
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         {action.description}
                       </div>
-                      <div className="mt-1 text-[10px] text-slate-500 leading-tight">{action.enabled ? "Disponible" : action.disabledReason}</div>
+                      <div className="mt-1 text-[10px] text-slate-500 leading-tight">
+                        {action.enabled ? "Disponible" : action.disabledReason}
+                      </div>
                     </div>
                   </div>
                 </button>
               ))}
             </div>
             <div className="mt-3 text-[11px] text-muted-foreground">
-              {serviceWindowExpiresAt ? `Ventana cerrada. Expira: ${new Date(serviceWindowExpiresAt).toLocaleString()}.` : serviceWindowLabelText}
+              {serviceWindowExpiresAt
+                ? `Ventana cerrada. Expira: ${new Date(serviceWindowExpiresAt).toLocaleString()}.`
+                : serviceWindowLabelText}
             </div>
           </div>
         ) : null}
 
-        <div data-demo="whatsapp-quick-actions"><CrmDetailSection title="Acciones rápidas">
-        {!conversation.lead_id ? (
-          <>
-            <Button
-              data-demo="whatsapp-create-lead"
-              variant="default"
-              size="sm"
-              className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
-              onClick={() => void handleCreateLeadFromWhatsapp()}
-              disabled={creatingLeadFromWhatsapp || !can("leads.create")}
-            >
-              <UserRound className="h-4 w-4 text-white" />
-              {creatingLeadFromWhatsapp ? "Creando..." : "Crear prospecto desde WhatsApp"}
-            </Button>
-            <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("lead")}</p>
-          </>
-        ) : null}
-        <div className="mt-2 grid grid-cols-1 gap-2">
-          <Button data-demo="whatsapp-create-deal"
-            variant={deal ? "default" : "default"}
-            size="sm"
-            className={cn(
-              "w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl",
-              deal ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700",
-            )}
-            onClick={() => {
-              if (deal) {
-                window.location.href = "/pipeline";
-                return;
-              }
-              void handleCreateDealFromLead();
-            }}
-            disabled={!canCreateDealFromPanel}
-          >
-            <BriefcaseBusiness className="h-4 w-4 text-white" />
-            <span className="truncate">
-              {deal ? "Abrir oportunidad" : creatingDeal ? "Creando oportunidad..." : "Crear oportunidad"}
-            </span>
-          </Button>
-          <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("deal")}</p>
-
-          <Button
-            variant={client ? "default" : "default"}
-            size="sm"
-            className={cn(
-              "w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl",
-              client ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700",
-            )}
-            onClick={() => {
-              if (client) {
-                window.location.href = "/clients";
-                return;
-              }
-              void handleConvertLeadToClient();
-            }}
-            disabled={!canConvertClientFromPanel}
-          >
-            <UserRound className="h-4 w-4 text-white" />
-            <span className="truncate">
-              {client ? "Abrir cliente" : convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
-            </span>
-          </Button>
-          <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("client")}</p>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
-              onClick={() => phone && navigator.clipboard.writeText(phone)}
-              disabled={!phone}
-            >
-              <Copy className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">Copiar</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
-              onClick={() => waMe && window.open(waMe, "_blank", "noopener,noreferrer")}
-              disabled={!waMe}
-            >
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">WhatsApp</span>
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
-              onClick={() => (window.location.href = "/leads")}
-              disabled={!conversation.lead_id}
-            >
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">Prospecto</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
-              onClick={() => openFollowUpDialog()}
-              disabled={!canCreateFollowUpFromPanel}
-            >
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">Crear seguimiento</span>
-            </Button>
-          </div>
-          <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("task")}</p>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
-            onClick={() => void handleMarkConversationResolved()}
-            disabled={updatingConversation}
-          >
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-            <span className="truncate">{updatingConversation ? "Guardando..." : "Marcar resuelto"}</span>
-          </Button>
-        </div>
-      </CrmDetailSection></div>
-
-      {productsLoading || productSuggestions.length ? (
-        <div data-demo="whatsapp-suggested-product">
-        <CrmDetailSection
-          title="Producto sugerido"
-          action={productsLoading ? <span className="text-[10px] text-muted-foreground">Cargando…</span> : null}
-        >
-
-        {productSuggestions.length ? (
-          <div className="space-y-2">
-            {productSuggestions.map((s) => {
-              const p = s.product as ProductRow;
-              const isSelected = selectedProductId && String(selectedProductId) === String(p.id);
-              return (
-                <div
-                  key={String(p.id)}
-                  onClick={() => setSelectedProductId(String(p.id))}
-                  className={cn(
-                    "w-full cursor-pointer text-left rounded-[12px] border bg-background p-3 text-[12px] transition",
-                    isSelected ? "border-primary/60 ring-1 ring-primary/20" : "hover:bg-accent/40",
-                  )}
+        <div data-demo="whatsapp-quick-actions">
+          <CrmDetailSection title="Acciones rápidas">
+            {!conversation.lead_id ? (
+              <>
+                <Button
+                  data-demo="whatsapp-create-lead"
+                  variant="default"
+                  size="sm"
+                  className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
+                  onClick={() => void handleCreateLeadFromWhatsapp()}
+                  disabled={creatingLeadFromWhatsapp || !can("leads.create")}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-semibold truncate">{p.name || `Producto ${String(p.id).slice(0, 8)}`}</div>
-                      <div className="text-[11px] text-muted-foreground mt-1">
-                        {(p.category || "—") + " · " + (p.base_price != null ? `$${Number(p.base_price).toLocaleString()}` : "Precio —")}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-[10px] font-semibold uppercase tracking-[.06em] text-muted-foreground">{s.score} kw</div>
-                  </div>
-                  <div className="mt-2 text-[11px] text-muted-foreground break-words">
-                    <span className="font-medium text-foreground/80">Keywords:</span>{" "}
-                    {s.matchedKeywords.length ? s.matchedKeywords.join(", ") : "—"}
-                  </div>
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-8 px-3 text-[11px] font-semibold"
-                      disabled={!lead?.id || !canMarkLeadInterest || markingInterest === String(p.id)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleMarkLeadInterest(String(p.id));
-                      }}
-                    >
-                      {markingInterest === String(p.id) ? "Guardando interés..." : "Marcar interés del lead"}
-                    </Button>
-                    <div className="mt-1 text-[10px] text-muted-foreground">{panelActionHint("interest")}</div>
-                  </div>
-                </div>
-              );
-            })}
-
-          </div>
-        ) : (
-          <div className="text-[12px] text-muted-foreground">No se detectaron productos en la conversación.</div>
-        )}
-        </CrmDetailSection>
-        </div>
-      ) : null}
-
-      <div data-demo="whatsapp-proposals">
-        <CrmDetailSection
-          title="Propuestas"
-          action={proposalsLoading ? <span className="text-[10px] text-muted-foreground">Cargando…</span> : null}
-        >
-
-        {proposals.length ? (
-          <div className="space-y-3">
-            <div>
-              <Label className="crm-label uppercase">Seleccionar propuesta</Label>
-              <Select value={selectedProposalId ?? undefined} onValueChange={(v) => setSelectedProposalId(v || null)}>
-                <SelectTrigger className="mt-1 h-9">
-                  <SelectValue placeholder="Selecciona una propuesta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {orderedProposals.map((pr) => {
-                    const productLabel = pr.product_id ? productNameById.get(String(pr.product_id)) : null;
-                    const amountLabel = `${Number(pr.amount || 0).toLocaleString()} ${pr.currency || "—"}`.trim();
-                    const status = pr.status ? String(pr.status) : "—";
-                    const relationLabel =
-                      (pr.whatsapp_conversation_id && conversation?.conversation_id && String(pr.whatsapp_conversation_id) === String(conversation.conversation_id)
-                        ? "Conversación"
-                        : pr.lead_id && lead?.id && String(pr.lead_id) === String(lead.id)
-                          ? "Lead"
-                          : pr.deal_id && deal?.id && String(pr.deal_id) === String(deal.id)
-                            ? "Oportunidad"
-                            : pr.client_id && client?.id && String(pr.client_id) === String(client.id)
-                              ? "Cliente"
-                              : null);
-                    return (
-                      <SelectItem key={pr.id} value={String(pr.id)} textValue={`${pr.title} ${amountLabel} ${status}`}>
-                        <div className="flex flex-col">
-                          <span className="font-semibold">{pr.title}</span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {productLabel ? `${productLabel} · ` : ""}
-                            {amountLabel} · {status}
-                            {relationLabel ? ` · ${relationLabel}` : ""}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              <div className="mt-2 text-[10px] text-muted-foreground">
-                Priorizadas por coincidencia con este prospecto, su oportunidad y sus productos relacionados.
-              </div>
-            </div>
-
-            {selectedProposal ? (
-              <div className="rounded-[12px] border bg-muted/10 px-3 py-2">
-                <div className="text-[12px] font-medium truncate">{selectedProposal.title}</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  {`${Number(selectedProposal.amount || 0).toLocaleString()} ${selectedProposal.currency || "—"}`.trim()} ·{" "}
-                  {selectedProposal.status || "—"}
-                </div>
-                {selectedProposal.product_id ? (
-                  <div className="mt-1 text-[11px] text-muted-foreground truncate">
-                    Producto: {productNameById.get(String(selectedProposal.product_id)) || selectedProposal.product_id}
-                  </div>
-                ) : null}
-              </div>
+                  <UserRound className="h-4 w-4 text-white" />
+                  {creatingLeadFromWhatsapp ? "Creando..." : "Crear prospecto desde WhatsApp"}
+                </Button>
+                <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("lead")}</p>
+              </>
             ) : null}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-1 gap-2">
               <Button
-                type="button"
-                variant="outline"
+                data-demo="whatsapp-create-deal"
+                variant={deal ? "default" : "default"}
                 size="sm"
-                className="justify-start min-w-0 overflow-hidden"
-                disabled={!selectedProposal || copyingProposalLink}
-                onClick={() => void handleCopyProposal()}
-              >
-                <Copy className="h-4 w-4" />
-                <span className="truncate">{copyingProposalLink ? "Copiando..." : "Copiar enlace"}</span>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="justify-start bg-emerald-600 hover:bg-emerald-700 min-w-0 overflow-hidden"
-                disabled={!selectedProposal || !canRegisterProposalSend || registeringProposalSend}
-                onClick={() => void handleRegisterProposalSend()}
-              >
-                <span className="truncate">{registeringProposalSend ? "Enviando propuesta..." : "Enviar propuesta"}</span>
-              </Button>
-            </div>
-            <div className="text-[10px] text-muted-foreground">{panelActionHint("proposal_send")}</div>
-
-            {canCreateProposal ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="justify-start w-full"
-                onClick={() => navigate({ to: "/proposals", search: proposalCreateSearch })}
-              >
-                <ExternalLink className="h-4 w-4" />
-                <span className="truncate">Crear nueva propuesta</span>
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="text-muted-foreground">No hay propuestas disponibles para este prospecto.</div>
-        )}
-
-        <div className="mt-3 rounded-[10px] border bg-muted/10 p-2">
-          <div className="flex items-center justify-between mb-1">
-            <div className="crm-label uppercase">Historial</div>
-            {proposalSendsLoading ? <span className="text-[10px] text-muted-foreground">Cargando…</span> : null}
-          </div>
-          {proposalSends.length ? (
-            <div className="space-y-2">
-              {proposalSends.map((row) => {
-                const pr = row?.proposal || orderedProposals.find((p) => String(p.id) === String(row?.proposal_id));
-                const title = pr?.title || "Propuesta";
-                const productLabel =
-                  (row?.product_id ? productNameById.get(String(row.product_id)) : null) ||
-                  (pr?.product_id ? productNameById.get(String(pr.product_id)) : null);
-                return (
-                  <div key={row.id} className="text-[12px]">
-                    <div className="font-semibold truncate">{title}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {productLabel ? `${productLabel} · ` : ""}
-                      {formatDateLabel(row.sent_at)} · {row.status || "—"}
-                    </div>
-                    {row?.sent_to_phone ? (
-                      <div className="text-[10px] text-muted-foreground truncate">Enviado a {String(row.sent_to_phone)}</div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-[12px] text-muted-foreground">Sin envíos registrados.</div>
-          )}
-        </div>
-        </CrmDetailSection>
-      </div>
-
-      <div data-demo="whatsapp-detected-data"><CrmDetailSection
-        title="Datos detectados"
-        action={
-          extracted.rawSummary ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
-              onClick={() => navigator.clipboard.writeText(extracted.rawSummary || "")}
-            >
-              <Copy className="h-4 w-4" />
-              Copiar
-            </Button>
-          ) : null
-        }
-      >
-        {extracted.rawSummary ? (
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Empresa</div>
-                <div className="text-[12px] text-foreground break-words">{extracted.company || "—"}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Servicio</div>
-                <div className="text-[12px] text-foreground break-words">{extracted.serviceInterest || "—"}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Necesidad</div>
-                <div className="text-[12px] text-foreground break-words">{extracted.mainNeed || "—"}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Urgencia</div>
-                <div className="text-[12px] text-foreground break-words">{extracted.urgency || "—"}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Canal</div>
-                <div className="text-[12px] text-foreground break-words">{extracted.currentChannel || "—"}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Preferencia</div>
-                <div className="text-[12px] text-foreground break-words">{extracted.contactPreference || "—"}</div>
-              </div>
-            </div>
-
-            <div className="rounded-[12px] border bg-muted/10 px-3 py-2 text-[11.5px] leading-[1.4] text-foreground/90 whitespace-pre-wrap">
-              {detectedExpanded ? detectedSummary : detectedPreview}
-            </div>
-            {showDetectedToggle ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px] justify-start"
-                onClick={() => setDetectedExpanded((v) => !v)}
-              >
-                {detectedExpanded ? "Ver menos" : "Ver más"}
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="text-[12px] text-muted-foreground">No se detectó un bloque estructurado en los mensajes todavía.</div>
-        )}
-      </CrmDetailSection></div>
-
-      <CrmDetailSection title="Perfil CRM">
-        {relatedLoading ? (
-          <div className="text-[12px] text-muted-foreground">Cargando…</div>
-        ) : !conversation.lead_id ? (
-          <div className="text-[12px] text-muted-foreground">Esta conversación todavía no está conectada a un prospecto.</div>
-        ) : !lead ? (
-          <div className="text-[12px] text-muted-foreground">No se pudo cargar el prospecto relacionado.</div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Prospecto</div>
-              <div className="text-[12px] font-semibold text-foreground break-words">
-                {lead.company_name || formatPersonName(lead.first_name, lead.last_name) || lead.email || lead.phone || "—"}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Estado</div>
-              <div className="text-[12px] text-foreground break-words">{lead.status || "—"}</div>
-            </div>
-            <div>
-              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Fuente</div>
-              <div className="text-[12px] text-foreground break-words">{lead.source_channel || lead.source || "—"}</div>
-            </div>
-            <div>
-              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Responsable</div>
-              <div className="text-[12px] text-foreground break-words">
-                {lead.assigned_to ? teamByUserId.get(String(lead.assigned_to))?.full_name || "Asignado" : "Sin asignar"}
-              </div>
-            </div>
-          </div>
-        )}
-      </CrmDetailSection>
-
-      {!relatedLoading && lead ? (
-        <>
-          {isAdminLike ? (
-            <CrmDetailSection
-              title="Asignación"
-              action={teamLoading ? <span className="text-[10px] text-muted-foreground">Cargando…</span> : null}
-            >
-              <Select
-                value={lead.assigned_to || "unassigned"}
-                onValueChange={(v) => void handleUpdateLeadAssignee(v === "unassigned" ? null : v)}
-                disabled={updatingAssignment}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Sin asignar</SelectItem>
-                  {assignableMembers.map((m, index) => (
-                    <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
-                      {m.full_name || m.email || m.user_id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="mt-2 text-[10px] text-muted-foreground flex items-center gap-2">
-                <UserCog className="h-3.5 w-3.5" />
-                Esto actualiza <span className="font-mono">leads.assigned_to</span>.
-              </div>
-            </CrmDetailSection>
-          ) : null}
-
-          <CrmDetailSection title="Contacto">
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="justify-start gap-2"
-                disabled={!lead.email}
-                onClick={() => lead.email && window.open(`mailto:${lead.email}`, "_blank")}
-              >
-                <Mail className="h-4 w-4" /> Email
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="justify-start gap-2"
-                disabled={!(lead.phone || lead.whatsapp)}
+                className={cn(
+                  "w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl",
+                  deal
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-emerald-600 hover:bg-emerald-700",
+                )}
                 onClick={() => {
-                  const p = lead.whatsapp || lead.phone;
-                  if (!p) return;
-                  window.open(`tel:${p}`, "_self");
+                  if (deal) {
+                    window.location.href = "/pipeline";
+                    return;
+                  }
+                  void handleCreateDealFromLead();
                 }}
+                disabled={!canCreateDealFromPanel}
               >
-                <Phone className="h-4 w-4" /> Llamar
+                <BriefcaseBusiness className="h-4 w-4 text-white" />
+                <span className="truncate">
+                  {deal
+                    ? "Abrir oportunidad"
+                    : creatingDeal
+                      ? "Creando oportunidad..."
+                      : "Crear oportunidad"}
+                </span>
+              </Button>
+              <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("deal")}</p>
+
+              <Button
+                variant={client ? "default" : "default"}
+                size="sm"
+                className={cn(
+                  "w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl",
+                  client
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-emerald-600 hover:bg-emerald-700",
+                )}
+                onClick={() => {
+                  if (client) {
+                    window.location.href = "/clients";
+                    return;
+                  }
+                  void handleConvertLeadToClient();
+                }}
+                disabled={!canConvertClientFromPanel}
+              >
+                <UserRound className="h-4 w-4 text-white" />
+                <span className="truncate">
+                  {client
+                    ? "Abrir cliente"
+                    : convertingClient
+                      ? "Convirtiendo..."
+                      : "Convertir a cliente"}
+                </span>
+              </Button>
+              <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("client")}</p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
+                  onClick={() => phone && navigator.clipboard.writeText(phone)}
+                  disabled={!phone}
+                >
+                  <Copy className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">Copiar</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
+                  onClick={() => waMe && window.open(waMe, "_blank", "noopener,noreferrer")}
+                  disabled={!waMe}
+                >
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">WhatsApp</span>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
+                  onClick={() => (window.location.href = "/leads")}
+                  disabled={!conversation.lead_id}
+                >
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">Prospecto</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
+                  onClick={() => openFollowUpDialog()}
+                  disabled={!canCreateFollowUpFromPanel}
+                >
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">Crear seguimiento</span>
+                </Button>
+              </div>
+              <p className="px-1 text-[11px] text-muted-foreground">{panelActionHint("task")}</p>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2 min-w-0 overflow-hidden rounded-xl"
+                onClick={() => void handleMarkConversationResolved()}
+                disabled={updatingConversation}
+              >
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">
+                  {updatingConversation ? "Guardando..." : "Marcar resuelto"}
+                </span>
               </Button>
             </div>
           </CrmDetailSection>
+        </div>
 
-          <div data-demo="whatsapp-followup"><CrmDetailSection title="Seguimiento">
-            {nextTask ? (
-              (() => {
-                const isDone = ["Completed", "Cancelled"].includes(String(nextTask.status || ""));
-                const today = new Date();
-                const todayYmd = today.toISOString().slice(0, 10);
-                const dueYmd = nextTask.due_date ? String(nextTask.due_date).slice(0, 10) : null;
-                const isOverdue = !isDone && dueYmd != null && dueYmd < todayYmd;
-                return (
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-[12px] font-medium truncate">{nextTask.title}</div>
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          {nextTask.due_date ? formatDateLabel(nextTask.due_date) : "—"} · {nextTask.status || "—"}
+        {productsLoading || productSuggestions.length ? (
+          <div data-demo="whatsapp-suggested-product">
+            <CrmDetailSection
+              title="Producto sugerido"
+              action={
+                productsLoading ? (
+                  <span className="text-[10px] text-muted-foreground">Cargando…</span>
+                ) : null
+              }
+            >
+              {productSuggestions.length ? (
+                <div className="space-y-2">
+                  {productSuggestions.map((s) => {
+                    const p = s.product as ProductRow;
+                    const isSelected =
+                      selectedProductId && String(selectedProductId) === String(p.id);
+                    return (
+                      <div
+                        key={String(p.id)}
+                        onClick={() => setSelectedProductId(String(p.id))}
+                        className={cn(
+                          "w-full cursor-pointer text-left rounded-[12px] border bg-background p-3 text-[12px] transition",
+                          isSelected
+                            ? "border-primary/60 ring-1 ring-primary/20"
+                            : "hover:bg-accent/40",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate">
+                              {p.name || `Producto ${String(p.id).slice(0, 8)}`}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-1">
+                              {(p.category || "—") +
+                                " · " +
+                                (p.base_price != null
+                                  ? `$${Number(p.base_price).toLocaleString()}`
+                                  : "Precio —")}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-[10px] font-semibold uppercase tracking-[.06em] text-muted-foreground">
+                            {s.score} kw
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[11px] text-muted-foreground break-words">
+                          <span className="font-medium text-foreground/80">Keywords:</span>{" "}
+                          {s.matchedKeywords.length ? s.matchedKeywords.join(", ") : "—"}
+                        </div>
+                        <div className="mt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8 px-3 text-[11px] font-semibold"
+                            disabled={
+                              !lead?.id || !canMarkLeadInterest || markingInterest === String(p.id)
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleMarkLeadInterest(String(p.id));
+                            }}
+                          >
+                            {markingInterest === String(p.id)
+                              ? "Guardando interés..."
+                              : "Marcar interés del lead"}
+                          </Button>
+                          <div className="mt-1 text-[10px] text-muted-foreground">
+                            {panelActionHint("interest")}
+                          </div>
                         </div>
                       </div>
-                      {isOverdue ? (
-                        <span className="shrink-0 inline-flex items-center h-6 px-2 rounded-full bg-red-50 text-red-700 border border-red-200 text-[10px] font-medium dark:bg-red-900/15 dark:text-red-200 dark:border-red-800/40">
-                          Vencido
-                        </span>
-                      ) : null}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-[12px] text-muted-foreground">
+                  No se detectaron productos en la conversación.
+                </div>
+              )}
+            </CrmDetailSection>
+          </div>
+        ) : null}
+
+        <div data-demo="whatsapp-proposals">
+          <CrmDetailSection
+            title="Propuestas"
+            action={
+              proposalsLoading ? (
+                <span className="text-[10px] text-muted-foreground">Cargando…</span>
+              ) : null
+            }
+          >
+            {proposals.length ? (
+              <div className="space-y-3">
+                <div>
+                  <Label className="crm-label uppercase">Seleccionar propuesta</Label>
+                  <Select
+                    value={selectedProposalId ?? undefined}
+                    onValueChange={(v) => setSelectedProposalId(v || null)}
+                  >
+                    <SelectTrigger className="mt-1 h-9">
+                      <SelectValue placeholder="Selecciona una propuesta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orderedProposals.map((pr) => {
+                        const productLabel = pr.product_id
+                          ? productNameById.get(String(pr.product_id))
+                          : null;
+                        const amountLabel =
+                          `${Number(pr.amount || 0).toLocaleString()} ${pr.currency || "—"}`.trim();
+                        const status = pr.status ? String(pr.status) : "—";
+                        const relationLabel =
+                          pr.whatsapp_conversation_id &&
+                          conversation?.conversation_id &&
+                          String(pr.whatsapp_conversation_id) ===
+                            String(conversation.conversation_id)
+                            ? "Conversación"
+                            : pr.lead_id && lead?.id && String(pr.lead_id) === String(lead.id)
+                              ? "Lead"
+                              : pr.deal_id && deal?.id && String(pr.deal_id) === String(deal.id)
+                                ? "Oportunidad"
+                                : pr.client_id &&
+                                    client?.id &&
+                                    String(pr.client_id) === String(client.id)
+                                  ? "Cliente"
+                                  : null;
+                        return (
+                          <SelectItem
+                            key={pr.id}
+                            value={String(pr.id)}
+                            textValue={`${pr.title} ${amountLabel} ${status}`}
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-semibold">{pr.title}</span>
+                              <span className="text-[11px] text-muted-foreground">
+                                {productLabel ? `${productLabel} · ` : ""}
+                                {amountLabel} · {status}
+                                {relationLabel ? ` · ${relationLabel}` : ""}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <div className="mt-2 text-[10px] text-muted-foreground">
+                    Priorizadas por coincidencia con este prospecto, su oportunidad y sus productos
+                    relacionados.
+                  </div>
+                </div>
+
+                {selectedProposal ? (
+                  <div className="rounded-[12px] border bg-muted/10 px-3 py-2">
+                    <div className="text-[12px] font-medium truncate">{selectedProposal.title}</div>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {`${Number(selectedProposal.amount || 0).toLocaleString()} ${selectedProposal.currency || "—"}`.trim()}{" "}
+                      · {selectedProposal.status || "—"}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 mt-2 text-[11px] text-muted-foreground">
-                      <div>
-                        <span className="font-medium">Prioridad:</span> {nextTask.priority || "—"}
+                    {selectedProposal.product_id ? (
+                      <div className="mt-1 text-[11px] text-muted-foreground truncate">
+                        Producto:{" "}
+                        {productNameById.get(String(selectedProposal.product_id)) ||
+                          selectedProposal.product_id}
                       </div>
-                      <div>
-                        <span className="font-medium">Fecha:</span>{" "}
-                        {nextTask.due_date ? formatDateLabel(nextTask.due_date) : "—"}
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="justify-start min-w-0 overflow-hidden"
+                    disabled={!selectedProposal || copyingProposalLink}
+                    onClick={() => void handleCopyProposal()}
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span className="truncate">
+                      {copyingProposalLink ? "Copiando..." : "Copiar enlace"}
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="justify-start bg-emerald-600 hover:bg-emerald-700 min-w-0 overflow-hidden"
+                    disabled={
+                      !selectedProposal || !canRegisterProposalSend || registeringProposalSend
+                    }
+                    onClick={() => void handleRegisterProposalSend()}
+                  >
+                    <span className="truncate">
+                      {registeringProposalSend ? "Enviando propuesta..." : "Enviar propuesta"}
+                    </span>
+                  </Button>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {panelActionHint("proposal_send")}
+                </div>
+
+                {canCreateProposal ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="justify-start w-full"
+                    onClick={() =>
+                      navigate({
+                        to: "/proposals",
+                        search: {
+                          leadId: proposalCreateSearch.leadId,
+                          dealId: proposalCreateSearch.dealId,
+                          conversationId: proposalCreateSearch.conversationId,
+                          productId: proposalCreateSearch.productId,
+                          clientId: proposalCreateSearch.clientId,
+                        },
+                      })
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="truncate">Crear nueva propuesta</span>
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="text-muted-foreground">
+                No hay propuestas disponibles para este prospecto.
+              </div>
+            )}
+
+            <div className="mt-3 rounded-[10px] border bg-muted/10 p-2">
+              <div className="flex items-center justify-between mb-1">
+                <div className="crm-label uppercase">Historial</div>
+                {proposalSendsLoading ? (
+                  <span className="text-[10px] text-muted-foreground">Cargando…</span>
+                ) : null}
+              </div>
+              {proposalSends.length ? (
+                <div className="space-y-2">
+                  {proposalSends.map((row) => {
+                    const pr =
+                      row?.proposal ||
+                      orderedProposals.find((p) => String(p.id) === String(row?.proposal_id));
+                    const title = pr?.title || "Propuesta";
+                    const productLabel =
+                      (row?.product_id ? productNameById.get(String(row.product_id)) : null) ||
+                      (pr?.product_id ? productNameById.get(String(pr.product_id)) : null);
+                    return (
+                      <div key={row.id} className="text-[12px]">
+                        <div className="font-semibold truncate">{title}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {productLabel ? `${productLabel} · ` : ""}
+                          {formatDateLabel(row.sent_at)} · {row.status || "—"}
+                        </div>
+                        {row?.sent_to_phone ? (
+                          <div className="text-[10px] text-muted-foreground truncate">
+                            Enviado a {String(row.sent_to_phone)}
+                          </div>
+                        ) : null}
                       </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-[12px] text-muted-foreground">Sin envíos registrados.</div>
+              )}
+            </div>
+          </CrmDetailSection>
+        </div>
+
+        <div data-demo="whatsapp-detected-data">
+          <CrmDetailSection
+            title="Datos detectados"
+            action={
+              extracted.rawSummary ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => navigator.clipboard.writeText(extracted.rawSummary || "")}
+                >
+                  <Copy className="h-4 w-4" />
+                  Copiar
+                </Button>
+              ) : null
+            }
+          >
+            {extracted.rawSummary ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Empresa
+                    </div>
+                    <div className="text-[12px] text-foreground break-words">
+                      {extracted.company || "—"}
                     </div>
                   </div>
-                );
-              })()
-            ) : (
-              <div className="text-[12px] text-muted-foreground">No hay seguimiento programado.</div>
-            )}
-          </CrmDetailSection></div>
+                  <div>
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Servicio
+                    </div>
+                    <div className="text-[12px] text-foreground break-words">
+                      {extracted.serviceInterest || "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Necesidad
+                    </div>
+                    <div className="text-[12px] text-foreground break-words">
+                      {extracted.mainNeed || "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Urgencia
+                    </div>
+                    <div className="text-[12px] text-foreground break-words">
+                      {extracted.urgency || "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Canal
+                    </div>
+                    <div className="text-[12px] text-foreground break-words">
+                      {extracted.currentChannel || "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Preferencia
+                    </div>
+                    <div className="text-[12px] text-foreground break-words">
+                      {extracted.contactPreference || "—"}
+                    </div>
+                  </div>
+                </div>
 
-          <div data-demo="whatsapp-opportunity"><CrmDetailSection title="Oportunidad">
-            {deal ? (
+                <div className="rounded-[12px] border bg-muted/10 px-3 py-2 text-[11.5px] leading-[1.4] text-foreground/90 whitespace-pre-wrap">
+                  {detectedExpanded ? detectedSummary : detectedPreview}
+                </div>
+                {showDetectedToggle ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] justify-start"
+                    onClick={() => setDetectedExpanded((v) => !v)}
+                  >
+                    {detectedExpanded ? "Ver menos" : "Ver más"}
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="text-[12px] text-muted-foreground">
+                No se detectó un bloque estructurado en los mensajes todavía.
+              </div>
+            )}
+          </CrmDetailSection>
+        </div>
+
+        <CrmDetailSection title="Perfil CRM">
+          {relatedLoading ? (
+            <div className="text-[12px] text-muted-foreground">Cargando…</div>
+          ) : !conversation.lead_id ? (
+            <div className="text-[12px] text-muted-foreground">
+              Esta conversación todavía no está conectada a un prospecto.
+            </div>
+          ) : !lead ? (
+            <div className="text-[12px] text-muted-foreground">
+              No se pudo cargar el prospecto relacionado.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className="text-[13px] font-semibold truncate text-slate-900">{deal.name}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  {deal.stage} · ${Number(deal.value || 0).toLocaleString()}
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Prospecto
+                </div>
+                <div className="text-[12px] font-semibold text-foreground break-words">
+                  {lead.company_name ||
+                    formatPersonName(lead.first_name, lead.last_name) ||
+                    lead.email ||
+                    lead.phone ||
+                    "—"}
                 </div>
               </div>
-            ) : (
-              <div className="text-[12px] text-muted-foreground">No hay oportunidad creada para este prospecto.</div>
-            )}
-          </CrmDetailSection></div>
-
-          <div data-demo="whatsapp-client"><CrmDetailSection title="Cliente">
-            {client ? (
               <div>
-                <div className="text-[13px] font-semibold truncate text-slate-900">{client.company_name || "Cliente"}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">{client.status || "—"}</div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Estado
+                </div>
+                <div className="text-[12px] text-foreground break-words">{lead.status || "—"}</div>
               </div>
-            ) : (
-              <div className="text-[12px] text-muted-foreground">No hay cliente conectado.</div>
-            )}
-          </CrmDetailSection></div>
-        </>
-      ) : null}
+              <div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Fuente
+                </div>
+                <div className="text-[12px] text-foreground break-words">
+                  {lead.source_channel || lead.source || "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Responsable
+                </div>
+                <div className="text-[12px] text-foreground break-words">
+                  {lead.assigned_to
+                    ? teamByUserId.get(String(lead.assigned_to))?.full_name || "Asignado"
+                    : "Sin asignar"}
+                </div>
+              </div>
+            </div>
+          )}
+        </CrmDetailSection>
 
+        {!relatedLoading && lead ? (
+          <>
+            {isAdminLike ? (
+              <CrmDetailSection
+                title="Asignación"
+                action={
+                  teamLoading ? (
+                    <span className="text-[10px] text-muted-foreground">Cargando…</span>
+                  ) : null
+                }
+              >
+                <Select
+                  value={lead.assigned_to || "unassigned"}
+                  onValueChange={(v) =>
+                    void handleUpdateLeadAssignee(v === "unassigned" ? null : v)
+                  }
+                  disabled={updatingAssignment}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Sin asignar</SelectItem>
+                    {assignableMembers.map((m, index) => (
+                      <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
+                        {m.full_name || m.email || m.user_id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="mt-2 text-[10px] text-muted-foreground flex items-center gap-2">
+                  <UserCog className="h-3.5 w-3.5" />
+                  Esto actualiza <span className="font-mono">leads.assigned_to</span>.
+                </div>
+              </CrmDetailSection>
+            ) : null}
+
+            <CrmDetailSection title="Contacto">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start gap-2"
+                  disabled={!lead.email}
+                  onClick={() => lead.email && window.open(`mailto:${lead.email}`, "_blank")}
+                >
+                  <Mail className="h-4 w-4" /> Email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start gap-2"
+                  disabled={!(lead.phone || lead.whatsapp)}
+                  onClick={() => {
+                    const p = lead.whatsapp || lead.phone;
+                    if (!p) return;
+                    window.open(`tel:${p}`, "_self");
+                  }}
+                >
+                  <Phone className="h-4 w-4" /> Llamar
+                </Button>
+              </div>
+            </CrmDetailSection>
+
+            <div data-demo="whatsapp-followup">
+              <CrmDetailSection title="Seguimiento">
+                {nextTask ? (
+                  (() => {
+                    const isDone = ["Completed", "Cancelled"].includes(
+                      String(nextTask.status || ""),
+                    );
+                    const today = new Date();
+                    const todayYmd = today.toISOString().slice(0, 10);
+                    const dueYmd = nextTask.due_date
+                      ? String(nextTask.due_date).slice(0, 10)
+                      : null;
+                    const isOverdue = !isDone && dueYmd != null && dueYmd < todayYmd;
+                    return (
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[12px] font-medium truncate">{nextTask.title}</div>
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              {nextTask.due_date ? formatDateLabel(nextTask.due_date) : "—"} ·{" "}
+                              {nextTask.status || "—"}
+                            </div>
+                          </div>
+                          {isOverdue ? (
+                            <span className="shrink-0 inline-flex items-center h-6 px-2 rounded-full bg-red-50 text-red-700 border border-red-200 text-[10px] font-medium dark:bg-red-900/15 dark:text-red-200 dark:border-red-800/40">
+                              Vencido
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-2 text-[11px] text-muted-foreground">
+                          <div>
+                            <span className="font-medium">Prioridad:</span>{" "}
+                            {nextTask.priority || "—"}
+                          </div>
+                          <div>
+                            <span className="font-medium">Fecha:</span>{" "}
+                            {nextTask.due_date ? formatDateLabel(nextTask.due_date) : "—"}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="text-[12px] text-muted-foreground">
+                    No hay seguimiento programado.
+                  </div>
+                )}
+              </CrmDetailSection>
+            </div>
+
+            <div data-demo="whatsapp-opportunity">
+              <CrmDetailSection title="Oportunidad">
+                {deal ? (
+                  <div>
+                    <div className="text-[13px] font-semibold truncate text-slate-900">
+                      {deal.name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      {deal.stage} · ${Number(deal.value || 0).toLocaleString()}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-muted-foreground">
+                    No hay oportunidad creada para este prospecto.
+                  </div>
+                )}
+              </CrmDetailSection>
+            </div>
+
+            <div data-demo="whatsapp-client">
+              <CrmDetailSection title="Cliente">
+                {client ? (
+                  <div>
+                    <div className="text-[13px] font-semibold truncate text-slate-900">
+                      {client.company_name || "Cliente"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      {client.status || "—"}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-muted-foreground">No hay cliente conectado.</div>
+                )}
+              </CrmDetailSection>
+            </div>
+          </>
+        ) : null}
       </div>
 
-      <Dialog open={Boolean(activeUtilityAction)} onOpenChange={(open) => !open && setActiveUtilityActionId(null)}>
+      <Dialog
+        open={Boolean(activeUtilityAction)}
+        onOpenChange={(open) => !open && setActiveUtilityActionId(null)}
+      >
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-base">{activeUtilityAction?.label || "Plantilla aprobada"}</DialogTitle>
+            <DialogTitle className="text-base">
+              {activeUtilityAction?.label || "Plantilla aprobada"}
+            </DialogTitle>
           </DialogHeader>
           {activeUtilityAction ? (
             <div className="space-y-4">
               <div className="rounded-[12px] border bg-muted/10 px-3 py-2 text-[12px] text-muted-foreground">
-                Tipo: <span className="font-medium text-foreground">{activeUtilityAction.description}</span>
+                Tipo:{" "}
+                <span className="font-medium text-foreground">
+                  {activeUtilityAction.description}
+                </span>
                 <span className="mx-2">·</span>
                 Categoría: <span className="font-medium text-foreground">Utility</span>
                 <span className="mx-2">·</span>
-                Destinatario: <span className="font-medium text-foreground">{utilityActionContext?.recipientName || name}</span>
+                Destinatario:{" "}
+                <span className="font-medium text-foreground">
+                  {utilityActionContext?.recipientName || name}
+                </span>
               </div>
 
               <div>
-                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Variables</div>
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Variables
+                </div>
                 <div className="space-y-1 rounded-[12px] border bg-background p-3 text-[12px]">
                   {activeUtilityAction.variables.map((variable) => (
                     <div key={variable} className="font-mono text-[11px] text-muted-foreground">
@@ -2065,14 +2437,20 @@ export function WhatsappContactPanel({
               </div>
 
               <div>
-                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</div>
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Preview
+                </div>
                 <div className="rounded-[12px] border bg-muted/10 p-3 text-[12px] leading-[1.5] whitespace-pre-wrap text-foreground">
                   {activeUtilityAction.preview}
                 </div>
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setActiveUtilityActionId(null)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActiveUtilityActionId(null)}
+                >
                   Cancelar
                 </Button>
                 <Button type="button" onClick={() => void handleConfirmUtilityAction()}>
@@ -2098,16 +2476,26 @@ export function WhatsappContactPanel({
           >
             <div>
               <Label>Título</Label>
-              <Input value={followUpValues.title} onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))} />
+              <Input
+                value={followUpValues.title}
+                onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Fecha</Label>
-                <Input type="date" value={followUpValues.due_date} onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))} />
+                <Input
+                  type="date"
+                  value={followUpValues.due_date}
+                  onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))}
+                />
               </div>
               <div>
                 <Label>Prioridad</Label>
-                <Select value={followUpValues.priority} onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}>
+                <Select
+                  value={followUpValues.priority}
+                  onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -2121,10 +2509,18 @@ export function WhatsappContactPanel({
             </div>
             <div>
               <Label>Descripción</Label>
-              <Input value={followUpValues.description} onChange={(e) => setFollowUpValues((p) => ({ ...p, description: e.target.value }))} />
+              <Input
+                value={followUpValues.description}
+                onChange={(e) => setFollowUpValues((p) => ({ ...p, description: e.target.value }))}
+              />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setFollowUpOpen(false)} disabled={followUpSaving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFollowUpOpen(false)}
+                disabled={followUpSaving}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={followUpSaving}>

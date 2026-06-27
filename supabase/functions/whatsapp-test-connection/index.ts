@@ -57,7 +57,16 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") || "";
     const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
-    if (!jwt) return jsonResponse({ ok: false, success: false, connected: false, error: "Missing Authorization bearer token" }, 401);
+    if (!jwt)
+      return jsonResponse(
+        {
+          ok: false,
+          success: false,
+          connected: false,
+          error: "Missing Authorization bearer token",
+        },
+        401,
+      );
 
     const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
@@ -66,25 +75,70 @@ Deno.serve(async (req) => {
 
     const { data: authData, error: authErr } = await callerClient.auth.getUser(jwt);
     if (authErr || !authData?.user) {
-      return jsonResponse({ ok: false, success: false, connected: false, error: "Invalid session" }, 401);
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: "Invalid session" },
+        401,
+      );
     }
 
-    const [{ data: companyId, error: companyErr }, { data: isMember, error: memberErr }, { data: hasRole, error: roleErr }] =
-      await Promise.all([
-        callerClient.rpc("get_current_company_id"),
-        callerClient.rpc("is_company_member"),
-        callerClient.rpc("has_any_role", {
-          _user_id: authData.user.id,
-          _roles: ["super_admin", "admin", "manager"] as AllowedRole[],
-        }),
-      ]);
+    const [
+      { data: companyId, error: companyErr },
+      { data: isMember, error: memberErr },
+      { data: hasRole, error: roleErr },
+    ] = await Promise.all([
+      callerClient.rpc("get_current_company_id"),
+      callerClient.rpc("is_company_member"),
+      callerClient.rpc("has_any_role", {
+        _user_id: authData.user.id,
+        _roles: ["super_admin", "admin", "manager"] as AllowedRole[],
+      }),
+    ]);
 
-    if (companyErr) return jsonResponse({ ok: false, success: false, connected: false, error: companyErr.message }, 403);
-    if (memberErr) return jsonResponse({ ok: false, success: false, connected: false, error: memberErr.message }, 403);
-    if (roleErr) return jsonResponse({ ok: false, success: false, connected: false, error: roleErr.message }, 403);
-    if (!companyId) return jsonResponse({ ok: false, success: false, connected: false, error: "No company context (missing profile.company_id)" }, 403);
-    if (!isMember) return jsonResponse({ ok: false, success: false, connected: false, error: "Account is inactive or not a company member" }, 403);
-    if (!hasRole) return jsonResponse({ ok: false, success: false, connected: false, error: "Not authorized (super_admin/admin/manager only)" }, 403);
+    if (companyErr)
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: companyErr.message },
+        403,
+      );
+    if (memberErr)
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: memberErr.message },
+        403,
+      );
+    if (roleErr)
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: roleErr.message },
+        403,
+      );
+    if (!companyId)
+      return jsonResponse(
+        {
+          ok: false,
+          success: false,
+          connected: false,
+          error: "No company context (missing profile.company_id)",
+        },
+        403,
+      );
+    if (!isMember)
+      return jsonResponse(
+        {
+          ok: false,
+          success: false,
+          connected: false,
+          error: "Account is inactive or not a company member",
+        },
+        403,
+      );
+    if (!hasRole)
+      return jsonResponse(
+        {
+          ok: false,
+          success: false,
+          connected: false,
+          error: "Not authorized (super_admin/admin/manager only)",
+        },
+        403,
+      );
 
     // Read settings with caller client (RLS applies)
     const { data: settings, error: settingsErr } = await callerClient
@@ -92,13 +146,20 @@ Deno.serve(async (req) => {
       .select("phone_number_id, meta_graph_version, whatsapp_business_account_id, business_phone")
       .eq("company_id", companyId)
       .maybeSingle();
-    if (settingsErr) return jsonResponse({ ok: false, success: false, connected: false, error: settingsErr.message }, 400);
+    if (settingsErr)
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: settingsErr.message },
+        400,
+      );
 
     const phoneNumberId = cleanOptionalString((settings as any)?.phone_number_id);
     const metaGraphVersion = cleanOptionalString((settings as any)?.meta_graph_version) || "v22.0";
 
     if (!phoneNumberId) {
-      return jsonResponse({ ok: false, success: false, connected: false, error: "Falta configurar Phone Number ID" }, 400);
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: "Falta configurar Phone Number ID" },
+        400,
+      );
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -110,11 +171,23 @@ Deno.serve(async (req) => {
       .select("access_token")
       .eq("company_id", companyId)
       .maybeSingle();
-    if (secretsErr) return jsonResponse({ ok: false, success: false, connected: false, error: "No se pudieron leer credenciales" }, 500);
+    if (secretsErr)
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: "No se pudieron leer credenciales" },
+        500,
+      );
 
     const accessToken = cleanOptionalString((secrets as any)?.access_token);
     if (!accessToken) {
-      return jsonResponse({ ok: false, success: false, connected: false, error: "Falta configurar Permanent Access Token" }, 400);
+      return jsonResponse(
+        {
+          ok: false,
+          success: false,
+          connected: false,
+          error: "Falta configurar Permanent Access Token",
+        },
+        400,
+      );
     }
 
     const url = `https://graph.facebook.com/${encodeURIComponent(metaGraphVersion)}/${encodeURIComponent(phoneNumberId)}?fields=id,display_phone_number,verified_name,quality_rating`;
@@ -147,7 +220,10 @@ Deno.serve(async (req) => {
         })
         .eq("company_id", companyId);
 
-      return jsonResponse({ ok: false, success: false, connected: false, error: message }, metaRes.status >= 400 && metaRes.status < 500 ? 400 : 502);
+      return jsonResponse(
+        { ok: false, success: false, connected: false, error: message },
+        metaRes.status >= 400 && metaRes.status < 500 ? 400 : 502,
+      );
     }
 
     const displayPhoneNumber = cleanOptionalString(metaJson?.display_phone_number);
@@ -180,4 +256,3 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, success: false, connected: false, error: message }, 500);
   }
 });
-

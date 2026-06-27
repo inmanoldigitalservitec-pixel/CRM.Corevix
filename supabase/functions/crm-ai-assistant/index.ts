@@ -99,7 +99,9 @@ function trimText(value: unknown, maxLength = 300) {
 }
 
 function detectIntent(message: string) {
-  const m = String(message || "").trim().toLowerCase();
+  const m = String(message || "")
+    .trim()
+    .toLowerCase();
   const hasAny = (needles: string[]) => needles.some((n) => m.includes(n));
 
   if (
@@ -116,32 +118,104 @@ function detectIntent(message: string) {
       "agenda hoy",
       "hoy",
     ]) &&
-    hasAny(["resumen", "prioridad", "agenda", "hoy", "pendiente", "vencid", "atrasad", "que debo", "qué debo"])
+    hasAny([
+      "resumen",
+      "prioridad",
+      "agenda",
+      "hoy",
+      "pendiente",
+      "vencid",
+      "atrasad",
+      "que debo",
+      "qué debo",
+    ])
   ) {
     return "today_summary";
   }
 
-  if (hasAny(["lead", "leads", "prospect", "prospecto", "prospectos", "sin seguimiento", "nuevos leads", "nuevos prospectos"])) {
+  if (
+    hasAny([
+      "lead",
+      "leads",
+      "prospect",
+      "prospecto",
+      "prospectos",
+      "sin seguimiento",
+      "nuevos leads",
+      "nuevos prospectos",
+    ])
+  ) {
     return "leads";
   }
 
-  if (hasAny(["pipeline", "embudo", "oportunidades abiertas", "ventas abiertas", "deals", "deal", "oportunidades"])) {
+  if (
+    hasAny([
+      "pipeline",
+      "embudo",
+      "oportunidades abiertas",
+      "ventas abiertas",
+      "deals",
+      "deal",
+      "oportunidades",
+    ])
+  ) {
     return "pipeline";
   }
 
-  if (hasAny(["factura", "facturas", "invoice", "invoices", "cobro", "cobros", "por cobrar", "vencid", "cuentas por cobrar"])) {
+  if (
+    hasAny([
+      "factura",
+      "facturas",
+      "invoice",
+      "invoices",
+      "cobro",
+      "cobros",
+      "por cobrar",
+      "vencid",
+      "cuentas por cobrar",
+    ])
+  ) {
     return "invoices";
   }
 
-  if (hasAny(["tarea", "tareas", "pendiente", "pendientes", "atrasad", "vencid", "para hoy", "equipo"])) {
+  if (
+    hasAny([
+      "tarea",
+      "tareas",
+      "pendiente",
+      "pendientes",
+      "atrasad",
+      "vencid",
+      "para hoy",
+      "equipo",
+    ])
+  ) {
     return "tasks";
   }
 
-  if (hasAny(["proyecto", "proyectos", "producción", "produccion", "estado de producción", "estado de produccion"])) {
+  if (
+    hasAny([
+      "proyecto",
+      "proyectos",
+      "producción",
+      "produccion",
+      "estado de producción",
+      "estado de produccion",
+    ])
+  ) {
     return "projects";
   }
 
-  if (hasAny(["resume el cliente", "resumen del cliente", "cliente ", "qué está pasando con", "que esta pasando con", "estado de "])) {
+  if (
+    hasAny([
+      "resume el cliente",
+      "resumen del cliente",
+      "cliente ",
+      "qué está pasando con",
+      "que esta pasando con",
+      "estado de ",
+    ])
+  ) {
     return "client_context";
   }
 
@@ -177,7 +251,9 @@ async function getTodaySummaryContext(serviceClient: any, companyId: string) {
   const [leadsRes, invoicesRes, tasksRes, proposalsRes, projectsRes] = await Promise.all([
     serviceClient
       .from("leads")
-      .select("id,first_name,last_name,company_name,status,estimated_value,source,updated_at,created_at,notes,last_interaction_at,assigned_to")
+      .select(
+        "id,first_name,last_name,company_name,status,estimated_value,source,updated_at,created_at,notes,last_interaction_at,assigned_to",
+      )
       .eq("company_id", companyId)
       .order("updated_at", { ascending: false })
       .limit(30),
@@ -190,7 +266,9 @@ async function getTodaySummaryContext(serviceClient: any, companyId: string) {
       .limit(30),
     serviceClient
       .from("tasks")
-      .select("id,title,status,priority,due_date,related_project_id,related_client_id,related_lead_id,related_deal_id,assigned_to,description,updated_at,created_at")
+      .select(
+        "id,title,status,priority,due_date,related_project_id,related_client_id,related_lead_id,related_deal_id,assigned_to,description,updated_at,created_at",
+      )
       .eq("company_id", companyId)
       .neq("status", "Completed")
       .neq("status", "Cancelled")
@@ -198,14 +276,18 @@ async function getTodaySummaryContext(serviceClient: any, companyId: string) {
       .limit(60),
     serviceClient
       .from("proposals")
-      .select("id,number,title,status,amount,currency,valid_until,client_id,lead_id,deal_id,notes,description,updated_at,created_at,sent_at")
+      .select(
+        "id,number,title,status,amount,currency,valid_until,client_id,lead_id,deal_id,notes,description,updated_at,created_at,sent_at",
+      )
       .eq("company_id", companyId)
       .in("status", ["Sent", "Viewed", "Pending"])
       .order("updated_at", { ascending: false })
       .limit(30),
     serviceClient
       .from("projects")
-      .select("id,name,status,priority,due_date,progress,client_id,manager,updated_at,created_at,description")
+      .select(
+        "id,name,status,priority,due_date,progress,client_id,manager,updated_at,created_at,description",
+      )
       .eq("company_id", companyId)
       .neq("status", "Completed")
       .neq("status", "Cancelled")
@@ -231,7 +313,9 @@ async function getTodaySummaryContext(serviceClient: any, companyId: string) {
     .filter((l: any) => {
       const status = String(l.status || "").toLowerCase();
       if (status === "won" || status === "lost" || status === "converted") return false;
-      const updatedHours = l.updated_at ? (Date.now() - Date.parse(String(l.updated_at))) / 36e5 : Infinity;
+      const updatedHours = l.updated_at
+        ? (Date.now() - Date.parse(String(l.updated_at))) / 36e5
+        : Infinity;
       const noInteraction = !l.last_interaction_at;
       return updatedHours > 24 || noInteraction;
     })
@@ -323,7 +407,9 @@ async function getTodaySummaryContext(serviceClient: any, companyId: string) {
 async function getLeadsContext(serviceClient: any, companyId: string) {
   const { data: leads } = await serviceClient
     .from("leads")
-    .select("id,first_name,last_name,company_name,status,estimated_value,source,updated_at,created_at,notes,last_interaction_at,assigned_to")
+    .select(
+      "id,first_name,last_name,company_name,status,estimated_value,source,updated_at,created_at,notes,last_interaction_at,assigned_to",
+    )
     .eq("company_id", companyId)
     .order("updated_at", { ascending: false })
     .limit(30);
@@ -332,7 +418,9 @@ async function getLeadsContext(serviceClient: any, companyId: string) {
   const { data: deals } = leadIds.length
     ? await serviceClient
         .from("deals")
-        .select("id,name,stage,value,probability,expected_close,lead_id,assigned_to,updated_at,notes,created_at")
+        .select(
+          "id,name,stage,value,probability,expected_close,lead_id,assigned_to,updated_at,notes,created_at",
+        )
         .eq("company_id", companyId)
         .in("lead_id", leadIds)
         .order("updated_at", { ascending: false })
@@ -371,7 +459,9 @@ async function getLeadsContext(serviceClient: any, companyId: string) {
 async function getPipelineContext(serviceClient: any, companyId: string) {
   const { data: deals } = await serviceClient
     .from("deals")
-    .select("id,name,stage,value,probability,expected_close,lead_id,assigned_to,updated_at,notes,created_at")
+    .select(
+      "id,name,stage,value,probability,expected_close,lead_id,assigned_to,updated_at,notes,created_at",
+    )
     .eq("company_id", companyId)
     .order("updated_at", { ascending: false })
     .limit(60);
@@ -382,7 +472,9 @@ async function getPipelineContext(serviceClient: any, companyId: string) {
   const { data: leads } = leadIds.length
     ? await serviceClient
         .from("leads")
-        .select("id,first_name,last_name,company_name,status,estimated_value,source,updated_at,last_interaction_at,assigned_to")
+        .select(
+          "id,first_name,last_name,company_name,status,estimated_value,source,updated_at,last_interaction_at,assigned_to",
+        )
         .eq("company_id", companyId)
         .in("id", leadIds)
         .order("updated_at", { ascending: false })
@@ -422,7 +514,9 @@ async function getPipelineContext(serviceClient: any, companyId: string) {
 async function getInvoicesContext(serviceClient: any, companyId: string) {
   const { data: invoices } = await serviceClient
     .from("invoices")
-    .select("id,number,status,total,subtotal,tax,discount,due_date,date_issued,client_id,notes,updated_at,created_at")
+    .select(
+      "id,number,status,total,subtotal,tax,discount,due_date,date_issued,client_id,notes,updated_at,created_at",
+    )
     .eq("company_id", companyId)
     .in("status", ["Pending", "Sent", "Overdue"])
     .order("due_date", { ascending: true })
@@ -451,7 +545,9 @@ async function getTasksContext(serviceClient: any, companyId: string) {
 
   const { data: tasks } = await serviceClient
     .from("tasks")
-    .select("id,title,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,description,updated_at,created_at")
+    .select(
+      "id,title,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,description,updated_at,created_at",
+    )
     .eq("company_id", companyId)
     .order("due_date", { ascending: true })
     .limit(80);
@@ -467,10 +563,14 @@ async function getTasksContext(serviceClient: any, companyId: string) {
     })
     .slice(0, 30);
 
-  const openNoDue = open.filter((t: any) => !t.due_date).slice(0, Math.max(0, 30 - dueOrOverdue.length));
+  const openNoDue = open
+    .filter((t: any) => !t.due_date)
+    .slice(0, Math.max(0, 30 - dueOrOverdue.length));
   const selected = dueOrOverdue.concat(openNoDue);
 
-  const projectIds = Array.from(new Set(selected.map((t: any) => t.related_project_id).filter(Boolean)));
+  const projectIds = Array.from(
+    new Set(selected.map((t: any) => t.related_project_id).filter(Boolean)),
+  );
   const { data: projects } = projectIds.length
     ? await serviceClient
         .from("projects")
@@ -515,7 +615,9 @@ async function getProjectsContext(serviceClient: any, companyId: string) {
 
   const { data: projects } = await serviceClient
     .from("projects")
-    .select("id,name,status,priority,due_date,progress,client_id,manager,updated_at,created_at,description")
+    .select(
+      "id,name,status,priority,due_date,progress,client_id,manager,updated_at,created_at,description",
+    )
     .eq("company_id", companyId)
     .neq("status", "Completed")
     .neq("status", "Cancelled")
@@ -526,7 +628,9 @@ async function getProjectsContext(serviceClient: any, companyId: string) {
   const { data: tasks } = projectIds.length
     ? await serviceClient
         .from("tasks")
-        .select("id,title,status,priority,due_date,related_project_id,assigned_to,updated_at,description")
+        .select(
+          "id,title,status,priority,due_date,related_project_id,assigned_to,updated_at,description",
+        )
         .eq("company_id", companyId)
         .in("related_project_id", projectIds)
         .order("due_date", { ascending: true })
@@ -620,34 +724,43 @@ async function getClientContext(serviceClient: any, companyId: string, message: 
 
   const { data: clients } = await serviceClient
     .from("clients")
-    .select("id,company_name,status,contact_person,email,phone,website,tags,notes,updated_at,created_at,account_manager")
+    .select(
+      "id,company_name,status,contact_person,email,phone,website,tags,notes,updated_at,created_at,account_manager",
+    )
     .eq("company_id", companyId)
     .ilike("company_name", `%${q}%`)
     .order("updated_at", { ascending: false })
     .limit(5);
 
   const client = (clients || [])[0] || null;
-  if (!client?.id) return { error: `No se encontró un cliente que coincida con "${q}".`, clients: [] };
+  if (!client?.id)
+    return { error: `No se encontró un cliente que coincida con "${q}".`, clients: [] };
 
   const clientId = String(client.id);
 
   const [leadsRes, dealsRes, proposalsRes, invoicesRes, projectsRes, tasksRes] = await Promise.all([
     serviceClient
       .from("leads")
-      .select("id,first_name,last_name,company_name,status,estimated_value,source,updated_at,created_at,notes,last_interaction_at,assigned_to")
+      .select(
+        "id,first_name,last_name,company_name,status,estimated_value,source,updated_at,created_at,notes,last_interaction_at,assigned_to",
+      )
       .eq("company_id", companyId)
       .eq("company_name", client.company_name)
       .order("updated_at", { ascending: false })
       .limit(20),
     serviceClient
       .from("deals")
-      .select("id,name,stage,value,probability,expected_close,lead_id,assigned_to,updated_at,notes,created_at")
+      .select(
+        "id,name,stage,value,probability,expected_close,lead_id,assigned_to,updated_at,notes,created_at",
+      )
       .eq("company_id", companyId)
       .order("updated_at", { ascending: false })
       .limit(30),
     serviceClient
       .from("proposals")
-      .select("id,number,title,status,amount,currency,valid_until,client_id,lead_id,deal_id,notes,description,updated_at,created_at,sent_at")
+      .select(
+        "id,number,title,status,amount,currency,valid_until,client_id,lead_id,deal_id,notes,description,updated_at,created_at,sent_at",
+      )
       .eq("company_id", companyId)
       .eq("client_id", clientId)
       .order("updated_at", { ascending: false })
@@ -661,14 +774,18 @@ async function getClientContext(serviceClient: any, companyId: string, message: 
       .limit(30),
     serviceClient
       .from("projects")
-      .select("id,name,status,priority,due_date,progress,client_id,manager,updated_at,created_at,description,deal_id,lead_id")
+      .select(
+        "id,name,status,priority,due_date,progress,client_id,manager,updated_at,created_at,description,deal_id,lead_id",
+      )
       .eq("company_id", companyId)
       .eq("client_id", clientId)
       .order("updated_at", { ascending: false })
       .limit(20),
     serviceClient
       .from("tasks")
-      .select("id,title,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,description,updated_at,created_at")
+      .select(
+        "id,title,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,description,updated_at,created_at",
+      )
       .eq("company_id", companyId)
       .eq("related_client_id", clientId)
       .order("due_date", { ascending: true })
@@ -712,7 +829,9 @@ async function getClientContext(serviceClient: any, companyId: string, message: 
     notes: trimText(d.notes, 250),
   }));
 
-  const deals = leadIds.length ? dealsAll.filter((d: any) => d.lead_id && leadIds.includes(d.lead_id)).slice(0, 30) : dealsAll.slice(0, 15);
+  const deals = leadIds.length
+    ? dealsAll.filter((d: any) => d.lead_id && leadIds.includes(d.lead_id)).slice(0, 30)
+    : dealsAll.slice(0, 15);
 
   return {
     detected_query: q,
@@ -799,7 +918,9 @@ async function getFallbackContext(serviceClient: any, companyId: string) {
   const [leadsRes, dealsRes, invoicesRes, tasksRes] = await Promise.all([
     serviceClient
       .from("leads")
-      .select("id,first_name,last_name,company_name,status,updated_at,created_at,notes,last_interaction_at,assigned_to")
+      .select(
+        "id,first_name,last_name,company_name,status,updated_at,created_at,notes,last_interaction_at,assigned_to",
+      )
       .eq("company_id", companyId)
       .order("updated_at", { ascending: false })
       .limit(5),
@@ -818,7 +939,9 @@ async function getFallbackContext(serviceClient: any, companyId: string) {
       .limit(5),
     serviceClient
       .from("tasks")
-      .select("id,title,status,priority,due_date,related_project_id,assigned_to,updated_at,description")
+      .select(
+        "id,title,status,priority,due_date,related_project_id,assigned_to,updated_at,description",
+      )
       .eq("company_id", companyId)
       .order("due_date", { ascending: true })
       .limit(5),
@@ -868,7 +991,12 @@ async function getFallbackContext(serviceClient: any, companyId: string) {
   };
 }
 
-async function buildContextByIntent(serviceClient: any, companyId: string, intent: string, message: string) {
+async function buildContextByIntent(
+  serviceClient: any,
+  companyId: string,
+  intent: string,
+  message: string,
+) {
   if (intent === "today_summary") return await getTodaySummaryContext(serviceClient, companyId);
   if (intent === "leads") return await getLeadsContext(serviceClient, companyId);
   if (intent === "pipeline") return await getPipelineContext(serviceClient, companyId);
@@ -879,7 +1007,13 @@ async function buildContextByIntent(serviceClient: any, companyId: string, inten
   return await getFallbackContext(serviceClient, companyId);
 }
 
-async function callGemini(apiKey: string, model: string, systemPrompt: string, userMessage: string, crm: CRMContext) {
+async function callGemini(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userMessage: string,
+  crm: CRMContext,
+) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const prompt = [
@@ -928,12 +1062,18 @@ async function callGemini(apiKey: string, model: string, systemPrompt: string, u
   }
 
   if (!resp.ok) {
-    const msg = (json && (json.error?.message || json.error?.status)) ? String(json.error?.message || json.error?.status) : rawText || "Gemini error";
+    const msg =
+      json && (json.error?.message || json.error?.status)
+        ? String(json.error?.message || json.error?.status)
+        : rawText || "Gemini error";
     return { ok: false as const, error: msg, status: resp.status, raw: json || rawText };
   }
 
   const candidateText =
-    json?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join("\n") ||
+    json?.candidates?.[0]?.content?.parts
+      ?.map((p: any) => p?.text)
+      .filter(Boolean)
+      .join("\n") ||
     json?.text ||
     "";
 
@@ -1049,7 +1189,9 @@ async function buildActionContext(serviceClient: any, companyId: string) {
       .limit(30),
     serviceClient
       .from("tasks")
-      .select("id,title,status,priority,due_date,assigned_to,related_project_id,related_client_id,updated_at")
+      .select(
+        "id,title,status,priority,due_date,assigned_to,related_project_id,related_client_id,updated_at",
+      )
       .eq("company_id", companyId)
       .order("updated_at", { ascending: false })
       .limit(40),
@@ -1094,10 +1236,20 @@ async function buildActionContext(serviceClient: any, companyId: string) {
   };
 }
 
-function findProfileId(action: { assigned_to_profile_id?: string | null; assigned_to_name?: string | null; manager_profile_id?: string | null; manager_name?: string | null }, context: any) {
+function findProfileId(
+  action: {
+    assigned_to_profile_id?: string | null;
+    assigned_to_name?: string | null;
+    manager_profile_id?: string | null;
+    manager_name?: string | null;
+  },
+  context: any,
+) {
   const direct = normalizeText(action.assigned_to_profile_id || action.manager_profile_id);
   if (direct) {
-    const match = (context.team || []).find((p: any) => String(p.id) === direct || String(p.user_id || "") === direct);
+    const match = (context.team || []).find(
+      (p: any) => String(p.id) === direct || String(p.user_id || "") === direct,
+    );
     if (match) return String(match.id);
   }
   const name = normalizeText(action.assigned_to_name || action.manager_name).toLowerCase();
@@ -1110,7 +1262,12 @@ function findProfileId(action: { assigned_to_profile_id?: string | null; assigne
   return match ? String(match.id) : null;
 }
 
-function findRecordId(items: any[], wantedId: string | null | undefined, wantedName: string | null | undefined, nameFields: string[]) {
+function findRecordId(
+  items: any[],
+  wantedId: string | null | undefined,
+  wantedName: string | null | undefined,
+  nameFields: string[],
+) {
   const id = normalizeText(wantedId);
   if (id) {
     const exact = items.find((item) => String(item.id) === id);
@@ -1141,11 +1298,22 @@ async function executeAssistantAction(opts: {
   const isSalesAgent = roles.includes("sales_agent");
 
   if (action.type === "create_task") {
-    if (!isAdminLike && !isSalesAgent) return { ok: false, message: "No tienes permiso para crear tareas." };
+    if (!isAdminLike && !isSalesAgent)
+      return { ok: false, message: "No tienes permiso para crear tareas." };
     const title = normalizeText(action.title);
     if (!title) return { ok: false, message: "Falta el título de la tarea." };
-    const related_project_id = findRecordId(context.projects || [], action.related_project_id, action.related_project_name, ["name"]);
-    const related_client_id = findRecordId(context.clients || [], action.related_client_id, action.related_client_name, ["company_name"]);
+    const related_project_id = findRecordId(
+      context.projects || [],
+      action.related_project_id,
+      action.related_project_name,
+      ["name"],
+    );
+    const related_client_id = findRecordId(
+      context.clients || [],
+      action.related_client_id,
+      action.related_client_name,
+      ["company_name"],
+    );
     const assigned_to = findProfileId(action, context) || profileId || null;
     if ((action.related_project_id || action.related_project_name) && !related_project_id) {
       return { ok: false, message: "No pude encontrar el proyecto indicado." };
@@ -1174,13 +1342,22 @@ async function executeAssistantAction(opts: {
       created_by: profileId,
     };
 
-    const { data, error } = await serviceClient.from("tasks").insert(payload).select("id,title").single();
+    const { data, error } = await serviceClient
+      .from("tasks")
+      .insert(payload)
+      .select("id,title")
+      .single();
     if (error) return { ok: false, message: error.message || "No se pudo crear la tarea." };
-    return { ok: true, message: `Tarea creada: ${data?.title || title}.`, entity_id: data?.id || null };
+    return {
+      ok: true,
+      message: `Tarea creada: ${data?.title || title}.`,
+      entity_id: data?.id || null,
+    };
   }
 
   if (action.type === "update_task") {
-    if (!isAdminLike && !isSalesAgent) return { ok: false, message: "No tienes permiso para actualizar tareas." };
+    if (!isAdminLike && !isSalesAgent)
+      return { ok: false, message: "No tienes permiso para actualizar tareas." };
     const taskId = findRecordId(context.tasks || [], action.task_id, action.task_name, ["title"]);
     if (!taskId) return { ok: false, message: "No pude identificar la tarea a actualizar." };
     const { data: currentTask } = await serviceClient
@@ -1197,22 +1374,37 @@ async function executeAssistantAction(opts: {
     if (action.due_date != null) updates.due_date = normalizeText(action.due_date) || null;
     const priority = action.priority != null ? isAllowedPriority(action.priority) : null;
     if (priority) updates.priority = priority;
-    const status = action.status != null ? isAllowedStatus(action.status, ["To Do", "In Progress", "Completed", "Cancelled"]) : null;
+    const status =
+      action.status != null
+        ? isAllowedStatus(action.status, ["To Do", "In Progress", "Completed", "Cancelled"])
+        : null;
     if (status) updates.status = status;
     const assigned_to = findProfileId(action, context);
     if (assigned_to) updates.assigned_to = assigned_to;
-    if (!Object.keys(updates).length) return { ok: false, message: "No hay cambios válidos para aplicar a la tarea." };
+    if (!Object.keys(updates).length)
+      return { ok: false, message: "No hay cambios válidos para aplicar a la tarea." };
 
-    const { data, error } = await serviceClient.from("tasks").update(updates).eq("id", taskId).select("id,title").single();
+    const { data, error } = await serviceClient
+      .from("tasks")
+      .update(updates)
+      .eq("id", taskId)
+      .select("id,title")
+      .single();
     if (error) return { ok: false, message: error.message || "No se pudo actualizar la tarea." };
-    return { ok: true, message: `Tarea actualizada: ${data?.title || taskId}.`, entity_id: data?.id || null };
+    return {
+      ok: true,
+      message: `Tarea actualizada: ${data?.title || taskId}.`,
+      entity_id: data?.id || null,
+    };
   }
 
   if (action.type === "create_project") {
     if (!isAdminLike) return { ok: false, message: "No tienes permiso para crear proyectos." };
     const name = normalizeText(action.name);
     if (!name) return { ok: false, message: "Falta el nombre del proyecto." };
-    const client_id = findRecordId(context.clients || [], action.client_id, action.client_name, ["company_name"]);
+    const client_id = findRecordId(context.clients || [], action.client_id, action.client_name, [
+      "company_name",
+    ]);
     const manager = findProfileId(action, context);
     if ((action.client_id || action.client_name) && !client_id) {
       return { ok: false, message: "No pude encontrar el cliente indicado." };
@@ -1221,7 +1413,16 @@ async function executeAssistantAction(opts: {
       return { ok: false, message: "No pude identificar al manager indicado." };
     }
     const priority = action.priority != null ? isAllowedPriority(action.priority) : null;
-    const status = action.status != null ? isAllowedStatus(action.status, ["Not Started", "In Progress", "On Hold", "Completed", "Cancelled"]) : null;
+    const status =
+      action.status != null
+        ? isAllowedStatus(action.status, [
+            "Not Started",
+            "In Progress",
+            "On Hold",
+            "Completed",
+            "Cancelled",
+          ])
+        : null;
     const payload: Record<string, any> = {
       company_id: companyId,
       name,
@@ -1230,20 +1431,31 @@ async function executeAssistantAction(opts: {
       start_date: normalizeText(action.start_date) || null,
       status: status || "Not Started",
       priority,
-      budget: typeof action.budget === "number" && Number.isFinite(action.budget) ? action.budget : null,
+      budget:
+        typeof action.budget === "number" && Number.isFinite(action.budget) ? action.budget : null,
       manager,
       client_id,
       created_by: profileId,
     };
 
-    const { data, error } = await serviceClient.from("projects").insert(payload).select("id,name").single();
+    const { data, error } = await serviceClient
+      .from("projects")
+      .insert(payload)
+      .select("id,name")
+      .single();
     if (error) return { ok: false, message: error.message || "No se pudo crear el proyecto." };
-    return { ok: true, message: `Proyecto creado: ${data?.name || name}.`, entity_id: data?.id || null };
+    return {
+      ok: true,
+      message: `Proyecto creado: ${data?.name || name}.`,
+      entity_id: data?.id || null,
+    };
   }
 
   if (action.type === "update_project") {
     if (!isAdminLike) return { ok: false, message: "No tienes permiso para actualizar proyectos." };
-    const projectId = findRecordId(context.projects || [], action.project_id, action.project_name, ["name"]);
+    const projectId = findRecordId(context.projects || [], action.project_id, action.project_name, [
+      "name",
+    ]);
     if (!projectId) return { ok: false, message: "No pude identificar el proyecto a actualizar." };
     const updates: Record<string, any> = {};
     if (action.name != null) updates.name = normalizeText(action.name);
@@ -1252,12 +1464,24 @@ async function executeAssistantAction(opts: {
     if (action.start_date != null) updates.start_date = normalizeText(action.start_date) || null;
     const priority = action.priority != null ? isAllowedPriority(action.priority) : null;
     if (priority) updates.priority = priority;
-    const status = action.status != null ? isAllowedStatus(action.status, ["Not Started", "In Progress", "On Hold", "Completed", "Cancelled"]) : null;
+    const status =
+      action.status != null
+        ? isAllowedStatus(action.status, [
+            "Not Started",
+            "In Progress",
+            "On Hold",
+            "Completed",
+            "Cancelled",
+          ])
+        : null;
     if (status) updates.status = status;
-    if (typeof action.budget === "number" && Number.isFinite(action.budget)) updates.budget = action.budget;
+    if (typeof action.budget === "number" && Number.isFinite(action.budget))
+      updates.budget = action.budget;
     const manager = findProfileId(action, context);
     if (manager) updates.manager = manager;
-    const client_id = findRecordId(context.clients || [], action.client_id, action.client_name, ["company_name"]);
+    const client_id = findRecordId(context.clients || [], action.client_id, action.client_name, [
+      "company_name",
+    ]);
     if (client_id) updates.client_id = client_id;
     if ((action.manager_profile_id || action.manager_name) && !manager) {
       return { ok: false, message: "No pude identificar al manager indicado." };
@@ -1265,11 +1489,21 @@ async function executeAssistantAction(opts: {
     if ((action.client_id || action.client_name) && !client_id) {
       return { ok: false, message: "No pude encontrar el cliente indicado." };
     }
-    if (!Object.keys(updates).length) return { ok: false, message: "No hay cambios válidos para aplicar al proyecto." };
+    if (!Object.keys(updates).length)
+      return { ok: false, message: "No hay cambios válidos para aplicar al proyecto." };
 
-    const { data, error } = await serviceClient.from("projects").update(updates).eq("id", projectId).select("id,name").single();
+    const { data, error } = await serviceClient
+      .from("projects")
+      .update(updates)
+      .eq("id", projectId)
+      .select("id,name")
+      .single();
     if (error) return { ok: false, message: error.message || "No se pudo actualizar el proyecto." };
-    return { ok: true, message: `Proyecto actualizado: ${data?.name || projectId}.`, entity_id: data?.id || null };
+    return {
+      ok: true,
+      message: `Proyecto actualizado: ${data?.name || projectId}.`,
+      entity_id: data?.id || null,
+    };
   }
 
   return { ok: false, message: "Acción no soportada." };
@@ -1296,7 +1530,9 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
       auth: { persistSession: false },
     });
-    const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
+    const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false },
+    });
 
     const { data: authData, error: authErr } = await callerClient.auth.getUser(jwt);
     if (authErr || !authData?.user) return jsonResponse({ error: "Sesión inválida." }, 401);
@@ -1307,8 +1543,10 @@ Deno.serve(async (req) => {
       .eq("user_id", authData.user.id)
       .maybeSingle();
     if (profileErr) return jsonResponse({ error: profileErr.message }, 400);
-    if (!profile?.company_id) return jsonResponse({ error: "No se encontró la compañía del usuario." }, 403);
-    if (profile.is_active === false) return jsonResponse({ error: "Tu usuario está inactivo." }, 403);
+    if (!profile?.company_id)
+      return jsonResponse({ error: "No se encontró la compañía del usuario." }, 403);
+    if (profile.is_active === false)
+      return jsonResponse({ error: "Tu usuario está inactivo." }, 403);
 
     const { data: rolesRows } = await serviceClient
       .from("user_roles")
@@ -1324,15 +1562,28 @@ Deno.serve(async (req) => {
     if (settingsErr) return jsonResponse({ error: settingsErr.message }, 400);
 
     if (!settings?.is_enabled || !settings?.api_key_encrypted) {
-      return jsonResponse({ error: "Gemini no está configurado. Ve a Settings > AI / Gemini.", code: "gemini_not_configured" }, 400);
+      return jsonResponse(
+        {
+          error: "Gemini no está configurado. Ve a Settings > AI / Gemini.",
+          code: "gemini_not_configured",
+        },
+        400,
+      );
     }
 
     const model = (settings.model && String(settings.model).trim()) || "gemini-1.5-pro";
-    const systemPrompt = (settings.system_prompt && String(settings.system_prompt)) || "Eres el asistente del CRM Corevix.";
+    const systemPrompt =
+      (settings.system_prompt && String(settings.system_prompt)) ||
+      "Eres el asistente del CRM Corevix.";
     const apiKey = String(settings.api_key_encrypted);
 
     const intent = detectIntent(userMessage);
-    const limitedContext = await buildContextByIntent(serviceClient, profile.company_id, intent, userMessage);
+    const limitedContext = await buildContextByIntent(
+      serviceClient,
+      profile.company_id,
+      intent,
+      userMessage,
+    );
     const actionContext = await buildActionContext(serviceClient, profile.company_id);
     const crm: CRMContext = {
       company_id: profile.company_id,
@@ -1367,7 +1618,9 @@ Deno.serve(async (req) => {
     }
 
     const parsed = extractJsonObject(gemini.text) as AssistantPlan | null;
-    const assistantReply = parsed?.assistant_reply ? String(parsed.assistant_reply).trim() : gemini.text;
+    const assistantReply = parsed?.assistant_reply
+      ? String(parsed.assistant_reply).trim()
+      : gemini.text;
     const action = parsed?.action || null;
     let actionResult: { ok: boolean; message: string; entity_id?: string | null } | null = null;
 
@@ -1383,9 +1636,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const reply = actionResult?.ok === false
-      ? `${assistantReply}${assistantReply.endsWith(".") ? "" : "."} No pude completar la acción: ${actionResult.message}`
-      : assistantReply;
+    const reply =
+      actionResult?.ok === false
+        ? `${assistantReply}${assistantReply.endsWith(".") ? "" : "."} No pude completar la acción: ${actionResult.message}`
+        : assistantReply;
     const stats = contextStatsFrom(crm.context);
     if (isDevRuntime()) {
       return jsonResponse({

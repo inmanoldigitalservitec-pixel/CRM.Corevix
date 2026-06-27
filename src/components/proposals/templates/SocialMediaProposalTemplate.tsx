@@ -71,7 +71,9 @@ export function SocialMediaProposalTemplate({
 }) {
   const [approving, setApproving] = useState(false);
   const [approvedUi, setApprovedUi] = useState(false);
-  const [approvedMsg, setApprovedMsg] = useState("Gracias. Hemos registrado tu aprobación para avanzar con el siguiente paso.");
+  const [approvedMsg, setApprovedMsg] = useState(
+    "Gracias. Hemos registrado tu aprobación para avanzar con el siguiente paso.",
+  );
 
   const data = proposalData ?? {};
   const companyName = String(data.companyName ?? "");
@@ -80,9 +82,7 @@ export function SocialMediaProposalTemplate({
 
   const heroDescription = useMemo(() => {
     const raw = String(data.heroDescription ?? "");
-    return raw
-      .replaceAll("{{clientName}}", clientName)
-      .replaceAll("{{companyName}}", companyName);
+    return raw.replaceAll("{{clientName}}", clientName).replaceAll("{{companyName}}", companyName);
   }, [clientName, companyName, data.heroDescription]);
 
   const diagnosticCards = Array.isArray(data.diagnosticCards) ? data.diagnosticCards : [];
@@ -124,21 +124,34 @@ export function SocialMediaProposalTemplate({
               <div className="brand">
                 <img className="brand-logo" src={COREVIX_LOGO_DATA_URI} alt="Corevix" />
               </div>
-              <div className="proposal-id" id="proposalNumberTop">{String(data.proposalNumber ?? proposalId ?? publicToken ?? "")}</div>
+              <div className="proposal-id" id="proposalNumberTop">
+                {String(data.proposalNumber ?? proposalId ?? publicToken ?? "")}
+              </div>
             </div>
 
             <div className="hero-card hero-card-upgraded">
               <div className="eyebrow">Propuesta de Manejo de Redes Sociales</div>
 
               <h1 className="hero-title">
-                Propuesta personalizada para <span className="accent" id="companyNameHero">{companyName}</span>
+                Propuesta personalizada para{" "}
+                <span className="accent" id="companyNameHero">
+                  {companyName}
+                </span>
               </h1>
-              <p className="hero-copy" id="heroDescription">{heroDescription}</p>
+              <p className="hero-copy" id="heroDescription">
+                {heroDescription}
+              </p>
 
               <div className="hero-proof-list">
-                <div className="hero-proof-item"><span className="hero-proof-check">✓</span> Diseño visual más sólido</div>
-                <div className="hero-proof-item"><span className="hero-proof-check">✓</span> Contenido que comunica mejor</div>
-                <div className="hero-proof-item"><span className="hero-proof-check">✓</span> Presencia constante y profesional</div>
+                <div className="hero-proof-item">
+                  <span className="hero-proof-check">✓</span> Diseño visual más sólido
+                </div>
+                <div className="hero-proof-item">
+                  <span className="hero-proof-check">✓</span> Contenido que comunica mejor
+                </div>
+                <div className="hero-proof-item">
+                  <span className="hero-proof-check">✓</span> Presencia constante y profesional
+                </div>
               </div>
 
               <div className="hero-offer-row">
@@ -146,18 +159,38 @@ export function SocialMediaProposalTemplate({
                   <div className="hero-offer-top">
                     <div>
                       <div className="mini-label">Plan recomendado</div>
-                      <div className="mini-value" id="productNameMetric">{String(data.productName ?? "")}</div>
+                      <div className="mini-value" id="productNameMetric">
+                        {String(data.productName ?? "")}
+                      </div>
                     </div>
                     <div className="mini-social-row" aria-label="Redes sociales">
-                      <span className="social-logo-pill"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v16/icons/instagram.svg" alt="Instagram" /></span>
-                      <span className="social-logo-pill"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v16/icons/tiktok.svg" alt="TikTok" /></span>
-                      <span className="social-logo-pill"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v16/icons/facebook.svg" alt="Facebook" /></span>
+                      <span className="social-logo-pill">
+                        <img
+                          src="https://cdn.jsdelivr.net/npm/simple-icons@v16/icons/instagram.svg"
+                          alt="Instagram"
+                        />
+                      </span>
+                      <span className="social-logo-pill">
+                        <img
+                          src="https://cdn.jsdelivr.net/npm/simple-icons@v16/icons/tiktok.svg"
+                          alt="TikTok"
+                        />
+                      </span>
+                      <span className="social-logo-pill">
+                        <img
+                          src="https://cdn.jsdelivr.net/npm/simple-icons@v16/icons/facebook.svg"
+                          alt="Facebook"
+                        />
+                      </span>
                     </div>
                   </div>
-                  <div className="hero-offer-price" id="proposalPriceMetric">{String(data.proposalAmount ?? "")}</div>
+                  <div className="hero-offer-price" id="proposalPriceMetric">
+                    {String(data.proposalAmount ?? "")}
+                  </div>
                 </div>
                 <div className="hero-offer-note" id="coverCaption">
-                  {coverCaption || "Una propuesta pensada para mejorar la imagen de tu negocio y mantener una presencia activa, clara y profesional en redes sociales."}
+                  {coverCaption ||
+                    "Una propuesta pensada para mejorar la imagen de tu negocio y mantener una presencia activa, clara y profesional en redes sociales."}
                 </div>
               </div>
 
@@ -186,12 +219,15 @@ export function SocialMediaProposalTemplate({
               Tu marca necesita verse <span className="accent">clara, constante y confiable</span>.
             </h2>
             <p className="section-copy">
-              Las personas deciden rápido. Si tu presencia digital no comunica bien lo que ofreces, puedes perder oportunidades antes de recibir el primer mensaje.
+              Las personas deciden rápido. Si tu presencia digital no comunica bien lo que ofreces,
+              puedes perder oportunidades antes de recibir el primer mensaje.
             </p>
             <div className="stack">
               {diagnosticCards.map((item, idx) => (
                 <article key={idx} className="card">
-                  <div className="icon-box"><TemplateIcon name={String(item?.icon ?? "sparkles")} /></div>
+                  <div className="icon-box">
+                    <TemplateIcon name={String(item?.icon ?? "sparkles")} />
+                  </div>
                   <h3 className="card-title">{String(item?.title ?? "")}</h3>
                   <p className="card-copy">{String(item?.copy ?? "")}</p>
                 </article>
@@ -224,11 +260,15 @@ export function SocialMediaProposalTemplate({
               Contenido que se sienta <span className="accent">más profesional y atractivo</span>
             </h2>
             <p className="section-copy">
-              La propuesta busca mejorar cómo se ve tu marca en redes, manteniendo una imagen consistente y más fácil de reconocer.
+              La propuesta busca mejorar cómo se ve tu marca en redes, manteniendo una imagen
+              consistente y más fácil de reconocer.
             </p>
             <div className="single-showcase">
               {String(data.showcaseImage ?? "") ? (
-                <img src={String(data.showcaseImage ?? "")} alt="Referencia visual de redes sociales" />
+                <img
+                  src={String(data.showcaseImage ?? "")}
+                  alt="Referencia visual de redes sociales"
+                />
               ) : (
                 <div className="showcase-fallback" aria-hidden />
               )}
@@ -259,7 +299,9 @@ export function SocialMediaProposalTemplate({
             <div className="two-grid">
               {benefits.map((item, idx) => (
                 <article key={idx} className="card">
-                  <div className="icon-box"><TemplateIcon name={String(item?.icon ?? "sparkles")} /></div>
+                  <div className="icon-box">
+                    <TemplateIcon name={String(item?.icon ?? "sparkles")} />
+                  </div>
                   <h3 className="card-title">{String(item?.title ?? "")}</h3>
                   <p className="card-copy">{String(item?.copy ?? "")}</p>
                 </article>
@@ -308,7 +350,8 @@ export function SocialMediaProposalTemplate({
               Para iniciar necesitamos tener <span className="accent">todo claro</span>
             </h2>
             <p className="section-copy">
-              Para trabajar con orden y evitar retrasos, el contenido debe iniciar con la información principal del negocio, materiales disponibles y preferencias de marca.
+              Para trabajar con orden y evitar retrasos, el contenido debe iniciar con la
+              información principal del negocio, materiales disponibles y preferencias de marca.
             </p>
             <ul className="check-list">
               {clientRequirements.map((item, idx) => (
@@ -316,7 +359,9 @@ export function SocialMediaProposalTemplate({
                   <div className="check-icon">✓</div>
                   <div>
                     <h3 className="item-title">{String(item ?? "")}</h3>
-                    <p className="item-copy">Información necesaria para trabajar con dirección clara y evitar retrasos.</p>
+                    <p className="item-copy">
+                      Información necesaria para trabajar con dirección clara y evitar retrasos.
+                    </p>
                   </div>
                 </li>
               ))}
@@ -327,12 +372,15 @@ export function SocialMediaProposalTemplate({
             <div className="eyebrow">Condiciones</div>
             <h2 className="section-title">Alcance, revisión y tiempos</h2>
             <p className="section-copy">
-              Esta propuesta incluye un proceso mensual de creación, revisión y programación. Cualquier cambio fuera del alcance inicial puede evaluarse como servicio adicional.
+              Esta propuesta incluye un proceso mensual de creación, revisión y programación.
+              Cualquier cambio fuera del alcance inicial puede evaluarse como servicio adicional.
             </p>
             <div className="stack">
               {terms.map((item, idx) => (
                 <article key={idx} className="card">
-                  <div className="icon-box"><TemplateIcon name="fileCheck" /></div>
+                  <div className="icon-box">
+                    <TemplateIcon name="fileCheck" />
+                  </div>
                   <h3 className="card-title">{String(item?.title ?? "")}</h3>
                   <p className="card-copy">{String(item?.copy ?? "")}</p>
                 </article>
@@ -344,13 +392,17 @@ export function SocialMediaProposalTemplate({
             <div className="eyebrow">Próximo paso</div>
             <h2 className="section-title">¿Listo para aprobar y avanzar?</h2>
             <p className="section-copy">
-              Si esta propuesta se alinea con lo que necesitas, puedes aprobarla para coordinar el inicio y poner en marcha la estrategia de contenido.
+              Si esta propuesta se alinea con lo que necesitas, puedes aprobarla para coordinar el
+              inicio y poner en marcha la estrategia de contenido.
             </p>
             <div className="dark-panel">
               <h3 className="card-title">Al aprobar esta propuesta avanzamos con:</h3>
               <ul className="dark-list">
                 {darkBenefits.map((item, idx) => (
-                  <li key={idx}><span className="dark-dot" /><span>{String(item ?? "")}</span></li>
+                  <li key={idx}>
+                    <span className="dark-dot" />
+                    <span>{String(item ?? "")}</span>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -358,7 +410,10 @@ export function SocialMediaProposalTemplate({
 
           {showStickyActions ? (
             <div className="sticky-actions no-print">
-              <div className={approvedUi ? "approved-notice active" : "approved-notice"} id="approvedNotice">
+              <div
+                className={approvedUi ? "approved-notice active" : "approved-notice"}
+                id="approvedNotice"
+              >
                 <strong>Propuesta aprobada</strong>
                 <span id="approvedNoticeText">{approvedMsg}</span>
               </div>
@@ -370,7 +425,11 @@ export function SocialMediaProposalTemplate({
                     onClick={() => void handleApprove()}
                     disabled={approvedUi || approving || !onApprove}
                   >
-                    {approvedUi ? "✓ Propuesta aprobada" : approving ? "Aprobando…" : "✓ Aprobar propuesta"}
+                    {approvedUi
+                      ? "✓ Propuesta aprobada"
+                      : approving
+                        ? "Aprobando…"
+                        : "✓ Aprobar propuesta"}
                   </button>
                 ) : null}
                 <button className="btn btn-secondary" onClick={() => window.print()}>

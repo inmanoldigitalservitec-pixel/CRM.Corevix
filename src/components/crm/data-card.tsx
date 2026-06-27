@@ -10,9 +10,7 @@ interface DataCardProps {
 export function DataCard({ children, className, noPadding }: DataCardProps) {
   return (
     <Card className={cn("border-border/40 shadow-sm bg-card", className)}>
-      <CardContent className={noPadding ? "p-0" : "p-4 sm:p-5"}>
-        {children}
-      </CardContent>
+      <CardContent className={noPadding ? "p-0" : "p-4 sm:p-5"}>{children}</CardContent>
     </Card>
   );
 }

@@ -61,7 +61,11 @@ function InvoicePublicPage() {
   }, [token]);
 
   if (loading) {
-    return <div className="min-h-[60vh] grid place-items-center text-sm text-muted-foreground">Cargando factura…</div>;
+    return (
+      <div className="min-h-[60vh] grid place-items-center text-sm text-muted-foreground">
+        Cargando factura…
+      </div>
+    );
   }
 
   if (error) {

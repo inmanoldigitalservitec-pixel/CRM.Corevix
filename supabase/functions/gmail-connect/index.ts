@@ -74,7 +74,8 @@ Deno.serve(async (req) => {
 
     if (profileErr) return jsonResponse({ error: profileErr.message }, 400);
     if (!profile?.id) return jsonResponse({ error: "Profile not found" }, 403);
-    if (!profile?.company_id) return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
+    if (!profile?.company_id)
+      return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
     if (profile.is_active === false) return jsonResponse({ error: "Account is inactive" }, 403);
 
     const stateRaw = base64Url(crypto.getRandomValues(new Uint8Array(32)));
@@ -96,11 +97,7 @@ Deno.serve(async (req) => {
     });
     if (stateErr) return jsonResponse({ error: stateErr.message }, 400);
 
-    const scope = [
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "email",
-      "profile",
-    ].join(" ");
+    const scope = ["https://www.googleapis.com/auth/gmail.readonly", "email", "profile"].join(" ");
 
     const params = new URLSearchParams({
       client_id: googleClientId,
@@ -120,4 +117,3 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: message }, 500);
   }
 });
-

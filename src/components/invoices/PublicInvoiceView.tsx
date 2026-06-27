@@ -52,7 +52,8 @@ type PublicInvoiceViewProps = {
 };
 
 export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceViewProps) {
-  const data = invoice?.invoice_data && typeof invoice.invoice_data === "object" ? invoice.invoice_data : {};
+  const data =
+    invoice?.invoice_data && typeof invoice.invoice_data === "object" ? invoice.invoice_data : {};
 
   const statusInfo = getStatusInfo(invoice.status);
   const currency = "USD";
@@ -79,7 +80,8 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
 
   const relatedProposalNumber = clean(data.relatedProposalNumber) || "Sin propuesta relacionada";
 
-  const productName = clean(data.productName) || getFirstItemTitle(items[0]?.description) || "Servicio aprobado";
+  const productName =
+    clean(data.productName) || getFirstItemTitle(items[0]?.description) || "Servicio aprobado";
 
   const paymentMessage =
     clean(data.paymentInstructions) ||
@@ -177,10 +179,14 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
             </div>
 
             <div className="mt-10 flex items-end justify-between gap-3.5">
-              <h1 className="m-0 text-[53px] font-[760] leading-[0.92] tracking-[-0.045em]">Factura</h1>
+              <h1 className="m-0 text-[53px] font-[760] leading-[0.92] tracking-[-0.045em]">
+                Factura
+              </h1>
 
               <div className="grid gap-1 pb-1 text-right">
-                <span className="text-[9.8px] font-bold uppercase tracking-[0.12em] text-white/60">Número</span>
+                <span className="text-[9.8px] font-bold uppercase tracking-[0.12em] text-white/60">
+                  Número
+                </span>
                 <strong className="text-[14.5px] font-[720] tracking-[-0.012em] text-white">
                   {invoice.number || "INV-SIN-NÚMERO"}
                 </strong>
@@ -192,7 +198,6 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
               <DateChip label="Vencimiento" value={formatDate(invoice.due_date)} />
             </div>
           </header>
-
 
           {String(invoice.status || "").toLowerCase() !== "paid" ? (
             <section
@@ -244,14 +249,13 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
 
                   <div className="mt-3 flex items-start gap-2 rounded-[14px] bg-[#f8fafc] px-3 py-2 text-[11.5px] font-medium leading-relaxed text-[#667085]">
                     <span className="mt-[2px] inline-block h-2 w-2 shrink-0 rounded-full bg-[#1d62f9]" />
-                    Cuando integremos el backend, el CRM podrá confirmar el pago automáticamente, marcar la factura como pagada y crear el proyecto relacionado.
+                    Cuando integremos el backend, el CRM podrá confirmar el pago automáticamente,
+                    marcar la factura como pagada y crear el proyecto relacionado.
                   </div>
                 </div>
               </div>
             </section>
           ) : null}
-
-
 
           <section className="grid flex-1 content-start gap-[13px] bg-[linear-gradient(180deg,#fff_0%,#fbfdff_100%)] px-3.5 py-4">
             <div className="grid grid-cols-2 gap-[11px] max-[380px]:grid-cols-1">
@@ -291,11 +295,15 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
                         {title}
                       </h3>
                       {itemDescription ? (
-                        <p className="m-0 text-[10.9px] font-medium leading-[1.5] text-[#667085]">{itemDescription}</p>
+                        <p className="m-0 text-[10.9px] font-medium leading-[1.5] text-[#667085]">
+                          {itemDescription}
+                        </p>
                       ) : null}
                     </div>
 
-                    <div className="text-right text-xs font-[650] leading-[1.3] text-[#101828]">{item.quantity || 1}</div>
+                    <div className="text-right text-xs font-[650] leading-[1.3] text-[#101828]">
+                      {item.quantity || 1}
+                    </div>
 
                     <div className="text-right text-xs font-[650] leading-[1.3] text-[#101828]">
                       {formatMoney(item.total || item.unit_price || 0, currency)}
@@ -307,13 +315,23 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
 
             <section className="grid gap-[13px]">
               <div className="min-h-[92px] rounded-[18px] border border-[#dbe9ff] bg-[radial-gradient(circle_at_100%_0%,rgba(29,98,249,0.12),transparent_42%),#f7faff] p-3.5">
-                <h3 className="mb-[7px] mt-0 text-xs font-[720] tracking-[-0.004em] text-[#1d62f9]">Información de pago</h3>
-                <p className="m-0 text-[10.9px] font-medium leading-[1.5] text-[#46556b]">{paymentMessage}</p>
+                <h3 className="mb-[7px] mt-0 text-xs font-[720] tracking-[-0.004em] text-[#1d62f9]">
+                  Información de pago
+                </h3>
+                <p className="m-0 text-[10.9px] font-medium leading-[1.5] text-[#46556b]">
+                  {paymentMessage}
+                </p>
               </div>
 
               <div className="overflow-hidden rounded-[18px] border border-[#dce6f3] bg-white">
-                <SummaryLine label="Subtotal" value={formatMoney(invoice.subtotal || 0, currency)} />
-                <SummaryLine label="Descuento" value={formatMoney(invoice.discount || 0, currency)} />
+                <SummaryLine
+                  label="Subtotal"
+                  value={formatMoney(invoice.subtotal || 0, currency)}
+                />
+                <SummaryLine
+                  label="Descuento"
+                  value={formatMoney(invoice.discount || 0, currency)}
+                />
                 <SummaryLine label="Impuesto" value={formatMoney(invoice.tax || 0, currency)} />
 
                 <div className="flex min-h-[58px] items-center justify-between bg-[linear-gradient(180deg,#06142b,#020918)] px-3.5 text-white">
@@ -329,7 +347,9 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
           <footer className="grid grid-cols-[1fr_auto] items-center gap-3.5 bg-white px-3.5 pb-4">
             <div className="text-[10.2px] font-medium leading-[1.44] text-[#7b8495]">
               Gracias por confiar en Corevix.
-              <strong className="block font-[720] text-[#667085]">Impulsamos tu marca, conectamos resultados.</strong>
+              <strong className="block font-[720] text-[#667085]">
+                Impulsamos tu marca, conectamos resultados.
+              </strong>
             </div>
 
             <div className="h-[58px] w-[58px] rounded-[13px] border border-[#dce6f3] bg-[linear-gradient(90deg,#101828_8px,transparent_8px)_0_0/16px_16px,linear-gradient(#101828_8px,transparent_8px)_0_0/16px_16px,#fff] opacity-85" />
@@ -346,7 +366,9 @@ function PartyCard({ label, name, lines }: { label: string; name: string; lines:
       <p className="mb-[9px] mt-0 text-[9.8px] font-[760] uppercase leading-none tracking-[0.12em] text-[#1d62f9]">
         {label}
       </p>
-      <h2 className="mb-2 mt-0 text-[14.2px] font-[720] leading-[1.18] tracking-[-0.01em] text-[#101828]">{name}</h2>
+      <h2 className="mb-2 mt-0 text-[14.2px] font-[720] leading-[1.18] tracking-[-0.01em] text-[#101828]">
+        {name}
+      </h2>
       <p className="m-0 whitespace-pre-line text-[10.8px] font-medium leading-[1.52] tracking-[0.002em] text-[#667085]">
         {lines.length ? lines.join("\n") : "Sin información adicional"}
       </p>
@@ -357,8 +379,12 @@ function PartyCard({ label, name, lines }: { label: string; name: string; lines:
 function SmallInfo({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-h-[66px] rounded-2xl border border-[#dce6f3] bg-[#f5f8fc] px-3 py-3">
-      <span className="mb-[5px] block text-[9.5px] font-[720] uppercase tracking-[0.1em] text-[#667085]">{label}</span>
-      <strong className="block text-[12.8px] font-[680] leading-[1.28] text-[#101828]">{value || "—"}</strong>
+      <span className="mb-[5px] block text-[9.5px] font-[720] uppercase tracking-[0.1em] text-[#667085]">
+        {label}
+      </span>
+      <strong className="block text-[12.8px] font-[680] leading-[1.28] text-[#101828]">
+        {value || "—"}
+      </strong>
     </div>
   );
 }
@@ -366,7 +392,9 @@ function SmallInfo({ label, value }: { label: string; value: string }) {
 function DateChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-h-[58px] rounded-[17px] border border-white/15 bg-white/10 p-3 backdrop-blur-xl">
-      <span className="mb-[5px] block text-[9.6px] font-bold uppercase tracking-[0.08em] text-white/60">{label}</span>
+      <span className="mb-[5px] block text-[9.6px] font-bold uppercase tracking-[0.08em] text-white/60">
+        {label}
+      </span>
       <strong className="text-sm font-[680] text-white">{value}</strong>
     </div>
   );
@@ -389,7 +417,11 @@ function formatDate(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat("es-DO", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("es-DO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 function formatMoney(value: number | string | null | undefined, currency = "USD") {
@@ -423,17 +455,30 @@ function getStatusInfo(status?: string | null) {
     return { label: "Vencida", dotClass: "bg-[#f04438] shadow-[0_0_0_4px_rgba(240,68,56,0.18)]" };
   }
   if (normalized === "cancelled" || normalized === "canceled") {
-    return { label: "Cancelada", dotClass: "bg-[#98a2b3] shadow-[0_0_0_4px_rgba(152,162,179,0.18)]" };
+    return {
+      label: "Cancelada",
+      dotClass: "bg-[#98a2b3] shadow-[0_0_0_4px_rgba(152,162,179,0.18)]",
+    };
   }
   if (normalized === "sent") {
     return { label: "Enviada", dotClass: "bg-[#1d62f9] shadow-[0_0_0_4px_rgba(29,98,249,0.18)]" };
   }
-  return { label: "Pendiente de pago", dotClass: "bg-[#f79009] shadow-[0_0_0_4px_rgba(247,144,9,0.18)]" };
+  return {
+    label: "Pendiente de pago",
+    dotClass: "bg-[#f79009] shadow-[0_0_0_4px_rgba(247,144,9,0.18)]",
+  };
 }
 
 function PrintIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M6 9V2h12v7" />
       <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
       <path d="M6 14h12v8H6z" />
@@ -443,7 +488,14 @@ function PrintIcon() {
 
 function CheckIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.3"
+    >
       <path d="M20 6 9 17l-5-5" />
     </svg>
   );

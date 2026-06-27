@@ -50,7 +50,11 @@ const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export function getLastInboundAt(messages: CrmWhatsappMessageRow[]) {
   const inbound = [...(messages || [])]
-    .filter((message) => String(message?.direction || "").toLowerCase() === "inbound" && String(message?.created_at || "").trim())
+    .filter(
+      (message) =>
+        String(message?.direction || "").toLowerCase() === "inbound" &&
+        String(message?.created_at || "").trim(),
+    )
     .sort((a, b) => {
       const ad = new Date(a.created_at).getTime();
       const bd = new Date(b.created_at).getTime();
@@ -59,7 +63,10 @@ export function getLastInboundAt(messages: CrmWhatsappMessageRow[]) {
   return inbound[0]?.created_at ?? null;
 }
 
-export function getServiceWindowState(messages: CrmWhatsappMessageRow[], nowMs: number = Date.now()): ServiceWindowState {
+export function getServiceWindowState(
+  messages: CrmWhatsappMessageRow[],
+  nowMs: number = Date.now(),
+): ServiceWindowState {
   const lastInboundAt = getLastInboundAt(messages);
   if (!lastInboundAt) {
     return {
@@ -116,7 +123,8 @@ export function buildWhatsappUtilityActions(
   const proposalUrl = context?.proposal?.publicUrl || null;
   const projectTopic = context?.projectName || context?.dealName || topicLabel;
   const reminderTopic = context?.nextTaskTitle || topicLabel;
-  const selectedProposalTitle = options?.selectedProposalTitle || context?.proposal?.title || "la propuesta seleccionada";
+  const selectedProposalTitle =
+    options?.selectedProposalTitle || context?.proposal?.title || "la propuesta seleccionada";
 
   const proposalPreview = context?.proposal
     ? `Hola ${recipientName}, ya tenemos lista la información/propuesta relacionada con tu solicitud sobre ${topicLabel}. Puedes revisarla aquí: ${context.proposal.publicUrl}. Si tienes alguna duda o deseas hacer ajustes, respóndenos por aquí.`
@@ -133,7 +141,11 @@ export function buildWhatsappUtilityActions(
       enabled: Boolean(context?.proposal?.publicUrl),
       disabledReason: context?.proposal?.publicUrl ? undefined : "Selecciona una propuesta.",
       preview: proposalPreview,
-      variables: [`{{1}} = ${recipientName}`, `{{2}} = ${topicLabel}`, `{{3}} = ${proposalUrl || "—"}`],
+      variables: [
+        `{{1}} = ${recipientName}`,
+        `{{2}} = ${topicLabel}`,
+        `{{3}} = ${proposalUrl || "—"}`,
+      ],
     },
     {
       id: "invoice",
@@ -157,9 +169,14 @@ export function buildWhatsappUtilityActions(
       label: "Enviar actualización",
       description: "Utility",
       enabled: Boolean(context?.projectName || context?.dealName),
-      disabledReason: context?.projectName || context?.dealName ? undefined : "No hay proyecto activo.",
+      disabledReason:
+        context?.projectName || context?.dealName ? undefined : "No hay proyecto activo.",
       preview: projectPreview,
-      variables: [`{{1}} = ${recipientName}`, `{{2}} = ${projectTopic}`, `{{3}} = ${context?.proposal?.publicUrl || "—"}`],
+      variables: [
+        `{{1}} = ${recipientName}`,
+        `{{2}} = ${projectTopic}`,
+        `{{3}} = ${context?.proposal?.publicUrl || "—"}`,
+      ],
     },
     {
       id: "documents",
@@ -168,7 +185,11 @@ export function buildWhatsappUtilityActions(
       enabled: false,
       disabledReason: "No hay documentos disponibles.",
       preview: `Hola ${recipientName}, te compartimos los documentos relacionados con tu solicitud/proyecto de ${topicLabel}: —. Si tienes alguna duda, respóndenos por aquí.`,
-      variables: [`{{1}} = ${recipientName}`, `{{2}} = ${topicLabel}`, "{{3}} = enlaces/documentos"],
+      variables: [
+        `{{1}} = ${recipientName}`,
+        `{{2}} = ${topicLabel}`,
+        "{{3}} = enlaces/documentos",
+      ],
     },
     {
       id: "reminder",

@@ -35,22 +35,42 @@ import { useT } from "@/i18n";
 import { usePermissions } from "@/hooks/use-permissions";
 
 const mainItems = [
-  { titleKey: "nav.dashboard", url: "/dashboard", icon: LayoutDashboard, iconClassName: "text-blue-600" },
+  {
+    titleKey: "nav.dashboard",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+    iconClassName: "text-blue-600",
+  },
   { titleKey: "nav.leads", url: "/leads", icon: Users, iconClassName: "text-violet-600" },
   { titleKey: "nav.clients", url: "/clients", icon: Building2, iconClassName: "text-emerald-600" },
   { titleKey: "nav.pipeline", url: "/pipeline", icon: GitBranch, iconClassName: "text-amber-600" },
 ];
 
 const communicationItems = [
-  { titleKey: "nav.whatsappInbox", url: "/whatsapp", icon: MessageCircle, iconClassName: "text-green-600" },
+  {
+    titleKey: "nav.whatsappInbox",
+    url: "/whatsapp",
+    icon: MessageCircle,
+    iconClassName: "text-green-600",
+  },
   { titleKey: "nav.emailInbox", url: "/email", icon: Mail, iconClassName: "text-sky-600" },
 ];
 
 const operationsItems = [
   { titleKey: "nav.tasks", url: "/tasks", icon: CheckSquare, iconClassName: "text-rose-600" },
-  { titleKey: "nav.projects", url: "/projects", icon: FolderOpen, iconClassName: "text-indigo-600" },
+  {
+    titleKey: "nav.projects",
+    url: "/projects",
+    icon: FolderOpen,
+    iconClassName: "text-indigo-600",
+  },
   { titleKey: "nav.products", url: "/products", icon: Package, iconClassName: "text-slate-700" },
-  { titleKey: "nav.proposals", url: "/proposals", icon: FileText, iconClassName: "text-purple-600" },
+  {
+    titleKey: "nav.proposals",
+    url: "/proposals",
+    icon: FileText,
+    iconClassName: "text-purple-600",
+  },
   { titleKey: "nav.invoices", url: "/invoices", icon: Receipt, iconClassName: "text-orange-600" },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-slate-600" },
 ];
@@ -130,7 +150,9 @@ export function AppSidebar() {
               className="h-7 w-auto max-w-[160px] object-contain"
             />
           )}
-          {collapsed && <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-7 object-contain" />}
+          {collapsed && (
+            <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-7 object-contain" />
+          )}
         </Link>
       </SidebarHeader>
       <SidebarContent className="px-2">

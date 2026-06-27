@@ -53,7 +53,10 @@ export function useTeamUsers(params?: {
     }
     setLoading(true);
     setError(null);
-    const { data: rows, error: err } = await (supabase as any).rpc("get_company_team_members", rpcArgs);
+    const { data: rows, error: err } = await (supabase as any).rpc(
+      "get_company_team_members",
+      rpcArgs,
+    );
     if (err) {
       setError(err.message || "Failed to load team");
       setData([]);
@@ -70,4 +73,3 @@ export function useTeamUsers(params?: {
 
   return { data, loading, error, refetch };
 }
-

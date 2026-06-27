@@ -12,7 +12,13 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -160,7 +166,11 @@ function SettingsPage() {
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [permissionRows, setPermissionRows] = useState<Record<ModuleKey, PermissionRow>>({} as any);
 
-  const [gmailAccount, setGmailAccount] = useState<{ id: string; email_address: string; last_synced_at: string | null } | null>(null);
+  const [gmailAccount, setGmailAccount] = useState<{
+    id: string;
+    email_address: string;
+    last_synced_at: string | null;
+  } | null>(null);
   const [gmailLoading, setGmailLoading] = useState(false);
   const [gmailSettingsLoading, setGmailSettingsLoading] = useState(false);
   const [gmailBanner, setGmailBanner] = useState<"connected" | "error" | null>(null);
@@ -263,7 +273,11 @@ function SettingsPage() {
       setGmailLoading(false);
       return;
     }
-    setGmailAccount(data ? { id: data.id, email_address: data.email_address, last_synced_at: data.last_synced_at } : null);
+    setGmailAccount(
+      data
+        ? { id: data.id, email_address: data.email_address, last_synced_at: data.last_synced_at }
+        : null,
+    );
     setGmailLoading(false);
   };
 
@@ -272,7 +286,9 @@ function SettingsPage() {
     setGmailSettingsLoading(true);
     const { data, error } = await db
       .from("gmail_settings")
-      .select("id,company_id,client_id,client_secret_encrypted,redirect_uri,scopes,is_enabled,updated_at")
+      .select(
+        "id,company_id,client_id,client_secret_encrypted,redirect_uri,scopes,is_enabled,updated_at",
+      )
       .eq("company_id", companyId)
       .maybeSingle();
     setGmailSettingsLoading(false);
@@ -336,7 +352,9 @@ function SettingsPage() {
     setDriveLoading(true);
     const { data, error } = await db
       .from("drive_settings")
-      .select("id,company_id,client_id,client_secret_encrypted,redirect_uri,scopes,root_folder_id,root_folder_url,is_enabled,updated_at")
+      .select(
+        "id,company_id,client_id,client_secret_encrypted,redirect_uri,scopes,root_folder_id,root_folder_url,is_enabled,updated_at",
+      )
       .eq("company_id", companyId)
       .maybeSingle();
     setDriveLoading(false);
@@ -419,7 +437,9 @@ function SettingsPage() {
     const newKey = geminiForm.api_key.trim();
     if (newKey) payload.api_key_encrypted = newKey;
 
-    const { error } = await db.from("gemini_settings").upsert(payload, { onConflict: "company_id" });
+    const { error } = await db
+      .from("gemini_settings")
+      .upsert(payload, { onConflict: "company_id" });
     if (error) {
       toast.error(error.message || "No se pudo guardar Gemini.");
       return;
@@ -534,7 +554,10 @@ function SettingsPage() {
   };
 
   const testDriveConnection = async () => {
-    if (driveConnection?.id) toast.success(`Google Drive conectado${driveConnection.google_email ? `: ${driveConnection.google_email}` : ""}.`);
+    if (driveConnection?.id)
+      toast.success(
+        `Google Drive conectado${driveConnection.google_email ? `: ${driveConnection.google_email}` : ""}.`,
+      );
     else toast.error("No hay conexion activa de Google Drive.");
   };
 
@@ -562,7 +585,11 @@ function SettingsPage() {
     const loadCompany = async () => {
       if (!companyId) return;
       setCompanyLoading(true);
-      const { data, error } = await db.from("companies").select("company_name, tax_id").eq("id", companyId).maybeSingle();
+      const { data, error } = await db
+        .from("companies")
+        .select("company_name, tax_id")
+        .eq("id", companyId)
+        .maybeSingle();
       if (cancelled) return;
       if (error) {
         if (String((error as any)?.code || "") !== "PGRST116") {
@@ -602,7 +629,9 @@ function SettingsPage() {
       setPermissionsLoading(true);
       const { data, error } = await db
         .from("permissions")
-        .select("id, company_id, role, module, can_view, can_create, can_edit, can_delete, can_assign")
+        .select(
+          "id, company_id, role, module, can_view, can_create, can_edit, can_delete, can_assign",
+        )
         .eq("company_id", companyId)
         .eq("role", permRole);
       if (cancelled) return;
@@ -672,26 +701,27 @@ function SettingsPage() {
       return;
     }
     const rows = Object.values(permissionRows) as PermissionRow[];
-    const { error } = await db
-      .from("permissions")
-      .upsert(
-        rows.map((r: PermissionRow) => ({
-          company_id: companyId,
-          role: r.role,
-          module: r.module,
-          can_view: !!r.can_view,
-          can_create: !!r.can_create,
-          can_edit: !!r.can_edit,
-          can_delete: !!r.can_delete,
-          can_assign: !!r.can_assign,
-        })),
-        { onConflict: "company_id,role,module" },
-      );
+    const { error } = await db.from("permissions").upsert(
+      rows.map((r: PermissionRow) => ({
+        company_id: companyId,
+        role: r.role,
+        module: r.module,
+        can_view: !!r.can_view,
+        can_create: !!r.can_create,
+        can_edit: !!r.can_edit,
+        can_delete: !!r.can_delete,
+        can_assign: !!r.can_assign,
+      })),
+      { onConflict: "company_id,role,module" },
+    );
     if (error) toast.error(error.message || "No se pudieron guardar permisos");
     else toast.success("Permisos actualizados");
   };
 
-  const permRowsForUi = useMemo(() => modules.map((m) => permissionRows[m.key]).filter(Boolean), [modules, permissionRows]);
+  const permRowsForUi = useMemo(
+    () => modules.map((m) => permissionRows[m.key]).filter(Boolean),
+    [modules, permissionRows],
+  );
 
   const canViewSettings = can("settings.view");
 
@@ -716,7 +746,10 @@ function SettingsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">Settings</h1><p className="text-sm text-muted-foreground">Manage your CRM configuration</p></div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground">Manage your CRM configuration</p>
+      </div>
       <Tabs defaultValue="company">
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
@@ -728,44 +761,97 @@ function SettingsPage() {
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
         <TabsContent value="company" className="mt-4">
-          <Card className="border-0 shadow-sm"><CardHeader><CardTitle className="text-base">Company Settings</CardTitle></CardHeader><CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Company Name</Label>
-                <Input value={companyForm.company_name} onChange={(e) => setCompanyForm((p) => ({ ...p, company_name: e.target.value }))} disabled={companyLoading} />
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Company Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Company Name</Label>
+                  <Input
+                    value={companyForm.company_name}
+                    onChange={(e) =>
+                      setCompanyForm((p) => ({ ...p, company_name: e.target.value }))
+                    }
+                    disabled={companyLoading}
+                  />
+                </div>
+                <div>
+                  <Label>Website</Label>
+                  <Input
+                    value={companyForm.website}
+                    onChange={(e) => setCompanyForm((p) => ({ ...p, website: e.target.value }))}
+                    disabled={companyLoading}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    value={companyForm.email}
+                    onChange={(e) => setCompanyForm((p) => ({ ...p, email: e.target.value }))}
+                    disabled={companyLoading}
+                  />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={companyForm.phone}
+                    onChange={(e) => setCompanyForm((p) => ({ ...p, phone: e.target.value }))}
+                    disabled={companyLoading}
+                  />
+                </div>
               </div>
               <div>
-                <Label>Website</Label>
-                <Input value={companyForm.website} onChange={(e) => setCompanyForm((p) => ({ ...p, website: e.target.value }))} disabled={companyLoading} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Email</Label>
-                <Input value={companyForm.email} onChange={(e) => setCompanyForm((p) => ({ ...p, email: e.target.value }))} disabled={companyLoading} />
+                <Label>Address</Label>
+                <Input
+                  value={companyForm.address}
+                  onChange={(e) => setCompanyForm((p) => ({ ...p, address: e.target.value }))}
+                  disabled={companyLoading}
+                />
               </div>
               <div>
-                <Label>Phone</Label>
-                <Input value={companyForm.phone} onChange={(e) => setCompanyForm((p) => ({ ...p, phone: e.target.value }))} disabled={companyLoading} />
+                <Label>Tax ID / RNC</Label>
+                <Input
+                  value={companyForm.tax_id}
+                  onChange={(e) => setCompanyForm((p) => ({ ...p, tax_id: e.target.value }))}
+                  disabled={companyLoading}
+                />
               </div>
-            </div>
-            <div>
-              <Label>Address</Label>
-              <Input value={companyForm.address} onChange={(e) => setCompanyForm((p) => ({ ...p, address: e.target.value }))} disabled={companyLoading} />
-            </div>
-            <div>
-              <Label>Tax ID / RNC</Label>
-              <Input value={companyForm.tax_id} onChange={(e) => setCompanyForm((p) => ({ ...p, tax_id: e.target.value }))} disabled={companyLoading} />
-            </div>
-            {can("settings.manage") && <Button onClick={saveCompany} disabled={companyLoading}>Save Changes</Button>}
-          </CardContent></Card>
+              {can("settings.manage") && (
+                <Button onClick={saveCompany} disabled={companyLoading}>
+                  Save Changes
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="profile" className="mt-4">
-          <Card className="border-0 shadow-sm"><CardHeader><CardTitle className="text-base">Profile Settings</CardTitle></CardHeader><CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4"><div><Label>Full Name</Label><Input defaultValue="Admin User" /></div><div><Label>Email</Label><Input defaultValue="admin@corevix.com" /></div></div>
-            <Separator /><div><Label>Change Password</Label><Input type="password" placeholder="New password" /></div>
-            <Button>Update Profile</Button>
-          </CardContent></Card>
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Profile Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Full Name</Label>
+                  <Input defaultValue="Admin User" />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input defaultValue="admin@corevix.com" />
+                </div>
+              </div>
+              <Separator />
+              <div>
+                <Label>Change Password</Label>
+                <Input type="password" placeholder="New password" />
+              </div>
+              <Button>Update Profile</Button>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="whatsapp" className="mt-4">
           <div className="space-y-4">
@@ -780,7 +866,8 @@ function SettingsPage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Administra las integraciones de mensajería de Meta desde un solo lugar: WhatsApp, Messenger e Instagram DM.
+                  Administra las integraciones de mensajería de Meta desde un solo lugar: WhatsApp,
+                  Messenger e Instagram DM.
                 </p>
               </CardHeader>
             </Card>
@@ -804,7 +891,8 @@ function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Conecta una página de Facebook para recibir y responder mensajes de Messenger desde el CRM.
+                  Conecta una página de Facebook para recibir y responder mensajes de Messenger
+                  desde el CRM.
                 </p>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
@@ -838,7 +926,8 @@ function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Conecta una cuenta profesional de Instagram para gestionar mensajes directos desde el CRM.
+                  Conecta una cuenta profesional de Instagram para gestionar mensajes directos desde
+                  el CRM.
                 </p>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
@@ -867,111 +956,155 @@ function SettingsPage() {
           </div>
         </TabsContent>
         <TabsContent value="email" className="mt-4">
-          <Card className="border-0 shadow-sm"><CardHeader><CardTitle className="text-base">Email Integration</CardTitle></CardHeader><CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Connect your email accounts to sync conversations.</p>
-            {gmailBanner === "connected" && (
-              <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
-                Gmail account connected successfully.
-                <Button variant="ghost" size="sm" className="ml-2" onClick={() => setGmailBanner(null)}>Dismiss</Button>
-              </div>
-            )}
-            {gmailBanner === "error" && (
-              <div className="rounded-md border bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                Could not connect Gmail. Please try again.
-                <Button variant="ghost" size="sm" className="ml-2" onClick={() => setGmailBanner(null)}>Dismiss</Button>
-              </div>
-            )}
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Email Integration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your email accounts to sync conversations.
+              </p>
+              {gmailBanner === "connected" && (
+                <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+                  Gmail account connected successfully.
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2"
+                    onClick={() => setGmailBanner(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {gmailBanner === "error" && (
+                <div className="rounded-md border bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  Could not connect Gmail. Please try again.
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2"
+                    onClick={() => setGmailBanner(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
 
-            <div className="rounded-md border p-3 space-y-4">
-              <div className="font-medium">Gmail API Settings</div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Client ID</Label>
-                  <Input
-                    value={gmailForm.client_id}
-                    onChange={(e) => setGmailForm((prev) => ({ ...prev, client_id: e.target.value }))}
-                    disabled={gmailSettingsLoading}
-                    placeholder="Google OAuth Client ID"
-                  />
+              <div className="rounded-md border p-3 space-y-4">
+                <div className="font-medium">Gmail API Settings</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label>Client ID</Label>
+                    <Input
+                      value={gmailForm.client_id}
+                      onChange={(e) =>
+                        setGmailForm((prev) => ({ ...prev, client_id: e.target.value }))
+                      }
+                      disabled={gmailSettingsLoading}
+                      placeholder="Google OAuth Client ID"
+                    />
+                  </div>
+                  <div>
+                    <Label>Client Secret</Label>
+                    <Input
+                      type="password"
+                      value={gmailForm.client_secret}
+                      onChange={(e) =>
+                        setGmailForm((prev) => ({ ...prev, client_secret: e.target.value }))
+                      }
+                      disabled={gmailSettingsLoading}
+                      placeholder={
+                        gmailSecretConfigured ? "********" : "Google OAuth Client Secret"
+                      }
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {gmailSecretConfigured
+                        ? "Secret configurado. Escribe uno nuevo solo si deseas reemplazarlo."
+                        : "Aún no hay secret configurado."}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <Label>Client Secret</Label>
-                  <Input
-                    type="password"
-                    value={gmailForm.client_secret}
-                    onChange={(e) => setGmailForm((prev) => ({ ...prev, client_secret: e.target.value }))}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label>Redirect URI</Label>
+                    <Input
+                      value={gmailForm.redirect_uri}
+                      onChange={(e) =>
+                        setGmailForm((prev) => ({ ...prev, redirect_uri: e.target.value }))
+                      }
+                      disabled={gmailSettingsLoading}
+                      placeholder="https://[PROJECT_REF].supabase.co/functions/v1/gmail-oauth-callback"
+                    />
+                  </div>
+                  <div>
+                    <Label>Scopes</Label>
+                    <Input
+                      value={gmailForm.scopes}
+                      onChange={(e) =>
+                        setGmailForm((prev) => ({ ...prev, scopes: e.target.value }))
+                      }
+                      disabled={gmailSettingsLoading}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="gmail-enabled"
+                    type="checkbox"
+                    checked={gmailForm.is_enabled}
+                    onChange={(e) =>
+                      setGmailForm((prev) => ({ ...prev, is_enabled: e.target.checked }))
+                    }
                     disabled={gmailSettingsLoading}
-                    placeholder={gmailSecretConfigured ? "********" : "Google OAuth Client Secret"}
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {gmailSecretConfigured
-                      ? "Secret configurado. Escribe uno nuevo solo si deseas reemplazarlo."
-                      : "Aún no hay secret configurado."}
-                  </p>
+                  <Label htmlFor="gmail-enabled">Activar integración</Label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={saveGmailSettings}
+                    disabled={gmailLoading || gmailSettingsLoading}
+                  >
+                    Guardar configuración
+                  </Button>
+                  <Button variant="outline" onClick={connectGmail} disabled={gmailLoading}>
+                    {gmailAccount ? "Reconnect Gmail" : "Conectar Gmail"}
+                  </Button>
+                  <Button variant="outline" onClick={testGmailConnection} disabled={gmailLoading}>
+                    Probar conexión
+                  </Button>
+                  <Button onClick={syncGmail} disabled={gmailLoading}>
+                    Sincronizar Gmail
+                  </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Redirect URI</Label>
-                  <Input
-                    value={gmailForm.redirect_uri}
-                    onChange={(e) => setGmailForm((prev) => ({ ...prev, redirect_uri: e.target.value }))}
-                    disabled={gmailSettingsLoading}
-                    placeholder="https://[PROJECT_REF].supabase.co/functions/v1/gmail-oauth-callback"
-                  />
-                </div>
-                <div>
-                  <Label>Scopes</Label>
-                  <Input
-                    value={gmailForm.scopes}
-                    onChange={(e) => setGmailForm((prev) => ({ ...prev, scopes: e.target.value }))}
-                    disabled={gmailSettingsLoading}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="gmail-enabled"
-                  type="checkbox"
-                  checked={gmailForm.is_enabled}
-                  onChange={(e) => setGmailForm((prev) => ({ ...prev, is_enabled: e.target.checked }))}
-                  disabled={gmailSettingsLoading}
-                />
-                <Label htmlFor="gmail-enabled">Activar integración</Label>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={saveGmailSettings} disabled={gmailLoading || gmailSettingsLoading}>
-                  Guardar configuración
-                </Button>
-                <Button variant="outline" onClick={connectGmail} disabled={gmailLoading}>
-                  {gmailAccount ? "Reconnect Gmail" : "Conectar Gmail"}
-                </Button>
-                <Button variant="outline" onClick={testGmailConnection} disabled={gmailLoading}>
-                  Probar conexión
-                </Button>
-                <Button onClick={syncGmail} disabled={gmailLoading}>
-                  Sincronizar Gmail
-                </Button>
-              </div>
-            </div>
 
-            <div className="rounded-md border p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-medium">Gmail</div>
-                  <div className="text-xs text-muted-foreground">
-                    {gmailAccount ? `Connected: ${gmailAccount.email_address}` : "Not connected"}
-                    {gmailAccount?.last_synced_at ? ` • Last sync: ${new Date(gmailAccount.last_synced_at).toLocaleString()}` : ""}
+              <div className="rounded-md border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium">Gmail</div>
+                    <div className="text-xs text-muted-foreground">
+                      {gmailAccount ? `Connected: ${gmailAccount.email_address}` : "Not connected"}
+                      {gmailAccount?.last_synced_at
+                        ? ` • Last sync: ${new Date(gmailAccount.last_synced_at).toLocaleString()}`
+                        : ""}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <Button variant="outline" disabled>Connect Microsoft Outlook</Button>
-            <Separator />
-            <div><Label>Email Signature</Label><Input placeholder="Your email signature" /></div>
-            <Button>Save Settings</Button>
-          </CardContent></Card>
+              <Button variant="outline" disabled>
+                Connect Microsoft Outlook
+              </Button>
+              <Separator />
+              <div>
+                <Label>Email Signature</Label>
+                <Input placeholder="Your email signature" />
+              </div>
+              <Button>Save Settings</Button>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="drive" className="mt-4">
           <Card className="border-0 shadow-sm">
@@ -980,18 +1113,33 @@ function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Configura las credenciales OAuth de Google Drive para usar archivos en Tasks y Projects.
+                Configura las credenciales OAuth de Google Drive para usar archivos en Tasks y
+                Projects.
               </p>
               {driveBanner === "connected" && (
                 <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
                   Google Drive conectado correctamente.
-                  <Button variant="ghost" size="sm" className="ml-2" onClick={() => setDriveBanner(null)}>Dismiss</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2"
+                    onClick={() => setDriveBanner(null)}
+                  >
+                    Dismiss
+                  </Button>
                 </div>
               )}
               {driveBanner === "error" && (
                 <div className="rounded-md border bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   No se pudo conectar Google Drive. Intenta nuevamente.
-                  <Button variant="ghost" size="sm" className="ml-2" onClick={() => setDriveBanner(null)}>Dismiss</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2"
+                    onClick={() => setDriveBanner(null)}
+                  >
+                    Dismiss
+                  </Button>
                 </div>
               )}
 
@@ -1000,7 +1148,9 @@ function SettingsPage() {
                   <Label>Client ID</Label>
                   <Input
                     value={driveForm.client_id}
-                    onChange={(e) => setDriveForm((prev) => ({ ...prev, client_id: e.target.value }))}
+                    onChange={(e) =>
+                      setDriveForm((prev) => ({ ...prev, client_id: e.target.value }))
+                    }
                     disabled={driveLoading}
                     placeholder="Google OAuth Client ID"
                   />
@@ -1010,7 +1160,9 @@ function SettingsPage() {
                   <Input
                     type="password"
                     value={driveForm.client_secret}
-                    onChange={(e) => setDriveForm((prev) => ({ ...prev, client_secret: e.target.value }))}
+                    onChange={(e) =>
+                      setDriveForm((prev) => ({ ...prev, client_secret: e.target.value }))
+                    }
                     disabled={driveLoading}
                     placeholder={driveSecretConfigured ? "********" : "Google OAuth Client Secret"}
                   />
@@ -1027,12 +1179,18 @@ function SettingsPage() {
                   <Label>Redirect URI</Label>
                   <Input
                     value={driveForm.redirect_uri}
-                    onChange={(e) => setDriveForm((prev) => ({ ...prev, redirect_uri: e.target.value }))}
+                    onChange={(e) =>
+                      setDriveForm((prev) => ({ ...prev, redirect_uri: e.target.value }))
+                    }
                     disabled={driveLoading}
                     placeholder="https://crm.corevix.agency/google-drive-callback"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Usa una URL de tu dominio, por ejemplo <span className="font-mono">https://crm.corevix.agency/google-drive-callback</span>. Esa página redirige al callback interno de Supabase.
+                    Usa una URL de tu dominio, por ejemplo{" "}
+                    <span className="font-mono">
+                      https://crm.corevix.agency/google-drive-callback
+                    </span>
+                    . Esa página redirige al callback interno de Supabase.
                   </p>
                 </div>
                 <div>
@@ -1051,7 +1209,9 @@ function SettingsPage() {
                   <Label>Root Folder ID</Label>
                   <Input
                     value={driveForm.root_folder_id}
-                    onChange={(e) => setDriveForm((prev) => ({ ...prev, root_folder_id: e.target.value }))}
+                    onChange={(e) =>
+                      setDriveForm((prev) => ({ ...prev, root_folder_id: e.target.value }))
+                    }
                     disabled={driveLoading}
                     placeholder="Google Drive folder id"
                   />
@@ -1060,7 +1220,9 @@ function SettingsPage() {
                   <Label>Root Folder URL</Label>
                   <Input
                     value={driveForm.root_folder_url}
-                    onChange={(e) => setDriveForm((prev) => ({ ...prev, root_folder_url: e.target.value }))}
+                    onChange={(e) =>
+                      setDriveForm((prev) => ({ ...prev, root_folder_url: e.target.value }))
+                    }
                     disabled={driveLoading}
                     placeholder="https://drive.google.com/drive/folders/..."
                   />
@@ -1072,7 +1234,9 @@ function SettingsPage() {
                   id="drive-enabled"
                   type="checkbox"
                   checked={driveForm.is_enabled}
-                  onChange={(e) => setDriveForm((prev) => ({ ...prev, is_enabled: e.target.checked }))}
+                  onChange={(e) =>
+                    setDriveForm((prev) => ({ ...prev, is_enabled: e.target.checked }))
+                  }
                   disabled={driveLoading}
                 />
                 <Label htmlFor="drive-enabled">Activar integracion</Label>
@@ -1101,7 +1265,11 @@ function SettingsPage() {
                 <Button variant="outline" onClick={testDriveConnection}>
                   Probar conexion
                 </Button>
-                <Button variant="outline" onClick={disconnectDrive} disabled={!driveConnection || driveConnectionLoading}>
+                <Button
+                  variant="outline"
+                  onClick={disconnectDrive}
+                  disabled={!driveConnection || driveConnectionLoading}
+                >
                   Desconectar
                 </Button>
               </div>
@@ -1116,7 +1284,8 @@ function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Configura Gemini para que el asistente del CRM responda desde el chat flotante. La API Key se guarda en Supabase (no en el frontend).
+                Configura Gemini para que el asistente del CRM responda desde el chat flotante. La
+                API Key se guarda en Supabase (no en el frontend).
               </p>
 
               <div className="rounded-md border p-3 space-y-4">
@@ -1125,23 +1294,33 @@ function SettingsPage() {
                     <Label>Modelo</Label>
                     <Input
                       value={geminiForm.model}
-                      onChange={(e) => setGeminiForm((prev) => ({ ...prev, model: e.target.value }))}
+                      onChange={(e) =>
+                        setGeminiForm((prev) => ({ ...prev, model: e.target.value }))
+                      }
                       disabled={geminiLoading}
                       placeholder="gemini-1.5-pro"
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">Ej: gemini-1.5-pro, gemini-1.5-flash (según tu cuenta).</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Ej: gemini-1.5-pro, gemini-1.5-flash (según tu cuenta).
+                    </p>
                   </div>
                   <div>
                     <Label>API Key</Label>
                     <Input
                       type="password"
                       value={geminiForm.api_key}
-                      onChange={(e) => setGeminiForm((prev) => ({ ...prev, api_key: e.target.value }))}
+                      onChange={(e) =>
+                        setGeminiForm((prev) => ({ ...prev, api_key: e.target.value }))
+                      }
                       disabled={geminiLoading}
-                      placeholder={geminiSecretConfigured ? "********" : "Pega tu API Key de Gemini"}
+                      placeholder={
+                        geminiSecretConfigured ? "********" : "Pega tu API Key de Gemini"
+                      }
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {geminiSecretConfigured ? "API Key configurada. Escribe una nueva solo si deseas reemplazarla." : "Aún no hay API Key configurada."}
+                      {geminiSecretConfigured
+                        ? "API Key configurada. Escribe una nueva solo si deseas reemplazarla."
+                        : "Aún no hay API Key configurada."}
                     </p>
                   </div>
                 </div>
@@ -1150,7 +1329,9 @@ function SettingsPage() {
                   <Label>System prompt</Label>
                   <Textarea
                     value={geminiForm.system_prompt}
-                    onChange={(e) => setGeminiForm((prev) => ({ ...prev, system_prompt: e.target.value }))}
+                    onChange={(e) =>
+                      setGeminiForm((prev) => ({ ...prev, system_prompt: e.target.value }))
+                    }
                     disabled={geminiLoading}
                     className="min-h-[140px]"
                     placeholder="Instrucciones del asistente…"
@@ -1162,7 +1343,9 @@ function SettingsPage() {
                     id="gemini-enabled"
                     type="checkbox"
                     checked={geminiForm.is_enabled}
-                    onChange={(e) => setGeminiForm((prev) => ({ ...prev, is_enabled: e.target.checked }))}
+                    onChange={(e) =>
+                      setGeminiForm((prev) => ({ ...prev, is_enabled: e.target.checked }))
+                    }
                     disabled={geminiLoading}
                   />
                   <Label htmlFor="gemini-enabled">Activar integración</Label>
@@ -1180,62 +1363,98 @@ function SettingsPage() {
           </Card>
         </TabsContent>
         <TabsContent value="security" className="mt-4">
-          <Card className="border-0 shadow-sm"><CardHeader><CardTitle className="text-base">Security Settings</CardTitle></CardHeader><CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Manage roles, permissions, and security features.</p>
-            <div><Label>Two-Factor Authentication</Label><p className="text-xs text-muted-foreground mb-2">Add an extra layer of security.</p><Button variant="outline">Enable 2FA (Coming Soon)</Button></div>
-            <Separator />
-            <div>
-              <Label>Roles & Permissions</Label>
-              <p className="text-xs text-muted-foreground mb-3">These permissions are stored in Supabase (`public.permissions`) and enforced by RLS for sensitive actions.</p>
-              <div className="flex items-center gap-3">
-                <div className="w-56">
-                  <Select value={permRole} onValueChange={(v) => setPermRole(v as AppRole)}>
-                    <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {can("settings.manage") && (
-                  <Button variant="outline" onClick={savePermissions} disabled={permissionsLoading}>
-                    Save Permissions
-                  </Button>
-                )}
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Security Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Manage roles, permissions, and security features.
+              </p>
+              <div>
+                <Label>Two-Factor Authentication</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Add an extra layer of security.
+                </p>
+                <Button variant="outline">Enable 2FA (Coming Soon)</Button>
               </div>
-
-              <div className="mt-4 overflow-x-auto rounded-md border">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="text-left px-3 py-2">Module</th>
-                      <th className="text-center px-3 py-2">View</th>
-                      <th className="text-center px-3 py-2">Create</th>
-                      <th className="text-center px-3 py-2">Edit</th>
-                      <th className="text-center px-3 py-2">Delete</th>
-                      <th className="text-center px-3 py-2">Assign</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {permRowsForUi.map((row) => (
-                      <tr key={row.module} className="border-t">
-                        <td className="px-3 py-2 font-medium">{modules.find((m) => m.key === row.module)?.label || row.module}</td>
-                        {(["can_view", "can_create", "can_edit", "can_delete", "can_assign"] as const).map((k) => (
-                          <td key={k} className="px-3 py-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={!!row[k]}
-                              disabled={!can("settings.manage") || permissionsLoading}
-                              onChange={() => togglePerm(row.module, k)}
-                            />
-                          </td>
+              <Separator />
+              <div>
+                <Label>Roles & Permissions</Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  These permissions are stored in Supabase (`public.permissions`) and enforced by
+                  RLS for sensitive actions.
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-56">
+                    <Select value={permRole} onValueChange={(v) => setPermRole(v as AppRole)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {r}
+                          </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {can("settings.manage") && (
+                    <Button
+                      variant="outline"
+                      onClick={savePermissions}
+                      disabled={permissionsLoading}
+                    >
+                      Save Permissions
+                    </Button>
+                  )}
+                </div>
+
+                <div className="mt-4 overflow-x-auto rounded-md border">
+                  <table className="w-full min-w-[760px] text-sm">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="text-left px-3 py-2">Module</th>
+                        <th className="text-center px-3 py-2">View</th>
+                        <th className="text-center px-3 py-2">Create</th>
+                        <th className="text-center px-3 py-2">Edit</th>
+                        <th className="text-center px-3 py-2">Delete</th>
+                        <th className="text-center px-3 py-2">Assign</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {permRowsForUi.map((row) => (
+                        <tr key={row.module} className="border-t">
+                          <td className="px-3 py-2 font-medium">
+                            {modules.find((m) => m.key === row.module)?.label || row.module}
+                          </td>
+                          {(
+                            [
+                              "can_view",
+                              "can_create",
+                              "can_edit",
+                              "can_delete",
+                              "can_assign",
+                            ] as const
+                          ).map((k) => (
+                            <td key={k} className="px-3 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={!!row[k]}
+                                disabled={!can("settings.manage") || permissionsLoading}
+                                onChange={() => togglePerm(row.module, k)}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          </CardContent></Card>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

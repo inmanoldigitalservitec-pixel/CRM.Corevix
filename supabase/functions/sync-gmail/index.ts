@@ -61,7 +61,10 @@ function getHeader(headers: { name: string; value: string }[], key: string) {
   return h?.value || null;
 }
 
-function extractTextFromPayload(payload: any): { bodyText: string | null; bodyHtml: string | null } {
+function extractTextFromPayload(payload: any): {
+  bodyText: string | null;
+  bodyHtml: string | null;
+} {
   // Gmail "full" payload is a MIME tree. We keep v1 simple: prefer text/plain, fallback text/html.
   const stack: any[] = [payload].filter(Boolean);
   let textPlain: string | null = null;
@@ -118,7 +121,10 @@ Deno.serve(async (req) => {
     });
 
     const { data: authData, error: authErr } = await callerClient.auth.getUser(jwt);
-    console.log("[sync-gmail] auth result", { userId: authData?.user?.id ?? null, authError: authErr?.message ?? null });
+    console.log("[sync-gmail] auth result", {
+      userId: authData?.user?.id ?? null,
+      authError: authErr?.message ?? null,
+    });
     if (authErr || !authData?.user) return jsonResponse({ error: "Invalid session" }, 401);
 
     const { data: profile, error: profileErr } = await callerClient
@@ -129,7 +135,8 @@ Deno.serve(async (req) => {
 
     if (profileErr) return jsonResponse({ error: profileErr.message }, 400);
     if (!profile?.id) return jsonResponse({ error: "Profile not found" }, 403);
-    if (!profile.company_id) return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
+    if (!profile.company_id)
+      return jsonResponse({ error: "No company context (missing profile.company_id)" }, 403);
     if (profile.is_active === false) return jsonResponse({ error: "Account is inactive" }, 403);
 
     // Service role client for upserts (we enforce company/profile ownership in code)
@@ -137,10 +144,14 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    console.log("[sync-gmail] querying connected gmail accounts", { authUserId: authData.user.id ?? null });
+    console.log("[sync-gmail] querying connected gmail accounts", {
+      authUserId: authData.user.id ?? null,
+    });
     const { data: accountsRows, error: accountErr } = await serviceClient
       .from("email_accounts")
-      .select("id, company_id, user_id, provider, email_address, is_active, access_token, refresh_token, token_expires_at")
+      .select(
+        "id, company_id, user_id, provider, email_address, is_active, access_token, refresh_token, token_expires_at",
+      )
       .eq("provider", "gmail")
       // Some schemas store email_accounts.user_id as profiles.id; others store auth.users.id.
       .in("user_id", [profile.id, authData.user.id])
@@ -197,8 +208,12 @@ Deno.serve(async (req) => {
     accountsProcessed += 1;
 
     let accessToken = String((account as any).access_token || "");
-    const refreshToken = (account as any).refresh_token ? String((account as any).refresh_token) : null;
-    const tokenExpiresAt = account.token_expires_at ? new Date(String(account.token_expires_at)) : null;
+    const refreshToken = (account as any).refresh_token
+      ? String((account as any).refresh_token)
+      : null;
+    const tokenExpiresAt = account.token_expires_at
+      ? new Date(String(account.token_expires_at))
+      : null;
 
     const isExpired = tokenExpiresAt ? tokenExpiresAt.getTime() <= Date.now() + 30_000 : false;
     if ((!accessToken || isExpired) && refreshToken) {
@@ -208,13 +223,17 @@ Deno.serve(async (req) => {
         clientSecret: String(gmailSettings.client_secret_encrypted),
       });
       accessToken = refreshed.access_token;
-      const newExpiresAt = refreshed.expires_in ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString() : null;
+      const newExpiresAt = refreshed.expires_in
+        ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
+        : null;
       await serviceClient
         .from("email_accounts")
         .update({
           access_token: accessToken,
           token_expires_at: newExpiresAt,
-          scopes: refreshed.scope ? String(refreshed.scope).split(/\s+/).filter(Boolean) : undefined,
+          scopes: refreshed.scope
+            ? String(refreshed.scope).split(/\s+/).filter(Boolean)
+            : undefined,
         })
         .eq("id", account.id);
     }
@@ -226,9 +245,12 @@ Deno.serve(async (req) => {
     const maxResults = limit;
     console.log("[sync-gmail] gmail query", { accountId: account.id, query, maxResults });
 
-    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const listRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
     const listJson = await listRes.json().catch(() => null);
     console.log("[sync-gmail] gmail list response", {
       accountId: account.id,
@@ -243,25 +265,50 @@ Deno.serve(async (req) => {
       const msg = listJson?.error?.message || "Failed to list Gmail messages";
       return jsonResponse({ error: msg }, 400);
     }
-    const messageRefs: Array<{ id: string; threadId?: string | null }> = Array.isArray(listJson?.messages)
-      ? listJson.messages.map((m: any) => ({ id: String(m.id), threadId: m.threadId ? String(m.threadId) : null }))
+    const messageRefs: Array<{ id: string; threadId?: string | null }> = Array.isArray(
+      listJson?.messages,
+    )
+      ? listJson.messages.map((m: any) => ({
+          id: String(m.id),
+          threadId: m.threadId ? String(m.threadId) : null,
+        }))
       : [];
     if (messageRefs.length === 0) {
-      console.warn("[sync-gmail] no gmail messages returned", { accountId: account.id, emailAddress: account.email_address, query });
+      console.warn("[sync-gmail] no gmail messages returned", {
+        accountId: account.id,
+        emailAddress: account.email_address,
+        query,
+      });
       console.warn("[sync-gmail] no messages; updating last_synced_at anyway");
-      await serviceClient.from("email_accounts").update({ last_synced_at: new Date().toISOString() }).eq("id", account.id);
-      console.log("[sync-gmail] finished", { accountsProcessed, messagesProcessed, messagesInserted, conversationsInserted });
+      await serviceClient
+        .from("email_accounts")
+        .update({ last_synced_at: new Date().toISOString() })
+        .eq("id", account.id);
+      console.log("[sync-gmail] finished", {
+        accountsProcessed,
+        messagesProcessed,
+        messagesInserted,
+        conversationsInserted,
+      });
       return jsonResponse({ ok: true, synced: 0, conversations: 0 });
     }
 
     const fetched = await Promise.all(
       messageRefs.map(async (mref) => {
-        console.log("[sync-gmail] fetching message detail", { accountId: account.id, gmailMessageId: mref.id, threadId: mref.threadId ?? null });
-        const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(mref.id)}?format=full`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+        console.log("[sync-gmail] fetching message detail", {
+          accountId: account.id,
+          gmailMessageId: mref.id,
+          threadId: mref.threadId ?? null,
         });
+        const res = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(mref.id)}?format=full`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        );
         const json = await res.json().catch(() => null);
-        if (!res.ok) return { ok: false, error: json?.error?.message || "Fetch failed", id: mref.id };
+        if (!res.ok)
+          return { ok: false, error: json?.error?.message || "Fetch failed", id: mref.id };
         return { ok: true, json };
       }),
     );
@@ -286,10 +333,14 @@ Deno.serve(async (req) => {
       const fromEmail = getHeader(headers, "From") || "";
       const toEmail = getHeader(headers, "To") || "";
       const internalDateMs = msg.internalDate ? Number(msg.internalDate) : NaN;
-      const createdAt = Number.isFinite(internalDateMs) ? new Date(internalDateMs).toISOString() : new Date().toISOString();
+      const createdAt = Number.isFinite(internalDateMs)
+        ? new Date(internalDateMs).toISOString()
+        : new Date().toISOString();
       const sentAt = createdAt;
       const snippet = msg.snippet ? String(msg.snippet) : null;
-      const labelIds: string[] = Array.isArray(msg.labelIds) ? msg.labelIds.map((x: any) => String(x)) : [];
+      const labelIds: string[] = Array.isArray(msg.labelIds)
+        ? msg.labelIds.map((x: any) => String(x))
+        : [];
       const isRead = !labelIds.includes("UNREAD");
 
       const { bodyText, bodyHtml } = extractTextFromPayload(msg.payload);
@@ -333,7 +384,10 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
 
-      console.log("[sync-gmail] upsert conversation result", { conversationId: convo?.id ?? null, error: convoErr?.message ?? null });
+      console.log("[sync-gmail] upsert conversation result", {
+        conversationId: convo?.id ?? null,
+        error: convoErr?.message ?? null,
+      });
       if (convoErr || !convo?.id) {
         conversationErrors += 1;
         console.error("[sync-gmail] conversation upsert failed", {
@@ -389,7 +443,10 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
 
-      console.log("[sync-gmail] upsert message result", { messageId: emailMessage?.id ?? null, error: msgErr?.message ?? null });
+      console.log("[sync-gmail] upsert message result", {
+        messageId: emailMessage?.id ?? null,
+        error: msgErr?.message ?? null,
+      });
       if (msgErr) {
         messageErrors += 1;
         console.error("[sync-gmail] message upsert failed", {
@@ -405,14 +462,17 @@ Deno.serve(async (req) => {
     }
 
     if (messagesProcessed > 0 && messagesInserted === 0) {
-      console.warn("[sync-gmail] processed messages but inserted none; not updating last_synced_at as success", {
-        accountId: account.id,
-        messagesProcessed,
-        messagesInserted,
-        conversationsInserted,
-        conversationErrors,
-        messageErrors,
-      });
+      console.warn(
+        "[sync-gmail] processed messages but inserted none; not updating last_synced_at as success",
+        {
+          accountId: account.id,
+          messagesProcessed,
+          messagesInserted,
+          conversationsInserted,
+          conversationErrors,
+          messageErrors,
+        },
+      );
     } else {
       console.log("[sync-gmail] updating last_synced_at", {
         accountId: account.id,
@@ -428,7 +488,12 @@ Deno.serve(async (req) => {
         .eq("id", account.id);
     }
 
-    console.log("[sync-gmail] finished", { accountsProcessed, messagesProcessed, messagesInserted, conversationsInserted });
+    console.log("[sync-gmail] finished", {
+      accountsProcessed,
+      messagesProcessed,
+      messagesInserted,
+      conversationsInserted,
+    });
     return jsonResponse({
       ok: true,
       synced: messageCount,

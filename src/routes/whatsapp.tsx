@@ -3,7 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
-import type { CrmWhatsappConversationListRow, CrmWhatsappMessageRow } from "@/lib/whatsapp/view-types";
+import type {
+  CrmWhatsappConversationListRow,
+  CrmWhatsappMessageRow,
+} from "@/lib/whatsapp/view-types";
 import { getServiceWindowState } from "@/lib/whatsapp/service-window";
 import { WhatsappReadonlyList } from "@/components/whatsapp/whatsapp-readonly-list";
 import { WhatsappReadonlyThread } from "@/components/whatsapp/whatsapp-readonly-thread";
@@ -17,7 +20,10 @@ import { InstagramReadonlyList } from "@/components/whatsapp/instagram-readonly-
 import { InstagramReadonlyThread } from "@/components/whatsapp/instagram-readonly-thread";
 import { InstagramContextPanel } from "@/components/whatsapp/instagram-context-panel";
 import type { MetaConversationListRow, MetaMessageRow } from "@/lib/meta/view-types";
-import { InboxUnifiedList, type UnifiedInboxConversation } from "@/components/whatsapp/inbox-unified-list";
+import {
+  InboxUnifiedList,
+  type UnifiedInboxConversation,
+} from "@/components/whatsapp/inbox-unified-list";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/whatsapp")({
@@ -32,7 +38,9 @@ type SelectedConversation = { channel: ConversationChannel; id: string } | null;
 function WhatsAppPage() {
   const { profile, user, roles } = useAuth();
 
-  const [whatsappConversations, setWhatsappConversations] = useState<CrmWhatsappConversationListRow[]>([]);
+  const [whatsappConversations, setWhatsappConversations] = useState<
+    CrmWhatsappConversationListRow[]
+  >([]);
   const [whatsappConversationsLoading, setWhatsappConversationsLoading] = useState(true);
   const [whatsappConversationsError, setWhatsappConversationsError] = useState<string | null>(null);
   const [whatsappMessages, setWhatsappMessages] = useState<CrmWhatsappMessageRow[]>([]);
@@ -43,16 +51,24 @@ function WhatsAppPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendingMessengerMessage, setSendingMessengerMessage] = useState(false);
 
-  const [messengerConversations, setMessengerConversations] = useState<MetaConversationListRow[]>([]);
+  const [messengerConversations, setMessengerConversations] = useState<MetaConversationListRow[]>(
+    [],
+  );
   const [messengerConversationsLoading, setMessengerConversationsLoading] = useState(true);
-  const [messengerConversationsError, setMessengerConversationsError] = useState<string | null>(null);
+  const [messengerConversationsError, setMessengerConversationsError] = useState<string | null>(
+    null,
+  );
   const [messengerMessages, setMessengerMessages] = useState<MetaMessageRow[]>([]);
   const [messengerMessagesLoading, setMessengerMessagesLoading] = useState(false);
   const [messengerMessagesError, setMessengerMessagesError] = useState<string | null>(null);
 
-  const [instagramConversations, setInstagramConversations] = useState<MetaConversationListRow[]>([]);
+  const [instagramConversations, setInstagramConversations] = useState<MetaConversationListRow[]>(
+    [],
+  );
   const [instagramConversationsLoading, setInstagramConversationsLoading] = useState(true);
-  const [instagramConversationsError, setInstagramConversationsError] = useState<string | null>(null);
+  const [instagramConversationsError, setInstagramConversationsError] = useState<string | null>(
+    null,
+  );
   const [instagramMessages, setInstagramMessages] = useState<MetaMessageRow[]>([]);
   const [instagramMessagesLoading, setInstagramMessagesLoading] = useState(false);
   const [instagramMessagesError, setInstagramMessagesError] = useState<string | null>(null);
@@ -71,7 +87,8 @@ function WhatsAppPage() {
   }, []);
 
   const activeChannel: InboxChannel = selectedChannel;
-  const canSeeUnassigned = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
+  const canSeeUnassigned =
+    roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
 
   const selectedMessengerConversation = useMemo(() => {
     if (!selectedConversation || selectedConversation.channel !== "messenger") return null;
@@ -194,7 +211,10 @@ function WhatsAppPage() {
     };
   }, []);
 
-  const serviceWindow = useMemo(() => getServiceWindowState(whatsappMessages, serviceWindowNow), [whatsappMessages, serviceWindowNow]);
+  const serviceWindow = useMemo(
+    () => getServiceWindowState(whatsappMessages, serviceWindowNow),
+    [whatsappMessages, serviceWindowNow],
+  );
 
   useEffect(() => {
     setSendError(null);
@@ -264,7 +284,9 @@ function WhatsAppPage() {
     const db = supabase as any;
     const { data, error } = await db
       .from("meta_conversations")
-      .select("id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, bot_status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at")
+      .select(
+        "id, company_id, account_id, platform, sender_name, external_user_id, sender_profile_pic, last_message_text, last_message_at, unread_count, status, bot_status, linked_lead_id, linked_client_id, linked_deal_id, assigned_to, created_at",
+      )
       .eq("company_id", profile.company_id)
       .eq("platform", "messenger")
       .order("last_message_at", { ascending: false, nullsFirst: false })
@@ -295,7 +317,9 @@ function WhatsAppPage() {
     const db = supabase as any;
     const { data, error } = await db
       .from("meta_messages")
-      .select("id, company_id, account_id, conversation_id, platform, external_message_id, direction, message_type, text, attachments, raw_payload, sent_at, created_at")
+      .select(
+        "id, company_id, account_id, conversation_id, platform, external_message_id, direction, message_type, text, attachments, raw_payload, sent_at, created_at",
+      )
       .eq("conversation_id", conversationId)
       .eq("company_id", profile?.company_id || "")
       .eq("platform", "messenger")
@@ -518,7 +542,7 @@ function WhatsAppPage() {
     enabled: Boolean(profile?.company_id),
     onChange: () => {
       if (activeChannel === "messenger" || activeChannel === "instagram") return;
-        void loadWhatsappConversations();
+      void loadWhatsappConversations();
     },
   });
 
@@ -529,8 +553,13 @@ function WhatsAppPage() {
     onChange: (payload) => {
       if (activeChannel === "messenger" || activeChannel === "instagram") return;
       void loadWhatsappConversations();
-      const changedConversationId = String(payload.new?.conversation_id || payload.old?.conversation_id || "").trim();
-      if (selectedConversation?.channel === "whatsapp" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+      const changedConversationId = String(
+        (payload.new as any)?.conversation_id || (payload.old as any)?.conversation_id || "",
+      ).trim();
+      if (
+        selectedConversation?.channel === "whatsapp" &&
+        (!changedConversationId || changedConversationId === selectedConversation.id)
+      ) {
         void loadWhatsappMessages(selectedConversation.id);
       }
     },
@@ -561,20 +590,35 @@ function WhatsAppPage() {
       if (activeChannel === "instagram") {
         void loadInstagramConversations();
       }
-      const changedConversationId = String(payload.new?.conversation_id || payload.old?.conversation_id || "").trim();
-      if (selectedConversation?.channel === "messenger" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+      const changedConversationId = String(
+        (payload.new as any)?.conversation_id || (payload.old as any)?.conversation_id || "",
+      ).trim();
+      if (
+        selectedConversation?.channel === "messenger" &&
+        (!changedConversationId || changedConversationId === selectedConversation.id)
+      ) {
         void loadMessengerMessages(selectedConversation.id);
       }
-      if (selectedConversation?.channel === "instagram" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+      if (
+        selectedConversation?.channel === "instagram" &&
+        (!changedConversationId || changedConversationId === selectedConversation.id)
+      ) {
         void loadInstagramMessages(selectedConversation.id);
       }
     },
   });
 
   async function handleSendMessage(content: string) {
-    if (!selectedWhatsappConversation || activeChannel === "messenger" || activeChannel === "instagram") return;
+    if (
+      !selectedWhatsappConversation ||
+      activeChannel === "messenger" ||
+      activeChannel === "instagram"
+    )
+      return;
     if (!serviceWindow.isServiceWindowOpen) {
-      setSendError("La ventana de WhatsApp está cerrada. Usa una plantilla aprobada para continuar.");
+      setSendError(
+        "La ventana de WhatsApp está cerrada. Usa una plantilla aprobada para continuar.",
+      );
       return;
     }
 
@@ -649,11 +693,12 @@ function WhatsAppPage() {
     }
   }
 
-
   async function handleToggleMessengerBotStatus() {
     if (!selectedMessengerConversation || !profile?.company_id) return;
 
-    const currentBotStatus = String((selectedMessengerConversation as any).bot_status || "active").toLowerCase();
+    const currentBotStatus = String(
+      (selectedMessengerConversation as any).bot_status || "active",
+    ).toLowerCase();
     const willPause = currentBotStatus !== "paused";
 
     const nextBotStatus = willPause ? "paused" : "active";
@@ -685,8 +730,6 @@ function WhatsAppPage() {
       await loadMessengerMessages(selectedConversation.id);
     }
   }
-
-
 
   return (
     <div className="h-[calc(100vh-3.5rem)] min-h-0 bg-[#f0f2f5] overflow-hidden">
@@ -733,7 +776,11 @@ function WhatsAppPage() {
           <InboxUnifiedList
             className="min-h-0"
             items={unifiedConversations}
-            selectedKey={selectedConversation ? `${selectedConversation.channel}:${selectedConversation.id}` : null}
+            selectedKey={
+              selectedConversation
+                ? `${selectedConversation.channel}:${selectedConversation.id}`
+                : null
+            }
             onSelectKey={(key) => {
               const [channel, id] = String(key).split(":");
               if (channel !== "whatsapp" && channel !== "messenger") return;
@@ -742,13 +789,19 @@ function WhatsAppPage() {
             selectedChannel={selectedChannel}
             onSelectChannel={setSelectedChannel}
             loading={whatsappConversationsLoading || messengerConversationsLoading}
-            warning={messengerConversationsError ? "No se pudieron cargar las conversaciones de Messenger." : null}
+            warning={
+              messengerConversationsError
+                ? "No se pudieron cargar las conversaciones de Messenger."
+                : null
+            }
           />
         ) : activeChannel === "messenger" ? (
           <MessengerReadonlyList
             className="min-h-0"
             conversations={messengerConversations}
-            selectedConversationId={selectedConversation?.channel === "messenger" ? selectedConversation.id : null}
+            selectedConversationId={
+              selectedConversation?.channel === "messenger" ? selectedConversation.id : null
+            }
             onSelectConversationId={(id) => setSelectedConversation({ channel: "messenger", id })}
             selectedChannel={selectedChannel}
             onSelectChannel={setSelectedChannel}
@@ -760,7 +813,9 @@ function WhatsAppPage() {
           <InstagramReadonlyList
             className="min-h-0"
             conversations={instagramConversations}
-            selectedConversationId={selectedConversation?.channel === "instagram" ? selectedConversation.id : null}
+            selectedConversationId={
+              selectedConversation?.channel === "instagram" ? selectedConversation.id : null
+            }
             onSelectConversationId={(id) => setSelectedConversation({ channel: "instagram", id })}
             selectedChannel={selectedChannel}
             onSelectChannel={setSelectedChannel}
@@ -771,7 +826,9 @@ function WhatsAppPage() {
           <WhatsappReadonlyList
             className="min-h-0"
             conversations={whatsappConversations}
-            selectedConversationId={selectedConversation?.channel === "whatsapp" ? selectedConversation.id : null}
+            selectedConversationId={
+              selectedConversation?.channel === "whatsapp" ? selectedConversation.id : null
+            }
             onSelectConversationId={(id) => setSelectedConversation({ channel: "whatsapp", id })}
             selectedChannel={selectedChannel}
             onSelectChannel={setSelectedChannel}
@@ -801,7 +858,7 @@ function WhatsAppPage() {
               subtitle="Elige una conversación de Instagram a la izquierda para ver los mensajes"
             />
           )
-        ) : (selectedConversation?.channel === "messenger") ? (
+        ) : selectedConversation?.channel === "messenger" ? (
           selectedMessengerConversation ? (
             <MessengerReadonlyThread
               className="min-h-0"
@@ -855,10 +912,13 @@ function WhatsAppPage() {
             conversation={selectedMessengerConversation}
             onRefreshConversations={() => void loadMessengerConversations()}
             onToggleBotStatus={handleToggleMessengerBotStatus}
-              className="max-[1180px]:hidden min-h-0"
+            className="max-[1180px]:hidden min-h-0"
           />
         ) : selectedConversation?.channel === "instagram" ? (
-          <InstagramContextPanel conversation={selectedInstagramConversation} className="max-[1180px]:hidden min-h-0" />
+          <InstagramContextPanel
+            conversation={selectedInstagramConversation}
+            className="max-[1180px]:hidden min-h-0"
+          />
         ) : selectedChannel !== "instagram" ? (
           <WhatsappContactPanel
             conversation={selectedWhatsappConversation}

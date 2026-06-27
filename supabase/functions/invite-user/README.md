@@ -25,9 +25,9 @@ Requires `Authorization: Bearer <user_jwt>` for an authenticated user who can ma
 
 ### Manual test
 
-1) Deploy the function (Supabase CLI): `supabase functions deploy invite-user`
-2) In Supabase dashboard, set the env vars above for this function
-3) In the app as admin: Team → Invite user → enter email/role → “Crear invitación”
+1. Deploy the function (Supabase CLI): `supabase functions deploy invite-user`
+2. In Supabase dashboard, set the env vars above for this function
+3. In the app as admin: Team → Invite user → enter email/role → “Crear invitación”
 
 ### Notes
 

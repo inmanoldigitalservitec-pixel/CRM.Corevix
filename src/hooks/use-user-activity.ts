@@ -25,7 +25,10 @@ export function useUserActivity(profileId: string | null, limit = 30) {
     }
     setLoading(true);
     setError(null);
-    const { data: rows, error: err } = await (supabase as any).rpc("get_team_member_activity", args);
+    const { data: rows, error: err } = await (supabase as any).rpc(
+      "get_team_member_activity",
+      args,
+    );
     if (err) {
       setError(err.message || "Failed to load activity");
       setData([]);
@@ -42,4 +45,3 @@ export function useUserActivity(profileId: string | null, limit = 30) {
 
   return { data, loading, error, refetch };
 }
-

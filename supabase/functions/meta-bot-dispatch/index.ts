@@ -329,30 +329,26 @@ async function saveBotState(opts: {
       const prevState = prevRaw?.state;
       const sameState = JSON.stringify(prevState ?? null) === JSON.stringify(state ?? null);
       const sameAi =
-        JSON.stringify(
-          {
-            ai_attempted: prevRaw?.ai_attempted ?? null,
-            ai_used: prevRaw?.ai_used ?? null,
-            ai_provider: prevRaw?.ai_provider ?? null,
-            ai_confidence: prevRaw?.ai_confidence ?? null,
-            ai_reason: prevRaw?.ai_reason ?? null,
-            ai_stage_action: prevRaw?.ai_stage_action ?? null,
-            ai_reply_used: prevRaw?.ai_reply_used ?? null,
-            conversation_summary: prevRaw?.conversation_summary ?? null,
-          },
-        ) ===
-        JSON.stringify(
-          {
-            ai_attempted: rawPayload.ai_attempted ?? null,
-            ai_used: rawPayload.ai_used ?? null,
-            ai_provider: rawPayload.ai_provider ?? null,
-            ai_confidence: rawPayload.ai_confidence ?? null,
-            ai_reason: rawPayload.ai_reason ?? null,
-            ai_stage_action: rawPayload.ai_stage_action ?? null,
-            ai_reply_used: rawPayload.ai_reply_used ?? null,
-            conversation_summary: rawPayload.conversation_summary ?? null,
-          },
-        );
+        JSON.stringify({
+          ai_attempted: prevRaw?.ai_attempted ?? null,
+          ai_used: prevRaw?.ai_used ?? null,
+          ai_provider: prevRaw?.ai_provider ?? null,
+          ai_confidence: prevRaw?.ai_confidence ?? null,
+          ai_reason: prevRaw?.ai_reason ?? null,
+          ai_stage_action: prevRaw?.ai_stage_action ?? null,
+          ai_reply_used: prevRaw?.ai_reply_used ?? null,
+          conversation_summary: prevRaw?.conversation_summary ?? null,
+        }) ===
+        JSON.stringify({
+          ai_attempted: rawPayload.ai_attempted ?? null,
+          ai_used: rawPayload.ai_used ?? null,
+          ai_provider: rawPayload.ai_provider ?? null,
+          ai_confidence: rawPayload.ai_confidence ?? null,
+          ai_reason: rawPayload.ai_reason ?? null,
+          ai_stage_action: rawPayload.ai_stage_action ?? null,
+          ai_reply_used: rawPayload.ai_reply_used ?? null,
+          conversation_summary: rawPayload.conversation_summary ?? null,
+        });
       if (sameState && sameAi) return;
     } catch {
       // Ignore and proceed to insert.
@@ -371,7 +367,11 @@ async function saveBotState(opts: {
     raw_payload: rawPayload,
     sent_at: nowIso,
   });
-  if (error) console.warn("No se pudo guardar el bot_state (best-effort).", { conversationId, message: error.message });
+  if (error)
+    console.warn("No se pudo guardar el bot_state (best-effort).", {
+      conversationId,
+      message: error.message,
+    });
 }
 
 async function loadRecentConversationForAI(opts: {
@@ -391,7 +391,10 @@ async function loadRecentConversationForAI(opts: {
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) {
-    console.warn("No se pudo cargar el contexto reciente para AI (best-effort).", { conversationId, message: error.message });
+    console.warn("No se pudo cargar el contexto reciente para AI (best-effort).", {
+      conversationId,
+      message: error.message,
+    });
     return [];
   }
   const rows = Array.isArray(data) ? data : [];
@@ -449,7 +452,17 @@ function isValidReplyDraft(draft: string) {
   const t = String(draft || "").trim();
   if (t.length < 20 || t.length > 500) return false;
   const lower = t.toLowerCase();
-  const banned = ["deepseek", "modelo", "ai", "ia", "json", "bot_state", "stage", "instruccion", "sistema"];
+  const banned = [
+    "deepseek",
+    "modelo",
+    "ai",
+    "ia",
+    "json",
+    "bot_state",
+    "stage",
+    "instruccion",
+    "sistema",
+  ];
   if (banned.some((b) => lower.includes(b))) return false;
   // Avoid promising exact times.
   const timePromises = [
@@ -468,7 +481,20 @@ function isValidReplyDraft(draft: string) {
   const qCount = (t.match(/\?/g) || []).length;
   if (qCount > 1) return false;
   // Lightweight Spanish check: allow if it has common Spanish characters/words.
-  const spanishHints = ["que", "para", "puedes", "gracias", "tienes", "cuentame", "cuéntame", "perfecto", "entiendo", "ayudarte", "hola", "claro"];
+  const spanishHints = [
+    "que",
+    "para",
+    "puedes",
+    "gracias",
+    "tienes",
+    "cuentame",
+    "cuéntame",
+    "perfecto",
+    "entiendo",
+    "ayudarte",
+    "hola",
+    "claro",
+  ];
   const ascii = normalizeText(t);
   if (!spanishHints.some((h) => ascii.includes(normalizeText(h)))) return false;
   return true;
@@ -530,7 +556,21 @@ function isVagueWaitingMessage(text: string) {
 
 function looksLikeGoal(text: string) {
   const t = matchIntent(text).normalizedText;
-  const keys = ["cliente", "clientes", "vender", "ventas", "organizar", "mensajes", "crm", "automat", "seguimiento", "pagina", "web", "instagram", "redes"];
+  const keys = [
+    "cliente",
+    "clientes",
+    "vender",
+    "ventas",
+    "organizar",
+    "mensajes",
+    "crm",
+    "automat",
+    "seguimiento",
+    "pagina",
+    "web",
+    "instagram",
+    "redes",
+  ];
   return keys.some((k) => t.includes(k));
 }
 
@@ -558,16 +598,35 @@ function looksLikeBusinessType(text: string) {
     "supermercado",
     "minimarket",
   ];
-  if (t.startsWith("un ") || t.startsWith("una ") || t.includes("mi negocio") || t.includes("mi empresa")) return true;
+  if (
+    t.startsWith("un ") ||
+    t.startsWith("una ") ||
+    t.includes("mi negocio") ||
+    t.includes("mi empresa")
+  )
+    return true;
   return nouns.some((n) => t.includes(n));
 }
 
 function classifyWebsitePurpose(text: string): string | null {
   const t = normalizeText(text);
   if (!t) return null;
-  if (t.includes("recibir") || t.includes("clientes") || t.includes("prospect")) return "recibir clientes potenciales";
-  if (t.includes("vender") || t.includes("tienda") || t.includes("online") || t.includes("internet")) return "vender directamente";
-  if (t.includes("present") || t.includes("mostrar") || t.includes("inform") || t.includes("servicios")) return "presentar tu negocio";
+  if (t.includes("recibir") || t.includes("clientes") || t.includes("prospect"))
+    return "recibir clientes potenciales";
+  if (
+    t.includes("vender") ||
+    t.includes("tienda") ||
+    t.includes("online") ||
+    t.includes("internet")
+  )
+    return "vender directamente";
+  if (
+    t.includes("present") ||
+    t.includes("mostrar") ||
+    t.includes("inform") ||
+    t.includes("servicios")
+  )
+    return "presentar tu negocio";
   return null;
 }
 
@@ -643,7 +702,9 @@ function detectDomainLikeReference(text: string): string | null {
   return null;
 }
 
-function detectPartialReference(text: string):
+function detectPartialReference(
+  text: string,
+):
   | { kind: "needs_at_prefix"; suggested: string }
   | { kind: "normalized_handle"; value: string }
   | null {
@@ -670,13 +731,15 @@ function interpretCurrentPresenceRuleBased(text: string): string | null {
   const t = normalizeText(text);
   if (!t) return null;
   if (t.includes("desde cero") || t.includes("de cero") || t.includes("cero")) return "desde cero";
-  if (t.includes("ya tengo") || t.includes("tengo una") || t.includes("tengo un") || t.includes("existe")) return "ya tengo una actualmente";
+  if (
+    t.includes("ya tengo") ||
+    t.includes("tengo una") ||
+    t.includes("tengo un") ||
+    t.includes("existe")
+  )
+    return "ya tengo una actualmente";
   return null;
 }
-
-
-
-
 
 function sleepMs(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -730,7 +793,6 @@ async function sendMessengerSenderAction(opts: {
   }
 }
 
-
 function isValidAIOnlyReply(reply: string | null) {
   if (!reply) return false;
   const text = reply.trim();
@@ -763,7 +825,6 @@ function isValidAIOnlyReply(reply: string | null) {
 
   return true;
 }
-
 
 function normalizeAIOnlyMessages(parsed: any) {
   const rawMessages = Array.isArray(parsed?.messages)
@@ -799,9 +860,10 @@ function normalizeCapturedFields(parsed: any) {
   };
 }
 
-
-
-function mergeNonEmptyLeadFields(existing: Record<string, any> | null, incoming: Record<string, any> | null) {
+function mergeNonEmptyLeadFields(
+  existing: Record<string, any> | null,
+  incoming: Record<string, any> | null,
+) {
   const result: Record<string, any> = { ...(existing || {}) };
 
   if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
@@ -866,17 +928,17 @@ async function upsertConversationLeadProfile(opts: {
     conversationId: opts.conversationId,
   });
 
-  const previousCaptured = existing?.captured_fields && typeof existing.captured_fields === "object"
-    ? existing.captured_fields
-    : {};
+  const previousCaptured =
+    existing?.captured_fields && typeof existing.captured_fields === "object"
+      ? existing.captured_fields
+      : {};
 
   const mergedCaptured = mergeNonEmptyLeadFields(previousCaptured, opts.capturedFields);
 
   const statusFromAI = cleanOptionalString(opts.leadStatus);
-  const nextStatus =
-    opts.needsHuman
-      ? "awaiting_advisor"
-      : statusFromAI || existing?.lead_status || "collecting";
+  const nextStatus = opts.needsHuman
+    ? "awaiting_advisor"
+    : statusFromAI || existing?.lead_status || "collecting";
 
   const row = {
     company_id: opts.companyId,
@@ -889,10 +951,13 @@ async function upsertConversationLeadProfile(opts: {
 
     name: cleanOptionalString(mergedCaptured.name) || existing?.name || null,
     phone: cleanOptionalString(mergedCaptured.phone) || existing?.phone || null,
-    business_type: cleanOptionalString(mergedCaptured.business_type) || existing?.business_type || null,
-    service_interest: cleanOptionalString(mergedCaptured.service_interest) || existing?.service_interest || null,
+    business_type:
+      cleanOptionalString(mergedCaptured.business_type) || existing?.business_type || null,
+    service_interest:
+      cleanOptionalString(mergedCaptured.service_interest) || existing?.service_interest || null,
     goal: cleanOptionalString(mergedCaptured.goal) || existing?.goal || null,
-    current_status: cleanOptionalString(mergedCaptured.current_status) || existing?.current_status || null,
+    current_status:
+      cleanOptionalString(mergedCaptured.current_status) || existing?.current_status || null,
     reference: cleanOptionalString(mergedCaptured.reference) || existing?.reference || null,
     urgency: cleanOptionalString(mergedCaptured.urgency) || existing?.urgency || null,
 
@@ -927,8 +992,6 @@ async function upsertConversationLeadProfile(opts: {
 
   return data || existing || null;
 }
-
-
 
 function normalizePhoneLike(value: unknown) {
   const raw = String(value || "").trim();
@@ -1364,7 +1427,7 @@ async function callDeepSeekAIOnly(opts: {
     "Si ya tienes suficiente contexto pero falta contacto, pide nombre y WhatsApp.",
     "Si ya tienes nombre y WhatsApp, resume brevemente el caso y confirma que queda registrado para el asesor.",
     "Devuelve únicamente JSON válido con esta forma:",
-    "{\"messages\":[\"mensaje 1\",\"mensaje 2\"],\"reply\":\"mensaje principal opcional\",\"summary\":\"resumen comercial breve\",\"needs_human\":false,\"reason\":\"motivo breve\",\"lead_status\":\"collecting\",\"captured_fields\":{\"name\":null,\"phone\":null,\"business_type\":null,\"service_interest\":null,\"goal\":null,\"current_status\":null,\"reference\":null,\"urgency\":null}}",
+    '{"messages":["mensaje 1","mensaje 2"],"reply":"mensaje principal opcional","summary":"resumen comercial breve","needs_human":false,"reason":"motivo breve","lead_status":"collecting","captured_fields":{"name":null,"phone":null,"business_type":null,"service_interest":null,"goal":null,"current_status":null,"reference":null,"urgency":null}}',
   ].join("\\n");
 
   const userPayload = {
@@ -1498,10 +1561,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true, skipped: true, reason: "platform_not_supported" });
     }
 
-    if (!companyId || !isUuid(companyId)) return jsonResponse({ error: "company_id inválido" }, 400);
-    if (!accountId || !isUuid(accountId)) return jsonResponse({ error: "account_id inválido" }, 400);
-    if (!conversationId || !isUuid(conversationId)) return jsonResponse({ error: "conversation_id inválido" }, 400);
-    if (!inboundMessageId || !isUuid(inboundMessageId)) return jsonResponse({ error: "inbound_message_id inválido" }, 400);
+    if (!companyId || !isUuid(companyId))
+      return jsonResponse({ error: "company_id inválido" }, 400);
+    if (!accountId || !isUuid(accountId))
+      return jsonResponse({ error: "account_id inválido" }, 400);
+    if (!conversationId || !isUuid(conversationId))
+      return jsonResponse({ error: "conversation_id inválido" }, 400);
+    if (!inboundMessageId || !isUuid(inboundMessageId))
+      return jsonResponse({ error: "inbound_message_id inválido" }, 400);
 
     if (!text) {
       console.info("Messenger bot skipped", { reason: "empty_text", conversationId });
@@ -1531,10 +1598,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true, skipped: true, reason: "bot_paused" });
     }
 
-const status = String(conversation.status || "").trim().toLowerCase();
+    const status = String(conversation.status || "")
+      .trim()
+      .toLowerCase();
     const allowed = new Set(["open", "awaiting_advisor"]);
     if (!allowed.has(status)) {
-      console.info("Messenger bot skipped", { reason: "conversation_status_not_allowed", status: conversation.status, conversationId });
+      console.info("Messenger bot skipped", {
+        reason: "conversation_status_not_allowed",
+        status: conversation.status,
+        conversationId,
+      });
       return jsonResponse({ ok: true, skipped: true, reason: "conversation_status_not_allowed" });
     }
 
@@ -1549,11 +1622,18 @@ const status = String(conversation.status || "").trim().toLowerCase();
       .maybeSingle();
     if (inboundErr) return jsonResponse({ error: inboundErr.message }, 500);
     if (!inboundRow) {
-      console.info("Messenger bot skipped", { reason: "inbound_message_not_found", inboundMessageId, conversationId });
+      console.info("Messenger bot skipped", {
+        reason: "inbound_message_not_found",
+        inboundMessageId,
+        conversationId,
+      });
       return jsonResponse({ ok: true, skipped: true, reason: "inbound_message_not_found" });
     }
     if (String(inboundRow.direction || "").toLowerCase() !== "inbound") {
-      console.info("Messenger bot skipped", { reason: "inbound_message_not_inbound", inboundMessageId });
+      console.info("Messenger bot skipped", {
+        reason: "inbound_message_not_inbound",
+        inboundMessageId,
+      });
       return jsonResponse({ ok: true, skipped: true, reason: "inbound_message_not_inbound" });
     }
 
@@ -1571,7 +1651,10 @@ const status = String(conversation.status || "").trim().toLowerCase();
       .limit(1)
       .maybeSingle();
     if (dupErr) {
-      console.warn("Messenger bot duplicate check failed", { conversationId, message: dupErr.message });
+      console.warn("Messenger bot duplicate check failed", {
+        conversationId,
+        message: dupErr.message,
+      });
       return jsonResponse({ ok: true, skipped: true, reason: "dup_check_failed" });
     }
     if (existingBotReply?.id) {
@@ -1591,21 +1674,20 @@ const status = String(conversation.status || "").trim().toLowerCase();
     // (like awaiting_reference) are handled even when the user replies quickly.
     const prevState = await loadLatestBotState({ serviceClient, companyId, conversationId });
     let nextState: BotState = { ...prevState };
-    let aiMeta:
-      | {
-          ai_attempted: boolean;
-          ai_used: boolean;
-          ai_provider: "deepseek" | null;
-          ai_confidence: number | null;
-          ai_reason: string | null;
-          ai_stage_action?: string | null;
-        }
-      | null = null;
+    let aiMeta: {
+      ai_attempted: boolean;
+      ai_used: boolean;
+      ai_provider: "deepseek" | null;
+      ai_confidence: number | null;
+      ai_reason: string | null;
+      ai_stage_action?: string | null;
+    } | null = null;
 
     // Debug trigger: force a DeepSeek call to verify Edge secrets/config.
     // Bypasses anti-repeat and normal stage logic.
     const normalizedInput = normalizeText(text);
-    const isDeepSeekDebugTrigger = normalizedInput === "test deepseek" || normalizedInput === "probar deepseek";
+    const isDeepSeekDebugTrigger =
+      normalizedInput === "test deepseek" || normalizedInput === "probar deepseek";
     let forcedReplyText: string | null = null;
     if (isDeepSeekDebugTrigger) {
       console.info("DeepSeek debug trigger received", { conversationId });
@@ -1641,10 +1723,15 @@ const status = String(conversation.status || "").trim().toLowerCase();
           ai_used: false,
           ai_provider: null,
           ai_confidence: null,
-          ai_reason: (interpreted as any)?.reason ? String((interpreted as any).reason) : (interpreted as any)?.error ? String((interpreted as any).error) : "deepseek_error",
+          ai_reason: (interpreted as any)?.reason
+            ? String((interpreted as any).reason)
+            : (interpreted as any)?.error
+              ? String((interpreted as any).error)
+              : "deepseek_error",
           ai_stage_action: null,
         };
-        forcedReplyText = "No pude conectar con DeepSeek todavía. Revisa el secret DEEPSEEK_API_KEY en Supabase.";
+        forcedReplyText =
+          "No pude conectar con DeepSeek todavía. Revisa el secret DEEPSEEK_API_KEY en Supabase.";
       }
     }
 
@@ -1689,7 +1776,10 @@ const status = String(conversation.status || "").trim().toLowerCase();
             return jsonResponse({ ok: true, skipped: true, reason: "recent_bot_message" });
           }
 
-          if ((intentMatch.intent === "unknown" || intentMatch.confidence < 0.68) && activeExpectedAnswerStage) {
+          if (
+            (intentMatch.intent === "unknown" || intentMatch.confidence < 0.68) &&
+            activeExpectedAnswerStage
+          ) {
             console.info("Messenger bot anti-repeat allowed unknown for AI fallback", {
               conversationId,
               stage: prevState.stage,
@@ -1700,11 +1790,17 @@ const status = String(conversation.status || "").trim().toLowerCase();
         }
       }
     } else if (!isDeepSeekDebugTrigger) {
-      console.info("Messenger bot anti-repeat skipped after stage check", { conversationId, stage: prevState.stage });
+      console.info("Messenger bot anti-repeat skipped after stage check", {
+        conversationId,
+        stage: prevState.stage,
+      });
     }
 
     // If there's any outbound message after the inbound, assume human/CRM already replied; skip.
-    const inboundTs = cleanOptionalString((inboundRow as any).sent_at) || cleanOptionalString((inboundRow as any).created_at) || null;
+    const inboundTs =
+      cleanOptionalString((inboundRow as any).sent_at) ||
+      cleanOptionalString((inboundRow as any).created_at) ||
+      null;
     if (inboundTs) {
       const { data: outboundAfter, error: outboundAfterErr } = await serviceClient
         .from("meta_messages")
@@ -1718,11 +1814,17 @@ const status = String(conversation.status || "").trim().toLowerCase();
         .limit(1)
         .maybeSingle();
       if (outboundAfterErr) {
-        console.warn("Messenger bot outbound-after check failed", { conversationId, message: outboundAfterErr.message });
+        console.warn("Messenger bot outbound-after check failed", {
+          conversationId,
+          message: outboundAfterErr.message,
+        });
         return jsonResponse({ ok: true, skipped: true, reason: "outbound_after_check_failed" });
       }
       if (outboundAfter?.id) {
-        console.info("Messenger bot skipped", { reason: "outbound_exists_after_inbound", inboundMessageId });
+        console.info("Messenger bot skipped", {
+          reason: "outbound_exists_after_inbound",
+          inboundMessageId,
+        });
         return jsonResponse({ ok: true, skipped: true, reason: "outbound_exists_after_inbound" });
       }
     }
@@ -1736,7 +1838,8 @@ const status = String(conversation.status || "").trim().toLowerCase();
       .eq("platform", "messenger")
       .maybeSingle();
     if (accErr) return jsonResponse({ error: accErr.message }, 500);
-    if (!account) return jsonResponse({ error: "Cuenta Meta no encontrada para la empresa indicada" }, 404);
+    if (!account)
+      return jsonResponse({ error: "Cuenta Meta no encontrada para la empresa indicada" }, 404);
 
     const secretRef = cleanOptionalString((account as any).access_token_secret_id);
     if (!secretRef || !isUuid(secretRef)) {
@@ -1758,212 +1861,213 @@ const status = String(conversation.status || "").trim().toLowerCase();
       return jsonResponse({ ok: true, skipped: true, reason: "empty_token" });
     }
 
+    // AI_ONLY mode: bypass old rule-based/stage pipeline and let DeepSeek reply conversationally.
+    const messengerBotMode = "ai_only";
 
-      // AI_ONLY mode: bypass old rule-based/stage pipeline and let DeepSeek reply conversationally.
-      const messengerBotMode = "ai_only";
+    if (messengerBotMode === "ai_only") {
+      console.info("Messenger bot AI_ONLY mode enabled", { conversationId });
 
-      if (messengerBotMode === "ai_only") {
-        console.info("Messenger bot AI_ONLY mode enabled", { conversationId });
+      const existingLeadProfile = await loadConversationLeadProfile({
+        serviceClient,
+        companyId,
+        conversationId,
+      });
 
-        const existingLeadProfile = await loadConversationLeadProfile({
-          serviceClient,
-          companyId,
-          conversationId,
-        });
+      const aiResult = await callDeepSeekAIOnly({
+        serviceClient,
+        companyId,
+        conversationId,
+        userText: text,
+        state: prevState,
+        leadProfile: existingLeadProfile,
+      });
 
-        const aiResult = await callDeepSeekAIOnly({
-          serviceClient,
-          companyId,
-          conversationId,
-          userText: text,
-          state: prevState,
-          leadProfile: existingLeadProfile,
-        });
+      const savedLeadProfile = await upsertConversationLeadProfile({
+        serviceClient,
+        companyId,
+        accountId,
+        conversationId,
+        externalUserId: cleanOptionalString((conversation as any).external_user_id),
+        capturedFields: (aiResult as any).captured_fields || null,
+        summary: cleanOptionalString((aiResult as any).summary),
+        leadStatus: cleanOptionalString((aiResult as any).lead_status),
+        needsHuman: Boolean((aiResult as any).needs_human),
+      });
 
-        const savedLeadProfile = await upsertConversationLeadProfile({
-          serviceClient,
-          companyId,
-          accountId,
-          conversationId,
-          externalUserId: cleanOptionalString((conversation as any).external_user_id),
-          capturedFields: (aiResult as any).captured_fields || null,
-          summary: cleanOptionalString((aiResult as any).summary),
-          leadStatus: cleanOptionalString((aiResult as any).lead_status),
-          needsHuman: Boolean((aiResult as any).needs_human),
-        });
+      const crmSyncResult = await syncCrmFromMessengerLeadProfile({
+        serviceClient,
+        companyId,
+        accountId,
+        conversationId,
+        externalUserId: cleanOptionalString((conversation as any).external_user_id),
+        leadProfile: savedLeadProfile,
+      });
 
-        const crmSyncResult = await syncCrmFromMessengerLeadProfile({
-          serviceClient,
-          companyId,
-          accountId,
-          conversationId,
-          externalUserId: cleanOptionalString((conversation as any).external_user_id),
-          leadProfile: savedLeadProfile,
-        });
+      const fallbackReply =
+        "Claro, entiendo. Para orientarte mejor, cuéntame qué tipo de negocio tienes y qué te gustaría mejorar.";
 
-        const fallbackReply =
-          "Claro, entiendo. Para orientarte mejor, cuéntame qué tipo de negocio tienes y qué te gustaría mejorar.";
+      const aiMessages =
+        aiResult.ok &&
+        Array.isArray((aiResult as any).messages) &&
+        (aiResult as any).messages.length
+          ? (aiResult as any).messages
+          : aiResult.ok && aiResult.reply
+            ? [aiResult.reply]
+            : [fallbackReply];
 
-        const aiMessages =
-          aiResult.ok && Array.isArray((aiResult as any).messages) && (aiResult as any).messages.length
-            ? (aiResult as any).messages
-            : aiResult.ok && aiResult.reply
-              ? [aiResult.reply]
-              : [fallbackReply];
+      if (aiResult.needs_human) {
+        const { error: statusErr } = await serviceClient
+          .from("meta_conversations")
+          .update({ status: "awaiting_advisor" })
+          .eq("id", conversationId)
+          .eq("company_id", companyId);
 
-        if (aiResult.needs_human) {
-          const { error: statusErr } = await serviceClient
-            .from("meta_conversations")
-            .update({ status: "awaiting_advisor" })
-            .eq("id", conversationId)
-            .eq("company_id", companyId);
-
-          if (statusErr) {
-            console.warn("AI_ONLY failed to set awaiting_advisor", {
-              conversationId,
-              message: statusErr.message,
-            });
-          }
+        if (statusErr) {
+          console.warn("AI_ONLY failed to set awaiting_advisor", {
+            conversationId,
+            message: statusErr.message,
+          });
         }
+      }
 
-        const recipientId = cleanOptionalString((conversation as any).external_user_id);
+      const recipientId = cleanOptionalString((conversation as any).external_user_id);
 
-        if (!recipientId) {
-          return jsonResponse({ error: "external_user_id faltante" }, 400);
-        }
+      if (!recipientId) {
+        return jsonResponse({ error: "external_user_id faltante" }, 400);
+      }
 
-        const nowIso = new Date().toISOString();
-        let lastSentText = "";
-        let sentCount = 0;
+      const nowIso = new Date().toISOString();
+      let lastSentText = "";
+      let sentCount = 0;
+
+      await sendMessengerSenderAction({
+        accessToken,
+        recipientId,
+        action: "mark_seen",
+      });
+
+      for (const [index, messageText] of aiMessages.entries()) {
+        await sendMessengerSenderAction({
+          accessToken,
+          recipientId,
+          action: "typing_on",
+        });
+
+        await sleepMs(getTypingDelayMs(messageText, index));
+
+        const graphResponse = await fetch("https://graph.facebook.com/v20.0/me/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            recipient: { id: recipientId },
+            messaging_type: "RESPONSE",
+            message: { text: messageText },
+          }),
+        });
 
         await sendMessengerSenderAction({
           accessToken,
           recipientId,
-          action: "mark_seen",
+          action: "typing_off",
         });
 
-        for (const [index, messageText] of aiMessages.entries()) {
-          await sendMessengerSenderAction({
-            accessToken,
-            recipientId,
-            action: "typing_on",
-          });
+        const graphPayload = await graphResponse.json().catch(() => null);
 
-          await sleepMs(getTypingDelayMs(messageText, index));
-
-          const graphResponse = await fetch("https://graph.facebook.com/v20.0/me/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              recipient: { id: recipientId },
-              messaging_type: "RESPONSE",
-              message: { text: messageText },
-            }),
-          });
-
+        if (!graphResponse.ok) {
           await sendMessengerSenderAction({
             accessToken,
             recipientId,
             action: "typing_off",
           });
 
-          const graphPayload = await graphResponse.json().catch(() => null);
-
-          if (!graphResponse.ok) {
-            await sendMessengerSenderAction({
-              accessToken,
-              recipientId,
-              action: "typing_off",
-            });
-
-            console.warn("DeepSeek AI_ONLY Messenger send failed", {
-              conversationId,
-              message: metaErrorToMessage(graphPayload),
-            });
-
-            return jsonResponse(
-              {
-                ok: false,
-                error: metaErrorToMessage(graphPayload),
-                ai_mode: "ai_only",
-              },
-              502,
-            );
-          }
-
-          lastSentText = messageText;
-          sentCount += 1;
-
-          const { error: insertOutboundErr } = await serviceClient.from("meta_messages").insert({
-            company_id: companyId,
-            account_id: accountId,
-            conversation_id: conversationId,
-            platform: "messenger",
-            direction: "outbound",
-            message_type: "text",
-            text: messageText,
-            attachments: [],
-            raw_payload: {
-              source: "messenger_bot",
-              phase: "ai_only_deepseek",
-              trigger_inbound_message_id: inboundMessageId,
-              graph_response: graphPayload,
-              ai_attempted: true,
-              ai_used: aiResult.ok,
-              ai_provider: aiResult.ok ? "deepseek" : null,
-              ai_reply_used: aiResult.ok,
-              ai_reason: aiResult.reason,
-              ai_mode: "ai_only",
-              ai_message_index: index,
-              ai_message_count: aiMessages.length,
-              conversation_summary: aiResult.summary || null,
-              captured_fields: (aiResult as any).captured_fields || null,
-              lead_profile: savedLeadProfile || null,
-              crm_sync_result: crmSyncResult || null,
-              lead_status: (aiResult as any).lead_status || null,
-              needs_human: aiResult.needs_human,
-            },
-            sent_at: nowIso,
+          console.warn("DeepSeek AI_ONLY Messenger send failed", {
+            conversationId,
+            message: metaErrorToMessage(graphPayload),
           });
 
-          if (insertOutboundErr) {
-            console.warn("AI_ONLY outbound insert failed", {
-              conversationId,
-              message: insertOutboundErr.message,
-            });
-          }
+          return jsonResponse(
+            {
+              ok: false,
+              error: metaErrorToMessage(graphPayload),
+              ai_mode: "ai_only",
+            },
+            502,
+          );
         }
 
-        await serviceClient
-          .from("meta_conversations")
-          .update({
-            last_message_text: lastSentText || aiMessages[aiMessages.length - 1] || fallbackReply,
-            last_message_at: nowIso,
-            updated_at: nowIso,
-            status: aiResult.needs_human ? "awaiting_advisor" : conversation.status,
-          })
-          .eq("id", conversationId)
-          .eq("company_id", companyId);
+        lastSentText = messageText;
+        sentCount += 1;
 
-        console.info("DeepSeek AI_ONLY reply generated", {
-          conversationId,
-          inboundMessageId,
-          ai_used: aiResult.ok,
-          needs_human: aiResult.needs_human,
-          message_count: sentCount,
+        const { error: insertOutboundErr } = await serviceClient.from("meta_messages").insert({
+          company_id: companyId,
+          account_id: accountId,
+          conversation_id: conversationId,
+          platform: "messenger",
+          direction: "outbound",
+          message_type: "text",
+          text: messageText,
+          attachments: [],
+          raw_payload: {
+            source: "messenger_bot",
+            phase: "ai_only_deepseek",
+            trigger_inbound_message_id: inboundMessageId,
+            graph_response: graphPayload,
+            ai_attempted: true,
+            ai_used: aiResult.ok,
+            ai_provider: aiResult.ok ? "deepseek" : null,
+            ai_reply_used: aiResult.ok,
+            ai_reason: aiResult.reason,
+            ai_mode: "ai_only",
+            ai_message_index: index,
+            ai_message_count: aiMessages.length,
+            conversation_summary: aiResult.summary || null,
+            captured_fields: (aiResult as any).captured_fields || null,
+            lead_profile: savedLeadProfile || null,
+            crm_sync_result: crmSyncResult || null,
+            lead_status: (aiResult as any).lead_status || null,
+            needs_human: aiResult.needs_human,
+          },
+          sent_at: nowIso,
         });
 
-        return jsonResponse({
-          ok: true,
-          replied: true,
-          ai_mode: "ai_only",
-          ai_used: aiResult.ok,
-          message_count: sentCount,
-        });
+        if (insertOutboundErr) {
+          console.warn("AI_ONLY outbound insert failed", {
+            conversationId,
+            message: insertOutboundErr.message,
+          });
+        }
       }
+
+      await serviceClient
+        .from("meta_conversations")
+        .update({
+          last_message_text: lastSentText || aiMessages[aiMessages.length - 1] || fallbackReply,
+          last_message_at: nowIso,
+          updated_at: nowIso,
+          status: aiResult.needs_human ? "awaiting_advisor" : conversation.status,
+        })
+        .eq("id", conversationId)
+        .eq("company_id", companyId);
+
+      console.info("DeepSeek AI_ONLY reply generated", {
+        conversationId,
+        inboundMessageId,
+        ai_used: aiResult.ok,
+        needs_human: aiResult.needs_human,
+        message_count: sentCount,
+      });
+
+      return jsonResponse({
+        ok: true,
+        replied: true,
+        ai_mode: "ai_only",
+        ai_used: aiResult.ok,
+        message_count: sentCount,
+      });
+    }
 
     console.info("Messenger bot status evaluated", { status: conversation.status });
     console.info("Business hours evaluated", { isOpen: isBusinessOpenNow() });
@@ -2001,7 +2105,11 @@ const status = String(conversation.status || "").trim().toLowerCase();
         .update({ status: "awaiting_advisor" })
         .eq("id", conversationId)
         .eq("company_id", companyId);
-      if (statusErr) console.warn("Messenger bot failed to set awaiting_advisor", { conversationId, message: statusErr.message });
+      if (statusErr)
+        console.warn("Messenger bot failed to set awaiting_advisor", {
+          conversationId,
+          message: statusErr.message,
+        });
 
       nextState.stage = "ready_for_advisor";
       nextState.ready_for_advisor = true;
@@ -2041,7 +2149,11 @@ const status = String(conversation.status || "").trim().toLowerCase();
       // Reference corrections (accept links/domains/normalized handles).
       const domainLike = detectDomainLikeReference(text);
       const partial = detectPartialReference(text);
-      if (intentMatch.intent === "reference_link" || domainLike || partial?.kind === "normalized_handle") {
+      if (
+        intentMatch.intent === "reference_link" ||
+        domainLike ||
+        partial?.kind === "normalized_handle"
+      ) {
         const refValue =
           (intentMatch.intent === "reference_link" ? String(text || "").trim() : null) ||
           domainLike ||
@@ -2054,24 +2166,30 @@ const status = String(conversation.status || "").trim().toLowerCase();
         if (summary) replyText = `${replyText}\n\n${summary}`;
       } else if (intentMatch.intent === "business_type" || looksLikeBusinessType(text)) {
         const incoming = String(text || "").trim();
-        if (incoming && normalizeText(incoming) !== normalizeText(String(nextState.business_type || ""))) {
+        if (
+          incoming &&
+          normalizeText(incoming) !== normalizeText(String(nextState.business_type || ""))
+        ) {
           nextState.business_type = incoming;
         }
-        replyText = "Perfecto, lo tomo en cuenta. Con eso el asesor tendrá mejor contexto para orientarte.";
+        replyText =
+          "Perfecto, lo tomo en cuenta. Con eso el asesor tendrá mejor contexto para orientarte.";
         if (summary) replyText = `${replyText}\n\n${summary}`;
       } else if (intentMatch.intent === "goal" || looksLikeGoal(text)) {
         const incoming = String(text || "").trim();
         if (incoming && normalizeText(incoming) !== normalizeText(String(nextState.goal || ""))) {
           nextState.goal = incoming;
         }
-        replyText = "Perfecto, gracias por aclararlo. Ya tenemos ese objetivo en cuenta para que el asesor pueda orientarte mejor.";
+        replyText =
+          "Perfecto, gracias por aclararlo. Ya tenemos ese objetivo en cuenta para que el asesor pueda orientarte mejor.";
         if (summary) replyText = `${replyText}\n\n${summary}`;
       } else if (intentMatch.intent === "advisor_request" || intentMatch.intent === "waiting") {
         replyText =
           "Ya tenemos tu solicitud registrada y el contexto que nos compartiste. Un asesor de Corevix continuará contigo por este mismo chat lo antes posible.";
         if (summary) replyText = `${replyText}\n\n${summary}`;
       } else {
-        replyText = "Gracias, lo tengo en cuenta. Ya tenemos buen contexto para que un asesor pueda orientarte mejor por este mismo chat.";
+        replyText =
+          "Gracias, lo tengo en cuenta. Ya tenemos buen contexto para que un asesor pueda orientarte mejor por este mismo chat.";
         if (summary) replyText = `${replyText}\n\n${summary}`;
       }
 
@@ -2088,7 +2206,10 @@ const status = String(conversation.status || "").trim().toLowerCase();
         });
       }
     } else if (!handledByGlobalPriority) {
-      console.info("Messenger bot stage handled after global priority", { conversationId, stage: prevState.stage });
+      console.info("Messenger bot stage handled after global priority", {
+        conversationId,
+        stage: prevState.stage,
+      });
 
       // Prefer DeepSeek as contextual analyst inside active stages, unless the message is globally clear.
       // This keeps replies controlled: we only apply structured actions and optionally use a validated reply_draft.
@@ -2100,10 +2221,15 @@ const status = String(conversation.status || "").trim().toLowerCase();
         text,
       });
       const shouldPreferDeepSeek = isActiveStage(prevState.stage) && !globallyClear;
-        let handledByAI = false;
+      let handledByAI = false;
 
       if (shouldPreferDeepSeek) {
-        const recentMessages = await loadRecentConversationForAI({ serviceClient, companyId, conversationId, limit: 8 });
+        const recentMessages = await loadRecentConversationForAI({
+          serviceClient,
+          companyId,
+          conversationId,
+          limit: 8,
+        });
         const aiContext = buildAISummaryContext({
           stage: prevState.stage,
           state: prevState,
@@ -2116,7 +2242,11 @@ const status = String(conversation.status || "").trim().toLowerCase();
           stage: prevState.stage,
           state: prevState as any,
           userText: JSON.stringify(aiContext),
-          intentMatch: { intent: intentMatch.intent, confidence: intentMatch.confidence, normalizedText: (intentMatch as any).normalizedText },
+          intentMatch: {
+            intent: intentMatch.intent,
+            confidence: intentMatch.confidence,
+            normalizedText: (intentMatch as any).normalizedText,
+          },
         });
 
         aiMeta = {
@@ -2124,36 +2254,45 @@ const status = String(conversation.status || "").trim().toLowerCase();
           ai_used: interpreted.ok ? true : false,
           ai_provider: interpreted.ok ? "deepseek" : null,
           ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
-          ai_reason:
-            interpreted.ok
-              ? interpreted.data.reason || null
-              : (interpreted as any)?.reason
-                ? String((interpreted as any).reason)
-                : (interpreted as any)?.error
-                  ? String((interpreted as any).error)
-                  : null,
+          ai_reason: interpreted.ok
+            ? interpreted.data.reason || null
+            : (interpreted as any)?.reason
+              ? String((interpreted as any).reason)
+              : (interpreted as any)?.error
+                ? String((interpreted as any).error)
+                : null,
           ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
           ai_reply_used: false,
-          conversation_summary: interpreted.ok ? (interpreted.data.conversation_summary || null) : null,
+          conversation_summary: interpreted.ok
+            ? interpreted.data.conversation_summary || null
+            : null,
         };
 
         if (interpreted.ok && interpreted.data.understood && interpreted.data.confidence >= 0.72) {
-            handledByAI = true;
-            console.info("DeepSeek active-stage analyst applied", {
-              conversationId,
-              stage: prevState.stage,
-              action: interpreted.data.stage_action,
-              confidence: interpreted.data.confidence,
-            });
+          handledByAI = true;
+          console.info("DeepSeek active-stage analyst applied", {
+            conversationId,
+            stage: prevState.stage,
+            action: interpreted.data.stage_action,
+            confidence: interpreted.data.confidence,
+          });
 
           // Apply safe structured actions.
           const action = interpreted.data.stage_action;
           const extracted: any = interpreted.data.extracted || {};
 
-          if (typeof interpreted.data.conversation_summary === "string" && interpreted.data.conversation_summary.trim()) {
-            nextState.conversation_summary = interpreted.data.conversation_summary.trim().slice(0, 500);
+          if (
+            typeof interpreted.data.conversation_summary === "string" &&
+            interpreted.data.conversation_summary.trim()
+          ) {
+            nextState.conversation_summary = interpreted.data.conversation_summary
+              .trim()
+              .slice(0, 500);
           }
-          if (Array.isArray(extracted.additional_interests) && extracted.additional_interests.length) {
+          if (
+            Array.isArray(extracted.additional_interests) &&
+            extracted.additional_interests.length
+          ) {
             nextState.additional_interests = extracted.additional_interests.slice(0, 5);
           }
 
@@ -2163,7 +2302,11 @@ const status = String(conversation.status || "").trim().toLowerCase();
               .update({ status: "awaiting_advisor" })
               .eq("id", conversationId)
               .eq("company_id", companyId);
-            if (statusErr) console.warn("Messenger bot failed to set awaiting_advisor", { conversationId, message: statusErr.message });
+            if (statusErr)
+              console.warn("Messenger bot failed to set awaiting_advisor", {
+                conversationId,
+                message: statusErr.message,
+              });
             nextState.stage = "ready_for_advisor";
             nextState.ready_for_advisor = true;
             replyText =
@@ -2173,12 +2316,17 @@ const status = String(conversation.status || "").trim().toLowerCase();
             replyText = businessHoursReply(openNow, nextOpenLabel);
           } else if (action === "save_business_type") {
             nextState.business_type =
-              normalizeExtractedSpanish(cleanOptionalString(extracted.business_type)) || String(text || "").trim() || null;
+              normalizeExtractedSpanish(cleanOptionalString(extracted.business_type)) ||
+              String(text || "").trim() ||
+              null;
             nextState.stage = "awaiting_goal";
             replyText =
               "Perfecto, gracias por contarme. ¿Y qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
           } else if (action === "save_goal") {
-            nextState.goal = normalizeExtractedSpanish(cleanOptionalString(extracted.goal)) || String(text || "").trim() || null;
+            nextState.goal =
+              normalizeExtractedSpanish(cleanOptionalString(extracted.goal)) ||
+              String(text || "").trim() ||
+              null;
             // For web, keep the web flow.
             if (nextState.interest === "web_interest" && !nextState.current_presence) {
               nextState.stage = "awaiting_current_presence";
@@ -2192,7 +2340,9 @@ const status = String(conversation.status || "").trim().toLowerCase();
             }
           } else if (action === "save_current_presence") {
             nextState.current_presence =
-              normalizeExtractedSpanish(cleanOptionalString(extracted.current_presence)) || String(text || "").trim() || null;
+              normalizeExtractedSpanish(cleanOptionalString(extracted.current_presence)) ||
+              String(text || "").trim() ||
+              null;
             nextState.stage = "awaiting_reference";
             const presence = String(nextState.current_presence || "").trim();
             if (normalizeText(presence) === normalizeText("ya tiene una página actualmente")) {
@@ -2204,7 +2354,10 @@ const status = String(conversation.status || "").trim().toLowerCase();
                 : "Entiendo. ¿Tienes algún Instagram, página actual o referencia que podamos revisar?";
             }
           } else if (action === "save_reference") {
-            nextState.reference = normalizeExtractedSpanish(cleanOptionalString(extracted.reference)) || String(text || "").trim() || null;
+            nextState.reference =
+              normalizeExtractedSpanish(cleanOptionalString(extracted.reference)) ||
+              String(text || "").trim() ||
+              null;
             nextState.stage = "ready_for_advisor";
             nextState.ready_for_advisor = true;
             replyText =
@@ -2222,7 +2375,9 @@ const status = String(conversation.status || "").trim().toLowerCase();
               "Perfecto. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
           } else if (action === "ask_clarification") {
             // Avoid loops: if we already asked a clarification in this stage, close to advisor.
-            const sameStage = normalizeText(String(nextState.ai_clarify_stage || "")) === normalizeText(prevState.stage);
+            const sameStage =
+              normalizeText(String(nextState.ai_clarify_stage || "")) ===
+              normalizeText(prevState.stage);
             const count = Number(nextState.ai_clarify_count || 0);
             if (sameStage && count >= 1) {
               nextState.stage = "ready_for_advisor";
@@ -2235,7 +2390,8 @@ const status = String(conversation.status || "").trim().toLowerCase();
               // Controlled clarification (do NOT advance to awaiting_reference).
               // Keep it natural and goal-oriented, with a single main question.
               if (prevState.stage === "awaiting_current_presence") {
-                replyText = "Solo para confirmar: ¿ya tienes una página actualmente o empezaríamos desde cero?";
+                replyText =
+                  "Solo para confirmar: ¿ya tienes una página actualmente o empezaríamos desde cero?";
               } else if (prevState.stage === "awaiting_business_type") {
                 replyText =
                   "Para ubicarte mejor, ¿me puedes decir qué tipo de negocio tienes? Por ejemplo: tienda, restaurante, inmobiliaria, supermercado, salón, etc.";
@@ -2254,10 +2410,17 @@ const status = String(conversation.status || "").trim().toLowerCase();
               if (aiMeta) aiMeta.ai_reply_used = true;
               console.info("DeepSeek reply draft used", { conversationId, stage: prevState.stage });
             } else {
-              console.info("DeepSeek reply draft rejected", { conversationId, stage: prevState.stage });
+              console.info("DeepSeek reply draft rejected", {
+                conversationId,
+                stage: prevState.stage,
+              });
             }
           } else if (aiMeta?.ai_used) {
-            console.info("DeepSeek contextual template used", { conversationId, stage: prevState.stage, action: interpreted.data.stage_action });
+            console.info("DeepSeek contextual template used", {
+              conversationId,
+              stage: prevState.stage,
+              action: interpreted.data.stage_action,
+            });
           }
 
           // Save state changes early (best-effort) so the rest of the pipeline uses updated state.
@@ -2277,313 +2440,408 @@ const status = String(conversation.status || "").trim().toLowerCase();
 
       // Stage-priority logic (website flow, advisor flow, references).
       if (handledByAI) {
-        console.info("DeepSeek handled inbound; skipping rule-based stage", { conversationId, stage: prevState.stage });
-        } else if (prevState.stage === "awaiting_website_goal") {
-      const purpose = classifyWebsitePurpose(text);
-      if (purpose) {
-        nextState.goal = purpose;
-        nextState.stage = "awaiting_current_presence";
-        replyText = `Perfecto. Entonces la página debe estar enfocada en ${purpose}. ¿Ya tienes una página actualmente o empezaríamos desde cero?`;
-      } else {
-        const shouldCallDeepSeek =
-          intentMatch.intent === "unknown" ||
-          intentMatch.confidence < 0.68 ||
-          isVagueWaitingMessage(text);
+        console.info("DeepSeek handled inbound; skipping rule-based stage", {
+          conversationId,
+          stage: prevState.stage,
+        });
+      } else if (prevState.stage === "awaiting_website_goal") {
+        const purpose = classifyWebsitePurpose(text);
+        if (purpose) {
+          nextState.goal = purpose;
+          nextState.stage = "awaiting_current_presence";
+          replyText = `Perfecto. Entonces la página debe estar enfocada en ${purpose}. ¿Ya tienes una página actualmente o empezaríamos desde cero?`;
+        } else {
+          const shouldCallDeepSeek =
+            intentMatch.intent === "unknown" ||
+            intentMatch.confidence < 0.68 ||
+            isVagueWaitingMessage(text);
 
-        if (shouldCallDeepSeek) {
-          const interpreted = await interpretWithDeepSeek({
-            stage: prevState.stage,
-            state: prevState as any,
-            userText: text,
-            intentMatch: { intent: intentMatch.intent, confidence: intentMatch.confidence, normalizedText: (intentMatch as any).normalizedText },
-          });
-          aiMeta = {
-            ai_attempted: true,
-            ai_used: interpreted.ok ? true : false,
-            ai_provider: interpreted.ok ? "deepseek" : null,
-            ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
-            ai_reason:
-              interpreted.ok ? interpreted.data.reason || null : (interpreted as any)?.reason ? String((interpreted as any).reason) : (interpreted as any)?.error ? String((interpreted as any).error) : null,
-            ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
-          };
+          if (shouldCallDeepSeek) {
+            const interpreted = await interpretWithDeepSeek({
+              stage: prevState.stage,
+              state: prevState as any,
+              userText: text,
+              intentMatch: {
+                intent: intentMatch.intent,
+                confidence: intentMatch.confidence,
+                normalizedText: (intentMatch as any).normalizedText,
+              },
+            });
+            aiMeta = {
+              ai_attempted: true,
+              ai_used: interpreted.ok ? true : false,
+              ai_provider: interpreted.ok ? "deepseek" : null,
+              ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
+              ai_reason: interpreted.ok
+                ? interpreted.data.reason || null
+                : (interpreted as any)?.reason
+                  ? String((interpreted as any).reason)
+                  : (interpreted as any)?.error
+                    ? String((interpreted as any).error)
+                    : null,
+              ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
+            };
 
-          if (interpreted.ok && interpreted.data.understood && interpreted.data.confidence >= 0.75) {
-            if (interpreted.data.stage_action === "save_goal") {
-              nextState.goal = interpreted.data.extracted.goal || String(text || "").trim() || null;
-              nextState.stage = "awaiting_current_presence";
-              replyText = "Perfecto. ¿Ya tienes una página actualmente o empezaríamos desde cero?";
-            } else if (interpreted.data.stage_action === "ask_clarification") {
-              const sameStage = normalizeText(String(nextState.ai_clarify_stage || "")) === normalizeText(prevState.stage);
-              const count = Number(nextState.ai_clarify_count || 0);
-              if (sameStage && count >= 1) {
+            if (
+              interpreted.ok &&
+              interpreted.data.understood &&
+              interpreted.data.confidence >= 0.75
+            ) {
+              if (interpreted.data.stage_action === "save_goal") {
+                nextState.goal =
+                  interpreted.data.extracted.goal || String(text || "").trim() || null;
+                nextState.stage = "awaiting_current_presence";
+                replyText =
+                  "Perfecto. ¿Ya tienes una página actualmente o empezaríamos desde cero?";
+              } else if (interpreted.data.stage_action === "ask_clarification") {
+                const sameStage =
+                  normalizeText(String(nextState.ai_clarify_stage || "")) ===
+                  normalizeText(prevState.stage);
+                const count = Number(nextState.ai_clarify_count || 0);
+                if (sameStage && count >= 1) {
+                  nextState.stage = "ready_for_advisor";
+                  nextState.ready_for_advisor = true;
+                  replyText =
+                    "No hay problema. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
+                } else {
+                  nextState.ai_clarify_stage = prevState.stage;
+                  nextState.ai_clarify_count = (Number.isFinite(count) ? count : 0) + 1;
+                  replyText =
+                    "Solo para confirmar: ¿la web sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
+                }
+              } else if (interpreted.data.stage_action === "ready_for_advisor") {
                 nextState.stage = "ready_for_advisor";
                 nextState.ready_for_advisor = true;
                 replyText =
-                  "No hay problema. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
+                  "Perfecto. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
               } else {
-                nextState.ai_clarify_stage = prevState.stage;
-                nextState.ai_clarify_count = (Number.isFinite(count) ? count : 0) + 1;
-                replyText = "Solo para confirmar: ¿la web sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
+                // Re-ask in a natural way.
+                replyText =
+                  "Para orientarte mejor: ¿la página sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
               }
-            } else if (interpreted.data.stage_action === "ready_for_advisor") {
-              nextState.stage = "ready_for_advisor";
-              nextState.ready_for_advisor = true;
-              replyText =
-                "Perfecto. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
             } else {
               // Re-ask in a natural way.
-              replyText = "Para orientarte mejor: ¿la página sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
+              replyText =
+                "Para orientarte mejor: ¿la página sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
             }
           } else {
             // Re-ask in a natural way.
-            replyText = "Para orientarte mejor: ¿la página sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
+            replyText =
+              "Para orientarte mejor: ¿la página sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
           }
-        } else {
-          // Re-ask in a natural way.
-          replyText = "Para orientarte mejor: ¿la página sería más para presentar tu negocio, recibir clientes potenciales o vender directamente?";
         }
-      }
-    } else if (prevState.stage === "awaiting_current_presence") {
-      const inferred = interpretCurrentPresenceRuleBased(text);
-      if (inferred) {
-        nextState.current_presence = inferred;
-        nextState.stage = "awaiting_reference";
-        replyText = "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
-      } else {
-        // DeepSeek fallback interpreter for ambiguous answers.
-        const shouldCallDeepSeek =
-          (intentMatch.intent === "unknown" || intentMatch.confidence < 0.68) &&
-          (intentMatch.intent !== "advisor_request" &&
+      } else if (prevState.stage === "awaiting_current_presence") {
+        const inferred = interpretCurrentPresenceRuleBased(text);
+        if (inferred) {
+          nextState.current_presence = inferred;
+          nextState.stage = "awaiting_reference";
+          replyText =
+            "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
+        } else {
+          // DeepSeek fallback interpreter for ambiguous answers.
+          const shouldCallDeepSeek =
+            (intentMatch.intent === "unknown" || intentMatch.confidence < 0.68) &&
+            intentMatch.intent !== "advisor_request" &&
             intentMatch.intent !== "business_hours_question" &&
             intentMatch.intent !== "reference_link" &&
-            intentMatch.intent !== "waiting");
+            intentMatch.intent !== "waiting";
 
-        if (shouldCallDeepSeek) {
-          const interpreted = await interpretWithDeepSeek({
-            stage: prevState.stage,
-            state: prevState as any,
-            userText: text,
-            intentMatch: { intent: intentMatch.intent, confidence: intentMatch.confidence, normalizedText: (intentMatch as any).normalizedText },
-          });
-          aiMeta = {
-            ai_attempted: true,
-            ai_used: interpreted.ok ? true : false,
-            ai_provider: interpreted.ok ? "deepseek" : null,
-            ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
-            ai_reason:
-              interpreted.ok ? interpreted.data.reason || null : (interpreted as any)?.reason ? String((interpreted as any).reason) : (interpreted as any)?.error ? String((interpreted as any).error) : null,
-            ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
-          };
-          if (interpreted.ok && interpreted.data.understood && interpreted.data.confidence >= 0.75) {
-            if (interpreted.data.stage_action === "save_current_presence") {
-              nextState.current_presence = interpreted.data.extracted.current_presence || String(text || "").trim() || null;
-              nextState.stage = "awaiting_reference";
-              replyText = "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
-            } else if (interpreted.data.stage_action === "ask_clarification") {
-              const sameStage = normalizeText(String(nextState.ai_clarify_stage || "")) === normalizeText(prevState.stage);
-              const count = Number(nextState.ai_clarify_count || 0);
-              if (sameStage && count >= 1) {
-                nextState.stage = "ready_for_advisor";
-                nextState.ready_for_advisor = true;
+          if (shouldCallDeepSeek) {
+            const interpreted = await interpretWithDeepSeek({
+              stage: prevState.stage,
+              state: prevState as any,
+              userText: text,
+              intentMatch: {
+                intent: intentMatch.intent,
+                confidence: intentMatch.confidence,
+                normalizedText: (intentMatch as any).normalizedText,
+              },
+            });
+            aiMeta = {
+              ai_attempted: true,
+              ai_used: interpreted.ok ? true : false,
+              ai_provider: interpreted.ok ? "deepseek" : null,
+              ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
+              ai_reason: interpreted.ok
+                ? interpreted.data.reason || null
+                : (interpreted as any)?.reason
+                  ? String((interpreted as any).reason)
+                  : (interpreted as any)?.error
+                    ? String((interpreted as any).error)
+                    : null,
+              ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
+            };
+            if (
+              interpreted.ok &&
+              interpreted.data.understood &&
+              interpreted.data.confidence >= 0.75
+            ) {
+              if (interpreted.data.stage_action === "save_current_presence") {
+                nextState.current_presence =
+                  interpreted.data.extracted.current_presence || String(text || "").trim() || null;
+                nextState.stage = "awaiting_reference";
                 replyText =
-                  "No hay problema. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
+                  "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
+              } else if (interpreted.data.stage_action === "ask_clarification") {
+                const sameStage =
+                  normalizeText(String(nextState.ai_clarify_stage || "")) ===
+                  normalizeText(prevState.stage);
+                const count = Number(nextState.ai_clarify_count || 0);
+                if (sameStage && count >= 1) {
+                  nextState.stage = "ready_for_advisor";
+                  nextState.ready_for_advisor = true;
+                  replyText =
+                    "No hay problema. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
+                } else {
+                  nextState.ai_clarify_stage = prevState.stage;
+                  nextState.ai_clarify_count = (Number.isFinite(count) ? count : 0) + 1;
+                  replyText =
+                    "Perfecto. Solo para confirmar: ¿ya tienes una página actualmente o empezaríamos desde cero?";
+                }
               } else {
-                nextState.ai_clarify_stage = prevState.stage;
-                nextState.ai_clarify_count = (Number.isFinite(count) ? count : 0) + 1;
-                replyText = "Perfecto. Solo para confirmar: ¿ya tienes una página actualmente o empezaríamos desde cero?";
+                // Safe fallback.
+                nextState.current_presence = String(text || "").trim() || null;
+                nextState.stage = "awaiting_reference";
+                replyText =
+                  "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
               }
             } else {
-              // Safe fallback.
+              // No AI or low confidence: proceed deterministically.
               nextState.current_presence = String(text || "").trim() || null;
               nextState.stage = "awaiting_reference";
-              replyText = "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
+              replyText =
+                "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
             }
           } else {
-            // No AI or low confidence: proceed deterministically.
             nextState.current_presence = String(text || "").trim() || null;
             nextState.stage = "awaiting_reference";
-            replyText = "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
+            replyText =
+              "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
           }
-        } else {
-          nextState.current_presence = String(text || "").trim() || null;
-          nextState.stage = "awaiting_reference";
-          replyText = "Entiendo. ¿Tienes algún Instagram, página actual o referencia que quieras compartir para que el asesor lo revise?";
         }
-      }
-    } else if (prevState.stage === "awaiting_reference") {
-      // Stage-priority (do not let anti-repeat block expected answers).
-      console.info("Messenger bot stage priority handled", { conversationId, stage: "awaiting_reference" });
+      } else if (prevState.stage === "awaiting_reference") {
+        // Stage-priority (do not let anti-repeat block expected answers).
+        console.info("Messenger bot stage priority handled", {
+          conversationId,
+          stage: "awaiting_reference",
+        });
 
-      // Priority:
-      // A) No-reference
-      // B) Advisor/help request
-      // C) Valid reference (links/domains/handles)
-      // D) Malformed partial reference
-      // E) Soft fallback (do not repeat the exact question)
-      if (detectNoReference(text)) {
-        console.info("Messenger bot awaiting_reference: no_reference_detected", { conversationId });
-        nextState.reference = null;
-        nextState.stage = "ready_for_advisor";
-        nextState.ready_for_advisor = true;
-        replyText =
-          "No hay problema. Con lo que me contaste ya tenemos buen contexto para que el asesor te oriente mejor. En cuanto esté disponible, continuará contigo por este mismo chat.";
-      } else if (detectAdvisorHelp(text)) {
-        console.info("Messenger bot awaiting_reference: advisor_help_detected", { conversationId });
-        // Mark the conversation as awaiting an advisor (best-effort).
-        const { error: statusErr } = await serviceClient
-          .from("meta_conversations")
-          .update({ status: "awaiting_advisor" })
-          .eq("id", conversationId)
-          .eq("company_id", companyId);
-        if (statusErr) console.warn("Messenger bot failed to set awaiting_advisor", { conversationId, message: statusErr.message });
-
-        nextState.stage = "ready_for_advisor";
-        nextState.ready_for_advisor = true;
-        replyText =
-          "Sí, ya tenemos tu solicitud registrada. Un asesor de Corevix continuará contigo por este mismo chat lo antes posible. " +
-          "Con lo que me contaste ya tenemos buen contexto para ayudarte mejor.";
-      } else {
-        const domainLike = detectDomainLikeReference(text);
-        const partial = detectPartialReference(text);
-
-        if (intentMatch.intent === "reference_link") {
-          nextState.reference = String(text || "").trim() || null;
+        // Priority:
+        // A) No-reference
+        // B) Advisor/help request
+        // C) Valid reference (links/domains/handles)
+        // D) Malformed partial reference
+        // E) Soft fallback (do not repeat the exact question)
+        if (detectNoReference(text)) {
+          console.info("Messenger bot awaiting_reference: no_reference_detected", {
+            conversationId,
+          });
+          nextState.reference = null;
           nextState.stage = "ready_for_advisor";
           nextState.ready_for_advisor = true;
           replyText =
-            "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
-        } else if (domainLike) {
-          nextState.reference = domainLike;
+            "No hay problema. Con lo que me contaste ya tenemos buen contexto para que el asesor te oriente mejor. En cuanto esté disponible, continuará contigo por este mismo chat.";
+        } else if (detectAdvisorHelp(text)) {
+          console.info("Messenger bot awaiting_reference: advisor_help_detected", {
+            conversationId,
+          });
+          // Mark the conversation as awaiting an advisor (best-effort).
+          const { error: statusErr } = await serviceClient
+            .from("meta_conversations")
+            .update({ status: "awaiting_advisor" })
+            .eq("id", conversationId)
+            .eq("company_id", companyId);
+          if (statusErr)
+            console.warn("Messenger bot failed to set awaiting_advisor", {
+              conversationId,
+              message: statusErr.message,
+            });
+
           nextState.stage = "ready_for_advisor";
           nextState.ready_for_advisor = true;
           replyText =
-            "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
-        } else if (partial?.kind === "needs_at_prefix") {
-          replyText =
-            `Creo que intentaste compartir un usuario. Si es de Instagram, puedes enviarlo así: ${partial.suggested}. ` +
-            "Si no tienes referencia, no hay problema, también podemos seguir.";
-        } else if (partial?.kind === "normalized_handle") {
-          nextState.reference = partial.value;
-          nextState.stage = "ready_for_advisor";
-          nextState.ready_for_advisor = true;
-          replyText =
-            "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+            "Sí, ya tenemos tu solicitud registrada. Un asesor de Corevix continuará contigo por este mismo chat lo antes posible. " +
+            "Con lo que me contaste ya tenemos buen contexto para ayudarte mejor.";
         } else {
-          console.info("Messenger bot awaiting_reference: fallback", { conversationId });
-          replyText =
-            "No te preocupes. Si tienes un Instagram, una web o alguna referencia, puedes compartirla. " +
-            "Si no tienes nada todavía, dime 'no tengo' y seguimos con lo que ya me contaste.";
+          const domainLike = detectDomainLikeReference(text);
+          const partial = detectPartialReference(text);
+
+          if (intentMatch.intent === "reference_link") {
+            nextState.reference = String(text || "").trim() || null;
+            nextState.stage = "ready_for_advisor";
+            nextState.ready_for_advisor = true;
+            replyText =
+              "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+          } else if (domainLike) {
+            nextState.reference = domainLike;
+            nextState.stage = "ready_for_advisor";
+            nextState.ready_for_advisor = true;
+            replyText =
+              "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+          } else if (partial?.kind === "needs_at_prefix") {
+            replyText =
+              `Creo que intentaste compartir un usuario. Si es de Instagram, puedes enviarlo así: ${partial.suggested}. ` +
+              "Si no tienes referencia, no hay problema, también podemos seguir.";
+          } else if (partial?.kind === "normalized_handle") {
+            nextState.reference = partial.value;
+            nextState.stage = "ready_for_advisor";
+            nextState.ready_for_advisor = true;
+            replyText =
+              "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+          } else {
+            console.info("Messenger bot awaiting_reference: fallback", { conversationId });
+            replyText =
+              "No te preocupes. Si tienes un Instagram, una web o alguna referencia, puedes compartirla. " +
+              "Si no tienes nada todavía, dime 'no tengo' y seguimos con lo que ya me contaste.";
+          }
         }
-      }
-    } else if (prevState.stage === "awaiting_social_goal") {
-      nextState.goal = String(text || "").trim() || null;
-      nextState.stage = "awaiting_reference";
-      replyText = "Perfecto. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
-    } else if (prevState.stage === "awaiting_crm_goal") {
-      nextState.goal = String(text || "").trim() || null;
-      nextState.stage = "awaiting_reference";
-      replyText = "Entiendo. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
-    } else if (prevState.stage === "awaiting_business_type") {
-      if (intentMatch.intent === "business_type" || looksLikeBusinessType(text)) {
-        nextState.business_type = String(text || "").trim() || null;
-        nextState.stage = "awaiting_goal";
-        replyText =
-          "Perfecto, gracias por contarme. ¿Y qué te gustaría mejorar primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
-      } else if (intentMatch.intent === "goal") {
+      } else if (prevState.stage === "awaiting_social_goal") {
         nextState.goal = String(text || "").trim() || null;
         nextState.stage = "awaiting_reference";
         replyText =
-          "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
-      } else {
-        const shouldCallDeepSeek = intentMatch.intent === "unknown" || intentMatch.confidence < 0.68;
-        if (shouldCallDeepSeek) {
-          const interpreted = await interpretWithDeepSeek({
-            stage: prevState.stage,
-            state: prevState as any,
-            userText: text,
-            intentMatch: { intent: intentMatch.intent, confidence: intentMatch.confidence, normalizedText: (intentMatch as any).normalizedText },
-          });
-          aiMeta = {
-            ai_attempted: true,
-            ai_used: interpreted.ok ? true : false,
-            ai_provider: interpreted.ok ? "deepseek" : null,
-            ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
-            ai_reason:
-              interpreted.ok ? interpreted.data.reason || null : (interpreted as any)?.reason ? String((interpreted as any).reason) : (interpreted as any)?.error ? String((interpreted as any).error) : null,
-            ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
-          };
-          if (interpreted.ok && interpreted.data.understood && interpreted.data.confidence >= 0.75) {
-            if (interpreted.data.stage_action === "save_business_type") {
-              nextState.business_type = interpreted.data.extracted.business_type || String(text || "").trim() || null;
-              nextState.stage = "awaiting_goal";
-              replyText =
-                "Perfecto, gracias por contarme. ¿Y qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
-            } else if (interpreted.data.stage_action === "save_goal") {
-              nextState.goal = interpreted.data.extracted.goal || String(text || "").trim() || null;
-              nextState.stage = "awaiting_reference";
-              replyText =
-                "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
-            } else if (interpreted.data.stage_action === "ready_for_advisor") {
-              nextState.stage = "ready_for_advisor";
-              nextState.ready_for_advisor = true;
-              replyText =
-                "Perfecto. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
-            } else if (interpreted.data.stage_action === "ask_clarification") {
-              replyText = "Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes? (por ejemplo: colmado, tienda, restaurante...)";
+          "Perfecto. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+      } else if (prevState.stage === "awaiting_crm_goal") {
+        nextState.goal = String(text || "").trim() || null;
+        nextState.stage = "awaiting_reference";
+        replyText =
+          "Entiendo. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+      } else if (prevState.stage === "awaiting_business_type") {
+        if (intentMatch.intent === "business_type" || looksLikeBusinessType(text)) {
+          nextState.business_type = String(text || "").trim() || null;
+          nextState.stage = "awaiting_goal";
+          replyText =
+            "Perfecto, gracias por contarme. ¿Y qué te gustaría mejorar primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
+        } else if (intentMatch.intent === "goal") {
+          nextState.goal = String(text || "").trim() || null;
+          nextState.stage = "awaiting_reference";
+          replyText =
+            "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+        } else {
+          const shouldCallDeepSeek =
+            intentMatch.intent === "unknown" || intentMatch.confidence < 0.68;
+          if (shouldCallDeepSeek) {
+            const interpreted = await interpretWithDeepSeek({
+              stage: prevState.stage,
+              state: prevState as any,
+              userText: text,
+              intentMatch: {
+                intent: intentMatch.intent,
+                confidence: intentMatch.confidence,
+                normalizedText: (intentMatch as any).normalizedText,
+              },
+            });
+            aiMeta = {
+              ai_attempted: true,
+              ai_used: interpreted.ok ? true : false,
+              ai_provider: interpreted.ok ? "deepseek" : null,
+              ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
+              ai_reason: interpreted.ok
+                ? interpreted.data.reason || null
+                : (interpreted as any)?.reason
+                  ? String((interpreted as any).reason)
+                  : (interpreted as any)?.error
+                    ? String((interpreted as any).error)
+                    : null,
+              ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
+            };
+            if (
+              interpreted.ok &&
+              interpreted.data.understood &&
+              interpreted.data.confidence >= 0.75
+            ) {
+              if (interpreted.data.stage_action === "save_business_type") {
+                nextState.business_type =
+                  interpreted.data.extracted.business_type || String(text || "").trim() || null;
+                nextState.stage = "awaiting_goal";
+                replyText =
+                  "Perfecto, gracias por contarme. ¿Y qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
+              } else if (interpreted.data.stage_action === "save_goal") {
+                nextState.goal =
+                  interpreted.data.extracted.goal || String(text || "").trim() || null;
+                nextState.stage = "awaiting_reference";
+                replyText =
+                  "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+              } else if (interpreted.data.stage_action === "ready_for_advisor") {
+                nextState.stage = "ready_for_advisor";
+                nextState.ready_for_advisor = true;
+                replyText =
+                  "Perfecto. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
+              } else if (interpreted.data.stage_action === "ask_clarification") {
+                replyText =
+                  "Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes? (por ejemplo: colmado, tienda, restaurante...)";
+              } else {
+                replyText = "Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes?";
+              }
             } else {
               replyText = "Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes?";
             }
           } else {
             replyText = "Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes?";
           }
-        } else {
-          replyText = "Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes?";
         }
-      }
-    } else if (prevState.stage === "awaiting_goal") {
-      if (intentMatch.intent === "goal") {
-        nextState.goal = String(text || "").trim() || null;
-        nextState.stage = "awaiting_reference";
-        replyText =
-          "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
-      } else if (intentMatch.intent === "reference_link") {
-        nextState.reference = String(text || "").trim() || null;
-        nextState.stage = "ready_for_advisor";
-        nextState.ready_for_advisor = true;
-        replyText =
-          "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
-      } else {
-        const shouldCallDeepSeek = intentMatch.intent === "unknown" || intentMatch.confidence < 0.68;
-        if (shouldCallDeepSeek) {
-          const interpreted = await interpretWithDeepSeek({
-            stage: prevState.stage,
-            state: prevState as any,
-            userText: text,
-            intentMatch: { intent: intentMatch.intent, confidence: intentMatch.confidence, normalizedText: (intentMatch as any).normalizedText },
-          });
-          aiMeta = {
-            ai_attempted: true,
-            ai_used: interpreted.ok ? true : false,
-            ai_provider: interpreted.ok ? "deepseek" : null,
-            ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
-            ai_reason:
-              interpreted.ok ? interpreted.data.reason || null : (interpreted as any)?.reason ? String((interpreted as any).reason) : (interpreted as any)?.error ? String((interpreted as any).error) : null,
-            ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
-          };
-          if (interpreted.ok && interpreted.data.understood && interpreted.data.confidence >= 0.75) {
-            if (interpreted.data.stage_action === "save_goal") {
-              nextState.goal = interpreted.data.extracted.goal || String(text || "").trim() || null;
-              nextState.stage = "awaiting_reference";
-              replyText =
-                "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
-            } else if (interpreted.data.stage_action === "ready_for_advisor") {
-              nextState.stage = "ready_for_advisor";
-              nextState.ready_for_advisor = true;
-              replyText =
-                "Perfecto. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
-            } else if (interpreted.data.stage_action === "ask_clarification") {
-              replyText =
-                "Perfecto. ¿Qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
+      } else if (prevState.stage === "awaiting_goal") {
+        if (intentMatch.intent === "goal") {
+          nextState.goal = String(text || "").trim() || null;
+          nextState.stage = "awaiting_reference";
+          replyText =
+            "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+        } else if (intentMatch.intent === "reference_link") {
+          nextState.reference = String(text || "").trim() || null;
+          nextState.stage = "ready_for_advisor";
+          nextState.ready_for_advisor = true;
+          replyText =
+            "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+        } else {
+          const shouldCallDeepSeek =
+            intentMatch.intent === "unknown" || intentMatch.confidence < 0.68;
+          if (shouldCallDeepSeek) {
+            const interpreted = await interpretWithDeepSeek({
+              stage: prevState.stage,
+              state: prevState as any,
+              userText: text,
+              intentMatch: {
+                intent: intentMatch.intent,
+                confidence: intentMatch.confidence,
+                normalizedText: (intentMatch as any).normalizedText,
+              },
+            });
+            aiMeta = {
+              ai_attempted: true,
+              ai_used: interpreted.ok ? true : false,
+              ai_provider: interpreted.ok ? "deepseek" : null,
+              ai_confidence: interpreted.ok ? interpreted.data.confidence : null,
+              ai_reason: interpreted.ok
+                ? interpreted.data.reason || null
+                : (interpreted as any)?.reason
+                  ? String((interpreted as any).reason)
+                  : (interpreted as any)?.error
+                    ? String((interpreted as any).error)
+                    : null,
+              ai_stage_action: interpreted.ok ? interpreted.data.stage_action : null,
+            };
+            if (
+              interpreted.ok &&
+              interpreted.data.understood &&
+              interpreted.data.confidence >= 0.75
+            ) {
+              if (interpreted.data.stage_action === "save_goal") {
+                nextState.goal =
+                  interpreted.data.extracted.goal || String(text || "").trim() || null;
+                nextState.stage = "awaiting_reference";
+                replyText =
+                  "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+              } else if (interpreted.data.stage_action === "ready_for_advisor") {
+                nextState.stage = "ready_for_advisor";
+                nextState.ready_for_advisor = true;
+                replyText =
+                  "Perfecto. Con lo que me contaste ya tenemos suficiente contexto para que un asesor continúe contigo por este mismo chat.";
+              } else if (interpreted.data.stage_action === "ask_clarification") {
+                replyText =
+                  "Perfecto. ¿Qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
+              } else {
+                replyText =
+                  "Perfecto. ¿Qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
+              }
             } else {
               replyText =
                 "Perfecto. ¿Qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
@@ -2592,93 +2850,106 @@ const status = String(conversation.status || "").trim().toLowerCase();
             replyText =
               "Perfecto. ¿Qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
           }
-        } else {
-          replyText =
-            "Perfecto. ¿Qué te gustaría lograr primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
         }
-      }
-    } else if (isAdvisorIntent) {
-      // Do NOT set human_mode; we are awaiting an advisor.
-      const { error: statusErr } = await serviceClient
-        .from("meta_conversations")
-        .update({ status: "awaiting_advisor" })
-        .eq("id", conversationId)
-        .eq("company_id", companyId);
-      if (statusErr) console.warn("Messenger bot failed to set awaiting_advisor", { conversationId, message: statusErr.message });
+      } else if (isAdvisorIntent) {
+        // Do NOT set human_mode; we are awaiting an advisor.
+        const { error: statusErr } = await serviceClient
+          .from("meta_conversations")
+          .update({ status: "awaiting_advisor" })
+          .eq("id", conversationId)
+          .eq("company_id", companyId);
+        if (statusErr)
+          console.warn("Messenger bot failed to set awaiting_advisor", {
+            conversationId,
+            message: statusErr.message,
+          });
 
-      // Keep bot_state conversational flow while waiting.
-      nextState.stage = nextState.business_type ? "awaiting_goal" : "awaiting_business_type";
-      replyText = openNow ? awaitingAdvisorOpenText() : awaitingAdvisorClosedText(nextOpenLabel);
-      console.info("Messenger bot awaiting advisor", { conversationId, open: openNow });
-    } else if (intentMatch.intent === "web_interest") {
-      replyText = "Excelente. Para entender mejor tu caso: ¿la página web sería para presentar tu negocio, recibir clientes potenciales o vender directamente?";
-      console.info("Messenger bot menu option handled", { conversationId, option: "1" });
-      nextState.interest = "web_interest";
-      nextState.stage = "awaiting_website_goal";
-    } else if (intentMatch.intent === "social_interest") {
-      replyText = "Perfecto. ¿Quieres mejorar tus redes para atraer más clientes, organizar mejor el contenido o convertir más mensajes en ventas?";
-      console.info("Messenger bot menu option handled", { conversationId, option: "2" });
-      nextState.interest = "social_interest";
-      nextState.stage = "awaiting_social_goal";
-    } else if (intentMatch.intent === "crm_interest") {
-      replyText = "Muy bien. ¿Lo que más necesitas ahora es organizar clientes, dar seguimiento a mensajes o automatizar parte del proceso de ventas?";
-      console.info("Messenger bot menu option handled", { conversationId, option: "3" });
-      nextState.interest = "crm_interest";
-      nextState.stage = "awaiting_crm_goal";
-    } else if (status === "awaiting_advisor") {
-      // Conversational waiting flow: one question at a time, avoid menu.
-      // If we don't have a saved state yet, fall back to the existing conversational heuristic.
-      const { data: recentBot, error: recentBotErr } = await serviceClient
-        .from("meta_messages")
-        .select("text, created_at")
-        .eq("company_id", companyId)
-        .eq("conversation_id", conversationId)
-        .eq("platform", "messenger")
-        .eq("direction", "outbound")
-        .eq("raw_payload->>source", "messenger_bot")
-        .order("created_at", { ascending: false })
-        .limit(5);
-      const recentBotText = !recentBotErr && Array.isArray(recentBot)
-        ? normalizeText(recentBot.map((r: any) => String(r?.text || "")).join("\n"))
-        : "";
-
-      const alreadyAskedBusiness = recentBotText.includes("que tipo de negocio tienes");
-      const alreadyAskedGoal = recentBotText.includes("que te gustaria lograr") || recentBotText.includes("que te gustaria mejorar primero");
-      const alreadyAskedReference =
-        recentBotText.includes("instagram") &&
-        recentBotText.includes("pagina web") &&
-        recentBotText.includes("referencia");
-
-      if (intentMatch.intent === "reference_link") {
-        replyText = "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
-      } else if (intentMatch.intent === "waiting" || isVagueWaitingMessage(text)) {
-        replyText = openNow
-          ? "Disculpa la espera. Ya tenemos tu solicitud registrada y un asesor te responderá lo antes posible. Para que pueda ayudarte mejor cuando entre, cuéntame: ¿tu negocio ya tiene presencia en Instagram, página web o algún canal digital?"
-          : `Disculpa la espera. Ahora mismo estamos fuera de horario y nuestro equipo estará disponible nuevamente ${nextOpenLabel}. Mientras tanto, cuéntame: ¿tu negocio ya tiene Instagram, página web o algún canal digital?`;
-      } else if (intentMatch.intent === "business_type" || looksLikeBusinessType(text)) {
+        // Keep bot_state conversational flow while waiting.
+        nextState.stage = nextState.business_type ? "awaiting_goal" : "awaiting_business_type";
+        replyText = openNow ? awaitingAdvisorOpenText() : awaitingAdvisorClosedText(nextOpenLabel);
+        console.info("Messenger bot awaiting advisor", { conversationId, open: openNow });
+      } else if (intentMatch.intent === "web_interest") {
         replyText =
-          "Perfecto, gracias por contarme. ¿Y qué te gustaría mejorar primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
-      } else if (intentMatch.intent === "goal" || looksLikeGoal(text)) {
-        replyText = "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
-      } else {
-        if (!alreadyAskedBusiness) {
-          replyText = "Perfecto. Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes?";
-        } else if (!alreadyAskedGoal) {
-          replyText = "Gracias. ¿Y qué te gustaría lograr primero ahora mismo: atraer más clientes, organizar mejor los mensajes, mejorar tu web o automatizar seguimientos?";
-        } else if (!alreadyAskedReference) {
-          replyText = "Buenísimo. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+          "Excelente. Para entender mejor tu caso: ¿la página web sería para presentar tu negocio, recibir clientes potenciales o vender directamente?";
+        console.info("Messenger bot menu option handled", { conversationId, option: "1" });
+        nextState.interest = "web_interest";
+        nextState.stage = "awaiting_website_goal";
+      } else if (intentMatch.intent === "social_interest") {
+        replyText =
+          "Perfecto. ¿Quieres mejorar tus redes para atraer más clientes, organizar mejor el contenido o convertir más mensajes en ventas?";
+        console.info("Messenger bot menu option handled", { conversationId, option: "2" });
+        nextState.interest = "social_interest";
+        nextState.stage = "awaiting_social_goal";
+      } else if (intentMatch.intent === "crm_interest") {
+        replyText =
+          "Muy bien. ¿Lo que más necesitas ahora es organizar clientes, dar seguimiento a mensajes o automatizar parte del proceso de ventas?";
+        console.info("Messenger bot menu option handled", { conversationId, option: "3" });
+        nextState.interest = "crm_interest";
+        nextState.stage = "awaiting_crm_goal";
+      } else if (status === "awaiting_advisor") {
+        // Conversational waiting flow: one question at a time, avoid menu.
+        // If we don't have a saved state yet, fall back to the existing conversational heuristic.
+        const { data: recentBot, error: recentBotErr } = await serviceClient
+          .from("meta_messages")
+          .select("text, created_at")
+          .eq("company_id", companyId)
+          .eq("conversation_id", conversationId)
+          .eq("platform", "messenger")
+          .eq("direction", "outbound")
+          .eq("raw_payload->>source", "messenger_bot")
+          .order("created_at", { ascending: false })
+          .limit(5);
+        const recentBotText =
+          !recentBotErr && Array.isArray(recentBot)
+            ? normalizeText(recentBot.map((r: any) => String(r?.text || "")).join("\n"))
+            : "";
+
+        const alreadyAskedBusiness = recentBotText.includes("que tipo de negocio tienes");
+        const alreadyAskedGoal =
+          recentBotText.includes("que te gustaria lograr") ||
+          recentBotText.includes("que te gustaria mejorar primero");
+        const alreadyAskedReference =
+          recentBotText.includes("instagram") &&
+          recentBotText.includes("pagina web") &&
+          recentBotText.includes("referencia");
+
+        if (intentMatch.intent === "reference_link") {
+          replyText =
+            "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+        } else if (intentMatch.intent === "waiting" || isVagueWaitingMessage(text)) {
+          replyText = openNow
+            ? "Disculpa la espera. Ya tenemos tu solicitud registrada y un asesor te responderá lo antes posible. Para que pueda ayudarte mejor cuando entre, cuéntame: ¿tu negocio ya tiene presencia en Instagram, página web o algún canal digital?"
+            : `Disculpa la espera. Ahora mismo estamos fuera de horario y nuestro equipo estará disponible nuevamente ${nextOpenLabel}. Mientras tanto, cuéntame: ¿tu negocio ya tiene Instagram, página web o algún canal digital?`;
+        } else if (intentMatch.intent === "business_type" || looksLikeBusinessType(text)) {
+          replyText =
+            "Perfecto, gracias por contarme. ¿Y qué te gustaría mejorar primero: atraer más clientes, organizar mejor los mensajes, mejorar tu presencia digital o automatizar seguimientos?";
+        } else if (intentMatch.intent === "goal" || looksLikeGoal(text)) {
+          replyText =
+            "Entiendo. Eso nos ayuda bastante. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
         } else {
-          replyText = "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+          if (!alreadyAskedBusiness) {
+            replyText = "Perfecto. Para ubicarme un poquito mejor, ¿qué tipo de negocio tienes?";
+          } else if (!alreadyAskedGoal) {
+            replyText =
+              "Gracias. ¿Y qué te gustaría lograr primero ahora mismo: atraer más clientes, organizar mejor los mensajes, mejorar tu web o automatizar seguimientos?";
+          } else if (!alreadyAskedReference) {
+            replyText =
+              "Buenísimo. ¿Tienes algún Instagram, página web o referencia que quieras compartir para que el asesor lo revise cuando se conecte?";
+          } else {
+            replyText =
+              "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+          }
         }
-      }
-    } else if (intentMatch.intent === "reference_link") {
-      // Even in open status: acknowledge links in a helpful way.
-      replyText = "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
-    } else if (intentMatch.intent === "waiting") {
-      // In open status, keep menu for now.
-      replyText = phase1MenuText();
+      } else if (intentMatch.intent === "reference_link") {
+        // Even in open status: acknowledge links in a helpful way.
+        replyText =
+          "Excelente, gracias. Ya con eso el asesor tendrá mejor contexto para orientarte. En cuanto esté disponible, continuará contigo por este mismo chat.";
+      } else if (intentMatch.intent === "waiting") {
+        // In open status, keep menu for now.
+        replyText = phase1MenuText();
       } else if (intentMatch.intent === "unknown") {
-        replyText = "Te entiendo. Para ubicarte mejor, ¿te interesa más una página web, redes sociales o automatización/CRM?";
+        replyText =
+          "Te entiendo. Para ubicarte mejor, ¿te interesa más una página web, redes sociales o automatización/CRM?";
       }
     }
 
@@ -2724,7 +2995,11 @@ const status = String(conversation.status || "").trim().toLowerCase();
     }
 
     if (!sendRes.ok) {
-      console.warn("Messenger bot failed", { conversationId, status: sendRes.status, message: metaErrorToMessage(rawJson || rawText) });
+      console.warn("Messenger bot failed", {
+        conversationId,
+        status: sendRes.status,
+        message: metaErrorToMessage(rawJson || rawText),
+      });
       return jsonResponse({ ok: false, error: metaErrorToMessage(rawJson || rawText) }, 502);
     }
 
@@ -2781,7 +3056,10 @@ const status = String(conversation.status || "").trim().toLowerCase();
       .select("id")
       .maybeSingle();
     if (outboundInsert.error) {
-      console.warn("Messenger bot failed to save outbound message", { conversationId, message: outboundInsert.error.message });
+      console.warn("Messenger bot failed to save outbound message", {
+        conversationId,
+        message: outboundInsert.error.message,
+      });
       return jsonResponse({ ok: false, error: outboundInsert.error.message }, 500);
     }
 
@@ -2794,7 +3072,10 @@ const status = String(conversation.status || "").trim().toLowerCase();
       .eq("id", conversationId)
       .eq("company_id", companyId);
     if (convUpdateError) {
-      console.warn("Messenger bot failed to update conversation", { conversationId, message: convUpdateError.message });
+      console.warn("Messenger bot failed to update conversation", {
+        conversationId,
+        message: convUpdateError.message,
+      });
     }
 
     const handoff = isAdvisorIntent || nextState.ready_for_advisor === true;

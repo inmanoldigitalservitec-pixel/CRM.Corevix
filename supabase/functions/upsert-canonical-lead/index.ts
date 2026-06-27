@@ -88,7 +88,9 @@ function shouldFillEmpty(existing: unknown): boolean {
 }
 
 function isValidChannel(value: unknown): value is Channel {
-  return value === "whatsapp" || value === "website" || value === "instagram" || value === "messenger";
+  return (
+    value === "whatsapp" || value === "website" || value === "instagram" || value === "messenger"
+  );
 }
 
 function isUuid(value: string): boolean {
@@ -98,25 +100,34 @@ function isUuid(value: string): boolean {
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-    if (req.method !== "POST") return jsonResponse({ ok: false, success: false, error: "Method not allowed" }, 405);
+    if (req.method !== "POST")
+      return jsonResponse({ ok: false, success: false, error: "Method not allowed" }, 405);
 
     // TODO(security): Require auth / shared secret before exposing publicly (website/bot).
     const supabaseUrl = getEnv("SUPABASE_URL");
     const supabaseServiceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
 
     const body = await req.json().catch(() => null);
-    if (!body || typeof body !== "object") return jsonResponse({ ok: false, success: false, error: "Invalid JSON body" }, 400);
+    if (!body || typeof body !== "object")
+      return jsonResponse({ ok: false, success: false, error: "Invalid JSON body" }, 400);
 
     const companyId = cleanOptionalString((body as any).companyId);
     const channelRaw = (body as any).channel;
     const channel = isValidChannel(channelRaw) ? channelRaw : null;
 
     if (!companyId || !isUuid(companyId)) {
-      return jsonResponse({ ok: false, success: false, error: "Invalid companyId (uuid required)" }, 400);
+      return jsonResponse(
+        { ok: false, success: false, error: "Invalid companyId (uuid required)" },
+        400,
+      );
     }
     if (!channel) {
       return jsonResponse(
-        { ok: false, success: false, error: "Invalid channel (whatsapp|website|instagram|messenger)" },
+        {
+          ok: false,
+          success: false,
+          error: "Invalid channel (whatsapp|website|instagram|messenger)",
+        },
         400,
       );
     }
@@ -166,9 +177,7 @@ Deno.serve(async (req) => {
       "id, company_id, first_name, last_name, email, phone, whatsapp, company_name, source, source_channel, source_platform, source_detail, first_touch_channel, last_touch_channel, utm_source, utm_medium, utm_campaign, utm_content, utm_term, external_id, metadata";
 
     let matchedBy: MatchedBy = "none";
-    let existingLead:
-      | (Record<string, any> & { id: string })
-      | null = null;
+    let existingLead: (Record<string, any> & { id: string }) | null = null;
 
     if (externalId) {
       const { data, error } = await serviceClient
@@ -242,14 +251,18 @@ Deno.serve(async (req) => {
         metadata: mergeMetadata(existingLead.metadata, metadataIncoming),
       };
 
-      if (sourcePlatform && shouldFillEmpty(existingLead.source_platform)) update.source_platform = sourcePlatform;
-      if (sourceDetail && shouldFillEmpty(existingLead.source_detail)) update.source_detail = sourceDetail;
+      if (sourcePlatform && shouldFillEmpty(existingLead.source_platform))
+        update.source_platform = sourcePlatform;
+      if (sourceDetail && shouldFillEmpty(existingLead.source_detail))
+        update.source_detail = sourceDetail;
 
       if (email && shouldFillEmpty(existingLead.email)) update.email = email;
       if (phoneNormalized && shouldFillEmpty(existingLead.phone)) update.phone = phoneNormalized;
-      if (whatsappNormalized && shouldFillEmpty(existingLead.whatsapp)) update.whatsapp = whatsappNormalized;
+      if (whatsappNormalized && shouldFillEmpty(existingLead.whatsapp))
+        update.whatsapp = whatsappNormalized;
 
-      if (businessName && shouldFillEmpty(existingLead.company_name)) update.company_name = businessName;
+      if (businessName && shouldFillEmpty(existingLead.company_name))
+        update.company_name = businessName;
 
       if (externalId && shouldFillEmpty(existingLead.external_id)) update.external_id = externalId;
       if (shouldFillEmpty(existingLead.source_channel)) update.source_channel = channel;
@@ -259,7 +272,8 @@ Deno.serve(async (req) => {
 
       if (utmSource && shouldFillEmpty(existingLead.utm_source)) update.utm_source = utmSource;
       if (utmMedium && shouldFillEmpty(existingLead.utm_medium)) update.utm_medium = utmMedium;
-      if (utmCampaign && shouldFillEmpty(existingLead.utm_campaign)) update.utm_campaign = utmCampaign;
+      if (utmCampaign && shouldFillEmpty(existingLead.utm_campaign))
+        update.utm_campaign = utmCampaign;
       if (utmContent && shouldFillEmpty(existingLead.utm_content)) update.utm_content = utmContent;
       if (utmTerm && shouldFillEmpty(existingLead.utm_term)) update.utm_term = utmTerm;
 
@@ -267,8 +281,12 @@ Deno.serve(async (req) => {
       if (firstName && shouldFillEmpty(existingLead.first_name)) update.first_name = firstName;
       if (lastName && shouldFillEmpty(existingLead.last_name)) update.last_name = lastName;
 
-      const { error: updateErr } = await serviceClient.from("leads").update(update).eq("id", existingLead.id);
-      if (updateErr) return jsonResponse({ ok: false, success: false, error: updateErr.message }, 400);
+      const { error: updateErr } = await serviceClient
+        .from("leads")
+        .update(update)
+        .eq("id", existingLead.id);
+      if (updateErr)
+        return jsonResponse({ ok: false, success: false, error: updateErr.message }, 400);
 
       return jsonResponse({
         ok: true,
@@ -312,7 +330,8 @@ Deno.serve(async (req) => {
       .insert(insert)
       .select("id")
       .single();
-    if (insertErr) return jsonResponse({ ok: false, success: false, error: insertErr.message }, 400);
+    if (insertErr)
+      return jsonResponse({ ok: false, success: false, error: insertErr.message }, 400);
 
     return jsonResponse({
       ok: true,

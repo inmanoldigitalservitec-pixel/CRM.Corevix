@@ -61,7 +61,7 @@ function PublicProposalView(props: {
   const introductionText = String((data as any)?.introductionText || "").trim();
   const objectiveText = String((data as any)?.objectiveText || "").trim();
   const serviceDescription = String(
-    (data as any)?.serviceDescription || proposal?.description || ""
+    (data as any)?.serviceDescription || proposal?.description || "",
   ).trim();
 
   const deliverablesText = String((data as any)?.deliverablesText || "").trim();
@@ -74,7 +74,9 @@ function PublicProposalView(props: {
   const revisionStageText = String((data as any)?.revisionStageText || "").trim();
   const finalStageText = String((data as any)?.finalStageText || "").trim();
   const processText = String((data as any)?.processText || "").trim();
-  const processStepsRaw = Array.isArray((data as any)?.processSteps) ? (data as any).processSteps : [];
+  const processStepsRaw = Array.isArray((data as any)?.processSteps)
+    ? (data as any).processSteps
+    : [];
 
   const clientRequirementsText = String((data as any)?.clientRequirementsText || "").trim();
   const requiredMaterialsText = String((data as any)?.requiredMaterialsText || "").trim();
@@ -111,7 +113,13 @@ function PublicProposalView(props: {
 
   const showExecutiveSummary = introductionText || objectiveText || serviceDescription;
   const showScope = deliverablesText || featuresText || optionalServicesText || outOfScopeText;
-  const showProcess = processStepsRaw.length || processText || initialStageText || productionStageText || revisionStageText || finalStageText;
+  const showProcess =
+    processStepsRaw.length ||
+    processText ||
+    initialStageText ||
+    productionStageText ||
+    revisionStageText ||
+    finalStageText;
   const showRequirements =
     clientRequirementsText || requiredMaterialsText || requiredAccessText || clientResponseTimeText;
   const showTerms = estimatedTime || revisionRoundsText || termsText || nextStep;
@@ -123,11 +131,7 @@ function PublicProposalView(props: {
   }: {
     children: React.ReactNode;
     className?: string;
-  }) => (
-    <span className={`inline-grid place-items-center ${className}`}>
-      {children}
-    </span>
-  );
+  }) => <span className={`inline-grid place-items-center ${className}`}>{children}</span>;
 
   const SectionCard = ({ children }: { children: React.ReactNode }) => (
     <section className="mb-2 overflow-hidden rounded-[10px] border border-[#dce6f3] bg-white shadow-[0_8px_22px_rgba(10,32,80,0.07)]">
@@ -135,13 +139,7 @@ function PublicProposalView(props: {
     </section>
   );
 
-  const SectionTitle = ({
-    title,
-    right,
-  }: {
-    title: string;
-    right?: React.ReactNode;
-  }) => (
+  const SectionTitle = ({ title, right }: { title: string; right?: React.ReactNode }) => (
     <div className="flex items-center justify-between gap-3 px-[13px] pb-2 pt-3">
       <h2 className="m-0 text-[17px] font-[720] leading-[1.18] tracking-[-0.012em] text-[#151b2c]">
         {title}
@@ -173,7 +171,7 @@ function PublicProposalView(props: {
   );
 
   const CheckGrid = ({ items }: { items: string[] }) => (
-      <div className="grid grid-cols-2 gap-x-3.5 gap-y-[7px] px-[13px] pb-[11px]">
+    <div className="grid grid-cols-2 gap-x-3.5 gap-y-[7px] px-[13px] pb-[11px]">
       {items.map((item, index) => (
         <div
           key={`${item}-${index}`}
@@ -225,11 +223,7 @@ function PublicProposalView(props: {
             <Icon className={`h-[18px] w-[18px] ${toneClass}`}>{icon}</Icon>
             <span>{title}</span>
           </span>
-          <span
-            className={`transition-transform duration-200 ${
-              isOpen ? "rotate-180" : ""
-            }`}
-          >
+          <span className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
             ⌄
           </span>
         </button>
@@ -418,9 +412,7 @@ function PublicProposalView(props: {
             </div>
           </div>
 
-          <p className="mb-2 mt-0 text-[13.5px] font-[680] text-[#4f94ff]">
-            Propuesta comercial
-          </p>
+          <p className="mb-2 mt-0 text-[13.5px] font-[680] text-[#4f94ff]">Propuesta comercial</p>
 
           <h1 className="m-0 max-w-[350px] text-[26px] font-[760] leading-[1.12] tracking-[-0.024em]">
             {proposal?.title || "Propuesta"}
@@ -505,10 +497,12 @@ function PublicProposalView(props: {
           ) : null}
 
           {/* What is included */}
-          {(deliverableItems.length || featuresItems.length) ? (
+          {deliverableItems.length || featuresItems.length ? (
             <SectionCard>
               <SectionTitle title="Qué incluye" />
-              <CheckGrid items={(deliverableItems.length ? deliverableItems : featuresItems).slice(0, 6)} />
+              <CheckGrid
+                items={(deliverableItems.length ? deliverableItems : featuresItems).slice(0, 6)}
+              />
             </SectionCard>
           ) : null}
 
@@ -519,7 +513,7 @@ function PublicProposalView(props: {
               <div className="px-[13px] pb-[13px]">
                 {processSteps.length ? (
                   <div className="grid gap-2">
-                    {processSteps.map((step, index) => (
+                    {processSteps.map((step: any, index: number) => (
                       <div
                         key={`${step.number}-${index}`}
                         className="flex gap-3 rounded-[10px] border border-[#e7eef8] bg-[#f8fbff] px-3 py-2.5"
@@ -550,13 +544,25 @@ function PublicProposalView(props: {
           ) : null}
 
           {/* Simple Conditions */}
-          {(estimatedTime || paymentFrequency || proposal?.valid_until || nextStep) ? (
+          {estimatedTime || paymentFrequency || proposal?.valid_until || nextStep ? (
             <SectionCard>
               <SectionTitle title="Condiciones principales" />
               <div className="grid grid-cols-3 px-2 pb-2">
-                <DetailCard icon={<Calendar className="h-[22px] w-[22px]" />} title="Tiempo estimado" text={estimatedTime || "A coordinar"} />
-                <DetailCard icon={<CreditCard className="h-[22px] w-[22px]" />} title="Forma de pago" text={paymentFrequency || paymentTermsText || "A coordinar"} />
-                <DetailCard icon={<ArrowRightCircle className="h-[22px] w-[22px]" />} title="Validez" text={proposal?.valid_until || "—"} />
+                <DetailCard
+                  icon={<Calendar className="h-[22px] w-[22px]" />}
+                  title="Tiempo estimado"
+                  text={estimatedTime || "A coordinar"}
+                />
+                <DetailCard
+                  icon={<CreditCard className="h-[22px] w-[22px]" />}
+                  title="Forma de pago"
+                  text={paymentFrequency || paymentTermsText || "A coordinar"}
+                />
+                <DetailCard
+                  icon={<ArrowRightCircle className="h-[22px] w-[22px]" />}
+                  title="Validez"
+                  text={proposal?.valid_until || "—"}
+                />
               </div>
             </SectionCard>
           ) : null}
@@ -663,7 +669,9 @@ function ProposalPublicPage() {
         }
         if (cancelled) return;
         setProposal(data);
-        setApproved(String(data?.status || "").toLowerCase() === "approved" || Boolean(data?.approved_at));
+        setApproved(
+          String(data?.status || "").toLowerCase() === "approved" || Boolean(data?.approved_at),
+        );
         setInvoicePublicToken(null);
         setApproveMessage(null);
         setApprovedInvoice(null);
@@ -673,7 +681,10 @@ function ProposalPublicPage() {
         if (!viewedAt) {
           await db
             .from("proposals")
-            .update({ viewed_at: new Date().toISOString(), status: data?.status === "Sent" ? "Viewed" : data?.status })
+            .update({
+              viewed_at: new Date().toISOString(),
+              status: data?.status === "Sent" ? "Viewed" : data?.status,
+            })
             .eq("public_token", token);
         }
       } catch (e: any) {
@@ -717,7 +728,11 @@ function ProposalPublicPage() {
       }
       setApproveMessage("Propuesta aprobada. Tu factura fue generada correctamente.");
       setApproved(true);
-      setProposal((p) => (p ? { ...p, status: "Approved", approved_at: p.approved_at ?? new Date().toISOString() } : p));
+      setProposal((p: any) =>
+        p
+          ? { ...p, status: "Approved", approved_at: p.approved_at ?? new Date().toISOString() }
+          : p,
+      );
     } catch (e: any) {
       toast.error("No se pudo aprobar la propuesta. Intenta nuevamente.");
     } finally {
@@ -726,7 +741,11 @@ function ProposalPublicPage() {
   }
 
   if (loading) {
-    return <div className="min-h-[60vh] grid place-items-center text-sm text-muted-foreground">Cargando propuesta…</div>;
+    return (
+      <div className="min-h-[60vh] grid place-items-center text-sm text-muted-foreground">
+        Cargando propuesta…
+      </div>
+    );
   }
 
   if (error) {
@@ -775,7 +794,11 @@ function ProposalPublicPage() {
                   onClick={() => {
                     const t = approvedInvoice?.publicToken || invoicePublicToken;
                     if (!t) return;
-                    window.open(`${window.location.origin}/invoice/public/${t}`, "_blank", "noopener,noreferrer");
+                    window.open(
+                      `${window.location.origin}/invoice/public/${t}`,
+                      "_blank",
+                      "noopener,noreferrer",
+                    );
                   }}
                 >
                   Ver factura

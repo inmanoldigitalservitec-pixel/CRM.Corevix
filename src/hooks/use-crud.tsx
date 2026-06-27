@@ -22,7 +22,15 @@ interface UseCrudOptions {
 }
 
 export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) {
-  const { table, select = "*", orderBy = "created_at", ascending = false, filters = [], limit = 200, enabled = true } = options;
+  const {
+    table,
+    select = "*",
+    orderBy = "created_at",
+    ascending = false,
+    filters = [],
+    limit = 200,
+    enabled = true,
+  } = options;
   const { profile, roles } = useAuth();
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,9 +46,10 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     try {
       const db = supabase as any;
       let query = db.from(table).select(select).eq("company_id", profile.company_id);
-      
+
       for (const f of filters) {
-        if (f.value === undefined || f.value === null || f.value === "" || f.value === "all") continue;
+        if (f.value === undefined || f.value === null || f.value === "" || f.value === "all")
+          continue;
         if (f.op === "ilike") {
           query = query.ilike(f.column, `%${f.value}%`);
         } else if (f.op === "in") {
@@ -60,7 +69,16 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     } finally {
       setLoading(false);
     }
-  }, [table, select, orderBy, ascending, JSON.stringify(filters), limit, enabled, profile?.company_id]);
+  }, [
+    table,
+    select,
+    orderBy,
+    ascending,
+    JSON.stringify(filters),
+    limit,
+    enabled,
+    profile?.company_id,
+  ]);
 
   useEffect(() => {
     fetch();
@@ -79,7 +97,9 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
 
   const create = async (record: Partial<T>): Promise<T | null> => {
     if (!profile?.company_id) throw new Error("No company context");
-    const isSalesAgentOnly = roles.includes("sales_agent") && !roles.some((r) => ["super_admin", "admin", "manager"].includes(r));
+    const isSalesAgentOnly =
+      roles.includes("sales_agent") &&
+      !roles.some((r) => ["super_admin", "admin", "manager"].includes(r));
     const assignmentColumnByTable: Record<string, string> = {
       leads: "assigned_to",
       deals: "assigned_to",
@@ -112,10 +132,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
       }
     }
 
-    const { data: row, error: err } = await db.from(table)
-      .insert(payload)
-      .select(select)
-      .single();
+    const { data: row, error: err } = await db.from(table).insert(payload).select(select).single();
     if (err) throw err;
     const typed = row as unknown as T;
     setData((prev) => [typed, ...prev]);
@@ -124,7 +141,8 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
   };
 
   const update = async (id: string, updates: Partial<T>): Promise<T | null> => {
-    const { data: row, error: err } = await db.from(table)
+    const { data: row, error: err } = await db
+      .from(table)
       .update(updates)
       .eq("id", id)
       .select(select)
