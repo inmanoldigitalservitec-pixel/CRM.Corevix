@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { CalendarClock, FileText, UserPlus, Users } from "lucide-react";
+import { BadgeDollarSign, CalendarClock, FileText, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-export type QuickCreateType = "lead" | "client" | "task";
+export type QuickCreateType = "lead" | "client" | "task" | "proposal";
 
 export type QuickCreateSourceType =
   | "lead"
@@ -62,12 +62,67 @@ type QuickCreateForm = {
   notes: string;
   due_date: string;
   priority: string;
+  client_id: string;
+  lead_id: string;
+  deal_id: string;
+  product_id: string;
+  amount: string;
+  currency: string;
+  valid_until: string;
+};
+
+type QuickProductOption = {
+  id: string;
+  name: string;
+  category: string | null;
+  base_price: number | null;
+  currency: string | null;
+  description: string | null;
+  deliverables?: string | null;
+  duration_days?: number | null;
+  proposal_defaults?: Record<string, unknown> | null;
+  is_active?: boolean | null;
+};
+
+type QuickClientOption = {
+  id: string;
+  company_name: string;
+  contact_person: string | null;
 };
 
 function tomorrowDateKey() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
+}
+
+function dateAfterDays(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function generateProposalNumber() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const rnd = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
+  return `PROP-${yyyy}${mm}${dd}-${rnd}`;
+}
+
+function generatePublicToken() {
+  try {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+  }
 }
 
 function text(value: unknown) {
@@ -115,6 +170,9 @@ export function QuickCreateDialog({
   const prefill = context?.prefill || {};
 
   const [saving, setSaving] = useState(false);
+  const [proposalOptionsLoading, setProposalOptionsLoading] = useState(false);
+  const [products, setProducts] = useState<QuickProductOption[]>([]);
+  const [clients, setClients] = useState<QuickClientOption[]>([]);
   const [form, setForm] = useState<QuickCreateForm>({
     name: "",
     company_name: "",
@@ -128,6 +186,13 @@ export function QuickCreateDialog({
     notes: "",
     due_date: tomorrowDateKey(),
     priority: "Medium",
+    client_id: "",
+    lead_id: "",
+    deal_id: "",
+    product_id: "",
+    amount: "",
+    currency: "USD",
+    valid_until: dateAfterDays(15),
   });
 
   useEffect(() => {
@@ -155,22 +220,127 @@ export function QuickCreateDialog({
       notes: text(prefill.notes),
       due_date: text(prefill.due_date) || tomorrowDateKey(),
       priority: text(prefill.priority) || "Medium",
+      client_id:
+        text(prefill.client_id || prefill.related_client_id) ||
+        (context?.sourceType === "client" && context?.sourceId ? String(context.sourceId) : ""),
+      lead_id:
+        text(prefill.lead_id || prefill.related_lead_id) ||
+        (context?.sourceType === "lead" && context?.sourceId ? String(context.sourceId) : ""),
+      deal_id:
+        text(prefill.deal_id || prefill.related_deal_id) ||
+        (context?.sourceType === "deal" && context?.sourceId ? String(context.sourceId) : ""),
+      product_id:
+        text(prefill.product_id || prefill.related_product_id) ||
+        (context?.sourceType === "product" && context?.sourceId ? String(context.sourceId) : ""),
+      amount: text(prefill.amount || prefill.value),
+      currency: text(prefill.currency) || "USD",
+      valid_until: text(prefill.valid_until) || dateAfterDays(15),
     });
   }, [open, type, context?.sourceType, context?.sourceId]);
+
+  useEffect(() => {
+    if (!open || type !== "proposal" || !profile?.company_id) return;
+
+    let cancelled = false;
+
+    const loadProposalOptions = async () => {
+      setProposalOptionsLoading(true);
+      try {
+        const db = supabase as any;
+        const [productsRes, clientsRes] = await Promise.all([
+          db
+            .from("products")
+            .select(
+              "id,name,category,base_price,currency,description,deliverables,duration_days,proposal_defaults,is_active",
+            )
+            .eq("company_id", profile.company_id)
+            .order("name", { ascending: true })
+            .limit(500),
+          db
+            .from("clients")
+            .select("id,company_name,contact_person")
+            .eq("company_id", profile.company_id)
+            .order("company_name", { ascending: true })
+            .limit(500),
+        ]);
+
+        if (productsRes.error) throw productsRes.error;
+        if (clientsRes.error) throw clientsRes.error;
+
+        if (!cancelled) {
+          setProducts(
+            (productsRes.data || []).filter((p: QuickProductOption) => p.is_active !== false),
+          );
+          setClients(clientsRes.data || []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProducts([]);
+          setClients([]);
+        }
+      } finally {
+        if (!cancelled) setProposalOptionsLoading(false);
+      }
+    };
+
+    void loadProposalOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, type, profile?.company_id]);
+
+  const applyProductToProposal = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+
+    setForm((prev) => {
+      const defaults =
+        product.proposal_defaults && typeof product.proposal_defaults === "object"
+          ? product.proposal_defaults
+          : {};
+
+      const price = Number(product.base_price || 0);
+      const titleBase = prev.title.trim() || `Propuesta — ${product.name}`;
+      const descriptionBase =
+        prev.description.trim() ||
+        text((defaults as any).serviceDescription) ||
+        text(product.description);
+
+      return {
+        ...prev,
+        product_id: productId,
+        title: titleBase,
+        amount: prev.amount.trim() || (Number.isFinite(price) && price > 0 ? String(price) : ""),
+        currency: prev.currency.trim() || product.currency || "USD",
+        description: descriptionBase,
+        service: prev.service.trim() || product.name,
+      };
+    });
+  };
 
   const title = useMemo(() => {
     if (type === "lead") return "Nuevo prospecto rápido";
     if (type === "client") return "Nuevo cliente rápido";
+    if (type === "proposal") return "Nueva propuesta rápida";
     return "Nueva tarea rápida";
   }, [type]);
 
   const description = useMemo(() => {
     if (type === "lead") return "Captura lo mínimo y deja que el CRM complete el flujo después.";
     if (type === "client") return "Crea la cuenta con los datos esenciales.";
+    if (type === "proposal") return "Elige cliente y producto; el CRM rellena lo importante.";
     return "Crea una tarea conectada al contexto actual.";
   }, [type]);
 
-  const Icon = type === "lead" ? UserPlus : type === "client" ? Users : CalendarClock;
+  const Icon =
+    type === "lead"
+      ? UserPlus
+      : type === "client"
+        ? Users
+        : type === "proposal"
+          ? BadgeDollarSign
+          : CalendarClock;
 
   const updateField = (key: keyof QuickCreateForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -266,6 +436,54 @@ export function QuickCreateDialog({
         };
       }
 
+      if (type === "proposal") {
+        if (!user?.id) {
+          toast.error("No se pudo detectar tu usuario.");
+          return;
+        }
+
+        if (!form.title.trim()) {
+          toast.error("El título de la propuesta es requerido.");
+          return;
+        }
+
+        const product = products.find((p) => p.id === form.product_id);
+        const amount = Number(form.amount || 0);
+
+        table = "proposals";
+        payload = {
+          company_id: profile.company_id,
+          number: text(prefill.number) || generateProposalNumber(),
+          title: form.title.trim(),
+          product_id: nullableText(form.product_id),
+          client_id: nullableText(form.client_id),
+          lead_id: nullableText(form.lead_id),
+          deal_id: nullableText(form.deal_id),
+          whatsapp_conversation_id:
+            context?.sourceType === "whatsapp" && context?.sourceId
+              ? String(context.sourceId)
+              : null,
+          amount: Number.isFinite(amount) ? amount : 0,
+          currency: (form.currency || product?.currency || "USD").toUpperCase(),
+          status: text(prefill.status) || "Draft",
+          valid_until: form.valid_until || null,
+          description: nullableText(form.description || product?.description),
+          content: null,
+          notes: nullableText(form.notes),
+          sent_at: null,
+          public_token: generatePublicToken(),
+          created_by: user.id,
+          proposal_data: {
+            serviceDescription: nullableText(form.description || product?.description),
+            deliverablesText: nullableText(product?.deliverables),
+            estimatedTime: product?.duration_days ? `${product.duration_days} días` : null,
+            nextStep: "Si estás de acuerdo, podemos coordinar los detalles para iniciar.",
+            sourceType: context?.sourceType || "manual",
+            sourceId: context?.sourceId || null,
+          },
+        };
+      }
+
       const { data, error } = await (supabase as any)
         .from(table)
         .insert(payload)
@@ -279,7 +497,9 @@ export function QuickCreateDialog({
           ? "Prospecto creado"
           : type === "client"
             ? "Cliente creado"
-            : "Tarea creada",
+            : type === "proposal"
+              ? "Propuesta creada"
+              : "Tarea creada",
       );
 
       onCreated?.({ type, record: data });
@@ -409,6 +629,131 @@ export function QuickCreateDialog({
                   rows={3}
                 />
               </div>
+            </>
+          ) : null}
+
+          {type === "proposal" ? (
+            <>
+              <div className="space-y-1.5">
+                <Label>Título</Label>
+                <Input
+                  value={form.title}
+                  onChange={(e) => updateField("title", e.target.value)}
+                  placeholder="Ej: Propuesta — Implementación CRM"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Cliente</Label>
+                  <Select
+                    value={form.client_id || "none"}
+                    onValueChange={(value) =>
+                      updateField("client_id", value === "none" ? "" : value)
+                    }
+                    disabled={proposalOptionsLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin cliente</SelectItem>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.contact_person
+                            ? `${client.company_name} · ${client.contact_person}`
+                            : client.company_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Producto</Label>
+                  <Select
+                    value={form.product_id || "none"}
+                    onValueChange={(value) => {
+                      if (value === "none") {
+                        updateField("product_id", "");
+                        return;
+                      }
+                      applyProductToProposal(value);
+                    }}
+                    disabled={proposalOptionsLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin producto</SelectItem>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.category
+                            ? `${product.name} · ${product.category}`
+                            : product.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Monto</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={form.amount}
+                    onChange={(e) => updateField("amount", e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Moneda</Label>
+                  <Select
+                    value={form.currency || "USD"}
+                    onValueChange={(value) => updateField("currency", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="DOP">DOP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Válida hasta</Label>
+                  <Input
+                    type="date"
+                    value={form.valid_until}
+                    onChange={(e) => updateField("valid_until", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Descripción rápida</Label>
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => updateField("description", e.target.value)}
+                  rows={3}
+                  placeholder="Resumen corto del servicio o solución..."
+                />
+              </div>
+
+              {context?.sourceType ? (
+                <div className="rounded-[14px] border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <FileText className="mr-1 inline h-3.5 w-3.5" />
+                  Se creará vinculada a: {context.sourceType}
+                </div>
+              ) : null}
             </>
           ) : null}
 

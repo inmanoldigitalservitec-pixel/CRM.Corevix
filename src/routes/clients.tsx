@@ -619,6 +619,7 @@ function ClientsPage() {
   const [contactIsPrimary, setContactIsPrimary] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
+  const [quickProposalOpen, setQuickProposalOpen] = useState(false);
   const [createTaskSaving, setCreateTaskSaving] = useState(false);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   const [taskDraft, setTaskDraft] = useState<{
@@ -2163,6 +2164,14 @@ function ClientsPage() {
                     Crear tarea
                   </Button>
                   <Button
+                    variant="outline"
+                    className="gap-2 rounded-[14px]"
+                    onClick={() => setQuickProposalOpen(true)}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Crear propuesta
+                  </Button>
+                  <Button
                     size="sm"
                     variant="outline"
                     className="gap-2"
@@ -2996,6 +3005,29 @@ function ClientsPage() {
             setSelectedClientId(String(args.record.id));
           }
           toast.success("Cliente creado rápido.");
+        }}
+      />
+
+      <QuickCreateDialog
+        type="proposal"
+        open={quickProposalOpen}
+        onOpenChange={setQuickProposalOpen}
+        context={
+          selectedClient
+            ? {
+                sourceType: "client",
+                sourceId: selectedClient.id,
+                prefill: {
+                  client_id: selectedClient.id,
+                  title: `Propuesta — ${selectedClient.company_name}`,
+                  currency: "USD",
+                  valid_until: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
+                },
+              }
+            : undefined
+        }
+        onCreated={() => {
+          toast.success("Propuesta vinculada al cliente.");
         }}
       />
 
