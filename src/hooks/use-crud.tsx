@@ -150,12 +150,12 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
         payload[col] = defaultAssignmentValue;
       }
     }
-    if (profile?.id) {
-      const createdByCol = createdByColumnByTable[table];
-      if (createdByCol && payload[createdByCol] == null) {
-        // Hotfix: only inject created_by for tables confirmed to support it safely.
-        payload[createdByCol] = profile.id;
-      }
+    const createdByCol = createdByColumnByTable[table];
+    const createdByValue = table === "invoices" ? profile?.user_id || null : profile?.id || null;
+
+    if (createdByCol && payload[createdByCol] == null && createdByValue) {
+      // Hotfix: only inject created_by for tables confirmed to support it safely.
+      payload[createdByCol] = createdByValue;
     }
 
     const { data: row, error: err } = await db.from(table).insert(payload).select(select).single();
