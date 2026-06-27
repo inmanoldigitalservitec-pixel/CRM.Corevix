@@ -743,9 +743,9 @@ function PipelinePage() {
   const isDealAssignedToCurrentUser = useCallback(
     (assignedTo?: string | null) => {
       if (!assignedTo) return false;
-      return assignedTo === profile?.id || assignedTo === user?.id;
+      return assignedTo === profile?.user_id || assignedTo === user?.id;
     },
-    [profile?.id, user?.id],
+    [profile?.user_id, user?.id],
   );
 
   function canEditDeal(deal: Deal) {
@@ -1025,11 +1025,8 @@ function PipelinePage() {
       );
       const dueDateIso = totalDays > 0 ? toIsoDateOnly(addDays(startDate, totalDays)) : null;
 
-      const managerProfileId = deal.assigned_to
-        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
-          teamByUserId.get(String(deal.assigned_to))?.profile_id ||
-          profile.id
-        : profile.id;
+      const managerProfileId = resolveAssigneeProfileId(deal.assigned_to) || profile.id;
+      const taskAssigneeUserId = resolveAssigneeUserId(deal.assigned_to);
       const projectName = lead?.company_name?.trim()
         ? `${product.name} — ${lead.company_name}`
         : `${product.name} — ${deal.name}`;
@@ -1090,7 +1087,7 @@ function PipelinePage() {
             description: step.description || null,
             status: "To Do",
             priority: (step.default_priority as any) || "Medium",
-            assigned_to: managerProfileId,
+            assigned_to: taskAssigneeUserId,
             due_date: due,
             related_project_id: projectId,
             related_client_id: null,
@@ -1376,6 +1373,49 @@ function PipelinePage() {
     }
     return m;
   }, [team]);
+
+  const resolveAssigneeUserId = useCallback(
+    (assignedTo?: string | null) => {
+      const currentUserId = profile?.user_id || user?.id || null;
+      if (!assignedTo) return currentUserId;
+
+      const raw = String(assignedTo);
+
+      const byUser = teamByUserId.get(raw);
+      if (byUser?.user_id) return byUser.user_id;
+
+      const byProfile = teamByProfileId.get(raw);
+      if (byProfile?.user_id) return byProfile.user_id;
+
+      if (raw === String(user?.id || "") || raw === String(profile?.user_id || "")) return raw;
+      if (raw === String(profile?.id || "")) return currentUserId;
+
+      return currentUserId;
+    },
+    [profile?.id, profile?.user_id, teamByProfileId, teamByUserId, user?.id],
+  );
+
+  const resolveAssigneeProfileId = useCallback(
+    (assignedTo?: string | null) => {
+      if (!assignedTo) return profile?.id || null;
+
+      const raw = String(assignedTo);
+
+      const byProfile = teamByProfileId.get(raw);
+      if (byProfile?.profile_id) return byProfile.profile_id;
+
+      const byUser = teamByUserId.get(raw);
+      if (byUser?.profile_id) return byUser.profile_id;
+
+      if (raw === String(profile?.id || "")) return raw;
+      if (raw === String(user?.id || "") || raw === String(profile?.user_id || "")) {
+        return profile?.id || null;
+      }
+
+      return profile?.id || null;
+    },
+    [profile?.id, profile?.user_id, teamByProfileId, teamByUserId, user?.id],
+  );
 
   const loadRelated = useCallback(async () => {
     if (!profile?.company_id) return;
@@ -1700,11 +1740,7 @@ function PipelinePage() {
       priority: "High",
       related_lead_id: deal.lead_id || null,
       related_client_id: null,
-      assigned_to:
-        (deal.assigned_to
-          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
-            teamByUserId.get(String(deal.assigned_to))?.profile_id
-          : null) || profile.id,
+      assigned_to: resolveAssigneeUserId(deal.assigned_to),
     };
     const { error } = await db.from("tasks").insert(payload);
     if (error) {
@@ -1764,11 +1800,7 @@ function PipelinePage() {
 
     setFollowUpSaving(true);
     try {
-      const assignedTo =
-        (deal.assigned_to
-          ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
-            teamByUserId.get(String(deal.assigned_to))?.profile_id
-          : null) || profile.id;
+      const assignedTo = resolveAssigneeUserId(deal.assigned_to);
       const payload: Record<string, any> = {
         company_id: profile.company_id,
         title: followUpValues.title.trim(),
@@ -1955,13 +1987,7 @@ function PipelinePage() {
     const phone = lead.phone || lead.whatsapp || null;
     const whatsapp = lead.whatsapp || lead.phone || null;
 
-    const accountManagerProfileId =
-      (deal.assigned_to
-        ? teamByProfileId.get(String(deal.assigned_to))?.profile_id ||
-          teamByUserId.get(String(deal.assigned_to))?.profile_id
-        : null) ||
-      profile.id ||
-      null;
+    const accountManagerProfileId = resolveAssigneeProfileId(deal.assigned_to) || profile.id || null;
 
     const { data: created, error: createErr } = await (supabase as any)
       .from("clients")
