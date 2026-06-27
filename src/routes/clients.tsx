@@ -2148,7 +2148,7 @@ function ClientsPage() {
                           dealId: undefined,
                           conversationId: undefined,
                           productId: undefined,
-                          clientId: client.id,
+                          clientId: selectedClient?.id,
                         },
                       })
                     }

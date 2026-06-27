@@ -21,6 +21,7 @@ import { LoadingMetrics } from "@/components/crm/loading-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useT } from "@/i18n";
+import { DashboardV2 } from "@/components/dashboard-v2/dashboard-v2";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -333,6 +334,8 @@ function toDateKey(value: string | null | undefined) {
 }
 
 function DashboardPage() {
+  return <DashboardV2 />;
+
   const { profile } = useAuth();
   const { t } = useT();
   const [error, setError] = useState<string | null>(null);
