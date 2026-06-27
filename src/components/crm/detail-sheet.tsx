@@ -141,40 +141,42 @@ export function DetailSheet({
         </SheetHeader>
 
         <ScrollArea className="h-[calc(100vh-118px)]">
-          <div className="p-5 space-y-4">
-            <div data-demo={fieldGroupDataDemo} className="grid grid-cols-2 gap-4">
-              {fields.map((f) => (
-                <div key={f.label} className={f.type === "tags" ? "col-span-2" : ""}>
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {f.label}
-                  </span>
-                  {f.type === "badge" && f.value ? (
-                    <div className="mt-1">
-                      <StatusBadge status={String(f.value)} />
-                    </div>
-                  ) : f.type === "currency" ? (
-                    <p className="text-sm font-semibold mt-0.5">
-                      ${Number(f.value || 0).toLocaleString()}
-                    </p>
-                  ) : f.type === "tags" && f.value ? (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {String(f.value)
-                        .split(",")
-                        .map((t) => (
-                          <span
-                            key={t}
-                            className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-                          >
-                            {t.trim()}
-                          </span>
-                        ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm font-medium mt-0.5">{f.value || t("common.none")}</p>
-                  )}
-                </div>
-              ))}
-            </div>
+          <div className="p-4 space-y-3">
+            {fields.length > 0 ? (
+              <div data-demo={fieldGroupDataDemo} className="grid grid-cols-2 gap-4">
+                {fields.map((f) => (
+                  <div key={f.label} className={f.type === "tags" ? "col-span-2" : ""}>
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                      {f.label}
+                    </span>
+                    {f.type === "badge" && f.value ? (
+                      <div className="mt-1">
+                        <StatusBadge status={String(f.value)} />
+                      </div>
+                    ) : f.type === "currency" ? (
+                      <p className="text-sm font-semibold mt-0.5">
+                        ${Number(f.value || 0).toLocaleString()}
+                      </p>
+                    ) : f.type === "tags" && f.value ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {String(f.value)
+                          .split(",")
+                          .map((t) => (
+                            <span
+                              key={t}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                            >
+                              {t.trim()}
+                            </span>
+                          ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium mt-0.5">{f.value || t("common.none")}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {notes && (
               <>
                 <Separator />
@@ -186,12 +188,7 @@ export function DetailSheet({
                 </div>
               </>
             )}
-            {children && (
-              <>
-                <Separator />
-                {children}
-              </>
-            )}
+            {children && <>{children}</>}
           </div>
         </ScrollArea>
       </SheetContent>
