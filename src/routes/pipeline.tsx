@@ -1987,7 +1987,8 @@ function PipelinePage() {
     const phone = lead.phone || lead.whatsapp || null;
     const whatsapp = lead.whatsapp || lead.phone || null;
 
-    const accountManagerProfileId = resolveAssigneeProfileId(deal.assigned_to) || profile.id || null;
+    const accountManagerProfileId =
+      resolveAssigneeProfileId(deal.assigned_to) || profile.id || null;
 
     const { data: created, error: createErr } = await (supabase as any)
       .from("clients")
