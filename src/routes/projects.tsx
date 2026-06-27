@@ -84,7 +84,7 @@ interface TaskRow {
   status: string;
   priority: string;
   due_date: string | null;
-  assigned_to: string | null; // profiles.id
+  assigned_to: string | null; // auth user id
   related_project_id: string | null;
   related_client_id: string | null;
   related_lead_id: string | null;
@@ -115,7 +115,7 @@ interface DealRow {
   stage: string;
   value: number | null;
   lead_id: string | null;
-  assigned_to: string | null; // profiles.id
+  assigned_to: string | null; // auth user id
   probability: number | null;
   expected_close: string | null;
   updated_at: string;
@@ -340,6 +340,22 @@ function ProjectsPage() {
     if (!value || value === "none") return null;
     if (profileById.has(value)) return value;
     return profileByUserId.get(value)?.id || null;
+  };
+
+  const resolveTaskAssigneeUserId = (raw: string | null | undefined) => {
+    const value = String(raw || "").trim();
+    if (!value || value === "none") return profile?.user_id || user?.id || null;
+
+    const byUser = profileByUserId.get(value);
+    if (byUser?.user_id) return byUser.user_id;
+
+    const byProfile = profileById.get(value);
+    if (byProfile?.user_id) return byProfile.user_id;
+
+    if (value === String(profile?.user_id || "") || value === String(user?.id || "")) return value;
+    if (value === String(profile?.id || "")) return profile?.user_id || user?.id || null;
+
+    return profile?.user_id || user?.id || null;
   };
 
   const activeWorkflowByProductId = useMemo(() => {
@@ -690,13 +706,14 @@ function ProjectsPage() {
     try {
       const db = supabase as any;
       const selectedManagerProfileId = resolveManagerProfileId(selected.manager);
+      const selectedManagerUserId = resolveTaskAssigneeUserId(selectedManagerProfileId);
       const payload = {
         company_id: profile.company_id,
         title: taskForm.title.trim(),
         description: taskForm.description.trim() || null,
         status: "To Do",
         priority: (taskForm.priority as any) || "Medium",
-        assigned_to: selectedManagerProfileId || profile.id,
+        assigned_to: selectedManagerUserId,
         due_date: taskForm.due_date || null,
         related_project_id: selected.id,
         related_client_id: selected.client_id || null,
@@ -1446,7 +1463,9 @@ function ProjectsPage() {
                           <div className="text-xs text-muted-foreground">
                             Asignado:{" "}
                             {t.assigned_to
-                              ? profileById.get(String(t.assigned_to))?.full_name || "—"
+                              ? profileByUserId.get(String(t.assigned_to))?.full_name ||
+                                profileById.get(String(t.assigned_to))?.full_name ||
+                                "—"
                               : "—"}
                           </div>
                         </div>
