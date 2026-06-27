@@ -702,6 +702,21 @@ function LeadsPage() {
     };
   }, [profile?.company_id]);
 
+  function getAssigneeProfileId(assignedTo?: string | null) {
+    if (!assignedTo) return profile?.id || null;
+
+    const byProfile = assigneeByProfileId.get(assignedTo);
+    if (byProfile?.profile_id) return byProfile.profile_id;
+
+    const byUser = assigneeByUserId.get(assignedTo);
+    if (byUser?.profile_id) return byUser.profile_id;
+
+    if (assignedTo === user?.id) return profile?.id || null;
+    if (assignedTo === profile?.id) return profile.id;
+
+    return profile?.id || null;
+  }
+
   function getAssigneeLabel(lead: Lead) {
     if (!lead.assigned_to) return "Sin asignar";
     const member =
@@ -767,7 +782,7 @@ function LeadsPage() {
     const dealName = serviceLabel
       ? `${serviceLabel} — ${companyOrName}`
       : `Oportunidad — ${companyOrName}`;
-    const assignedTo = lead.assigned_to || profile.id || null;
+    const assignedTo = getAssigneeProfileId(lead.assigned_to);
     const value = Number(lead.estimated_value || 0);
 
     const payloadBase: Record<string, unknown> = {
@@ -1043,7 +1058,7 @@ function LeadsPage() {
 
     setFollowUpSaving(true);
     try {
-      const assignedTo = lead.assigned_to || profile.id || null;
+      const assignedTo = getAssigneeProfileId(lead.assigned_to);
       const { error } = await (supabase as any).from("tasks").insert({
         company_id: profile.company_id,
         title: followUpValues.title.trim(),
