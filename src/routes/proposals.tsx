@@ -46,6 +46,12 @@ import { DataCard } from "@/components/crm/data-card";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { useCrud } from "@/hooks/use-crud";
 import { MetricCard } from "@/components/crm/metric-card";
+import {
+  isApprovedProposalStatus,
+  isPendingProposalStatus,
+  isSentOrViewedProposalStatus,
+  normalizeStatus,
+} from "@/lib/crm/status";
 
 export const Route = createFileRoute("/proposals")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -605,11 +611,9 @@ function ProposalsPage() {
 
   const stats = useMemo(() => {
     const total = data.length;
-    const active = data.filter(
-      (p) => !["Accepted", "Rejected", "Expired"].includes(p.status),
-    ).length;
-    const sent = data.filter((p) => ["Sent", "Viewed"].includes(p.status)).length;
-    const drafts = data.filter((p) => p.status === "Draft").length;
+    const active = data.filter((p) => isPendingProposalStatus(p.status)).length;
+    const sent = data.filter((p) => isSentOrViewedProposalStatus(p.status)).length;
+    const drafts = data.filter((p) => normalizeStatus(p.status) === "draft").length;
     const totalAmount = data.reduce((s, p) => s + Number(p.amount || 0), 0);
     return { total, active, sent, drafts, totalAmount };
   }, [data]);
@@ -618,7 +622,8 @@ function ProposalsPage() {
     const q = search.trim().toLowerCase();
     return data.filter((p) => {
       const matchSearch = !q || `${p.number} ${p.title} ${p.notes || ""}`.toLowerCase().includes(q);
-      const matchStatus = statusFilter === "all" || p.status === statusFilter;
+      const matchStatus =
+        statusFilter === "all" || normalizeStatus(p.status) === normalizeStatus(statusFilter);
       const matchProduct = productFilter === "all" || p.product_id === productFilter;
       const expired = isProposalExpired(p.valid_until);
       const matchValidity =
@@ -1143,7 +1148,8 @@ function ProposalsPage() {
                         <div className="flex items-center gap-2">
                           <StatusBadge status={p.status} />
                           {isProposalExpired(p.valid_until) &&
-                          !["Accepted", "Rejected"].includes(p.status) ? (
+                          !isApprovedProposalStatus(p.status) &&
+                          normalizeStatus(p.status) !== "rejected" ? (
                             <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border-amber-200">
                               <TriangleAlert className="h-3 w-3" /> Vencida
                             </span>

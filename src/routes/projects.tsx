@@ -45,6 +45,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
+import {
+  isActiveProjectStatus,
+  isCompletedTaskStatusValue,
+  normalizeStatus,
+} from "@/lib/crm/status";
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage,
@@ -410,11 +415,11 @@ function ProjectsPage() {
     for (const p of projects) {
       const list = tasksByProjectId.get(String(p.id)) || [];
       const total = list.length;
-      const completed = list.filter((t) => t.status === "Completed").length;
-      const open = list.filter((t) => !["Completed", "Cancelled"].includes(t.status)).length;
+      const completed = list.filter((t) => isCompletedTaskStatusValue(t.status)).length;
+      const open = list.filter((t) => !isCompletedTaskStatusValue(t.status)).length;
       const overdue = list.filter((t) => {
         if (!t.due_date) return false;
-        if (["Completed", "Cancelled"].includes(t.status)) return false;
+        if (isCompletedTaskStatusValue(t.status)) return false;
         return String(t.due_date) < today;
       }).length;
       const computedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -427,7 +432,8 @@ function ProjectsPage() {
     const matchSearch = `${p.name} ${p.description || ""}`
       .toLowerCase()
       .includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || p.status === statusFilter;
+    const matchStatus =
+      statusFilter === "all" || normalizeStatus(p.status) === normalizeStatus(statusFilter);
     const matchClient = clientFilter === "all" || String(p.client_id || "") === clientFilter;
     const matchProduct = productFilter === "all" || String(p.product_id || "") === productFilter;
     const matchManager =
@@ -1470,7 +1476,7 @@ function ProjectsPage() {
                           </div>
                         </div>
                         <div className="shrink-0">
-                          {t.status !== "Completed" && can("tasks.edit") ? (
+                          {!isCompletedTaskStatusValue(t.status) && can("tasks.edit") ? (
                             <Button
                               variant="outline"
                               size="sm"
