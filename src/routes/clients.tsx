@@ -2022,7 +2022,7 @@ function ClientsPage() {
                                     dealId: undefined,
                                     conversationId: undefined,
                                     productId: undefined,
-                                    clientId: undefined,
+                                    clientId: client.id,
                                   },
                                 });
                               }}
@@ -2148,7 +2148,7 @@ function ClientsPage() {
                           dealId: undefined,
                           conversationId: undefined,
                           productId: undefined,
-                          clientId: undefined,
+                          clientId: client.id,
                         },
                       })
                     }
