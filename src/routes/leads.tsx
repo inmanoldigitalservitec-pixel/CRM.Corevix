@@ -393,6 +393,7 @@ function LeadsPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [quickLeadOpen, setQuickLeadOpen] = useState(false);
+  const [quickProposalOpen, setQuickProposalOpen] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -2228,6 +2229,26 @@ function LeadsPage() {
                       <Calendar className="h-4 w-4" />
                       Crear seguimiento
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 justify-start gap-2"
+                      onClick={() => setQuickProposalOpen(true)}
+                      disabled={
+                        !can("proposals.create") ||
+                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                      }
+                      title={
+                        !can("proposals.create")
+                          ? "No tienes permiso para crear propuestas."
+                          : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                            ? "Solo puedes crear propuestas para tus propios prospectos."
+                            : undefined
+                      }
+                    >
+                      <FileText className="h-4 w-4" />
+                      Crear propuesta
+                    </Button>
                   </div>
                   <div className="text-[11px] text-muted-foreground">
                     {!can("leads.edit")
@@ -2424,6 +2445,35 @@ function LeadsPage() {
         }}
         onCreated={() => {
           void fetchLeads();
+        }}
+      />
+
+      <QuickCreateDialog
+        type="proposal"
+        open={quickProposalOpen}
+        onOpenChange={setQuickProposalOpen}
+        context={
+          selectedLead
+            ? {
+                sourceType: "lead",
+                sourceId: selectedLead.id,
+                prefill: {
+                  lead_id: selectedLead.id,
+                  title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
+                  amount: selectedLead.estimated_value || "",
+                  currency: "USD",
+                  description: getInterestLabel(selectedLead) || selectedLead.notes || "",
+                  valid_until: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
+                },
+              }
+            : undefined
+        }
+        onCreated={async () => {
+          if (selectedLead && can("leads.edit")) {
+            await update(selectedLead.id, { status: "Proposal Sent" } as any);
+          }
+          void fetchLeads();
+          toast.success("Propuesta vinculada al prospecto.");
         }}
       />
 
