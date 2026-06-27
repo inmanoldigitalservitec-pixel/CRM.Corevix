@@ -617,21 +617,9 @@ function ClientsPage() {
   const [editContact, setEditContact] = useState<ContactRow | null>(null);
   const [contactClientId, setContactClientId] = useState<string | null>(null);
   const [contactIsPrimary, setContactIsPrimary] = useState(false);
-  const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
   const [quickProposalOpen, setQuickProposalOpen] = useState(false);
-  const [createTaskSaving, setCreateTaskSaving] = useState(false);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
-  const [taskDraft, setTaskDraft] = useState<{
-    title: string;
-    description: string;
-    due_date: string;
-  }>({
-    title: "",
-    description: "",
-    due_date: "",
-  });
-
   const {
     data: clients,
     loading: clientsLoading,
@@ -1132,59 +1120,7 @@ function ClientsPage() {
 
   const openCreateTaskForClient = (client: ClientSnapshot) => {
     setSelectedClientId(client.id);
-    setTaskDraft({
-      title: "",
-      description: `Seguimiento creado desde Cliente 360.\nCliente: ${client.company_name}`,
-      due_date: "",
-    });
     setQuickTaskOpen(true);
-  };
-
-  const handleCreateTaskForClient = async () => {
-    if (!selectedClient || !profile?.company_id || !profile?.id) return;
-    if (!canCreateTaskForClient(selectedClient)) {
-      toast.error("No tienes permiso para crear tareas para este cliente");
-      return;
-    }
-    if (!taskDraft.title.trim()) {
-      toast.error("El título es requerido");
-      return;
-    }
-
-    setCreateTaskSaving(true);
-    try {
-      const payload = {
-        company_id: profile.company_id,
-        title: taskDraft.title.trim(),
-        description: taskDraft.description.trim() || null,
-        status: "To Do",
-        priority: "Medium",
-        assigned_to: resolveTaskAssigneeUserId(selectedClient.account_manager),
-        related_client_id: selectedClient.id,
-        due_date: taskDraft.due_date || null,
-      };
-
-      const { error } = await (supabase as any).from("tasks").insert(payload);
-      if (error) {
-        toast.error(error.message || "No se pudo crear la tarea");
-        return;
-      }
-
-      void logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id,
-        action: "task_created",
-        entityType: "tasks",
-        detail: `Tarea creada desde cliente: ${taskDraft.title.trim()}`,
-        metadata: { related_client_id: selectedClient.id, due_date: taskDraft.due_date || null },
-      }).catch(() => {});
-
-      toast.success("Tarea creada");
-      setCreateTaskOpen(false);
-      await fetchTasks();
-    } finally {
-      setCreateTaskSaving(false);
-    }
   };
 
   const summaryNote = useMemo(() => {
@@ -2175,26 +2111,6 @@ function ClientsPage() {
                     size="sm"
                     variant="outline"
                     className="gap-2"
-                    onClick={() =>
-                      navigate({
-                        to: "/proposals",
-                        search: {
-                          leadId: undefined,
-                          dealId: undefined,
-                          conversationId: undefined,
-                          productId: undefined,
-                          clientId: selectedClient?.id,
-                        },
-                      })
-                    }
-                  >
-                    <BriefcaseBusiness className="h-4 w-4" />
-                    Crear propuesta
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
                     onClick={() => navigate({ to: "/invoices" })}
                   >
                     <Receipt className="h-4 w-4" />
@@ -3058,61 +2974,6 @@ function ClientsPage() {
           toast.success("Tarea vinculada al cliente.");
         }}
       />
-
-      <Dialog
-        open={createTaskOpen}
-        onOpenChange={(open) => {
-          setCreateTaskOpen(open);
-          if (!open) {
-            setTaskDraft({ title: "", description: "", due_date: "" });
-          }
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nueva tarea</DialogTitle>
-            <DialogDescription>Se crea vinculada a este cliente (Cliente 360).</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Título</Label>
-              <Input
-                value={taskDraft.title}
-                onChange={(e) => setTaskDraft((p) => ({ ...p, title: e.target.value }))}
-                placeholder="Ej: Llamar para coordinar kickoff"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Descripción</Label>
-              <Textarea
-                value={taskDraft.description}
-                onChange={(e) => setTaskDraft((p) => ({ ...p, description: e.target.value }))}
-                rows={4}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Vence</Label>
-              <Input
-                type="date"
-                value={taskDraft.due_date}
-                onChange={(e) => setTaskDraft((p) => ({ ...p, due_date: e.target.value }))}
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setCreateTaskOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleCreateTaskForClient()}
-                disabled={createTaskSaving}
-              >
-                {createTaskSaving ? "Creando..." : "Crear tarea"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={dialogOpen}
