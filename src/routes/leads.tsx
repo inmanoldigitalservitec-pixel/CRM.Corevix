@@ -57,6 +57,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
+import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
 
 export const Route = createFileRoute("/leads")({
   component: LeadsPage,
@@ -391,6 +392,7 @@ function LeadsPage() {
   const [valueFilter, setValueFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [quickLeadOpen, setQuickLeadOpen] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -399,7 +401,14 @@ function LeadsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const { data: leads, loading, create, update, remove } = useCrud<Lead>({ table: "leads" });
+  const {
+    data: leads,
+    loading,
+    create,
+    update,
+    remove,
+    fetch: fetchLeads,
+  } = useCrud<Lead>({ table: "leads" });
 
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
@@ -1429,7 +1438,7 @@ function LeadsPage() {
                   className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#1d62f9] px-[13px] text-[13px] font-semibold text-white shadow-[0_12px_24px_rgba(29,98,249,0.20)] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#0f52dd]"
                   onClick={() => {
                     setEditLead(null);
-                    setDialogOpen(true);
+                    setQuickLeadOpen(true);
                   }}
                   type="button"
                 >
@@ -1701,7 +1710,7 @@ function LeadsPage() {
                     className="mt-4 bg-[#1d62f9]"
                     onClick={() => {
                       setEditLead(null);
-                      setDialogOpen(true);
+                      setQuickLeadOpen(true);
                     }}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -2401,6 +2410,22 @@ function LeadsPage() {
           ) : null}
         </DetailSheet>
       </div>
+
+      <QuickCreateDialog
+        type="lead"
+        open={quickLeadOpen}
+        onOpenChange={setQuickLeadOpen}
+        context={{
+          sourceType: "manual",
+          prefill: {
+            source: "Website",
+            status: "New",
+          },
+        }}
+        onCreated={() => {
+          void fetchLeads();
+        }}
+      />
 
       <Dialog
         open={dialogOpen}

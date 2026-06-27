@@ -94,6 +94,7 @@ import {
   isSentOrViewedProposalStatus,
   normalizeStatus,
 } from "@/lib/crm/status";
+import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
 
 export const Route = createFileRoute("/clients")({
   component: ClientsPage,
@@ -608,6 +609,7 @@ function ClientsPage() {
   const [financeFilter, setFinanceFilter] = useState<(typeof FINANCE_FILTERS)[number]>("all");
   const [activityFilter, setActivityFilter] = useState<(typeof ACTIVITY_FILTERS)[number]>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [quickClientOpen, setQuickClientOpen] = useState(false);
   const [editClient, setEditClient] = useState<ClientRow | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -616,6 +618,7 @@ function ClientsPage() {
   const [contactClientId, setContactClientId] = useState<string | null>(null);
   const [contactIsPrimary, setContactIsPrimary] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false);
   const [createTaskSaving, setCreateTaskSaving] = useState(false);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   const [taskDraft, setTaskDraft] = useState<{
@@ -1133,7 +1136,7 @@ function ClientsPage() {
       description: `Seguimiento creado desde Cliente 360.\nCliente: ${client.company_name}`,
       due_date: "",
     });
-    setCreateTaskOpen(true);
+    setQuickTaskOpen(true);
   };
 
   const handleCreateTaskForClient = async () => {
@@ -1373,7 +1376,7 @@ function ClientsPage() {
 
   const openCreateClient = () => {
     setEditClient(null);
-    setDialogOpen(true);
+    setQuickClientOpen(true);
   };
 
   const openEditClient = (client: ClientRow) => {
@@ -2977,6 +2980,52 @@ function ClientsPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <QuickCreateDialog
+        type="client"
+        open={quickClientOpen}
+        onOpenChange={setQuickClientOpen}
+        context={{
+          sourceType: "manual",
+          prefill: {
+            account_manager: profile?.id || null,
+          },
+        }}
+        onCreated={(args) => {
+          if (args.record?.id) {
+            setSelectedClientId(String(args.record.id));
+          }
+          toast.success("Cliente creado rápido.");
+        }}
+      />
+
+      <QuickCreateDialog
+        type="task"
+        open={quickTaskOpen}
+        onOpenChange={setQuickTaskOpen}
+        context={
+          selectedClient
+            ? {
+                sourceType: "client",
+                sourceId: selectedClient.id,
+                prefill: {
+                  title: `Dar seguimiento a ${selectedClient.company_name}`,
+                  description: `Seguimiento creado desde Cliente 360.\nCliente: ${selectedClient.company_name}`,
+                  related_client_id: selectedClient.id,
+                  assigned_to:
+                    selectedClient.account_manager &&
+                    managerUserIdByProfileId.get(selectedClient.account_manager)
+                      ? managerUserIdByProfileId.get(selectedClient.account_manager)
+                      : profile?.user_id || user?.id || null,
+                },
+              }
+            : undefined
+        }
+        onCreated={() => {
+          void fetchTasks();
+          toast.success("Tarea vinculada al cliente.");
+        }}
+      />
 
       <Dialog
         open={createTaskOpen}
