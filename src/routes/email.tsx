@@ -89,6 +89,25 @@ type ConversationCategoryMap = Record<string, GmailCategory>;
 type ConversationLabelMap = Record<string, string[]>;
 type MailboxView = "inbox" | "starred" | "snoozed" | "sent" | "drafts" | "purchases";
 
+async function getEdgeFunctionErrorMessage(error: unknown, data: unknown, fallback: string) {
+  let message = String(
+    (data as any)?.error || (data as any)?.message || (error as any)?.message || fallback,
+  );
+
+  const context = (error as any)?.context;
+  if (context && typeof context.json === "function") {
+    try {
+      const body =
+        typeof context.clone === "function" ? await context.clone().json() : await context.json();
+      message = String(body?.error || body?.message || message);
+    } catch {
+      // keep fallback
+    }
+  }
+
+  return message;
+}
+
 function categoryFromLabelIds(labelIds?: string[] | null): GmailCategory {
   const labels = (labelIds || []).map((x) => String(x).toUpperCase());
 
@@ -166,6 +185,21 @@ function getInitials(value?: string | null) {
   return initials || "@";
 }
 
+function emailConversationSignature(rows: EmailConversation[]) {
+  return rows
+    .map((row) =>
+      [
+        row.id,
+        row.last_message_at || "",
+        row.updated_at || "",
+        row.unread_count ?? 0,
+        row.status || "",
+        row.snippet || "",
+      ].join("|"),
+    )
+    .join("::");
+}
+
 function syncStatusCopy(status: SyncStatus, account: EmailAccount | null, provider: ProviderKey) {
   if (provider !== "gmail") return "Outlook pendiente de integración";
   if (status === "syncing") return "Actualizando correos…";
@@ -185,6 +219,8 @@ function EmailPage() {
   const [selectedConvo, setSelectedConvo] = useState<EmailConversation | null>(null);
   const [searchEmail, setSearchEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const conversationsSignatureRef = useRef("");
+  const didLoadConversationsRef = useRef(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [provider, setProvider] = useState<ProviderKey>("gmail");
@@ -207,7 +243,7 @@ function EmailPage() {
 
   const fetchConversations = useCallback(async () => {
     if (!profile?.company_id) return;
-    setLoading(true);
+    if (!didLoadConversationsRef.current) setLoading(true);
     const q = db
       .from("email_conversations")
       .select("*")
@@ -227,7 +263,11 @@ function EmailPage() {
         .eq("company_id", profile.company_id)
         .order("last_message_at", { ascending: false });
       const rows = r2.data || [];
-      setConversations(rows);
+      const nextSignature = emailConversationSignature(rows);
+      if (nextSignature !== conversationsSignatureRef.current) {
+        conversationsSignatureRef.current = nextSignature;
+        setConversations(rows);
+      }
 
       const ids = rows.map((c: EmailConversation) => c.id).filter(Boolean);
       if (ids.length) {
@@ -253,11 +293,16 @@ function EmailPage() {
         setConversationCategories({});
       }
 
+      didLoadConversationsRef.current = true;
       setLoading(false);
       return;
     }
     const rows = data || [];
-    setConversations(rows);
+    const nextSignature = emailConversationSignature(rows);
+    if (nextSignature !== conversationsSignatureRef.current) {
+      conversationsSignatureRef.current = nextSignature;
+      setConversations(rows);
+    }
 
     const ids = rows.map((c: EmailConversation) => c.id).filter(Boolean);
     if (ids.length) {
@@ -291,6 +336,7 @@ function EmailPage() {
       setConversationLabels({});
     }
 
+    didLoadConversationsRef.current = true;
     setLoading(false);
   }, [db, profile?.company_id, provider]);
 
@@ -381,8 +427,11 @@ function EmailPage() {
       syncInFlightRef.current = false;
 
       if (error || (data as any)?.error) {
-        const message =
-          error?.message || String((data as any)?.error || "No se pudo sincronizar Gmail");
+        const message = await getEdgeFunctionErrorMessage(
+          error,
+          data,
+          "No se pudo sincronizar Gmail",
+        );
         setSyncStatus("error");
         setSyncError(message);
         if (!silent) toast.error(message);
@@ -407,6 +456,9 @@ function EmailPage() {
   );
 
   useEffect(() => {
+    didLoadConversationsRef.current = false;
+    conversationsSignatureRef.current = "";
+    setLoading(true);
     void fetchConversations();
     void loadEmailAccount();
     setTab("all");
@@ -1145,11 +1197,11 @@ function EmailPage() {
                           return (
                             <div
                               key={msg.id}
-                              className="rounded-[18px] border border-[#e5e7eb] bg-white p-4 shadow-none"
+                              className="border-b border-[#e5e7eb] bg-white px-5 py-4 last:border-b-0"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex items-center gap-3">
-                                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-[11px] font-black text-slate-700">
+                                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[11px] font-black text-slate-700">
                                     {getInitials(fromLabel)}
                                   </div>
                                   <div className="min-w-0">
@@ -1163,11 +1215,11 @@ function EmailPage() {
                                   {formatFullDate(when)}
                                 </div>
                               </div>
-                              <div className="mt-4 overflow-hidden rounded-xl border bg-white">
+                              <div className="mt-4 overflow-hidden bg-white">
                                 {msg.body_html ? (
                                   <EmailHtmlViewer html={msg.body_html} />
                                 ) : (
-                                  <div className="whitespace-pre-wrap p-4 text-sm text-slate-800">
+                                  <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
                                     {msg.body || msg.snippet || "(No content)"}
                                   </div>
                                 )}
