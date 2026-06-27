@@ -930,7 +930,7 @@ function ProposalsPage() {
         toast.success("Propuesta actualizada correctamente.");
         setSelected(null);
       } else {
-        const payload = { ...record, created_by: profile.id };
+        const payload = { ...record, created_by: user.id };
         console.log("Creating proposal payload", {
           userId: user?.id,
           profileId: profile?.id,
