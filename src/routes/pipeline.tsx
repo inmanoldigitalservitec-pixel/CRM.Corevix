@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { logActivityEvent } from "@/lib/activity-log";
+import { isLostDealStageValue, isWonDealStageValue, normalizeStage } from "@/lib/crm/status";
 
 export const Route = createFileRoute("/pipeline")({
   component: PipelinePage,
@@ -261,25 +262,11 @@ function stageDefaults(name: string) {
 }
 
 function isWonStageName(name: string) {
-  const s = name.trim().toLowerCase();
-  return (
-    s === "won" ||
-    s === "closed won" ||
-    s.includes("closed won") ||
-    s.includes("ganad") ||
-    s.includes("win")
-  );
+  return isWonDealStageValue(name);
 }
 
 function isLostStageName(name: string) {
-  const s = name.trim().toLowerCase();
-  return (
-    s === "lost" ||
-    s === "closed lost" ||
-    s.includes("closed lost") ||
-    s.includes("perdid") ||
-    s.includes("lost")
-  );
+  return isLostDealStageValue(name);
 }
 
 function parseIsoDateOnly(input: string) {
@@ -2142,7 +2129,7 @@ function PipelinePage() {
     if (!deal) return;
     setDragOverStage(null);
 
-    if (deal.stage === stageName) {
+    if (normalizeStage(deal.stage) === normalizeStage(stageName)) {
       toast.success(`Deal movido a ${stageName}`);
       setDraggedDealId(null);
       return;
