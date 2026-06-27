@@ -334,8 +334,6 @@ function toDateKey(value: string | null | undefined) {
 }
 
 function DashboardPage() {
-  return <DashboardV2 />;
-
   const { profile } = useAuth();
   const { t } = useT();
   const [error, setError] = useState<string | null>(null);
@@ -1025,6 +1023,251 @@ function DashboardPage() {
       ),
     },
   ];
+
+  const dashboardPercent = (value: number, total: number) => {
+    if (!total || total <= 0) return "0%";
+    return `${Math.min(100, Math.max(0, Math.round((value / total) * 100)))}%`;
+  };
+
+  const dashboardInitials = (name: string) =>
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("") || "CL";
+
+  const dashboardTodayLabel = new Date().toLocaleDateString("es-DO", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+
+  const dashboardV2Kpis = [
+    {
+      label: "Dinero por cobrar",
+      value: formatMoney(receivableTotal),
+      helper: invoicesOverdue.length ? `${invoicesOverdue.length} vencidas` : "Todo al día",
+      tone: invoicesOverdue.length ? ("orange" as const) : ("green" as const),
+      icon: DollarSign,
+    },
+    {
+      label: "Oportunidades",
+      value: String(openDeals.length),
+      helper: formatMoney(pipelineValue),
+      tone: "blue" as const,
+      icon: TrendingUp,
+    },
+    {
+      label: "Tareas atrasadas",
+      value: String(overdueTasks.length),
+      helper: overdueTasks.length ? "Necesitan acción" : "Sin atrasos",
+      tone: overdueTasks.length ? ("orange" as const) : ("neutral" as const),
+      icon: Clock,
+    },
+    {
+      label: "Propuestas",
+      value: String(pendingProposals.length),
+      helper: "Esperando respuesta",
+      tone: "purple" as const,
+      icon: FileText,
+    },
+    {
+      label: "Mensajes",
+      value: String(inboxPendingTotal),
+      helper: "Por atender",
+      tone: inboxPendingTotal ? ("red" as const) : ("neutral" as const),
+      icon: MessageCircle,
+    },
+    {
+      label: "Proyectos",
+      value: String(projectsActiveCount),
+      helper: "En ejecución",
+      tone: "teal" as const,
+      icon: Building2,
+    },
+  ];
+
+  const dashboardV2Actions = [
+    ...invoicesOverdue.slice(0, 2).map((invoice) => ({
+      title: invoice.number ? `Cobrar factura ${invoice.number}` : "Cobrar factura vencida",
+      relatedTo: invoice.client_id
+        ? clientLabel(clientById.get(String(invoice.client_id)))
+        : "Sin cliente",
+      due: invoice.due_date ? formatShortDate(invoice.due_date) : "Vencida",
+      priority: "Alta" as const,
+      button: "Ver factura",
+      icon: DollarSign,
+      tone: "red" as const,
+      href: "/invoices",
+    })),
+    ...overdueTaskItems.slice(0, 2).map((task) => ({
+      title: task.title || "Tarea atrasada",
+      relatedTo: task.relation || "Sin relación",
+      due: task.due_date ? formatShortDate(task.due_date) : "Sin fecha",
+      priority: "Alta" as const,
+      button: "Abrir tarea",
+      icon: AlertTriangle,
+      tone: "orange" as const,
+      href: "/tasks",
+    })),
+    ...leadAttentionItems.slice(0, 2).map((item) => ({
+      title: "Dar seguimiento a prospecto",
+      relatedTo: leadLabel(item.lead),
+      due: item.reasons[0] || "Pendiente",
+      priority: "Media" as const,
+      button: "Abrir lead",
+      icon: Users,
+      tone: "blue" as const,
+      href: "/leads",
+    })),
+    ...pendingConversations.slice(0, 2).map((conversation) => ({
+      title: `Responder ${conversation.channel}`,
+      relatedTo: conversation.name,
+      due: "Pendiente",
+      priority: "Media" as const,
+      button: "Responder",
+      icon: MessageCircle,
+      tone: "green" as const,
+      href: conversation.to,
+    })),
+    ...pendingProposalItems.slice(0, 2).map((proposal) => ({
+      title: proposal.title || proposal.number || "Propuesta pendiente",
+      relatedTo: proposal.clientName || "Sin cliente",
+      due: proposal.valid_until ? formatShortDate(proposal.valid_until) : "Pendiente",
+      priority: "Media" as const,
+      button: "Ver propuesta",
+      icon: FileText,
+      tone: "purple" as const,
+      href: "/proposals",
+    })),
+    ...projectsAtRisk.slice(0, 2).map((project) => ({
+      title: project.name || "Proyecto por revisar",
+      relatedTo: "Producción",
+      due: project.due_date ? formatShortDate(project.due_date) : "Sin fecha",
+      priority: "Alta" as const,
+      button: "Ver proyecto",
+      icon: Building2,
+      tone: "orange" as const,
+      href: "/projects",
+    })),
+  ].slice(0, 8);
+
+  const dashboardV2Schedule: [string, string, string, string][] = agendaItems
+    .slice(0, 8)
+    .map((item) => [
+      formatShortDate(item.dateKey),
+      item.kind,
+      item.title,
+      item.kind === "Factura"
+        ? "orange"
+        : item.kind === "Propuesta"
+          ? "purple"
+          : item.kind === "Proyecto"
+            ? "teal"
+            : "blue",
+    ]);
+
+  const collectionTotal = Math.max(receivableTotal + paidRevenue, 1);
+  const dashboardV2CollectionRows: [string, string, string, string][] = [
+    [
+      "Por cobrar",
+      formatMoney(receivableTotal),
+      dashboardPercent(receivableTotal, collectionTotal),
+      "bg-blue-500",
+    ],
+    [
+      "Vencido",
+      formatMoney(invoicesOverdue.reduce((s, i) => s + toNumber(i.total), 0)),
+      dashboardPercent(
+        invoicesOverdue.reduce((s, i) => s + toNumber(i.total), 0),
+        collectionTotal,
+      ),
+      "bg-rose-500",
+    ],
+    [
+      "Cobrado",
+      formatMoney(paidRevenue),
+      dashboardPercent(paidRevenue, collectionTotal),
+      "bg-emerald-500",
+    ],
+  ];
+
+  const dashboardPipelineMax = Math.max(...pipelineStages.map((stage) => stage.value), 1);
+  const dashboardV2Pipeline: [string, number, string, number, string][] = pipelineStages.map(
+    (stage, index) => [
+      stage.stage,
+      stage.count,
+      formatMoney(stage.value),
+      Math.max(4, Math.round((stage.value / dashboardPipelineMax) * 100)),
+      index === 0
+        ? "bg-blue-200"
+        : index === 1
+          ? "bg-blue-300"
+          : index === 2
+            ? "bg-violet-400"
+            : index === 3
+              ? "bg-orange-300"
+              : "bg-emerald-300",
+    ],
+  );
+
+  const dashboardV2Clients: [string, string, string, string, string][] = [
+    ...pendingInvoiceItems.map((invoice) => {
+      const name = invoice.clientName || "Cliente sin nombre";
+      return [
+        dashboardInitials(name),
+        name,
+        invoice.isOverdue ? "Factura vencida" : "Factura pendiente",
+        invoice.status || "Pendiente",
+        invoice.isOverdue ? "red" : "orange",
+      ] as [string, string, string, string, string];
+    }),
+    ...pendingProposalItems.map((proposal) => {
+      const name = proposal.clientName || "Cliente sin nombre";
+      return [
+        dashboardInitials(name),
+        name,
+        "Propuesta sin respuesta",
+        proposal.status || "Pendiente",
+        "purple",
+      ] as [string, string, string, string, string];
+    }),
+    ...leadAttentionItems.map((item) => {
+      const name = leadLabel(item.lead);
+      return [
+        dashboardInitials(name),
+        name,
+        item.reasons[0] || "Necesita seguimiento",
+        "Revisar",
+        "orange",
+      ] as [string, string, string, string, string];
+    }),
+  ].slice(0, 8);
+
+  const dashboardV2Activities: [string, string, string, typeof DollarSign][] = activities
+    .slice(0, 8)
+    .map((activity) => [
+      activity.action || "Actividad",
+      `${activity.detail || "Movimiento reciente"} · ${activity.time}`,
+      "",
+      DollarSign,
+    ]);
+
+  return (
+    <DashboardV2
+      kpis={dashboardV2Kpis}
+      actions={dashboardV2Actions}
+      schedule={dashboardV2Schedule}
+      collectionRows={dashboardV2CollectionRows}
+      pipeline={dashboardV2Pipeline}
+      clients={dashboardV2Clients}
+      activities={dashboardV2Activities}
+      todayLabel={dashboardTodayLabel}
+      collectionPeriodLabel="Este mes⌄"
+      pipelinePeriodLabel="Pipeline⌄"
+    />
+  );
 
   return (
     <div className="bg-[#f6f8fb] text-[#111827] p-4 sm:p-6 space-y-5">

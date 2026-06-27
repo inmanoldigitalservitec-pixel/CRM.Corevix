@@ -16,7 +16,47 @@ import {
 import { DashboardCard, DashboardTextButton } from "./dashboard-card";
 import { DashboardKpiCard } from "./dashboard-kpi-card";
 
-const kpis = [
+type DashboardV2Tone = "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral";
+
+type DashboardV2Kpi = {
+  label: string;
+  value: string;
+  helper: string;
+  tone: DashboardV2Tone;
+  icon: LucideIcon;
+};
+
+type DashboardV2Action = {
+  title: string;
+  relatedTo: string;
+  due: string;
+  priority: "Alta" | "Media" | "Normal";
+  button: string;
+  icon: LucideIcon;
+  tone: DashboardV2Tone;
+  href?: string;
+};
+
+type ScheduleItem = [string, string, string, string];
+type PipelineItem = [string, number, string, number, string];
+type ClientReviewItem = [string, string, string, string, string];
+type CollectionItem = [string, string, string, string];
+type ActivityItem = [string, string, string, LucideIcon];
+
+export type DashboardV2Props = {
+  kpis?: DashboardV2Kpi[];
+  actions?: DashboardV2Action[];
+  schedule?: ScheduleItem[];
+  collectionRows?: CollectionItem[];
+  pipeline?: PipelineItem[];
+  clients?: ClientReviewItem[];
+  activities?: ActivityItem[];
+  todayLabel?: string;
+  collectionPeriodLabel?: string;
+  pipelinePeriodLabel?: string;
+};
+
+const mockKpis: DashboardV2Kpi[] = [
   {
     label: "Dinero por cobrar",
     value: "$86,450",
@@ -61,7 +101,7 @@ const kpis = [
   },
 ];
 
-const actions = [
+const mockActions: DashboardV2Action[] = [
   {
     title: "Cobrar factura vencida",
     relatedTo: "Constructora Norte",
@@ -109,7 +149,7 @@ const actions = [
   },
 ];
 
-const schedule: ScheduleItem[] = [
+const mockSchedule: ScheduleItem[] = [
   ["09:00", "Reunión equipo", "Sala de juntas", "blue"],
   ["10:30", "Llamada cliente", "Constructora Norte", "purple"],
   ["12:00", "Seguimiento propuestas", "Revisión y envío", "green"],
@@ -117,7 +157,7 @@ const schedule: ScheduleItem[] = [
   ["04:00", "Revisar pendientes", "Cierre de jornada", "blue"],
 ];
 
-const pipeline: PipelineItem[] = [
+const mockPipeline: PipelineItem[] = [
   ["Leads nuevos", 48, "$96,000", 82, "bg-blue-200"],
   ["Calificados", 32, "$64,000", 58, "bg-blue-300"],
   ["Propuesta", 18, "$45,500", 35, "bg-violet-400"],
@@ -125,7 +165,7 @@ const pipeline: PipelineItem[] = [
   ["Ganado", 6, "$18,250", 13, "bg-emerald-300"],
 ];
 
-const clients: ClientReviewItem[] = [
+const mockClients: ClientReviewItem[] = [
   ["CV", "Constructora Valle", "Compra: 15 mar", "Pago pendiente", "red"],
   ["MR", "María Rodríguez", "Sin compra 45 días", "Sin actividad", "orange"],
   ["IC", "Inversiones Cantera", "Compra: 10 abr", "Seguimiento", "orange"],
@@ -133,12 +173,7 @@ const clients: ClientReviewItem[] = [
   ["AC", "Alimentos del Centro", "Sin compra 60 días", "En riesgo", "red"],
 ];
 
-type ScheduleItem = [string, string, string, string];
-type PipelineItem = [string, number, string, number, string];
-type ClientReviewItem = [string, string, string, string, string];
-type ActivityItem = [string, string, string, LucideIcon];
-
-const activities: ActivityItem[] = [
+const mockActivities: ActivityItem[] = [
   [
     "Factura FAC-1258 cobrada a Café Buen Día",
     "Hoy, 9:15 a.m. por Ana Torres",
@@ -180,11 +215,11 @@ const PIPELINE_VISIBLE_LIMIT = 4;
 const CLIENT_VISIBLE_LIMIT = 4;
 const ACTIVITY_VISIBLE_LIMIT = 4;
 
-const collectionRows = [
+const mockCollectionRows: CollectionItem[] = [
   ["Por cobrar", "$86,450", "60%", "bg-blue-500"],
   ["Vencido", "$24,300", "25%", "bg-rose-500"],
   ["Cobrado", "$112,800", "75%", "bg-emerald-500"],
-] as const;
+];
 
 function DashboardMoreButton({ children }: { children: string }) {
   return (
@@ -197,7 +232,18 @@ function DashboardMoreButton({ children }: { children: string }) {
   );
 }
 
-export function DashboardV2() {
+export function DashboardV2({
+  kpis = mockKpis,
+  actions = mockActions,
+  schedule = mockSchedule,
+  collectionRows = mockCollectionRows,
+  pipeline = mockPipeline,
+  clients = mockClients,
+  activities = mockActivities,
+  todayLabel = "Vie. 23 mayo",
+  collectionPeriodLabel = "Este mes⌄",
+  pipelinePeriodLabel = "Este mes⌄",
+}: DashboardV2Props = {}) {
   return (
     <div className="grid min-h-0 gap-2.5 p-3 xl:h-[calc(100svh-64px)] xl:grid-rows-[74px_minmax(0,1fr)_minmax(0,0.68fr)] xl:overflow-hidden xl:p-3">
       <section className="grid min-h-0 gap-2.5 md:grid-cols-2 xl:grid-cols-6">
@@ -260,7 +306,13 @@ export function DashboardV2() {
                       {item.priority}
                     </span>
 
-                    <button className="h-7 rounded-lg border border-blue-200 px-2.5 text-[11px] font-medium text-slate-700 hover:bg-blue-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (item.href) window.location.href = item.href;
+                      }}
+                      className="h-7 rounded-lg border border-blue-200 px-2.5 text-[11px] font-medium text-slate-700 hover:bg-blue-50"
+                    >
                       {item.button}
                     </button>
                   </div>
@@ -278,7 +330,7 @@ export function DashboardV2() {
           <DashboardCard title="Tu día de hoy" action={<span className="text-slate-400">‹ ›</span>}>
             <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] px-4 py-2">
               <div className="min-h-0 overflow-hidden">
-                <p className="-mt-0.5 mb-1.5 text-[11px] text-slate-500">Vie. 23 mayo</p>
+                <p className="-mt-0.5 mb-1.5 text-[11px] text-slate-500">{todayLabel}</p>
 
                 {schedule.slice(0, SCHEDULE_VISIBLE_LIMIT).map(([time, title, subtitle, tone]) => (
                   <div
@@ -307,7 +359,9 @@ export function DashboardV2() {
 
           <DashboardCard
             title="Cobros"
-            action={<span className="text-xs font-medium text-slate-500">Este mes⌄</span>}
+            action={
+              <span className="text-xs font-medium text-slate-500">{collectionPeriodLabel}</span>
+            }
           >
             <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] px-4 pb-3 pt-2">
               <div className="min-h-0 space-y-1 overflow-hidden">
@@ -341,7 +395,7 @@ export function DashboardV2() {
       <section className="grid min-h-0 gap-2.5 xl:grid-cols-[.88fr_.98fr_1.12fr]">
         <DashboardCard
           title="Ventas en proceso"
-          action={<span className="text-xs font-medium text-slate-500">Este mes⌄</span>}
+          action={<span className="text-xs font-medium text-slate-500">{pipelinePeriodLabel}</span>}
           bodyClassName="h-full p-3"
         >
           <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
