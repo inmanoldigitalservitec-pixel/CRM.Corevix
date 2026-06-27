@@ -41,15 +41,26 @@ export function DashboardCard({
 
 export function DashboardTextButton({
   children,
+  href,
   onClick,
 }: {
   children: ReactNode;
+  href?: string;
   onClick?: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        if (onClick) {
+          onClick();
+          return;
+        }
+
+        if (href) {
+          window.location.href = href;
+        }
+      }}
       className="whitespace-nowrap text-xs font-medium text-blue-600 hover:text-blue-700"
     >
       {children}

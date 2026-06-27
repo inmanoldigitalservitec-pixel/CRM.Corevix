@@ -131,6 +131,17 @@ type EmailConversationRow = {
   unread_count?: number | null;
 };
 
+type MetaConversationRow = {
+  id: string;
+  platform: "messenger" | "instagram" | string | null;
+  status: string | null;
+  sender_name?: string | null;
+  last_message_text?: string | null;
+  last_message_at?: string | null;
+  unread_count?: number | null;
+  created_at?: string | null;
+};
+
 type ActivityLogRow = {
   id: string;
   action: string;
@@ -349,6 +360,7 @@ function DashboardPage() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [waConversations, setWaConversations] = useState<WhatsAppConversationRow[]>([]);
   const [emailConversations, setEmailConversations] = useState<EmailConversationRow[]>([]);
+  const [metaConversations, setMetaConversations] = useState<MetaConversationRow[]>([]);
   const [activities, setActivities] = useState<
     { id: string; action: string; detail: string; time: string }[]
   >([]);
@@ -471,6 +483,16 @@ function DashboardPage() {
           .order("last_message_at", { ascending: false })
           .limit(50),
         db
+          .from("meta_conversations")
+          .select(
+            "id, platform, status, sender_name, last_message_text, last_message_at, unread_count, created_at",
+          )
+          .eq("company_id", cid)
+          .in("platform", ["messenger", "instagram"])
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .limit(80),
+        db
           .from("activity_logs")
           .select("id, action, detail, created_at, entity_type")
           .eq("company_id", cid)
@@ -508,8 +530,9 @@ function DashboardPage() {
       setProposals(getData<ProposalRow>(7));
       setWaConversations(getData<WhatsAppConversationRow>(8));
       setEmailConversations(getData<EmailConversationRow>(9));
+      setMetaConversations(getData<MetaConversationRow>(10));
 
-      const actRows = getData<ActivityLogRow>(10);
+      const actRows = getData<ActivityLogRow>(11);
       setActivities(
         actRows.map((a) => ({
           id: a.id,
@@ -581,7 +604,15 @@ function DashboardPage() {
   const emailOpen = emailConversations.filter(
     (c) => String(c.status).toLowerCase() === "open",
   ).length;
-  const inboxPendingTotal = waOpen + emailOpen;
+  const messengerOpen = metaConversations.filter(
+    (c) =>
+      String(c.platform).toLowerCase() === "messenger" && String(c.status).toLowerCase() === "open",
+  ).length;
+  const instagramOpen = metaConversations.filter(
+    (c) =>
+      String(c.platform).toLowerCase() === "instagram" && String(c.status).toLowerCase() === "open",
+  ).length;
+  const inboxPendingTotal = waOpen + messengerOpen + instagramOpen + emailOpen;
 
   const projectsActiveCount = projects.filter(
     (p) => p.status !== "Completed" && p.status !== "Cancelled",
@@ -836,7 +867,7 @@ function DashboardPage() {
       .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
       .map((t) => ({
         kind: "Tarea",
-        title: "Tarea por vencer",
+        title: t.title || "Tarea sin título",
         dateKey: toDateKey(t.due_date),
         to: "/tasks",
       })),
@@ -886,6 +917,20 @@ function DashboardPage() {
         preview: c.last_message_body || "Sin mensaje reciente.",
         to: "/whatsapp",
       })),
+    ...metaConversations
+      .filter((c) => String(c.status).toLowerCase() === "open")
+      .slice(0, 4)
+      .map((c) => ({
+        id: `meta:${c.id}`,
+        name:
+          c.sender_name ||
+          (String(c.platform).toLowerCase() === "instagram"
+            ? "Usuario de Instagram"
+            : "Usuario de Messenger"),
+        channel: String(c.platform).toLowerCase() === "instagram" ? "Instagram" : "Messenger",
+        preview: c.last_message_text || "Sin mensaje reciente.",
+        to: "/whatsapp",
+      })),
     ...emailConversations
       .filter((c) => String(c.status).toLowerCase() === "open")
       .slice(0, 3)
@@ -896,7 +941,7 @@ function DashboardPage() {
         preview: c.subject || "Sin asunto.",
         to: "/email",
       })),
-  ].slice(0, 3);
+  ].slice(0, 6);
 
   const attentionCards = [
     {
@@ -1089,52 +1134,44 @@ function DashboardPage() {
   ];
 
   const dashboardV2Actions = [
+    ...pendingConversations.slice(0, 3).map((conversation) => ({
+      title: `Responder ${conversation.channel}`,
+      relatedTo: conversation.name,
+      due: conversation.preview || "Mensaje pendiente",
+      priority: "Alta" as const,
+      button: "Responder",
+      icon: MessageCircle,
+      tone: "green" as const,
+      href: conversation.to,
+    })),
     ...invoicesOverdue.slice(0, 2).map((invoice) => ({
       title: invoice.number ? `Cobrar factura ${invoice.number}` : "Cobrar factura vencida",
       relatedTo: invoice.client_id
         ? clientLabel(clientById.get(String(invoice.client_id)))
         : "Sin cliente",
-      due: invoice.due_date ? formatShortDate(invoice.due_date) : "Vencida",
+      due: invoice.due_date ? `Venció ${formatShortDate(invoice.due_date)}` : "Factura vencida",
       priority: "Alta" as const,
       button: "Ver factura",
       icon: DollarSign,
       tone: "red" as const,
       href: "/invoices",
     })),
-    ...overdueTaskItems.slice(0, 2).map((task) => ({
-      title: task.title || "Tarea atrasada",
-      relatedTo: task.relation || "Sin relación",
-      due: task.due_date ? formatShortDate(task.due_date) : "Sin fecha",
-      priority: "Alta" as const,
-      button: "Abrir tarea",
-      icon: AlertTriangle,
-      tone: "orange" as const,
-      href: "/tasks",
-    })),
     ...leadAttentionItems.slice(0, 2).map((item) => ({
       title: "Dar seguimiento a prospecto",
       relatedTo: leadLabel(item.lead),
-      due: item.reasons[0] || "Pendiente",
+      due: item.reasons[0] || "Sin seguimiento",
       priority: "Media" as const,
       button: "Abrir lead",
       icon: Users,
       tone: "blue" as const,
       href: "/leads",
     })),
-    ...pendingConversations.slice(0, 2).map((conversation) => ({
-      title: `Responder ${conversation.channel}`,
-      relatedTo: conversation.name,
-      due: "Pendiente",
-      priority: "Media" as const,
-      button: "Responder",
-      icon: MessageCircle,
-      tone: "green" as const,
-      href: conversation.to,
-    })),
     ...pendingProposalItems.slice(0, 2).map((proposal) => ({
       title: proposal.title || proposal.number || "Propuesta pendiente",
       relatedTo: proposal.clientName || "Sin cliente",
-      due: proposal.valid_until ? formatShortDate(proposal.valid_until) : "Pendiente",
+      due: proposal.valid_until
+        ? `Vence ${formatShortDate(proposal.valid_until)}`
+        : "Esperando respuesta",
       priority: "Media" as const,
       button: "Ver propuesta",
       icon: FileText,
@@ -1144,28 +1181,66 @@ function DashboardPage() {
     ...projectsAtRisk.slice(0, 2).map((project) => ({
       title: project.name || "Proyecto por revisar",
       relatedTo: "Producción",
-      due: project.due_date ? formatShortDate(project.due_date) : "Sin fecha",
+      due: project.due_date ? `Entrega ${formatShortDate(project.due_date)}` : "Revisar avance",
       priority: "Alta" as const,
       button: "Ver proyecto",
       icon: Building2,
       tone: "orange" as const,
       href: "/projects",
     })),
+    ...overdueTaskItems.slice(0, 2).map((task) => ({
+      title: task.title || "Tarea atrasada",
+      relatedTo: task.relation || "Sin relación",
+      due: task.due_date ? `Venció ${formatShortDate(task.due_date)}` : "Sin fecha",
+      priority: "Media" as const,
+      button: "Abrir tarea",
+      icon: AlertTriangle,
+      tone: "orange" as const,
+      href: "/tasks",
+    })),
   ].slice(0, 8);
+
+  const dashboardRelativeDateLabel = (dateKey: string) => {
+    if (dateKey < today) return "Vencida";
+    if (dateKey === today) return "Hoy";
+
+    const [year, month, day] = dateKey.split("-").map((value) => Number(value));
+    const target = new Date(year, month - 1, day);
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.round((target.getTime() - start.getTime()) / 86400000);
+
+    if (diffDays === 1) return "Mañana";
+    if (diffDays > 1 && diffDays <= 7) return `${diffDays} días`;
+
+    return formatShortDate(dateKey);
+  };
+
+  const dashboardScheduleSubtitle = (item: { kind: string; title: string; dateKey: string }) => {
+    if (item.kind === "Tarea") return "Tarea pendiente";
+    if (item.kind === "Factura")
+      return item.dateKey < today ? "Factura vencida" : "Factura por cobrar";
+    if (item.kind === "Propuesta") return "Propuesta pendiente";
+    if (item.kind === "Proyecto") return "Entrega de proyecto";
+    return item.kind;
+  };
 
   const dashboardV2Schedule: [string, string, string, string][] = agendaItems
     .slice(0, 8)
     .map((item) => [
-      formatShortDate(item.dateKey),
-      item.kind,
+      dashboardRelativeDateLabel(item.dateKey),
       item.title,
-      item.kind === "Factura"
-        ? "orange"
-        : item.kind === "Propuesta"
-          ? "purple"
-          : item.kind === "Proyecto"
-            ? "teal"
-            : "blue",
+      dashboardScheduleSubtitle(item),
+      item.dateKey < today
+        ? "red"
+        : item.kind === "Factura"
+          ? "orange"
+          : item.kind === "Propuesta"
+            ? "purple"
+            : item.kind === "Proyecto"
+              ? "teal"
+              : "blue",
     ]);
 
   const collectionTotal = Math.max(receivableTotal + paidRevenue, 1);
@@ -1245,13 +1320,139 @@ function DashboardPage() {
     }),
   ].slice(0, 8);
 
-  const dashboardV2Activities: [string, string, string, typeof DollarSign][] = activities
+  const dashboardFallbackActivities: [string, string, string, typeof DollarSign][] = [
+    ...pendingInvoiceItems
+      .slice(0, 3)
+      .map(
+        (invoice) =>
+          [
+            invoice.isOverdue
+              ? invoice.number
+                ? `Factura vencida ${invoice.number}`
+                : "Factura vencida"
+              : invoice.number
+                ? `Factura pendiente ${invoice.number}`
+                : "Factura pendiente",
+            `${invoice.clientName || "Sin cliente vinculado"} · ${
+              invoice.due_date ? formatShortDate(invoice.due_date) : "Sin vencimiento"
+            }`,
+            formatMoney(toNumber(invoice.total)),
+            DollarSign,
+          ] as [string, string, string, typeof DollarSign],
+      ),
+
+    ...pendingProposalItems
+      .slice(0, 3)
+      .map(
+        (proposal) =>
+          [
+            proposal.title || proposal.number || "Propuesta pendiente",
+            `${proposal.clientName || "Sin cliente vinculado"} · ${proposal.status || "Pendiente"}`,
+            proposal.amount != null ? formatMoney(toNumber(proposal.amount)) : "",
+            FileText,
+          ] as [string, string, string, typeof DollarSign],
+      ),
+
+    ...overdueTaskItems
+      .slice(0, 3)
+      .map(
+        (task) =>
+          [
+            task.title || "Tarea pendiente",
+            `${task.relation || "Sin relación"} · ${
+              task.due_date ? formatShortDate(task.due_date) : "Sin fecha"
+            }`,
+            "",
+            AlertTriangle,
+          ] as [string, string, string, typeof DollarSign],
+      ),
+
+    ...staleDealItems
+      .slice(0, 3)
+      .map(
+        (deal) =>
+          [
+            deal.name || "Oportunidad sin nombre",
+            `${deal.stage || "Sin etapa"} · ${deal.updated_at ? formatShortDate(deal.updated_at) : "Sin fecha"}`,
+            formatMoney(toNumber(deal.value)),
+            TrendingUp,
+          ] as [string, string, string, typeof DollarSign],
+      ),
+  ];
+
+  const dashboardV2Activities: [string, string, string, typeof DollarSign][] =
+    activities.length > 0
+      ? activities
+          .slice(0, 8)
+          .map((activity) => [
+            activity.action || "Actividad",
+            `${activity.detail || "Movimiento reciente"} · ${activity.time}`,
+            "",
+            DollarSign,
+          ])
+      : dashboardFallbackActivities.slice(0, 8);
+
+  const dashboardV2Communications: [string, string, string, string, string, string][] = [
+    ...waConversations.map((conversation) => ({
+      channel: "WhatsApp",
+      name:
+        conversation.whatsapp_contacts?.name ||
+        conversation.whatsapp_contacts?.phone ||
+        "Contacto de WhatsApp",
+      preview: conversation.last_message_body || "Sin mensaje reciente.",
+      count: String(Number(conversation.unread_count ?? 0)),
+      tone: Number(conversation.unread_count ?? 0) > 0 ? "green" : "neutral",
+      href: "/whatsapp",
+      at: conversation.last_message_at || "",
+    })),
+    ...metaConversations.map((conversation) => {
+      const platform = String(conversation.platform || "").toLowerCase();
+      const isInstagram = platform === "instagram";
+
+      return {
+        channel: isInstagram ? "Instagram" : "Messenger",
+        name:
+          conversation.sender_name ||
+          (isInstagram ? "Usuario de Instagram" : "Usuario de Messenger"),
+        preview: conversation.last_message_text || "Sin mensaje reciente.",
+        count: String(Number(conversation.unread_count ?? 0)),
+        tone:
+          Number(conversation.unread_count ?? 0) > 0
+            ? isInstagram
+              ? "purple"
+              : "blue"
+            : "neutral",
+        href: "/whatsapp",
+        at: conversation.last_message_at || conversation.created_at || "",
+      };
+    }),
+    ...emailConversations.map((conversation) => ({
+      channel: "Email",
+      name: conversation.subject || "Email sin asunto",
+      preview: conversation.status || "Correo pendiente.",
+      count: String(Number(conversation.unread_count ?? 0)),
+      tone: Number(conversation.unread_count ?? 0) > 0 ? "red" : "neutral",
+      href: "/email",
+      at: conversation.last_message_at || "",
+    })),
+  ]
+    .filter(
+      (conversation) =>
+        Number(conversation.count) > 0 || conversation.preview !== "Sin mensaje reciente.",
+    )
+    .sort((a, b) => {
+      const at = a.at ? Date.parse(a.at) : 0;
+      const bt = b.at ? Date.parse(b.at) : 0;
+      return bt - at;
+    })
     .slice(0, 8)
-    .map((activity) => [
-      activity.action || "Actividad",
-      `${activity.detail || "Movimiento reciente"} · ${activity.time}`,
-      "",
-      DollarSign,
+    .map((conversation) => [
+      conversation.channel,
+      conversation.name,
+      conversation.preview,
+      conversation.count,
+      conversation.tone,
+      conversation.href,
     ]);
 
   return (
@@ -1263,6 +1464,7 @@ function DashboardPage() {
       pipeline={dashboardV2Pipeline}
       clients={dashboardV2Clients}
       activities={dashboardV2Activities}
+      communications={dashboardV2Communications}
       todayLabel={dashboardTodayLabel}
       collectionPeriodLabel="Este mes⌄"
       pipelinePeriodLabel="Pipeline⌄"
