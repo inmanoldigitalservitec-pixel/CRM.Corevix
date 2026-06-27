@@ -2242,7 +2242,7 @@ function PipelinePage() {
         expected_close: newDeal.expected_close || null,
         stage: newDealStageOverride || newDeal.stage,
         lead_id: newDeal.source_type === "lead" && newDeal.lead_id ? newDeal.lead_id : null,
-        assigned_to: null,
+        assigned_to: profile?.user_id || user?.id || null,
         created_by: profile?.id || null,
       });
       if (error) {
