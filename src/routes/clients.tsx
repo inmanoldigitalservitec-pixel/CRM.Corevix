@@ -784,6 +784,27 @@ function ClientsPage() {
     return new Map(managers.map((manager) => [manager.id, manager.full_name]));
   }, [managers]);
 
+  const managerUserIdByProfileId = useMemo(() => {
+    return new Map(
+      managers
+        .filter((manager) => manager.user_id)
+        .map((manager) => [String(manager.id), String(manager.user_id)]),
+    );
+  }, [managers]);
+
+  const resolveTaskAssigneeUserId = (raw: string | null | undefined) => {
+    const value = String(raw || "").trim();
+    if (!value || value === "none") return profile?.user_id || user?.id || null;
+
+    const byManagerProfileId = managerUserIdByProfileId.get(value);
+    if (byManagerProfileId) return byManagerProfileId;
+
+    if (value === String(profile?.user_id || "") || value === String(user?.id || "")) return value;
+    if (value === String(profile?.id || "")) return profile?.user_id || user?.id || null;
+
+    return profile?.user_id || user?.id || null;
+  };
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -1111,7 +1132,7 @@ function ClientsPage() {
         description: taskDraft.description.trim() || null,
         status: "To Do",
         priority: "Medium",
-        assigned_to: selectedClient.account_manager || profile.id,
+        assigned_to: resolveTaskAssigneeUserId(selectedClient.account_manager),
         related_client_id: selectedClient.id,
         due_date: taskDraft.due_date || null,
       };

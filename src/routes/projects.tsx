@@ -599,9 +599,9 @@ function ProjectsPage() {
     }
     if (
       isSalesAgent &&
-      profile?.id &&
+      (profile?.user_id || user?.id) &&
       task.assigned_to &&
-      String(task.assigned_to) !== String(profile.id)
+      String(task.assigned_to) !== String(profile?.user_id || user?.id)
     ) {
       toast.error("Solo puedes completar tareas asignadas a ti.");
       return;
