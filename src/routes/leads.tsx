@@ -1270,6 +1270,18 @@ function LeadsPage() {
           : err && typeof err === "object" && "message" in err
             ? String((err as { message?: unknown }).message || "No se pudo guardar el lead")
             : "No se pudo guardar el lead";
+
+      const isDuplicatePhone =
+        message.toLowerCase().includes("duplicate key") &&
+        message.includes("ux_leads_company_phone");
+
+      if (isDuplicatePhone) {
+        toast.error(
+          "Ya existe un lead con ese teléfono. Busca el contacto existente antes de crear otro.",
+        );
+        return;
+      }
+
       toast.error(`No se pudo guardar lead: ${message}`);
     }
   };
