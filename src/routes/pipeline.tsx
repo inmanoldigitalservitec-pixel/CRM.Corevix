@@ -46,17 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { LoadingMetrics } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
@@ -2330,7 +2319,7 @@ function PipelinePage() {
     <div data-demo="pipeline-main" className="min-h-[calc(100vh-72px)] bg-white text-[#101828]">
       <div className="px-3 sm:px-4 lg:px-5 py-3">
         <div className="min-w-[1120px]">
-          <div className="mb-3 overflow-hidden rounded-[22px] border border-[#edf1f7] bg-white p-3.5 shadow-[0_10px_26px_rgba(15,23,42,0.035)]">
+          <div className="relative z-20 mb-3 overflow-visible rounded-[22px] border border-[#edf1f7] bg-white p-3.5 shadow-[0_10px_26px_rgba(15,23,42,0.035)]">
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[15px] bg-[linear-gradient(135deg,#1d62f9,#0ea5e9)] text-white shadow-[0_12px_24px_rgba(29,98,249,0.20)]">
@@ -2446,7 +2435,7 @@ function PipelinePage() {
 
                   <button
                     className="h-[38px] shrink-0 rounded-[13px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] shadow-[0_8px_18px_rgba(15,23,42,0.045)] transition hover:-translate-y-[1px] hover:border-[#bdd1ff] flex items-center gap-1.5"
-                    onClick={() => setFiltersOpen(true)}
+                    onClick={() => setFiltersOpen((open) => !open)}
                     type="button"
                   >
                     <SlidersHorizontal className="h-4 w-4" />
@@ -2460,6 +2449,171 @@ function PipelinePage() {
                 </div>
               </div>
             </div>
+
+            {filtersOpen ? (
+              <div
+                data-demo="pipeline-inline-filters"
+                className="absolute right-3 top-[calc(100%+8px)] z-50 w-[270px] aspect-[3/5] overflow-y-auto rounded-[20px] border border-[#edf1f7] bg-white p-3 shadow-[0_24px_60px_rgba(15,23,42,0.16)]"
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-semibold text-[#101828]">Filtros</div>
+                    <div className="mt-0.5 text-[11px] font-medium text-[#98a2b3]">
+                      {activeFilterCount} activos
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    className="h-7 px-2 text-xs text-[#667085]"
+                    onClick={() => setFiltersOpen(false)}
+                    type="button"
+                  >
+                    Cerrar
+                  </Button>
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label className="text-[11px] font-semibold text-[#667085]">Estado</Label>
+                    <Select
+                      value={filters.status}
+                      onValueChange={(v) =>
+                        setFilters((prev) => ({ ...prev, status: v as DealStatusFilter }))
+                      }
+                    >
+                      <SelectTrigger className="h-9 bg-white text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Activos</SelectItem>
+                        <SelectItem value="won">Ganados</SelectItem>
+                        <SelectItem value="lost">Archivados</SelectItem>
+                        <SelectItem value="all">Todos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label className="text-[11px] font-semibold text-[#667085]">Asignado</Label>
+                    <Select
+                      value={filters.assigned}
+                      onValueChange={(v) =>
+                        setFilters((prev) => ({ ...prev, assigned: v as AssignedFilter }))
+                      }
+                    >
+                      <SelectTrigger className="h-9 bg-white text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="me">Solo yo</SelectItem>
+                        <SelectItem value="team">Asignados</SelectItem>
+                        <SelectItem value="unassigned">Sin asignar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label className="text-[11px] font-semibold text-[#667085]">Cierre</Label>
+                    <Select
+                      value={filters.closePreset}
+                      onValueChange={(v) =>
+                        setFilters((prev) => ({ ...prev, closePreset: v as CloseDatePreset }))
+                      }
+                    >
+                      <SelectTrigger className="h-9 bg-white text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Cualquiera</SelectItem>
+                        <SelectItem value="today">Hoy</SelectItem>
+                        <SelectItem value="week">Semana</SelectItem>
+                        <SelectItem value="month">Mes</SelectItem>
+                        <SelectItem value="none">Sin fecha</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-[11px] font-semibold text-[#667085]">Etapas</Label>
+                      <Button
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          const all = stages.map((stage) => stage.name);
+                          setFilters((prev) => ({
+                            ...prev,
+                            selectedStages: prev.selectedStages.length === all.length ? [] : all,
+                          }));
+                        }}
+                        type="button"
+                      >
+                        {filters.selectedStages.length === stages.length ? "Limpiar" : "Todas"}
+                      </Button>
+                    </div>
+
+                    <div className="grid max-h-[135px] gap-1.5 overflow-y-auto pr-1">
+                      {stages.map((stage) => {
+                        const checked = selectedStagesSet.has(stage.name);
+                        const stageColor =
+                          normalizeHex(stage.color || "") || stageDefaults(stage.name);
+
+                        return (
+                          <button
+                            key={stage.id}
+                            type="button"
+                            onClick={() => {
+                              setFilters((prev) => {
+                                const set = new Set(prev.selectedStages);
+                                if (checked) set.delete(stage.name);
+                                else set.add(stage.name);
+                                return { ...prev, selectedStages: Array.from(set) };
+                              });
+                            }}
+                            className={
+                              "flex h-8 items-center justify-between rounded-[11px] border px-2.5 text-left text-[11px] font-semibold transition " +
+                              (checked ? "bg-white shadow-sm" : "bg-[#fbfcfe] text-[#667085]")
+                            }
+                            style={{
+                              borderColor: checked ? stageColor : "#edf1f7",
+                              color: checked ? stageColor : undefined,
+                            }}
+                          >
+                            <span className="truncate">{stage.name}</span>
+                            {checked ? <span>✓</span> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="mt-1 h-9 text-xs"
+                    onClick={() =>
+                      setFilters({
+                        status: "active",
+                        selectedStages: [],
+                        assigned: "all",
+                        valueMin: "",
+                        valueMax: "",
+                        probMin: "",
+                        probMax: "",
+                        closePreset: "any",
+                        closeFrom: "",
+                        closeTo: "",
+                        followUpStaleDays: "",
+                      })
+                    }
+                    type="button"
+                  >
+                    Reset filtros
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {pipelineStages.length === 0 ? (
@@ -2471,10 +2625,143 @@ function PipelinePage() {
           ) : (
             <>
               {viewMode === "list" ? (
-                <div className="rounded-[22px] border border-[#edf1f7] bg-white shadow-[0_10px_26px_rgba(15,23,42,0.035)] p-5">
-                  <div className="text-[13px] font-semibold text-[#667085]">
-                    La vista de lista estará disponible pronto (usa el tablero para mover
-                    oportunidades).
+                <div className="overflow-hidden rounded-[22px] border border-[#edf1f7] bg-white shadow-[0_10px_26px_rgba(15,23,42,0.035)]">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#edf1f7] px-4 py-3">
+                    <div>
+                      <div className="text-[15px] font-semibold tracking-[-0.02em] text-[#101828]">
+                        Lista de oportunidades
+                      </div>
+                      <div className="mt-0.5 text-[12px] font-medium text-[#667085]">
+                        Vista rápida para revisar, buscar y abrir oportunidades.
+                      </div>
+                    </div>
+
+                    <div className="rounded-full bg-[#f6f8fb] px-3 py-1 text-[12px] font-semibold text-[#475467]">
+                      {deals.filter((deal) => dealMatchesFilters(deal)).length} resultados
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] gap-3 border-b border-[#edf1f7] bg-[#fbfcfe] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#667085]">
+                    <div>Oportunidad</div>
+                    <div>Contacto</div>
+                    <div>Etapa</div>
+                    <div>Valor</div>
+                    <div>Prob.</div>
+                    <div>Cierre</div>
+                  </div>
+
+                  <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+                    {deals
+                      .filter((deal) => dealMatchesFilters(deal))
+                      .sort((a, b) => {
+                        const aTime = a.expected_close ? new Date(a.expected_close).getTime() : 0;
+                        const bTime = b.expected_close ? new Date(b.expected_close).getTime() : 0;
+                        return bTime - aTime;
+                      })
+                      .map((deal) => {
+                        const lead = deal.lead_id
+                          ? relatedLeadById[String(deal.lead_id)]
+                          : undefined;
+                        const contactLabel =
+                          lead?.company_name ||
+                          formatPersonName(lead?.first_name, lead?.last_name) ||
+                          lead?.email ||
+                          lead?.phone ||
+                          "Sin contacto";
+                        const stageColor =
+                          normalizeHex(
+                            stages.find((stage) => stage.name === deal.stage)?.color || "",
+                          ) || stageDefaults(deal.stage);
+                        const prob = clamp(deal.probability ?? 50, 0, 100);
+                        const isWon = wonStageNames.has(deal.stage);
+                        const isLost = lostStageNames.has(deal.stage);
+                        const stageInitial = deal.stage.trim().slice(0, 1).toUpperCase() || "•";
+
+                        return (
+                          <button
+                            key={deal.id}
+                            type="button"
+                            className="grid w-full grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] items-center gap-3 border-b border-[#f0f3f8] px-4 py-3 text-left transition hover:bg-[#fbfcff]"
+                            onClick={() => setSelectedDeal(deal)}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-[11px] text-white shadow-[0_8px_18px_rgba(15,23,42,0.10)]"
+                                  style={{ background: stageColor }}
+                                >
+                                  {isWon ? (
+                                    <Trophy className="h-4 w-4" />
+                                  ) : isLost ? (
+                                    <Trash2 className="h-4 w-4" />
+                                  ) : (
+                                    <span className="text-[12px] font-black">{stageInitial}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="truncate text-[13px] font-semibold text-[#101828]">
+                                    {deal.name}
+                                  </div>
+                                  <div className="mt-0.5 text-[11px] font-medium text-[#667085]">
+                                    {deal.lead_id ? "Prospecto conectado" : "Oportunidad manual"}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="truncate text-[13px] font-semibold text-[#344054]">
+                                {contactLabel}
+                              </div>
+                              <div className="mt-0.5 truncate text-[11px] font-medium text-[#98a2b3]">
+                                {lead?.email || lead?.phone || "Sin datos de contacto"}
+                              </div>
+                            </div>
+
+                            <div>
+                              <span
+                                className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                                style={{ background: rgba(stageColor, 0.1), color: stageColor }}
+                              >
+                                <span className="truncate">{deal.stage}</span>
+                              </span>
+                            </div>
+
+                            <div className="text-[13px] font-semibold text-[#101828]">
+                              ${toNumber(deal.value).toLocaleString()}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 text-[12px] font-semibold text-[#475467]">
+                                {prob}%
+                              </span>
+                              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[#e8edf3]">
+                                <span
+                                  className="block h-full rounded-full"
+                                  style={{ width: `${prob}%`, background: stageColor }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="text-[12px] font-medium text-[#475467]">
+                              {deal.expected_close
+                                ? formatDateLabel(deal.expected_close)
+                                : "Sin fecha"}
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                    {deals.filter((deal) => dealMatchesFilters(deal)).length === 0 ? (
+                      <div className="px-4 py-10 text-center">
+                        <div className="text-[14px] font-semibold text-[#344054]">
+                          No hay oportunidades con estos filtros.
+                        </div>
+                        <div className="mt-1 text-[12px] font-medium text-[#98a2b3]">
+                          Ajusta los filtros o crea una nueva oportunidad.
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -2636,6 +2923,7 @@ function PipelinePage() {
                                     dealRefs.current[deal.id] = el;
                                   }}
                                   draggable
+                                  onClick={() => setSelectedDeal(deal)}
                                   onDragStart={(e) => {
                                     setDraggedDealId(deal.id);
                                     setDragOverStage(stage.name);
@@ -2647,7 +2935,7 @@ function PipelinePage() {
                                     setDragOverStage(null);
                                   }}
                                   className={
-                                    "group relative select-none cursor-grab rounded-[15px] border bg-white p-3 shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-[1px] hover:shadow-[0_16px_30px_rgba(15,23,42,0.08)] " +
+                                    "group relative select-none cursor-pointer rounded-[15px] border bg-white p-3 shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-[1px] hover:shadow-[0_16px_30px_rgba(15,23,42,0.08)] " +
                                     (draggedDealId === deal.id
                                       ? "opacity-50 rotate-[2deg] scale-[0.98] cursor-grabbing"
                                       : "")
@@ -2671,79 +2959,6 @@ function PipelinePage() {
                                         {deal.lead_id ? "Prospecto conectado" : "Prospecto: —"}
                                       </span>
                                     </div>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <button className="h-[26px] w-[26px] rounded-[10px] grid place-items-center text-[#667085] hover:bg-[#f2f5f9]">
-                                          •••
-                                        </button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-56">
-                                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => setSelectedDeal(deal)}>
-                                          Ver detalle
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() => {
-                                            setEditDeal(deal);
-                                            setNewDeal({
-                                              name: deal.name,
-                                              value: String(deal.value ?? 0),
-                                              probability: String(deal.probability ?? 50),
-                                              expected_close: deal.expected_close || "",
-                                              stage: deal.stage,
-                                              source_type: deal.lead_id ? "lead" : "none",
-                                              lead_id: deal.lead_id || "",
-                                              client_id: "",
-                                            });
-                                            setDialogOpen(true);
-                                          }}
-                                        >
-                                          Editar
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => createFollowUpTask(deal)}>
-                                          Crear tarea
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          onClick={async () => {
-                                            const next = getNextStageName(deal.stage);
-                                            if (!next) {
-                                              toast.error("No hay siguiente etapa");
-                                              return;
-                                            }
-                                            await moveDealStage(deal.id, next);
-                                          }}
-                                        >
-                                          Mover a la siguiente etapa
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSub>
-                                          <DropdownMenuSubTrigger>Mover a…</DropdownMenuSubTrigger>
-                                          <DropdownMenuSubContent className="max-h-72 overflow-auto">
-                                            {pipelineStages.map((s) => (
-                                              <DropdownMenuItem
-                                                key={s.id}
-                                                onClick={() => moveDealStage(deal.id, s.name)}
-                                              >
-                                                {s.name}
-                                              </DropdownMenuItem>
-                                            ))}
-                                          </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          onClick={() => moveDealStage(deal.id, archiveStageName)}
-                                        >
-                                          Archivar
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-destructive focus:text-destructive"
-                                          onClick={() => setDeleteDealId(deal.id)}
-                                        >
-                                          Eliminar
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
                                   </div>
 
                                   <div className="flex items-center justify-between gap-3 mb-2.5">
@@ -2780,35 +2995,6 @@ function PipelinePage() {
                                     >
                                       <DollarSign className="h-3.5 w-3.5" /> Oportunidad
                                     </span>
-                                  </div>
-
-                                  <div className="absolute right-3.5 bottom-3.5 flex gap-1.5 opacity-0 translate-y-1 pointer-events-none transition-all group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto">
-                                    <button
-                                      className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setSelectedDeal(deal);
-                                      }}
-                                      type="button"
-                                      aria-label="Abrir detalles del deal"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        void openWhatsappForDeal(deal);
-                                      }}
-                                      type="button"
-                                      aria-label="Abrir conversación de WhatsApp"
-                                    >
-                                      <MessageCircle className="h-4 w-4" />
-                                    </button>
                                   </div>
                                 </div>
                               );
@@ -3220,25 +3406,8 @@ function PipelinePage() {
               accent="green"
               icon={<BriefcaseBusiness className="h-5 w-5 text-emerald-600" />}
               status={selectedDeal.stage}
-              onEdit={
-                can("deals.edit")
-                  ? () => {
-                      setEditDeal(selectedDeal);
-                      setNewDeal({
-                        name: selectedDeal.name,
-                        value: String(selectedDeal.value ?? 0),
-                        probability: String(selectedDeal.probability ?? 50),
-                        expected_close: selectedDeal.expected_close || "",
-                        stage: selectedDeal.stage,
-                        source_type: selectedDeal.lead_id ? "lead" : "none",
-                        lead_id: selectedDeal.lead_id || "",
-                        client_id: "",
-                      });
-                      setDialogOpen(true);
-                    }
-                  : undefined
-              }
-              onDelete={can("deals.delete") ? () => setDeleteDealId(selectedDeal.id) : undefined}
+              onEdit={undefined}
+              onDelete={undefined}
               fieldGroupDataDemo="pipeline-detail-summary"
               fields={[]}
               notes={selectedDeal.notes || undefined}
@@ -3459,6 +3628,91 @@ function PipelinePage() {
                               Responsable
                             </div>
                             <div className="mt-1 font-semibold truncate">{responsible}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        data-demo="pipeline-deal-management"
+                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                      >
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            Gestión de oportunidad
+                          </div>
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            Cambia la etapa o administra esta oportunidad desde un solo lugar.
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 gap-2">
+                          <div>
+                            <div className="mb-1 text-[11px] font-semibold text-muted-foreground">
+                              Etapa
+                            </div>
+                            <Select
+                              value={selectedDeal.stage}
+                              onValueChange={(stageName) =>
+                                void moveDealStage(selectedDeal.id, stageName)
+                              }
+                              disabled={!canEditDeal(selectedDeal)}
+                            >
+                              <SelectTrigger className="h-9 bg-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {pipelineStages.map((stage) => (
+                                  <SelectItem key={stage.id} value={stage.name}>
+                                    {stage.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9"
+                              disabled={!can("deals.edit")}
+                              onClick={() => {
+                                setEditDeal(selectedDeal);
+                                setNewDeal({
+                                  name: selectedDeal.name,
+                                  value: String(selectedDeal.value ?? 0),
+                                  probability: String(selectedDeal.probability ?? 50),
+                                  expected_close: selectedDeal.expected_close || "",
+                                  stage: selectedDeal.stage,
+                                  source_type: selectedDeal.lead_id ? "lead" : "none",
+                                  lead_id: selectedDeal.lead_id || "",
+                                  client_id: "",
+                                });
+                                setDialogOpen(true);
+                              }}
+                            >
+                              Editar
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9"
+                              disabled={!canEditDeal(selectedDeal)}
+                              onClick={() => void moveDealStage(selectedDeal.id, archiveStageName)}
+                            >
+                              Archivar
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9 text-destructive hover:text-destructive"
+                              disabled={!can("deals.delete")}
+                              onClick={() => setDeleteDealId(selectedDeal.id)}
+                            >
+                              Eliminar
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -3980,255 +4234,6 @@ function PipelinePage() {
                       ))}
                   </div>
                 )}
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-            <SheetContent side="right" className="w-full sm:max-w-[560px] p-0">
-              <SheetHeader>
-                <SheetTitle>Filtros de oportunidades</SheetTitle>
-                <SheetDescription>
-                  Ajusta la vista del pipeline sin perder tu orden por columna.
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="px-5 pb-5 pt-4 grid gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-[#344054]">
-                    Activos: {activeFilterCount}
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="h-8 text-xs"
-                    onClick={() =>
-                      setFilters({
-                        status: "active",
-                        selectedStages: [],
-                        assigned: "all",
-                        valueMin: "",
-                        valueMax: "",
-                        probMin: "",
-                        probMax: "",
-                        closePreset: "any",
-                        closeFrom: "",
-                        closeTo: "",
-                        followUpStaleDays: "",
-                      })
-                    }
-                  >
-                    Reset
-                  </Button>
-                </div>
-
-                {/* 1) Status */}
-                <div className="grid gap-2">
-                  <Label>Estado</Label>
-                  <Select
-                    value={filters.status}
-                    onValueChange={(v) =>
-                      setFilters((p) => ({ ...p, status: v as DealStatusFilter }))
-                    }
-                  >
-                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Activos</SelectItem>
-                      <SelectItem value="won">Ganados</SelectItem>
-                      <SelectItem value="lost">Perdidos / Archivados</SelectItem>
-                      <SelectItem value="all">Todos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 2) Stage multi-select */}
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label>Etapas</Label>
-                    <Button
-                      variant="ghost"
-                      className="h-8 px-2 text-xs"
-                      onClick={() => {
-                        const all = stages.map((s) => s.name);
-                        setFilters((p) => ({
-                          ...p,
-                          selectedStages: p.selectedStages.length === all.length ? [] : all,
-                        }));
-                      }}
-                      type="button"
-                    >
-                      {filters.selectedStages.length === stages.length
-                        ? "Limpiar"
-                        : "Seleccionar todo"}
-                    </Button>
-                  </div>
-                  <div className="max-h-48 overflow-auto rounded-[16px] border border-[#e6eaf0] bg-white p-3 grid gap-2">
-                    {stages.map((s) => {
-                      const checked = selectedStagesSet.has(s.name);
-                      return (
-                        <label
-                          key={s.id}
-                          className="flex items-center gap-2 text-sm font-medium text-[#344054]"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(next) => {
-                              setFilters((p) => {
-                                const set = new Set(p.selectedStages);
-                                if (next) set.add(s.name);
-                                else set.delete(s.name);
-                                return { ...p, selectedStages: Array.from(set) };
-                              });
-                            }}
-                          />
-                          <span className="truncate">{s.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 3) Assigned */}
-                <div className="grid gap-2">
-                  <Label>Asignado a</Label>
-                  <Select
-                    value={filters.assigned}
-                    onValueChange={(v) =>
-                      setFilters((p) => ({ ...p, assigned: v as AssignedFilter }))
-                    }
-                  >
-                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="me">Solo yo</SelectItem>
-                      <SelectItem value="team">Asignados</SelectItem>
-                      <SelectItem value="unassigned">Sin asignar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 4) Value range */}
-                <div className="grid gap-2">
-                  <Label>Rango de valor</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="Mínimo"
-                      value={filters.valueMin}
-                      onChange={(e) => setFilters((p) => ({ ...p, valueMin: e.target.value }))}
-                    />
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="Máximo"
-                      value={filters.valueMax}
-                      onChange={(e) => setFilters((p) => ({ ...p, valueMax: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                {/* 5) Probability */}
-                <div className="grid gap-2">
-                  <Label>Probabilidad (%)</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={filters.probMin}
-                      onChange={(e) => setFilters((p) => ({ ...p, probMin: e.target.value }))}
-                    />
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="100"
-                      value={filters.probMax}
-                      onChange={(e) => setFilters((p) => ({ ...p, probMax: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                {/* 6) Expected close */}
-                <div className="grid gap-2">
-                  <Label>Cierre estimado</Label>
-                  <Select
-                    value={filters.closePreset}
-                    onValueChange={(v) =>
-                      setFilters((p) => ({ ...p, closePreset: v as CloseDatePreset }))
-                    }
-                  >
-                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Cualquiera</SelectItem>
-                      <SelectItem value="today">Hoy</SelectItem>
-                      <SelectItem value="week">Esta semana</SelectItem>
-                      <SelectItem value="month">Este mes</SelectItem>
-                      <SelectItem value="range">Rango</SelectItem>
-                      <SelectItem value="none">Sin fecha</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {filters.closePreset === "range" && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        className="h-9 bg-muted/30 border-border/50"
-                        type="date"
-                        value={filters.closeFrom}
-                        onChange={(e) => setFilters((p) => ({ ...p, closeFrom: e.target.value }))}
-                      />
-                      <Input
-                        className="h-9 bg-muted/30 border-border/50"
-                        type="date"
-                        value={filters.closeTo}
-                        onChange={(e) => setFilters((p) => ({ ...p, closeTo: e.target.value }))}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* 7) Follow-up */}
-                <div className="grid gap-2">
-                  <Label>Necesita seguimiento</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      inputMode="numeric"
-                      placeholder="Sin update en (días)"
-                      value={filters.followUpStaleDays}
-                      onChange={(e) =>
-                        setFilters((p) => ({ ...p, followUpStaleDays: e.target.value }))
-                      }
-                      className="h-9 bg-muted/30 border-border/50"
-                    />
-                    <Button
-                      variant="outline"
-                      className="h-8 text-xs"
-                      onClick={() =>
-                        setFilters((p) => ({
-                          ...p,
-                          followUpStaleDays: p.followUpStaleDays ? "" : "7",
-                        }))
-                      }
-                      type="button"
-                    >
-                      {filters.followUpStaleDays ? "Desactivar" : "Activar (7d)"}
-                    </Button>
-                  </div>
-                  <div className="text-[12px] font-semibold text-[#667085]">
-                    Tip: usa 3, 7 o 14 días para priorizar.
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setFiltersOpen(false)}>
-                    Cerrar
-                  </Button>
-                  <Button onClick={() => setFiltersOpen(false)}>Aplicar</Button>
-                </div>
               </div>
             </SheetContent>
           </Sheet>

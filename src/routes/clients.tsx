@@ -1552,7 +1552,7 @@ function ClientsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_30%_0%,rgba(29,98,249,0.08),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6f8fb_54%)] px-5 py-6 text-[#101828] sm:px-7">
+      <div className="min-h-[calc(100vh-72px)] bg-white px-4 py-4 text-[#101828] sm:px-5">
         <div className="mb-5 space-y-2">
           <div className="h-9 w-40 rounded bg-slate-100" />
           <div className="h-5 w-96 max-w-full rounded bg-slate-100" />
@@ -1566,17 +1566,14 @@ function ClientsPage() {
   }
 
   return (
-    <div
-      data-demo="clients-main"
-      className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_30%_0%,rgba(29,98,249,0.08),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6f8fb_54%)] text-[#101828]"
-    >
-      <div className="space-y-5 px-5 py-6 sm:px-7">
+    <div data-demo="clients-main" className="min-h-[calc(100vh-72px)] bg-white text-[#101828]">
+      <div className="space-y-3 px-3 py-3 sm:px-4 lg:px-5">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="w-fit text-[26px] font-semibold leading-none tracking-[-0.03em] transition-colors duration-200 hover:text-[#1d62f9]">
               Clientes
             </h1>
-            <p className="mt-3 text-[14px] font-[650] text-[#667085]">
+            <p className="mt-2 text-[14px] font-[650] text-[#667085]">
               Gestiona cuentas activas, contactos, proyectos, finanzas y la salud comercial de cada
               cliente.
             </p>
@@ -1606,37 +1603,34 @@ function ClientsPage() {
         </header>
 
         <section
-          data-demo="clients-account-center"
-          className="rounded-[22px] border border-[#e6eaf0] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.055)]"
+          data-demo="clients-insights-bar"
+          className="flex flex-wrap items-center gap-2 border-y border-[#edf1f7] bg-white px-1 py-2 text-[12px] font-semibold text-[#667085]"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.10em] text-[#1d62f9]">
-                Centro de cuenta
-              </p>
-              <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-[#101828]">
-                {summaryNote}
-              </h2>
-              <p className="mt-1 text-[13px] font-[650] text-[#667085]">
-                {activeClientsCount} clientes activos · {vipClientsCount} VIP · {contactsCount}{" "}
-                contactos registrados.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant="secondary"
-                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700"
-              >
-                {filteredClients.length} visibles
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700"
-              >
-                {attentionCount} con atención
-              </Badge>
-            </div>
-          </div>
+          <span className="text-[#101828]">{filteredClients.length} visibles</span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#1d62f9]">{activeClientsCount}</strong> activos
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#7c3aed]">{vipClientsCount}</strong> VIP
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#e11d48]">{attentionCount}</strong> con atención
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#16a34a]">{contactsCount}</strong> contactos
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#d97706]">{activeProjectsCount}</strong> proyectos activos
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#f97316]">{pendingInvoicesCount}</strong> facturas pendientes
+          </span>
         </section>
 
         {errorMessage && (
@@ -1649,168 +1643,24 @@ function ClientsPage() {
         )}
 
         <section
-          data-demo="clients-metrics"
-          className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8"
+          data-demo="clients-filters-panel"
+          className="rounded-[16px] border border-[#edf1f7] bg-white px-3 py-2 shadow-none"
         >
-          <MetricCard
-            label="Clientes activos"
-            value={activeClientsCount}
-            icon={Building2}
-            tone="bg-[#eaf1ff] text-[#1d62f9]"
-            meta="Cuentas vigentes"
-          />
-          <MetricCard
-            label="VIP"
-            value={vipClientsCount}
-            icon={Star}
-            tone="bg-[#f3ecff] text-[#7c3aed]"
-            meta="Clientes premium"
-          />
-          <MetricCard
-            label="En riesgo"
-            value={riskClientsCount}
-            icon={ShieldAlert}
-            tone="bg-[#fff1f3] text-[#e11d48]"
-            meta="Requieren atención"
-          />
-          <MetricCard
-            label="Contactos"
-            value={contactsCount}
-            icon={Users}
-            tone="bg-[#ecfdf3] text-[#16a34a]"
-            meta="Todos los contactos"
-          />
-          <MetricCard
-            label="Primarios"
-            value={primaryContactsCount}
-            icon={UserCheck}
-            tone="bg-[#eff6ff] text-[#2563eb]"
-            meta="Contacto principal"
-          />
-          <MetricCard
-            label="Proyectos activos"
-            value={activeProjectsCount}
-            icon={FolderKanban}
-            tone="bg-[#fff7e6] text-[#d97706]"
-            meta="En ejecución"
-          />
-          <MetricCard
-            label="Facturas pendientes"
-            value={pendingInvoicesCount}
-            icon={CircleDollarSign}
-            tone="bg-[#fff3e8] text-[#f97316]"
-            meta={money(pendingInvoiceAmount)}
-          />
-          <MetricCard
-            label="Tareas atrasadas"
-            value={overdueTasksCount}
-            icon={CalendarClock}
-            tone="bg-[#fef2f2] text-[#ef4444]"
-            meta="Seguimiento urgente"
-          />
-        </section>
-
-        <DataCard>
-          <div data-demo="clients-filters-panel">
+          <div className="flex items-center gap-2">
             <SearchFilters
               searchValue={search}
               onSearchChange={setSearch}
               searchPlaceholder="Buscar clientes, contactos, industria..."
-              filters={[
-                {
-                  key: "status",
-                  placeholder: "Estado",
-                  value: statusFilter,
-                  onChange: setStatusFilter,
-                  allLabel: "Todos los estados",
-                  options: CLIENT_STATUSES.map((status) => ({
-                    label: clientStatusLabel(status),
-                    value: status,
-                  })),
-                  width: "w-44",
-                },
-                {
-                  key: "manager",
-                  placeholder: "Account manager",
-                  value: managerFilter,
-                  onChange: setManagerFilter,
-                  allLabel: "Todos los responsables",
-                  options: [
-                    { label: "Solo yo", value: "mine" },
-                    { label: "Sin asignar", value: "unassigned" },
-                    ...managerOptions.map((m) => ({ label: m.full_name, value: m.id })),
-                  ],
-                  width: "w-56",
-                },
-                {
-                  key: "industry",
-                  placeholder: "Industria",
-                  value: industryFilter,
-                  onChange: setIndustryFilter,
-                  allLabel: "Todas las industrias",
-                  options: industryOptions.map((industry) => ({
-                    label: industry,
-                    value: industry,
-                  })),
-                  width: "w-56",
-                },
-                {
-                  key: "contacts",
-                  placeholder: "Contactos",
-                  value: contactFilter,
-                  onChange: (v) => setContactFilter(v as (typeof CONTACT_PRESENCE_FILTERS)[number]),
-                  allLabel: "Todos los clientes",
-                  options: [
-                    { label: "Con contactos", value: "with" },
-                    { label: "Sin contactos", value: "without" },
-                    { label: "Con contacto primario", value: "primary" },
-                  ],
-                  width: "w-44",
-                },
-                {
-                  key: "health",
-                  placeholder: "Salud",
-                  value: healthFilter,
-                  onChange: (v) => setHealthFilter(v as (typeof CLIENT_HEALTH_FILTERS)[number]),
-                  allLabel: "Todas las cuentas",
-                  options: [
-                    { label: "Activo", value: "active" },
-                    { label: "Atención", value: "attention" },
-                    { label: "En riesgo", value: "risk" },
-                    { label: "Inactivo", value: "inactive" },
-                  ],
-                  width: "w-44",
-                },
-                {
-                  key: "finance",
-                  placeholder: "Finanzas",
-                  value: financeFilter,
-                  onChange: (v) => setFinanceFilter(v as (typeof FINANCE_FILTERS)[number]),
-                  options: Object.entries(FINANCE_LABELS).map(([value, label]) => ({
-                    label,
-                    value,
-                  })),
-                  width: "w-44",
-                },
-                {
-                  key: "activity",
-                  placeholder: "Actividad",
-                  value: activityFilter,
-                  onChange: (v) => setActivityFilter(v as (typeof ACTIVITY_FILTERS)[number]),
-                  allLabel: "Toda la actividad",
-                  options: [
-                    { label: "Actividad reciente", value: "recent7" },
-                    { label: "Sin actividad 30 días", value: "stale30" },
-                    { label: "Sin actividad 60 días", value: "stale60" },
-                  ],
-                  width: "w-56",
-                },
-              ]}
+              filters={[]}
+              className="flex-1"
             />
           </div>
-        </DataCard>
+        </section>
 
-        <DataCard data-demo="clients-list-panel" className="overflow-hidden">
+        <DataCard
+          data-demo="clients-list-panel"
+          className="overflow-hidden border-[#edf1f7] shadow-none"
+        >
           {filteredClients.length === 0 ? (
             <EmptyState
               icon={<Building2 className="h-6 w-6" />}
@@ -1821,20 +1671,22 @@ function ClientsPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[1180px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-5">Empresa</TableHead>
-                    <TableHead>Contacto principal</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Salud</TableHead>
-                    <TableHead className="hidden lg:table-cell">Responsable</TableHead>
-                    <TableHead className="hidden xl:table-cell">Productos</TableHead>
-                    <TableHead className="hidden xl:table-cell">Proyectos</TableHead>
-                    <TableHead className="hidden xl:table-cell">Tareas</TableHead>
-                    <TableHead className="hidden xl:table-cell">Finanzas</TableHead>
-                    <TableHead className="hidden 2xl:table-cell">Última actividad</TableHead>
-                    <TableHead className="w-[56px] pr-5" />
+                    <TableHead className="w-[230px] pl-4">Empresa</TableHead>
+                    <TableHead className="w-[220px]">Contacto principal</TableHead>
+                    <TableHead className="w-[100px]">Estado</TableHead>
+                    <TableHead className="w-[115px]">Salud</TableHead>
+                    <TableHead className="hidden lg:table-cell w-[150px]">Responsable</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[105px]">Productos</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[105px]">Proyectos</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[105px]">Tareas</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[110px]">Finanzas</TableHead>
+                    <TableHead className="hidden 2xl:table-cell w-[130px]">
+                      Última actividad
+                    </TableHead>
+                    <TableHead className="w-[48px] pr-4" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1847,7 +1699,7 @@ function ClientsPage() {
                       )}
                       onClick={() => setSelectedClientId(client.id)}
                     >
-                      <TableCell className="pl-5">
+                      <TableCell className="py-2 pl-4">
                         <div className="space-y-0.5">
                           <p className="font-semibold text-[#101828]">{client.company_name}</p>
                           <p className="text-xs text-[#667085]">
@@ -1855,7 +1707,7 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <div className="space-y-0.5">
                           <p className="font-medium text-[#344054]">
                             {client.primaryContact
@@ -1871,18 +1723,18 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <StatusBadge status={client.status} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <HealthBadge health={client.health} />
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">
+                      <TableCell className="hidden py-2 lg:table-cell">
                         <p className="text-sm font-medium text-[#344054]">
                           {client.accountManagerName}
                         </p>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {client.purchasedProducts.length}
@@ -1893,7 +1745,7 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {client.activeProjects.length}
@@ -1901,7 +1753,7 @@ function ClientsPage() {
                           <p className="text-xs text-[#667085]">activos</p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {client.openTasks.length}
@@ -1911,7 +1763,7 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {clientFinanceLabel(client)}
@@ -1921,18 +1773,18 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden 2xl:table-cell">
+                      <TableCell className="hidden py-2 2xl:table-cell">
                         <p className="text-sm font-medium text-[#344054]">
                           {relativeLabel(client.latestActivityAt)}
                         </p>
                       </TableCell>
-                      <TableCell className="pr-5">
+                      <TableCell className="py-2 pr-4">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 text-[#667085]"
+                              className="h-8 w-8 text-[#667085]"
                               onClick={(event) => event.stopPropagation()}
                             >
                               <MoreHorizontal className="h-4 w-4" />
