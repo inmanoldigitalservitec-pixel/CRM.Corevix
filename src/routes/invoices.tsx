@@ -43,7 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { isPaidInvoiceStatus } from "@/lib/crm/status";
+import { isPaidInvoiceStatus, normalizeStatus } from "@/lib/crm/status";
 
 export const Route = createFileRoute("/invoices")({
   component: InvoicesPage,
@@ -237,13 +237,7 @@ function InvoicesPage() {
         `${i.number} ${i.notes || ""} ${p?.number || ""} ${p?.title || ""} ${prod?.name || ""} ${client?.company_name || ""} ${fallbackClient}`.toLowerCase();
       const matchSearch = !q || haystack.includes(q);
       const matchStatus =
-        statusFilter === "all" ||
-        String(i.status || "")
-          .trim()
-          .toLowerCase() ===
-          String(statusFilter || "")
-            .trim()
-            .toLowerCase();
+        statusFilter === "all" || normalizeStatus(i.status) === normalizeStatus(statusFilter);
       return matchSearch && matchStatus;
     });
   }, [data, search, statusFilter, proposalsById, productsById, clientsById]);

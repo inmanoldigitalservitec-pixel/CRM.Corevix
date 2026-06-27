@@ -87,6 +87,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   isActiveProjectStatus,
+  isClosedDealStageValue,
   isCompletedTaskStatusValue,
   isOverdueInvoiceStatus,
   isSentOrOverdueInvoiceStatus,
@@ -915,7 +916,7 @@ function ClientsPage() {
       const pendingProposals = clientProposals.filter((proposal) =>
         isSentOrViewedProposalStatus(proposal.status),
       );
-      const openDeals = clientDeals.filter((deal) => !["Won", "Lost"].includes(deal.stage));
+      const openDeals = clientDeals.filter((deal) => !isClosedDealStageValue(deal.stage));
 
       const pendingInvoiceAmount = pendingInvoices.reduce(
         (sum, invoice) => sum + Number(invoice.total || 0),

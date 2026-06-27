@@ -47,7 +47,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
 import {
   isActiveProjectStatus,
+  isClosedTaskStatusValue,
   isCompletedTaskStatusValue,
+  isDoneTaskStatusValue,
   normalizeStatus,
 } from "@/lib/crm/status";
 
@@ -415,11 +417,11 @@ function ProjectsPage() {
     for (const p of projects) {
       const list = tasksByProjectId.get(String(p.id)) || [];
       const total = list.length;
-      const completed = list.filter((t) => isCompletedTaskStatusValue(t.status)).length;
-      const open = list.filter((t) => !isCompletedTaskStatusValue(t.status)).length;
+      const completed = list.filter((t) => isDoneTaskStatusValue(t.status)).length;
+      const open = list.filter((t) => !isClosedTaskStatusValue(t.status)).length;
       const overdue = list.filter((t) => {
         if (!t.due_date) return false;
-        if (isCompletedTaskStatusValue(t.status)) return false;
+        if (isClosedTaskStatusValue(t.status)) return false;
         return String(t.due_date) < today;
       }).length;
       const computedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -1476,7 +1478,7 @@ function ProjectsPage() {
                           </div>
                         </div>
                         <div className="shrink-0">
-                          {!isCompletedTaskStatusValue(t.status) && can("tasks.edit") ? (
+                          {!isClosedTaskStatusValue(t.status) && can("tasks.edit") ? (
                             <Button
                               variant="outline"
                               size="sm"

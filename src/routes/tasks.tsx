@@ -77,7 +77,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isActiveProjectStatus,
+  isClosedTaskStatusValue,
   isCompletedTaskStatusValue,
+  isDoneTaskStatusValue,
   isInProgressTaskStatusValue,
 } from "@/lib/crm/status";
 
@@ -456,7 +458,7 @@ function TasksPage() {
           : t.related_project_id === projectFilter);
 
       const dueKey = toDateKeyLocal(t.due_date);
-      const isActive = !isCompletedTaskStatusValue(t.status);
+      const isActive = !isClosedTaskStatusValue(t.status);
       const matchQuick =
         quickFilter === "all" ||
         (quickFilter === "today" && isActive && !!dueKey && dueKey === todayKey) ||
@@ -500,9 +502,9 @@ function TasksPage() {
     const todayKey = isoTodayLocal();
     const activeProjects = projects.filter((p) => isActiveProjectStatus(p.status)).length;
 
-    const completed = tasks.filter((t) => isCompletedTaskStatusValue(t.status)).length;
-    const inProgress = tasks.filter((t) => String(t.status || "") === "In Progress").length;
-    const active = tasks.filter((t) => !isCompletedTaskStatusValue(t.status));
+    const completed = tasks.filter((t) => isDoneTaskStatusValue(t.status)).length;
+    const inProgress = tasks.filter((t) => isInProgressTaskStatusValue(t.status)).length;
+    const active = tasks.filter((t) => !isClosedTaskStatusValue(t.status));
     const unassigned = active.filter((t) => !t.assigned_to).length;
     const dueToday = active.filter((t) => {
       const key = toDateKeyLocal(t.due_date);
@@ -1043,7 +1045,7 @@ function TasksPage() {
       >
         Abrir
       </Button>
-      {!isCompletedTaskStatusValue(t.status) ? (
+      {!isClosedTaskStatusValue(t.status) ? (
         <Button
           type="button"
           size="sm"
@@ -1077,7 +1079,7 @@ function TasksPage() {
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onSelect={() => void updateTaskStatusInline(t, "In Progress")}
-            disabled={String(t.status || "") === "In Progress"}
+            disabled={isInProgressTaskStatusValue(t.status)}
           >
             Marcar en progreso
           </DropdownMenuItem>
@@ -1110,7 +1112,7 @@ function TasksPage() {
       : "—";
     const dueKey = toDateKeyLocal(t.due_date);
     const todayKey = isoTodayLocal();
-    const isActive = !isCompletedTaskStatusValue(t.status);
+    const isActive = !isClosedTaskStatusValue(t.status);
     const isOverdue = isActive && !!dueKey && dueKey < todayKey;
     const isDueToday = isActive && !!dueKey && dueKey === todayKey;
     const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;
@@ -1517,9 +1519,7 @@ function TasksPage() {
                                     : "—";
                                   const dueKey = toDateKeyLocal(t.due_date);
                                   const todayKey = isoTodayLocal();
-                                  const isActive = !["Completed", "Cancelled"].includes(
-                                    String(t.status || ""),
-                                  );
+                                  const isActive = !isClosedTaskStatusValue(t.status);
                                   const isOverdue = isActive && !!dueKey && dueKey < todayKey;
                                   const isDueToday = isActive && !!dueKey && dueKey === todayKey;
                                   const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;

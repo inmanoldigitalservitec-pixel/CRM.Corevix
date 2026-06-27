@@ -30,7 +30,12 @@ export function isOverdueInvoiceStatus(status?: string | null) {
   return normalizeStatus(status) === "overdue";
 }
 
-export function isCompletedTaskStatusValue(status?: string | null) {
+export function isDoneTaskStatusValue(status?: string | null) {
+  const normalized = normalizeStatus(status);
+  return normalized === "completed" || normalized === "done";
+}
+
+export function isClosedTaskStatusValue(status?: string | null) {
   const normalized = normalizeStatus(status);
   return (
     normalized === "completed" ||
@@ -38,6 +43,10 @@ export function isCompletedTaskStatusValue(status?: string | null) {
     normalized === "cancelled" ||
     normalized === "canceled"
   );
+}
+
+export function isCompletedTaskStatusValue(status?: string | null) {
+  return isDoneTaskStatusValue(status);
 }
 
 export function isActiveProjectStatus(status?: string | null) {
