@@ -191,7 +191,7 @@ function emailConversationSignature(rows: EmailConversation[]) {
       [
         row.id,
         row.last_message_at || "",
-        row.updated_at || "",
+        (row as any).updated_at || "",
         row.unread_count ?? 0,
         row.status || "",
         row.snippet || "",
