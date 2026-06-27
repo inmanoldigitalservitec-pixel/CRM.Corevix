@@ -1552,7 +1552,7 @@ function ClientsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_30%_0%,rgba(29,98,249,0.08),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6f8fb_54%)] px-5 py-6 text-[#101828] sm:px-7">
+      <div className="min-h-[calc(100vh-72px)] bg-white px-4 py-4 text-[#101828] sm:px-5">
         <div className="mb-5 space-y-2">
           <div className="h-9 w-40 rounded bg-slate-100" />
           <div className="h-5 w-96 max-w-full rounded bg-slate-100" />
@@ -1566,17 +1566,14 @@ function ClientsPage() {
   }
 
   return (
-    <div
-      data-demo="clients-main"
-      className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_30%_0%,rgba(29,98,249,0.08),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6f8fb_54%)] text-[#101828]"
-    >
-      <div className="space-y-5 px-5 py-6 sm:px-7">
+    <div data-demo="clients-main" className="min-h-[calc(100vh-72px)] bg-white text-[#101828]">
+      <div className="space-y-3 px-3 py-3 sm:px-4 lg:px-5">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="w-fit text-[26px] font-semibold leading-none tracking-[-0.03em] transition-colors duration-200 hover:text-[#1d62f9]">
               Clientes
             </h1>
-            <p className="mt-3 text-[14px] font-[650] text-[#667085]">
+            <p className="mt-2 text-[14px] font-[650] text-[#667085]">
               Gestiona cuentas activas, contactos, proyectos, finanzas y la salud comercial de cada
               cliente.
             </p>
@@ -1606,37 +1603,34 @@ function ClientsPage() {
         </header>
 
         <section
-          data-demo="clients-account-center"
-          className="rounded-[22px] border border-[#e6eaf0] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.055)]"
+          data-demo="clients-insights-bar"
+          className="flex flex-wrap items-center gap-2 border-y border-[#edf1f7] bg-white px-1 py-2 text-[12px] font-semibold text-[#667085]"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.10em] text-[#1d62f9]">
-                Centro de cuenta
-              </p>
-              <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-[#101828]">
-                {summaryNote}
-              </h2>
-              <p className="mt-1 text-[13px] font-[650] text-[#667085]">
-                {activeClientsCount} clientes activos · {vipClientsCount} VIP · {contactsCount}{" "}
-                contactos registrados.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant="secondary"
-                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700"
-              >
-                {filteredClients.length} visibles
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700"
-              >
-                {attentionCount} con atención
-              </Badge>
-            </div>
-          </div>
+          <span className="text-[#101828]">{filteredClients.length} visibles</span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#1d62f9]">{activeClientsCount}</strong> activos
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#7c3aed]">{vipClientsCount}</strong> VIP
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#e11d48]">{attentionCount}</strong> con atención
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#16a34a]">{contactsCount}</strong> contactos
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#d97706]">{activeProjectsCount}</strong> proyectos activos
+          </span>
+          <span className="text-[#d0d5dd]">•</span>
+          <span>
+            <strong className="text-[#f97316]">{pendingInvoicesCount}</strong> facturas pendientes
+          </span>
         </section>
 
         {errorMessage && (
@@ -1649,168 +1643,24 @@ function ClientsPage() {
         )}
 
         <section
-          data-demo="clients-metrics"
-          className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8"
+          data-demo="clients-filters-panel"
+          className="rounded-[16px] border border-[#edf1f7] bg-white px-3 py-2 shadow-none"
         >
-          <MetricCard
-            label="Clientes activos"
-            value={activeClientsCount}
-            icon={Building2}
-            tone="bg-[#eaf1ff] text-[#1d62f9]"
-            meta="Cuentas vigentes"
-          />
-          <MetricCard
-            label="VIP"
-            value={vipClientsCount}
-            icon={Star}
-            tone="bg-[#f3ecff] text-[#7c3aed]"
-            meta="Clientes premium"
-          />
-          <MetricCard
-            label="En riesgo"
-            value={riskClientsCount}
-            icon={ShieldAlert}
-            tone="bg-[#fff1f3] text-[#e11d48]"
-            meta="Requieren atención"
-          />
-          <MetricCard
-            label="Contactos"
-            value={contactsCount}
-            icon={Users}
-            tone="bg-[#ecfdf3] text-[#16a34a]"
-            meta="Todos los contactos"
-          />
-          <MetricCard
-            label="Primarios"
-            value={primaryContactsCount}
-            icon={UserCheck}
-            tone="bg-[#eff6ff] text-[#2563eb]"
-            meta="Contacto principal"
-          />
-          <MetricCard
-            label="Proyectos activos"
-            value={activeProjectsCount}
-            icon={FolderKanban}
-            tone="bg-[#fff7e6] text-[#d97706]"
-            meta="En ejecución"
-          />
-          <MetricCard
-            label="Facturas pendientes"
-            value={pendingInvoicesCount}
-            icon={CircleDollarSign}
-            tone="bg-[#fff3e8] text-[#f97316]"
-            meta={money(pendingInvoiceAmount)}
-          />
-          <MetricCard
-            label="Tareas atrasadas"
-            value={overdueTasksCount}
-            icon={CalendarClock}
-            tone="bg-[#fef2f2] text-[#ef4444]"
-            meta="Seguimiento urgente"
-          />
-        </section>
-
-        <DataCard>
-          <div data-demo="clients-filters-panel">
+          <div className="flex items-center gap-2">
             <SearchFilters
               searchValue={search}
               onSearchChange={setSearch}
               searchPlaceholder="Buscar clientes, contactos, industria..."
-              filters={[
-                {
-                  key: "status",
-                  placeholder: "Estado",
-                  value: statusFilter,
-                  onChange: setStatusFilter,
-                  allLabel: "Todos los estados",
-                  options: CLIENT_STATUSES.map((status) => ({
-                    label: clientStatusLabel(status),
-                    value: status,
-                  })),
-                  width: "w-44",
-                },
-                {
-                  key: "manager",
-                  placeholder: "Account manager",
-                  value: managerFilter,
-                  onChange: setManagerFilter,
-                  allLabel: "Todos los responsables",
-                  options: [
-                    { label: "Solo yo", value: "mine" },
-                    { label: "Sin asignar", value: "unassigned" },
-                    ...managerOptions.map((m) => ({ label: m.full_name, value: m.id })),
-                  ],
-                  width: "w-56",
-                },
-                {
-                  key: "industry",
-                  placeholder: "Industria",
-                  value: industryFilter,
-                  onChange: setIndustryFilter,
-                  allLabel: "Todas las industrias",
-                  options: industryOptions.map((industry) => ({
-                    label: industry,
-                    value: industry,
-                  })),
-                  width: "w-56",
-                },
-                {
-                  key: "contacts",
-                  placeholder: "Contactos",
-                  value: contactFilter,
-                  onChange: (v) => setContactFilter(v as (typeof CONTACT_PRESENCE_FILTERS)[number]),
-                  allLabel: "Todos los clientes",
-                  options: [
-                    { label: "Con contactos", value: "with" },
-                    { label: "Sin contactos", value: "without" },
-                    { label: "Con contacto primario", value: "primary" },
-                  ],
-                  width: "w-44",
-                },
-                {
-                  key: "health",
-                  placeholder: "Salud",
-                  value: healthFilter,
-                  onChange: (v) => setHealthFilter(v as (typeof CLIENT_HEALTH_FILTERS)[number]),
-                  allLabel: "Todas las cuentas",
-                  options: [
-                    { label: "Activo", value: "active" },
-                    { label: "Atención", value: "attention" },
-                    { label: "En riesgo", value: "risk" },
-                    { label: "Inactivo", value: "inactive" },
-                  ],
-                  width: "w-44",
-                },
-                {
-                  key: "finance",
-                  placeholder: "Finanzas",
-                  value: financeFilter,
-                  onChange: (v) => setFinanceFilter(v as (typeof FINANCE_FILTERS)[number]),
-                  options: Object.entries(FINANCE_LABELS).map(([value, label]) => ({
-                    label,
-                    value,
-                  })),
-                  width: "w-44",
-                },
-                {
-                  key: "activity",
-                  placeholder: "Actividad",
-                  value: activityFilter,
-                  onChange: (v) => setActivityFilter(v as (typeof ACTIVITY_FILTERS)[number]),
-                  allLabel: "Toda la actividad",
-                  options: [
-                    { label: "Actividad reciente", value: "recent7" },
-                    { label: "Sin actividad 30 días", value: "stale30" },
-                    { label: "Sin actividad 60 días", value: "stale60" },
-                  ],
-                  width: "w-56",
-                },
-              ]}
+              filters={[]}
+              className="flex-1"
             />
           </div>
-        </DataCard>
+        </section>
 
-        <DataCard data-demo="clients-list-panel" className="overflow-hidden">
+        <DataCard
+          data-demo="clients-list-panel"
+          className="overflow-hidden border-[#edf1f7] shadow-none"
+        >
           {filteredClients.length === 0 ? (
             <EmptyState
               icon={<Building2 className="h-6 w-6" />}
@@ -1821,20 +1671,22 @@ function ClientsPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[1180px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-5">Empresa</TableHead>
-                    <TableHead>Contacto principal</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Salud</TableHead>
-                    <TableHead className="hidden lg:table-cell">Responsable</TableHead>
-                    <TableHead className="hidden xl:table-cell">Productos</TableHead>
-                    <TableHead className="hidden xl:table-cell">Proyectos</TableHead>
-                    <TableHead className="hidden xl:table-cell">Tareas</TableHead>
-                    <TableHead className="hidden xl:table-cell">Finanzas</TableHead>
-                    <TableHead className="hidden 2xl:table-cell">Última actividad</TableHead>
-                    <TableHead className="w-[56px] pr-5" />
+                    <TableHead className="w-[230px] pl-4">Empresa</TableHead>
+                    <TableHead className="w-[220px]">Contacto principal</TableHead>
+                    <TableHead className="w-[100px]">Estado</TableHead>
+                    <TableHead className="w-[115px]">Salud</TableHead>
+                    <TableHead className="hidden lg:table-cell w-[150px]">Responsable</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[105px]">Productos</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[105px]">Proyectos</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[105px]">Tareas</TableHead>
+                    <TableHead className="hidden xl:table-cell w-[110px]">Finanzas</TableHead>
+                    <TableHead className="hidden 2xl:table-cell w-[130px]">
+                      Última actividad
+                    </TableHead>
+                    <TableHead className="w-[48px] pr-4" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1847,7 +1699,7 @@ function ClientsPage() {
                       )}
                       onClick={() => setSelectedClientId(client.id)}
                     >
-                      <TableCell className="pl-5">
+                      <TableCell className="py-2 pl-4">
                         <div className="space-y-0.5">
                           <p className="font-semibold text-[#101828]">{client.company_name}</p>
                           <p className="text-xs text-[#667085]">
@@ -1855,7 +1707,7 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <div className="space-y-0.5">
                           <p className="font-medium text-[#344054]">
                             {client.primaryContact
@@ -1871,18 +1723,18 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <StatusBadge status={client.status} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <HealthBadge health={client.health} />
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">
+                      <TableCell className="hidden py-2 lg:table-cell">
                         <p className="text-sm font-medium text-[#344054]">
                           {client.accountManagerName}
                         </p>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {client.purchasedProducts.length}
@@ -1893,7 +1745,7 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {client.activeProjects.length}
@@ -1901,7 +1753,7 @@ function ClientsPage() {
                           <p className="text-xs text-[#667085]">activos</p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {client.openTasks.length}
@@ -1911,7 +1763,7 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden py-2 xl:table-cell">
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-[#101828]">
                             {clientFinanceLabel(client)}
@@ -1921,18 +1773,18 @@ function ClientsPage() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden 2xl:table-cell">
+                      <TableCell className="hidden py-2 2xl:table-cell">
                         <p className="text-sm font-medium text-[#344054]">
                           {relativeLabel(client.latestActivityAt)}
                         </p>
                       </TableCell>
-                      <TableCell className="pr-5">
+                      <TableCell className="py-2 pr-4">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 text-[#667085]"
+                              className="h-8 w-8 text-[#667085]"
                               onClick={(event) => event.stopPropagation()}
                             >
                               <MoreHorizontal className="h-4 w-4" />
@@ -2039,10 +1891,10 @@ function ClientsPage() {
           if (!open) setSelectedClientId(null);
         }}
       >
-        <SheetContent data-demo="client-360-panel" side="right" className="w-full p-0 sm:max-w-4xl">
+        <SheetContent data-demo="client-360-panel" side="right" className="w-full p-0 sm:max-w-3xl">
           {selectedClient && (
             <div className="flex h-full flex-col">
-              <SheetHeader className="relative border-b border-slate-200 px-5 py-4 text-left">
+              <SheetHeader className="relative border-b border-slate-200 px-4 py-3 text-left">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-[84px] bg-gradient-to-b from-violet-600/20 via-violet-500/10 to-transparent" />
                 <div className="relative flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-start gap-3">
@@ -2068,75 +1920,110 @@ function ClientsPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="flex flex-wrap items-center gap-2 pt-2">
                   <Button
                     size="sm"
-                    className="gap-2"
-                    onClick={() => {
-                      openEditClient(selectedClient);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Editar cliente
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => openContactCreator(selectedClient.id)}
-                  >
-                    <MessageSquarePlus className="h-4 w-4" />
-                    Añadir contacto
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
+                    className="h-8 gap-2 bg-[#1d62f9] hover:bg-[#0f52dd]"
                     data-demo="client-360-create-task"
                     onClick={() => openCreateTaskForClient(selectedClient)}
                     disabled={!canCreateTaskForClient(selectedClient)}
                   >
-                    <FileText className="h-4 w-4" />
+                    <FileText className="h-3.5 w-3.5" />
                     Crear tarea
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="gap-2 rounded-[14px]"
-                    onClick={() => setQuickProposalOpen(true)}
-                  >
-                    <FileText className="h-4 w-4" />
-                    Crear propuesta
-                  </Button>
+
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-2"
-                    onClick={() => navigate({ to: "/invoices" })}
+                    className="h-8 gap-2"
+                    onClick={() => {
+                      const email = selectedClient.primaryContact?.email || selectedClient.email;
+                      const phone = selectedClient.whatsapp || selectedClient.phone;
+
+                      if (email) {
+                        window.location.href = `mailto:${email}`;
+                        return;
+                      }
+
+                      if (phone) {
+                        window.location.href = `tel:${phone}`;
+                        return;
+                      }
+
+                      openContactCreator(selectedClient.id);
+                    }}
                   >
-                    <Receipt className="h-4 w-4" />
-                    Crear factura
+                    <Mail className="h-3.5 w-3.5" />
+                    Contactar
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="gap-2 text-red-600 hover:text-red-700"
-                    onClick={() => setDeleteId(selectedClient.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Eliminar
-                  </Button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 gap-2">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                        Más
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onClick={() => openEditClient(selectedClient)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar cliente
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openContactCreator(selectedClient.id)}>
+                        <MessageSquarePlus className="mr-2 h-4 w-4" />
+                        Añadir contacto
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setQuickProposalOpen(true)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Crear propuesta
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate({ to: "/invoices" })}>
+                        <Receipt className="mr-2 h-4 w-4" />
+                        Ir a facturas
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate({ to: "/tasks" })}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Ir a tareas
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          navigate({
+                            to: "/proposals",
+                            search: {
+                              leadId: undefined,
+                              dealId: undefined,
+                              conversationId: undefined,
+                              productId: undefined,
+                              clientId: selectedClient.id,
+                            },
+                          })
+                        }
+                      >
+                        <BriefcaseBusiness className="mr-2 h-4 w-4" />
+                        Ir a propuestas
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void handleDeactivateClient(selectedClient)}>
+                        <ShieldAlert className="mr-2 h-4 w-4" />
+                        Inactivar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600"
+                        onClick={() => setDeleteId(selectedClient.id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </SheetHeader>
 
-              <ScrollArea className="h-[calc(100vh-96px)]">
-                <div className="space-y-4 px-5 py-4">
-                  <Tabs
-                    defaultValue="overview"
-                    className="w-full client-360-single-view space-y-5 [&_[role=tabpanel]]:!block [&_[role=tabpanel][hidden]]:!block [&_[role=tabpanel]]:mt-0"
-                  >
+              <ScrollArea className="h-[calc(100vh-86px)]">
+                <div className="space-y-3 px-4 py-3">
+                  <Tabs defaultValue="overview" className="w-full space-y-3">
                     <TabsList
                       data-demo="client-360-tabs"
-                      className="grid h-auto w-full grid-cols-5 rounded-[14px] bg-slate-100 p-1 hidden"
+                      className="grid h-auto w-full grid-cols-5 rounded-[12px] bg-slate-100 p-1"
                     >
                       <TabsTrigger data-demo="client-360-tab-summary" value="overview">
                         Resumen
@@ -2155,98 +2042,53 @@ function ClientsPage() {
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="overview" className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-                        <div
-                          data-demo="client-360-kpis"
-                          className="col-span-full rounded-[22px] border border-slate-200 bg-slate-50/80 p-3"
-                        >
-                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
-                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
-                                <Users className="h-4 w-4 text-blue-600" />
-                                Contactos
-                              </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
-                                {selectedClient.contacts.length}
-                              </div>
-                              <div className="text-[11px] text-slate-500">Vinculados</div>
-                            </div>
-
-                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
-                                <FolderKanban className="h-4 w-4 text-amber-600" />
-                                Proyectos
-                              </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
-                                {selectedClient.activeProjects.length}
-                              </div>
-                              <div className="text-[11px] text-slate-500">Activos</div>
-                            </div>
-
-                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
-                                <FileText className="h-4 w-4 text-rose-600" />
-                                Tareas
-                              </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
-                                {selectedClient.openTasks.length}
-                              </div>
-                              <div className="text-[11px] text-slate-500">Pendientes</div>
-                            </div>
-
-                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
-                                <Package className="h-4 w-4 text-indigo-600" />
-                                Productos
-                              </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
-                                {selectedClient.purchasedProducts.length}
-                              </div>
-                              <div className="text-[11px] text-slate-500">Comprados</div>
-                            </div>
-
-                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
-                                <CircleDollarSign className="h-4 w-4 text-orange-600" />
-                                Facturas
-                              </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
-                                {selectedClient.pendingInvoices.length}
-                              </div>
-                              <div className="text-[11px] text-slate-500">
-                                {money(selectedClient.pendingInvoiceAmount)}
-                              </div>
-                            </div>
-
-                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
-                                <BriefcaseBusiness className="h-4 w-4 text-emerald-600" />
-                                Pipeline
-                              </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
-                                {selectedClient.openDeals.length}
-                              </div>
-                              <div className="text-[11px] text-slate-500">
-                                {money(selectedClient.openPipelineValue)}
-                              </div>
-                            </div>
-
-                            <div className="rounded-[16px] px-3 py-3 transition-colors hover:bg-white">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
-                                <FileText className="h-4 w-4 text-violet-600" />
-                                Propuestas
-                              </div>
-                              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-slate-950">
-                                {selectedClient.pendingProposals.length}
-                              </div>
-                              <div className="text-[11px] text-slate-500">En curso</div>
-                            </div>
-                          </div>
+                    <TabsContent
+                      value="overview"
+                      className="space-y-3 data-[state=inactive]:hidden"
+                    >
+                      <div
+                        data-demo="client-360-summary-strip"
+                        className="rounded-[16px] border border-slate-200 bg-white px-3 py-2"
+                      >
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold text-slate-600">
+                          <span>
+                            <strong className="text-slate-950">
+                              {selectedClient.contacts.length}
+                            </strong>{" "}
+                            contactos
+                          </span>
+                          <span className="text-slate-300">•</span>
+                          <span>
+                            <strong className="text-amber-600">
+                              {selectedClient.activeProjects.length}
+                            </strong>{" "}
+                            proyectos
+                          </span>
+                          <span className="text-slate-300">•</span>
+                          <span>
+                            <strong className="text-rose-600">
+                              {selectedClient.openTasks.length}
+                            </strong>{" "}
+                            tareas
+                          </span>
+                          <span className="text-slate-300">•</span>
+                          <span>
+                            <strong className="text-orange-600">
+                              {selectedClient.pendingInvoices.length}
+                            </strong>{" "}
+                            facturas
+                          </span>
+                          <span className="text-slate-300">•</span>
+                          <span>
+                            <strong className="text-emerald-600">
+                              {money(selectedClient.openPipelineValue)}
+                            </strong>{" "}
+                            pipeline
+                          </span>
                         </div>
                       </div>
 
-                      <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                      <div className="rounded-[16px] border border-slate-200 bg-slate-50 px-3 py-2.5">
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="text-sm font-semibold text-slate-900">
@@ -2337,8 +2179,7 @@ function ClientsPage() {
                         >
                           <h3 className="text-sm font-bold text-slate-900">Productos comprados</h3>
                           <p className="mt-1 text-sm text-slate-600">
-                            Basado en <span className="font-mono">client_products</span> +{" "}
-                            <span className="font-mono">products</span>.
+                            Productos vinculados a esta cuenta.
                           </p>
                           {selectedClient.purchasedProducts.length === 0 ? (
                             <p className="mt-4 text-sm text-slate-500">
@@ -2507,7 +2348,6 @@ function ClientsPage() {
 
                     <TabsContent
                       data-demo="client-360-contacts-section"
-                      forceMount
                       value="contacts"
                       className="space-y-4"
                     >
@@ -2640,7 +2480,6 @@ function ClientsPage() {
 
                     <TabsContent
                       data-demo="client-360-projects"
-                      forceMount
                       value="projects"
                       className="space-y-4"
                     >
@@ -2698,7 +2537,6 @@ function ClientsPage() {
 
                     <TabsContent
                       data-demo="client-360-finance"
-                      forceMount
                       value="finance"
                       className="space-y-4"
                     >
@@ -2845,7 +2683,6 @@ function ClientsPage() {
 
                     <TabsContent
                       data-demo="client-360-activity"
-                      forceMount
                       value="activity"
                       className="space-y-4"
                     >

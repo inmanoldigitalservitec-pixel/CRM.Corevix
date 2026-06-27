@@ -98,6 +98,25 @@ type GeminiSettingsRow = {
   updated_at: string | null;
 };
 
+async function getEdgeFunctionErrorMessage(error: unknown, data: unknown, fallback: string) {
+  let message = String(
+    (data as any)?.error || (data as any)?.message || (error as any)?.message || fallback,
+  );
+
+  const context = (error as any)?.context;
+  if (context && typeof context.json === "function") {
+    try {
+      const body =
+        typeof context.clone === "function" ? await context.clone().json() : await context.json();
+      message = String(body?.error || body?.message || message);
+    } catch {
+      // keep fallback
+    }
+  }
+
+  return message;
+}
+
 function MetaIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 32" className={className} fill="none" aria-hidden="true">
@@ -183,6 +202,7 @@ function SettingsPage() {
       "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify",
     is_enabled: false,
   });
+  const [gmailAdvancedOpen, setGmailAdvancedOpen] = useState(false);
   const [driveBanner, setDriveBanner] = useState<"connected" | "error" | null>(null);
   const [driveLoading, setDriveLoading] = useState(false);
   const [driveConnectionLoading, setDriveConnectionLoading] = useState(false);
@@ -461,7 +481,9 @@ function SettingsPage() {
     });
     setGmailLoading(false);
     if (error) {
-      toast.error(error.message || "No se pudo iniciar la conexión de Gmail");
+      toast.error(
+        await getEdgeFunctionErrorMessage(error, data, "No se pudo iniciar la conexión de Gmail"),
+      );
       return;
     }
     if ((data as any)?.error) {
@@ -493,12 +515,8 @@ function SettingsPage() {
     setGmailLoading(true);
     const { data, error } = await supabase.functions.invoke("sync-gmail", { body: { limit: 10 } });
     setGmailLoading(false);
-    if (error) {
-      toast.error(error.message || "No se pudo sincronizar Gmail");
-      return;
-    }
-    if ((data as any)?.error) {
-      toast.error(String((data as any).error));
+    if (error || (data as any)?.error) {
+      toast.error(await getEdgeFunctionErrorMessage(error, data, "No se pudo sincronizar Gmail"));
       return;
     }
     toast.success("Gmail sincronizado.");
@@ -964,155 +982,306 @@ function SettingsPage() {
           </div>
         </TabsContent>
         <TabsContent value="email" className="mt-4">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Email Integration</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Connect your email accounts to sync conversations.
-              </p>
-              {gmailBanner === "connected" && (
-                <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
-                  Gmail account connected successfully.
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-2"
-                    onClick={() => setGmailBanner(null)}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              )}
-              {gmailBanner === "error" && (
-                <div className="rounded-md border bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  Could not connect Gmail. Please try again.
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-2"
-                    onClick={() => setGmailBanner(null)}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              )}
-
-              <div className="rounded-md border p-3 space-y-4">
-                <div className="font-medium">Gmail API Settings</div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <Label>Client ID</Label>
-                    <Input
-                      value={gmailForm.client_id}
-                      onChange={(e) =>
-                        setGmailForm((prev) => ({ ...prev, client_id: e.target.value }))
-                      }
-                      disabled={gmailSettingsLoading}
-                      placeholder="Google OAuth Client ID"
-                    />
-                  </div>
-                  <div>
-                    <Label>Client Secret</Label>
-                    <Input
-                      type="password"
-                      value={gmailForm.client_secret}
-                      onChange={(e) =>
-                        setGmailForm((prev) => ({ ...prev, client_secret: e.target.value }))
-                      }
-                      disabled={gmailSettingsLoading}
-                      placeholder={
-                        gmailSecretConfigured ? "********" : "Google OAuth Client Secret"
-                      }
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {gmailSecretConfigured
-                        ? "Secret configurado. Escribe uno nuevo solo si deseas reemplazarlo."
-                        : "Aún no hay secret configurado."}
+                    <CardTitle className="text-base">Integración de Gmail</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Conecta Gmail para sincronizar conversaciones y enviar correos desde Corevix.
                     </p>
                   </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <Label>Redirect URI</Label>
-                    <Input
-                      value={gmailForm.redirect_uri}
-                      onChange={(e) =>
-                        setGmailForm((prev) => ({ ...prev, redirect_uri: e.target.value }))
-                      }
-                      disabled={gmailSettingsLoading}
-                      placeholder="https://[PROJECT_REF].supabase.co/functions/v1/gmail-oauth-callback"
-                    />
-                  </div>
-                  <div>
-                    <Label>Scopes</Label>
-                    <Input
-                      value={gmailForm.scopes}
-                      onChange={(e) =>
-                        setGmailForm((prev) => ({ ...prev, scopes: e.target.value }))
-                      }
-                      disabled={gmailSettingsLoading}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="gmail-enabled"
-                    type="checkbox"
-                    checked={gmailForm.is_enabled}
-                    onChange={(e) =>
-                      setGmailForm((prev) => ({ ...prev, is_enabled: e.target.checked }))
+                  <Badge
+                    variant={gmailAccount ? "default" : "secondary"}
+                    className={
+                      gmailAccount
+                        ? "w-fit bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        : "w-fit"
                     }
-                    disabled={gmailSettingsLoading}
-                  />
-                  <Label htmlFor="gmail-enabled">Activar integración</Label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={saveGmailSettings}
-                    disabled={gmailLoading || gmailSettingsLoading}
                   >
-                    Guardar configuración
-                  </Button>
-                  <Button variant="outline" onClick={connectGmail} disabled={gmailLoading}>
-                    {gmailAccount ? "Reconnect Gmail" : "Conectar Gmail"}
-                  </Button>
-                  <Button variant="outline" onClick={testGmailConnection} disabled={gmailLoading}>
-                    Probar conexión
-                  </Button>
-                  <Button onClick={syncGmail} disabled={gmailLoading}>
-                    Sincronizar Gmail
-                  </Button>
+                    {gmailAccount ? "Conectado" : "No conectado"}
+                  </Badge>
                 </div>
-              </div>
+              </CardHeader>
 
-              <div className="rounded-md border p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="font-medium">Gmail</div>
-                    <div className="text-xs text-muted-foreground">
-                      {gmailAccount ? `Connected: ${gmailAccount.email_address}` : "Not connected"}
+              <CardContent className="space-y-4">
+                {gmailBanner === "connected" && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    <span>Gmail se conectó correctamente.</span>
+                    <Button variant="ghost" size="sm" onClick={() => setGmailBanner(null)}>
+                      Cerrar
+                    </Button>
+                  </div>
+                )}
+
+                {gmailBanner === "error" && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    <span>No se pudo conectar Gmail. Intenta nuevamente.</span>
+                    <Button variant="ghost" size="sm" onClick={() => setGmailBanner(null)}>
+                      Cerrar
+                    </Button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                  <div className="rounded-2xl border bg-white p-4">
+                    <div className="text-xs font-medium text-muted-foreground">Estado</div>
+                    <div className="mt-1 text-sm font-semibold">
+                      {gmailAccount ? "Gmail conectado" : "Pendiente de conexión"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border bg-white p-4 md:col-span-2">
+                    <div className="text-xs font-medium text-muted-foreground">Cuenta</div>
+                    <div className="mt-1 truncate text-sm font-semibold">
+                      {gmailAccount?.email_address || "No hay cuenta conectada"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border bg-white p-4">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Última sincronización
+                    </div>
+                    <div className="mt-1 text-sm font-semibold">
                       {gmailAccount?.last_synced_at
-                        ? ` • Last sync: ${new Date(gmailAccount.last_synced_at).toLocaleString()}`
-                        : ""}
+                        ? new Date(gmailAccount.last_synced_at).toLocaleString()
+                        : "Sin sincronizar"}
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <Button variant="outline" disabled>
-                Connect Microsoft Outlook
-              </Button>
-              <Separator />
-              <div>
-                <Label>Email Signature</Label>
-                <Input placeholder="Your email signature" />
-              </div>
-              <Button>Save Settings</Button>
-            </CardContent>
-          </Card>
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold">Paso 1 · Credenciales de Google</div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Pega el Client ID y Client Secret de Google Cloud. Corevix usará estas
+                        credenciales para iniciar la conexión OAuth con Gmail.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="gmail-enabled"
+                        type="checkbox"
+                        checked={gmailForm.is_enabled}
+                        onChange={(e) =>
+                          setGmailForm((prev) => ({ ...prev, is_enabled: e.target.checked }))
+                        }
+                        disabled={gmailSettingsLoading}
+                      />
+                      <Label htmlFor="gmail-enabled" className="text-sm">
+                        Usar Gmail en este CRM
+                      </Label>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <Label>Client ID</Label>
+                      <Input
+                        value={gmailForm.client_id}
+                        onChange={(e) =>
+                          setGmailForm((prev) => ({ ...prev, client_id: e.target.value }))
+                        }
+                        disabled={gmailSettingsLoading}
+                        placeholder="Pega el Client ID de Google Cloud"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Normalmente termina en apps.googleusercontent.com.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label>Client Secret</Label>
+                      <Input
+                        type="password"
+                        value={gmailForm.client_secret}
+                        onChange={(e) =>
+                          setGmailForm((prev) => ({ ...prev, client_secret: e.target.value }))
+                        }
+                        disabled={gmailSettingsLoading}
+                        placeholder={gmailSecretConfigured ? "********" : "Pega el Client Secret"}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {gmailSecretConfigured
+                          ? "Secret configurado. Escribe uno nuevo solo si quieres reemplazarlo."
+                          : "Aún no hay secret configurado."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setGmailAdvancedOpen((v) => !v)}
+                      className="px-0 text-muted-foreground hover:bg-transparent"
+                    >
+                      {gmailAdvancedOpen
+                        ? "Ocultar configuración avanzada"
+                        : "Ver configuración avanzada"}
+                    </Button>
+
+                    {gmailAdvancedOpen ? (
+                      <div className="mt-3 grid grid-cols-1 gap-4 rounded-xl border bg-muted/20 p-4 md:grid-cols-2">
+                        <div>
+                          <Label>Redirect URI</Label>
+                          <Input
+                            value={gmailForm.redirect_uri}
+                            onChange={(e) =>
+                              setGmailForm((prev) => ({ ...prev, redirect_uri: e.target.value }))
+                            }
+                            disabled={gmailSettingsLoading}
+                            placeholder="https://[PROJECT_REF].supabase.co/functions/v1/gmail-oauth-callback"
+                          />
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Copia esta URL en Google Cloud como Authorized redirect URI.
+                          </p>
+                        </div>
+
+                        <div>
+                          <Label>Permisos / Scopes</Label>
+                          <Input
+                            value={gmailForm.scopes}
+                            onChange={(e) =>
+                              setGmailForm((prev) => ({ ...prev, scopes: e.target.value }))
+                            }
+                            disabled={gmailSettingsLoading}
+                          />
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Permisos usados para leer, modificar y enviar correos.
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      onClick={saveGmailSettings}
+                      disabled={gmailLoading || gmailSettingsLoading}
+                    >
+                      Guardar credenciales
+                    </Button>
+                    <Button variant="outline" onClick={connectGmail} disabled={gmailLoading}>
+                      {gmailAccount ? "Reconectar cuenta" : "Conectar Gmail"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl border bg-white p-4">
+                    <div className="text-sm font-semibold">Paso 2 · Cuenta Gmail</div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Autoriza la cuenta que quieres usar para recibir y enviar correos dentro del
+                      CRM.
+                    </p>
+
+                    <div className="mt-4 rounded-xl border bg-muted/20 p-3">
+                      <div className="text-xs font-medium text-muted-foreground">Cuenta actual</div>
+                      <div className="mt-1 text-sm font-semibold">
+                        {gmailAccount?.email_address || "No conectada"}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {gmailAccount?.last_synced_at
+                          ? `Última sync: ${new Date(gmailAccount.last_synced_at).toLocaleString()}`
+                          : "Cuando conectes Gmail, aquí aparecerá el estado de la cuenta."}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={connectGmail} disabled={gmailLoading}>
+                        {gmailAccount ? "Reconectar Gmail" : "Conectar Gmail"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled
+                        title="Pendiente: desconexión segura de Gmail"
+                      >
+                        Desconectar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border bg-white p-4">
+                    <div className="text-sm font-semibold">Paso 3 · Verificar y sincronizar</div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Primero verifica que la cuenta esté conectada. Luego sincroniza para traer
+                      correos recientes.
+                    </p>
+
+                    <div className="mt-4 grid gap-2">
+                      <div className="flex items-center justify-between rounded-xl border px-3 py-2 text-sm">
+                        <span>Credenciales guardadas</span>
+                        <Badge
+                          variant={
+                            gmailForm.client_id && gmailSecretConfigured ? "default" : "secondary"
+                          }
+                        >
+                          {gmailForm.client_id && gmailSecretConfigured ? "Listo" : "Pendiente"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border px-3 py-2 text-sm">
+                        <span>Cuenta conectada</span>
+                        <Badge variant={gmailAccount ? "default" : "secondary"}>
+                          {gmailAccount ? "Listo" : "Pendiente"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border px-3 py-2 text-sm">
+                        <span>Integración activa</span>
+                        <Badge variant={gmailForm.is_enabled ? "default" : "secondary"}>
+                          {gmailForm.is_enabled ? "Activa" : "Inactiva"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={testGmailConnection}
+                        disabled={gmailLoading}
+                      >
+                        Verificar conexión
+                      </Button>
+                      <Button onClick={syncGmail} disabled={gmailLoading || !gmailAccount}>
+                        Sincronizar correos
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-muted/20 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold">Microsoft Outlook</div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        La integración con Outlook todavía no está disponible.
+                      </p>
+                    </div>
+                    <Button variant="outline" disabled>
+                      Próximamente
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base">Firma de correo</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Esta firma se agregará al final de los correos enviados desde Corevix.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Textarea placeholder={"Ejemplo:\nSaludos,\nEquipo Corevix"} className="min-h-28" />
+                <Button disabled>Guardar firma</Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         <TabsContent value="drive" className="mt-4">
           <Card className="border-0 shadow-sm">

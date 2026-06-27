@@ -1386,18 +1386,10 @@ function LeadsPage() {
   if (loading) return <LoadingState />;
 
   return (
-    <div
-      data-demo="leads-main"
-      className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_30%_0%,rgba(29,98,249,0.08),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6f8fb_54%)] text-[#101828]"
-    >
-      <div
-        className={cn(
-          "grid h-[calc(100vh-72px)] min-h-[720px] overflow-hidden",
-          detailOpen ? "2xl:grid-cols-[minmax(0,1fr)_390px]" : "grid-cols-1",
-        )}
-      >
-        <div className="min-w-0 overflow-auto px-4 py-5 sm:px-6 2xl:px-7 2xl:py-6">
-          <div className="mb-4 2xl:mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div data-demo="leads-main" className="min-h-[calc(100vh-72px)] bg-white text-[#101828]">
+      <div className="grid min-h-[calc(100vh-72px)] grid-cols-1">
+        <div className="w-full min-w-0 overflow-auto px-3 py-3 sm:px-4 lg:px-5">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="w-fit text-[26px] font-semibold leading-none tracking-[-0.03em] transition-colors duration-200 hover:text-[#1d62f9]">
                 Leads
@@ -1451,80 +1443,30 @@ function LeadsPage() {
             </div>
           </div>
 
-          <section className="mb-3 lg:mb-4 2xl:mb-5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
-            {[
-              {
-                label: "Nuevos leads",
-                labelCompact: "Nuevos",
-                value: stats.newLeads,
-                meta: "Últimos 7 días",
-                metaTone: "text-[#1d62f9]",
-                icon: Users,
-                tone: "bg-[#eaf1ff] text-[#1d62f9]",
-              },
-              {
-                label: "Necesitan seguimiento",
-                labelCompact: "Seguimiento",
-                value: stats.needsFollowUp,
-                meta: "Alertas activas",
-                metaTone: "text-[#e11d48]",
-                icon: Target,
-                tone: "bg-[#fff1f3] text-[#e11d48]",
-              },
-              {
-                label: "Listos para propuesta",
-                labelCompact: "Propuesta",
-                value: stats.readyForProposal,
-                meta: "Calificados",
-                metaTone: "text-[#7c3aed]",
-                icon: FileText,
-                tone: "bg-[#f3ecff] text-[#7c3aed]",
-              },
-              {
-                label: "Valor potencial",
-                labelCompact: "Valor",
-                value: formatCurrency(stats.potentialValue),
-                meta: "Oportunidades abiertas",
-                metaTone: "text-[#16a34a]",
-                icon: Star,
-                tone: "bg-[#ecfdf3] text-[#16a34a]",
-              },
-            ].map((stat) => (
-              <article
-                key={stat.label}
-                className={cn(
-                  "group relative flex items-center gap-2.5 overflow-hidden rounded-[16px] border border-[#e6eaf0] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.045)] transition-all duration-200 hover:-translate-y-[2px] hover:border-[#cbd8ee] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]",
-                  "min-h-[56px] px-3 py-2.5",
-                  "2xl:min-h-[72px] 2xl:px-3.5 2xl:py-3",
-                )}
-              >
-                <div
-                  className={cn(
-                    "grid place-items-center rounded-full transition-transform duration-200 group-hover:scale-[1.06] group-hover:-rotate-2",
-                    "h-8 w-8 2xl:h-9 2xl:w-9",
-                    stat.tone,
-                  )}
-                >
-                  <stat.icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-baseline gap-2">
-                    <strong className="block text-[16px] font-semibold tracking-[-0.015em] transition-colors group-hover:text-[#1d62f9]">
-                      {stat.value}
-                    </strong>
-                    <span className="block text-[11px] font-semibold text-[#667085] 2xl:hidden truncate">
-                      {stat.labelCompact}
-                    </span>
-                  </div>
-                  <span className="hidden 2xl:block mb-0.5 text-[11px] font-medium text-[#667085] transition-colors group-hover:text-[#1d62f9]">
-                    {stat.label}
-                  </span>
-                  <small className={cn("hidden 2xl:block text-[10px] font-normal", stat.metaTone)}>
-                    {stat.meta}
-                  </small>
-                </div>
-              </article>
-            ))}
+          <section
+            data-demo="leads-insights-bar"
+            className="mb-2 flex flex-wrap items-center gap-2 border-y border-[#edf1f7] bg-white px-1 py-2 text-[12px] font-semibold text-[#667085]"
+          >
+            <span className="text-[#101828]">{stats.total} prospectos</span>
+            <span className="text-[#d0d5dd]">•</span>
+            <span>
+              <strong className="text-[#1d62f9]">{stats.newLeads}</strong> nuevos
+            </span>
+            <span className="text-[#d0d5dd]">•</span>
+            <span>
+              <strong className="text-[#e11d48]">{stats.needsFollowUp}</strong> requieren
+              seguimiento
+            </span>
+            <span className="text-[#d0d5dd]">•</span>
+            <span>
+              <strong className="text-[#7c3aed]">{stats.readyForProposal}</strong> listos para
+              propuesta
+            </span>
+            <span className="text-[#d0d5dd]">•</span>
+            <span>
+              <strong className="text-[#16a34a]">{formatCurrency(stats.potentialValue)}</strong>{" "}
+              potencial
+            </span>
           </section>
 
           {false && import.meta.env.DEV && (
@@ -1539,7 +1481,7 @@ function LeadsPage() {
             </div>
           )}
 
-          <section className="overflow-hidden rounded-[22px] border border-[#e6eaf0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.055)]">
+          <section className="overflow-hidden rounded-[18px] border border-[#edf1f7] bg-white shadow-[0_4px_14px_rgba(15,23,42,0.025)]">
             <div className="flex flex-wrap items-center justify-between gap-3 px-[18px] pb-0 pt-[18px]">
               {[
                 { key: "all", label: "Todos", countKey: "all" },
@@ -1553,7 +1495,7 @@ function LeadsPage() {
                 <button
                   key={tab.key}
                   className={cn(
-                    "flex h-[36px] items-center gap-2 rounded-[12px] px-3 text-[12px] font-medium text-[#475467] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#f3f7ff] hover:text-[#1d62f9]",
+                    "flex h-[32px] items-center gap-1.5 rounded-[10px] px-2.5 text-[12px] font-medium text-[#475467] transition-all duration-200 hover:bg-[#f3f7ff] hover:text-[#1d62f9]",
                     stageTab === tab.key && "bg-[#eaf1ff] text-[#1d62f9]",
                   )}
                   onClick={() => setStageTab(tab.key as StageTab)}
@@ -1567,16 +1509,12 @@ function LeadsPage() {
               ))}
 
               <div className="ml-auto flex items-center gap-2">
-                {[
-                  { key: "all" as const, label: "Todos" },
-                  { key: "whatsapp" as const, label: "WhatsApp" },
-                  { key: "website" as const, label: "Website" },
-                ].map((c) => (
+                {[{ key: "all" as const, label: "Todos" }].map((c) => (
                   <button
                     key={c.key}
                     type="button"
                     className={cn(
-                      "h-[34px] rounded-[12px] px-3 text-[12px] font-semibold transition-all duration-200 hover:-translate-y-[1px]",
+                      "h-[30px] rounded-[10px] px-2.5 text-[12px] font-semibold transition-all duration-200",
                       channelFilter === c.key
                         ? "bg-[#111827] text-white"
                         : "bg-[#f2f4f7] text-[#475467] hover:bg-[#eaf1ff] hover:text-[#1d62f9]",
@@ -1589,79 +1527,16 @@ function LeadsPage() {
               </div>
             </div>
 
-            <div className="border-b border-[#e6eaf0] px-[18px] py-3 2xl:py-4">
-              <SearchFilters
-                searchValue={search}
-                onSearchChange={setSearch}
-                searchPlaceholder="Buscar leads..."
-                className="gap-2.5 2xl:gap-3"
-                filters={[
-                  {
-                    key: "status",
-                    placeholder: "Estado",
-                    value: statusFilter,
-                    onChange: setStatusFilter,
-                    includeAllOption: false,
-                    options: [
-                      { label: "Estado", value: "all" },
-                      ...STATUSES.map((status) => ({
-                        label: getStatusLabel(status),
-                        value: status,
-                      })),
-                    ],
-                    width: "w-32 2xl:w-44",
-                  },
-                  {
-                    key: "source",
-                    placeholder: "Fuente",
-                    value: sourceFilter,
-                    onChange: setSourceFilter,
-                    includeAllOption: false,
-                    options: [
-                      { label: "Fuente", value: "all" },
-                      ...SOURCES.map((source) => ({
-                        label: getSourceLabel(source),
-                        value: source,
-                      })),
-                    ],
-                    width: "w-32 2xl:w-44",
-                  },
-                  {
-                    key: "owner",
-                    placeholder: "Responsable",
-                    value: ownerFilter,
-                    onChange: setOwnerFilter,
-                    includeAllOption: false,
-                    options:
-                      role === "sales_agent"
-                        ? [
-                            { label: "Todos asignados", value: "team" },
-                            { label: "Mis prospectos", value: "mine" },
-                          ]
-                        : [
-                            { label: "Responsable", value: "all" },
-                            { label: "Solo yo", value: "mine" },
-                            { label: "Asignados", value: "team" },
-                            { label: "Sin asignar", value: "unassigned" },
-                          ],
-                    width: "w-40 2xl:w-56",
-                  },
-                  {
-                    key: "value",
-                    placeholder: "Valor",
-                    value: valueFilter,
-                    onChange: setValueFilter,
-                    includeAllOption: false,
-                    options: [
-                      { label: "Valor", value: "all" },
-                      { label: "Menos de $5k", value: "low" },
-                      { label: "$5k - $15k", value: "mid" },
-                      { label: "Más de $15k", value: "high" },
-                    ],
-                    width: "w-32 2xl:w-44",
-                  },
-                ]}
-              />
+            <div className="border-b border-[#edf1f7] px-3 py-2">
+              <div className="flex items-center gap-2">
+                <SearchFilters
+                  searchValue={search}
+                  onSearchChange={setSearch}
+                  searchPlaceholder="Buscar leads..."
+                  filters={[]}
+                  className="flex-1"
+                />
+              </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="text-[12px] font-semibold text-[#667085]">Filtros rápidos:</span>
@@ -1678,7 +1553,7 @@ function LeadsPage() {
                     key={c.key}
                     type="button"
                     className={cn(
-                      "h-[32px] rounded-[12px] border px-3 text-[12px] font-semibold transition-all duration-200 hover:-translate-y-[1px]",
+                      "h-[29px] rounded-[10px] border px-2.5 text-[11.5px] font-semibold transition-all duration-200",
                       leadChipFilter === c.key
                         ? "bg-[#111827] text-white border-[#111827]"
                         : "bg-white text-[#475467] border-[#e6eaf0] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]",
@@ -1722,10 +1597,10 @@ function LeadsPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse table-fixed">
+                  <table className="min-w-[1120px] w-full border-collapse table-auto">
                     <thead>
                       <tr>
-                        <th className="w-[42px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="w-[38px] border-b border-[#edf1f7] bg-[#fbfcff] px-2 py-2 text-left text-[11px] font-semibold text-[#667085]">
                           <button
                             className="grid h-7 w-7 place-items-center rounded-[9px] transition-all duration-200 hover:scale-[1.08] hover:bg-[#eaf1ff]"
                             onClick={toggleSelectAll}
@@ -1748,28 +1623,28 @@ function LeadsPage() {
                             </span>
                           </button>
                         </th>
-                        <th className="w-[260px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="w-[240px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
                           Prospecto
                         </th>
-                        <th className="hidden 2xl:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden 2xl:table-cell w-[180px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
                           Interés
                         </th>
-                        <th className="hidden lg:table-cell w-[210px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden lg:table-cell w-[165px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
                           Etapa
                         </th>
-                        <th className="hidden 2xl:table-cell w-[140px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden 2xl:table-cell w-[110px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
                           Valor
                         </th>
-                        <th className="hidden lg:table-cell w-[170px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden lg:table-cell w-[135px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
                           Última actividad
                         </th>
-                        <th className="hidden 2xl:table-cell w-[190px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden 2xl:table-cell w-[165px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
                           Responsable
                         </th>
-                        <th className="w-[200px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-left text-[11px] font-semibold text-[#667085] hidden sm:table-cell">
+                        <th className="w-[165px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085] hidden sm:table-cell">
                           Próximo paso
                         </th>
-                        <th className="w-[220px] 2xl:w-[240px] border-b border-[#e6eaf0] bg-[#fbfcff] px-3 py-2.5 2xl:py-3 text-right text-[11px] font-semibold text-[#667085]">
+                        <th className="w-[145px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-right text-[11px] font-semibold text-[#667085]">
                           Acciones
                         </th>
                       </tr>
@@ -1796,7 +1671,7 @@ function LeadsPage() {
                           <tr
                             key={lead.id}
                             className={cn(
-                              "cursor-pointer border-b border-[#eef2f6] transition-all duration-150 hover:translate-x-[3px] hover:bg-[#f4f8ff] hover:shadow-[inset_3px_0_0_rgba(29,98,249,.35),0_10px_30px_rgba(15,23,42,.05)]",
+                              "cursor-pointer border-b border-[#eef2f6] transition-all duration-150 hover:bg-[#f8fbff] hover:shadow-[inset_3px_0_0_rgba(29,98,249,.25)]",
                               isSelected && "bg-[#f4f8ff] shadow-[inset_3px_0_0_#1d62f9]",
                               isMultiSelected && "bg-[#f4f8ff] shadow-[inset_3px_0_0_#1d62f9]",
                             )}
@@ -1806,7 +1681,7 @@ function LeadsPage() {
                             }}
                           >
                             <td
-                              className="px-3 py-2 2xl:py-3"
+                              className="px-2 py-1.5"
                               onClick={(event) => event.stopPropagation()}
                             >
                               <button
@@ -1828,9 +1703,9 @@ function LeadsPage() {
                               </button>
                             </td>
 
-                            <td className="px-3 py-2 2xl:py-3">
+                            <td className="px-2 py-1.5">
                               <button
-                                className="flex w-full items-center gap-3 rounded-[14px] px-2 py-1 text-left transition-all duration-200 hover:translate-x-[2px] hover:bg-[#eef5ff] hover:shadow-[0_10px_24px_rgba(29,98,249,.08)]"
+                                className="flex w-full items-center gap-2.5 rounded-[12px] px-1.5 py-1 text-left transition-all duration-200 hover:bg-[#f5f9ff]"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   openDetail(lead);
@@ -1839,7 +1714,7 @@ function LeadsPage() {
                               >
                                 <div
                                   className={cn(
-                                    "grid h-[42px] w-[42px] shrink-0 aspect-square place-items-center rounded-full text-[14px] font-semibold transition-all duration-200",
+                                    "grid h-[34px] w-[34px] shrink-0 aspect-square place-items-center rounded-full text-[12px] font-semibold transition-all duration-200",
                                     getAvatarTone(index),
                                   )}
                                 >
@@ -1879,13 +1754,13 @@ function LeadsPage() {
                               </button>
                             </td>
 
-                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
+                            <td className="hidden 2xl:table-cell px-2.5 py-1.5">
                               <span className="block truncate text-[13px] font-medium text-[#101828]">
                                 {interest}
                               </span>
                             </td>
 
-                            <td className="hidden lg:table-cell px-3 py-2 2xl:py-3">
+                            <td className="hidden lg:table-cell px-2.5 py-1.5">
                               <div className="flex items-center gap-2">
                                 <span
                                   className={cn(
@@ -1903,13 +1778,13 @@ function LeadsPage() {
                               </div>
                             </td>
 
-                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
+                            <td className="hidden 2xl:table-cell px-2.5 py-1.5">
                               <span className="whitespace-nowrap text-[13px] font-semibold text-[#111827] transition-all duration-200 hover:scale-[1.02] hover:text-[#16a34a]">
                                 {formatCurrency(lead.estimated_value)}
                               </span>
                             </td>
 
-                            <td className="hidden lg:table-cell px-3 py-2 2xl:py-3">
+                            <td className="hidden lg:table-cell px-2.5 py-1.5">
                               <div className="text-[13px] font-medium text-[#101828] truncate">
                                 {formatRelativeDate(lastActivity)}
                               </div>
@@ -1918,7 +1793,7 @@ function LeadsPage() {
                               </div>
                             </td>
 
-                            <td className="hidden 2xl:table-cell px-3 py-2 2xl:py-3">
+                            <td className="hidden 2xl:table-cell px-2.5 py-1.5">
                               <div className="flex items-center gap-[9px] whitespace-nowrap text-[13px] font-medium text-[#344054] min-w-0">
                                 <span className="grid h-7 w-7 shrink-0 aspect-square place-items-center rounded-full bg-[linear-gradient(135deg,#0f172a,#64748b)] text-[11px] font-semibold text-white">
                                   {getAssigneeLabel(lead).slice(0, 2).toUpperCase()}
@@ -1927,7 +1802,7 @@ function LeadsPage() {
                               </div>
                             </td>
 
-                            <td className="hidden sm:table-cell px-3 py-2 2xl:py-3">
+                            <td className="hidden sm:table-cell px-2.5 py-1.5">
                               <div className="text-[13px] font-semibold text-[#101828] truncate">
                                 {nextStep}
                               </div>
@@ -1938,10 +1813,10 @@ function LeadsPage() {
                               ) : null}
                             </td>
 
-                            <td className="px-3 py-2 2xl:py-3">
+                            <td className="px-2 py-1.5">
                               <div className="flex items-center justify-end gap-2">
                                 <button
-                                  className="inline-flex h-8 items-center rounded-[12px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
+                                  className="inline-flex h-7 items-center rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[11.5px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     openDetail(lead);
@@ -1951,7 +1826,7 @@ function LeadsPage() {
                                   Ver
                                 </button>
                                 <button
-                                  className="inline-flex h-8 items-center rounded-[12px] border border-[#16a34a] bg-[#ecfdf3] px-3 text-[12px] font-semibold text-[#16a34a] hover:opacity-95"
+                                  className="inline-flex h-7 items-center rounded-[10px] border border-[#16a34a] bg-[#ecfdf3] px-2.5 text-[11.5px] font-semibold text-[#16a34a] hover:opacity-95"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     void handleOpenWhatsAppFromLead(lead);
@@ -1961,7 +1836,7 @@ function LeadsPage() {
                                   Contactar
                                 </button>
                                 <button
-                                  className="hidden 2xl:inline-flex h-8 items-center rounded-[12px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
+                                  className="hidden"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     toast.message("Crear propuesta próximamente");
@@ -1973,7 +1848,7 @@ function LeadsPage() {
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
-                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-[12px] border border-[#e6eaf0] bg-white text-[#475467] transition-all duration-200 hover:-translate-y-[1px] hover:border-[#bdd1ff] hover:bg-[#f5f9ff] hover:text-[#1d62f9]"
+                                      className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] border border-[#e6eaf0] bg-white text-[#475467] transition-all duration-200 hover:border-[#bdd1ff] hover:bg-[#f5f9ff] hover:text-[#1d62f9]"
                                       onClick={(event) => event.stopPropagation()}
                                       type="button"
                                       aria-label="Más acciones"
@@ -2045,7 +1920,7 @@ function LeadsPage() {
                   </table>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-4 px-[18px] py-[15px] text-[13px] font-[700] text-[#667085]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf1f7] px-3 py-2.5 text-[12px] font-semibold text-[#667085]">
                   <span>
                     Mostrando {filtered.length ? 1 : 0} a {filtered.length} de {leads.length} leads
                   </span>
@@ -2235,11 +2110,11 @@ function LeadsPage() {
                       className="h-9 justify-start gap-2"
                       onClick={() => setQuickProposalOpen(true)}
                       disabled={
-                        !can("proposals.create") ||
+                        !can("deals.create") ||
                         (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
                       }
                       title={
-                        !can("proposals.create")
+                        !can("deals.create")
                           ? "No tienes permiso para crear propuestas."
                           : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
                             ? "Solo puedes crear propuestas para tus propios prospectos."

@@ -16,6 +16,11 @@ import {
   Clock,
   Wifi,
   AlertCircle,
+  PencilLine,
+  FileText,
+  ShoppingBag,
+  Plus,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,8 +72,75 @@ type EmailAccount = {
 };
 
 type ProviderKey = "gmail" | "outlook";
-type InboxTab = "all" | "unread" | "starred";
+type InboxTab =
+  | "primary"
+  | "promotions"
+  | "social"
+  | "updates"
+  | "forums"
+  | "all"
+  | "unread"
+  | "starred";
 type SyncStatus = "idle" | "syncing" | "success" | "error" | "not_connected";
+
+type GmailCategory = "primary" | "promotions" | "social" | "updates" | "forums";
+
+type ConversationCategoryMap = Record<string, GmailCategory>;
+type ConversationLabelMap = Record<string, string[]>;
+type MailboxView = "inbox" | "starred" | "snoozed" | "sent" | "drafts" | "purchases";
+
+async function getEdgeFunctionErrorMessage(error: unknown, data: unknown, fallback: string) {
+  let message = String(
+    (data as any)?.error || (data as any)?.message || (error as any)?.message || fallback,
+  );
+
+  const context = (error as any)?.context;
+  if (context && typeof context.json === "function") {
+    try {
+      const body =
+        typeof context.clone === "function" ? await context.clone().json() : await context.json();
+      message = String(body?.error || body?.message || message);
+    } catch {
+      // keep fallback
+    }
+  }
+
+  return message;
+}
+
+function categoryFromLabelIds(labelIds?: string[] | null): GmailCategory {
+  const labels = (labelIds || []).map((x) => String(x).toUpperCase());
+
+  if (labels.includes("CATEGORY_PROMOTIONS")) return "promotions";
+  if (labels.includes("CATEGORY_SOCIAL")) return "social";
+  if (labels.includes("CATEGORY_UPDATES")) return "updates";
+  if (labels.includes("CATEGORY_FORUMS")) return "forums";
+
+  return "primary";
+}
+
+function categoryLabel(category: GmailCategory) {
+  if (category === "primary") return "Primary";
+  if (category === "promotions") return "Promotions";
+  if (category === "social") return "Social";
+  if (category === "updates") return "Updates";
+  return "Forums";
+}
+
+function hasGmailLabel(labelIds: string[] | undefined | null, label: string) {
+  return (labelIds || []).map((x) => String(x).toUpperCase()).includes(label.toUpperCase());
+}
+
+function looksLikePurchase(convo: EmailConversation, labelIds?: string[] | null) {
+  const text = `${convo.subject || ""} ${convo.snippet || ""}`.toLowerCase();
+
+  return (
+    hasGmailLabel(labelIds, "CATEGORY_PROMOTIONS") ||
+    /receipt|invoice|order|purchase|payment|paid|subscription|renew|temu|amazon|stripe|paypal|openrouter|cloudflare|google one/.test(
+      text,
+    )
+  );
+}
 
 const AUTO_SYNC_STALE_MS = 2 * 60 * 1000;
 const POLL_SYNC_MS = 60 * 1000;
@@ -106,8 +178,26 @@ function extractDisplayName(value?: string | null) {
 function getInitials(value?: string | null) {
   const name = extractDisplayName(value);
   const parts = name.split(/\s+/).filter(Boolean);
-  const initials = parts.slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
+  const initials = parts
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
   return initials || "@";
+}
+
+function emailConversationSignature(rows: EmailConversation[]) {
+  return rows
+    .map((row) =>
+      [
+        row.id,
+        row.last_message_at || "",
+        (row as any).updated_at || "",
+        row.unread_count ?? 0,
+        row.status || "",
+        row.snippet || "",
+      ].join("|"),
+    )
+    .join("::");
 }
 
 function syncStatusCopy(status: SyncStatus, account: EmailAccount | null, provider: ProviderKey) {
@@ -124,13 +214,18 @@ function EmailPage() {
   const { profile } = useAuth();
   const [conversations, setConversations] = useState<EmailConversation[]>([]);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
+  const [conversationCategories, setConversationCategories] = useState<ConversationCategoryMap>({});
+  const [conversationLabels, setConversationLabels] = useState<ConversationLabelMap>({});
   const [selectedConvo, setSelectedConvo] = useState<EmailConversation | null>(null);
   const [searchEmail, setSearchEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const conversationsSignatureRef = useRef("");
+  const didLoadConversationsRef = useRef(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [provider, setProvider] = useState<ProviderKey>("gmail");
   const [tab, setTab] = useState<InboxTab>("all");
+  const [mailboxView, setMailboxView] = useState<MailboxView>("inbox");
   const [searching, setSearching] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -148,7 +243,7 @@ function EmailPage() {
 
   const fetchConversations = useCallback(async () => {
     if (!profile?.company_id) return;
-    setLoading(true);
+    if (!didLoadConversationsRef.current) setLoading(true);
     const q = db
       .from("email_conversations")
       .select("*")
@@ -167,11 +262,81 @@ function EmailPage() {
         .select("*")
         .eq("company_id", profile.company_id)
         .order("last_message_at", { ascending: false });
-      setConversations(r2.data || []);
+      const rows = r2.data || [];
+      const nextSignature = emailConversationSignature(rows);
+      if (nextSignature !== conversationsSignatureRef.current) {
+        conversationsSignatureRef.current = nextSignature;
+        setConversations(rows);
+      }
+
+      const ids = rows.map((c: EmailConversation) => c.id).filter(Boolean);
+      if (ids.length) {
+        const { data: messageRows } = await db
+          .from("email_messages")
+          .select("conversation_id,label_ids,created_at")
+          .in("conversation_id", ids)
+          .order("created_at", { ascending: false });
+
+        const nextCategories: ConversationCategoryMap = {};
+        for (const row of messageRows || []) {
+          const conversationId = String((row as any).conversation_id || "");
+          if (!conversationId || nextCategories[conversationId]) continue;
+          nextCategories[conversationId] = categoryFromLabelIds((row as any).label_ids || []);
+        }
+
+        for (const convo of rows) {
+          if (!nextCategories[convo.id]) nextCategories[convo.id] = "primary";
+        }
+
+        setConversationCategories(nextCategories);
+      } else {
+        setConversationCategories({});
+      }
+
+      didLoadConversationsRef.current = true;
       setLoading(false);
       return;
     }
-    setConversations(data || []);
+    const rows = data || [];
+    const nextSignature = emailConversationSignature(rows);
+    if (nextSignature !== conversationsSignatureRef.current) {
+      conversationsSignatureRef.current = nextSignature;
+      setConversations(rows);
+    }
+
+    const ids = rows.map((c: EmailConversation) => c.id).filter(Boolean);
+    if (ids.length) {
+      const { data: messageRows } = await db
+        .from("email_messages")
+        .select("conversation_id,label_ids,created_at")
+        .in("conversation_id", ids)
+        .order("created_at", { ascending: false });
+
+      const nextCategories: ConversationCategoryMap = {};
+      const nextLabels: ConversationLabelMap = {};
+
+      for (const row of messageRows || []) {
+        const conversationId = String((row as any).conversation_id || "");
+        if (!conversationId || nextCategories[conversationId]) continue;
+
+        const labels = ((row as any).label_ids || []).map((x: unknown) => String(x));
+        nextLabels[conversationId] = labels;
+        nextCategories[conversationId] = categoryFromLabelIds(labels);
+      }
+
+      for (const convo of rows) {
+        if (!nextCategories[convo.id]) nextCategories[convo.id] = "primary";
+        if (!nextLabels[convo.id]) nextLabels[convo.id] = [];
+      }
+
+      setConversationCategories(nextCategories);
+      setConversationLabels(nextLabels);
+    } else {
+      setConversationCategories({});
+      setConversationLabels({});
+    }
+
+    didLoadConversationsRef.current = true;
     setLoading(false);
   }, [db, profile?.company_id, provider]);
 
@@ -256,11 +421,17 @@ function EmailPage() {
       syncInFlightRef.current = true;
       setSyncStatus("syncing");
       setSyncError(null);
-      const { data, error } = await supabase.functions.invoke("sync-gmail", { body: { limit: 25 } });
+      const { data, error } = await supabase.functions.invoke("sync-gmail", {
+        body: { limit: 25 },
+      });
       syncInFlightRef.current = false;
 
       if (error || (data as any)?.error) {
-        const message = error?.message || String((data as any)?.error || "No se pudo sincronizar Gmail");
+        const message = await getEdgeFunctionErrorMessage(
+          error,
+          data,
+          "No se pudo sincronizar Gmail",
+        );
         setSyncStatus("error");
         setSyncError(message);
         if (!silent) toast.error(message);
@@ -274,13 +445,24 @@ function EmailPage() {
       if (selectedConvo?.id) await loadMessagesForSelected();
       if (!silent) toast.success("Gmail sincronizado.");
     },
-    [emailAccount, fetchConversations, loadEmailAccount, loadMessagesForSelected, provider, selectedConvo?.id],
+    [
+      emailAccount,
+      fetchConversations,
+      loadEmailAccount,
+      loadMessagesForSelected,
+      provider,
+      selectedConvo?.id,
+    ],
   );
 
   useEffect(() => {
+    didLoadConversationsRef.current = false;
+    conversationsSignatureRef.current = "";
+    setLoading(true);
     void fetchConversations();
     void loadEmailAccount();
     setTab("all");
+    setMailboxView("inbox");
     setSelectedConvo(null);
     setMessages([]);
     didAutoSyncRef.current = null;
@@ -364,24 +546,115 @@ function EmailPage() {
 
   const tabCounts = useMemo(() => {
     const all = conversations.length;
+    const primary = conversations.filter(
+      (c) => (conversationCategories[c.id] || "primary") === "primary",
+    ).length;
+    const promotions = conversations.filter(
+      (c) => conversationCategories[c.id] === "promotions",
+    ).length;
+    const social = conversations.filter((c) => conversationCategories[c.id] === "social").length;
+    const updates = conversations.filter((c) => conversationCategories[c.id] === "updates").length;
+    const forums = conversations.filter((c) => conversationCategories[c.id] === "forums").length;
     const unread = conversations.filter((c) => (c.unread_count || 0) > 0).length;
     const starred = conversations.filter((c) =>
       (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred"),
     ).length;
-    return { all, unread, starred };
-  }, [conversations]);
+
+    const inbox = conversations.filter((c) =>
+      hasGmailLabel(conversationLabels[c.id], "INBOX"),
+    ).length;
+    const snoozed = conversations.filter((c) =>
+      hasGmailLabel(conversationLabels[c.id], "SNOOZED"),
+    ).length;
+    const sent = conversations.filter((c) =>
+      hasGmailLabel(conversationLabels[c.id], "SENT"),
+    ).length;
+    const drafts = conversations.filter((c) =>
+      hasGmailLabel(conversationLabels[c.id], "DRAFT"),
+    ).length;
+    const purchases = conversations.filter((c) =>
+      looksLikePurchase(c, conversationLabels[c.id]),
+    ).length;
+
+    return {
+      all,
+      primary,
+      promotions,
+      social,
+      updates,
+      forums,
+      unread,
+      starred,
+      inbox,
+      snoozed,
+      sent,
+      drafts,
+      purchases,
+    };
+  }, [conversations, conversationCategories, conversationLabels]);
 
   const filtered = useMemo(() => {
     const q = searchEmail.trim().toLowerCase();
     let list = conversations;
+
+    const hasLoadedCategories = Object.keys(conversationCategories).length > 0;
+    const hasLoadedLabels = Object.keys(conversationLabels).length > 0;
+
+    if (hasLoadedLabels) {
+      if (mailboxView === "inbox") {
+        list = list.filter((c) => hasGmailLabel(conversationLabels[c.id], "INBOX"));
+      }
+
+      if (mailboxView === "starred") {
+        list = list.filter(
+          (c) =>
+            hasGmailLabel(conversationLabels[c.id], "STARRED") ||
+            (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred"),
+        );
+      }
+
+      if (mailboxView === "snoozed") {
+        list = list.filter((c) => hasGmailLabel(conversationLabels[c.id], "SNOOZED"));
+      }
+
+      if (mailboxView === "sent") {
+        list = list.filter((c) => hasGmailLabel(conversationLabels[c.id], "SENT"));
+      }
+
+      if (mailboxView === "drafts") {
+        list = list.filter((c) => hasGmailLabel(conversationLabels[c.id], "DRAFT"));
+      }
+
+      if (mailboxView === "purchases") {
+        list = list.filter((c) => looksLikePurchase(c, conversationLabels[c.id]));
+      }
+    }
+
+    if (tab === "primary" && hasLoadedCategories) {
+      list = list.filter((c) => (conversationCategories[c.id] || "primary") === "primary");
+    }
+
+    if (
+      hasLoadedCategories &&
+      (tab === "promotions" || tab === "social" || tab === "updates" || tab === "forums")
+    ) {
+      list = list.filter((c) => conversationCategories[c.id] === tab);
+    }
+
     if (tab === "unread") list = list.filter((c) => (c.unread_count || 0) > 0);
-    if (tab === "starred")
-      list = list.filter((c) =>
-        (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred"),
+
+    if (tab === "starred") {
+      list = list.filter(
+        (c) =>
+          hasGmailLabel(conversationLabels[c.id], "STARRED") ||
+          (c.tags || []).map((t) => String(t).toLowerCase()).includes("starred"),
       );
+    }
+
     if (!q) return list;
+
     return list.filter((c) => `${c.subject || ""} ${c.snippet || ""}`.toLowerCase().includes(q));
-  }, [conversations, searchEmail, tab]);
+  }, [conversations, conversationCategories, conversationLabels, mailboxView, searchEmail, tab]);
 
   const selectedLastMessage = useMemo(() => {
     if (!messages || messages.length === 0) return null;
@@ -391,9 +664,18 @@ function EmailPage() {
   const syncLabel = syncStatusCopy(syncStatus, emailAccount, provider);
   const selectedSender = selectedLastMessage?.from_email || selectedLastMessage?.sender || "—";
 
+  const gmailSidebarItemClass = (view: MailboxView) =>
+    `grid h-8 grid-cols-[40px_1fr_auto] items-center rounded-r-full pr-3 transition ${
+      mailboxView === view
+        ? "bg-[#d3e3fd] font-bold text-[#001d35]"
+        : "text-[#3c4043] hover:bg-[#e9eef6]"
+    }`;
+
   const openReplyComposer = () => {
     if (!selectedConvo) return;
-    const from = String(selectedLastMessage?.from_email || selectedLastMessage?.sender || "").trim();
+    const from = String(
+      selectedLastMessage?.from_email || selectedLastMessage?.sender || "",
+    ).trim();
     setComposerTo(from);
     setComposerSubject(`Re: ${selectedConvo.subject || ""}`.trim());
     setComposerBody("");
@@ -420,7 +702,7 @@ function EmailPage() {
 
   return (
     <div
-      className="h-[calc(100vh-3.5rem)] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100"
+      className="relative h-[calc(100vh-3.5rem)] overflow-hidden bg-[#f6f8fc]"
       style={
         {
           ["--app-pad" as any]: "clamp(10px, 1.3vw, 18px)",
@@ -430,15 +712,165 @@ function EmailPage() {
         } as any
       }
     >
-      <div className="h-full p-[var(--app-pad)] flex flex-col gap-[var(--gap)]">
-        <div className="rounded-2xl border bg-white/90 px-4 py-3 shadow-sm backdrop-blur flex items-center justify-between gap-4">
+      <aside className="hidden lg:flex absolute left-0 top-0 bottom-0 w-[248px] flex-col bg-[#f6f8fc] px-2 py-3 text-[#202124]">
+        <button
+          type="button"
+          onClick={() => {
+            setComposerTo("");
+            setComposerSubject("");
+            setComposerBody("");
+            setComposerExpanded(false);
+            setComposerOpen(true);
+          }}
+          className="mb-3 ml-1 flex h-14 w-[142px] items-center gap-4 rounded-[18px] bg-[#c2e7ff] px-5 text-[14px] font-medium text-[#001d35] shadow-sm transition hover:shadow-md"
+        >
+          <PencilLine className="h-5 w-5" />
+          Compose
+        </button>
+
+        <nav className="grid gap-0.5 text-[14px]">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedConvo(null);
+              setMessages([]);
+              setMailboxView("inbox");
+              setTab("all");
+            }}
+            className={gmailSidebarItemClass("inbox")}
+          >
+            <span className="grid place-items-center">
+              <Inbox className="h-4 w-4" />
+            </span>
+            <span className="text-left">Inbox</span>
+            <span className="text-[12px] font-bold">{tabCounts.inbox || tabCounts.all}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedConvo(null);
+              setMessages([]);
+              setMailboxView("starred");
+              setTab("all");
+            }}
+            className={gmailSidebarItemClass("starred")}
+          >
+            <span className="grid place-items-center">
+              <Star className="h-4 w-4" />
+            </span>
+            <span className="text-left">Starred</span>
+            <span className="text-[12px] font-medium">{tabCounts.starred}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedConvo(null);
+              setMessages([]);
+              setMailboxView("snoozed");
+              setTab("all");
+            }}
+            className={gmailSidebarItemClass("snoozed")}
+          >
+            <span className="grid place-items-center">
+              <Clock className="h-4 w-4" />
+            </span>
+            <span className="text-left">Snoozed</span>
+            <span className="text-[12px] font-medium">{tabCounts.snoozed}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedConvo(null);
+              setMessages([]);
+              setMailboxView("sent");
+              setTab("all");
+            }}
+            className={gmailSidebarItemClass("sent")}
+          >
+            <span className="grid place-items-center">
+              <Send className="h-4 w-4" />
+            </span>
+            <span className="text-left">Sent</span>
+            <span className="text-[12px] font-medium">{tabCounts.sent}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedConvo(null);
+              setMessages([]);
+              setMailboxView("drafts");
+              setTab("all");
+            }}
+            className={gmailSidebarItemClass("drafts")}
+          >
+            <span className="grid place-items-center">
+              <FileText className="h-4 w-4" />
+            </span>
+            <span className="text-left font-semibold">Drafts</span>
+            <span className="text-[12px] font-medium">{tabCounts.drafts}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedConvo(null);
+              setMessages([]);
+              setMailboxView("purchases");
+              setTab("all");
+            }}
+            className={gmailSidebarItemClass("purchases")}
+          >
+            <span className="grid place-items-center">
+              <ShoppingBag className="h-4 w-4" />
+            </span>
+            <span className="text-left font-semibold">Purchases</span>
+            <span className="text-[12px] font-medium">{tabCounts.purchases}</span>
+          </button>
+
+          <button
+            type="button"
+            className="grid h-8 grid-cols-[40px_1fr_auto] items-center rounded-r-full pr-3 text-[#3c4043] transition hover:bg-[#e9eef6]"
+          >
+            <span className="grid place-items-center">
+              <ChevronDown className="h-4 w-4" />
+            </span>
+            <span className="text-left">More</span>
+          </button>
+        </nav>
+
+        <div className="mt-8 flex items-center justify-between px-5">
+          <span className="text-[16px] font-medium text-[#202124]">Labels</span>
+          <button
+            type="button"
+            className="grid h-8 w-8 place-items-center rounded-full text-[#5f6368] transition hover:bg-[#e9eef6]"
+            aria-label="Add label"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+      </aside>
+      <div className="h-full p-[var(--app-pad)] lg:pl-[calc(248px+var(--app-pad))] flex flex-col gap-[var(--gap)]">
+        <div className="rounded-[18px] border border-[#e5e7eb] bg-white px-4 py-3 shadow-none flex items-center justify-between gap-4">
           <div className="min-w-0 flex items-center gap-3">
+            <button
+              type="button"
+              className="grid h-9 w-9 place-items-center rounded-full text-[#5f6368] transition hover:bg-[#e9eef6] lg:hidden"
+              aria-label="Menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary grid place-items-center">
               <Inbox className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-lg font-black tracking-tight text-slate-950">Email Inbox</h1>
+                <h1 className="truncate text-lg font-black tracking-tight text-slate-950">
+                  Email Inbox
+                </h1>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black uppercase text-slate-600">
                   {provider}
                 </span>
@@ -469,10 +901,12 @@ function EmailPage() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 grid grid-cols-1 gap-[var(--gap)] md:grid-cols-[var(--inbox)_minmax(0,1fr)]">
-          <div className="min-h-0 rounded-2xl border bg-white/95 shadow-sm overflow-hidden flex flex-col backdrop-blur">
+        <div className="min-h-0 flex-1 grid grid-cols-1 gap-[var(--gap)]">
+          <div
+            className={`${selectedConvo ? "hidden" : "flex"} min-h-0 rounded-2xl border bg-white/95 shadow-sm overflow-hidden flex-col backdrop-blur`}
+          >
             <div
-              className={`grid gap-2 border-b bg-white p-3 transition-[grid-template-columns] duration-200 ${
+              className={`grid gap-2 border-b border-[#e5e7eb] bg-white p-2.5 transition-[grid-template-columns] duration-200 ${
                 searching
                   ? "grid-cols-1"
                   : "grid-cols-[clamp(104px,9vw,132px)_1fr_clamp(82px,7vw,104px)]"
@@ -525,7 +959,10 @@ function EmailPage() {
                 )}
               </div>
               {!searching && (
-                <Button variant="outline" className="h-[var(--control-h)] rounded-xl justify-center">
+                <Button
+                  variant="outline"
+                  className="h-[var(--control-h)] rounded-xl justify-center"
+                >
                   <Filter className="h-4 w-4 mr-2" />
                   Filtros
                 </Button>
@@ -534,23 +971,29 @@ function EmailPage() {
 
             <div className="border-b bg-white px-3 py-2 sm:hidden">
               <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                {syncStatus === "syncing" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+                {syncStatus === "syncing" ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Clock className="h-3.5 w-3.5" />
+                )}
                 {syncLabel}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 border-b bg-white px-3">
+            <div className="grid grid-cols-5 border-b border-[#e5e7eb] bg-white px-3">
               {(
                 [
-                  { key: "all" as const, label: "Todos", count: tabCounts.all },
-                  { key: "unread" as const, label: "No leídos", count: tabCounts.unread },
-                  { key: "starred" as const, label: "Marcados", count: tabCounts.starred },
+                  { key: "primary" as const, label: "Primary", count: tabCounts.primary },
+                  { key: "promotions" as const, label: "Promotions", count: tabCounts.promotions },
+                  { key: "social" as const, label: "Social", count: tabCounts.social },
+                  { key: "updates" as const, label: "Updates", count: tabCounts.updates },
+                  { key: "all" as const, label: "All", count: tabCounts.all },
                 ] as const
               ).map((t) => (
                 <button
                   key={t.key}
                   type="button"
-                  className={`relative h-11 flex items-center justify-center gap-2 text-sm font-extrabold transition-colors ${
+                  className={`relative h-10 flex items-center justify-center gap-2 text-sm font-bold transition-colors ${
                     tab === t.key ? "text-primary" : "text-slate-700 hover:text-primary"
                   }`}
                   onClick={() => setTab(t.key)}
@@ -566,7 +1009,7 @@ function EmailPage() {
               ))}
             </div>
 
-            <div className="min-h-0 flex-1 bg-slate-50/70">
+            <div className="min-h-0 flex-1 bg-white">
               <ScrollArea className="h-full">
                 {loading ? (
                   <div className="space-y-3 p-4">
@@ -578,7 +1021,11 @@ function EmailPage() {
                   <div className="p-8">
                     <EmptyState
                       icon={<Mail className="h-6 w-6" />}
-                      title={provider === "gmail" && syncStatus === "not_connected" ? "Conecta Gmail" : "No hay correos todavía"}
+                      title={
+                        provider === "gmail" && syncStatus === "not_connected"
+                          ? "Conecta Gmail"
+                          : "No hay correos todavía"
+                      }
                       description={
                         provider === "gmail" && syncStatus === "not_connected"
                           ? "Conecta tu cuenta desde Settings. Luego el inbox se sincronizará solo."
@@ -592,43 +1039,67 @@ function EmailPage() {
                     const unread = (convo.unread_count || 0) > 0;
                     const time = formatRelativeDate(convo.last_message_at);
                     const subject = convo.subject || "(No Subject)";
+                    const senderLabel =
+                      extractDisplayName(
+                        (convo as any).from_email ||
+                          (convo as any).sender ||
+                          (convo as any).from ||
+                          (convo as any).sender_name ||
+                          "",
+                      ) || (convo.provider || provider).toUpperCase();
                     return (
                       <button
                         type="button"
                         key={convo.id}
                         onClick={() => selectConvo(convo)}
-                        className={`relative w-full border-b px-4 py-3 text-left transition-all hover:bg-white ${
-                          isActive
-                            ? "bg-white shadow-[inset_4px_0_0_theme(colors.primary.DEFAULT)]"
-                            : "bg-transparent"
+                        className={`group grid w-full grid-cols-[32px_32px_minmax(150px,220px)_minmax(0,1fr)_76px] items-center gap-2 border-b border-[#e8eaed] px-3 py-0 text-left transition hover:relative hover:z-10 hover:bg-[#f2f6fc] hover:shadow-[0_1px_2px_rgba(60,64,67,.18),0_1px_3px_1px_rgba(60,64,67,.12)] ${
+                          isActive ? "bg-[#eaf1fb]" : unread ? "bg-white" : "bg-[#f8fafc]"
                         }`}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className={`mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-black ${unread ? "bg-primary text-white" : "bg-slate-200 text-slate-700"}`}>
-                            {getInitials(subject)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className={`truncate text-sm ${unread ? "font-black" : "font-bold"} text-slate-950`}>
-                                {subject}
-                              </div>
-                              <div className="shrink-0 text-[12px] font-bold text-slate-500">{time}</div>
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                              {convo.snippet || "Sin vista previa"}
-                            </div>
-                            <div className="mt-2 flex items-center gap-2">
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase text-slate-600">
-                                {convo.provider || provider}
-                              </span>
-                              {unread && (
-                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black uppercase text-primary">
-                                  Nuevo
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        <span
+                          className="flex h-10 items-center justify-center"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <span className="grid h-4 w-4 place-items-center rounded-[3px] border border-[#c4c7c5] bg-white transition group-hover:border-[#5f6368]">
+                            <span className="sr-only">Seleccionar</span>
+                          </span>
+                        </span>
+
+                        <span
+                          className="flex h-10 items-center justify-center text-[#bdc1c6] transition hover:text-[#5f6368]"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Star className="h-4 w-4" />
+                        </span>
+
+                        <span
+                          className={`truncate text-[13px] ${
+                            unread ? "font-bold text-[#202124]" : "font-medium text-[#3c4043]"
+                          }`}
+                        >
+                          {senderLabel}
+                        </span>
+
+                        <span className="min-w-0 truncate text-[13px] text-[#5f6368]">
+                          <span
+                            className={
+                              unread ? "font-bold text-[#202124]" : "font-semibold text-[#202124]"
+                            }
+                          >
+                            {subject}
+                          </span>
+                          <span className="mx-1 text-[#5f6368]">-</span>
+                          <span>{convo.snippet || "Sin vista previa"}</span>
+                        </span>
+
+                        <span
+                          className={`justify-self-end text-[12px] ${
+                            unread ? "font-bold text-[#202124]" : "font-medium text-[#5f6368]"
+                          }`}
+                          title={categoryLabel(conversationCategories[convo.id] || "primary")}
+                        >
+                          {time}
+                        </span>
                       </button>
                     );
                   })
@@ -637,11 +1108,26 @@ function EmailPage() {
             </div>
           </div>
 
-          <div className="min-h-0 rounded-2xl border bg-white/95 shadow-sm overflow-hidden flex flex-col backdrop-blur">
+          <div
+            className={`${selectedConvo ? "flex" : "hidden"} min-h-0 rounded-2xl border bg-white/95 shadow-sm overflow-hidden flex-col backdrop-blur`}
+          >
             {selectedConvo ? (
               <>
                 <div className="border-b bg-white px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 shrink-0 rounded-xl px-2.5 text-xs font-bold"
+                      onClick={() => {
+                        setSelectedConvo(null);
+                        setMessages([]);
+                        setMessagesError(null);
+                      }}
+                    >
+                      ← Volver
+                    </Button>
+
                     <div className="hidden sm:grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-xs font-black text-primary">
                       {getInitials(selectedSender)}
                     </div>
@@ -651,12 +1137,19 @@ function EmailPage() {
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
                         {extractDisplayName(selectedSender)}
-                        {selectedLastMessage?.sent_at ? ` • ${formatFullDate(selectedLastMessage.sent_at)}` : ""}
+                        {selectedLastMessage?.sent_at
+                          ? ` • ${formatFullDate(selectedLastMessage.sent_at)}`
+                          : ""}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={openReplyComposer}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={openReplyComposer}
+                    >
                       <Reply className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -671,16 +1164,21 @@ function EmailPage() {
                   </div>
                 </div>
 
-                <div className="min-h-0 flex-1 bg-slate-50/70">
-                  <ScrollArea className="h-full p-4">
+                <div className="min-h-0 flex-1 bg-white">
+                  <ScrollArea className="h-full px-5 py-4">
                     {messagesLoading ? (
                       <div className="space-y-3">
                         {[0, 1, 2].map((i) => (
-                          <div key={i} className="h-28 animate-pulse rounded-2xl bg-white shadow-sm" />
+                          <div
+                            key={i}
+                            className="h-28 animate-pulse rounded-2xl bg-white shadow-sm"
+                          />
                         ))}
                       </div>
                     ) : messagesError ? (
-                      <div className="p-4 text-center text-sm text-destructive">{messagesError}</div>
+                      <div className="p-4 text-center text-sm text-destructive">
+                        {messagesError}
+                      </div>
                     ) : messages.length === 0 ? (
                       <div className="p-8">
                         <EmptyState
@@ -697,10 +1195,13 @@ function EmailPage() {
                           const when = msg.sent_at || msg.created_at;
                           const outbound = msg.direction === "outbound";
                           return (
-                            <div key={msg.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${outbound ? "ml-auto max-w-[92%] border-primary/20" : "max-w-[96%]"}`}>
+                            <div
+                              key={msg.id}
+                              className="border-b border-[#e5e7eb] bg-white px-5 py-4 last:border-b-0"
+                            >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex items-center gap-3">
-                                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-[11px] font-black text-slate-700">
+                                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[11px] font-black text-slate-700">
                                     {getInitials(fromLabel)}
                                   </div>
                                   <div className="min-w-0">
@@ -710,13 +1211,15 @@ function EmailPage() {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="text-xs text-muted-foreground shrink-0">{formatFullDate(when)}</div>
+                                <div className="text-xs text-muted-foreground shrink-0">
+                                  {formatFullDate(when)}
+                                </div>
                               </div>
-                              <div className="mt-4 overflow-hidden rounded-xl border bg-white">
+                              <div className="mt-4 overflow-hidden bg-white">
                                 {msg.body_html ? (
                                   <EmailHtmlViewer html={msg.body_html} />
                                 ) : (
-                                  <div className="whitespace-pre-wrap p-4 text-sm text-slate-800">
+                                  <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
                                     {msg.body || msg.snippet || "(No content)"}
                                   </div>
                                 )}
@@ -740,67 +1243,157 @@ function EmailPage() {
                 </div>
               </div>
             )}
-
-            {!composerOpen && (
-              <button
-                type="button"
-                onClick={openNewComposer}
-                className="fixed bottom-6 right-6 h-12 w-12 rounded-full bg-primary text-white shadow-lg grid place-items-center hover:bg-primary/90"
-                aria-label="Compose"
-              >
-                <Send className="h-5 w-5" />
-              </button>
-            )}
-
-            {composerOpen && (
-              <div
-                className={`fixed z-50 ${
-                  composerExpanded
-                    ? "bottom-6 right-6 left-[calc(var(--app-pad)+var(--inbox)+var(--gap))] top-[calc(3.5rem+var(--app-pad))]"
-                    : "bottom-6 right-6 w-[min(520px,calc(100vw-48px))]"
-                }`}
-              >
-                <div className="h-full rounded-2xl border bg-white shadow-2xl overflow-hidden flex flex-col">
-                  <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
-                    <div className="font-extrabold text-sm">{composerSubject ? "Responder" : "Nuevo mensaje"}</div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setComposerExpanded((v) => !v)}>
-                        <span className="text-xs font-black">{composerExpanded ? "▢" : "▣"}</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeComposer}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    <div className="grid gap-2">
-                      <label className="text-xs font-bold text-muted-foreground">Para</label>
-                      <Input value={composerTo} onChange={(e) => setComposerTo(e.target.value)} placeholder="destinatario@correo.com" />
-                    </div>
-                    <div className="grid gap-2">
-                      <label className="text-xs font-bold text-muted-foreground">Asunto</label>
-                      <Input value={composerSubject} onChange={(e) => setComposerSubject(e.target.value)} placeholder="Asunto" />
-                    </div>
-                  </div>
-                  <div className="min-h-0 flex-1 px-4 pb-4">
-                    <textarea
-                      value={composerBody}
-                      onChange={(e) => setComposerBody(e.target.value)}
-                      className="h-full w-full resize-none rounded-xl border p-3 text-sm outline-none focus:ring-4 focus:ring-primary/10"
-                      placeholder="Escribe tu mensaje…"
-                    />
-                  </div>
-                  <div className="border-t bg-white px-4 py-3 flex items-center justify-between">
-                    <Button onClick={sendComposer} className="rounded-xl">
-                      Enviar
-                    </Button>
-                    <div className="text-xs text-muted-foreground">Adjuntar / formato / IA próximamente</div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
+        {composerOpen && (
+          <div
+            className={`fixed z-50 ${
+              composerExpanded
+                ? "bottom-6 right-6 left-6 top-[calc(3.5rem+var(--app-pad))]"
+                : "bottom-6 right-6 h-[min(560px,calc(100vh-96px))] w-[min(600px,calc(100vw-32px))]"
+            }`}
+          >
+            <div className="flex h-full flex-col overflow-hidden rounded-t-[10px] border border-[#dadce0] bg-white shadow-[0_8px_28px_rgba(60,64,67,.28)]">
+              <div className="flex h-10 items-center justify-between bg-[#f2f6fc] px-4 text-[#001d35]">
+                <div className="text-[14px] font-semibold">
+                  {composerSubject ? "Reply" : "New Message"}
+                </div>
+
+                <div className="flex items-center gap-1 text-[#444746]">
+                  <button
+                    type="button"
+                    className="grid h-7 w-7 place-items-center rounded hover:bg-[#e8eaed]"
+                    onClick={() => setComposerExpanded(false)}
+                    aria-label="Minimize"
+                  >
+                    <span className="text-lg leading-none">−</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="grid h-7 w-7 place-items-center rounded hover:bg-[#e8eaed]"
+                    onClick={() => setComposerExpanded((v) => !v)}
+                    aria-label={composerExpanded ? "Restore" : "Expand"}
+                  >
+                    <span className="text-[15px] leading-none">{composerExpanded ? "▣" : "↗"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="grid h-7 w-7 place-items-center rounded hover:bg-[#e8eaed]"
+                    onClick={closeComposer}
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-b border-[#e8eaed] px-4">
+                <div className="flex h-10 items-center gap-2 text-[14px]">
+                  <span className="shrink-0 text-[#3c4043]">To</span>
+                  <input
+                    value={composerTo}
+                    onChange={(e) => setComposerTo(e.target.value)}
+                    className="min-w-0 flex-1 bg-transparent outline-none"
+                    placeholder=""
+                  />
+                  <button type="button" className="text-[13px] text-[#3c4043] hover:underline">
+                    Cc
+                  </button>
+                  <button type="button" className="text-[13px] text-[#3c4043] hover:underline">
+                    Bcc
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-b border-[#e8eaed] px-4">
+                <input
+                  value={composerSubject}
+                  onChange={(e) => setComposerSubject(e.target.value)}
+                  className="h-10 w-full bg-transparent text-[14px] outline-none placeholder:text-[#5f6368]"
+                  placeholder="Subject"
+                />
+              </div>
+
+              <textarea
+                value={composerBody}
+                onChange={(e) => setComposerBody(e.target.value)}
+                className="min-h-0 flex-1 resize-none bg-white px-4 py-3 text-[14px] leading-6 text-[#202124] outline-none"
+                placeholder=""
+              />
+
+              <div className="border-t border-[#e8eaed] bg-white px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={sendComposer}
+                      className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0]"
+                    >
+                      <span className="flex items-center px-5">Send</span>
+                      <span className="grid w-8 place-items-center border-l border-white/25">
+                        ▾
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center rounded text-[15px] font-semibold text-[#5f6368] hover:bg-[#f1f3f4]"
+                    >
+                      Aa
+                    </button>
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    >
+                      📎
+                    </button>
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    >
+                      🔗
+                    </button>
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    >
+                      🙂
+                    </button>
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    >
+                      🖼
+                    </button>
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    >
+                      🔒
+                    </button>
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    >
+                      ⋮
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeComposer}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    aria-label="Discard draft"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,16 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   BadgeDollarSign,
+  BriefcaseBusiness,
+  CalendarClock,
+  Camera,
+  Code2,
+  FileText,
+  Globe,
   Layers,
+  Megaphone,
   Package,
+  Palette,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Users,
+  Wrench,
   Pencil,
   Plus,
   Power,
   ShieldCheck,
 } from "lucide-react";
+import { icons as lucideIconMap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
@@ -63,6 +77,8 @@ type Product = {
   billing_type: BillingType;
   duration_days: number | null;
   deliverables: string | null;
+  image_url?: string | null;
+  icon_name?: string | null;
   keywords?: string[] | string | null;
   is_active: boolean;
   created_at: string;
@@ -110,6 +126,33 @@ const BILLING_TYPES: Array<{ label: string; value: BillingType }> = [
   { label: "Personalizado", value: "custom" },
 ];
 
+const ALL_LUCIDE_ICONS = Object.keys(lucideIconMap)
+  .filter((name) => /^[A-Z]/.test(name))
+  .sort((a, b) => a.localeCompare(b));
+
+function defaultIconForType(type?: ProductType | null) {
+  if (type === "subscription") return "CalendarClock";
+  if (type === "package") return "Sparkles";
+  if (type === "product") return "Package";
+  return "BriefcaseBusiness";
+}
+
+function humanizeIconName(name: string) {
+  return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+}
+
+function ProductVisualIcon({
+  name,
+  className = "h-10 w-10",
+}: {
+  name?: string | null;
+  className?: string;
+}) {
+  const iconName = name || "BriefcaseBusiness";
+  const Icon = (lucideIconMap as Record<string, any>)[iconName] || BriefcaseBusiness;
+  return <Icon className={className} />;
+}
+
 function formatMoney(value: number, currency: string) {
   const n = Number.isFinite(value) ? value : 0;
   return `${currency} ${n.toLocaleString()}`;
@@ -130,6 +173,15 @@ function ProductsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Product | null>(null);
   const [selected, setSelected] = useState<Product | null>(null);
+  const [productAdvancedOpen, setProductAdvancedOpen] = useState(false);
+  const [productDraftType, setProductDraftType] = useState<ProductType>("service");
+  const [productDraftIcon, setProductDraftIcon] = useState("BriefcaseBusiness");
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconSearch, setIconSearch] = useState("");
+  const productImageInputRef = useRef<HTMLInputElement | null>(null);
+  const [productImageFile, setProductImageFile] = useState<File | null>(null);
+  const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
+  const [productSaving, setProductSaving] = useState(false);
 
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [activeWorkflow, setActiveWorkflow] = useState<ProductWorkflow | null>(null);
@@ -197,6 +249,60 @@ function ProductsPage() {
     return { total, active, inactive, avgPrice };
   }, [data]);
 
+  const filteredIconNames = useMemo(() => {
+    const q = iconSearch.trim().toLowerCase();
+    if (!q) return ALL_LUCIDE_ICONS;
+    return ALL_LUCIDE_ICONS.filter((name) => humanizeIconName(name).toLowerCase().includes(q));
+  }, [iconSearch]);
+
+  const activeProductImagePreview = productImagePreview || editItem?.image_url || null;
+
+  function resetProductDraftVisuals() {
+    setProductDraftType("service");
+    setProductDraftIcon("BriefcaseBusiness");
+    setIconPickerOpen(false);
+    setIconSearch("");
+    setProductImageFile(null);
+    setProductImagePreview(null);
+    if (productImageInputRef.current) productImageInputRef.current.value = "";
+  }
+
+  function handleProductImageFile(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecciona una imagen válida.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("La imagen no puede pesar más de 5 MB.");
+      return;
+    }
+
+    setProductImageFile(file);
+    setProductImagePreview(URL.createObjectURL(file));
+  }
+
+  async function uploadProductImage(file: File) {
+    if (!profile?.company_id) {
+      throw new Error("No se encontró la empresa para subir la imagen.");
+    }
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const safeExt = ext.replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${profile.company_id}/${Date.now()}-${crypto.randomUUID()}.${safeExt}`;
+
+    const { error } = await supabase.storage.from("product-images").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return data.filter((p) => {
@@ -225,17 +331,42 @@ function ProductsPage() {
     const basePrice = Number(fd.get("base_price"));
     const durationDays = fd.get("duration_days") ? Number(fd.get("duration_days")) : null;
 
+    const selectedType = (String(fd.get("type") || "service") || "service") as ProductType;
+    const selectedBilling =
+      selectedType === "subscription"
+        ? "monthly"
+        : ((String(fd.get("billing_type") || "one_time") || "one_time") as BillingType);
+
+    setProductSaving(true);
+
+    let uploadedImageUrl = editItem?.image_url || null;
+    try {
+      if (selectedType === "product" && productImageFile) {
+        uploadedImageUrl = await uploadProductImage(productImageFile);
+      }
+    } catch (err: any) {
+      setProductSaving(false);
+      toast.error(err?.message || "No se pudo subir la imagen del producto.");
+      return;
+    }
+
     const record = {
       name: String(fd.get("name") || "").trim(),
       slug: (String(fd.get("slug") || "").trim() || null) as string | null,
       category: (String(fd.get("category") || "").trim() || null) as string | null,
-      type: (String(fd.get("type") || "service") || "service") as ProductType,
+      type: selectedType,
       description: (String(fd.get("description") || "").trim() || null) as string | null,
       base_price: Number.isFinite(basePrice) ? basePrice : 0,
-      currency: (String(fd.get("currency") || "USD") || "USD").toUpperCase(),
-      billing_type: (String(fd.get("billing_type") || "one_time") || "one_time") as BillingType,
+      currency: (String(fd.get("currency") || "DOP") || "DOP").toUpperCase(),
+      billing_type: selectedBilling,
       duration_days: durationDays && Number.isFinite(durationDays) ? durationDays : null,
       deliverables: (String(fd.get("deliverables") || "").trim() || null) as string | null,
+      image_url: selectedType === "product" ? uploadedImageUrl : null,
+      icon_name:
+        selectedType === "product"
+          ? null
+          : ((String(fd.get("icon_name") || defaultIconForType(selectedType)).trim() ||
+              defaultIconForType(selectedType)) as string),
       is_active: fd.get("is_active") === "on",
     };
 
@@ -255,8 +386,11 @@ function ProductsPage() {
       }
       setDialogOpen(false);
       setEditItem(null);
+      resetProductDraftVisuals();
     } catch (err: any) {
       toast.error(err?.message ?? "No se pudo guardar");
+    } finally {
+      setProductSaving(false);
     }
   };
 
@@ -689,7 +823,17 @@ function ProductsPage() {
                   : "No hay productos activos disponibles."
               }
               actionLabel={isAdminLike ? "Nuevo producto" : undefined}
-              onAction={isAdminLike ? () => setDialogOpen(true) : undefined}
+              onAction={
+                isAdminLike
+                  ? () => {
+                      setEditItem(null);
+                      setProductDraftType("service");
+                      setProductDraftIcon("BriefcaseBusiness");
+                      setProductAdvancedOpen(false);
+                      setDialogOpen(true);
+                    }
+                  : undefined
+              }
             />
           ) : (
             <div className="overflow-x-auto -mx-4 sm:-mx-5">
@@ -714,13 +858,36 @@ function ProductsPage() {
                       className="cursor-pointer hover:bg-muted/40 transition-colors"
                       onClick={() => setSelected(p)}
                     >
-                      <TableCell className="font-medium pl-4 sm:pl-5">
-                        <div className="font-semibold">{p.name}</div>
-                        {p.description ? (
-                          <div className="text-xs text-muted-foreground line-clamp-1">
-                            {p.description}
+                      <TableCell className="pl-4 sm:pl-5">
+                        <div className="flex min-w-[260px] items-center gap-3">
+                          <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border bg-white shadow-[0_8px_18px_rgba(15,23,42,.06)]">
+                            {p.type === "product" && p.image_url ? (
+                              <img
+                                src={p.image_url}
+                                alt={p.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <ProductVisualIcon
+                                name={p.icon_name || defaultIconForType(p.type)}
+                                className="h-5 w-5 text-blue-600"
+                              />
+                            )}
                           </div>
-                        ) : null}
+
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold">{p.name}</div>
+                            {p.description ? (
+                              <div className="line-clamp-1 text-xs text-muted-foreground">
+                                {p.description}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">
+                                {p.category || p.type || "Producto"}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {p.category || "—"}
@@ -769,131 +936,423 @@ function ProductsPage() {
         open={dialogOpen}
         onOpenChange={(o) => {
           setDialogOpen(o);
-          if (!o) setEditItem(null);
+          if (!o) {
+            setEditItem(null);
+            resetProductDraftVisuals();
+          }
         }}
       >
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl overflow-hidden p-0">
+          <DialogHeader className="border-b px-6 py-5 text-left">
             <DialogTitle>{editItem ? "Editar producto" : "Nuevo producto"}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Define lo que vendes. El formulario cambia según el tipo seleccionado.
+            </p>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Nombre</Label>
-              <Input name="name" defaultValue={editItem?.name || ""} required />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Categoría</Label>
-                <Input
-                  name="category"
-                  defaultValue={editItem?.category || ""}
-                  placeholder="Ej: Desarrollo Web"
-                />
+          <form onSubmit={handleSubmit}>
+            <div className="grid max-h-[78vh] grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr]">
+              <div className="border-b bg-muted/20 p-6 lg:border-b-0 lg:border-r">
+                {productDraftType === "product" ? (
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-dashed bg-white text-center transition hover:border-blue-300 hover:bg-blue-50/40"
+                      onClick={() => productImageInputRef.current?.click()}
+                    >
+                      {activeProductImagePreview ? (
+                        <img
+                          src={activeProductImagePreview}
+                          alt={editItem?.name || "Imagen del producto"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="px-6 text-center">
+                          <Package className="mx-auto h-10 w-10 text-muted-foreground" />
+                          <div className="mt-3 text-sm font-semibold">Imagen del producto</div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Sube una foto para reconocerlo más fácil.
+                          </p>
+                          <div className="mt-4 inline-flex rounded-full border bg-white px-4 py-2 text-sm font-medium">
+                            Upload image
+                          </div>
+                        </div>
+                      )}
+                    </button>
+
+                    <input
+                      ref={productImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleProductImageFile(e.target.files?.[0] || null)}
+                    />
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => productImageInputRef.current?.click()}
+                      >
+                        {activeProductImagePreview ? "Cambiar imagen" : "Upload image"}
+                      </Button>
+
+                      {activeProductImagePreview ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setProductImageFile(null);
+                            setProductImagePreview(null);
+                            if (productImageInputRef.current)
+                              productImageInputRef.current.value = "";
+                          }}
+                        >
+                          Quitar
+                        </Button>
+                      ) : null}
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">JPG, PNG o WebP. Máximo 5 MB.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex aspect-square items-center justify-center rounded-3xl border bg-white p-6 text-center">
+                      <div>
+                        <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-blue-50 text-blue-700">
+                          <ProductVisualIcon name={productDraftIcon} className="h-10 w-10" />
+                        </div>
+                        <div className="mt-4 text-sm font-semibold">
+                          {productDraftType === "service"
+                            ? "Servicio"
+                            : productDraftType === "package"
+                              ? "Paquete"
+                              : "Suscripción"}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Elige un icono para identificarlo rápido en el catálogo.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <input type="hidden" name="icon_name" value={productDraftIcon} />
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between"
+                        onClick={() => setIconPickerOpen((v) => !v)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <ProductVisualIcon name={productDraftIcon} className="h-4 w-4" />
+                          Agregar icono
+                        </span>
+                        <span className="max-w-[150px] truncate text-xs text-muted-foreground">
+                          {humanizeIconName(productDraftIcon)}
+                        </span>
+                      </Button>
+
+                      {iconPickerOpen ? (
+                        <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl border bg-white shadow-xl">
+                          <div className="border-b p-3">
+                            <Input
+                              value={iconSearch}
+                              onChange={(e) => setIconSearch(e.target.value)}
+                              placeholder="Buscar icono..."
+                              autoFocus
+                            />
+                          </div>
+
+                          <div className="max-h-72 overflow-y-auto p-2">
+                            {filteredIconNames.length ? (
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {filteredIconNames.map((iconName) => {
+                                  const active = productDraftIcon === iconName;
+                                  return (
+                                    <button
+                                      key={iconName}
+                                      type="button"
+                                      title={humanizeIconName(iconName)}
+                                      className={`grid h-12 place-items-center rounded-xl border transition ${
+                                        active
+                                          ? "border-blue-600 bg-blue-50 text-blue-700"
+                                          : "border-transparent text-slate-600 hover:border-blue-200 hover:bg-blue-50/60"
+                                      }`}
+                                      onClick={() => {
+                                        setProductDraftIcon(iconName);
+                                        setIconPickerOpen(false);
+                                        setIconSearch("");
+                                      }}
+                                    >
+                                      <ProductVisualIcon name={iconName} className="h-5 w-5" />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="p-4 text-center text-sm text-muted-foreground">
+                                No encontré iconos con esa búsqueda.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="space-y-1.5">
-                <Label>Tipo</Label>
-                <Select name="type" defaultValue={editItem?.type || "service"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRODUCT_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="space-y-5 p-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Tipo</Label>
+                    <Select
+                      name="type"
+                      value={productDraftType}
+                      onValueChange={(value) => {
+                        const nextType = value as ProductType;
+                        setProductDraftType(nextType);
+                        setProductDraftIcon(defaultIconForType(nextType));
+                        setIconPickerOpen(false);
+                        setIconSearch("");
+                        if (nextType !== "product") {
+                          setProductImageFile(null);
+                          setProductImagePreview(null);
+                          if (productImageInputRef.current) productImageInputRef.current.value = "";
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRODUCT_TYPES.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Categoría</Label>
+                    <Input
+                      name="category"
+                      defaultValue={editItem?.category || ""}
+                      placeholder={
+                        productDraftType === "product"
+                          ? "Ej: Decoración"
+                          : productDraftType === "subscription"
+                            ? "Ej: Mantenimiento"
+                            : "Ej: Diseño gráfico"
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>
+                    {productDraftType === "subscription"
+                      ? "Nombre de la suscripción"
+                      : productDraftType === "package"
+                        ? "Nombre del paquete"
+                        : productDraftType === "product"
+                          ? "Nombre del producto"
+                          : "Nombre del servicio"}
+                  </Label>
+                  <Input
+                    name="name"
+                    defaultValue={editItem?.name || ""}
+                    required
+                    placeholder={
+                      productDraftType === "subscription"
+                        ? "Ej: Mantenimiento mensual de redes"
+                        : productDraftType === "package"
+                          ? "Ej: Paquete branding inicial"
+                          : productDraftType === "product"
+                            ? "Ej: Arreglo floral premium"
+                            : "Ej: Diseño de flyer personalizado"
+                    }
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div
+                    className={
+                      productDraftType === "subscription"
+                        ? "space-y-1.5 sm:col-span-2"
+                        : "space-y-1.5"
+                    }
+                  >
+                    <Label>
+                      {productDraftType === "subscription"
+                        ? "Mensualidad"
+                        : productDraftType === "package"
+                          ? "Precio del paquete"
+                          : productDraftType === "product"
+                            ? "Precio del producto"
+                            : "Precio del servicio"}
+                    </Label>
+                    <Input
+                      name="base_price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      defaultValue={String(editItem?.base_price ?? "")}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  {productDraftType === "subscription" ? (
+                    <input type="hidden" name="billing_type" value="monthly" />
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label>Cobro</Label>
+                      <Select
+                        name="billing_type"
+                        defaultValue={editItem?.billing_type || "one_time"}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {BILLING_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <Label>Moneda</Label>
+                    <Input name="currency" defaultValue={editItem?.currency || "DOP"} />
+                  </div>
+                </div>
+
+                {productDraftType === "service" ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Duración estimada</Label>
+                      <Input
+                        name="duration_days"
+                        type="number"
+                        defaultValue={editItem?.duration_days ?? ""}
+                        placeholder="Días, opcional"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Entregables del servicio</Label>
+                      <Input
+                        name="deliverables"
+                        defaultValue={editItem?.deliverables || ""}
+                        placeholder="Ej: 1 diseño, 2 revisiones"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                {productDraftType === "package" ? (
+                  <div className="space-y-1.5">
+                    <Label>Qué incluye el paquete</Label>
+                    <Textarea
+                      name="deliverables"
+                      defaultValue={editItem?.deliverables || ""}
+                      rows={3}
+                      placeholder="Ej: Logo, paleta de colores, 5 posts, portada para redes..."
+                    />
+                  </div>
+                ) : null}
+
+                {productDraftType === "subscription" ? (
+                  <div className="space-y-1.5">
+                    <Label>Qué incluye la mensualidad</Label>
+                    <Textarea
+                      name="deliverables"
+                      defaultValue={editItem?.deliverables || ""}
+                      rows={3}
+                      placeholder="Ej: 12 publicaciones mensuales, reportes, soporte por WhatsApp..."
+                    />
+                  </div>
+                ) : null}
+
+                {productDraftType === "product" ? (
+                  <div className="space-y-1.5">
+                    <Label>Detalles del producto</Label>
+                    <Textarea
+                      name="deliverables"
+                      defaultValue={editItem?.deliverables || ""}
+                      rows={2}
+                      placeholder="Ej: Tamaño, color, materiales, variaciones..."
+                    />
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <Label>Descripción</Label>
+                  <Textarea
+                    name="description"
+                    defaultValue={editItem?.description || ""}
+                    rows={4}
+                    placeholder="Describe brevemente qué recibe el cliente."
+                  />
+                </div>
+
+                <div className="rounded-2xl border bg-muted/20 p-4">
+                  <div className="mb-3 text-sm font-semibold">Opciones internas</div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Slug</Label>
+                      <Input
+                        name="slug"
+                        defaultValue={editItem?.slug || ""}
+                        placeholder="Opcional"
+                      />
+                    </div>
+
+                    <div className="flex items-end">
+                      <div className="flex h-10 items-center gap-2">
+                        <input
+                          id="is_active"
+                          name="is_active"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          defaultChecked={editItem ? Boolean(editItem.is_active) : true}
+                        />
+                        <Label htmlFor="is_active">Activo</Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {productDraftType !== "product" ? (
+                  <input type="hidden" name="image_url" value="" />
+                ) : (
+                  <input type="hidden" name="icon_name" value="" />
+                )}
+
+                <div className="flex justify-end gap-2 border-t pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setDialogOpen(false);
+                      setEditItem(null);
+                      resetProductDraftVisuals();
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={!isAdminLike || productSaving}>
+                    {productSaving ? "Guardando..." : editItem ? "Guardar cambios" : "Crear"}
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5 col-span-2">
-                <Label>Precio base</Label>
-                <Input
-                  name="base_price"
-                  type="number"
-                  defaultValue={String(editItem?.base_price ?? 0)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Moneda</Label>
-                <Input name="currency" defaultValue={editItem?.currency || "USD"} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Modalidad de cobro</Label>
-                <Select name="billing_type" defaultValue={editItem?.billing_type || "one_time"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BILLING_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Duración (días)</Label>
-                <Input
-                  name="duration_days"
-                  type="number"
-                  defaultValue={editItem?.duration_days ?? ""}
-                  placeholder="Opcional"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Slug (opcional)</Label>
-              <Input
-                name="slug"
-                defaultValue={editItem?.slug || ""}
-                placeholder="ej: desarrollo-web-premium"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Descripción</Label>
-              <Textarea name="description" defaultValue={editItem?.description || ""} rows={3} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Entregables (opcional)</Label>
-              <Textarea name="deliverables" defaultValue={editItem?.deliverables || ""} rows={2} />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="is_active"
-                name="is_active"
-                type="checkbox"
-                className="h-4 w-4"
-                defaultChecked={editItem ? Boolean(editItem.is_active) : true}
-              />
-              <Label htmlFor="is_active">Activo</Label>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDialogOpen(false);
-                  setEditItem(null);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={!isAdminLike}>
-                {editItem ? "Guardar" : "Crear"}
-              </Button>
             </div>
           </form>
         </DialogContent>
@@ -911,7 +1370,14 @@ function ProductsPage() {
               <div className="pointer-events-none absolute inset-x-0 top-0 h-[84px] bg-gradient-to-b from-blue-600/20 via-blue-500/10 to-transparent" />
               <div className="relative flex items-start gap-3">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border bg-background/85 shadow-[0_12px_24px_rgba(15,23,42,.06)]">
-                  <Package className="h-5 w-5 text-blue-600" />
+                  {selected.type === "product" ? (
+                    <Package className="h-5 w-5 text-blue-600" />
+                  ) : (
+                    <ProductVisualIcon
+                      name={selected.icon_name || defaultIconForType(selected.type)}
+                      className="h-5 w-5 text-blue-600"
+                    />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <DialogTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">
@@ -945,6 +1411,16 @@ function ProductsPage() {
                   <div className="font-medium">{selected.billing_type || "—"}</div>
                 </div>
               </div>
+              {selected.type === "product" && selected.image_url ? (
+                <div className="overflow-hidden rounded-2xl border bg-muted/20">
+                  <img
+                    src={selected.image_url}
+                    alt={selected.name}
+                    className="max-h-64 w-full object-cover"
+                  />
+                </div>
+              ) : null}
+
               {selected.description ? (
                 <div>
                   <div className="text-xs text-muted-foreground">Descripción</div>
@@ -957,138 +1433,6 @@ function ProductsPage() {
                   <div className="whitespace-pre-wrap">{selected.deliverables}</div>
                 </div>
               ) : null}
-
-              <div
-                data-demo="products-workflow"
-                className="rounded-[12px] border bg-background p-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Proceso de ejecución</div>
-                    <div className="font-medium">
-                      {activeWorkflow
-                        ? activeWorkflow.name
-                        : "Este producto todavía no tiene proceso definido."}
-                    </div>
-                    {activeWorkflow?.description ? (
-                      <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
-                        {activeWorkflow.description}
-                      </div>
-                    ) : null}
-                  </div>
-                  {isAdminLike && !activeWorkflow ? (
-                    <Button
-                      variant="outline"
-                      className="gap-2"
-                      onClick={() => openCreateWorkflow()}
-                    >
-                      <Plus className="h-4 w-4" /> Crear workflow
-                    </Button>
-                  ) : null}
-                </div>
-
-                {workflowLoading ? (
-                  <div className="text-xs text-muted-foreground mt-3">Cargando workflow…</div>
-                ) : activeWorkflow ? (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-muted-foreground">
-                        Duración estimada total:{" "}
-                        <span className="font-medium">{estimatedTotalDays} día(s)</span>
-                      </div>
-                      {isAdminLike ? (
-                        <Button
-                          data-demo="products-add-workflow-step"
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 h-8"
-                          onClick={() => openNewStep()}
-                        >
-                          <Plus className="h-4 w-4" /> Agregar paso
-                        </Button>
-                      ) : null}
-                    </div>
-
-                    {workflowSteps.length ? (
-                      <div
-                        data-demo="products-workflow-steps"
-                        className="space-y-2 max-h-[340px] overflow-y-auto pr-1"
-                      >
-                        {[...workflowSteps]
-                          .sort((a, b) => a.step_order - b.step_order)
-                          .map((s, idx) => (
-                            <div key={s.id} className="rounded-[10px] border bg-background/50 p-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="font-medium truncate">
-                                    {idx + 1}. {s.title}{" "}
-                                    {!s.is_active ? (
-                                      <span className="text-xs text-muted-foreground">
-                                        (inactivo)
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {s.default_duration_days} día(s) · {s.default_priority}
-                                    {s.assigned_role ? ` · Rol: ${s.assigned_role}` : ""}
-                                  </div>
-                                  {s.description ? (
-                                    <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
-                                      {s.description}
-                                    </div>
-                                  ) : null}
-                                </div>
-
-                                {isAdminLike ? (
-                                  <div className="shrink-0 flex items-center gap-1">
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => void handleMoveStep(s.id, "up")}
-                                      disabled={idx === 0}
-                                    >
-                                      <ArrowUp className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => void handleMoveStep(s.id, "down")}
-                                      disabled={idx === workflowSteps.length - 1}
-                                    >
-                                      <ArrowDown className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => openEditStep(s)}
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-8"
-                                      onClick={() => void handleToggleStepActive(s)}
-                                    >
-                                      {s.is_active ? "Desactivar" : "Activar"}
-                                    </Button>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">
-                        Este workflow no tiene pasos todavía.
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
 
               <div className="flex items-center justify-between pt-2">
                 <div className="text-xs text-muted-foreground">
@@ -1110,6 +1454,15 @@ function ProductsPage() {
                         variant="outline"
                         onClick={() => {
                           setEditItem(selected);
+                          setProductDraftType(selected.type || "service");
+                          setProductDraftIcon(
+                            selected.icon_name || defaultIconForType(selected.type),
+                          );
+                          setIconPickerOpen(false);
+                          setIconSearch("");
+                          setProductImageFile(null);
+                          setProductImagePreview(null);
+                          if (productImageInputRef.current) productImageInputRef.current.value = "";
                           setDialogOpen(true);
                         }}
                       >

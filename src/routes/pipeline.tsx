@@ -4,6 +4,14 @@ import {
   BarChart3,
   BriefcaseBusiness,
   Calendar as CalendarIcon,
+  Archive,
+  Grid2X2,
+  List,
+  Search,
+  SlidersHorizontal,
+  Tag,
+  Trophy,
+  TrendingUp as TrendLine,
   DollarSign,
   Eye,
   Filter,
@@ -11,7 +19,6 @@ import {
   MessageCircle,
   Phone,
   Plus,
-  Trophy,
   TrendingUp,
   Package,
   Trash2,
@@ -39,17 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { LoadingMetrics } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
@@ -2320,116 +2316,304 @@ function PipelinePage() {
     );
 
   return (
-    <div data-demo="pipeline-main" className="min-h-[calc(100vh-72px)] bg-[#f6f8fb] text-[#101828]">
-      <div className="px-4 sm:px-5 lg:px-6 py-4">
+    <div data-demo="pipeline-main" className="min-h-[calc(100vh-72px)] bg-white text-[#101828]">
+      <div className="px-3 sm:px-4 lg:px-5 py-3">
         <div className="min-w-[1120px]">
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div className="flex items-center gap-4">
-              <div className="h-[52px] w-[52px] rounded-[18px] grid place-items-center text-white bg-[linear-gradient(135deg,#1d62f9,#0ea5e9)] shadow-[0_14px_28px_rgba(29,98,249,0.18)]">
-                <BarChart3 className="h-5 w-5" />
+          <div className="relative z-20 mb-3 overflow-visible rounded-[22px] border border-[#edf1f7] bg-white p-3.5 shadow-[0_10px_26px_rgba(15,23,42,0.035)]">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[15px] bg-[linear-gradient(135deg,#1d62f9,#0ea5e9)] text-white shadow-[0_12px_24px_rgba(29,98,249,0.20)]">
+                  <Filter className="h-5 w-5" />
+                </div>
+
+                <div className="min-w-0">
+                  <h1 className="text-[23px] leading-none tracking-[-0.04em] font-semibold text-[#101828]">
+                    Pipeline de Ventas
+                  </h1>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
+                      <BarChart3 className="h-3.5 w-3.5 text-[#1d62f9]" />
+                      <span>Pipeline</span>
+                      <strong className="text-[#1d62f9]">${pipelineTotal.toLocaleString()}</strong>
+                    </div>
+
+                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
+                      <BriefcaseBusiness className="h-3.5 w-3.5 text-[#667085]" />
+                      <span>Abiertas</span>
+                      <strong className="text-[#101828]">{openDealsCount}</strong>
+                    </div>
+
+                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
+                      <Tag className="h-3.5 w-3.5 text-[#667085]" />
+                      <span>Ticket promedio</span>
+                      <strong className="text-[#101828]">${avgDeal.toLocaleString()}</strong>
+                    </div>
+
+                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
+                      <TrendLine className="h-3.5 w-3.5 text-[#667085]" />
+                      <span>Win rate</span>
+                      <strong className="text-[#101828]">{winRate}%</strong>
+                    </div>
+
+                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
+                      <Trophy className="h-3.5 w-3.5 text-[#16a34a]" />
+                      <span>Ganado</span>
+                      <strong className="text-[#16a34a]">${wonTotal.toLocaleString()}</strong>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h1 className="text-[26px] leading-none tracking-[-0.03em] font-semibold">
-                  Pipeline de Ventas
-                </h1>
-                <div className="mt-2 text-[13px] font-normal text-[#667085] flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span>
-                    Pipeline:{" "}
-                    <strong className="text-[#1d62f9] font-semibold">
-                      ${pipelineTotal.toLocaleString()}
-                    </strong>
-                  </span>
-                  <span className="text-[#cbd5e1]">·</span>
-                  <span>
-                    Abiertas:{" "}
-                    <strong className="text-[#101828] font-semibold">{openDealsCount}</strong>
-                  </span>
-                  <span className="text-[#cbd5e1]">·</span>
-                  <span>
-                    Ticket:{" "}
-                    <strong className="text-[#101828] font-semibold">
-                      ${avgDeal.toLocaleString()}
-                    </strong>
-                  </span>
-                  <span className="text-[#cbd5e1]">·</span>
-                  <span>
-                    Win rate: <strong className="text-[#101828] font-semibold">{winRate}%</strong>
-                  </span>
-                  <span className="text-[#cbd5e1]">·</span>
-                  <span>
-                    Ganado:{" "}
-                    <strong className="text-[#1d62f9] font-semibold">
-                      ${wonTotal.toLocaleString()}
-                    </strong>
-                  </span>
+
+              {can("deals.create") && (
+                <button
+                  data-demo="pipeline-new-deal-button"
+                  className="h-[40px] shrink-0 rounded-[13px] bg-[#1d62f9] px-4 text-[13px] font-semibold text-white shadow-[0_12px_26px_rgba(29,98,249,0.22)] transition hover:-translate-y-[1px] hover:opacity-95 flex items-center gap-2"
+                  onClick={() => {
+                    setEditDeal(null);
+                    setDialogOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Nueva oportunidad
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 border-t border-[#eef2f7] pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex h-[38px] overflow-hidden rounded-[13px] border border-[#e6eaf0] bg-white p-1 shadow-[0_8px_18px_rgba(15,23,42,0.045)]">
+                  <button
+                    className={
+                      "h-full rounded-[10px] px-3 text-[12px] font-semibold flex items-center gap-1.5 transition-all " +
+                      (viewMode === "board"
+                        ? "bg-[#1d62f9] text-white shadow-[0_10px_20px_rgba(29,98,249,0.22)]"
+                        : "text-[#344054] hover:bg-[#f6f8fb]")
+                    }
+                    onClick={() => setViewMode("board")}
+                  >
+                    <Grid2X2 className="h-4 w-4" />
+                    Tablero
+                  </button>
+
+                  <button
+                    className={
+                      "h-full rounded-[10px] px-3 text-[12px] font-semibold flex items-center gap-1.5 transition-all " +
+                      (viewMode === "list"
+                        ? "bg-[#1d62f9] text-white shadow-[0_10px_20px_rgba(29,98,249,0.22)]"
+                        : "text-[#344054] hover:bg-[#f6f8fb]")
+                    }
+                    onClick={() => setViewMode("list")}
+                  >
+                    <List className="h-4 w-4" />
+                    Lista
+                  </button>
+
+                  <button
+                    className={
+                      "h-full rounded-[10px] px-3 text-[12px] font-semibold flex items-center gap-1.5 transition-all " +
+                      (archivedOpen
+                        ? "bg-[#1d62f9] text-white shadow-[0_10px_20px_rgba(29,98,249,0.22)]"
+                        : "text-[#344054] hover:bg-[#f6f8fb]")
+                    }
+                    onClick={() => setArchivedOpen(true)}
+                    type="button"
+                  >
+                    <Archive className="h-4 w-4" />
+                    Archivados
+                  </button>
+                </div>
+
+                <div className="ml-auto flex min-w-[360px] flex-1 items-center justify-end gap-2">
+                  <div className="relative w-full max-w-[460px]">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667085]" />
+                    <input
+                      className="h-[38px] w-full rounded-[13px] border border-[#e6eaf0] bg-white pl-10 pr-3 text-[12px] font-medium text-[#101828] shadow-[0_8px_18px_rgba(15,23,42,0.035)] outline-none transition placeholder:text-[#98a2b3] focus:border-[#bdd1ff] focus:ring-4 focus:ring-[#1d62f9]/10"
+                      placeholder="Buscar oportunidades, prospectos o empresas..."
+                    />
+                  </div>
+
+                  <button
+                    className="h-[38px] shrink-0 rounded-[13px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] shadow-[0_8px_18px_rgba(15,23,42,0.045)] transition hover:-translate-y-[1px] hover:border-[#bdd1ff] flex items-center gap-1.5"
+                    onClick={() => setFiltersOpen((open) => !open)}
+                    type="button"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Filtros
+                    {activeFilterCount > 0 && (
+                      <span className="ml-1 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#eaf1ff] px-2 text-[12px] font-black text-[#1d62f9]">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
 
-            {can("deals.create") && (
-              <button
-                data-demo="pipeline-new-deal-button"
-                className="h-[42px] px-[14px] rounded-[13px] bg-[#1d62f9] text-white font-semibold text-[13px] flex items-center gap-2 shadow-[0_12px_24px_rgba(29,98,249,0.20)] hover:opacity-95"
-                onClick={() => {
-                  setEditDeal(null);
-                  setDialogOpen(true);
-                }}
+            {filtersOpen ? (
+              <div
+                data-demo="pipeline-inline-filters"
+                className="absolute right-3 top-[calc(100%+8px)] z-50 w-[270px] aspect-[3/5] overflow-y-auto rounded-[20px] border border-[#edf1f7] bg-white p-3 shadow-[0_24px_60px_rgba(15,23,42,0.16)]"
               >
-                <Plus className="h-4 w-4" /> Nueva oportunidad
-              </button>
-            )}
-          </div>
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-semibold text-[#101828]">Filtros</div>
+                    <div className="mt-0.5 text-[11px] font-medium text-[#98a2b3]">
+                      {activeFilterCount} activos
+                    </div>
+                  </div>
 
-          {/* Tools */}
-          <div className="flex items-center gap-2 mb-5">
-            <button
-              className={
-                "h-[38px] px-[13px] rounded-[12px] border text-[13px] font-semibold flex items-center gap-2 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition-all " +
-                (viewMode === "board"
-                  ? "bg-[#1d62f9] text-white border-[#1d62f9] shadow-[0_12px_26px_rgba(29,98,249,0.22)]"
-                  : "bg-white text-[#344054] border-[#e6eaf0] hover:-translate-y-[1px] hover:border-[#bdd1ff]")
-              }
-              onClick={() => setViewMode("board")}
-            >
-              <BarChart3 className="h-4 w-4" /> Tablero
-            </button>
-            <button
-              className={
-                "h-[38px] px-[13px] rounded-[12px] border text-[13px] font-semibold flex items-center gap-2 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition-all " +
-                (viewMode === "list"
-                  ? "bg-[#1d62f9] text-white border-[#1d62f9] shadow-[0_12px_26px_rgba(29,98,249,0.22)]"
-                  : "bg-white text-[#344054] border-[#e6eaf0] hover:-translate-y-[1px] hover:border-[#bdd1ff]")
-              }
-              onClick={() => setViewMode("list")}
-            >
-              <Filter className="h-4 w-4" /> Lista
-            </button>
-            <button
-              className={
-                "h-[38px] px-[13px] rounded-[12px] border text-[13px] font-semibold flex items-center gap-2 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition-all " +
-                (archivedOpen
-                  ? "bg-[#1d62f9] text-white border-[#1d62f9] shadow-[0_12px_26px_rgba(29,98,249,0.22)]"
-                  : "bg-white text-[#344054] border-[#e6eaf0] hover:-translate-y-[1px] hover:border-[#bdd1ff]")
-              }
-              onClick={() => setArchivedOpen(true)}
-              type="button"
-            >
-              Archivados
-            </button>
-            <div className="ml-auto">
-              <button
-                className="h-[38px] px-[13px] rounded-[12px] border border-[#e6eaf0] bg-white text-[#344054] text-[13px] font-semibold flex items-center gap-2 shadow-[0_8px_22px_rgba(15,23,42,0.05)] hover:-translate-y-[1px] hover:border-[#bdd1ff]"
-                onClick={() => setFiltersOpen(true)}
-                type="button"
-              >
-                <Filter className="h-4 w-4" /> Filtros
-                {activeFilterCount > 0 && (
-                  <span className="ml-1 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#eaf1ff] px-2 text-[12px] font-black text-[#1d62f9]">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-            </div>
+                  <Button
+                    variant="ghost"
+                    className="h-7 px-2 text-xs text-[#667085]"
+                    onClick={() => setFiltersOpen(false)}
+                    type="button"
+                  >
+                    Cerrar
+                  </Button>
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label className="text-[11px] font-semibold text-[#667085]">Estado</Label>
+                    <Select
+                      value={filters.status}
+                      onValueChange={(v) =>
+                        setFilters((prev) => ({ ...prev, status: v as DealStatusFilter }))
+                      }
+                    >
+                      <SelectTrigger className="h-9 bg-white text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Activos</SelectItem>
+                        <SelectItem value="won">Ganados</SelectItem>
+                        <SelectItem value="lost">Archivados</SelectItem>
+                        <SelectItem value="all">Todos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label className="text-[11px] font-semibold text-[#667085]">Asignado</Label>
+                    <Select
+                      value={filters.assigned}
+                      onValueChange={(v) =>
+                        setFilters((prev) => ({ ...prev, assigned: v as AssignedFilter }))
+                      }
+                    >
+                      <SelectTrigger className="h-9 bg-white text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="me">Solo yo</SelectItem>
+                        <SelectItem value="team">Asignados</SelectItem>
+                        <SelectItem value="unassigned">Sin asignar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label className="text-[11px] font-semibold text-[#667085]">Cierre</Label>
+                    <Select
+                      value={filters.closePreset}
+                      onValueChange={(v) =>
+                        setFilters((prev) => ({ ...prev, closePreset: v as CloseDatePreset }))
+                      }
+                    >
+                      <SelectTrigger className="h-9 bg-white text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Cualquiera</SelectItem>
+                        <SelectItem value="today">Hoy</SelectItem>
+                        <SelectItem value="week">Semana</SelectItem>
+                        <SelectItem value="month">Mes</SelectItem>
+                        <SelectItem value="none">Sin fecha</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-[11px] font-semibold text-[#667085]">Etapas</Label>
+                      <Button
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          const all = stages.map((stage) => stage.name);
+                          setFilters((prev) => ({
+                            ...prev,
+                            selectedStages: prev.selectedStages.length === all.length ? [] : all,
+                          }));
+                        }}
+                        type="button"
+                      >
+                        {filters.selectedStages.length === stages.length ? "Limpiar" : "Todas"}
+                      </Button>
+                    </div>
+
+                    <div className="grid max-h-[135px] gap-1.5 overflow-y-auto pr-1">
+                      {stages.map((stage) => {
+                        const checked = selectedStagesSet.has(stage.name);
+                        const stageColor =
+                          normalizeHex(stage.color || "") || stageDefaults(stage.name);
+
+                        return (
+                          <button
+                            key={stage.id}
+                            type="button"
+                            onClick={() => {
+                              setFilters((prev) => {
+                                const set = new Set(prev.selectedStages);
+                                if (checked) set.delete(stage.name);
+                                else set.add(stage.name);
+                                return { ...prev, selectedStages: Array.from(set) };
+                              });
+                            }}
+                            className={
+                              "flex h-8 items-center justify-between rounded-[11px] border px-2.5 text-left text-[11px] font-semibold transition " +
+                              (checked ? "bg-white shadow-sm" : "bg-[#fbfcfe] text-[#667085]")
+                            }
+                            style={{
+                              borderColor: checked ? stageColor : "#edf1f7",
+                              color: checked ? stageColor : undefined,
+                            }}
+                          >
+                            <span className="truncate">{stage.name}</span>
+                            {checked ? <span>✓</span> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="mt-1 h-9 text-xs"
+                    onClick={() =>
+                      setFilters({
+                        status: "active",
+                        selectedStages: [],
+                        assigned: "all",
+                        valueMin: "",
+                        valueMax: "",
+                        probMin: "",
+                        probMax: "",
+                        closePreset: "any",
+                        closeFrom: "",
+                        closeTo: "",
+                        followUpStaleDays: "",
+                      })
+                    }
+                    type="button"
+                  >
+                    Reset filtros
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {pipelineStages.length === 0 ? (
@@ -2441,10 +2625,143 @@ function PipelinePage() {
           ) : (
             <>
               {viewMode === "list" ? (
-                <div className="rounded-[22px] border border-[#e6eaf0] bg-[rgba(255,255,255,0.78)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] p-5">
-                  <div className="text-[13px] font-semibold text-[#667085]">
-                    La vista de lista estará disponible pronto (usa el tablero para mover
-                    oportunidades).
+                <div className="overflow-hidden rounded-[22px] border border-[#edf1f7] bg-white shadow-[0_10px_26px_rgba(15,23,42,0.035)]">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#edf1f7] px-4 py-3">
+                    <div>
+                      <div className="text-[15px] font-semibold tracking-[-0.02em] text-[#101828]">
+                        Lista de oportunidades
+                      </div>
+                      <div className="mt-0.5 text-[12px] font-medium text-[#667085]">
+                        Vista rápida para revisar, buscar y abrir oportunidades.
+                      </div>
+                    </div>
+
+                    <div className="rounded-full bg-[#f6f8fb] px-3 py-1 text-[12px] font-semibold text-[#475467]">
+                      {deals.filter((deal) => dealMatchesFilters(deal)).length} resultados
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] gap-3 border-b border-[#edf1f7] bg-[#fbfcfe] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#667085]">
+                    <div>Oportunidad</div>
+                    <div>Contacto</div>
+                    <div>Etapa</div>
+                    <div>Valor</div>
+                    <div>Prob.</div>
+                    <div>Cierre</div>
+                  </div>
+
+                  <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+                    {deals
+                      .filter((deal) => dealMatchesFilters(deal))
+                      .sort((a, b) => {
+                        const aTime = a.expected_close ? new Date(a.expected_close).getTime() : 0;
+                        const bTime = b.expected_close ? new Date(b.expected_close).getTime() : 0;
+                        return bTime - aTime;
+                      })
+                      .map((deal) => {
+                        const lead = deal.lead_id
+                          ? relatedLeadById[String(deal.lead_id)]
+                          : undefined;
+                        const contactLabel =
+                          lead?.company_name ||
+                          formatPersonName(lead?.first_name, lead?.last_name) ||
+                          lead?.email ||
+                          lead?.phone ||
+                          "Sin contacto";
+                        const stageColor =
+                          normalizeHex(
+                            stages.find((stage) => stage.name === deal.stage)?.color || "",
+                          ) || stageDefaults(deal.stage);
+                        const prob = clamp(deal.probability ?? 50, 0, 100);
+                        const isWon = wonStageNames.has(deal.stage);
+                        const isLost = lostStageNames.has(deal.stage);
+                        const stageInitial = deal.stage.trim().slice(0, 1).toUpperCase() || "•";
+
+                        return (
+                          <button
+                            key={deal.id}
+                            type="button"
+                            className="grid w-full grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] items-center gap-3 border-b border-[#f0f3f8] px-4 py-3 text-left transition hover:bg-[#fbfcff]"
+                            onClick={() => setSelectedDeal(deal)}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-[11px] text-white shadow-[0_8px_18px_rgba(15,23,42,0.10)]"
+                                  style={{ background: stageColor }}
+                                >
+                                  {isWon ? (
+                                    <Trophy className="h-4 w-4" />
+                                  ) : isLost ? (
+                                    <Trash2 className="h-4 w-4" />
+                                  ) : (
+                                    <span className="text-[12px] font-black">{stageInitial}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="truncate text-[13px] font-semibold text-[#101828]">
+                                    {deal.name}
+                                  </div>
+                                  <div className="mt-0.5 text-[11px] font-medium text-[#667085]">
+                                    {deal.lead_id ? "Prospecto conectado" : "Oportunidad manual"}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="truncate text-[13px] font-semibold text-[#344054]">
+                                {contactLabel}
+                              </div>
+                              <div className="mt-0.5 truncate text-[11px] font-medium text-[#98a2b3]">
+                                {lead?.email || lead?.phone || "Sin datos de contacto"}
+                              </div>
+                            </div>
+
+                            <div>
+                              <span
+                                className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                                style={{ background: rgba(stageColor, 0.1), color: stageColor }}
+                              >
+                                <span className="truncate">{deal.stage}</span>
+                              </span>
+                            </div>
+
+                            <div className="text-[13px] font-semibold text-[#101828]">
+                              ${toNumber(deal.value).toLocaleString()}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 text-[12px] font-semibold text-[#475467]">
+                                {prob}%
+                              </span>
+                              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[#e8edf3]">
+                                <span
+                                  className="block h-full rounded-full"
+                                  style={{ width: `${prob}%`, background: stageColor }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="text-[12px] font-medium text-[#475467]">
+                              {deal.expected_close
+                                ? formatDateLabel(deal.expected_close)
+                                : "Sin fecha"}
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                    {deals.filter((deal) => dealMatchesFilters(deal)).length === 0 ? (
+                      <div className="px-4 py-10 text-center">
+                        <div className="text-[14px] font-semibold text-[#344054]">
+                          No hay oportunidades con estos filtros.
+                        </div>
+                        <div className="mt-1 text-[12px] font-medium text-[#98a2b3]">
+                          Ajusta los filtros o crea una nueva oportunidad.
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -2474,7 +2791,7 @@ function PipelinePage() {
 
                   <div
                     data-demo="pipeline-board"
-                    className="flex gap-3 overflow-x-auto pb-6 lg:grid lg:overflow-x-hidden lg:pb-0"
+                    className="flex gap-1.5 overflow-x-auto pb-4 lg:grid lg:overflow-x-hidden lg:pb-0"
                     style={{
                       gridTemplateColumns: `repeat(${visiblePipelineStages.length || 1}, minmax(0, 1fr))`,
                     }}
@@ -2503,13 +2820,13 @@ function PipelinePage() {
                           data-demo={`pipeline-stage-${idx + 1}`}
                           data-stage={stage.name}
                           className={
-                            "relative overflow-hidden rounded-[20px] border bg-[rgba(255,255,255,0.78)] shadow-[0_10px_26px_rgba(15,23,42,0.06)] transition-all flex flex-col flex-none w-[260px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-290px)] " +
+                            "relative overflow-hidden rounded-[14px] border border-transparent bg-transparent transition-all flex flex-col flex-none w-[272px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-218px)] " +
                             (isDragOver ? " -translate-y-[2px]" : "")
                           }
                           style={{
-                            borderColor: isDragOver ? stageColor : "#e6eaf0",
+                            borderColor: isDragOver ? stageColor : "transparent",
                             boxShadow: isDragOver
-                              ? "0 20px 56px rgba(15, 23, 42, 0.11)"
+                              ? "0 18px 42px rgba(15, 23, 42, 0.08)"
                               : undefined,
                           }}
                           onDragOver={(e) => {
@@ -2535,10 +2852,10 @@ function PipelinePage() {
                           }}
                         >
                           <div
-                            className="absolute left-0 right-0 top-0 h-1"
+                            className="absolute left-2 right-2 top-0 h-1 rounded-full"
                             style={{ background: stageColor }}
                           />
-                          <div className="px-3.5 pt-3.5 pb-3 grid gap-2">
+                          <div className="px-2.5 pt-2.5 pb-1.5 grid gap-1">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <div
@@ -2580,19 +2897,19 @@ function PipelinePage() {
                                 </button>
                               ) : null}
                             </div>
-                            <div className="text-[11px] font-medium text-[#98a2b3] hidden lg:block">
+                            <div className="text-[10.5px] font-medium text-[#98a2b3] hidden lg:block">
                               Arrastra y suelta
                             </div>
                           </div>
 
                           <div
-                            className="px-2.5 pb-3 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
+                            className="px-1.5 pb-2.5 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
                             style={{
                               background: isDragOver ? rgba(stageColor, 0.07) : "transparent",
                             }}
                           >
                             {stageDeals.length === 0 ? (
-                              <div className="rounded-[12px] border border-dashed border-[#dbe3ee] bg-white/70 px-3 py-4 text-center text-[12px] font-medium text-[#98a2b3]">
+                              <div className="rounded-[12px] border border-dashed border-[#dbe3ee] bg-white/55 px-3 py-3 text-center text-[12px] font-medium text-[#98a2b3]">
                                 No hay oportunidades en esta etapa.
                               </div>
                             ) : null}
@@ -2606,6 +2923,7 @@ function PipelinePage() {
                                     dealRefs.current[deal.id] = el;
                                   }}
                                   draggable
+                                  onClick={() => setSelectedDeal(deal)}
                                   onDragStart={(e) => {
                                     setDraggedDealId(deal.id);
                                     setDragOverStage(stage.name);
@@ -2617,7 +2935,7 @@ function PipelinePage() {
                                     setDragOverStage(null);
                                   }}
                                   className={
-                                    "group relative select-none cursor-grab rounded-[16px] border bg-white p-2.5 shadow-[0_10px_18px_rgba(15,23,42,0.05)] transition-all " +
+                                    "group relative select-none cursor-pointer rounded-[15px] border bg-white p-3 shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-[1px] hover:shadow-[0_16px_30px_rgba(15,23,42,0.08)] " +
                                     (draggedDealId === deal.id
                                       ? "opacity-50 rotate-[2deg] scale-[0.98] cursor-grabbing"
                                       : "")
@@ -2632,88 +2950,15 @@ function PipelinePage() {
                                       "#e6eaf0";
                                   }}
                                 >
-                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex items-start justify-between gap-2 mb-2.5">
                                     <div className="min-w-0">
-                                      <strong className="block text-[13px] font-semibold tracking-[-0.015em] line-clamp-2">
+                                      <strong className="block text-[13.5px] font-semibold tracking-[-0.015em] line-clamp-2">
                                         {deal.name}
                                       </strong>
                                       <span className="block text-[11px] font-medium text-[#667085] line-clamp-1">
                                         {deal.lead_id ? "Prospecto conectado" : "Prospecto: —"}
                                       </span>
                                     </div>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <button className="h-[26px] w-[26px] rounded-[10px] grid place-items-center text-[#667085] hover:bg-[#f2f5f9]">
-                                          •••
-                                        </button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-56">
-                                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => setSelectedDeal(deal)}>
-                                          Ver detalle
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() => {
-                                            setEditDeal(deal);
-                                            setNewDeal({
-                                              name: deal.name,
-                                              value: String(deal.value ?? 0),
-                                              probability: String(deal.probability ?? 50),
-                                              expected_close: deal.expected_close || "",
-                                              stage: deal.stage,
-                                              source_type: deal.lead_id ? "lead" : "none",
-                                              lead_id: deal.lead_id || "",
-                                              client_id: "",
-                                            });
-                                            setDialogOpen(true);
-                                          }}
-                                        >
-                                          Editar
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => createFollowUpTask(deal)}>
-                                          Crear tarea
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          onClick={async () => {
-                                            const next = getNextStageName(deal.stage);
-                                            if (!next) {
-                                              toast.error("No hay siguiente etapa");
-                                              return;
-                                            }
-                                            await moveDealStage(deal.id, next);
-                                          }}
-                                        >
-                                          Mover a la siguiente etapa
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSub>
-                                          <DropdownMenuSubTrigger>Mover a…</DropdownMenuSubTrigger>
-                                          <DropdownMenuSubContent className="max-h-72 overflow-auto">
-                                            {pipelineStages.map((s) => (
-                                              <DropdownMenuItem
-                                                key={s.id}
-                                                onClick={() => moveDealStage(deal.id, s.name)}
-                                              >
-                                                {s.name}
-                                              </DropdownMenuItem>
-                                            ))}
-                                          </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          onClick={() => moveDealStage(deal.id, archiveStageName)}
-                                        >
-                                          Archivar
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-destructive focus:text-destructive"
-                                          onClick={() => setDeleteDealId(deal.id)}
-                                        >
-                                          Eliminar
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
                                   </div>
 
                                   <div className="flex items-center justify-between gap-3 mb-2.5">
@@ -2727,7 +2972,7 @@ function PipelinePage() {
                                       <div className="text-[12px] font-medium text-[#475467]">
                                         {prob}%
                                       </div>
-                                      <div className="h-1.5 w-[74px] rounded-full bg-[#e8edf3] overflow-hidden">
+                                      <div className="h-1.5 w-[84px] rounded-full bg-[#e8edf3] overflow-hidden">
                                         <span
                                           className="block h-full rounded-full"
                                           style={{ width: `${prob}%`, background: stageColor }}
@@ -2751,35 +2996,6 @@ function PipelinePage() {
                                       <DollarSign className="h-3.5 w-3.5" /> Oportunidad
                                     </span>
                                   </div>
-
-                                  <div className="absolute right-3.5 bottom-3.5 flex gap-1.5 opacity-0 translate-y-1 pointer-events-none transition-all group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto">
-                                    <button
-                                      className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setSelectedDeal(deal);
-                                      }}
-                                      type="button"
-                                      aria-label="Abrir detalles del deal"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      className="h-[30px] w-[30px] rounded-[10px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        void openWhatsappForDeal(deal);
-                                      }}
-                                      type="button"
-                                      aria-label="Abrir conversación de WhatsApp"
-                                    >
-                                      <MessageCircle className="h-4 w-4" />
-                                    </button>
-                                  </div>
                                 </div>
                               );
                             })}
@@ -2798,7 +3014,7 @@ function PipelinePage() {
               <DialogHeader>
                 <DialogTitle>{editDeal ? "Editar oportunidad" : "Nueva oportunidad"}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreateOrUpdate} className="space-y-4">
+              <form onSubmit={handleCreateOrUpdate} className="space-y-2.5">
                 {!editDeal ? (
                   <div className="rounded-[14px] border bg-muted/20 p-3">
                     <Label>Origen de la oportunidad</Label>
@@ -3190,497 +3406,440 @@ function PipelinePage() {
               accent="green"
               icon={<BriefcaseBusiness className="h-5 w-5 text-emerald-600" />}
               status={selectedDeal.stage}
-              onEdit={
-                can("deals.edit")
-                  ? () => {
-                      setEditDeal(selectedDeal);
-                      setNewDeal({
-                        name: selectedDeal.name,
-                        value: String(selectedDeal.value ?? 0),
-                        probability: String(selectedDeal.probability ?? 50),
-                        expected_close: selectedDeal.expected_close || "",
-                        stage: selectedDeal.stage,
-                        source_type: selectedDeal.lead_id ? "lead" : "none",
-                        lead_id: selectedDeal.lead_id || "",
-                        client_id: "",
-                      });
-                      setDialogOpen(true);
-                    }
-                  : undefined
-              }
-              onDelete={can("deals.delete") ? () => setDeleteDealId(selectedDeal.id) : undefined}
+              onEdit={undefined}
+              onDelete={undefined}
               fieldGroupDataDemo="pipeline-detail-summary"
-              fields={[
-                { label: "Etapa", value: selectedDeal.stage, type: "badge" },
-                { label: "Valor", value: selectedDeal.value, type: "currency" },
-                { label: "Probabilidad", value: `${selectedDeal.probability ?? 50}%` },
-                { label: "Cierre esperado", value: selectedDeal.expected_close },
-                {
-                  label: "Responsable",
-                  value: selectedDeal.assigned_to
-                    ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name ||
-                      teamByUserId.get(String(selectedDeal.assigned_to))?.full_name ||
-                      String(selectedDeal.assigned_to)
-                    : null,
-                },
-                { label: "Cliente", value: null },
-                { label: "Prospecto", value: selectedDeal.lead_id ? "Conectado" : null },
-              ]}
+              fields={[]}
               notes={selectedDeal.notes || undefined}
             >
-              <div className="space-y-4">
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-4 gap-2 rounded-[14px] border bg-white p-2.5 text-sm shadow-sm">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Etapa
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">{selectedDeal.stage}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Valor
+                    </div>
+                    <div className="mt-0.5 font-semibold">
+                      ${toNumber(selectedDeal.value).toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Prob.
+                    </div>
+                    <div className="mt-0.5 font-semibold">
+                      {clamp(selectedDeal.probability ?? 50, 0, 100)}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Cierre
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {selectedDeal.expected_close
+                        ? formatDateLabel(selectedDeal.expected_close)
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+
                 {(() => {
                   const isWon = wonStageNames.has(selectedDeal.stage);
                   const isLost = lostStageNames.has(selectedDeal.stage);
+                  const contactName =
+                    selectedLead?.company_name ||
+                    formatPersonName(selectedLead?.first_name, selectedLead?.last_name) ||
+                    selectedLead?.email ||
+                    selectedLead?.phone ||
+                    "Sin contacto conectado";
+                  const phone = selectedLead?.whatsapp || selectedLead?.phone || "";
+                  const responsible = selectedDeal.assigned_to
+                    ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name ||
+                      teamByUserId.get(String(selectedDeal.assigned_to))?.full_name ||
+                      "Asignado"
+                    : "Sin asignar";
+
                   return (
-                    <div data-demo="pipeline-close" className="rounded-[16px] border bg-white p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Cierre de oportunidad
+                    <>
+                      <div
+                        data-demo="pipeline-next-step"
+                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                              Próximo paso
+                            </div>
+                            <div className="mt-1 text-base font-semibold tracking-[-0.02em]">
+                              {isWon
+                                ? "Oportunidad ganada"
+                                : isLost
+                                  ? "Oportunidad perdida"
+                                  : selectedNextTask
+                                    ? selectedNextTask.title
+                                    : "Define el siguiente seguimiento"}
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              {isWon
+                                ? "Ya puedes pasar esta venta a ejecución."
+                                : isLost
+                                  ? "Esta oportunidad quedó cerrada."
+                                  : selectedNextTask?.due_date
+                                    ? `Programado para ${formatDateLabel(selectedNextTask.due_date)}`
+                                    : "No hay una tarea pendiente para esta oportunidad."}
+                            </div>
                           </div>
-                          <div className="mt-1 text-sm font-medium text-muted-foreground">
-                            {isWon
-                              ? "Oportunidad cerrada como ganada."
-                              : isLost
-                                ? "Oportunidad cerrada como perdida."
-                                : "Marca el resultado final cuando esté listo."}
-                          </div>
+
+                          <Button
+                            size="sm"
+                            className="h-8 shrink-0 gap-1.5 text-xs"
+                            disabled={!canCreateTaskForDeal(selectedDeal) || isWon || isLost}
+                            onClick={() => openFollowUpDialogForDeal(selectedDeal)}
+                          >
+                            <CalendarIcon className="h-4 w-4" />
+                            Seguimiento
+                          </Button>
                         </div>
-                        <div className="flex items-center gap-2">
+                      </div>
+
+                      <div
+                        data-demo="pipeline-contact"
+                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                              Contacto
+                            </div>
+                            <div className="mt-1 text-base font-semibold truncate">
+                              {contactName}
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              {selectedLead
+                                ? [selectedLead.email, phone].filter(Boolean).join(" · ") ||
+                                  "Sin email o teléfono"
+                                : selectedDeal.lead_id
+                                  ? "Cargando contacto…"
+                                  : "Esta oportunidad no tiene prospecto conectado."}
+                            </div>
+                          </div>
+
+                          {selectedDeal.lead_id ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 shrink-0 text-xs"
+                              onClick={() => (window.location.href = "/leads")}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver
+                            </Button>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-3 gap-2">
                           <Button
                             variant="outline"
-                            size="sm"
-                            className="h-9"
+                            className="h-8 justify-center gap-1.5 text-xs"
                             disabled={
-                              !canEditDeal(selectedDeal) ||
-                              isWon ||
-                              isLost ||
-                              closingAsLost ||
-                              closingAsWon
+                              !selectedLead || !(selectedLead.whatsapp || selectedLead.phone)
                             }
-                            onClick={() => setLostDialogOpen(true)}
+                            onClick={() =>
+                              selectedLead && void handleOpenWhatsAppFromLead(selectedLead)
+                            }
                           >
-                            Marcar perdida
+                            <MessageCircle className="h-4 w-4" />
+                            WhatsApp
                           </Button>
+
                           <Button
-                            size="sm"
-                            className="h-9"
-                            disabled={
-                              !canEditDeal(selectedDeal) ||
-                              isWon ||
-                              isLost ||
-                              closingAsLost ||
-                              closingAsWon
-                            }
-                            onClick={() => void handleMarkDealAsWon(selectedDeal)}
-                          >
-                            Marcar ganada
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div
-                  data-demo="pipeline-commercial-summary"
-                  className="rounded-[16px] border bg-white p-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        Resumen comercial
-                      </div>
-                      <div className="mt-1 grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Valor
-                          </div>
-                          <div className="font-semibold">
-                            ${toNumber(selectedDeal.value).toLocaleString()}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Probabilidad
-                          </div>
-                          <div className="font-semibold">
-                            {clamp(selectedDeal.probability ?? 50, 0, 100)}%
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Cierre esperado
-                          </div>
-                          <div className="font-semibold">
-                            {selectedDeal.expected_close
-                              ? formatDateLabel(selectedDeal.expected_close)
-                              : "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Responsable
-                          </div>
-                          <div className="font-semibold">
-                            {selectedDeal.assigned_to
-                              ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name ||
-                                teamByUserId.get(String(selectedDeal.assigned_to))?.full_name ||
-                                "—"
-                              : "Sin asignar"}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 gap-2"
-                      disabled={!canCreateTaskForDeal(selectedDeal)}
-                      title={
-                        !canCreateTaskForDeal(selectedDeal)
-                          ? "No tienes permiso para crear tareas en esta oportunidad."
-                          : "Crear seguimiento para esta oportunidad."
-                      }
-                      onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                      Crear seguimiento
-                    </Button>
-                  </div>
-                </div>
-
-                <div data-demo="pipeline-prospect" className="rounded-[16px] border bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Prospecto
-                    </div>
-                    {selectedDeal.lead_id ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3"
-                        onClick={() => (window.location.href = "/leads")}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No conectado</span>
-                    )}
-                  </div>
-
-                  {relatedLoading && selectedDeal.lead_id ? (
-                    <div className="mt-2 text-sm text-muted-foreground">Cargando…</div>
-                  ) : selectedLead ? (
-                    <div className="mt-2 space-y-2 text-sm">
-                      <div className="font-semibold">
-                        {selectedLead.company_name ||
-                          formatPersonName(selectedLead.first_name, selectedLead.last_name) ||
-                          selectedLead.email ||
-                          selectedLead.phone ||
-                          "Prospecto"}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-[13px]">
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Email
-                          </div>
-                          <div className="font-medium">{selectedLead.email || "—"}</div>
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Teléfono
-                          </div>
-                          <div className="font-medium">
-                            {selectedLead.whatsapp || selectedLead.phone || "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Fuente
-                          </div>
-                          <div className="font-medium">
-                            {selectedLead.source_channel || selectedLead.source || "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground">
-                            Estado
-                          </div>
-                          <div className="font-medium">{selectedLead.status || "—"}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : selectedDeal.lead_id ? (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      No se pudo cargar el prospecto.
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="rounded-[16px] border bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Cliente
-                    </div>
-                    <span className="text-xs text-muted-foreground">Sin enlace directo</span>
-                  </div>
-
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Este deal no guarda un `client_id` directo en el esquema actual. Usa el
-                    prospecto relacionado para el contexto comercial.
-                  </div>
-                </div>
-
-                <div
-                  data-demo="pipeline-deal-products"
-                  className="rounded-[16px] border bg-white p-3.5"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Productos de la oportunidad
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {dealProducts.length ? `${dealProducts.length} asociado(s)` : "Sin productos"}
-                    </div>
-                  </div>
-
-                  {dealProductsLoading ? (
-                    <div className="mt-2 text-sm text-muted-foreground">Cargando productos…</div>
-                  ) : dealProducts.length ? (
-                    <div className="mt-3 space-y-2">
-                      {dealProducts.map((row) => {
-                        const product = dealProductsProductById[String(row.product_id)];
-                        const qty = Math.max(1, Number(row.quantity || 1));
-                        const unit = toNumber(row.unit_price);
-                        const total =
-                          row.total_price != null ? toNumber(row.total_price) : qty * unit;
-                        return (
-                          <div
-                            key={row.id}
-                            className="flex items-start justify-between gap-3 rounded-[12px] border bg-background p-2.5"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <Package className="h-4 w-4 text-muted-foreground" />
-                                <div className="text-[13px] font-medium truncate">
-                                  {product?.name || String(row.product_id)}
-                                </div>
-                              </div>
-                              <div className="mt-1 text-[12px] text-muted-foreground">
-                                {qty} × {money(unit)} ={" "}
-                                <span className="font-medium text-foreground">{money(total)}</span>
-                              </div>
-                            </div>
-                            {canManageDealProducts(selectedDeal) ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                disabled={removingDealProductId === row.id}
-                                onClick={() => void handleRemoveDealProduct(selectedDeal, row.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      No hay productos asociados. Asocia el producto vendido para crear proyectos
-                      con el workflow correcto.
-                    </div>
-                  )}
-
-                  {canManageDealProducts(selectedDeal) ? (
-                    <div className="mt-4 rounded-[12px] border bg-background p-3">
-                      <div className="text-xs font-semibold text-muted-foreground">
-                        Agregar producto
-                      </div>
-                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <div className="md:col-span-2">
-                          <Select
-                            value={addDealProductValues.product_id}
-                            onValueChange={(v) => {
-                              const nextProductId = String(v || "");
-                              const product =
-                                activeProducts.find((p) => String(p.id) === nextProductId) || null;
-                              const suggestedUnit = product?.base_price ?? selectedDeal.value ?? 0;
-                              setAddDealProductValues((p) => ({
-                                ...p,
-                                product_id: nextProductId,
-                                unit_price: p.unit_price.trim()
-                                  ? p.unit_price
-                                  : String(toNumber(suggestedUnit) || 0),
-                              }));
+                            variant="outline"
+                            className="h-8 justify-center gap-1.5 text-xs"
+                            disabled={!selectedLead?.email}
+                            onClick={() => {
+                              if (!selectedLead?.email) return;
+                              window.open(`mailto:${selectedLead.email}`, "_blank");
                             }}
                           >
-                            <SelectTrigger className="h-9">
-                              <SelectValue
-                                placeholder={
-                                  activeProductsLoading
-                                    ? "Cargando productos…"
-                                    : "Selecciona un producto"
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {activeProducts.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.category ? `${p.name} · ${p.category}` : p.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Input
-                          className="h-9"
-                          type="number"
-                          min="1"
-                          value={addDealProductValues.quantity}
-                          onChange={(e) =>
-                            setAddDealProductValues((p) => ({ ...p, quantity: e.target.value }))
-                          }
-                          placeholder="Qty"
-                        />
-                        <Input
-                          className="h-9"
-                          type="number"
-                          value={addDealProductValues.unit_price}
-                          onChange={(e) =>
-                            setAddDealProductValues((p) => ({ ...p, unit_price: e.target.value }))
-                          }
-                          placeholder="Unit $"
-                        />
-                      </div>
-                      <div className="mt-3 flex justify-end">
-                        <Button
-                          size="sm"
-                          className="h-8"
-                          disabled={addingDealProduct || !addDealProductValues.product_id}
-                          onClick={() => void handleAddDealProduct(selectedDeal)}
-                        >
-                          {addingDealProduct ? "Agregando…" : "Agregar"}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                            <Mail className="h-4 w-4" />
+                            Email
+                          </Button>
 
-                <div data-demo="pipeline-followup" className="rounded-[16px] border bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Seguimiento
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-3"
-                      disabled={!canCreateTaskForDeal(selectedDeal)}
-                      title={
-                        !canCreateTaskForDeal(selectedDeal)
-                          ? "No tienes permiso para crear tareas en esta oportunidad."
-                          : "Crear una tarea de seguimiento."
-                      }
-                      onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Crear tarea
-                    </Button>
-                  </div>
-                  {wonStageNames.has(selectedDeal.stage) ? (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Oportunidad cerrada como ganada.
-                    </div>
-                  ) : lostStageNames.has(selectedDeal.stage) ? (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Oportunidad cerrada como perdida.
-                    </div>
-                  ) : selectedDeal.lead_id ? (
-                    selectedNextTask ? (
-                      <div className="mt-2 space-y-1 text-sm">
-                        <div className="font-semibold truncate">{selectedNextTask.title}</div>
-                        <div className="text-[13px] text-muted-foreground">
-                          {selectedNextTask.due_date
-                            ? `Para ${formatDateLabel(selectedNextTask.due_date)}`
-                            : "Sin fecha"}
-                          {" · "}
-                          {selectedNextTask.priority || "—"}
-                          {" · "}
-                          {selectedNextTask.status}
+                          <Button
+                            variant="outline"
+                            className="h-8 justify-center gap-1.5 text-xs"
+                            disabled={!phone}
+                            onClick={() => {
+                              if (!phone) return;
+                              window.open(`tel:${phone}`, "_self");
+                            }}
+                          >
+                            <Phone className="h-4 w-4" />
+                            Llamar
+                          </Button>
                         </div>
                       </div>
-                    ) : (
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        No hay seguimiento programado por ahora.
-                      </div>
-                    )
-                  ) : (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Conecta un prospecto para ver seguimientos.
-                    </div>
-                  )}
-                </div>
 
-                <div data-demo="pipeline-actions" className="rounded-[16px] border bg-white p-4">
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    Acciones rápidas
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="h-10 justify-start gap-2"
-                      disabled={!selectedLead || !(selectedLead.whatsapp || selectedLead.phone)}
-                      onClick={() => selectedLead && void handleOpenWhatsAppFromLead(selectedLead)}
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      WhatsApp
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-10 justify-start gap-2"
-                      disabled={!selectedLead?.email}
-                      onClick={() => {
-                        if (!selectedLead?.email) return;
-                        window.open(`mailto:${selectedLead.email}`, "_blank");
-                      }}
-                    >
-                      <Mail className="h-4 w-4" />
-                      Email
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-10 justify-start gap-2"
-                      disabled={!selectedLead || !(selectedLead.phone || selectedLead.whatsapp)}
-                      onClick={() => {
-                        const phone = selectedLead?.phone || selectedLead?.whatsapp;
-                        if (!phone) return;
-                        window.open(`tel:${phone}`, "_self");
-                      }}
-                    >
-                      <Phone className="h-4 w-4" />
-                      Llamar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-10 justify-start gap-2"
-                      disabled={!canCreateTaskForDeal(selectedDeal)}
-                      title={
-                        !canCreateTaskForDeal(selectedDeal)
-                          ? "No tienes permiso para crear tareas en esta oportunidad."
-                          : undefined
-                      }
-                      onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                      Crear tarea
-                    </Button>
-                  </div>
-                </div>
+                      <div
+                        data-demo="pipeline-commercial-summary"
+                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                      >
+                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Resumen comercial
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-4 gap-2 text-sm">
+                          <div className="rounded-[12px] bg-muted/30 p-2">
+                            <div className="text-[11px] font-semibold text-muted-foreground">
+                              Valor
+                            </div>
+                            <div className="mt-0.5 text-base font-semibold tracking-[-0.03em]">
+                              ${toNumber(selectedDeal.value).toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div className="rounded-[12px] bg-muted/30 p-2">
+                            <div className="text-[11px] font-semibold text-muted-foreground">
+                              Probabilidad
+                            </div>
+                            <div className="mt-0.5 text-base font-semibold tracking-[-0.03em]">
+                              {clamp(selectedDeal.probability ?? 50, 0, 100)}%
+                            </div>
+                          </div>
+
+                          <div className="rounded-[12px] bg-muted/30 p-2">
+                            <div className="text-[11px] font-semibold text-muted-foreground">
+                              Cierre estimado
+                            </div>
+                            <div className="mt-1 font-semibold">
+                              {selectedDeal.expected_close
+                                ? formatDateLabel(selectedDeal.expected_close)
+                                : "Sin fecha"}
+                            </div>
+                          </div>
+
+                          <div className="rounded-[12px] bg-muted/30 p-2">
+                            <div className="text-[11px] font-semibold text-muted-foreground">
+                              Responsable
+                            </div>
+                            <div className="mt-1 font-semibold truncate">{responsible}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        data-demo="pipeline-deal-management"
+                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                      >
+                        <div>
+                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            Gestión de oportunidad
+                          </div>
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            Cambia la etapa o administra esta oportunidad desde un solo lugar.
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 gap-2">
+                          <div>
+                            <div className="mb-1 text-[11px] font-semibold text-muted-foreground">
+                              Etapa
+                            </div>
+                            <Select
+                              value={selectedDeal.stage}
+                              onValueChange={(stageName) =>
+                                void moveDealStage(selectedDeal.id, stageName)
+                              }
+                              disabled={!canEditDeal(selectedDeal)}
+                            >
+                              <SelectTrigger className="h-9 bg-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {pipelineStages.map((stage) => (
+                                  <SelectItem key={stage.id} value={stage.name}>
+                                    {stage.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9"
+                              disabled={!can("deals.edit")}
+                              onClick={() => {
+                                setEditDeal(selectedDeal);
+                                setNewDeal({
+                                  name: selectedDeal.name,
+                                  value: String(selectedDeal.value ?? 0),
+                                  probability: String(selectedDeal.probability ?? 50),
+                                  expected_close: selectedDeal.expected_close || "",
+                                  stage: selectedDeal.stage,
+                                  source_type: selectedDeal.lead_id ? "lead" : "none",
+                                  lead_id: selectedDeal.lead_id || "",
+                                  client_id: "",
+                                });
+                                setDialogOpen(true);
+                              }}
+                            >
+                              Editar
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9"
+                              disabled={!canEditDeal(selectedDeal)}
+                              onClick={() => void moveDealStage(selectedDeal.id, archiveStageName)}
+                            >
+                              Archivar
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9 text-destructive hover:text-destructive"
+                              disabled={!can("deals.delete")}
+                              onClick={() => setDeleteDealId(selectedDeal.id)}
+                            >
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        data-demo="pipeline-close"
+                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                              Cierre
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              {isWon
+                                ? "Esta oportunidad está marcada como ganada."
+                                : isLost
+                                  ? "Esta oportunidad está marcada como perdida."
+                                  : "Marca el resultado cuando ya esté claro."}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs"
+                              disabled={
+                                !canEditDeal(selectedDeal) ||
+                                isWon ||
+                                isLost ||
+                                closingAsLost ||
+                                closingAsWon
+                              }
+                              onClick={() => setLostDialogOpen(true)}
+                            >
+                              Perdida
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs"
+                              disabled={
+                                !canEditDeal(selectedDeal) ||
+                                isWon ||
+                                isLost ||
+                                closingAsLost ||
+                                closingAsWon
+                              }
+                              onClick={() => void handleMarkDealAsWon(selectedDeal)}
+                            >
+                              Ganada
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <details className="rounded-[14px] border bg-white p-3 shadow-sm">
+                        <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Más detalles
+                        </summary>
+
+                        <div className="mt-3 space-y-3 text-sm">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <div className="text-[11px] font-semibold text-muted-foreground">
+                                Etapa
+                              </div>
+                              <div className="font-medium">{selectedDeal.stage}</div>
+                            </div>
+
+                            <div>
+                              <div className="text-[11px] font-semibold text-muted-foreground">
+                                Prospecto
+                              </div>
+                              <div className="font-medium">
+                                {selectedDeal.lead_id ? "Conectado" : "No conectado"}
+                              </div>
+                            </div>
+                          </div>
+
+                          {selectedDeal.notes ? (
+                            <div>
+                              <div className="text-[11px] font-semibold text-muted-foreground">
+                                Notas
+                              </div>
+                              <div className="mt-1 whitespace-pre-wrap rounded-[14px] bg-muted/30 p-3 text-muted-foreground">
+                                {selectedDeal.notes}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {dealProducts.length ? (
+                            <div>
+                              <div className="text-[11px] font-semibold text-muted-foreground">
+                                Productos asociados
+                              </div>
+                              <div className="mt-1 space-y-1">
+                                {dealProducts.map((row) => {
+                                  const product = dealProductsProductById[String(row.product_id)];
+                                  const qty = Math.max(1, Number(row.quantity || 1));
+                                  const unit = toNumber(row.unit_price);
+                                  const total =
+                                    row.total_price != null
+                                      ? toNumber(row.total_price)
+                                      : qty * unit;
+
+                                  return (
+                                    <div
+                                      key={row.id}
+                                      className="flex items-center justify-between rounded-[12px] bg-muted/30 px-3 py-2"
+                                    >
+                                      <span className="font-medium">
+                                        {product?.name || String(row.product_id)}
+                                      </span>
+                                      <span className="text-muted-foreground">{money(total)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </details>
+                    </>
+                  );
+                })()}
               </div>
             </DetailSheet>
           )}
@@ -3691,7 +3850,7 @@ function PipelinePage() {
                 <DialogTitle>Crear seguimiento</DialogTitle>
               </DialogHeader>
               <form
-                className="space-y-4"
+                className="space-y-2.5"
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!selectedDeal) return;
@@ -3774,7 +3933,7 @@ function PipelinePage() {
                 <DialogTitle>Marcar oportunidad como perdida</DialogTitle>
               </DialogHeader>
               <form
-                className="space-y-4"
+                className="space-y-2.5"
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!selectedDeal) return;
@@ -4075,255 +4234,6 @@ function PipelinePage() {
                       ))}
                   </div>
                 )}
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-            <SheetContent side="right" className="w-full sm:max-w-[560px] p-0">
-              <SheetHeader>
-                <SheetTitle>Filtros de oportunidades</SheetTitle>
-                <SheetDescription>
-                  Ajusta la vista del pipeline sin perder tu orden por columna.
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="px-5 pb-5 pt-4 grid gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-[#344054]">
-                    Activos: {activeFilterCount}
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="h-9"
-                    onClick={() =>
-                      setFilters({
-                        status: "active",
-                        selectedStages: [],
-                        assigned: "all",
-                        valueMin: "",
-                        valueMax: "",
-                        probMin: "",
-                        probMax: "",
-                        closePreset: "any",
-                        closeFrom: "",
-                        closeTo: "",
-                        followUpStaleDays: "",
-                      })
-                    }
-                  >
-                    Reset
-                  </Button>
-                </div>
-
-                {/* 1) Status */}
-                <div className="grid gap-2">
-                  <Label>Estado</Label>
-                  <Select
-                    value={filters.status}
-                    onValueChange={(v) =>
-                      setFilters((p) => ({ ...p, status: v as DealStatusFilter }))
-                    }
-                  >
-                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Activos</SelectItem>
-                      <SelectItem value="won">Ganados</SelectItem>
-                      <SelectItem value="lost">Perdidos / Archivados</SelectItem>
-                      <SelectItem value="all">Todos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 2) Stage multi-select */}
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label>Etapas</Label>
-                    <Button
-                      variant="ghost"
-                      className="h-8 px-2 text-xs"
-                      onClick={() => {
-                        const all = stages.map((s) => s.name);
-                        setFilters((p) => ({
-                          ...p,
-                          selectedStages: p.selectedStages.length === all.length ? [] : all,
-                        }));
-                      }}
-                      type="button"
-                    >
-                      {filters.selectedStages.length === stages.length
-                        ? "Limpiar"
-                        : "Seleccionar todo"}
-                    </Button>
-                  </div>
-                  <div className="max-h-48 overflow-auto rounded-[16px] border border-[#e6eaf0] bg-white p-3 grid gap-2">
-                    {stages.map((s) => {
-                      const checked = selectedStagesSet.has(s.name);
-                      return (
-                        <label
-                          key={s.id}
-                          className="flex items-center gap-2 text-sm font-medium text-[#344054]"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(next) => {
-                              setFilters((p) => {
-                                const set = new Set(p.selectedStages);
-                                if (next) set.add(s.name);
-                                else set.delete(s.name);
-                                return { ...p, selectedStages: Array.from(set) };
-                              });
-                            }}
-                          />
-                          <span className="truncate">{s.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 3) Assigned */}
-                <div className="grid gap-2">
-                  <Label>Asignado a</Label>
-                  <Select
-                    value={filters.assigned}
-                    onValueChange={(v) =>
-                      setFilters((p) => ({ ...p, assigned: v as AssignedFilter }))
-                    }
-                  >
-                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="me">Solo yo</SelectItem>
-                      <SelectItem value="team">Asignados</SelectItem>
-                      <SelectItem value="unassigned">Sin asignar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 4) Value range */}
-                <div className="grid gap-2">
-                  <Label>Rango de valor</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="Mínimo"
-                      value={filters.valueMin}
-                      onChange={(e) => setFilters((p) => ({ ...p, valueMin: e.target.value }))}
-                    />
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="Máximo"
-                      value={filters.valueMax}
-                      onChange={(e) => setFilters((p) => ({ ...p, valueMax: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                {/* 5) Probability */}
-                <div className="grid gap-2">
-                  <Label>Probabilidad (%)</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={filters.probMin}
-                      onChange={(e) => setFilters((p) => ({ ...p, probMin: e.target.value }))}
-                    />
-                    <Input
-                      className="h-9 bg-muted/30 border-border/50"
-                      inputMode="numeric"
-                      placeholder="100"
-                      value={filters.probMax}
-                      onChange={(e) => setFilters((p) => ({ ...p, probMax: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                {/* 6) Expected close */}
-                <div className="grid gap-2">
-                  <Label>Cierre estimado</Label>
-                  <Select
-                    value={filters.closePreset}
-                    onValueChange={(v) =>
-                      setFilters((p) => ({ ...p, closePreset: v as CloseDatePreset }))
-                    }
-                  >
-                    <SelectTrigger className="h-9 bg-muted/30 border-border/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Cualquiera</SelectItem>
-                      <SelectItem value="today">Hoy</SelectItem>
-                      <SelectItem value="week">Esta semana</SelectItem>
-                      <SelectItem value="month">Este mes</SelectItem>
-                      <SelectItem value="range">Rango</SelectItem>
-                      <SelectItem value="none">Sin fecha</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {filters.closePreset === "range" && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        className="h-9 bg-muted/30 border-border/50"
-                        type="date"
-                        value={filters.closeFrom}
-                        onChange={(e) => setFilters((p) => ({ ...p, closeFrom: e.target.value }))}
-                      />
-                      <Input
-                        className="h-9 bg-muted/30 border-border/50"
-                        type="date"
-                        value={filters.closeTo}
-                        onChange={(e) => setFilters((p) => ({ ...p, closeTo: e.target.value }))}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* 7) Follow-up */}
-                <div className="grid gap-2">
-                  <Label>Necesita seguimiento</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      inputMode="numeric"
-                      placeholder="Sin update en (días)"
-                      value={filters.followUpStaleDays}
-                      onChange={(e) =>
-                        setFilters((p) => ({ ...p, followUpStaleDays: e.target.value }))
-                      }
-                      className="h-9 bg-muted/30 border-border/50"
-                    />
-                    <Button
-                      variant="outline"
-                      className="h-9"
-                      onClick={() =>
-                        setFilters((p) => ({
-                          ...p,
-                          followUpStaleDays: p.followUpStaleDays ? "" : "7",
-                        }))
-                      }
-                      type="button"
-                    >
-                      {filters.followUpStaleDays ? "Desactivar" : "Activar (7d)"}
-                    </Button>
-                  </div>
-                  <div className="text-[12px] font-semibold text-[#667085]">
-                    Tip: usa 3, 7 o 14 días para priorizar.
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setFiltersOpen(false)}>
-                    Cerrar
-                  </Button>
-                  <Button onClick={() => setFiltersOpen(false)}>Aplicar</Button>
-                </div>
               </div>
             </SheetContent>
           </Sheet>
