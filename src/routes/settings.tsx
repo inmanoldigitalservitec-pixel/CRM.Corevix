@@ -128,12 +128,12 @@ function NoSettingsAccess() {
 
 function SettingsPage() {
   const { can } = usePermissions();
-  const { profile, loading: authLoading } = useAuth();
+  const { profile, user, loading: authLoading } = useAuth();
 
   const db = supabase as any;
   const companyId = profile?.company_id || null;
   const profileId = profile?.id || null;
-  const authUserId = profile?.user_id || null;
+  const authUserId = profile?.user_id || user?.id || null;
 
   const [companyForm, setCompanyForm] = useState({
     company_name: "",
@@ -450,6 +450,10 @@ function SettingsPage() {
   };
 
   const connectGmail = async () => {
+    if (!can("settings.manage")) {
+      toast.error("No tienes permiso para conectar Gmail.");
+      return;
+    }
     setGmailLoading(true);
     const redirectTo = `${window.location.origin}/settings`;
     const { data, error } = await supabase.functions.invoke("gmail-auth-url", {
@@ -482,6 +486,10 @@ function SettingsPage() {
   };
 
   const syncGmail = async () => {
+    if (!can("settings.manage")) {
+      toast.error("No tienes permiso para sincronizar Gmail.");
+      return;
+    }
     setGmailLoading(true);
     const { data, error } = await supabase.functions.invoke("sync-gmail", { body: { limit: 10 } });
     setGmailLoading(false);
