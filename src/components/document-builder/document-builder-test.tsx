@@ -283,7 +283,7 @@ export function DocumentBuilderTest() {
         </div>
       </div>
 
-      <div className="grid min-h-[calc(100vh-104px)] grid-cols-1 lg:grid-cols-[1fr_320px]">
+      <div className="grid min-h-[calc(100vh-104px)] grid-cols-1">
         <main className="overflow-auto px-4 py-8">
           <div className="mx-auto w-fit">
             <div className="mb-2 h-6 w-[816px] max-w-full border-b border-slate-300 text-center text-[10px] text-slate-400">
@@ -296,7 +296,7 @@ export function DocumentBuilderTest() {
           </div>
         </main>
 
-        <aside className="border-l bg-white p-4">
+        <aside className="hidden border-l bg-white p-4">
           <h2 className="font-semibold">Variables</h2>
           <p className="mt-1 text-sm text-slate-500">
             Inserta campos que luego se llenan solos desde cliente, producto o factura.
