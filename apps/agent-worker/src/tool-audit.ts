@@ -102,7 +102,7 @@ export async function auditAgentToolAction(
   const recordId = getRecordId(result);
 
   const title = `Corevix AI: ${label}`;
-  const message = result.message || `El agente ejecutó ${call.tool}: ${target}.`;
+  const message = `${target}`;
 
   try {
     await ctx.supabase.from("notifications").insert({
