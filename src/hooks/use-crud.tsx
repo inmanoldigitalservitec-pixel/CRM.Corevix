@@ -171,6 +171,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
       .from(table)
       .update(updates)
       .eq("id", id)
+      .eq("company_id", profile.company_id)
       .select(select)
       .single();
     if (err) throw err;
@@ -183,7 +184,12 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
 
   const remove = async (id: string) => {
     const previousRow = data.find((r) => String((r as any).id) === String(id)) as T | undefined;
-    const { error: err } = await db.from(table).delete().eq("id", id);
+    if (!profile?.company_id) throw new Error("No company context");
+    const { error: err } = await db
+      .from(table)
+      .delete()
+      .eq("id", id)
+      .eq("company_id", profile.company_id);
     if (err) throw err;
     setData((prev) => prev.filter((r) => (r as any).id !== id));
   };
