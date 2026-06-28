@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Eye, Plus, Printer, Send, Settings2, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
 type InvoiceItem = {
@@ -73,6 +74,7 @@ function productPrice(product: CRMProduct) {
 }
 
 export function InvoiceBuilderTest() {
+  const { profile } = useAuth();
   const [companyName, setCompanyName] = useState("Corevix");
   const [companySlogan, setCompanySlogan] = useState("CRM, automatización y soluciones digitales");
   const [companyEmail, setCompanyEmail] = useState("corevix.rd@gmail.com");
@@ -204,6 +206,11 @@ export function InvoiceBuilderTest() {
   }
 
   async function saveInvoice(nextStatus = status) {
+    if (!profile?.company_id) {
+      toast.error("No hay contexto de empresa. Cierra sesión y entra otra vez.");
+      return null;
+    }
+
     const validRows = items
       .map((item) => ({
         ...item,
@@ -253,6 +260,8 @@ export function InvoiceBuilderTest() {
       };
 
       const record = {
+        company_id: profile.company_id,
+        created_by: profile.user_id || null,
         number: invoiceNumber,
         client_id: selectedClientId || null,
         proposal_id: null,
@@ -271,7 +280,7 @@ export function InvoiceBuilderTest() {
 
       let invoice: SavedInvoice;
       if (savedInvoice?.id) {
-        const { data, error } = await db.from("invoices").update(record).eq("id", savedInvoice.id).select("id, public_token, number").single();
+        const { data, error } = await db.from("invoices").update(record).eq("id", savedInvoice.id).eq("company_id", profile.company_id).select("id, public_token, number").single();
         if (error) throw error;
         invoice = data;
       } else {
