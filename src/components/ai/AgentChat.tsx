@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, PanelLeft, Plus, Search, Send, Sparkles } from "lucide-react";
 import { extractAgentReply, getAgentUrl, sendAgentMessage } from "@/lib/agentClient";
+import {
+  appendAiChatMessage,
+  createAiChatThread,
+  listAiChatMessages,
+  listAiChatThreads,
+  updateAiChatThread,
+  type AiChatMessage,
+  type AiChatThread,
+} from "@/lib/aiChatHistory";
 
-type Message = { role: "user" | "assistant"; content: string };
-type Thread = { id: string; title: string; preview: string; updatedAt: string };
+type Message = { id?: string; role: "user" | "assistant"; content: string; created_at?: string };
+type Thread = { id: string; title: string; preview: string; updatedAt: string; isLocal?: boolean };
+
+const LOCAL_THREAD_ID = "local-new";
 
 const STARTERS = [
   "Resume mis leads de hoy",
@@ -12,8 +23,51 @@ const STARTERS = [
   "Dame un resumen del pipeline",
 ];
 
-function uid() {
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+function formatUpdatedAt(value?: string | null) {
+  if (!value) return "Ahora";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Ahora";
+
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "Ahora";
+  if (minutes < 60) return `${minutes}m`;
+  if (hours < 24) return `${hours}h`;
+  if (days < 7) return `${days}d`;
+
+  return date.toLocaleDateString();
+}
+
+function threadFromDb(thread: AiChatThread): Thread {
+  return {
+    id: thread.id,
+    title: thread.title || "Nuevo chat",
+    preview: thread.preview || "Sin mensajes todavía",
+    updatedAt: formatUpdatedAt(thread.updated_at),
+  };
+}
+
+function messageFromDb(message: AiChatMessage): Message {
+  return {
+    id: message.id,
+    role: message.role === "user" ? "user" : "assistant",
+    content: message.content,
+    created_at: message.created_at,
+  };
+}
+
+function makeLocalThread(): Thread {
+  return {
+    id: LOCAL_THREAD_ID,
+    title: "Nuevo chat",
+    preview: "Sin mensajes todavía",
+    updatedAt: "Ahora",
+    isLocal: true,
+  };
 }
 
 export function AgentChat({
@@ -23,20 +77,15 @@ export function AgentChat({
   compact?: boolean;
   fullscreen?: boolean;
 }) {
-  const [threads, setThreads] = useState<Thread[]>([
-    {
-      id: "default",
-      title: "Nuevo chat",
-      preview: "Corevix AI conectado",
-      updatedAt: "Ahora",
-    },
-  ]);
-  const [activeThreadId, setActiveThreadId] = useState("default");
+  const [threads, setThreads] = useState<Thread[]>([makeLocalThread()]);
+  const [activeThreadId, setActiveThreadId] = useState(LOCAL_THREAD_ID);
   const [messagesByThread, setMessagesByThread] = useState<Record<string, Message[]>>({
-    default: [],
+    [LOCAL_THREAD_ID]: [],
   });
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -44,27 +93,90 @@ export function AgentChat({
   const messages = messagesByThread[activeThreadId] || [];
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadThreads() {
+      setLoadingHistory(true);
+      setHistoryError(null);
+
+      try {
+        const dbThreads = await listAiChatThreads();
+
+        if (cancelled) return;
+
+        if (!dbThreads.length) {
+          setThreads([makeLocalThread()]);
+          setActiveThreadId(LOCAL_THREAD_ID);
+          setMessagesByThread({ [LOCAL_THREAD_ID]: [] });
+          return;
+        }
+
+        const mapped = dbThreads.map(threadFromDb);
+        const firstId = mapped[0].id;
+
+        setThreads(mapped);
+        setActiveThreadId(firstId);
+
+        const dbMessages = await listAiChatMessages(firstId);
+        if (cancelled) return;
+
+        setMessagesByThread({ [firstId]: dbMessages.map(messageFromDb) });
+      } catch (error: any) {
+        if (!cancelled) {
+          setHistoryError(error?.message || "No pude cargar el historial del chat.");
+          setThreads([makeLocalThread()]);
+          setActiveThreadId(LOCAL_THREAD_ID);
+          setMessagesByThread({ [LOCAL_THREAD_ID]: [] });
+        }
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    }
+
+    loadThreads();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, loading]);
 
+  async function loadThreadMessages(threadId: string) {
+    setActiveThreadId(threadId);
+    setText("");
+
+    if (threadId === LOCAL_THREAD_ID) return;
+    if (messagesByThread[threadId]) return;
+
+    try {
+      const dbMessages = await listAiChatMessages(threadId);
+      setMessagesByThread((prev) => ({
+        ...prev,
+        [threadId]: dbMessages.map(messageFromDb),
+      }));
+    } catch (error: any) {
+      setHistoryError(error?.message || "No pude cargar los mensajes.");
+    }
+  }
+
   function newThread() {
-    const id = uid();
-    setThreads((prev) => [
-      {
-        id,
-        title: "Nuevo chat",
-        preview: "Sin mensajes todavía",
-        updatedAt: "Ahora",
-      },
-      ...prev,
-    ]);
-    setMessagesByThread((prev) => ({ ...prev, [id]: [] }));
-    setActiveThreadId(id);
+    const local = makeLocalThread();
+
+    setThreads((prev) => {
+      const withoutOldLocal = prev.filter((thread) => thread.id !== LOCAL_THREAD_ID);
+      return [local, ...withoutOldLocal];
+    });
+
+    setMessagesByThread((prev) => ({ ...prev, [LOCAL_THREAD_ID]: [] }));
+    setActiveThreadId(LOCAL_THREAD_ID);
     setText("");
   }
 
-  function updateThreadPreview(threadId: string, userText: string, assistantText?: string) {
+  function updateThreadPreviewLocal(threadId: string, userText: string, assistantText?: string) {
     setThreads((prev) =>
       prev.map((thread) =>
         thread.id === threadId
@@ -79,40 +191,114 @@ export function AgentChat({
     );
   }
 
+  function replaceLocalThread(tempId: string, dbThread: AiChatThread) {
+    const mapped = threadFromDb(dbThread);
+
+    setThreads((prev) => [mapped, ...prev.filter((thread) => thread.id !== tempId)]);
+    setMessagesByThread((prev) => {
+      const localMessages = prev[tempId] || [];
+      const next = { ...prev, [dbThread.id]: localMessages };
+      delete next[tempId];
+      return next;
+    });
+    setActiveThreadId(dbThread.id);
+  }
+
+  async function ensureThread(threadId: string, userText: string) {
+    if (threadId !== LOCAL_THREAD_ID) return threadId;
+
+    const dbThread = await createAiChatThread({
+      title: userText.slice(0, 42) || "Nuevo chat",
+      preview: userText.slice(0, 72),
+    });
+
+    replaceLocalThread(threadId, dbThread);
+
+    return dbThread.id;
+  }
+
   async function handleSend(raw = text) {
     const userText = raw.trim();
     if (!userText || loading) return;
 
-    const threadId = activeThreadId;
+    const currentThreadId = activeThreadId;
     setText("");
     setLoading(true);
 
     setMessagesByThread((prev) => ({
       ...prev,
-      [threadId]: [...(prev[threadId] || []), { role: "user", content: userText }],
+      [currentThreadId]: [...(prev[currentThreadId] || []), { role: "user", content: userText }],
     }));
-    updateThreadPreview(threadId, userText);
+    updateThreadPreviewLocal(currentThreadId, userText);
+
+    let persistedThreadId = currentThreadId;
 
     try {
+      persistedThreadId = await ensureThread(currentThreadId, userText);
+
+      if (persistedThreadId !== currentThreadId) {
+        setMessagesByThread((prev) => ({
+          ...prev,
+          [persistedThreadId]: [...(prev[persistedThreadId] || []), { role: "user", content: userText }],
+        }));
+      }
+
+      await appendAiChatMessage(persistedThreadId, "user", userText);
+
       const data = await sendAgentMessage(userText);
       const reply = extractAgentReply(data);
 
+      await appendAiChatMessage(persistedThreadId, "assistant", reply, {
+        agent_response: data,
+      });
+
+      await updateAiChatThread(persistedThreadId, {
+        title: userText.slice(0, 42),
+        preview: reply.slice(0, 72),
+      });
+
       setMessagesByThread((prev) => ({
         ...prev,
-        [threadId]: [...(prev[threadId] || []), { role: "assistant", content: reply }],
+        [persistedThreadId]: [...(prev[persistedThreadId] || []), { role: "assistant", content: reply }],
       }));
-      updateThreadPreview(threadId, userText, reply);
+      updateThreadPreviewLocal(persistedThreadId, userText, reply);
     } catch (error: any) {
       const reply = `Error conectando con Corevix AI: ${error?.message || "No se pudo conectar."}`;
+
+      try {
+        if (persistedThreadId && persistedThreadId !== LOCAL_THREAD_ID) {
+          await appendAiChatMessage(persistedThreadId, "assistant", reply, { error: true });
+          await updateAiChatThread(persistedThreadId, { preview: reply.slice(0, 72) });
+        }
+      } catch {
+        // Evita tapar el error principal.
+      }
+
       setMessagesByThread((prev) => ({
         ...prev,
-        [threadId]: [...(prev[threadId] || []), { role: "assistant", content: reply }],
+        [persistedThreadId]: [...(prev[persistedThreadId] || []), { role: "assistant", content: reply }],
       }));
-      updateThreadPreview(threadId, userText, reply);
+      updateThreadPreviewLocal(persistedThreadId, userText, reply);
     } finally {
       setLoading(false);
     }
   }
+
+  const chatMessages = (
+    <>
+      {messages.map((msg, index) => {
+        const isUser = msg.role === "user";
+        return (
+          <div key={msg.id || `${msg.role}-${index}`} className={isUser ? "flex justify-end" : "flex justify-start"}>
+            <div className={`max-w-[86%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${isUser ? "bg-[#1d62f9] text-white" : "border border-[#e6eaf0] bg-white text-[#111827]"}`}>
+              {msg.content}
+            </div>
+          </div>
+        );
+      })}
+      {loading && <p className="text-sm text-[#667085]">Pensando...</p>}
+    </>
+  );
 
   if (!fullscreen) {
     return (
@@ -123,17 +309,7 @@ export function AgentChat({
         </div>
 
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#fbfcfe] p-4">
-          {messages.map((msg, index) => {
-            const isUser = msg.role === "user";
-            return (
-              <div key={index} className={isUser ? "flex justify-end" : "flex justify-start"}>
-                <div className={`max-w-[86%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${isUser ? "bg-[#1d62f9] text-white" : "border border-[#e6eaf0] bg-white text-[#111827]"}`}>
-                  {msg.content}
-                </div>
-              </div>
-            );
-          })}
-          {loading && <p className="text-sm text-[#667085]">Pensando...</p>}
+          {loadingHistory ? <p className="text-sm text-[#667085]">Cargando historial...</p> : chatMessages}
         </div>
 
         <form className="flex gap-2 border-t border-[#e6eaf0] p-3" onSubmit={(event) => { event.preventDefault(); handleSend(); }}>
@@ -164,7 +340,16 @@ export function AgentChat({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <p className="px-2 py-2 text-[11px] font-black uppercase tracking-wide text-[#6b7280]">Recientes</p>
+          <p className="px-2 py-2 text-[11px] font-black uppercase tracking-wide text-[#6b7280]">
+            {loadingHistory ? "Cargando..." : "Recientes"}
+          </p>
+
+          {historyError ? (
+            <div className="mb-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              {historyError}
+            </div>
+          ) : null}
+
           <div className="space-y-1">
             {threads.map((thread) => {
               const active = thread.id === activeThreadId;
@@ -172,11 +357,12 @@ export function AgentChat({
                 <button
                   key={thread.id}
                   type="button"
-                  onClick={() => setActiveThreadId(thread.id)}
+                  onClick={() => loadThreadMessages(thread.id)}
                   className={`w-full rounded-xl px-3 py-2 text-left transition ${active ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
                 >
                   <p className="truncate text-sm font-bold text-[#111827]">{thread.title}</p>
                   <p className="mt-0.5 truncate text-xs text-[#6b7280]">{thread.preview}</p>
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[#9ca3af]">{thread.updatedAt}</p>
                 </button>
               );
             })}
@@ -196,7 +382,7 @@ export function AgentChat({
             </button>
             <div>
               <h1 className="text-sm font-black text-[#111827]">Corevix AI</h1>
-              <p className="text-xs font-semibold text-[#6b7280]">Agente conectado · OpenClaw local</p>
+              <p className="text-xs font-semibold text-[#6b7280]">Historial guardado · OpenClaw local</p>
             </div>
           </div>
           <span className="hidden rounded-full border border-[#dce8e2] bg-white px-2.5 py-1 text-[11px] font-black text-[#008069] sm:inline">
@@ -205,7 +391,11 @@ export function AgentChat({
         </header>
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-          {messages.length === 0 ? (
+          {loadingHistory ? (
+            <div className="mx-auto flex min-h-full max-w-3xl items-center justify-center text-sm font-semibold text-[#6b7280]">
+              Cargando historial...
+            </div>
+          ) : messages.length === 0 ? (
             <div className="mx-auto flex min-h-full max-w-3xl flex-col items-center justify-center text-center">
               <div className="mb-4 grid h-14 w-14 place-items-center rounded-3xl bg-[#111827] text-white">
                 <Bot className="h-6 w-6" />
@@ -232,7 +422,7 @@ export function AgentChat({
               {messages.map((msg, index) => {
                 const isUser = msg.role === "user";
                 return (
-                  <div key={index} className={isUser ? "flex justify-end" : "flex justify-start"}>
+                  <div key={msg.id || `${msg.role}-${index}`} className={isUser ? "flex justify-end" : "flex justify-start"}>
                     <div className={`max-w-[82%] whitespace-pre-wrap rounded-3xl px-4 py-3 text-[15px] leading-relaxed ${isUser ? "bg-[#111827] text-white" : "bg-transparent text-[#111827]"}`}>
                       {msg.content}
                     </div>
