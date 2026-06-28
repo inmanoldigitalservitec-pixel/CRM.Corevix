@@ -15,16 +15,13 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
-
 # Environment variables
 .env
 .env.*
 !.env.example
-
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -35,7 +32,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
 # Local audit / backup files
 language-audit/
 *.bak_*
+# Corevix local agent worker secrets/cache
+apps/agent-worker/.dev.vars
+apps/agent-worker/.wrangler/
+apps/agent-worker/node_modules/
+apps/agent-worker/dist/
