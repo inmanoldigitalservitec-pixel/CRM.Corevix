@@ -21,6 +21,10 @@ function getPanel() {
   return asides.find((aside) => aside.textContent?.includes("Envío rápido") || aside.querySelector('[title="Tarea"]')) || null;
 }
 
+function setAttr(element: HTMLElement, name: string, value: string) {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
+
 function injectStyles() {
   if (document.getElementById("corevix-wa-phase2-safe")) return;
   const style = document.createElement("style");
@@ -51,8 +55,8 @@ function injectStyles() {
 }
 
 function labelButton(button: HTMLElement, label: string, primary = false) {
-  button.dataset.corevixWaButton = primary ? "main" : "true";
-  if (primary) button.dataset.corevixWaMainButton = "true";
+  setAttr(button, "data-corevix-wa-button", primary ? "main" : "true");
+  if (primary) setAttr(button, "data-corevix-wa-main-button", "true");
   button.classList.remove("grid", "place-items-center", "w-10", "h-10", "w-9", "h-9");
   button.classList.add("flex", "items-center", "justify-center", "gap-2");
   let span = button.querySelector<HTMLElement>("[data-corevix-wa-label]");
@@ -61,7 +65,7 @@ function labelButton(button: HTMLElement, label: string, primary = false) {
     span.dataset.corevixWaLabel = "true";
     button.appendChild(span);
   }
-  span.textContent = label;
+  if (span.textContent !== label) span.textContent = label;
 }
 
 function findActivitySection(panel: HTMLElement) {
@@ -94,11 +98,13 @@ function ensureTaskSlot(panel: HTMLElement) {
 function enhanceQuickSend(panel: HTMLElement) {
   const section = findQuickSendSection(panel);
   if (!section) return;
-  section.dataset.corevixWaQuickSend = "true";
+  setAttr(section, "data-corevix-wa-quick-send", "true");
 
-  const emptyDoc = Array.from(section.querySelectorAll<HTMLElement>("p")).find((p) => p.textContent?.includes("No hay docs listos"));
+  const emptyDoc = Array.from(section.querySelectorAll<HTMLElement>("p")).find((p) =>
+    p.textContent?.includes("No hay docs listos") || p.textContent?.includes("No hay documentos listos"),
+  );
   if (emptyDoc) {
-    emptyDoc.textContent = "No hay documentos listos";
+    if (emptyDoc.textContent !== "No hay documentos listos") emptyDoc.textContent = "No hay documentos listos";
     const wrapper = emptyDoc.closest("div") as HTMLElement | null;
     if (wrapper && !wrapper.querySelector("[data-corevix-wa-empty-doc-helper]")) {
       const helper = document.createElement("p");
@@ -114,11 +120,11 @@ function enhanceQuickSend(panel: HTMLElement) {
   if (openButton) labelButton(openButton, "Abrir");
 
   const actions = prepareButton?.parentElement || openButton?.parentElement;
-  if (actions) actions.dataset.corevixWaDocActions = "true";
+  if (actions) setAttr(actions, "data-corevix-wa-doc-actions", "true");
 
   const docCard = prepareButton?.closest("div.rounded-2xl") as HTMLElement | null;
   if (docCard) {
-    docCard.dataset.corevixWaDocCard = "true";
+    setAttr(docCard, "data-corevix-wa-doc-card", "true");
     if (!docCard.querySelector("[data-corevix-wa-doc-helper]")) {
       const helper = document.createElement("p");
       helper.dataset.corevixWaDocHelper = "true";
@@ -130,11 +136,12 @@ function enhanceQuickSend(panel: HTMLElement) {
 
 function enhanceOnce() {
   injectStyles();
-  getGrid()?.setAttribute("data-corevix-wa-grid", "true");
+  const grid = getGrid();
+  if (grid) setAttr(grid, "data-corevix-wa-grid", "true");
   const panel = getPanel();
   if (!panel) return;
-  panel.dataset.corevixWaPanel = "true";
-  panel.style.overflowX = "hidden";
+  setAttr(panel, "data-corevix-wa-panel", "true");
+  if (panel.style.overflowX !== "hidden") panel.style.overflowX = "hidden";
 
   const main = panel.querySelector<HTMLElement>('[title="Crear lead"], [title="Crear cliente"], [title="Crear propuesta"], [title="Crear factura"], [title="Preparar seguimiento"], [title="Preparar"], [title="Ver"]');
   if (main) {
@@ -142,9 +149,9 @@ function enhanceOnce() {
     labelButton(main, label, true);
     const row = main.parentElement;
     if (row) {
-      row.style.display = "grid";
-      row.style.gridTemplateColumns = "minmax(0,1fr)";
-      row.style.gap = "10px";
+      if (row.style.display !== "grid") row.style.display = "grid";
+      if (row.style.gridTemplateColumns !== "minmax(0px, 1fr)") row.style.gridTemplateColumns = "minmax(0,1fr)";
+      if (row.style.gap !== "10px") row.style.gap = "10px";
     }
   }
 
@@ -153,7 +160,7 @@ function enhanceOnce() {
   }
 
   const firstDoc = panel.querySelector<HTMLElement>('[title="Crear propuesta"], [title="Crear factura"], [title="Preparar mensaje"]');
-  if (firstDoc?.parentElement) firstDoc.parentElement.dataset.corevixWaDocActions = "true";
+  if (firstDoc?.parentElement) setAttr(firstDoc.parentElement, "data-corevix-wa-doc-actions", "true");
 
   enhanceQuickSend(panel);
   ensureTaskSlot(panel);
@@ -161,13 +168,25 @@ function enhanceOnce() {
 
 export function WhatsAppPanelPhase2Safe() {
   useEffect(() => {
-    const run = () => window.requestAnimationFrame(enhanceOnce);
+    let frame = 0;
+    const run = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        enhanceOnce();
+      });
+    };
+
     run();
     const timers = [window.setTimeout(run, 250), window.setTimeout(run, 900), window.setTimeout(run, 1500)];
+    const observer = new MutationObserver(run);
+    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("resize", run);
     document.addEventListener("click", run, true);
     return () => {
       timers.forEach(window.clearTimeout);
+      observer.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", run);
       document.removeEventListener("click", run, true);
     };
