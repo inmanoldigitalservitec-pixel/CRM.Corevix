@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { TextStyle } from "@tiptap/extension-text-style";
+import FontFamily from "@tiptap/extension-font-family";
 import { Image } from "@tiptap/extension-image";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
@@ -61,7 +63,35 @@ function ToolbarButton({
   );
 }
 
+
+const GOOGLE_FONTS = [
+  "Arial",
+  "Inter",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Poppins",
+  "Merriweather",
+  "Playfair Display",
+  "Source Sans 3",
+  "Nunito",
+  "Raleway",
+  "Oswald",
+  "Ubuntu",
+  "Roboto Slab",
+  "Libre Baskerville",
+] as const;
+
+const GOOGLE_FONTS_URL =
+  "https://fonts.googleapis.com/css2?" +
+  GOOGLE_FONTS.filter((font) => font !== "Arial")
+    .map((font) => `family=${font.replaceAll(" ", "+")}:wght@400;500;600;700`)
+    .join("&") +
+  "&display=swap";
+
 export function DocumentBuilderTest() {
+  const [selectedFont, setSelectedFont] = useState("Arial");
   const [documentTitle, setDocumentTitle] = useState("Propuesta Comercial");
   const [clientName, setClientName] = useState("Cliente Demo");
   const [companyName, setCompanyName] = useState("Corevix");
@@ -69,8 +99,24 @@ export function DocumentBuilderTest() {
   const [amount, setAmount] = useState("RD$ 25,000");
   const [validUntil, setValidUntil] = useState("30 días");
 
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const existing = document.querySelector('link[data-corevix-google-fonts="true"]');
+    if (existing) return;
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = GOOGLE_FONTS_URL;
+    link.dataset.corevixGoogleFonts = "true";
+    document.head.appendChild(link);
+  }, []);
+
   const editor = useEditor({
     extensions: [
+      TextStyle,
+      FontFamily,
       StarterKit,
       Image.configure({
         inline: false,
@@ -246,16 +292,20 @@ export function DocumentBuilderTest() {
             100%
           </button>
 
-          <select className="h-8 rounded border bg-white px-2 text-sm">
-            <option>Texto normal</option>
-            <option>Título</option>
-            <option>Subtítulo</option>
-          </select>
-
-          <select className="h-8 rounded border bg-white px-2 text-sm">
-            <option>Arial</option>
-            <option>Inter</option>
-            <option>Times New Roman</option>
+          <select
+            value={selectedFont}
+            onChange={(event) => {
+              const font = event.target.value;
+              setSelectedFont(font);
+              editor.chain().focus().setFontFamily(font).run();
+            }}
+            className="rounded border px-2 py-1 text-sm"
+          >
+            {GOOGLE_FONTS.map((font) => (
+              <option key={font} value={font}>
+                {font}
+              </option>
+            ))}
           </select>
 
           <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
