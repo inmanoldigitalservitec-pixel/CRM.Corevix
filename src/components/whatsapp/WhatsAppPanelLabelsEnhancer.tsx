@@ -64,6 +64,11 @@ function injectResponsiveStyles() {
       width: 100% !important;
     }
 
+    [data-whatsapp-task-slot] {
+      display: block;
+      margin-bottom: 8px;
+    }
+
     @media (max-width: 1460px) {
       [data-corevix-whatsapp-right-aside="true"] {
         display: block !important;
@@ -220,6 +225,35 @@ function enhanceDocumentActions(aside: HTMLElement) {
   aside.querySelectorAll<HTMLElement>('[title="Abrir documento"]').forEach((element) => ensureReadableButton(element, "Abrir"));
 }
 
+function findActivitySection(aside: HTMLElement) {
+  return Array.from(aside.querySelectorAll<HTMLElement>("section")).find((section) => {
+    const title = section.querySelector("p")?.textContent?.trim().toLowerCase() || "";
+    return title === "actividad" || section.textContent?.includes("Último mensaje:") || section.textContent?.includes("Última interacción:");
+  }) || null;
+}
+
+function ensureTaskSlot(aside: HTMLElement, internalSection: HTMLElement | null) {
+  if (!internalSection) return;
+  let slot = aside.querySelector<HTMLElement>("[data-whatsapp-task-slot]");
+  if (!slot) {
+    slot = document.createElement("div");
+    slot.dataset.whatsappTaskSlot = "true";
+  }
+
+  const activitySection = findActivitySection(aside);
+  const parent = activitySection?.parentElement || internalSection.parentElement;
+  if (!parent) return;
+
+  const desiredPrevious = internalSection.nextElementSibling;
+  if (activitySection) {
+    if (slot.nextElementSibling !== activitySection) {
+      parent.insertBefore(slot, activitySection);
+    }
+  } else if (desiredPrevious !== slot) {
+    internalSection.insertAdjacentElement("afterend", slot);
+  }
+}
+
 function enhanceInternalActions(aside: HTMLElement) {
   aside.querySelectorAll<HTMLElement>('[title="Tarea"]').forEach((element) => ensureReadableButton(element, "Tarea"));
   aside.querySelectorAll<HTMLElement>('[title="Nota"]').forEach((element) => ensureReadableButton(element, "Nota"));
@@ -229,6 +263,7 @@ function enhanceInternalActions(aside: HTMLElement) {
   if (internalSection && !internalSection.querySelector("p")) {
     ensureSectionTitle(internalSection, "Trabajo interno", "Crea tareas o notas sin salir del chat.");
   }
+  ensureTaskSlot(aside, internalSection);
 }
 
 function enhancePanel() {
