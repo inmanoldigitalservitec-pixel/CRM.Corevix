@@ -39,19 +39,25 @@ function emptyTaskForm() {
   };
 }
 
+function findTaskSlot() {
+  return document.querySelector<HTMLElement>("[data-whatsapp-task-slot]");
+}
+
 function findWhatsappPanelTaskButton() {
   const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="/tasks?conversationId="]'));
   return links.find((link) => (link.getAttribute("title") || "").toLowerCase() === "tarea") || links[0] || null;
 }
 
 function findPanelTarget(button: HTMLElement | null) {
+  const slot = findTaskSlot();
+  if (slot) return slot;
   if (!button) return null;
   const section = button.closest("section");
   return section?.parentElement || section || null;
 }
 
 function readConversationName() {
-  const panel = findWhatsappPanelTaskButton()?.closest("aside");
+  const panel = findTaskSlot()?.closest("aside") || findWhatsappPanelTaskButton()?.closest("aside");
   const heading = panel?.querySelector<HTMLElement>("h3");
   return heading?.textContent?.trim() || "este contacto";
 }
@@ -71,6 +77,14 @@ export function WhatsAppInlineTaskCreator() {
   }, []);
 
   useEffect(() => {
+    function openCreator(nextConversationId: string) {
+      setConversationId(nextConversationId || "");
+      setTarget(findTaskSlot() || findPanelTarget(findWhatsappPanelTaskButton()));
+      setForm(emptyTaskForm());
+      setCreatedTasks([]);
+      setOpen(true);
+    }
+
     function handleTaskClick(event: MouseEvent) {
       const targetNode = event.target as HTMLElement | null;
       const link = targetNode?.closest<HTMLAnchorElement>('a[href^="/tasks?conversationId="]');
@@ -82,22 +96,26 @@ export function WhatsAppInlineTaskCreator() {
       event.stopImmediatePropagation();
 
       const url = new URL(link.href, window.location.origin);
-      setConversationId(url.searchParams.get("conversationId") || "");
-      setTarget(findPanelTarget(link));
-      setForm(emptyTaskForm());
-      setCreatedTasks([]);
-      setOpen(true);
+      openCreator(url.searchParams.get("conversationId") || "");
+    }
+
+    function handleOrganizedPanelTask(event: Event) {
+      const detail = (event as CustomEvent<{ conversationId?: string }>).detail;
+      openCreator(detail?.conversationId || "");
     }
 
     document.addEventListener("click", handleTaskClick, true);
-    return () => document.removeEventListener("click", handleTaskClick, true);
+    window.addEventListener("corevix:whatsapp-open-task", handleOrganizedPanelTask);
+    return () => {
+      document.removeEventListener("click", handleTaskClick, true);
+      window.removeEventListener("corevix:whatsapp-open-task", handleOrganizedPanelTask);
+    };
   }, []);
 
   useEffect(() => {
     if (!open) return;
     const observer = new MutationObserver(() => {
-      const button = findWhatsappPanelTaskButton();
-      const nextTarget = findPanelTarget(button);
+      const nextTarget = findTaskSlot() || findPanelTarget(findWhatsappPanelTaskButton());
       if (nextTarget) setTarget(nextTarget);
     });
     observer.observe(document.body, { childList: true, subtree: true });
