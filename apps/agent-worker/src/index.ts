@@ -1,5 +1,5 @@
 import { getCorevixSkillsPrompt } from "./skills";
-import type { ChatBody, Env } from "./types";
+import type { ChatBody, ChatHistoryMessage, Env } from "./types";
 import { createSupabaseAdmin } from "./supabase";
 import { getUserContext } from "./auth";
 import { parseToolCall } from "./tool-parser";
@@ -41,7 +41,7 @@ async function handleAgentChat(request: Request, env: Env) {
     const supabase = createSupabaseAdmin(env);
     const userContext = await getUserContext(request, supabase);
 
-    const openclawText = await askOpenClaw(env, body.message);
+    const openclawText = await askOpenClaw(env, body.message, body.history);
     const toolCall = parseToolCall(openclawText);
 
     if (!toolCall) {
@@ -87,7 +87,7 @@ async function handleAgentChat(request: Request, env: Env) {
   }
 }
 
-async function askOpenClaw(env: Env, userMessage: string) {
+async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMessage[] = []) {
   const openclawResponse = await fetch(`${env.OPENCLAW_GATEWAY_URL}/v1/responses`, {
     method: "POST",
     headers: {
@@ -96,7 +96,7 @@ async function askOpenClaw(env: Env, userMessage: string) {
     },
     body: JSON.stringify({
       model: "openclaw/default",
-      input: buildSystemPrompt(userMessage),
+      input: buildSystemPrompt(userMessage, history),
     }),
   });
 
@@ -177,7 +177,26 @@ Redacta la respuesta final para el usuario:
 }
 
 
-function buildSystemPrompt(userMessage: string) {
+
+function formatChatHistory(history: ChatHistoryMessage[] = []) {
+  const cleanHistory = history
+    .filter((item) => item?.content?.trim())
+    .slice(-10)
+    .map((item) => ({
+      role: item.role === "assistant" ? "Corevix AI" : "Usuario",
+      content: item.content.trim().slice(0, 2000),
+    }));
+
+  if (!cleanHistory.length) {
+    return "No hay historial reciente.";
+  }
+
+  return cleanHistory
+    .map((item, index) => `${index + 1}. ${item.role}: ${item.content}`)
+    .join("\n");
+}
+
+function buildSystemPrompt(userMessage: string, history: ChatHistoryMessage[] = []) {
   return `
 Eres Corevix AI, el asistente interno del CRM Corevix.
 
@@ -185,6 +204,14 @@ Puedes responder normalmente o solicitar una tool.
 
 SKILLS ACTIVAS:
 ${getCorevixSkillsPrompt()}
+
+HISTORIAL RECIENTE DEL CHAT:
+${formatChatHistory(history)}
+
+Usa este historial solo como contexto conversacional reciente.
+No repitas el historial.
+No inventes datos.
+Si el usuario dice "ese", "eso", "él", "ella", "lo anterior" o "hazlo igual", usa este historial para entender la referencia.
 
 TOOLS DISPONIBLES:
 

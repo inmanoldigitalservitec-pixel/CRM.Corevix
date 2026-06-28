@@ -238,7 +238,11 @@ export function AgentChat({
 
       await appendAiChatMessage(persistedThreadId, "user", userText);
 
-      const data = await sendAgentMessage(userText);
+      const recentHistory = messages
+        .filter((item) => item.content.trim())
+        .slice(-10);
+
+      const data = await sendAgentMessage(userText, recentHistory);
       const reply = extractAgentReply(data);
 
       await appendAiChatMessage(persistedThreadId, "assistant", reply, {

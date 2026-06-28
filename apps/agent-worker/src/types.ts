@@ -7,8 +7,14 @@ export interface Env {
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
 
+export type ChatHistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type ChatBody = {
   message: string;
+  history?: ChatHistoryMessage[];
 };
 
 export type ToolCall = {
