@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Archive,
   Bot,
@@ -9,7 +9,6 @@ import {
   Filter,
   Inbox,
   Instagram,
-  Menu,
   MessageCircle,
   Mic,
   MoreVertical,
@@ -103,7 +102,6 @@ function WhatsAppWebPage() {
   const [instagramError, setInstagramError] = useState<string | null>(null);
 
   const canSeeUnassigned = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
-
   const serviceWindow = useMemo(() => getServiceWindowState(whatsappMessages, now), [now, whatsappMessages]);
 
   useEffect(() => {
@@ -120,8 +118,7 @@ function WhatsAppWebPage() {
         key: `whatsapp:${id}`,
         channel: "whatsapp",
         id,
-        displayName:
-          row.display_name || row.contact_name || row.whatsapp_profile_name || row.phone || "Sin nombre",
+        displayName: row.display_name || row.contact_name || row.whatsapp_profile_name || row.phone || "Sin nombre",
         subtitle: row.phone || row.lead_stage || row.selected_service || null,
         avatarUrl: null,
         lastMessageText: row.last_message,
@@ -185,10 +182,12 @@ function WhatsAppWebPage() {
 
   const selectedUnifiedConversation = useMemo(() => {
     if (!selectedConversation) return null;
-    return unifiedConversations.find(
-      (conversation) =>
-        conversation.channel === selectedConversation.channel && conversation.id === selectedConversation.id,
-    ) ?? null;
+    return (
+      unifiedConversations.find(
+        (conversation) =>
+          conversation.channel === selectedConversation.channel && conversation.id === selectedConversation.id,
+      ) ?? null
+    );
   }, [selectedConversation, unifiedConversations]);
 
   const selectedWhatsappConversation = useMemo(() => {
@@ -226,19 +225,21 @@ function WhatsAppWebPage() {
     }));
   }, [instagramMessages, messengerMessages, selectedConversation, whatsappMessages]);
 
-  const messagesLoading = selectedConversation?.channel === "messenger"
-    ? messengerMessagesLoading
-    : selectedConversation?.channel === "instagram"
-      ? instagramMessagesLoading
-      : whatsappMessagesLoading;
+  const messagesLoading =
+    selectedConversation?.channel === "messenger"
+      ? messengerMessagesLoading
+      : selectedConversation?.channel === "instagram"
+        ? instagramMessagesLoading
+        : whatsappMessagesLoading;
 
-  const listLoading = selectedChannel === "all"
-    ? whatsappConversationsLoading || messengerConversationsLoading || instagramConversationsLoading
-    : selectedChannel === "whatsapp"
-      ? whatsappConversationsLoading
-      : selectedChannel === "messenger"
-        ? messengerConversationsLoading
-        : instagramConversationsLoading;
+  const listLoading =
+    selectedChannel === "all"
+      ? whatsappConversationsLoading || messengerConversationsLoading || instagramConversationsLoading
+      : selectedChannel === "whatsapp"
+        ? whatsappConversationsLoading
+        : selectedChannel === "messenger"
+          ? messengerConversationsLoading
+          : instagramConversationsLoading;
 
   async function loadWhatsappConversations() {
     if (!profile?.company_id) {
@@ -429,7 +430,10 @@ function WhatsAppWebPage() {
       const changedConversationId = String(
         (payload.new as any)?.conversation_id || (payload.old as any)?.conversation_id || "",
       ).trim();
-      if (selectedConversation?.channel === "whatsapp" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+      if (
+        selectedConversation?.channel === "whatsapp" &&
+        (!changedConversationId || changedConversationId === selectedConversation.id)
+      ) {
         void loadWhatsappMessages(selectedConversation.id);
       }
     },
@@ -455,10 +459,16 @@ function WhatsAppWebPage() {
       const changedConversationId = String(
         (payload.new as any)?.conversation_id || (payload.old as any)?.conversation_id || "",
       ).trim();
-      if (selectedConversation?.channel === "messenger" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+      if (
+        selectedConversation?.channel === "messenger" &&
+        (!changedConversationId || changedConversationId === selectedConversation.id)
+      ) {
         void loadMessengerMessages(selectedConversation.id);
       }
-      if (selectedConversation?.channel === "instagram" && (!changedConversationId || changedConversationId === selectedConversation.id)) {
+      if (
+        selectedConversation?.channel === "instagram" &&
+        (!changedConversationId || changedConversationId === selectedConversation.id)
+      ) {
         void loadInstagramMessages(selectedConversation.id);
       }
     },
@@ -504,6 +514,7 @@ function WhatsAppWebPage() {
       toast.error("No se encontró la cuenta conectada para enviar este mensaje.");
       return;
     }
+
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("meta-send-message", {
@@ -522,8 +533,7 @@ function WhatsAppWebPage() {
       await Promise.all([loadMessengerMessages(selectedConversation.id), loadMessengerConversations()]);
       toast.success("Mensaje enviado.");
     } catch (error: any) {
-      const msg = error?.message || "No se pudo enviar el mensaje.";
-      toast.error(msg);
+      toast.error(error?.message || "No se pudo enviar el mensaje.");
     } finally {
       setSending(false);
     }
@@ -650,10 +660,9 @@ function WhatsAppWebPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h2 className="truncate text-lg font-bold text-[#12231d]">{selectedUnifiedConversation.displayName}</h2>
-                      <span className="h-2 w-2 rounded-full bg-[#25d366]" />
                     </div>
                     <p className="truncate text-xs font-medium text-[#6b7e76]">
-                      {selectedUnifiedConversation.subtitle || selectedUnifiedConversation.status || "en línea"}
+                      {selectedUnifiedConversation.subtitle || selectedUnifiedConversation.status || "Conversación"}
                     </p>
                   </div>
                 </div>
@@ -755,7 +764,7 @@ function WhatsAppWebPage() {
   );
 }
 
-function RailIcon({ icon, active, label }: { icon: React.ReactNode; active?: boolean; label: string }) {
+function RailIcon({ icon, active, label }: { icon: ReactNode; active?: boolean; label: string }) {
   return (
     <button
       type="button"
@@ -769,7 +778,7 @@ function RailIcon({ icon, active, label }: { icon: React.ReactNode; active?: boo
   );
 }
 
-function HeaderIcon({ icon }: { icon: React.ReactNode }) {
+function HeaderIcon({ icon }: { icon: ReactNode }) {
   return (
     <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#edf6f2]">
       {icon}
@@ -778,12 +787,13 @@ function HeaderIcon({ icon }: { icon: React.ReactNode }) {
 }
 
 function Avatar({ conversation, size = "md" }: { conversation: UnifiedConversation; size?: "md" | "lg" }) {
-  const initials = conversation.displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "C";
+  const initials =
+    conversation.displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "C";
   const box = size === "lg" ? "h-12 w-12" : "h-11 w-11";
   return (
     <div className={`relative shrink-0 overflow-hidden rounded-full border border-white bg-[#d9fdd3] shadow-sm ${box}`}>
@@ -794,7 +804,6 @@ function Avatar({ conversation, size = "md" }: { conversation: UnifiedConversati
           {initials}
         </div>
       )}
-      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-[#25d366]" />
     </div>
   );
 }
@@ -856,7 +865,9 @@ function ContextPanel({
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
       <div className="rounded-3xl border border-[#dce8e2] bg-white p-5 text-center shadow-sm">
-        <Avatar conversation={conversation} size="lg" />
+        <div className="flex justify-center">
+          <Avatar conversation={conversation} size="lg" />
+        </div>
         <h3 className="mt-3 truncate text-lg font-bold text-[#12231d]">{conversation.displayName}</h3>
         <p className="mt-1 truncate text-sm text-[#6c7f77]">{conversation.subtitle || conversation.channel}</p>
         <div className="mt-4 flex justify-center gap-2">
@@ -898,7 +909,7 @@ function ContextPanel({
   );
 }
 
-function PanelCard({ title, children }: { title: string; children: React.ReactNode }) {
+function PanelCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
       <h4 className="mb-3 text-sm font-bold text-[#12231d]">{title}</h4>
