@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
-import { MessageCircle, Sparkles } from "lucide-react";
+import { ChevronDown, MessageCircle, Plus, Sparkles } from "lucide-react";
 
 type QuickReply = {
   label: string;
@@ -58,7 +58,7 @@ function insertMessage(message: string) {
   setNativeInputValue(input, next);
 }
 
-function buildReplies() {
+function buildReplies(): QuickReply[] {
   const panelText = getPanel()?.textContent || "";
   const name = getContactName();
   const greeting = name ? `Hola ${name},` : "Hola,";
@@ -67,11 +67,20 @@ function buildReplies() {
   const noDocs = panelText.includes("No hay documentos listos") || panelText.includes("No hay docs listos");
   const leadNew = panelText.includes("Crear lead") || panelText.includes("Sin registrar");
 
+  const general = [
+    { label: "Dar seguimiento", message: `${greeting} paso a darte seguimiento. ¿Pudiste revisar la información que te compartimos?` },
+    { label: "Pedir confirmación", message: `${greeting} ¿me confirmas si deseas que avancemos con el próximo paso?` },
+    { label: "Agendar", message: `${greeting} si te parece bien, podemos coordinar un horario para revisar los detalles.` },
+    { label: "Cerrar conversación", message: `${greeting} quedo pendiente por aquí. Cuando tengas cualquier duda o quieras avanzar, me escribes con confianza.` },
+  ];
+
   if (hasInvoice) {
     return [
       { label: "Enviar factura", message: `${greeting} te comparto la factura para que puedas revisarla. Cualquier duda me dices y te ayudo con gusto.` },
       { label: "Recordar pago", message: `${greeting} paso por aquí para dar seguimiento a la factura pendiente. Cuando puedas, me confirmas si todo está correcto.` },
       { label: "Confirmar pago", message: `${greeting} gracias por el pago. En cuanto lo confirmemos internamente, seguimos con el próximo paso.` },
+      { label: "Enviar comprobante", message: `${greeting} cuando puedas, envíame el comprobante de pago para validarlo con el equipo.` },
+      ...general,
     ];
   }
 
@@ -80,6 +89,8 @@ function buildReplies() {
       { label: "Enviar propuesta", message: `${greeting} te comparto la propuesta para que puedas revisarla con calma. Estoy pendiente por cualquier ajuste.` },
       { label: "Explicar paquete", message: `${greeting} te explico brevemente: la propuesta incluye lo necesario para avanzar de forma ordenada, con alcance claro y próximos pasos definidos.` },
       { label: "Agendar llamada", message: `${greeting} si prefieres, podemos coordinar una llamada corta para revisar la propuesta juntos y aclarar cualquier duda.` },
+      { label: "Solicitar aprobación", message: `${greeting} ¿me confirmas si la propuesta está aprobada para avanzar con el próximo paso?` },
+      ...general,
     ];
   }
 
@@ -88,19 +99,18 @@ function buildReplies() {
       { label: "Saludo", message: `${greeting} gracias por escribirnos. Cuéntame un poco más sobre lo que necesitas y con gusto te oriento.` },
       { label: "Pedir datos", message: `${greeting} para ayudarte mejor, ¿me puedes confirmar tu nombre, tipo de servicio que buscas y para cuándo lo necesitas?` },
       { label: "Enviar servicios", message: `${greeting} trabajamos soluciones digitales y comerciales adaptadas a cada cliente. Si me das más detalles, te recomiendo la mejor opción.` },
+      { label: "Pedir presupuesto", message: `${greeting} para orientarte mejor, ¿tienes un presupuesto aproximado o rango en mente?` },
+      ...general,
     ];
   }
 
-  return [
-    { label: "Dar seguimiento", message: `${greeting} paso a darte seguimiento. ¿Pudiste revisar la información que te compartimos?` },
-    { label: "Pedir confirmación", message: `${greeting} ¿me confirmas si deseas que avancemos con el próximo paso?` },
-    { label: "Agendar", message: `${greeting} si te parece bien, podemos coordinar un horario para revisar los detalles.` },
-  ];
+  return general;
 }
 
 export function WhatsAppQuickReplies() {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [version, setVersion] = useState(0);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let frame = 0;
@@ -126,6 +136,7 @@ export function WhatsAppQuickReplies() {
   }, []);
 
   const replies = useMemo(() => buildReplies(), [version]);
+  const selectedLabel = replies[0]?.label || "Seleccionar respuesta";
   if (!slot) return null;
 
   return createPortal(
@@ -135,21 +146,48 @@ export function WhatsAppQuickReplies() {
           <Sparkles className="h-4 w-4 text-[#008069]" />
           <p className="text-sm font-black text-[#12231d]">Respuestas rápidas</p>
         </div>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-[#7b8d86]">Insertar</span>
+        <button
+          type="button"
+          onClick={() => alert("Pendiente: aquí abriremos el creador de respuestas rápidas personalizadas.")}
+          className="inline-flex h-8 items-center gap-1 rounded-xl border border-[#bcebd0] bg-[#e9fff1] px-2 text-[11px] font-black text-[#008069] hover:bg-[#d9fdd3]"
+          title="Crear respuesta rápida"
+        >
+          <Plus className="h-3.5 w-3.5" /> Crear
+        </button>
       </div>
       <p className="mb-2 text-[11px] leading-4 text-[#60736b]">Elige una respuesta. Se coloca en el input para revisar antes de enviar.</p>
-      <div className="grid gap-2">
-        {replies.map((reply) => (
-          <button
-            key={reply.label}
-            type="button"
-            onClick={() => insertMessage(reply.message)}
-            className="flex h-10 items-center justify-between gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 text-left text-xs font-black text-[#52645d] shadow-sm hover:border-[#bcebd0] hover:bg-[#e9fff1] hover:text-[#008069]"
-          >
-            <span className="truncate">{reply.label}</span>
-            <MessageCircle className="h-3.5 w-3.5 shrink-0" />
-          </button>
-        ))}
+
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="flex h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 text-left text-xs font-black text-[#52645d] shadow-sm hover:border-[#bcebd0] hover:bg-[#e9fff1] hover:text-[#008069]"
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition ${open ? "rotate-180" : ""}`} />
+        </button>
+
+        {open ? (
+          <div className="absolute left-0 right-0 top-12 z-50 max-h-72 overflow-y-auto rounded-2xl border border-[#dce8e2] bg-white p-2 shadow-[0_18px_38px_rgba(18,35,29,.16)]">
+            {replies.map((reply) => (
+              <button
+                key={reply.label}
+                type="button"
+                onClick={() => {
+                  insertMessage(reply.message);
+                  setOpen(false);
+                }}
+                className="flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left hover:bg-[#f1f8f5]"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-black text-[#12231d]">{reply.label}</span>
+                  <span className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-[#60736b]">{reply.message}</span>
+                </span>
+                <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#008069]" />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>,
     slot,
