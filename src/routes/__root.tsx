@@ -31,7 +31,10 @@ function NotFoundComponent() {
         <h2 className="mt-4 text-xl font-semibold text-foreground">{t("error.pageNotFound")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{t("error.pageNotFoundDesc")}</p>
         <div className="mt-6">
-          <Link to="/" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
             {t("error.goHome")}
           </Link>
         </div>
@@ -46,13 +49,20 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Corevix CRM — Cloud Business Management" },
-      { name: "description", content: "Modern cloud-based CRM platform for managing leads, clients, sales pipelines, projects, and business operations." },
+      {
+        name: "description",
+        content:
+          "Modern cloud-based CRM platform for managing leads, clients, sales pipelines, projects, and business operations.",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -101,8 +111,13 @@ function AppShell() {
     );
   }
 
-  if (isPublicRoute) return <Outlet />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (isPublicRoute) {
+    return <Outlet />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DemoTourProvider>
@@ -122,7 +137,7 @@ function AppShell() {
         {currentPath === "/whatsapp-web" ? <WhatsAppResponsiveCompact /> : null}
         {currentPath === "/whatsapp-web" ? <WhatsAppClient360Bridge mode="whatsapp" /> : null}
         {currentPath === "/clients" ? <WhatsAppClient360Bridge mode="clients" /> : null}
-        {currentPath === "/ai-assistant" ? <CrmAiFloatingChat /> : null}
+        <CrmAiFloatingChat />
       </SidebarProvider>
     </DemoTourProvider>
   );
