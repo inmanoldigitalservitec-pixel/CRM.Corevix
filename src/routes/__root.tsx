@@ -13,6 +13,7 @@ import { DemoTourProvider } from "@/components/demo/demo-tour";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { I18nProvider, useT } from "@/i18n";
+import { DomLanguageBridge } from "@/i18n/dom-language-bridge";
 import { CrmAiFloatingChat } from "@/components/ai/CrmAiFloatingChat";
 import appCss from "../styles.css?url";
 
@@ -66,7 +67,7 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <HeadContent />
       </head>
@@ -81,6 +82,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <I18nProvider>
+      <DomLanguageBridge />
       <AuthProvider>
         <AppShell />
         <Toaster position="top-right" richColors />
@@ -104,16 +106,11 @@ function AppShell() {
     );
   }
 
-  // Public proposal route renders without auth + CRM layout
   if (isPublicProposalRoute || isPublicInvoiceRoute) {
     return <Outlet />;
   }
 
-  // Login page renders without sidebar/topbar
   if (isLoginPage || !user) {
-    if (!user && !isLoginPage) {
-      // Redirect to login — rendered via Navigate in index.tsx
-    }
     return <Outlet />;
   }
 
