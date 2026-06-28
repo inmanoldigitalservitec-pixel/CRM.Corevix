@@ -361,7 +361,12 @@ function DashboardPage() {
   >([]);
 
   useEffect(() => {
-    if (!profile?.company_id) return;
+    if (!profile?.company_id) {
+      setLoading(false);
+      setError("No hay una empresa asociada a este usuario. Revisa el perfil o la configuración de la compañía.");
+      return;
+    }
+
     const cid = profile.company_id;
     setLoading(true);
     setError(null);
