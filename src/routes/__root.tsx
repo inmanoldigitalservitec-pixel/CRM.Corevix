@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { I18nProvider, useT } from "@/i18n";
 import { CrmAiFloatingChat } from "@/components/ai/CrmAiFloatingChat";
 import { InlineProjectTaskCreator } from "@/components/projects/InlineProjectTaskCreator";
+import { WhatsAppClient360Bridge } from "@/components/whatsapp/WhatsAppClient360Bridge";
 import { WhatsAppInternalWorkPanel } from "@/components/whatsapp/WhatsAppInternalWorkPanel";
 import { WhatsAppPanelPhase2Safe } from "@/components/whatsapp/WhatsAppPanelPhase2Safe";
 import appCss from "../styles.css?url";
@@ -132,6 +133,8 @@ function AppShell() {
         {currentPath === "/projects" ? <InlineProjectTaskCreator /> : null}
         {currentPath === "/whatsapp-web" ? <WhatsAppInternalWorkPanel /> : null}
         {currentPath === "/whatsapp-web" ? <WhatsAppPanelPhase2Safe /> : null}
+        {currentPath === "/whatsapp-web" ? <WhatsAppClient360Bridge mode="whatsapp" /> : null}
+        {currentPath === "/clients" ? <WhatsAppClient360Bridge mode="clients" /> : null}
         <CrmAiFloatingChat />
       </SidebarProvider>
     </DemoTourProvider>
