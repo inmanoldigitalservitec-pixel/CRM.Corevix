@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Eye, Plus, Printer, Send, Settings2, Sparkles, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 type InvoiceItem = {
@@ -14,6 +15,12 @@ type InvoiceItem = {
 type CRMClient = Record<string, any> & { id: string };
 type CRMProduct = Record<string, any> & { id: string };
 
+type SavedInvoice = {
+  id: string;
+  public_token?: string | null;
+  number?: string | null;
+};
+
 const currencyFormatter = new Intl.NumberFormat("es-DO", {
   style: "currency",
   currency: "DOP",
@@ -26,6 +33,11 @@ function money(value: number) {
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function publicToken() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${uid()}-${uid()}`;
 }
 
 function firstText(row: Record<string, any>, keys: string[], fallback = "") {
@@ -45,7 +57,7 @@ function firstNumber(row: Record<string, any>, keys: string[], fallback = 0) {
 }
 
 function clientLabel(client: CRMClient) {
-  return firstText(client, ["name", "company_name", "company", "full_name", "display_name", "business_name"], "Cliente sin nombre");
+  return firstText(client, ["company_name", "name", "company", "full_name", "display_name", "business_name"], "Cliente sin nombre");
 }
 
 function productLabel(product: CRMProduct) {
@@ -57,7 +69,7 @@ function productDescription(product: CRMProduct) {
 }
 
 function productPrice(product: CRMProduct) {
-  return firstNumber(product, ["price", "unit_price", "sale_price", "amount", "base_price", "monthly_price"], 0);
+  return firstNumber(product, ["base_price", "price", "unit_price", "sale_price", "amount", "monthly_price"], 0);
 }
 
 export function InvoiceBuilderTest() {
@@ -67,8 +79,8 @@ export function InvoiceBuilderTest() {
   const [companyPhone, setCompanyPhone] = useState("+1 (809) 000-0000");
   const [brandColor, setBrandColor] = useState("#1d62f9");
 
-  const [invoiceNumber, setInvoiceNumber] = useState("FAC-0008");
-  const [status, setStatus] = useState("Borrador");
+  const [invoiceNumber, setInvoiceNumber] = useState(`FAC-${String(Date.now()).slice(-5)}`);
+  const [status, setStatus] = useState("Draft");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState(
     new Date(Date.now() + 1000 * 60 * 60 * 24 * 15).toISOString().slice(0, 10),
@@ -79,6 +91,8 @@ export function InvoiceBuilderTest() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [loadingCRMData, setLoadingCRMData] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedInvoice, setSavedInvoice] = useState<SavedInvoice | null>(null);
 
   const [clientName, setClientName] = useState("Cliente Demo SRL");
   const [clientEmail, setClientEmail] = useState("cliente@empresa.com");
@@ -117,8 +131,8 @@ export function InvoiceBuilderTest() {
 
       const [{ data: clientsData, error: clientsError }, { data: productsData, error: productsError }] =
         await Promise.all([
-          (supabase as any).from("clients").select("*").order("created_at", { ascending: false }),
-          (supabase as any).from("products").select("*").order("created_at", { ascending: false }),
+          (supabase as any).from("clients").select("*").order("company_name", { ascending: true }),
+          (supabase as any).from("products").select("*").order("name", { ascending: true }),
         ]);
 
       if (clientsError) console.warn("No se pudieron cargar clientes", clientsError);
@@ -140,6 +154,9 @@ export function InvoiceBuilderTest() {
   const taxableAmount = Math.max(0, subtotal - discount);
   const tax = useMemo(() => taxableAmount * (taxRate / 100), [taxableAmount, taxRate]);
   const total = useMemo(() => taxableAmount + tax, [taxableAmount, tax]);
+  const publicUrl = savedInvoice?.public_token
+    ? `${window.location.origin}/invoice/public/${savedInvoice.public_token}`
+    : null;
 
   function applyClient(clientId: string) {
     setSelectedClientId(clientId);
@@ -186,6 +203,111 @@ export function InvoiceBuilderTest() {
     window.print();
   }
 
+  async function saveInvoice(nextStatus = status) {
+    const validRows = items
+      .map((item) => ({
+        ...item,
+        name: String(item.name || "").trim(),
+        description: String(item.description || item.name || "").trim(),
+        quantity: Number(item.quantity || 0) || 0,
+        price: Number(item.price || 0) || 0,
+      }))
+      .filter((item) => item.description && item.quantity > 0);
+
+    if (!clientName.trim() && !selectedClientId) {
+      toast.error("Selecciona o escribe un cliente antes de guardar.");
+      return null;
+    }
+
+    if (!validRows.length) {
+      toast.error("Agrega al menos un producto o servicio.");
+      return null;
+    }
+
+    setSaving(true);
+    try {
+      const db = supabase as any;
+      const token = savedInvoice?.public_token || publicToken();
+      const primaryProductId = validRows.find((item) => item.productId)?.productId || null;
+      const invoiceData = {
+        source: "invoice-builder-test",
+        clientName,
+        clientEmail,
+        clientPhone,
+        clientAddress,
+        issuerName: companyName,
+        issuerEmail: companyEmail,
+        issuerPhone: companyPhone,
+        issuerBrandColor: brandColor,
+        issuerSlogan: companySlogan,
+        taxRate,
+        terms,
+        items: validRows.map((item) => ({
+          productId: item.productId || null,
+          name: item.name,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.price,
+          total: item.quantity * item.price,
+        })),
+      };
+
+      const record = {
+        number: invoiceNumber,
+        client_id: selectedClientId || null,
+        proposal_id: null,
+        product_id: primaryProductId,
+        subtotal,
+        tax,
+        discount,
+        total,
+        status: nextStatus,
+        date_issued: issueDate,
+        due_date: dueDate,
+        notes: notes || null,
+        public_token: token,
+        invoice_data: invoiceData,
+      };
+
+      let invoice: SavedInvoice;
+      if (savedInvoice?.id) {
+        const { data, error } = await db.from("invoices").update(record).eq("id", savedInvoice.id).select("id, public_token, number").single();
+        if (error) throw error;
+        invoice = data;
+      } else {
+        const { data, error } = await db.from("invoices").insert(record).select("id, public_token, number").single();
+        if (error) throw error;
+        invoice = data;
+      }
+
+      const invoiceId = invoice.id;
+      await db.from("invoice_items").delete().eq("invoice_id", invoiceId);
+      const itemRows = validRows.map((item) => ({
+        invoice_id: invoiceId,
+        description: item.description || item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total: item.quantity * item.price,
+      }));
+
+      if (itemRows.length) {
+        const { error: itemsError } = await db.from("invoice_items").insert(itemRows);
+        if (itemsError) throw itemsError;
+      }
+
+      setStatus(nextStatus);
+      setSavedInvoice(invoice);
+      toast.success(nextStatus === "Sent" ? "Factura guardada como enviada." : "Borrador guardado.");
+      return invoice;
+    } catch (error: any) {
+      console.error("save invoice builder error:", error);
+      toast.error(error?.message || "No se pudo guardar la factura.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="min-h-[calc(100vh-88px)] bg-[#f5f7fb] text-slate-950 print:bg-white">
       <style>{`
@@ -200,7 +322,7 @@ export function InvoiceBuilderTest() {
       <div className="no-print sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white/95 px-5 backdrop-blur">
         <div>
           <h1 className="text-lg font-bold">Factura rápida</h1>
-          <p className="text-xs text-slate-500">Cliente y servicios vienen del CRM. Editas solo lo necesario.</p>
+          <p className="text-xs text-slate-500">Cliente y servicios vienen del CRM. Ahora guarda en facturas reales.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -212,9 +334,9 @@ export function InvoiceBuilderTest() {
             <Printer className="h-4 w-4" />
             PDF
           </button>
-          <button type="button" className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+          <button type="button" disabled={saving} onClick={() => void saveInvoice("Sent")} className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
             <Send className="h-4 w-4" />
-            Enviar
+            {saving ? "Guardando…" : "Enviar"}
           </button>
         </div>
       </div>
@@ -229,16 +351,12 @@ export function InvoiceBuilderTest() {
               <div>
                 <h2 className="text-lg font-black">Nueva factura asistida</h2>
                 <p className="text-xs text-slate-500">
-                  {loadingCRMData ? "Cargando datos del CRM…" : "Una sola vista para crear y revisar."}
+                  {loadingCRMData ? "Cargando datos del CRM…" : savedInvoice ? `Guardada: ${savedInvoice.number || invoiceNumber}` : "Lista para guardar en Supabase."}
                 </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(true)}
-              className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold hover:bg-slate-50"
-            >
+            <button type="button" onClick={() => setShowAdvanced(true)} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold hover:bg-slate-50">
               <Settings2 className="h-4 w-4" />
               Avanzado
             </button>
@@ -247,80 +365,41 @@ export function InvoiceBuilderTest() {
           <div className="grid gap-3 border-b bg-slate-50 p-4 md:grid-cols-[1.5fr_1fr_1fr_120px]">
             <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
               Cliente
-              <select
-                value={selectedClientId}
-                onChange={(e) => applyClient(e.target.value)}
-                className="h-11 rounded-2xl border bg-white px-3 text-sm font-semibold normal-case tracking-normal outline-none focus:border-blue-400"
-              >
+              <select value={selectedClientId} onChange={(e) => applyClient(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm font-semibold normal-case tracking-normal outline-none focus:border-blue-400">
                 <option value="">Seleccionar cliente…</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>{clientLabel(client)}</option>
-                ))}
+                {clients.map((client) => <option key={client.id} value={client.id}>{clientLabel(client)}</option>)}
               </select>
             </label>
 
-            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
-              Email
-              <input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm normal-case tracking-normal outline-none focus:border-blue-400" />
-            </label>
-
-            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
-              Teléfono
-              <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm normal-case tracking-normal outline-none focus:border-blue-400" />
-            </label>
-
-            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
-              Factura
-              <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm font-bold normal-case tracking-normal outline-none focus:border-blue-400" />
-            </label>
+            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Email<input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm normal-case tracking-normal outline-none focus:border-blue-400" /></label>
+            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Teléfono<input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm normal-case tracking-normal outline-none focus:border-blue-400" /></label>
+            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Factura<input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm font-bold normal-case tracking-normal outline-none focus:border-blue-400" /></label>
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="font-black text-slate-950">Servicios y productos</h3>
-                <p className="text-xs text-slate-500">Selecciona del catálogo, ajusta cantidad y listo.</p>
-              </div>
-              <button type="button" onClick={addItem} className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700">
-                <Plus className="h-3.5 w-3.5" />
-                Agregar línea
-              </button>
+              <div><h3 className="font-black text-slate-950">Servicios y productos</h3><p className="text-xs text-slate-500">Selecciona del catálogo, ajusta cantidad y listo.</p></div>
+              <button type="button" onClick={addItem} className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-3.5 w-3.5" />Agregar línea</button>
             </div>
 
             <div className="flex max-h-full flex-col overflow-hidden rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-[30px_1.35fr_1.15fr_66px_100px_108px_34px] gap-2 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
-                <span>#</span><span>Producto / servicio</span><span>Detalle</span><span>Cant.</span><span>Precio</span><span>Total</span><span />
-              </div>
-
+              <div className="grid grid-cols-[30px_1.35fr_1.15fr_66px_100px_108px_34px] gap-2 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400"><span>#</span><span>Producto / servicio</span><span>Detalle</span><span>Cant.</span><span>Precio</span><span>Total</span><span /></div>
               <div className="min-h-0 flex-1 divide-y divide-slate-100 overflow-auto">
                 {items.map((item, index) => (
                   <div key={item.id} className="grid grid-cols-[30px_1.35fr_1.15fr_66px_100px_108px_34px] items-center gap-2 px-3 py-2">
                     <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500">{index + 1}</span>
-
                     <div className="grid gap-1">
-                      <select
-                        value={item.productId ?? ""}
-                        onChange={(e) => applyProduct(item.id, e.target.value)}
-                        className="h-10 min-w-0 rounded-xl border px-3 text-sm font-bold outline-none focus:border-blue-400"
-                      >
+                      <select value={item.productId ?? ""} onChange={(e) => applyProduct(item.id, e.target.value)} className="h-10 min-w-0 rounded-xl border px-3 text-sm font-bold outline-none focus:border-blue-400">
                         <option value="">Seleccionar del catálogo…</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>{productLabel(product)}</option>
-                        ))}
+                        {products.map((product) => <option key={product.id} value={product.id}>{productLabel(product)}</option>)}
                       </select>
                       <input value={item.name} onChange={(e) => updateItem(item.id, { name: e.target.value })} className="h-9 min-w-0 rounded-xl border px-3 text-xs font-semibold outline-none focus:border-blue-400" placeholder="Nombre manual" />
                     </div>
-
                     <input value={item.description} onChange={(e) => updateItem(item.id, { description: e.target.value })} className="h-10 min-w-0 rounded-xl border px-3 text-sm outline-none focus:border-blue-400" placeholder="Descripción" />
                     <input value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) || 0 })} type="number" className="h-10 rounded-xl border px-3 text-sm outline-none focus:border-blue-400" />
                     <input value={item.price} onChange={(e) => updateItem(item.id, { price: Number(e.target.value) || 0 })} type="number" className="h-10 rounded-xl border px-3 text-sm outline-none focus:border-blue-400" />
                     <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-black text-slate-950">{money(item.quantity * item.price)}</div>
-
-                    {items.length > 1 ? (
-                      <button type="button" onClick={() => removeItem(item.id)} className="grid h-9 w-9 place-items-center rounded-xl text-red-500 hover:bg-red-50" title="Eliminar">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : <span />}
+                    {items.length > 1 ? <button type="button" onClick={() => removeItem(item.id)} className="grid h-9 w-9 place-items-center rounded-xl text-red-500 hover:bg-red-50" title="Eliminar"><Trash2 className="h-4 w-4" /></button> : <span />}
                   </div>
                 ))}
               </div>
@@ -334,70 +413,21 @@ export function InvoiceBuilderTest() {
               <div><p className="text-xs font-bold text-slate-400">ITBIS</p><p className="font-black">{money(tax)}</p></div>
               <div><p className="text-xs font-bold text-slate-400">Total</p><p className="font-black text-blue-700">{money(total)}</p></div>
             </div>
-
             <div className="flex items-center gap-2">
+              <button type="button" disabled={saving} onClick={() => void saveInvoice("Draft")} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-5 text-sm font-bold hover:bg-slate-50 disabled:opacity-60">Guardar</button>
               <button type="button" onClick={printInvoice} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-5 text-sm font-bold hover:bg-slate-50"><Printer className="h-4 w-4" />PDF</button>
-              <button type="button" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700"><Send className="h-4 w-4" />Enviar</button>
+              <button type="button" disabled={saving} onClick={() => void saveInvoice("Sent")} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60"><Send className="h-4 w-4" />{saving ? "Guardando…" : "Enviar"}</button>
             </div>
+            {publicUrl ? <p className="md:col-span-2 text-xs text-slate-500">Link público: <button type="button" onClick={() => navigator.clipboard.writeText(publicUrl)} className="font-bold text-blue-600 hover:underline">copiar enlace</button></p> : null}
           </div>
         </aside>
 
         <main className="flex items-start justify-center overflow-hidden print:overflow-visible">
-          <div className="w-full py-2">
-            <div className="mx-auto flex h-[calc(100vh-170px)] max-h-[calc(100vh-170px)] min-h-[560px] w-auto max-w-full flex-col">
-              <div className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Vista móvil 9:16</div>
-              <section id="invoice-preview" className="aspect-[9/16] h-full max-h-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:h-auto print:min-h-screen print:aspect-auto print:max-w-none print:rounded-none print:border-0 print:shadow-none">
-                <div className="h-full overflow-y-auto">
-                  <div className="relative overflow-hidden px-5 pb-6 pt-6 text-white" style={{ background: `radial-gradient(circle at 85% 20%, rgba(255,255,255,0.20), transparent 28%), linear-gradient(135deg, #020817 0%, ${brandColor} 100%)` }}>
-                    <div className="relative z-10 flex items-start justify-between gap-4">
-                      <div className="min-w-0"><div className="mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-lg font-black backdrop-blur">{companyName.slice(0, 1).toUpperCase()}</div><h2 className="truncate text-xl font-black">{companyName}</h2><p className="mt-1 max-w-[180px] text-[12px] leading-5 text-white/80">{companySlogan}</p></div>
-                      <div className="text-right"><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">Factura</p><h1 className="mt-2 text-2xl font-black">{invoiceNumber}</h1><span className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold backdrop-blur">{status}</span></div>
-                    </div>
-                  </div>
-                  <div className="px-5 py-5">
-                    <div className="grid gap-4 border-b border-slate-200 pb-5">
-                      <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Facturado a</p><h3 className="mt-2 text-base font-black text-slate-950">{clientName}</h3><p className="mt-1 text-[12px] text-slate-500">{clientEmail}</p><p className="text-[12px] text-slate-500">{clientPhone}</p><p className="mt-1 whitespace-pre-line text-[12px] text-slate-500">{clientAddress}</p></div>
-                      <div className="grid grid-cols-2 gap-3"><div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Fecha</p><p className="mt-1 text-sm font-bold text-slate-900">{issueDate}</p></div><div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Vence</p><p className="mt-1 text-sm font-bold text-slate-900">{dueDate}</p></div></div>
-                      <div className="rounded-3xl bg-slate-50 p-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Total</p><p className="mt-1 text-2xl font-black" style={{ color: brandColor }}>{money(total)}</p></div>
-                    </div>
-                    <div className="mt-5 space-y-3">{items.map((item) => (<div key={item.id} className="rounded-3xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-black text-slate-950">{item.name || "Servicio"}</p><p className="mt-1 text-[12px] leading-5 text-slate-500">{item.description}</p></div><div className="text-right"><p className="text-[11px] font-semibold text-slate-400">x{item.quantity}</p><p className="mt-1 text-sm font-black text-slate-950">{money(item.quantity * item.price)}</p></div></div><div className="mt-3 flex items-center justify-between text-[12px] text-slate-500"><span>Precio unitario</span><strong className="text-slate-900">{money(item.price)}</strong></div></div>))}</div>
-                    <div className="mt-5 rounded-3xl bg-slate-50 p-4"><div className="flex justify-between py-1.5 text-[13px]"><span className="text-slate-500">Subtotal</span><strong>{money(subtotal)}</strong></div><div className="flex justify-between py-1.5 text-[13px]"><span className="text-slate-500">Descuento</span><strong>- {money(discount)}</strong></div><div className="flex justify-between py-1.5 text-[13px]"><span className="text-slate-500">ITBIS ({taxRate}%)</span><strong>{money(tax)}</strong></div><div className="mt-2 flex justify-between border-t pt-3 text-base"><span className="font-black text-slate-950">Total</span><strong className="font-black" style={{ color: brandColor }}>{money(total)}</strong></div></div>
-                    <div className="mt-5 space-y-4"><div><h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Notas</h3><p className="mt-2 text-[12px] leading-5 text-slate-600">{notes}</p></div><div><h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Términos</h3><p className="mt-2 text-[12px] leading-5 text-slate-600">{terms}</p></div></div>
-                    <div className="mt-6 border-t border-slate-200 pt-4 text-center text-[11px] text-slate-400"><p>Generado desde Corevix CRM</p><p className="mt-1">{companyEmail}</p></div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
+          <div className="w-full py-2"><div className="mx-auto flex h-[calc(100vh-170px)] max-h-[calc(100vh-170px)] min-h-[560px] w-auto max-w-full flex-col"><div className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Vista móvil 9:16</div><section id="invoice-preview" className="aspect-[9/16] h-full max-h-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:h-auto print:min-h-screen print:aspect-auto print:max-w-none print:rounded-none print:border-0 print:shadow-none"><div className="h-full overflow-y-auto"><div className="relative overflow-hidden px-5 pb-6 pt-6 text-white" style={{ background: `radial-gradient(circle at 85% 20%, rgba(255,255,255,0.20), transparent 28%), linear-gradient(135deg, #020817 0%, ${brandColor} 100%)` }}><div className="relative z-10 flex items-start justify-between gap-4"><div className="min-w-0"><div className="mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-lg font-black backdrop-blur">{companyName.slice(0, 1).toUpperCase()}</div><h2 className="truncate text-xl font-black">{companyName}</h2><p className="mt-1 max-w-[180px] text-[12px] leading-5 text-white/80">{companySlogan}</p></div><div className="text-right"><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">Factura</p><h1 className="mt-2 text-2xl font-black">{invoiceNumber}</h1><span className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold backdrop-blur">{status}</span></div></div></div><div className="px-5 py-5"><div className="grid gap-4 border-b border-slate-200 pb-5"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Facturado a</p><h3 className="mt-2 text-base font-black text-slate-950">{clientName}</h3><p className="mt-1 text-[12px] text-slate-500">{clientEmail}</p><p className="text-[12px] text-slate-500">{clientPhone}</p><p className="mt-1 whitespace-pre-line text-[12px] text-slate-500">{clientAddress}</p></div><div className="grid grid-cols-2 gap-3"><div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Fecha</p><p className="mt-1 text-sm font-bold text-slate-900">{issueDate}</p></div><div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Vence</p><p className="mt-1 text-sm font-bold text-slate-900">{dueDate}</p></div></div><div className="rounded-3xl bg-slate-50 p-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Total</p><p className="mt-1 text-2xl font-black" style={{ color: brandColor }}>{money(total)}</p></div></div><div className="mt-5 space-y-3">{items.map((item) => (<div key={item.id} className="rounded-3xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-black text-slate-950">{item.name || "Servicio"}</p><p className="mt-1 text-[12px] leading-5 text-slate-500">{item.description}</p></div><div className="text-right"><p className="text-[11px] font-semibold text-slate-400">x{item.quantity}</p><p className="mt-1 text-sm font-black text-slate-950">{money(item.quantity * item.price)}</p></div></div><div className="mt-3 flex items-center justify-between text-[12px] text-slate-500"><span>Precio unitario</span><strong className="text-slate-900">{money(item.price)}</strong></div></div>))}</div><div className="mt-5 rounded-3xl bg-slate-50 p-4"><div className="flex justify-between py-1.5 text-[13px]"><span className="text-slate-500">Subtotal</span><strong>{money(subtotal)}</strong></div><div className="flex justify-between py-1.5 text-[13px]"><span className="text-slate-500">Descuento</span><strong>- {money(discount)}</strong></div><div className="flex justify-between py-1.5 text-[13px]"><span className="text-slate-500">ITBIS ({taxRate}%)</span><strong>{money(tax)}</strong></div><div className="mt-2 flex justify-between border-t pt-3 text-base"><span className="font-black text-slate-950">Total</span><strong className="font-black" style={{ color: brandColor }}>{money(total)}</strong></div></div><div className="mt-5 space-y-4"><div><h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Notas</h3><p className="mt-2 text-[12px] leading-5 text-slate-600">{notes}</p></div><div><h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Términos</h3><p className="mt-2 text-[12px] leading-5 text-slate-600">{terms}</p></div></div><div className="mt-6 border-t border-slate-200 pt-4 text-center text-[11px] text-slate-400"><p>Generado desde Corevix CRM</p><p className="mt-1">{companyEmail}</p></div></div></div></section></div></div>
         </main>
       </div>
 
-      {showAdvanced ? (
-        <div className="no-print fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-sm">
-          <div className="h-full w-full max-w-[520px] overflow-auto bg-white p-5 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <div><h2 className="text-lg font-black">Opciones avanzadas</h2><p className="text-sm text-slate-500">Ajustes que no necesitas tocar siempre.</p></div>
-              <button type="button" onClick={() => setShowAdvanced(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-slate-100"><X className="h-5 w-5" /></button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Empresa<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Color<input value={brandColor} onChange={(e) => setBrandColor(e.target.value)} type="color" className="h-[38px] rounded-xl border bg-white px-2 py-1" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600 md:col-span-2">Descripción empresa<input value={companySlogan} onChange={(e) => setCompanySlogan(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Email empresa<input value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Teléfono empresa<input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Estado<select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal"><option>Borrador</option><option>Enviada</option><option>Pagada</option><option>Vencida</option></select></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Fecha<input value={issueDate} onChange={(e) => setIssueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Vence<input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">Descuento<input value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">ITBIS %<input value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-              <textarea value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} rows={2} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Dirección del cliente" />
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Notas" />
-              <textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={4} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Términos" />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {showAdvanced ? <div className="no-print fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-sm"><div className="h-full w-full max-w-[520px] overflow-auto bg-white p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-black">Opciones avanzadas</h2><p className="text-sm text-slate-500">Ajustes que no necesitas tocar siempre.</p></div><button type="button" onClick={() => setShowAdvanced(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-slate-100"><X className="h-5 w-5" /></button></div><div className="grid gap-4 md:grid-cols-2"><label className="grid gap-1 text-xs font-semibold text-slate-600">Empresa<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600">Color<input value={brandColor} onChange={(e) => setBrandColor(e.target.value)} type="color" className="h-[38px] rounded-xl border bg-white px-2 py-1" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600 md:col-span-2">Descripción empresa<input value={companySlogan} onChange={(e) => setCompanySlogan(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600">Email empresa<input value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600">Teléfono empresa<input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600">Estado<select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal"><option>Draft</option><option>Sent</option><option>Paid</option><option>Overdue</option><option>Cancelled</option></select></label><label className="grid gap-1 text-xs font-semibold text-slate-600">Fecha<input value={issueDate} onChange={(e) => setIssueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600">Vence<input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600">Descuento<input value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><label className="grid gap-1 text-xs font-semibold text-slate-600">ITBIS %<input value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label><textarea value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} rows={2} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Dirección del cliente" /><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Notas" /><textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={4} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Términos" /></div></div></div> : null}
     </div>
   );
 }
