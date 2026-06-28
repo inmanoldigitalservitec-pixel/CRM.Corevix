@@ -33,7 +33,7 @@ type DashboardV2Action = {
   title: string;
   relatedTo: string;
   due: string;
-  priority: "Alta" | "Media" | "Normal";
+  priority: "High" | "Medium" | "Normal";
   button: string;
   icon: LucideIcon;
   tone: DashboardV2Tone;
@@ -63,44 +63,44 @@ export type DashboardV2Props = {
 
 const mockKpis: DashboardV2Kpi[] = [
   {
-    label: "Dinero por cobrar",
+    label: "Money to collect",
     value: "$86,450",
-    helper: "Requiere tu atención",
+    helper: "Needs attention",
     tone: "green" as const,
     icon: DollarSign,
   },
   {
-    label: "Oportunidades",
+    label: "Opportunities",
     value: "35",
-    helper: "Con avance activo",
+    helper: "Active progress",
     tone: "blue" as const,
     icon: TrendingUp,
   },
   {
-    label: "Tareas atrasadas",
+    label: "Overdue tasks",
     value: "12",
-    helper: "Necesitan acción",
+    helper: "Need action",
     tone: "orange" as const,
     icon: Clock3,
   },
   {
-    label: "Propuestas",
+    label: "Proposals",
     value: "18",
-    helper: "Esperando respuesta",
+    helper: "Waiting for response",
     tone: "purple" as const,
     icon: FileText,
   },
   {
-    label: "Mensajes",
+    label: "Messages",
     value: "8",
-    helper: "Por atender",
+    helper: "Needs attention",
     tone: "red" as const,
     icon: MessageCircle,
   },
   {
-    label: "Proyectos",
+    label: "Projects",
     value: "7",
-    helper: "En ejecución",
+    helper: "In progress",
     tone: "teal" as const,
     icon: Workflow,
   },
@@ -108,66 +108,66 @@ const mockKpis: DashboardV2Kpi[] = [
 
 const mockActions: DashboardV2Action[] = [
   {
-    title: "Cobrar factura vencida",
+    title: "Collect overdue invoice",
     relatedTo: "Constructora Norte",
-    due: "Ayer",
+    due: "Yesterday",
     priority: "Alta",
-    button: "Ver factura",
+    button: "View invoice",
     icon: DollarSign,
     tone: "red",
   },
   {
-    title: "Llamar lead pendiente",
+    title: "Call pending lead",
     relatedTo: "María F. López",
-    due: "Hoy, 10:00 a.m.",
+    due: "Today, 10:00 a.m.",
     priority: "Media",
-    button: "Abrir lead",
+    button: "Open lead",
     icon: Phone,
     tone: "blue",
   },
   {
-    title: "Responder mensaje",
+    title: "Reply message",
     relatedTo: "Diego Ramírez",
-    due: "Hoy, 11:30 a.m.",
+    due: "Today, 11:30 a.m.",
     priority: "Media",
-    button: "Responder",
+    button: "Reply",
     icon: MessageCircle,
     tone: "green",
   },
   {
-    title: "Crear propuesta",
+    title: "Create proposal",
     relatedTo: "Café Buen Día",
-    due: "Hoy, 2:00 p.m.",
+    due: "Today, 2:00 p.m.",
     priority: "Alta",
-    button: "Crear propuesta",
+    button: "Create proposal",
     icon: FileText,
     tone: "purple",
   },
   {
-    title: "Revisar proyecto",
+    title: "Review project",
     relatedTo: "Vista Azul",
-    due: "Mañana, 9:00 a.m.",
+    due: "Tomorrow, 9:00 a.m.",
     priority: "Alta",
-    button: "Ver proyecto",
+    button: "View project",
     icon: AlertTriangle,
     tone: "orange",
   },
 ];
 
 const mockSchedule: ScheduleItem[] = [
-  ["09:00", "Reunión equipo", "Sala de juntas", "blue"],
-  ["10:30", "Llamada cliente", "Constructora Norte", "purple"],
-  ["12:00", "Seguimiento propuestas", "Revisión y envío", "green"],
-  ["02:00", "Presentar propuesta", "Café Buen Día", "orange"],
-  ["04:00", "Revisar pendientes", "Cierre de jornada", "blue"],
+  ["09:00", "Team meeting", "Meeting room", "blue"],
+  ["10:30", "Client call", "Constructora Norte", "purple"],
+  ["12:00", "Proposal follow-up", "Review and send", "green"],
+  ["02:00", "Present proposal", "Café Buen Día", "orange"],
+  ["04:00", "Review pending items", "End of day", "blue"],
 ];
 
 const mockPipeline: PipelineItem[] = [
-  ["Leads nuevos", 48, "$96,000", 82, "bg-blue-200"],
-  ["Calificados", 32, "$64,000", 58, "bg-blue-300"],
-  ["Propuesta", 18, "$45,500", 35, "bg-violet-400"],
-  ["Negociación", 9, "$28,700", 20, "bg-orange-300"],
-  ["Ganado", 6, "$18,250", 13, "bg-emerald-300"],
+  ["New leads", 48, "$96,000", 82, "bg-blue-200"],
+  ["Qualified", 32, "$64,000", 58, "bg-blue-300"],
+  ["Proposal", 18, "$45,500", 35, "bg-violet-400"],
+  ["Negotiation", 9, "$28,700", 20, "bg-orange-300"],
+  ["Won", 6, "$18,250", 13, "bg-emerald-300"],
 ];
 
 const mockClients: ClientReviewItem[] = [
@@ -208,8 +208,8 @@ function softIcon(tone: string) {
 }
 
 function priorityClass(priority: string) {
-  if (priority === "Alta") return "bg-rose-50 text-rose-600";
-  if (priority === "Media") return "bg-orange-50 text-orange-600";
+  if (priority === "High") return "bg-rose-50 text-rose-600";
+  if (priority === "Medium") return "bg-orange-50 text-orange-600";
   return "bg-slate-50 text-slate-600";
 }
 
@@ -237,9 +237,9 @@ const mockCommunications: CommunicationItem[] = [
 ];
 
 const mockCollectionRows: CollectionItem[] = [
-  ["Por cobrar", "$86,450", "60%", "bg-blue-500"],
-  ["Vencido", "$24,300", "25%", "bg-rose-500"],
-  ["Cobrado", "$112,800", "75%", "bg-emerald-500"],
+  ["To collect", "$86,450", "60%", "bg-blue-500"],
+  ["Overdue", "$24,300", "25%", "bg-rose-500"],
+  ["Collected", "$112,800", "75%", "bg-emerald-500"],
 ];
 
 function DashboardMoreButton({ children, href }: { children: string; href?: string }) {
@@ -267,9 +267,9 @@ export function DashboardV2({
   clients = mockClients,
   activities = mockActivities,
   communications = mockCommunications,
-  todayLabel = "Vie. 23 mayo",
-  collectionPeriodLabel = "Este mes⌄",
-  pipelinePeriodLabel = "Este mes⌄",
+  todayLabel = "Fri, May 23",
+  collectionPeriodLabel = "This month⌄",
+  pipelinePeriodLabel = "This month⌄",
 }: DashboardV2Props = {}) {
   return (
     <div className="grid min-h-0 gap-2.5 p-3 xl:h-[calc(100svh-64px)] xl:grid-rows-[74px_minmax(0,1fr)_minmax(0,0.68fr)] xl:overflow-hidden xl:p-3">
@@ -281,21 +281,21 @@ export function DashboardV2({
 
       <section className="grid min-h-0 gap-2.5 xl:grid-cols-[minmax(0,1.78fr)_minmax(292px,.68fr)]">
         <DashboardCard
-          title="Qué hacer ahora"
-          action={<DashboardTextButton href="/tasks">Ver prioridades →</DashboardTextButton>}
+          title="What to do now"
+          action={<DashboardTextButton href="/tasks">View priorities →</DashboardTextButton>}
           className="xl:min-h-0"
         >
           <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]">
             <div className="border-b border-slate-200 px-4 py-2 text-[11.5px] font-medium text-slate-500">
-              Acciones urgentes que pueden afectar ventas, cobros o clientes.
+              Urgent actions that may affect sales, collections, or clients.
             </div>
             <div className="min-h-0 overflow-hidden">
               <div className="grid grid-cols-[minmax(210px,1.3fr)_minmax(116px,.68fr)_minmax(104px,.58fr)_74px_116px] border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-[10.5px] font-medium text-slate-500">
-                <span>Pendiente</span>
-                <span>Cliente</span>
-                <span>Motivo</span>
-                <span>Prioridad</span>
-                <span>Acción</span>
+                <span>Pending</span>
+                <span>Client</span>
+                <span>Reason</span>
+                <span>Priority</span>
+                <span>Action</span>
               </div>
 
               {actions.slice(0, ACTION_VISIBLE_LIMIT).map((item) => {
@@ -320,7 +320,7 @@ export function DashboardV2({
 
                     <span
                       className={
-                        item.due === "Ayer"
+                        item.due === "Yesterday"
                           ? "truncate font-medium text-rose-600"
                           : "truncate text-slate-700"
                       }
@@ -358,14 +358,14 @@ export function DashboardV2({
 
         <div className="min-h-0">
           <DashboardCard
-            title="Agenda de hoy"
+            title="Today agenda"
             action={<span className="text-slate-400">‹ ›</span>}
             className="h-full"
           >
             <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] px-4 py-2">
               <div className="min-h-0 overflow-hidden">
                 <p className="-mt-0.5 mb-1.5 text-[11px] text-slate-500">
-                  {todayLabel} · Vencimientos y tareas programadas
+                  {todayLabel} · Due dates and scheduled tasks
                 </p>
 
                 {schedule.slice(0, SCHEDULE_VISIBLE_LIMIT).map(([time, title, subtitle, tone]) => (
@@ -416,7 +416,7 @@ export function DashboardV2({
 
       <section className="grid min-h-0 gap-2.5 xl:grid-cols-[1.05fr_.95fr_1.05fr]">
         <DashboardCard
-          title="Ventas y cobros"
+          title="Sales and collections"
           action={<span className="text-xs font-medium text-slate-500">{pipelinePeriodLabel}</span>}
           bodyClassName="h-full p-3"
         >
@@ -427,7 +427,7 @@ export function DashboardV2({
                   <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
                     Ventas
                   </span>
-                  <span className="text-[10.5px] font-medium text-slate-400">Etapas</span>
+                  <span className="text-[10.5px] font-medium text-slate-400">Stages</span>
                 </div>
 
                 <div className="space-y-1.5">
@@ -488,8 +488,8 @@ export function DashboardV2({
         </DashboardCard>
 
         <DashboardCard
-          title="Clientes a revisar"
-          action={<DashboardTextButton href="/clients">Ver todos</DashboardTextButton>}
+          title="Clients to review"
+          action={<DashboardTextButton href="/clients">View all</DashboardTextButton>}
           bodyClassName="h-full p-3"
         >
           <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
@@ -520,7 +520,7 @@ export function DashboardV2({
                     </span>
                     <span
                       className={`rounded-lg px-1.5 py-0.5 text-[9.8px] font-medium ${priorityClass(
-                        tone === "red" ? "Alta" : tone === "orange" ? "Media" : "Normal",
+                        tone === "red" ? "High" : tone === "orange" ? "Medium" : "Normal",
                       )}`}
                     >
                       {status}
@@ -538,8 +538,8 @@ export function DashboardV2({
         </DashboardCard>
 
         <DashboardCard
-          title="Comunicaciones"
-          action={<DashboardTextButton href="/whatsapp">Ver bandeja</DashboardTextButton>}
+          title="Communications"
+          action={<DashboardTextButton href="/whatsapp">View inbox</DashboardTextButton>}
           bodyClassName="h-full p-3"
         >
           <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
@@ -548,10 +548,10 @@ export function DashboardV2({
                 <div className="grid h-full place-items-center rounded-xl bg-slate-50 px-4 text-center">
                   <div>
                     <strong className="block text-[12px] font-semibold text-slate-900">
-                      No hay chats pendientes
+                      No pending chats
                     </strong>
                     <small className="mt-1 block text-[11px] text-slate-500">
-                      WhatsApp, Messenger, Instagram y Email están al día.
+                      WhatsApp, Messenger, Instagram and Email are up to date.
                     </small>
                   </div>
                 </div>
@@ -616,7 +616,7 @@ export function DashboardV2({
               }}
               className="mt-1 grid h-7 w-full place-items-center rounded-lg text-[11px] font-medium text-blue-600 hover:bg-blue-50"
             >
-              Abrir bandeja unificada →
+              Open unified inbox →
             </button>
           </div>
         </DashboardCard>
