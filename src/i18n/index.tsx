@@ -5,6 +5,7 @@ import { es } from "./messages/es";
 export type Lang = "en" | "es";
 
 const STORAGE_KEY = "crm_lang";
+const DEFAULT_LANG: Lang = "es";
 
 type Messages = typeof en;
 
@@ -43,12 +44,18 @@ function getMessages(lang: Lang): Messages {
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("en");
+  const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
 
   useEffect(() => {
     const stored = getBrowserStoredLang();
     if (stored) setLangState(stored);
   }, []);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = lang;
+    }
+  }, [lang]);
 
   const setLang = useCallback((next: Lang) => {
     setLangState(next);
