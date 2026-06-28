@@ -4,7 +4,6 @@ import { type Lang, useT } from "@/i18n";
 type Dictionary = Record<string, string>;
 
 const EN_TO_ES: Dictionary = {
-  // Common actions
   "Add": "Agregar",
   "Add Lead": "Nuevo prospecto",
   "Add Client": "Nuevo cliente",
@@ -17,6 +16,11 @@ const EN_TO_ES: Dictionary = {
   "New Project": "Nuevo proyecto",
   "New Product": "Nuevo producto",
   "New Task": "Nueva tarea",
+  "Edit Lead": "Editar prospecto",
+  "Edit Client": "Editar cliente",
+  "Edit Project": "Editar proyecto",
+  "Edit Product": "Editar producto",
+  "Edit Task": "Editar tarea",
   "Create": "Crear",
   "Create Project": "Crear proyecto",
   "Create Product": "Crear producto",
@@ -24,6 +28,7 @@ const EN_TO_ES: Dictionary = {
   "Create Client": "Crear cliente",
   "Save": "Guardar",
   "Save changes": "Guardar cambios",
+  "Guardar cambios": "Guardar cambios",
   "Cancel": "Cancelar",
   "Edit": "Editar",
   "Delete": "Eliminar",
@@ -53,8 +58,6 @@ const EN_TO_ES: Dictionary = {
   "Expired": "Vencido",
   "Paid": "Pagado",
   "Overdue": "Vencido",
-
-  // Navigation / modules
   "Dashboard": "Panel",
   "Leads": "Prospectos",
   "Clients": "Clientes",
@@ -74,14 +77,11 @@ const EN_TO_ES: Dictionary = {
   "Communication": "Comunicación",
   "Operations": "Operaciones",
   "Management": "Gestión",
-
-  // CRM fields
   "Name": "Nombre",
   "Full Name": "Nombre completo",
   "Company Name": "Empresa",
   "Company": "Empresa",
   "Client": "Cliente",
-  "Clients": "Clientes",
   "Lead": "Prospecto",
   "Product": "Producto",
   "Project": "Proyecto",
@@ -121,8 +121,6 @@ const EN_TO_ES: Dictionary = {
   "Billing": "Facturación",
   "Duration": "Duración",
   "Deliverables": "Entregables",
-
-  // Status / priority values
   "Not Started": "No iniciado",
   "In Progress": "En progreso",
   "On Hold": "En pausa",
@@ -143,14 +141,19 @@ const EN_TO_ES: Dictionary = {
   "Lost": "Perdido",
   "VIP": "VIP",
   "Past Client": "Cliente anterior",
-
-  // Lists / filters
   "Search projects...": "Buscar proyectos...",
   "Search products...": "Buscar productos...",
   "Search leads...": "Buscar prospectos...",
   "Search clients...": "Buscar clientes...",
   "Search tasks...": "Buscar tareas...",
   "Search email...": "Buscar correo...",
+  "Search projects…": "Buscar proyectos…",
+  "Search products…": "Buscar productos…",
+  "Search leads…": "Buscar prospectos…",
+  "Search clients…": "Buscar clientes…",
+  "Search tasks…": "Buscar tareas…",
+  "Search email…": "Buscar correo…",
+  "Search leads, clients, tasks…": "Buscar prospectos, clientes, tareas…",
   "All Statuses": "Todos los estados",
   "All Clients": "Todos los clientes",
   "All Products": "Todos los productos",
@@ -161,8 +164,6 @@ const EN_TO_ES: Dictionary = {
   "No products": "Sin productos",
   "No clients": "Sin clientes",
   "No leads": "Sin prospectos",
-
-  // Detail tabs
   "Summary": "Resumen",
   "Contacts": "Contactos",
   "Finance": "Finanzas",
@@ -170,8 +171,6 @@ const EN_TO_ES: Dictionary = {
   "Overview": "Resumen",
   "Details": "Detalles",
   "Files": "Archivos",
-
-  // Email
   "Primary": "Principal",
   "Promotions": "Promociones",
   "Social": "Social",
@@ -189,6 +188,15 @@ const EN_TO_ES: Dictionary = {
   "Archive": "Archivar",
   "Trash": "Papelera",
   "Refresh": "Actualizar",
+  "Subject": "Asunto",
+  "Message": "Mensaje",
+  "To": "Para",
+  "From": "De",
+  "CC": "CC",
+  "BCC": "CCO",
+  "Today": "Hoy",
+  "Tomorrow": "Mañana",
+  "Yesterday": "Ayer",
 };
 
 const ES_TO_EN: Dictionary = Object.fromEntries(
@@ -199,41 +207,70 @@ function normalizeText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function preserveCase(source: string, translated: string) {
+  if (!source || !translated) return translated;
+  if (source === source.toUpperCase() && source.length > 1) return translated.toUpperCase();
+  return translated;
+}
+
 function translateExact(value: string, lang: Lang) {
   const normalized = normalizeText(value);
   if (!normalized) return value;
   const dictionary = lang === "es" ? EN_TO_ES : ES_TO_EN;
-  return dictionary[normalized] || value;
+  const found = dictionary[normalized];
+  return found ? preserveCase(normalized, found) : value;
 }
 
 function translateWithCounts(value: string, lang: Lang) {
   const normalized = normalizeText(value);
-  const projects = normalized.match(/^(\d+) projects$/i);
-  if (projects) return lang === "es" ? `${projects[1]} proyectos` : normalized;
+  const countMap: Array<[RegExp, string, string]> = [
+    [/^(\d+) projects$/i, "proyectos", "projects"],
+    [/^(\d+) products$/i, "productos", "products"],
+    [/^(\d+) clients$/i, "clientes", "clients"],
+    [/^(\d+) leads$/i, "prospectos", "leads"],
+    [/^(\d+) tasks$/i, "tareas", "tasks"],
+    [/^(\d+) invoices$/i, "facturas", "invoices"],
+    [/^(\d+) proposals$/i, "propuestas", "proposals"],
+    [/^(\d+) proyectos$/i, "proyectos", "projects"],
+    [/^(\d+) productos$/i, "productos", "products"],
+    [/^(\d+) clientes$/i, "clientes", "clients"],
+    [/^(\d+) prospectos$/i, "prospectos", "leads"],
+    [/^(\d+) tareas$/i, "tareas", "tasks"],
+    [/^(\d+) facturas$/i, "facturas", "invoices"],
+    [/^(\d+) propuestas$/i, "propuestas", "proposals"],
+  ];
 
-  const products = normalized.match(/^(\d+) products$/i);
-  if (products) return lang === "es" ? `${products[1]} productos` : normalized;
-
-  const clients = normalized.match(/^(\d+) clients$/i);
-  if (clients) return lang === "es" ? `${clients[1]} clientes` : normalized;
-
-  const leads = normalized.match(/^(\d+) leads$/i);
-  if (leads) return lang === "es" ? `${leads[1]} prospectos` : normalized;
-
-  const tasks = normalized.match(/^(\d+) tasks$/i);
-  if (tasks) return lang === "es" ? `${tasks[1]} tareas` : normalized;
-
-  const esProjects = normalized.match(/^(\d+) proyectos$/i);
-  if (esProjects) return lang === "en" ? `${esProjects[1]} projects` : normalized;
+  for (const [pattern, esLabel, enLabel] of countMap) {
+    const match = normalized.match(pattern);
+    if (match) return lang === "es" ? `${match[1]} ${esLabel}` : `${match[1]} ${enLabel}`;
+  }
 
   return value;
 }
 
-function translateValue(value: string, lang: Lang) {
-  return translateWithCounts(translateExact(value, lang), lang);
+function translatePhrases(value: string, lang: Lang) {
+  let next = value;
+  const dictionary = lang === "es" ? EN_TO_ES : ES_TO_EN;
+  const entries = Object.entries(dictionary).sort((a, b) => b[0].length - a[0].length);
+
+  for (const [source, target] of entries) {
+    if (source.length < 4) continue;
+    const escaped = source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    next = next.replace(new RegExp(`\\b${escaped}\\b`, "g"), target);
+  }
+
+  return next;
 }
 
-function shouldSkipElement(element: Element | null) {
+function translateValue(value: string, lang: Lang) {
+  const counted = translateWithCounts(value, lang);
+  if (counted !== value) return counted;
+  const exact = translateExact(value, lang);
+  if (exact !== value) return exact;
+  return translatePhrases(value, lang);
+}
+
+function shouldSkipTextNodeParent(element: Element | null) {
   if (!element) return true;
   const tag = element.tagName.toLowerCase();
   if (["script", "style", "textarea", "input", "code", "pre"].includes(tag)) return true;
@@ -241,13 +278,19 @@ function shouldSkipElement(element: Element | null) {
   return false;
 }
 
+function shouldSkipAttributes(element: Element | null) {
+  if (!element) return true;
+  const tag = element.tagName.toLowerCase();
+  if (["script", "style", "code", "pre"].includes(tag)) return true;
+  if (element.closest("[data-no-auto-translate]")) return true;
+  return false;
+}
+
 function translateElementAttributes(root: ParentNode, lang: Lang) {
   if (!(root as Element).querySelectorAll) return;
-  const elements = (root as Element).querySelectorAll<HTMLElement>(
-    "[placeholder], [aria-label], [title], [data-state]",
-  );
+  const elements = (root as Element).querySelectorAll<HTMLElement>("[placeholder], [aria-label], [title]");
   elements.forEach((element) => {
-    if (shouldSkipElement(element)) return;
+    if (shouldSkipAttributes(element)) return;
     ["placeholder", "aria-label", "title"].forEach((attr) => {
       const current = element.getAttribute(attr);
       if (!current) return;
@@ -263,10 +306,10 @@ function translateTextNodes(root: ParentNode, lang: Lang) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
-      if (shouldSkipElement(parent)) return NodeFilter.FILTER_REJECT;
+      if (shouldSkipTextNodeParent(parent)) return NodeFilter.FILTER_REJECT;
       const value = normalizeText(node.textContent || "");
       if (!value) return NodeFilter.FILTER_REJECT;
-      if (value.length > 80) return NodeFilter.FILTER_SKIP;
+      if (value.length > 140) return NodeFilter.FILTER_SKIP;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
