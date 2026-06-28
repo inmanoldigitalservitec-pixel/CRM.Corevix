@@ -655,38 +655,28 @@ function ProposalPublicPage() {
       setError(null);
       try {
         const db = supabase as any;
-        const { data, error: err } = await db
-          .from("proposals")
-          .select("*")
-          .eq("public_token", token)
-          .maybeSingle();
+        const { data, error: err } = await db.rpc("get_proposal_public", {
+          p_proposal_public_token: token,
+        });
         if (err) throw err;
-        if (!data) {
+
+        const proposalData = data?.proposal ?? null;
+        if (!proposalData) {
           setProposal(null);
           setError("No se encontró la propuesta.");
           setLoading(false);
           return;
         }
+
         if (cancelled) return;
-        setProposal(data);
+        setProposal(proposalData);
         setApproved(
-          String(data?.status || "").toLowerCase() === "approved" || Boolean(data?.approved_at),
+          String(proposalData?.status || "").toLowerCase() === "approved" ||
+            Boolean(proposalData?.approved_at),
         );
         setInvoicePublicToken(null);
         setApproveMessage(null);
         setApprovedInvoice(null);
-
-        // Mark as viewed (best-effort). Requires DB column + permissive RLS for anon.
-        const viewedAt = data?.viewed_at ?? null;
-        if (!viewedAt) {
-          await db
-            .from("proposals")
-            .update({
-              viewed_at: new Date().toISOString(),
-              status: data?.status === "Sent" ? "Viewed" : data?.status,
-            })
-            .eq("public_token", token);
-        }
       } catch (e: any) {
         if (cancelled) return;
         setError(e?.message || "No se pudo cargar la propuesta.");
