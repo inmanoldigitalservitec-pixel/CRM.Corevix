@@ -13,6 +13,8 @@ const LABELS: Record<string, string> = {
   "Abrir documento": "Abrir",
 };
 
+const CHANNEL_LABELS = ["Todos", "WhatsApp", "Messenger", "Instagram"];
+
 function getGrid() {
   return document.querySelector<HTMLElement>('div[class*="grid-cols-[76px_390px"]');
 }
@@ -32,20 +34,30 @@ function injectStyles() {
   style.id = "corevix-wa-phase2-safe";
   style.textContent = `
     [data-corevix-wa-grid="true"] { min-width: 0; }
+    [data-corevix-wa-grid="true"] > aside:first-child { display: none !important; }
     [data-corevix-wa-panel="true"] { overflow-x: hidden !important; scrollbar-width: thin; }
-    [data-corevix-wa-panel="true"] section { border-radius: 22px !important; box-shadow: 0 10px 24px rgba(18,35,29,.065) !important; }
-    [data-corevix-wa-main-button="true"], [data-corevix-wa-button="true"] { width: 100% !important; min-width: 0 !important; height: 42px !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; border-radius: 16px !important; padding: 0 12px !important; white-space: nowrap !important; }
-    [data-corevix-wa-main-button="true"] { background: #00a884 !important; border: 1px solid #00a884 !important; color: #fff !important; box-shadow: 0 10px 20px rgba(0,168,132,.18) !important; }
-    [data-corevix-wa-button="true"] { background: #f7fbf9 !important; border: 1px solid #dce8e2 !important; color: #52645d !important; box-shadow: 0 6px 14px rgba(18,35,29,.045) !important; }
+    [data-corevix-wa-panel="true"] section { border-radius: 18px !important; box-shadow: 0 8px 18px rgba(18,35,29,.045) !important; }
+    [data-corevix-wa-main-button="true"], [data-corevix-wa-button="true"] { width: 100% !important; min-width: 0 !important; height: 36px !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important; border-radius: 13px !important; padding: 0 10px !important; white-space: nowrap !important; }
+    [data-corevix-wa-main-button="true"] { background: #00a884 !important; border: 1px solid #00a884 !important; color: #fff !important; box-shadow: 0 8px 16px rgba(0,168,132,.16) !important; }
+    [data-corevix-wa-button="true"] { background: #f7fbf9 !important; border: 1px solid #dce8e2 !important; color: #52645d !important; box-shadow: 0 5px 10px rgba(18,35,29,.035) !important; }
     [data-corevix-wa-label="true"] { pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 900; line-height: 1; }
-    [data-corevix-wa-doc-actions="true"] { display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 8px !important; width: 100% !important; }
+    [data-corevix-wa-doc-actions="true"] { display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 7px !important; width: 100% !important; }
     [data-corevix-wa-doc-card="true"] { border-color: #bcebd0 !important; background: linear-gradient(180deg,#f0fff6,#ffffff) !important; }
-    [data-corevix-wa-doc-helper="true"] { margin-top: 8px; border-radius: 14px; background: #e9fff1; padding: 8px 10px; color: #52645d; font-size: 11px; font-weight: 700; line-height: 1.35; }
-    [data-corevix-wa-empty-doc-helper="true"] { margin-top: 6px; color: #6c7f77; font-size: 11px; line-height: 1.35; }
+    [data-corevix-wa-doc-helper="true"] { margin-top: 7px; border-radius: 12px; background: #e9fff1; padding: 7px 9px; color: #52645d; font-size: 10.5px; font-weight: 700; line-height: 1.25; }
+    [data-corevix-wa-empty-doc-helper="true"] { margin-top: 5px; color: #6c7f77; font-size: 10.5px; line-height: 1.3; }
+    [data-corevix-wa-next="true"] { padding: 10px !important; border-radius: 18px !important; }
+    [data-corevix-wa-next="true"] p { margin: 0 !important; }
+    [data-corevix-wa-next="true"] [data-corevix-wa-main-button="true"] { height: 34px !important; }
+    [data-corevix-wa-next="true"] .text-xs { font-size: 10.5px !important; line-height: 1.2 !important; }
+    [data-corevix-wa-channel-row="true"] { display: flex !important; flex-wrap: nowrap !important; gap: 6px !important; overflow-x: auto !important; padding-bottom: 1px !important; scrollbar-width: none !important; }
+    [data-corevix-wa-channel-row="true"]::-webkit-scrollbar { display: none !important; }
+    [data-corevix-wa-channel-button="true"] { height: 31px !important; flex: 0 0 auto !important; padding: 0 10px !important; border-radius: 999px !important; font-size: 12px !important; line-height: 1 !important; }
     [data-whatsapp-task-slot], [data-whatsapp-quick-replies-slot] { display: block; margin-bottom: 8px; }
-    @media (min-width: 1461px) { [data-corevix-wa-grid="true"] { grid-template-columns: 72px minmax(340px,390px) minmax(0,1fr) minmax(320px,340px) !important; } }
-    @media (min-width: 1180px) and (max-width: 1460px) { [data-corevix-wa-grid="true"] { grid-template-columns: 66px minmax(330px,360px) minmax(0,1fr) 300px !important; } [data-corevix-wa-panel="true"] { display: block !important; } }
-    @media (max-width: 1179px) { [data-corevix-wa-panel="true"] { display: none !important; } }
+    @media (min-width: 1461px) { [data-corevix-wa-grid="true"] { grid-template-columns: minmax(350px,390px) minmax(0,1fr) minmax(300px,320px) !important; } }
+    @media (min-width: 1180px) and (max-width: 1460px) { [data-corevix-wa-grid="true"] { grid-template-columns: minmax(330px,360px) minmax(0,1fr) 292px !important; } [data-corevix-wa-panel="true"] { display: block !important; } }
+    @media (min-width: 981px) and (max-width: 1179px) { [data-corevix-wa-grid="true"] { grid-template-columns: minmax(320px,350px) minmax(0,1fr) !important; } [data-corevix-wa-panel="true"] { display: none !important; } }
+    @media (max-width: 980px) { [data-corevix-wa-grid="true"] { grid-template-columns: minmax(280px,360px) minmax(0,1fr) !important; } [data-corevix-wa-panel="true"] { display: none !important; } }
+    @media (max-width: 760px) { [data-corevix-wa-grid="true"] { grid-template-columns: 1fr !important; } }
   `;
   document.head.appendChild(style);
 }
@@ -73,6 +85,30 @@ function findActivitySection(panel: HTMLElement) {
 
 function findQuickSendSection(panel: HTMLElement) {
   return Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) => section.textContent?.includes("Envío rápido")) || null;
+}
+
+function findNextSection(panel: HTMLElement) {
+  return Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) => {
+    const txt = section.textContent || "";
+    return txt.includes("SIGUIENTE") || txt.includes("Crear lead") || txt.includes("Plantilla") || txt.includes("Crear propuesta") || txt.includes("Crear factura");
+  }) || null;
+}
+
+function enhanceLeftRail() {
+  const grid = getGrid();
+  if (!grid) return;
+  const firstAside = grid.firstElementChild as HTMLElement | null;
+  if (firstAside?.tagName.toLowerCase() === "aside") firstAside.style.display = "none";
+}
+
+function enhanceChannelFilters() {
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) =>
+    CHANNEL_LABELS.includes((button.textContent || "").trim()),
+  );
+  if (!buttons.length) return;
+  const row = buttons[0].parentElement;
+  if (row) setAttr(row, "data-corevix-wa-channel-row", "true");
+  buttons.forEach((button) => setAttr(button, "data-corevix-wa-channel-button", "true"));
 }
 
 function ensureTaskSlot(panel: HTMLElement) {
@@ -121,25 +157,29 @@ function enhanceQuickSend(panel: HTMLElement) {
   }
 }
 
+function enhanceNextAction(panel: HTMLElement) {
+  const section = findNextSection(panel);
+  if (!section) return;
+  setAttr(section, "data-corevix-wa-next", "true");
+  const main = section.querySelector<HTMLElement>('[title="Crear lead"], [title="Crear cliente"], [title="Crear propuesta"], [title="Crear factura"], [title="Preparar seguimiento"], [title="Preparar"], [title="Ver"]');
+  if (main) {
+    const label = LABELS[main.getAttribute("title") || ""] || main.getAttribute("title") || "Continuar";
+    labelButton(main, label, true);
+  }
+}
+
 function enhanceOnce() {
   injectStyles();
   const grid = getGrid();
   if (grid) setAttr(grid, "data-corevix-wa-grid", "true");
+  enhanceLeftRail();
+  enhanceChannelFilters();
   const panel = getPanel();
   if (!panel) return;
   setAttr(panel, "data-corevix-wa-panel", "true");
   if (panel.style.overflowX !== "hidden") panel.style.overflowX = "hidden";
-  const main = panel.querySelector<HTMLElement>('[title="Crear lead"], [title="Crear cliente"], [title="Crear propuesta"], [title="Crear factura"], [title="Preparar seguimiento"], [title="Preparar"], [title="Ver"]');
-  if (main) {
-    const label = LABELS[main.getAttribute("title") || ""] || main.getAttribute("title") || "Continuar";
-    labelButton(main, label, true);
-    const row = main.parentElement;
-    if (row) {
-      if (row.style.display !== "grid") row.style.display = "grid";
-      if (row.style.gridTemplateColumns !== "minmax(0px, 1fr)") row.style.gridTemplateColumns = "minmax(0,1fr)";
-      if (row.style.gap !== "10px") row.style.gap = "10px";
-    }
-  }
+
+  enhanceNextAction(panel);
   for (const [title, label] of Object.entries(LABELS)) {
     panel.querySelectorAll<HTMLElement>(`[title="${title}"]`).forEach((button) => labelButton(button, label, title === "Preparar mensaje"));
   }
