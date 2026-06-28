@@ -15,6 +15,7 @@ import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { I18nProvider, useT } from "@/i18n";
 import { CrmAiFloatingChat } from "@/components/ai/CrmAiFloatingChat";
+import { InlineProjectTaskCreator } from "@/components/projects/InlineProjectTaskCreator";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -106,12 +107,10 @@ function AppShell() {
     );
   }
 
-  // Public routes render without auth + CRM layout.
   if (isPublicRoute) {
     return <Outlet />;
   }
 
-  // Protect every private route, including direct deep links like /dashboard or /leads.
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -128,6 +127,7 @@ function AppShell() {
             </main>
           </div>
         </div>
+        {currentPath === "/projects" ? <InlineProjectTaskCreator /> : null}
         <CrmAiFloatingChat />
       </SidebarProvider>
     </DemoTourProvider>
