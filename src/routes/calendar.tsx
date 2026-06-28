@@ -5,7 +5,18 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { DateSelectArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
-import { CalendarClock, CalendarDays, CheckCircle2, Clock, Plus, RefreshCw, X } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,7 +47,8 @@ type CalendarItem = {
   description?: string | null;
   location?: string | null;
   amount?: number | null;
-  colorClass: string;
+  eventType?: string | null;
+  tone: "blue" | "violet" | "amber" | "sky" | "emerald" | "orange" | "slate";
 };
 
 type EventForm = {
@@ -66,6 +78,26 @@ const FORM_TYPE_LABELS: Record<FormType, string> = {
   task: "Tarea",
 };
 
+const TONE_STYLES: Record<CalendarItem["tone"], string> = {
+  blue: "border-blue-200 bg-blue-50 text-blue-700",
+  violet: "border-violet-200 bg-violet-50 text-violet-700",
+  amber: "border-amber-200 bg-amber-50 text-amber-800",
+  sky: "border-sky-200 bg-sky-50 text-sky-700",
+  emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  orange: "border-orange-200 bg-orange-50 text-orange-700",
+  slate: "border-slate-200 bg-slate-50 text-slate-700",
+};
+
+const DOT_STYLES: Record<CalendarItem["tone"], string> = {
+  blue: "bg-blue-500",
+  violet: "bg-violet-500",
+  amber: "bg-amber-500",
+  sky: "bg-sky-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  slate: "bg-slate-500",
+};
+
 function toLocalInputValue(value?: Date | string | null) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return "";
@@ -90,6 +122,27 @@ function dateOnly(value: string) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("es", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function getCalendarEventTone(type?: string | null): CalendarItem["tone"] {
+  if (type === "demo") return "violet";
+  if (type === "reminder") return "amber";
+  if (type === "call") return "sky";
+  if (type === "meeting") return "emerald";
+  if (type === "task") return "blue";
+  return "slate";
+}
+
 function CalendarPage() {
   const { user, profile } = useAuth();
   const db = supabase as any;
@@ -98,6 +151,7 @@ function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<CalendarFilter>("all");
+  const [search, setSearch] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<EventForm>({
@@ -161,14 +215,8 @@ function CalendarPage() {
         status: e.status,
         description: e.description,
         location: e.location,
-        colorClass:
-          e.type === "demo"
-            ? "bg-violet-100 text-violet-700 border-violet-200"
-            : e.type === "reminder"
-              ? "bg-amber-100 text-amber-700 border-amber-200"
-              : e.type === "call"
-                ? "bg-sky-100 text-sky-700 border-sky-200"
-                : "bg-blue-100 text-blue-700 border-blue-200",
+        eventType: e.type,
+        tone: getCalendarEventTone(e.type),
       })),
       ...(tasks || []).map((t: any) => ({
         id: `task-${t.id}`,
@@ -179,7 +227,7 @@ function CalendarPage() {
         allDay: true,
         status: t.status,
         description: t.description,
-        colorClass: "bg-blue-100 text-blue-700 border-blue-200",
+        tone: "blue" as const,
       })),
       ...(invoices || []).map((i: any) => ({
         id: `invoice-${i.id}`,
@@ -190,7 +238,7 @@ function CalendarPage() {
         allDay: true,
         status: i.status,
         amount: i.total,
-        colorClass: "bg-orange-100 text-orange-700 border-orange-200",
+        tone: "orange" as const,
       })),
       ...(proposals || []).map((p: any) => ({
         id: `proposal-${p.id}`,
@@ -200,7 +248,7 @@ function CalendarPage() {
         start: p.valid_until,
         allDay: true,
         status: p.status,
-        colorClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        tone: "emerald" as const,
       })),
       ...(projects || []).map((p: any) => ({
         id: `project-${p.id}`,
@@ -211,7 +259,7 @@ function CalendarPage() {
         allDay: true,
         status: p.status,
         description: p.description,
-        colorClass: "bg-violet-100 text-violet-700 border-violet-200",
+        tone: "violet" as const,
       })),
     ];
 
@@ -224,9 +272,24 @@ function CalendarPage() {
   }, [fetchEvents]);
 
   const filteredEvents = useMemo(() => {
-    if (filter === "all") return events;
-    return events.filter((event) => event.source === filter);
-  }, [events, filter]);
+    const query = search.trim().toLowerCase();
+
+    return events.filter((event) => {
+      if (filter !== "all" && event.source !== filter) return false;
+      if (!query) return true;
+
+      return [
+        event.title,
+        event.description,
+        event.location,
+        event.status,
+        event.eventType,
+        EVENT_TYPE_LABELS[event.source],
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [events, filter, search]);
 
   const fullCalendarEvents = useMemo(
     () =>
@@ -259,6 +322,11 @@ function CalendarPage() {
       }).length,
       overdue: events.filter((event) => dateOnly(event.start) < today && event.status !== "completed").length,
     };
+  }, [events]);
+
+  const upcoming = useMemo(() => {
+    const now = new Date().toISOString();
+    return events.filter((event) => event.start >= now || event.allDay).slice(0, 7);
   }, [events]);
 
   function openCreateModal(selection?: { start?: Date | string; end?: Date | string; allDay?: boolean }) {
@@ -386,181 +454,226 @@ function CalendarPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-56px)] bg-[#f8fafc] p-4 lg:p-6">
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#111827]">Calendario</h1>
-          <p className="text-sm font-semibold text-[#667085]">
-            Citas, recordatorios, tareas, propuestas, proyectos y facturas en un solo lugar.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => void fetchEvents()} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Actualizar
-          </Button>
-          <Button onClick={() => openCreateModal()} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Crear evento
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="space-y-4">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="space-y-3 p-4">
-              <div className="flex items-center gap-2 text-sm font-black text-[#111827]">
-                <CalendarDays className="h-4 w-4 text-[#1d62f9]" />
-                Resumen
+    <div className="min-h-[calc(100vh-56px)] bg-[#f5f7fb] p-3 text-[#111827] lg:p-5">
+      <div className="mx-auto flex max-w-[1540px] flex-col gap-4">
+        <section className="overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
+          <div className="flex flex-col gap-4 border-b border-[#eef1f6] bg-gradient-to-r from-white via-[#fbfcff] to-[#eef5ff] px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#111827] text-white shadow-lg">
+                <CalendarDays className="h-5 w-5" />
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-white p-3 shadow-sm">
-                  <p className="text-xs font-bold text-[#667085]">Total</p>
-                  <p className="text-2xl font-black">{counters.total}</p>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl font-black tracking-[-0.04em] text-[#111827] lg:text-3xl">
+                    Calendario Corevix
+                  </h1>
+                  <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                    FullCalendar
+                  </span>
                 </div>
-                <div className="rounded-2xl bg-white p-3 shadow-sm">
-                  <p className="text-xs font-bold text-[#667085]">Hoy</p>
-                  <p className="text-2xl font-black">{counters.today}</p>
-                </div>
-                <div className="rounded-2xl bg-white p-3 shadow-sm">
-                  <p className="text-xs font-bold text-[#667085]">Semana</p>
-                  <p className="text-2xl font-black">{counters.week}</p>
-                </div>
-                <div className="rounded-2xl bg-white p-3 shadow-sm">
-                  <p className="text-xs font-bold text-[#667085]">Vencidos</p>
-                  <p className="text-2xl font-black text-red-600">{counters.overdue}</p>
-                </div>
+                <p className="mt-1 max-w-2xl text-sm font-semibold text-[#667085]">
+                  Gestiona citas, demos, llamadas, recordatorios, tareas, proyectos, propuestas y facturas desde una agenda visual.
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="border-0 shadow-sm">
-            <CardContent className="space-y-2 p-4">
-              <p className="text-xs font-black uppercase tracking-wide text-[#667085]">Filtros</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" onClick={() => void fetchEvents()} className="h-10 gap-2 rounded-2xl border-[#dce3ef] bg-white">
+                <RefreshCw className="h-4 w-4" />
+                Actualizar
+              </Button>
+              <Button onClick={() => openCreateModal()} className="h-10 gap-2 rounded-2xl bg-[#111827] px-4 font-black text-white hover:bg-[#020617]">
+                <Plus className="h-4 w-4" />
+                Crear evento
+              </Button>
+            </div>
+          </div>
 
-              {[
-                ["all", "Todos"],
-                ["calendar_event", "Eventos"],
-                ["task", "Tareas"],
-                ["invoice", "Facturas"],
-                ["proposal", "Propuestas"],
-                ["project", "Proyectos"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setFilter(value as CalendarFilter)}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-bold transition ${
-                    filter === value ? "bg-[#111827] text-white" : "bg-white text-[#374151] hover:bg-[#f1f5f9]"
-                  }`}
-                >
-                  {label}
-                  {filter === value ? <CheckCircle2 className="h-4 w-4" /> : null}
-                </button>
-              ))}
-            </CardContent>
-          </Card>
+          <div className="grid min-h-[780px] gap-0 xl:grid-cols-[310px_minmax(0,1fr)]">
+            <aside className="border-b border-[#eef1f6] bg-[#fbfcff] p-4 xl:border-b-0 xl:border-r">
+              <div className="space-y-4">
+                <Card className="border border-[#edf1f7] bg-white shadow-sm">
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#98a2b3]">Resumen</p>
+                      <Sparkles className="h-4 w-4 text-blue-500" />
+                    </div>
 
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <p className="mb-2 text-xs font-black uppercase tracking-wide text-[#667085]">Próximos</p>
-              {events.length === 0 ? (
-                <p className="text-sm text-[#667085]">No hay eventos todavía.</p>
-              ) : (
-                <div className="space-y-2">
-                  {events.slice(0, 6).map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => setSelectedEvent(event)}
-                      className="w-full rounded-xl border bg-white p-3 text-left text-sm hover:bg-[#f8fafc]"
-                    >
-                      <p className="truncate font-black text-[#111827]">{event.title}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#667085]">
-                        {new Date(event.start).toLocaleString()}
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        ["Total", counters.total, "slate"],
+                        ["Hoy", counters.today, "blue"],
+                        ["Semana", counters.week, "emerald"],
+                        ["Vencidos", counters.overdue, "orange"],
+                      ].map(([label, value, tone]) => (
+                        <div key={label} className="rounded-2xl border border-[#edf1f7] bg-[#f8fafc] p-3">
+                          <p className="text-[11px] font-black uppercase tracking-wide text-[#98a2b3]">{label}</p>
+                          <p className={`mt-1 text-2xl font-black ${tone === "orange" ? "text-orange-600" : "text-[#111827]"}`}>
+                            {value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-[#edf1f7] bg-white shadow-sm">
+                  <CardContent className="space-y-3 p-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3]" />
+                      <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Buscar en calendario..."
+                        className="h-11 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      {[
+                        ["all", "Todos", "slate"],
+                        ["calendar_event", "Eventos", "sky"],
+                        ["task", "Tareas", "blue"],
+                        ["invoice", "Facturas", "orange"],
+                        ["proposal", "Propuestas", "emerald"],
+                        ["project", "Proyectos", "violet"],
+                      ].map(([value, label, tone]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setFilter(value as CalendarFilter)}
+                          className={`flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-black transition ${
+                            filter === value
+                              ? "bg-[#111827] text-white shadow-sm"
+                              : "text-[#344054] hover:bg-[#f3f6fb]"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className={`h-2.5 w-2.5 rounded-full ${DOT_STYLES[tone as CalendarItem["tone"]]}`} />
+                            {label}
+                          </span>
+                          {filter === value ? <CheckCircle2 className="h-4 w-4" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-[#edf1f7] bg-white shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#98a2b3]">Próximos</p>
+                    {upcoming.length === 0 ? (
+                      <p className="rounded-2xl bg-[#f8fafc] p-3 text-sm font-semibold text-[#667085]">
+                        No hay eventos próximos.
                       </p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </aside>
+                    ) : (
+                      <div className="space-y-2">
+                        {upcoming.map((event) => (
+                          <button
+                            key={event.id}
+                            type="button"
+                            onClick={() => setSelectedEvent(event)}
+                            className="group w-full rounded-2xl border border-[#edf1f7] bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${DOT_STYLES[event.tone]}`} />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-black text-[#111827]">{event.title}</p>
+                                <p className="mt-1 text-xs font-bold text-[#667085]">
+                                  {formatDate(event.start)} · {event.allDay ? "Todo el día" : formatTime(event.start)}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </aside>
 
-        <Card className="min-h-[760px] overflow-hidden border-0 shadow-sm">
-          <CardContent className="calendar-shell h-full p-3 lg:p-4">
-            {filteredEvents.length === 0 ? (
-              <div className="mb-4">
-                <EmptyState
-                  icon={<CalendarClock className="h-6 w-6" />}
-                  title="No hay eventos para este filtro"
-                  description="Crea una cita, recordatorio o demo para verla en el calendario."
+            <main className="min-w-0 bg-white p-3 lg:p-5">
+              {filteredEvents.length === 0 ? (
+                <div className="mb-4">
+                  <EmptyState
+                    icon={<CalendarClock className="h-6 w-6" />}
+                    title="No hay eventos para este filtro"
+                    description="Crea una cita, recordatorio o demo para verla en el calendario."
+                  />
+                </div>
+              ) : null}
+
+              <div className="corevix-calendar-shell overflow-hidden rounded-[24px] border border-[#edf1f7] bg-white p-3 shadow-sm">
+                <FullCalendar
+                  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                  initialView="timeGridWeek"
+                  headerToolbar={{
+                    left: "prev,next today",
+                    center: "title",
+                    right: "dayGridMonth,timeGridWeek,timeGridDay",
+                  }}
+                  buttonText={{
+                    today: "Hoy",
+                    month: "Mes",
+                    week: "Semana",
+                    day: "Día",
+                  }}
+                  locale="es"
+                  timeZone="local"
+                  height="760px"
+                  nowIndicator
+                  selectable
+                  editable
+                  eventStartEditable
+                  eventDurationEditable
+                  selectMirror
+                  weekends
+                  slotMinTime="06:00:00"
+                  slotMaxTime="23:59:00"
+                  allDayText="Todo el día"
+                  events={fullCalendarEvents}
+                  select={handleSelect}
+                  eventClick={handleEventClick}
+                  eventDrop={handleEventDrop}
+                  eventResize={handleEventDrop as any}
+                  eventContent={(arg) => {
+                    const item = arg.event.extendedProps as CalendarItem;
+                    return (
+                      <div className={`corevix-calendar-event ${TONE_STYLES[item.tone]}`}>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_STYLES[item.tone]}`} />
+                          <span className="truncate">{arg.event.title}</span>
+                        </div>
+                        <div className="truncate text-[10px] font-black opacity-70">{EVENT_TYPE_LABELS[item.source]}</div>
+                      </div>
+                    );
+                  }}
                 />
               </div>
-            ) : null}
-
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="timeGridWeek"
-              headerToolbar={{
-                left: "prev,next today",
-                center: "title",
-                right: "dayGridMonth,timeGridWeek,timeGridDay",
-              }}
-              buttonText={{
-                today: "Hoy",
-                month: "Mes",
-                week: "Semana",
-                day: "Día",
-              }}
-              locale="es"
-              timeZone="local"
-              height="760px"
-              nowIndicator
-              selectable
-              editable
-              eventStartEditable
-              eventDurationEditable
-              selectMirror
-              weekends
-              slotMinTime="06:00:00"
-              slotMaxTime="23:59:00"
-              allDayText="Todo el día"
-              events={fullCalendarEvents}
-              select={handleSelect}
-              eventClick={handleEventClick}
-              eventDrop={handleEventDrop}
-              eventResize={handleEventDrop as any}
-              eventContent={(arg) => {
-                const item = arg.event.extendedProps as CalendarItem;
-                return (
-                  <div className={`w-full rounded-lg border px-2 py-1 text-xs font-bold ${item.colorClass}`}>
-                    <div className="truncate">{arg.event.title}</div>
-                    <div className="truncate text-[10px] opacity-80">{EVENT_TYPE_LABELS[item.source]}</div>
-                  </div>
-                );
-              }}
-            />
-          </CardContent>
-        </Card>
+            </main>
+          </div>
+        </section>
       </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Crear evento</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-xl rounded-3xl border-0 p-0 shadow-2xl">
+          <div className="border-b bg-gradient-to-r from-white to-blue-50 px-6 py-5">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black tracking-[-0.03em]">Crear evento</DialogTitle>
+            </DialogHeader>
+            <p className="mt-1 text-sm font-semibold text-[#667085]">
+              Programa una cita, demo, llamada o recordatorio dentro del CRM.
+            </p>
+          </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 p-6">
             <div>
               <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">Título</label>
               <input
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                className="h-11 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-[#1d62f9]/20"
+                className="h-12 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 text-sm font-semibold outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
                 placeholder="Ej: Demo CRM con Juan Pérez"
               />
             </div>
@@ -571,7 +684,7 @@ function CalendarPage() {
                 <select
                   value={form.type}
                   onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value as FormType }))}
-                  className="h-11 w-full rounded-xl border px-3 text-sm outline-none"
+                  className="h-12 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 text-sm font-bold outline-none"
                 >
                   <option value="event">Evento</option>
                   <option value="reminder">Recordatorio</option>
@@ -582,7 +695,7 @@ function CalendarPage() {
                 </select>
               </div>
 
-              <label className="flex items-end gap-2 rounded-xl border px-3 py-2 text-sm font-bold">
+              <label className="flex items-end gap-2 rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 py-3 text-sm font-black">
                 <input
                   type="checkbox"
                   checked={form.all_day}
@@ -606,7 +719,7 @@ function CalendarPage() {
                   type={form.all_day ? "date" : "datetime-local"}
                   value={form.start_at}
                   onChange={(event) => setForm((prev) => ({ ...prev, start_at: event.target.value }))}
-                  className="h-11 w-full rounded-xl border px-3 text-sm outline-none"
+                  className="h-12 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 text-sm font-bold outline-none"
                 />
               </div>
               <div>
@@ -615,7 +728,7 @@ function CalendarPage() {
                   type={form.all_day ? "date" : "datetime-local"}
                   value={form.end_at}
                   onChange={(event) => setForm((prev) => ({ ...prev, end_at: event.target.value }))}
-                  className="h-11 w-full rounded-xl border px-3 text-sm outline-none"
+                  className="h-12 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 text-sm font-bold outline-none"
                 />
               </div>
             </div>
@@ -625,7 +738,7 @@ function CalendarPage() {
               <input
                 value={form.location}
                 onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                className="h-11 w-full rounded-xl border px-3 text-sm outline-none"
+                className="h-12 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 text-sm font-semibold outline-none"
                 placeholder="Oficina, Zoom, llamada, WhatsApp..."
               />
             </div>
@@ -635,17 +748,17 @@ function CalendarPage() {
               <textarea
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                className="min-h-24 w-full resize-none rounded-xl border px-3 py-2 text-sm outline-none"
+                className="min-h-24 w-full resize-none rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 py-3 text-sm font-semibold outline-none"
                 placeholder="Notas internas del evento..."
               />
             </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setCreateOpen(false)} className="rounded-2xl">
                 Cancelar
               </Button>
-              <Button onClick={handleCreateEvent} disabled={saving || !form.title.trim()}>
-                {saving ? "Guardando..." : "Crear"}
+              <Button onClick={handleCreateEvent} disabled={saving || !form.title.trim()} className="rounded-2xl bg-[#111827] font-black">
+                {saving ? "Guardando..." : "Crear evento"}
               </Button>
             </div>
           </div>
@@ -653,45 +766,50 @@ function CalendarPage() {
       </Dialog>
 
       <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-2">
-              Detalle del evento
-              <button onClick={() => setSelectedEvent(null)} className="rounded-lg p-1 hover:bg-muted">
-                <X className="h-4 w-4" />
-              </button>
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-lg rounded-3xl border-0 p-0 shadow-2xl">
+          <div className="border-b bg-gradient-to-r from-white to-slate-50 px-6 py-5">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between gap-2">
+                <span className="text-xl font-black tracking-[-0.03em]">Detalle del evento</span>
+                <button onClick={() => setSelectedEvent(null)} className="rounded-xl p-1 hover:bg-muted">
+                  <X className="h-4 w-4" />
+                </button>
+              </DialogTitle>
+            </DialogHeader>
+          </div>
 
           {selectedEvent ? (
-            <div className="space-y-3">
-              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black ${selectedEvent.colorClass}`}>
+            <div className="space-y-4 p-6">
+              <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${TONE_STYLES[selectedEvent.tone]}`}>
                 {EVENT_TYPE_LABELS[selectedEvent.source]}
               </span>
 
               <div>
-                <p className="text-lg font-black">{selectedEvent.title}</p>
-                <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-[#667085]">
+                <p className="text-xl font-black tracking-[-0.03em]">{selectedEvent.title}</p>
+                <p className="mt-2 flex items-center gap-2 text-sm font-bold text-[#667085]">
                   <Clock className="h-4 w-4" />
-                  {new Date(selectedEvent.start).toLocaleString()}
+                  {formatDate(selectedEvent.start)} · {selectedEvent.allDay ? "Todo el día" : formatTime(selectedEvent.start)}
                 </p>
               </div>
 
               {selectedEvent.location ? (
-                <p className="text-sm">
-                  <span className="font-bold">Lugar:</span> {selectedEvent.location}
+                <p className="flex items-center gap-2 text-sm font-semibold text-[#344054]">
+                  <MapPin className="h-4 w-4 text-[#667085]" />
+                  {selectedEvent.location}
                 </p>
               ) : null}
 
               {selectedEvent.description ? (
-                <p className="whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm">{selectedEvent.description}</p>
+                <p className="whitespace-pre-wrap rounded-2xl bg-[#f8fafc] p-4 text-sm font-semibold text-[#344054]">
+                  {selectedEvent.description}
+                </p>
               ) : null}
 
               {selectedEvent.status ? <StatusBadge status={selectedEvent.status} /> : null}
 
               {selectedEvent.amount != null ? (
-                <p className="text-sm">
-                  <span className="font-bold">Monto:</span> ${Number(selectedEvent.amount).toLocaleString()}
+                <p className="rounded-2xl bg-orange-50 p-4 text-sm font-black text-orange-700">
+                  Monto: ${Number(selectedEvent.amount).toLocaleString()}
                 </p>
               ) : null}
             </div>
@@ -700,45 +818,114 @@ function CalendarPage() {
       </Dialog>
 
       <style>{`
-        .calendar-shell .fc {
-          --fc-border-color: #e5e7eb;
-          --fc-today-bg-color: rgba(29, 98, 249, 0.08);
+        .corevix-calendar-shell .fc {
+          --fc-border-color: #edf1f7;
+          --fc-today-bg-color: rgba(29, 98, 249, 0.06);
+          --fc-now-indicator-color: #ef4444;
           font-family: inherit;
         }
 
-        .calendar-shell .fc-toolbar-title {
-          font-size: 1.1rem;
-          font-weight: 900;
+        .corevix-calendar-shell .fc-toolbar {
+          gap: 12px;
+          margin-bottom: 18px !important;
+        }
+
+        .corevix-calendar-shell .fc-toolbar-title {
+          font-size: 1.2rem;
+          font-weight: 950;
+          letter-spacing: -0.04em;
           color: #111827;
         }
 
-        .calendar-shell .fc-button {
+        .corevix-calendar-shell .fc-button {
+          height: 38px !important;
           border-radius: 999px !important;
-          border: 1px solid #d1d5db !important;
+          border: 1px solid #dce3ef !important;
           background: #fff !important;
           color: #111827 !important;
-          font-weight: 800 !important;
+          font-size: 12px !important;
+          font-weight: 900 !important;
           box-shadow: none !important;
           text-transform: capitalize !important;
+          padding: 0 14px !important;
         }
 
-        .calendar-shell .fc-button-active,
-        .calendar-shell .fc-button:hover {
+        .corevix-calendar-shell .fc-button-active,
+        .corevix-calendar-shell .fc-button:hover {
           background: #111827 !important;
+          border-color: #111827 !important;
           color: #fff !important;
         }
 
-        .calendar-shell .fc-col-header-cell-cushion,
-        .calendar-shell .fc-daygrid-day-number {
+        .corevix-calendar-shell .fc-scrollgrid {
+          overflow: hidden;
+          border-radius: 18px;
+          border-color: #edf1f7 !important;
+        }
+
+        .corevix-calendar-shell .fc-col-header-cell {
+          background: #fbfcff;
+          padding: 10px 0;
+        }
+
+        .corevix-calendar-shell .fc-col-header-cell-cushion,
+        .corevix-calendar-shell .fc-daygrid-day-number {
           color: #111827;
-          font-weight: 800;
+          font-size: 12px;
+          font-weight: 900;
           text-decoration: none;
         }
 
-        .calendar-shell .fc-event {
+        .corevix-calendar-shell .fc-timegrid-slot-label-cushion {
+          color: #98a2b3;
+          font-size: 11px;
+          font-weight: 800;
+        }
+
+        .corevix-calendar-shell .fc-timegrid-axis-cushion,
+        .corevix-calendar-shell .fc-timegrid-slot-label {
+          color: #98a2b3;
+        }
+
+        .corevix-calendar-shell .fc-event {
           background: transparent !important;
           border: 0 !important;
           box-shadow: none !important;
+          cursor: pointer;
+        }
+
+        .corevix-calendar-event {
+          width: 100%;
+          min-height: 30px;
+          border-radius: 12px;
+          border-width: 1px;
+          padding: 5px 7px;
+          font-size: 11px;
+          font-weight: 900;
+          line-height: 1.15;
+          box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+          overflow: hidden;
+        }
+
+        .corevix-calendar-shell .fc-day-today .fc-daygrid-day-frame {
+          background: rgba(29, 98, 249, 0.035);
+        }
+
+        .corevix-calendar-shell .fc-highlight {
+          background: rgba(29, 98, 249, 0.12) !important;
+          border-radius: 12px;
+        }
+
+        @media (max-width: 900px) {
+          .corevix-calendar-shell .fc-toolbar {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .corevix-calendar-shell .fc-toolbar-chunk {
+            display: flex;
+            justify-content: center;
+          }
         }
       `}</style>
     </div>
