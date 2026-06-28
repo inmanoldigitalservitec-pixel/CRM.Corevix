@@ -1,5 +1,10 @@
 -- Corevix CRM - Phase 17C
+-- DEMO/COREVIX ONLY SEED.
 -- Seed: product workflows + steps for main Corevix products.
+--
+-- WARNING:
+-- This seed targets a fixed Corevix company_id and product names.
+-- Do not run it as a generic production seed for new CRM installations.
 --
 -- Safe / idempotent:
 -- - Does not delete anything
