@@ -29,10 +29,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
-import type {
-  CrmWhatsappConversationListRow,
-  CrmWhatsappMessageRow,
-} from "@/lib/whatsapp/view-types";
+import type { CrmWhatsappConversationListRow, CrmWhatsappMessageRow } from "@/lib/whatsapp/view-types";
 import type { MetaConversationListRow, MetaMessageRow } from "@/lib/meta/view-types";
 import { getServiceWindowState } from "@/lib/whatsapp/service-window";
 import { sendWhatsappMessage } from "@/lib/whatsapp/whatsapp-bot-api";
@@ -639,7 +636,7 @@ function WhatsAppWebPage() {
 
   return (
     <div className="h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden bg-[#e9f3ef] text-[#111b21]">
-      <div className="grid h-full min-h-0 grid-cols-[76px_390px_minmax(0,1fr)_330px] max-[1460px]:grid-cols-[70px_360px_minmax(0,1fr)] max-[980px]:grid-cols-[62px_minmax(280px,360px)_minmax(0,1fr)] max-[760px]:grid-cols-[1fr]">
+      <div className="grid h-full min-h-0 grid-cols-[76px_390px_minmax(0,1fr)_300px] max-[1460px]:grid-cols-[70px_360px_minmax(0,1fr)] max-[980px]:grid-cols-[62px_minmax(280px,360px)_minmax(0,1fr)] max-[760px]:grid-cols-[1fr]">
         <aside className="flex min-h-0 flex-col items-center border-r border-[#d9e5df] bg-[#f4faf7] py-4 max-[760px]:hidden">
           <div className="mb-7 grid h-11 w-11 place-items-center rounded-2xl bg-[#25d366] text-white shadow-[0_12px_30px_rgba(0,168,132,.25)]">
             <MessageCircle className="h-6 w-6" />
@@ -847,7 +844,7 @@ function WhatsAppWebPage() {
           )}
         </main>
 
-        <aside className="min-h-0 border-l border-[#d9e5df] bg-[#f9fcfa] px-4 py-4 max-[1460px]:hidden">
+        <aside className="min-h-0 border-l border-[#d9e5df] bg-[#f9fcfa] px-3 py-3 max-[1460px]:hidden">
           <ContextPanel
             conversation={selectedUnifiedConversation}
             selectedWhatsappConversation={selectedWhatsappConversation}
@@ -982,134 +979,112 @@ function ContextPanel({
   const invoiceUrl = latestInvoice?.public_token ? `/public/invoice/${latestInvoice.public_token}` : `/invoices?conversationId=${conversationId}`;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
-      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Avatar conversation={conversation} size="lg" />
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+      <section className="rounded-2xl border border-[#dce8e2] bg-white p-3 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <Avatar conversation={conversation} />
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-bold text-[#12231d]">{conversation.displayName}</h3>
-            <p className="truncate text-xs text-[#6c7f77]">{conversation.subtitle || conversation.channel}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="rounded-full bg-[#edf6f2] px-2.5 py-1 text-[11px] font-bold text-[#52645d]">
-                {conversation.channel}
-              </span>
-              <span className="rounded-full bg-[#d9fdd3] px-2.5 py-1 text-[11px] font-bold text-[#008069]">
-                {contactState}
-              </span>
-            </div>
+            <h3 className="truncate text-sm font-black text-[#12231d]">{conversation.displayName}</h3>
+            <p className="truncate text-[11px] text-[#6c7f77]">{conversation.subtitle || conversation.channel}</p>
           </div>
+          <a
+            href="/clients"
+            title="Ver perfil"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[#dce8e2] bg-[#f7fbf9] text-[#52645d] hover:bg-[#edf6f2]"
+          >
+            <Users className="h-4 w-4" />
+          </a>
         </div>
-        <a
-          href="/clients"
-          className="mt-3 block rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-2 text-center text-xs font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
-        >
-          Ver perfil
-        </a>
+        <div className="mt-2 flex gap-1.5 overflow-hidden">
+          <span className="truncate rounded-full bg-[#edf6f2] px-2 py-1 text-[10px] font-bold text-[#52645d]">{conversation.channel}</span>
+          <span className="truncate rounded-full bg-[#d9fdd3] px-2 py-1 text-[10px] font-bold text-[#008069]">{contactState}</span>
+        </div>
       </section>
 
-      <section className="rounded-3xl border border-[#bcebd0] bg-[#e9fff1] p-4 shadow-sm">
-        <p className="text-xs font-bold uppercase tracking-wide text-[#008069]">Siguiente acción</p>
-        <h4 className="mt-1 text-lg font-black text-[#12231d]">{nextAction.label}</h4>
-        <p className="mt-1 text-xs leading-5 text-[#52645d]">{nextAction.description}</p>
-        <a
-          href={nextAction.href}
-          className="mt-3 block rounded-2xl bg-[#00a884] px-4 py-3 text-center text-sm font-black text-white shadow-[0_10px_22px_rgba(0,168,132,.18)] transition hover:bg-[#008f72]"
-        >
-          {nextAction.cta}
-        </a>
+      <section className="rounded-2xl border border-[#bcebd0] bg-[#e9fff1] p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-wide text-[#008069]">Siguiente</p>
+            <h4 className="truncate text-base font-black text-[#12231d]">{nextAction.label}</h4>
+          </div>
+          <a
+            href={nextAction.href}
+            title={nextAction.cta}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#00a884] text-white shadow-[0_10px_20px_rgba(0,168,132,.16)] hover:bg-[#008f72]"
+          >
+            {nextAction.icon}
+          </a>
+        </div>
+        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#52645d]">{nextAction.description}</p>
       </section>
 
-      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+      <section className="rounded-2xl border border-[#dce8e2] bg-white p-3 shadow-sm">
+        <div className="mb-2 flex items-center justify-between">
           <p className="text-sm font-black text-[#12231d]">Envío rápido</p>
-          {relatedDocsLoading ? <span className="text-xs font-bold text-[#7b8d86]">Buscando…</span> : null}
+          {relatedDocsLoading ? <span className="text-[10px] font-bold text-[#7b8d86]">...</span> : null}
         </div>
-
         {latestInvoice ? (
           <SmartDocumentCard
-            icon={<Receipt className="h-5 w-5" />}
-            title="Enviar factura"
+            icon={<Receipt className="h-4 w-4" />}
+            title="Factura"
             name={latestInvoice.title || latestInvoice.number || "Factura"}
             meta={`${latestInvoice.status || "sin estado"} · ${formatMoney(latestInvoice.total ?? latestInvoice.amount, latestInvoice.currency)}`}
             href={invoiceUrl}
             onPrepare={() =>
-              onInsertMessage(
-                `Hola ${conversation.displayName}, te comparto la factura ${latestInvoice.number || ""}: ${invoiceUrl}`.trim(),
-              )
+              onInsertMessage(`Hola ${conversation.displayName}, te comparto la factura ${latestInvoice.number || ""}: ${invoiceUrl}`.trim())
             }
           />
         ) : latestProposal ? (
           <SmartDocumentCard
-            icon={<FileText className="h-5 w-5" />}
-            title="Enviar propuesta"
+            icon={<FileText className="h-4 w-4" />}
+            title="Propuesta"
             name={latestProposal.title || latestProposal.number || "Propuesta"}
             meta={`${latestProposal.status || "sin estado"} · ${formatMoney(latestProposal.amount, latestProposal.currency)}`}
             href={proposalUrl}
             onPrepare={() =>
-              onInsertMessage(
-                `Hola ${conversation.displayName}, te comparto la propuesta ${latestProposal.number || ""}: ${proposalUrl}`.trim(),
-              )
+              onInsertMessage(`Hola ${conversation.displayName}, te comparto la propuesta ${latestProposal.number || ""}: ${proposalUrl}`.trim())
             }
           />
         ) : (
-          <div className="rounded-2xl border border-dashed border-[#cfe2d9] bg-[#f7fbf9] p-4 text-center">
-            <p className="text-sm font-bold text-[#12231d]">No hay documentos listos</p>
-            <p className="mt-1 text-xs leading-5 text-[#6c7f77]">Crea una propuesta o factura para poder enviarla desde aquí.</p>
-            <div className="mt-3 flex justify-center gap-2">
-              <IconQuickAction href={`/proposals?conversationId=${conversationId}`} label="Crear propuesta" icon={<FileText className="h-4 w-4" />} />
-              <IconQuickAction href={`/invoices?conversationId=${conversationId}`} label="Crear factura" icon={<Receipt className="h-4 w-4" />} />
+          <div className="rounded-2xl border border-dashed border-[#cfe2d9] bg-[#f7fbf9] p-3">
+            <p className="text-xs font-bold text-[#12231d]">No hay docs listos</p>
+            <div className="mt-2 flex gap-2">
+              <IconOnlyAction href={`/proposals?conversationId=${conversationId}`} label="Crear propuesta" icon={<FileText className="h-4 w-4" />} />
+              <IconOnlyAction href={`/invoices?conversationId=${conversationId}`} label="Crear factura" icon={<Receipt className="h-4 w-4" />} />
             </div>
           </div>
         )}
       </section>
 
-      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-black text-[#12231d]">Acciones</p>
-        <div className="grid grid-cols-2 gap-2">
-          <IconQuickAction href={`/tasks?conversationId=${conversationId}`} label="Tarea" icon={<Clock3 className="h-4 w-4" />} />
-          <button
-            type="button"
-            onClick={() => toast.info("Notas rápidas: pendiente conectar modal interno.")}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
-          >
-            <StickyNote className="h-4 w-4" />
-            Nota
-          </button>
-        </div>
+      <section className="grid grid-cols-2 gap-2">
+        <IconPanelButton href={`/tasks?conversationId=${conversationId}`} label="Tarea" icon={<Clock3 className="h-4 w-4" />} />
+        <button
+          type="button"
+          title="Nota"
+          onClick={() => toast.info("Notas rápidas: pendiente conectar modal interno.")}
+          className="grid h-12 place-items-center rounded-2xl border border-[#dce8e2] bg-white text-[#52645d] shadow-sm hover:bg-[#f7fbf9]"
+        >
+          <StickyNote className="h-4 w-4" />
+        </button>
       </section>
 
-      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
-        <p className="text-sm font-black text-[#12231d]">Último movimiento</p>
-        <p className="mt-2 rounded-2xl bg-[#f1f7f4] p-3 text-xs leading-5 text-[#60736b]">{activity}</p>
-      </section>
-
-      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
-        <p className="text-sm font-black text-[#12231d]">Atención</p>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-2xl bg-[#f7fbf9] p-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-[#7b8d86]">Ventana</p>
-            <p className="mt-1 text-sm font-black text-[#12231d]">{isServiceWindowOpen ? "Abierta" : "Cerrada"}</p>
-          </div>
-          <div className="rounded-2xl bg-[#f7fbf9] p-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-[#7b8d86]">Restante</p>
-            <p className="mt-1 text-sm font-black text-[#12231d]">{formatDuration(remainingServiceWindowMs)}</p>
-          </div>
+      <section className="rounded-2xl border border-[#dce8e2] bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-black text-[#12231d]">Actividad</p>
+          <span className={`rounded-full px-2 py-1 text-[10px] font-black ${isServiceWindowOpen ? "bg-[#d9fdd3] text-[#008069]" : "bg-[#edf6f2] text-[#52645d]"}`}>
+            {isServiceWindowOpen ? "Abierta" : "Cerrada"}
+          </span>
         </div>
-        {canSeeUnassigned ? (
-          <p className="mt-3 text-xs text-[#7b8d86]">Puedes ver conversaciones sin asignar por tu rol.</p>
-        ) : null}
+        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#60736b]">{activity}</p>
+        <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-[#7b8d86]">
+          <span>Restante: {formatDuration(remainingServiceWindowMs)}</span>
+          {canSeeUnassigned ? <span>Admin</span> : null}
+        </div>
       </section>
 
       {errors.length ? (
-        <section className="rounded-3xl border border-red-100 bg-red-50 p-4 shadow-sm">
-          <p className="mb-2 text-sm font-black text-red-800">Avisos</p>
-          <div className="space-y-2">
-            {errors.map((error) => (
-              <p key={error} className="rounded-xl bg-white px-3 py-2 text-xs text-red-700">
-                {error}
-              </p>
-            ))}
-          </div>
+        <section className="rounded-2xl border border-red-100 bg-red-50 p-3 shadow-sm">
+          <p className="line-clamp-2 text-[11px] text-red-700">{errors[0]}</p>
         </section>
       ) : null}
     </div>
@@ -1132,42 +1107,55 @@ function SmartDocumentCard({
   onPrepare: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-[#bcebd0] bg-[#f0fff6] p-3">
-      <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#d9fdd3] text-[#008069]">{icon}</div>
+    <div className="rounded-2xl border border-[#bcebd0] bg-[#f0fff6] p-2.5">
+      <div className="flex items-center gap-2.5">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#d9fdd3] text-[#008069]">{icon}</div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-[#12231d]">{title}</p>
-          <p className="mt-0.5 truncate text-sm font-bold text-[#52645d]">{name}</p>
-          <p className="mt-0.5 truncate text-xs text-[#7b8d86]">{meta}</p>
+          <p className="truncate text-xs font-black text-[#12231d]">{title}: {name}</p>
+          <p className="truncate text-[11px] text-[#7b8d86]">{meta}</p>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-2 flex gap-2">
         <button
           type="button"
+          title="Preparar mensaje"
           onClick={onPrepare}
-          className="rounded-2xl bg-[#00a884] px-3 py-2.5 text-xs font-black text-white transition hover:bg-[#008f72]"
+          className="grid h-9 flex-1 place-items-center rounded-xl bg-[#00a884] text-white hover:bg-[#008f72]"
         >
-          Preparar mensaje
+          <Send className="h-4 w-4" />
         </button>
         <a
           href={href}
-          className="rounded-2xl border border-[#bcebd0] bg-white px-3 py-2.5 text-center text-xs font-black text-[#008069] transition hover:bg-[#f7fbf9]"
+          title="Abrir documento"
+          className="grid h-9 flex-1 place-items-center rounded-xl border border-[#bcebd0] bg-white text-[#008069] hover:bg-[#f7fbf9]"
         >
-          Abrir
+          <FileText className="h-4 w-4" />
         </a>
       </div>
     </div>
   );
 }
 
-function IconQuickAction({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
+function IconOnlyAction({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
   return (
     <a
       href={href}
-      className="flex items-center justify-center gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
+      title={label}
+      className="grid h-10 flex-1 place-items-center rounded-xl border border-[#dce8e2] bg-white text-[#52645d] hover:bg-[#edf6f2]"
     >
       {icon}
-      {label}
+    </a>
+  );
+}
+
+function IconPanelButton({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
+  return (
+    <a
+      href={href}
+      title={label}
+      className="grid h-12 place-items-center rounded-2xl border border-[#dce8e2] bg-white text-[#52645d] shadow-sm hover:bg-[#f7fbf9]"
+    >
+      {icon}
     </a>
   );
 }
@@ -1181,11 +1169,7 @@ function getContactState(conversation: UnifiedConversation, whatsapp: CrmWhatsap
   return "Sin registrar";
 }
 
-function getNextAction(
-  conversation: UnifiedConversation,
-  whatsapp: CrmWhatsappConversationListRow | null,
-  serviceWindowOpen: boolean,
-) {
+function getNextAction(conversation: UnifiedConversation, whatsapp: CrmWhatsappConversationListRow | null, serviceWindowOpen: boolean) {
   const conversationId = encodeURIComponent(conversation.id);
   const leadId = encodeURIComponent(whatsapp?.lead_id || whatsapp?.whatsapp_lead_id || "");
   const clientId = encodeURIComponent(whatsapp?.contact_id || "");
@@ -1193,9 +1177,10 @@ function getNextAction(
 
   if (conversation.channel === "instagram") {
     return {
-      label: "Revisar conversación",
-      description: "Instagram está en modo lectura. Usa el contexto para decidir el próximo paso.",
-      cta: "Ver detalles",
+      label: "Revisar",
+      description: "Instagram está en modo lectura.",
+      cta: "Ver",
+      icon: <Search className="h-4 w-4" />,
       href: `/whatsapp-web?conversationId=${conversationId}`,
     };
   }
@@ -1203,34 +1188,38 @@ function getNextAction(
   if (!whatsapp?.lead_id && !whatsapp?.whatsapp_lead_id && !whatsapp?.contact_id) {
     return {
       label: "Crear lead",
-      description: "Registra este contacto antes de cotizar, facturar o crear tareas.",
+      description: "Registra este contacto antes de cotizar.",
       cta: "Crear lead",
+      icon: <Users className="h-4 w-4" />,
       href: `/leads?conversationId=${conversationId}`,
     };
   }
 
   if (stage.includes("proposal") || stage.includes("propuesta") || stage.includes("cotiz")) {
     return {
-      label: "Enviar factura",
-      description: "La conversación ya está en etapa de propuesta. El siguiente paso natural es facturar o cobrar.",
+      label: "Facturar",
+      description: "Ya está en etapa de propuesta.",
       cta: "Crear factura",
+      icon: <Receipt className="h-4 w-4" />,
       href: `/invoices?conversationId=${conversationId}${clientId ? `&clientId=${clientId}` : ""}`,
     };
   }
 
   if (!serviceWindowOpen && conversation.channel === "whatsapp") {
     return {
-      label: "Usar plantilla",
-      description: "La ventana de WhatsApp está cerrada. Usa una plantilla aprobada para continuar.",
-      cta: "Preparar seguimiento",
+      label: "Plantilla",
+      description: "Ventana de WhatsApp cerrada.",
+      cta: "Preparar",
+      icon: <MessageCircle className="h-4 w-4" />,
       href: `/automations?conversationId=${conversationId}`,
     };
   }
 
   return {
-    label: "Crear propuesta",
-    description: "Convierte esta conversación en una propuesta sin salir del flujo comercial.",
+    label: "Propuesta",
+    description: "Convierte esta conversación en cotización.",
     cta: "Crear propuesta",
+    icon: <FileText className="h-4 w-4" />,
     href: `/proposals?conversationId=${conversationId}${leadId ? `&leadId=${leadId}` : ""}`,
   };
 }
@@ -1239,7 +1228,7 @@ function getLatestActivity(conversation: UnifiedConversation, whatsapp: CrmWhats
   if (whatsapp?.lead_summary) return whatsapp.lead_summary;
   if (conversation.lastMessageText) return `Último mensaje: ${conversation.lastMessageText}`;
   if (conversation.lastMessageAt) return `Última interacción: ${formatTime(conversation.lastMessageAt)}`;
-  return "Aún no hay actividad registrada para este contacto.";
+  return "Aún no hay actividad registrada.";
 }
 
 function DatePill({ label }: { label: string }) {
