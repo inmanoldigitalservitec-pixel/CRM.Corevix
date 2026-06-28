@@ -6,6 +6,7 @@ import {
   CheckCheck,
   Clock3,
   Facebook,
+  FileText,
   Filter,
   Inbox,
   Instagram,
@@ -15,10 +16,12 @@ import {
   Paperclip,
   Phone,
   Plus,
+  Receipt,
   Search,
   Send,
   Settings,
   Smile,
+  StickyNote,
   Users,
   Video,
 } from "lucide-react";
@@ -66,6 +69,29 @@ type UnifiedMessage = {
   type?: string | null;
 };
 
+type RelatedProposal = {
+  id: string;
+  number: string | null;
+  title: string | null;
+  amount: number | null;
+  currency: string | null;
+  status: string | null;
+  public_token: string | null;
+  valid_until: string | null;
+};
+
+type RelatedInvoice = {
+  id: string;
+  number: string | null;
+  title: string | null;
+  total: number | null;
+  amount: number | null;
+  currency: string | null;
+  status: string | null;
+  public_token: string | null;
+  due_date: string | null;
+};
+
 const CHANNELS: Array<{ value: InboxChannel; label: string }> = [
   { value: "all", label: "Todos" },
   { value: "whatsapp", label: "WhatsApp" },
@@ -82,6 +108,10 @@ function WhatsAppWebPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+
+  const [relatedProposals, setRelatedProposals] = useState<RelatedProposal[]>([]);
+  const [relatedInvoices, setRelatedInvoices] = useState<RelatedInvoice[]>([]);
+  const [relatedDocsLoading, setRelatedDocsLoading] = useState(false);
 
   const [whatsappConversations, setWhatsappConversations] = useState<CrmWhatsappConversationListRow[]>([]);
   const [whatsappMessages, setWhatsappMessages] = useState<CrmWhatsappMessageRow[]>([]);
@@ -283,6 +313,63 @@ function WhatsAppWebPage() {
     setWhatsappMessagesLoading(false);
   }
 
+  async function loadRelatedDocuments(conversation: UnifiedConversation | null, whatsapp: CrmWhatsappConversationListRow | null) {
+    if (!profile?.company_id || !conversation) {
+      setRelatedProposals([]);
+      setRelatedInvoices([]);
+      return;
+    }
+
+    const leadId = whatsapp?.lead_id || whatsapp?.whatsapp_lead_id || null;
+    const clientId = whatsapp?.contact_id || null;
+    const conversationId = conversation.id;
+    const db = supabase as any;
+
+    setRelatedDocsLoading(true);
+    try {
+      const proposalFilters: string[] = [`whatsapp_conversation_id.eq.${conversationId}`];
+      if (leadId) proposalFilters.push(`lead_id.eq.${leadId}`);
+      if (clientId) proposalFilters.push(`client_id.eq.${clientId}`);
+
+      const invoiceFilters: string[] = [`whatsapp_conversation_id.eq.${conversationId}`];
+      if (leadId) invoiceFilters.push(`lead_id.eq.${leadId}`);
+      if (clientId) invoiceFilters.push(`client_id.eq.${clientId}`);
+
+      const [proposalResult, invoiceResult] = await Promise.all([
+        db
+          .from("proposals")
+          .select("id, number, title, amount, currency, status, public_token, valid_until, created_at")
+          .eq("company_id", profile.company_id)
+          .or(proposalFilters.join(","))
+          .order("created_at", { ascending: false })
+          .limit(3),
+        db
+          .from("invoices")
+          .select("id, number, title, total, amount, currency, status, public_token, due_date, created_at")
+          .eq("company_id", profile.company_id)
+          .or(invoiceFilters.join(","))
+          .order("created_at", { ascending: false })
+          .limit(3),
+      ]);
+
+      if (proposalResult.error) {
+        console.warn("No se pudieron cargar propuestas relacionadas", proposalResult.error);
+        setRelatedProposals([]);
+      } else {
+        setRelatedProposals((proposalResult.data ?? []) as RelatedProposal[]);
+      }
+
+      if (invoiceResult.error) {
+        console.warn("No se pudieron cargar facturas relacionadas", invoiceResult.error);
+        setRelatedInvoices([]);
+      } else {
+        setRelatedInvoices((invoiceResult.data ?? []) as RelatedInvoice[]);
+      }
+    } finally {
+      setRelatedDocsLoading(false);
+    }
+  }
+
   async function loadMessengerConversations() {
     if (!profile?.company_id) {
       setMessengerConversations([]);
@@ -407,12 +494,18 @@ function WhatsAppWebPage() {
       setWhatsappMessages([]);
       setMessengerMessages([]);
       setInstagramMessages([]);
+      setRelatedProposals([]);
+      setRelatedInvoices([]);
       return;
     }
     if (selectedConversation.channel === "whatsapp") void loadWhatsappMessages(selectedConversation.id);
     if (selectedConversation.channel === "messenger") void loadMessengerMessages(selectedConversation.id);
     if (selectedConversation.channel === "instagram") void loadInstagramMessages(selectedConversation.id);
   }, [selectedConversation?.channel, selectedConversation?.id]);
+
+  useEffect(() => {
+    void loadRelatedDocuments(selectedUnifiedConversation, selectedWhatsappConversation);
+  }, [selectedUnifiedConversation?.key, selectedWhatsappConversation?.lead_id, selectedWhatsappConversation?.contact_id]);
 
   useRealtimeTable({
     table: "whatsapp_conversations",
@@ -537,6 +630,11 @@ function WhatsAppWebPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  function insertMessageDraft(text: string) {
+    setComposerValue(text);
+    toast.success("Mensaje preparado en el chat.");
   }
 
   return (
@@ -756,6 +854,10 @@ function WhatsAppWebPage() {
             canSeeUnassigned={canSeeUnassigned}
             isServiceWindowOpen={serviceWindow.isServiceWindowOpen}
             remainingServiceWindowMs={serviceWindow.remainingServiceWindowMs}
+            relatedProposals={relatedProposals}
+            relatedInvoices={relatedInvoices}
+            relatedDocsLoading={relatedDocsLoading}
+            onInsertMessage={insertMessageDraft}
             errors={[whatsappError, messengerError, instagramError].filter(Boolean) as string[]}
           />
         </aside>
@@ -842,6 +944,10 @@ function ContextPanel({
   canSeeUnassigned,
   isServiceWindowOpen,
   remainingServiceWindowMs,
+  relatedProposals,
+  relatedInvoices,
+  relatedDocsLoading,
+  onInsertMessage,
   errors,
 }: {
   conversation: UnifiedConversation | null;
@@ -849,6 +955,10 @@ function ContextPanel({
   canSeeUnassigned: boolean;
   isServiceWindowOpen: boolean;
   remainingServiceWindowMs: number | null;
+  relatedProposals: RelatedProposal[];
+  relatedInvoices: RelatedInvoice[];
+  relatedDocsLoading: boolean;
+  onInsertMessage: (message: string) => void;
   errors: string[];
 }) {
   if (!conversation) {
@@ -866,8 +976,10 @@ function ContextPanel({
   const nextAction = getNextAction(conversation, selectedWhatsappConversation, isServiceWindowOpen);
   const activity = getLatestActivity(conversation, selectedWhatsappConversation);
   const conversationId = encodeURIComponent(conversation.id);
-  const leadId = encodeURIComponent(selectedWhatsappConversation?.lead_id || selectedWhatsappConversation?.whatsapp_lead_id || "");
-  const clientId = encodeURIComponent(selectedWhatsappConversation?.contact_id || "");
+  const latestProposal = relatedProposals[0] ?? null;
+  const latestInvoice = relatedInvoices[0] ?? null;
+  const proposalUrl = latestProposal?.public_token ? `/public/proposal/${latestProposal.public_token}` : `/proposals?conversationId=${conversationId}`;
+  const invoiceUrl = latestInvoice?.public_token ? `/public/invoice/${latestInvoice.public_token}` : `/invoices?conversationId=${conversationId}`;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
@@ -888,7 +1000,7 @@ function ContextPanel({
           </div>
         </div>
         <a
-          href={clientId ? `/clients?id=${clientId}` : `/clients`}
+          href="/clients"
           className="mt-3 block rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-2 text-center text-xs font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
         >
           Ver perfil
@@ -908,16 +1020,59 @@ function ContextPanel({
       </section>
 
       <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-black text-[#12231d]">Accesos rápidos</p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-black text-[#12231d]">Envío rápido</p>
+          {relatedDocsLoading ? <span className="text-xs font-bold text-[#7b8d86]">Buscando…</span> : null}
+        </div>
+
+        {latestInvoice ? (
+          <SmartDocumentCard
+            icon={<Receipt className="h-5 w-5" />}
+            title="Enviar factura"
+            name={latestInvoice.title || latestInvoice.number || "Factura"}
+            meta={`${latestInvoice.status || "sin estado"} · ${formatMoney(latestInvoice.total ?? latestInvoice.amount, latestInvoice.currency)}`}
+            href={invoiceUrl}
+            onPrepare={() =>
+              onInsertMessage(
+                `Hola ${conversation.displayName}, te comparto la factura ${latestInvoice.number || ""}: ${invoiceUrl}`.trim(),
+              )
+            }
+          />
+        ) : latestProposal ? (
+          <SmartDocumentCard
+            icon={<FileText className="h-5 w-5" />}
+            title="Enviar propuesta"
+            name={latestProposal.title || latestProposal.number || "Propuesta"}
+            meta={`${latestProposal.status || "sin estado"} · ${formatMoney(latestProposal.amount, latestProposal.currency)}`}
+            href={proposalUrl}
+            onPrepare={() =>
+              onInsertMessage(
+                `Hola ${conversation.displayName}, te comparto la propuesta ${latestProposal.number || ""}: ${proposalUrl}`.trim(),
+              )
+            }
+          />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[#cfe2d9] bg-[#f7fbf9] p-4 text-center">
+            <p className="text-sm font-bold text-[#12231d]">No hay documentos listos</p>
+            <p className="mt-1 text-xs leading-5 text-[#6c7f77]">Crea una propuesta o factura para poder enviarla desde aquí.</p>
+            <div className="mt-3 flex justify-center gap-2">
+              <IconQuickAction href={`/proposals?conversationId=${conversationId}`} label="Crear propuesta" icon={<FileText className="h-4 w-4" />} />
+              <IconQuickAction href={`/invoices?conversationId=${conversationId}`} label="Crear factura" icon={<Receipt className="h-4 w-4" />} />
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
+        <p className="mb-3 text-sm font-black text-[#12231d]">Acciones</p>
         <div className="grid grid-cols-2 gap-2">
-          <QuickAction href={`/proposals?conversationId=${conversationId}${leadId ? `&leadId=${leadId}` : ""}`} label="Propuesta" />
-          <QuickAction href={`/invoices?conversationId=${conversationId}${clientId ? `&clientId=${clientId}` : ""}`} label="Factura" />
-          <QuickAction href={`/tasks?conversationId=${conversationId}`} label="Tarea" />
+          <IconQuickAction href={`/tasks?conversationId=${conversationId}`} label="Tarea" icon={<Clock3 className="h-4 w-4" />} />
           <button
             type="button"
             onClick={() => toast.info("Notas rápidas: pendiente conectar modal interno.")}
-            className="rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
           >
+            <StickyNote className="h-4 w-4" />
             Nota
           </button>
         </div>
@@ -961,12 +1116,57 @@ function ContextPanel({
   );
 }
 
-function QuickAction({ href, label }: { href: string; label: string }) {
+function SmartDocumentCard({
+  icon,
+  title,
+  name,
+  meta,
+  href,
+  onPrepare,
+}: {
+  icon: ReactNode;
+  title: string;
+  name: string;
+  meta: string;
+  href: string;
+  onPrepare: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#bcebd0] bg-[#f0fff6] p-3">
+      <div className="flex items-start gap-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#d9fdd3] text-[#008069]">{icon}</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-[#12231d]">{title}</p>
+          <p className="mt-0.5 truncate text-sm font-bold text-[#52645d]">{name}</p>
+          <p className="mt-0.5 truncate text-xs text-[#7b8d86]">{meta}</p>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onPrepare}
+          className="rounded-2xl bg-[#00a884] px-3 py-2.5 text-xs font-black text-white transition hover:bg-[#008f72]"
+        >
+          Preparar mensaje
+        </button>
+        <a
+          href={href}
+          className="rounded-2xl border border-[#bcebd0] bg-white px-3 py-2.5 text-center text-xs font-black text-[#008069] transition hover:bg-[#f7fbf9]"
+        >
+          Abrir
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function IconQuickAction({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
   return (
     <a
       href={href}
-      className="rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-center text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
+      className="flex items-center justify-center gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
     >
+      {icon}
       {label}
     </a>
   );
@@ -1096,4 +1296,11 @@ function formatDuration(value: number | null | undefined) {
   const rest = minutes % 60;
   if (hours <= 0) return `${rest} min`;
   return `${hours}h ${rest}m`;
+}
+
+function formatMoney(value: number | null | undefined, currency: string | null | undefined) {
+  const amount = Number(value || 0);
+  const safeCurrency = currency || "RD$";
+  if (!amount) return safeCurrency;
+  return `${safeCurrency} ${amount.toLocaleString()}`;
 }
