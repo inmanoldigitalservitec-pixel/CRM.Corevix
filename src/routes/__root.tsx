@@ -17,6 +17,7 @@ import { I18nProvider, useT } from "@/i18n";
 import { CrmAiFloatingChat } from "@/components/ai/CrmAiFloatingChat";
 import { InlineProjectTaskCreator } from "@/components/projects/InlineProjectTaskCreator";
 import { WhatsAppInlineTaskCreator } from "@/components/whatsapp/WhatsAppInlineTaskCreator";
+import { WhatsAppPanelPhase2Safe } from "@/components/whatsapp/WhatsAppPanelPhase2Safe";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -130,6 +131,7 @@ function AppShell() {
         </div>
         {currentPath === "/projects" ? <InlineProjectTaskCreator /> : null}
         {currentPath === "/whatsapp-web" ? <WhatsAppInlineTaskCreator /> : null}
+        {currentPath === "/whatsapp-web" ? <WhatsAppPanelPhase2Safe /> : null}
         <CrmAiFloatingChat />
       </SidebarProvider>
     </DemoTourProvider>
