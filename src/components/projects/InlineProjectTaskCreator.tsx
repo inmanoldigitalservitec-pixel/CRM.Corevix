@@ -64,6 +64,16 @@ function findTasksList(container: HTMLElement | null) {
   ) as HTMLElement | null;
 }
 
+function keepTasksTabActive() {
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('[role="tab"], button'),
+  );
+  const tasksButton = candidates.find((button) =>
+    (button.textContent || "").trim().toLowerCase() === "tareas",
+  );
+  tasksButton?.click();
+}
+
 export function InlineProjectTaskCreator() {
   const { profile, user } = useAuth();
   const [mounted, setMounted] = useState(false);
@@ -85,10 +95,13 @@ export function InlineProjectTaskCreator() {
     }
 
     syncTarget();
-    const observer = new MutationObserver(syncTarget);
+    const observer = new MutationObserver(() => {
+      syncTarget();
+      if (open) window.setTimeout(keepTasksTabActive, 0);
+    });
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     function handleCreateTaskClick(event: MouseEvent) {
@@ -110,6 +123,7 @@ export function InlineProjectTaskCreator() {
       setForm(emptyTaskForm());
       setTarget(findTasksList(container as HTMLElement) || (container as HTMLElement));
       setOpen(true);
+      window.setTimeout(keepTasksTabActive, 0);
     }
 
     document.addEventListener("click", handleCreateTaskClick, true);
@@ -184,6 +198,9 @@ export function InlineProjectTaskCreator() {
 
       setCreatedTasks((prev) => [visibleTask, ...prev]);
       setForm(emptyTaskForm());
+      window.setTimeout(keepTasksTabActive, 0);
+      window.setTimeout(keepTasksTabActive, 80);
+      window.setTimeout(keepTasksTabActive, 220);
 
       void logActivityEvent({
         companyId: profile.company_id,
