@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const AGENT_URL = (import.meta.env.VITE_AGENT_URL || "http://localhost:8787").replace(/\/$/, "");
 
-export export type AgentChatHistoryMessage = { role: "user" | "assistant"; content: string };
+export type AgentChatHistoryMessage = { role: "user" | "assistant"; content: string };
 
 type AgentChatResponse = {
   reply?: string;
