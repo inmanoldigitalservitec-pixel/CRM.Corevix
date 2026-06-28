@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const AGENT_URL = (import.meta.env.VITE_AGENT_URL || "http://localhost:8787").replace(/\/$/, "");
 
 export type AgentChatResponse = {
@@ -18,6 +20,7 @@ export function extractAgentReply(data: unknown) {
 
   const payload = data as AgentChatResponse;
   const reply = payload.reply || payload.response || payload.message || payload.content;
+
   if (typeof reply === "string" && reply.trim()) return reply;
 
   return JSON.stringify(data, null, 2);
@@ -28,10 +31,26 @@ export async function sendAgentMessage(message: string) {
     throw new Error("Falta configurar VITE_AGENT_URL para conectar con Corevix AI.");
   }
 
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw new Error(sessionError.message);
+  }
+
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("No hay sesión activa de Supabase. Inicia sesión otra vez en el CRM.");
+  }
+
   const response = await fetch(`${AGENT_URL}/agent/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ message }),
   });
