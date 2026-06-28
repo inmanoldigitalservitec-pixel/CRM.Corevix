@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Plus, Printer, Send, Sparkles, Trash2 } from "lucide-react";
+import { Eye, Plus, Printer, Send, Settings2, Sparkles, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type InvoiceItem = {
@@ -78,6 +78,7 @@ export function InvoiceBuilderTest() {
   const [products, setProducts] = useState<CRMProduct[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [loadingCRMData, setLoadingCRMData] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [clientName, setClientName] = useState("Cliente Demo SRL");
   const [clientEmail, setClientEmail] = useState("cliente@empresa.com");
@@ -114,10 +115,11 @@ export function InvoiceBuilderTest() {
     async function loadCRMData() {
       setLoadingCRMData(true);
 
-      const [{ data: clientsData, error: clientsError }, { data: productsData, error: productsError }] = await Promise.all([
-        (supabase as any).from("clients").select("*").order("created_at", { ascending: false }),
-        (supabase as any).from("products").select("*").order("created_at", { ascending: false }),
-      ]);
+      const [{ data: clientsData, error: clientsError }, { data: productsData, error: productsError }] =
+        await Promise.all([
+          (supabase as any).from("clients").select("*").order("created_at", { ascending: false }),
+          (supabase as any).from("products").select("*").order("created_at", { ascending: false }),
+        ]);
 
       if (clientsError) console.warn("No se pudieron cargar clientes", clientsError);
       if (productsError) console.warn("No se pudieron cargar productos", productsError);
@@ -172,13 +174,7 @@ export function InvoiceBuilderTest() {
   function addItem() {
     setItems((current) => [
       ...current,
-      {
-        id: uid(),
-        name: "",
-        description: "",
-        quantity: 1,
-        price: 0,
-      },
+      { id: uid(), name: "", description: "", quantity: 1, price: 0 },
     ]);
   }
 
@@ -204,9 +200,7 @@ export function InvoiceBuilderTest() {
       <div className="no-print sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white/95 px-5 backdrop-blur">
         <div>
           <h1 className="text-lg font-bold">Factura rápida</h1>
-          <p className="text-xs text-slate-500">
-            Selecciona cliente y servicios del CRM; la factura se llena sola.
-          </p>
+          <p className="text-xs text-slate-500">Cliente y servicios vienen del CRM. Editas solo lo necesario.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -216,7 +210,7 @@ export function InvoiceBuilderTest() {
           </button>
           <button type="button" onClick={printInvoice} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold hover:bg-slate-50">
             <Printer className="h-4 w-4" />
-            Imprimir / PDF
+            PDF
           </button>
           <button type="button" className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             <Send className="h-4 w-4" />
@@ -225,156 +219,126 @@ export function InvoiceBuilderTest() {
         </div>
       </div>
 
-      <div className="grid gap-5 p-5 xl:grid-cols-[minmax(760px,880px)_minmax(320px,1fr)] print:block print:p-0">
-        <aside className="no-print max-h-[calc(100vh-130px)] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="grid h-[calc(100vh-152px)] gap-5 p-5 xl:grid-cols-[minmax(820px,1fr)_minmax(300px,420px)] print:block print:h-auto print:p-0">
+        <aside className="no-print flex min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-4 border-b p-4">
             <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-600">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-50 text-blue-600">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
                 <h2 className="text-lg font-black">Nueva factura asistida</h2>
-                <p className="text-sm text-slate-500">
-                  {loadingCRMData ? "Cargando datos del CRM…" : "Usa datos existentes y corrige solo si hace falta."}
+                <p className="text-xs text-slate-500">
+                  {loadingCRMData ? "Cargando datos del CRM…" : "Una sola vista para crear y revisar."}
                 </p>
               </div>
             </div>
-            <div className="rounded-2xl bg-blue-50 px-4 py-3 text-right">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-500">Total</p>
-              <p className="text-lg font-black text-blue-700">{money(total)}</p>
+
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(true)}
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold hover:bg-slate-50"
+            >
+              <Settings2 className="h-4 w-4" />
+              Avanzado
+            </button>
+          </div>
+
+          <div className="grid gap-3 border-b bg-slate-50 p-4 md:grid-cols-[1.5fr_1fr_1fr_120px]">
+            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+              Cliente
+              <select
+                value={selectedClientId}
+                onChange={(e) => applyClient(e.target.value)}
+                className="h-11 rounded-2xl border bg-white px-3 text-sm font-semibold normal-case tracking-normal outline-none focus:border-blue-400"
+              >
+                <option value="">Seleccionar cliente…</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>{clientLabel(client)}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+              Email
+              <input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm normal-case tracking-normal outline-none focus:border-blue-400" />
+            </label>
+
+            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+              Teléfono
+              <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm normal-case tracking-normal outline-none focus:border-blue-400" />
+            </label>
+
+            <label className="grid gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+              Factura
+              <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className="h-11 rounded-2xl border bg-white px-3 text-sm font-bold normal-case tracking-normal outline-none focus:border-blue-400" />
+            </label>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-black text-slate-950">Servicios y productos</h3>
+                <p className="text-xs text-slate-500">Selecciona del catálogo, ajusta cantidad y listo.</p>
+              </div>
+              <button type="button" onClick={addItem} className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                <Plus className="h-3.5 w-3.5" />
+                Agregar línea
+              </button>
+            </div>
+
+            <div className="flex max-h-full flex-col overflow-hidden rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-[30px_1.35fr_1.15fr_66px_100px_108px_34px] gap-2 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+                <span>#</span><span>Producto / servicio</span><span>Detalle</span><span>Cant.</span><span>Precio</span><span>Total</span><span />
+              </div>
+
+              <div className="min-h-0 flex-1 divide-y divide-slate-100 overflow-auto">
+                {items.map((item, index) => (
+                  <div key={item.id} className="grid grid-cols-[30px_1.35fr_1.15fr_66px_100px_108px_34px] items-center gap-2 px-3 py-2">
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500">{index + 1}</span>
+
+                    <div className="grid gap-1">
+                      <select
+                        value={item.productId ?? ""}
+                        onChange={(e) => applyProduct(item.id, e.target.value)}
+                        className="h-10 min-w-0 rounded-xl border px-3 text-sm font-bold outline-none focus:border-blue-400"
+                      >
+                        <option value="">Seleccionar del catálogo…</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>{productLabel(product)}</option>
+                        ))}
+                      </select>
+                      <input value={item.name} onChange={(e) => updateItem(item.id, { name: e.target.value })} className="h-9 min-w-0 rounded-xl border px-3 text-xs font-semibold outline-none focus:border-blue-400" placeholder="Nombre manual" />
+                    </div>
+
+                    <input value={item.description} onChange={(e) => updateItem(item.id, { description: e.target.value })} className="h-10 min-w-0 rounded-xl border px-3 text-sm outline-none focus:border-blue-400" placeholder="Descripción" />
+                    <input value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) || 0 })} type="number" className="h-10 rounded-xl border px-3 text-sm outline-none focus:border-blue-400" />
+                    <input value={item.price} onChange={(e) => updateItem(item.id, { price: Number(e.target.value) || 0 })} type="number" className="h-10 rounded-xl border px-3 text-sm outline-none focus:border-blue-400" />
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-black text-slate-950">{money(item.quantity * item.price)}</div>
+
+                    {items.length > 1 ? (
+                      <button type="button" onClick={() => removeItem(item.id)} className="grid h-9 w-9 place-items-center rounded-xl text-red-500 hover:bg-red-50" title="Eliminar">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : <span />}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="grid gap-4">
-            <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-black text-slate-950">1. Cliente</h3>
-                  <p className="text-xs text-slate-500">Busca un cliente y se llenan sus datos.</p>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500 shadow-sm">
-                  {invoiceNumber}
-                </span>
-              </div>
+          <div className="grid gap-3 border-t bg-white p-4 md:grid-cols-[1fr_auto]">
+            <div className="grid grid-cols-4 gap-3 rounded-2xl bg-slate-50 p-3 text-sm">
+              <div><p className="text-xs font-bold text-slate-400">Subtotal</p><p className="font-black">{money(subtotal)}</p></div>
+              <div><p className="text-xs font-bold text-slate-400">Descuento</p><p className="font-black">- {money(discount)}</p></div>
+              <div><p className="text-xs font-bold text-slate-400">ITBIS</p><p className="font-black">{money(tax)}</p></div>
+              <div><p className="text-xs font-bold text-slate-400">Total</p><p className="font-black text-blue-700">{money(total)}</p></div>
+            </div>
 
-              <div className="grid gap-3 md:grid-cols-4">
-                <label className="grid gap-1 text-xs font-bold text-slate-500 md:col-span-4">
-                  Buscar cliente
-                  <select
-                    value={selectedClientId}
-                    onChange={(e) => applyClient(e.target.value)}
-                    className="rounded-2xl border bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-blue-400"
-                  >
-                    <option value="">Seleccionar cliente del CRM…</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {clientLabel(client)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="grid gap-1 text-xs font-bold text-slate-500 md:col-span-2">
-                  Nombre
-                  <input value={clientName} onChange={(e) => setClientName(e.target.value)} className="rounded-2xl border bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-blue-400" />
-                </label>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">
-                  Email
-                  <input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="rounded-2xl border bg-white px-4 py-3 text-sm outline-none focus:border-blue-400" />
-                </label>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">
-                  Teléfono
-                  <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="rounded-2xl border bg-white px-4 py-3 text-sm outline-none focus:border-blue-400" />
-                </label>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-black text-slate-950">2. Servicios</h3>
-                  <p className="text-xs text-slate-500">Selecciona productos o servicios; precio y descripción se autocompletan.</p>
-                </div>
-                <button type="button" onClick={addItem} className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700">
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar servicio
-                </button>
-              </div>
-
-              <div className="overflow-hidden rounded-2xl border border-slate-200">
-                <div className="grid grid-cols-[30px_1.35fr_1.15fr_68px_105px_112px_34px] gap-2 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
-                  <span>#</span><span>Producto / servicio</span><span>Detalle</span><span>Cant.</span><span>Precio</span><span>Total</span><span />
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {items.map((item, index) => (
-                    <div key={item.id} className="grid grid-cols-[30px_1.35fr_1.15fr_68px_105px_112px_34px] items-center gap-2 px-3 py-3">
-                      <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500">{index + 1}</span>
-                      <div className="grid gap-2">
-                        <select
-                          value={item.productId ?? ""}
-                          onChange={(e) => applyProduct(item.id, e.target.value)}
-                          className="min-w-0 rounded-xl border px-3 py-2 text-sm font-bold outline-none focus:border-blue-400"
-                        >
-                          <option value="">Seleccionar del catálogo…</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {productLabel(product)}
-                            </option>
-                          ))}
-                        </select>
-                        <input value={item.name} onChange={(e) => updateItem(item.id, { name: e.target.value })} className="min-w-0 rounded-xl border px-3 py-2 text-sm font-bold outline-none focus:border-blue-400" placeholder="Nombre manual" />
-                      </div>
-                      <input value={item.description} onChange={(e) => updateItem(item.id, { description: e.target.value })} className="min-w-0 rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-400" placeholder="Descripción" />
-                      <input value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) || 0 })} type="number" className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-400" />
-                      <input value={item.price} onChange={(e) => updateItem(item.id, { price: Number(e.target.value) || 0 })} type="number" className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-400" />
-                      <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-black text-slate-950">{money(item.quantity * item.price)}</div>
-                      {items.length > 1 ? (
-                        <button type="button" onClick={() => removeItem(item.id)} className="grid h-9 w-9 place-items-center rounded-xl text-red-500 hover:bg-red-50" title="Eliminar">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      ) : <span />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="grid gap-4 lg:grid-cols-[1fr_260px]">
-              <details className="rounded-3xl border border-slate-200 bg-white p-4">
-                <summary className="cursor-pointer select-none font-black text-slate-950">Opciones avanzadas</summary>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Empresa<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Color<input value={brandColor} onChange={(e) => setBrandColor(e.target.value)} type="color" className="h-[38px] rounded-xl border bg-white px-2 py-1" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600 md:col-span-2">Descripción empresa<input value={companySlogan} onChange={(e) => setCompanySlogan(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Email empresa<input value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Teléfono empresa<input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Número<input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Estado<select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal"><option>Borrador</option><option>Enviada</option><option>Pagada</option><option>Vencida</option></select></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Fecha<input value={issueDate} onChange={(e) => setIssueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Vence<input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">Descuento<input value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <label className="grid gap-1 text-xs font-semibold text-slate-600">ITBIS %<input value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
-                  <textarea value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} rows={2} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Dirección del cliente" />
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Notas" />
-                  <textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={3} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Términos" />
-                </div>
-              </details>
-
-              <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4">
-                <h3 className="font-black text-slate-950">3. Revisar</h3>
-                <p className="text-xs text-slate-500">Confirma el total antes de enviar.</p>
-                <div className="mt-4 rounded-2xl bg-white p-4">
-                  <div className="flex justify-between py-1 text-sm"><span className="text-slate-500">Subtotal</span><strong>{money(subtotal)}</strong></div>
-                  <div className="flex justify-between py-1 text-sm"><span className="text-slate-500">Descuento</span><strong>- {money(discount)}</strong></div>
-                  <div className="flex justify-between py-1 text-sm"><span className="text-slate-500">ITBIS ({taxRate}%)</span><strong>{money(tax)}</strong></div>
-                  <div className="mt-2 flex justify-between border-t pt-3 text-lg"><span className="font-black">Total</span><strong style={{ color: brandColor }}>{money(total)}</strong></div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={printInvoice} className="inline-flex items-center justify-center gap-2 rounded-2xl border bg-white px-4 py-3 text-sm font-bold hover:bg-slate-50"><Printer className="h-4 w-4" />PDF</button>
-                  <button type="button" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"><Send className="h-4 w-4" />Enviar</button>
-                </div>
-              </div>
-            </section>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={printInvoice} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-5 text-sm font-bold hover:bg-slate-50"><Printer className="h-4 w-4" />PDF</button>
+              <button type="button" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700"><Send className="h-4 w-4" />Enviar</button>
+            </div>
           </div>
         </aside>
 
@@ -407,6 +371,33 @@ export function InvoiceBuilderTest() {
           </div>
         </main>
       </div>
+
+      {showAdvanced ? (
+        <div className="no-print fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-sm">
+          <div className="h-full w-full max-w-[520px] overflow-auto bg-white p-5 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div><h2 className="text-lg font-black">Opciones avanzadas</h2><p className="text-sm text-slate-500">Ajustes que no necesitas tocar siempre.</p></div>
+              <button type="button" onClick={() => setShowAdvanced(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Empresa<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Color<input value={brandColor} onChange={(e) => setBrandColor(e.target.value)} type="color" className="h-[38px] rounded-xl border bg-white px-2 py-1" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600 md:col-span-2">Descripción empresa<input value={companySlogan} onChange={(e) => setCompanySlogan(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Email empresa<input value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Teléfono empresa<input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Estado<select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border px-3 py-2 text-sm font-normal"><option>Borrador</option><option>Enviada</option><option>Pagada</option><option>Vencida</option></select></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Fecha<input value={issueDate} onChange={(e) => setIssueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Vence<input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">Descuento<input value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">ITBIS %<input value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value) || 0)} type="number" className="rounded-xl border px-3 py-2 text-sm font-normal" /></label>
+              <textarea value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} rows={2} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Dirección del cliente" />
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Notas" />
+              <textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={4} className="rounded-xl border px-3 py-2 text-sm md:col-span-2" placeholder="Términos" />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
