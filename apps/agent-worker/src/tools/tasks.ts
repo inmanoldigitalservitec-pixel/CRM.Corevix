@@ -30,6 +30,42 @@ export async function createTaskTool(ctx: ToolContext, args: any): Promise<ToolR
 
   if (error) return { ok: false, error: error.message };
 
+  if (data?.due_date) {
+    const calendarType = args.calendar_type || "task";
+    const notificationTitle =
+      calendarType === "demo"
+        ? "Demo CRM creada"
+        : calendarType === "reminder"
+          ? "Recordatorio creado"
+          : "Tarea creada";
+
+    await ctx.supabase.from("notifications").insert({
+      company_id: ctx.companyId,
+      user_id: ctx.userId,
+      title: notificationTitle,
+      message: `${data.title} quedó programado para ${data.due_date}.`,
+      type: calendarType,
+      link: "/calendar",
+      read: false,
+    });
+
+    await ctx.supabase.from("calendar_events").insert({
+      company_id: ctx.companyId,
+      user_id: ctx.userId,
+      title: data.title,
+      description: data.description ?? null,
+      type: calendarType,
+      status: "scheduled",
+      start_at: data.due_date,
+      all_day: true,
+      related_task_id: data.id,
+      metadata: {
+        created_from: "corevix_agent",
+        task_id: data.id,
+      },
+    });
+  }
+
   return {
     ok: true,
     message: `Listo, creé la tarea "${data.title}".`,
@@ -44,6 +80,7 @@ export async function createReminderTool(ctx: ToolContext, args: any): Promise<T
     description: args.description || args.notes || "Recordatorio creado desde Corevix AI.",
     priority: args.priority || "medium",
     status: args.status || "pending",
+    calendar_type: "reminder",
   });
 }
 
@@ -60,6 +97,7 @@ export async function createCrmDemoTool(ctx: ToolContext, args: any): Promise<To
     due_date: dueDate,
     priority: args.priority || "high",
     status: "pending",
+    calendar_type: "demo",
   });
 }
 
