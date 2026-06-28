@@ -236,13 +236,6 @@ export function AgentChat({
     try {
       persistedThreadId = await ensureThread(currentThreadId, userText);
 
-      if (persistedThreadId !== currentThreadId) {
-        setMessagesByThread((prev) => ({
-          ...prev,
-          [persistedThreadId]: [...(prev[persistedThreadId] || []), { role: "user", content: userText }],
-        }));
-      }
-
       await appendAiChatMessage(persistedThreadId, "user", userText);
 
       const data = await sendAgentMessage(userText);
