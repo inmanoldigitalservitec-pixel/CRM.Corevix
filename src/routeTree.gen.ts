@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatsappRouteImport } from './routes/whatsapp'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as SpreadsheetBuilderTestRouteImport } from './routes/spreadsheet-builder-test'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProposalsRouteImport } from './routes/proposals'
@@ -21,8 +22,10 @@ import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
+import { Route as InvoiceBuilderTestRouteImport } from './routes/invoice-builder-test'
 import { Route as GoogleDriveCallbackRouteImport } from './routes/google-drive-callback'
 import { Route as EmailRouteImport } from './routes/email'
+import { Route as DocumentBuilderTestRouteImport } from './routes/document-builder-test'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
@@ -45,6 +48,11 @@ const TeamRoute = TeamRouteImport.update({
 const TasksRoute = TasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpreadsheetBuilderTestRoute = SpreadsheetBuilderTestRouteImport.update({
+  id: '/spreadsheet-builder-test',
+  path: '/spreadsheet-builder-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -92,6 +100,11 @@ const InvoicesRoute = InvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvoiceBuilderTestRoute = InvoiceBuilderTestRouteImport.update({
+  id: '/invoice-builder-test',
+  path: '/invoice-builder-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GoogleDriveCallbackRoute = GoogleDriveCallbackRouteImport.update({
   id: '/google-drive-callback',
   path: '/google-drive-callback',
@@ -100,6 +113,11 @@ const GoogleDriveCallbackRoute = GoogleDriveCallbackRouteImport.update({
 const EmailRoute = EmailRouteImport.update({
   id: '/email',
   path: '/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentBuilderTestRoute = DocumentBuilderTestRouteImport.update({
+  id: '/document-builder-test',
+  path: '/document-builder-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -152,8 +170,10 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
+  '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
+  '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
@@ -163,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/proposals': typeof ProposalsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/spreadsheet-builder-test': typeof SpreadsheetBuilderTestRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/whatsapp': typeof WhatsappRoute
@@ -176,8 +197,10 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
+  '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
+  '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
@@ -187,6 +210,7 @@ export interface FileRoutesByTo {
   '/proposals': typeof ProposalsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/spreadsheet-builder-test': typeof SpreadsheetBuilderTestRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/whatsapp': typeof WhatsappRoute
@@ -201,8 +225,10 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
+  '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
+  '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
@@ -212,6 +238,7 @@ export interface FileRoutesById {
   '/proposals': typeof ProposalsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/spreadsheet-builder-test': typeof SpreadsheetBuilderTestRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/whatsapp': typeof WhatsappRoute
@@ -227,8 +254,10 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/clients'
     | '/dashboard'
+    | '/document-builder-test'
     | '/email'
     | '/google-drive-callback'
+    | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
     | '/login'
@@ -238,6 +267,7 @@ export interface FileRouteTypes {
     | '/proposals'
     | '/reports'
     | '/settings'
+    | '/spreadsheet-builder-test'
     | '/tasks'
     | '/team'
     | '/whatsapp'
@@ -251,8 +281,10 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/clients'
     | '/dashboard'
+    | '/document-builder-test'
     | '/email'
     | '/google-drive-callback'
+    | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
     | '/login'
@@ -262,6 +294,7 @@ export interface FileRouteTypes {
     | '/proposals'
     | '/reports'
     | '/settings'
+    | '/spreadsheet-builder-test'
     | '/tasks'
     | '/team'
     | '/whatsapp'
@@ -275,8 +308,10 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/clients'
     | '/dashboard'
+    | '/document-builder-test'
     | '/email'
     | '/google-drive-callback'
+    | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
     | '/login'
@@ -286,6 +321,7 @@ export interface FileRouteTypes {
     | '/proposals'
     | '/reports'
     | '/settings'
+    | '/spreadsheet-builder-test'
     | '/tasks'
     | '/team'
     | '/whatsapp'
@@ -300,8 +336,10 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   ClientsRoute: typeof ClientsRoute
   DashboardRoute: typeof DashboardRoute
+  DocumentBuilderTestRoute: typeof DocumentBuilderTestRoute
   EmailRoute: typeof EmailRoute
   GoogleDriveCallbackRoute: typeof GoogleDriveCallbackRoute
+  InvoiceBuilderTestRoute: typeof InvoiceBuilderTestRoute
   InvoicesRoute: typeof InvoicesRoute
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
@@ -311,6 +349,7 @@ export interface RootRouteChildren {
   ProposalsRoute: typeof ProposalsRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
+  SpreadsheetBuilderTestRoute: typeof SpreadsheetBuilderTestRoute
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
   WhatsappRoute: typeof WhatsappRoute
@@ -339,6 +378,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/spreadsheet-builder-test': {
+      id: '/spreadsheet-builder-test'
+      path: '/spreadsheet-builder-test'
+      fullPath: '/spreadsheet-builder-test'
+      preLoaderRoute: typeof SpreadsheetBuilderTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -404,6 +450,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invoice-builder-test': {
+      id: '/invoice-builder-test'
+      path: '/invoice-builder-test'
+      fullPath: '/invoice-builder-test'
+      preLoaderRoute: typeof InvoiceBuilderTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/google-drive-callback': {
       id: '/google-drive-callback'
       path: '/google-drive-callback'
@@ -416,6 +469,13 @@ declare module '@tanstack/react-router' {
       path: '/email'
       fullPath: '/email'
       preLoaderRoute: typeof EmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/document-builder-test': {
+      id: '/document-builder-test'
+      path: '/document-builder-test'
+      fullPath: '/document-builder-test'
+      preLoaderRoute: typeof DocumentBuilderTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -484,8 +544,10 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   ClientsRoute: ClientsRoute,
   DashboardRoute: DashboardRoute,
+  DocumentBuilderTestRoute: DocumentBuilderTestRoute,
   EmailRoute: EmailRoute,
   GoogleDriveCallbackRoute: GoogleDriveCallbackRoute,
+  InvoiceBuilderTestRoute: InvoiceBuilderTestRoute,
   InvoicesRoute: InvoicesRoute,
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
@@ -495,6 +557,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProposalsRoute: ProposalsRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
+  SpreadsheetBuilderTestRoute: SpreadsheetBuilderTestRoute,
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
   WhatsappRoute: WhatsappRoute,
