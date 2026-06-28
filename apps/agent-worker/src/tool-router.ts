@@ -1,4 +1,5 @@
 import type { ToolCall, ToolContext, ToolResult } from "./types";
+import { auditAgentToolAction } from "./tool-audit";
 import { createLeadTool, searchLeadsTool, updateLeadStatusTool } from "./tools/leads";
 import { createTaskTool, createReminderTool, createCrmDemoTool, listTasksTool } from "./tools/tasks";
 import { crmSummaryTool } from "./tools/summary";
@@ -26,6 +27,15 @@ const ALLOWED_TOOLS = new Set([
   "list_unpaid_invoices",
 ]);
 
+async function runTool(
+  call: ToolCall,
+  ctx: ToolContext,
+  fn: () => Promise<ToolResult>,
+): Promise<ToolResult> {
+  const result = await fn();
+  return auditAgentToolAction(ctx, call, result);
+}
+
 export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
   if (!ALLOWED_TOOLS.has(call.tool)) {
     return {
@@ -36,49 +46,49 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
 
   switch (call.tool) {
     case "create_lead":
-      return createLeadTool(ctx, call.args);
+      return runTool(call, ctx, () => createLeadTool(ctx, call.args));
 
     case "search_leads":
-      return searchLeadsTool(ctx, call.args);
+      return runTool(call, ctx, () => searchLeadsTool(ctx, call.args));
 
     case "update_lead_status":
-      return updateLeadStatusTool(ctx, call.args);
+      return runTool(call, ctx, () => updateLeadStatusTool(ctx, call.args));
 
     case "create_task":
-      return createTaskTool(ctx, call.args);
+      return runTool(call, ctx, () => createTaskTool(ctx, call.args));
 
     case "create_reminder":
-      return createReminderTool(ctx, call.args);
+      return runTool(call, ctx, () => createReminderTool(ctx, call.args));
 
     case "create_crm_demo":
-      return createCrmDemoTool(ctx, call.args);
+      return runTool(call, ctx, () => createCrmDemoTool(ctx, call.args));
 
     case "list_tasks":
-      return listTasksTool(ctx, call.args);
+      return runTool(call, ctx, () => listTasksTool(ctx, call.args));
 
     case "crm_summary":
-      return crmSummaryTool(ctx);
+      return runTool(call, ctx, () => crmSummaryTool(ctx));
 
     case "create_deal":
-      return createDealTool(ctx, call.args);
+      return runTool(call, ctx, () => createDealTool(ctx, call.args));
 
     case "list_deals":
-      return listDealsTool(ctx, call.args);
+      return runTool(call, ctx, () => listDealsTool(ctx, call.args));
 
     case "create_project":
-      return createProjectTool(ctx, call.args);
+      return runTool(call, ctx, () => createProjectTool(ctx, call.args));
 
     case "list_projects":
-      return listProjectsTool(ctx, call.args);
+      return runTool(call, ctx, () => listProjectsTool(ctx, call.args));
 
     case "create_proposal":
-      return createProposalTool(ctx, call.args);
+      return runTool(call, ctx, () => createProposalTool(ctx, call.args));
 
     case "search_products":
-      return searchProductsTool(ctx, call.args);
+      return runTool(call, ctx, () => searchProductsTool(ctx, call.args));
 
     case "list_unpaid_invoices":
-      return listUnpaidInvoicesTool(ctx);
+      return runTool(call, ctx, () => listUnpaidInvoicesTool(ctx));
 
     default:
       return {
