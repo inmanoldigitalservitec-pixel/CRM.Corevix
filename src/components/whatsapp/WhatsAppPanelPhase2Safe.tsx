@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { WhatsAppQuickReplies } from "@/components/whatsapp/WhatsAppQuickReplies";
 
 const LABELS: Record<string, string> = {
   "Crear lead": "Crear lead",
@@ -41,7 +42,7 @@ function injectStyles() {
     [data-corevix-wa-doc-card="true"] { border-color: #bcebd0 !important; background: linear-gradient(180deg,#f0fff6,#ffffff) !important; }
     [data-corevix-wa-doc-helper="true"] { margin-top: 8px; border-radius: 14px; background: #e9fff1; padding: 8px 10px; color: #52645d; font-size: 11px; font-weight: 700; line-height: 1.35; }
     [data-corevix-wa-empty-doc-helper="true"] { margin-top: 6px; color: #6c7f77; font-size: 11px; line-height: 1.35; }
-    [data-whatsapp-task-slot] { display: block; margin-bottom: 8px; }
+    [data-whatsapp-task-slot], [data-whatsapp-quick-replies-slot] { display: block; margin-bottom: 8px; }
     @media (min-width: 1461px) { [data-corevix-wa-grid="true"] { grid-template-columns: 72px minmax(340px,390px) minmax(0,1fr) minmax(320px,340px) !important; } }
     @media (min-width: 1180px) and (max-width: 1460px) { [data-corevix-wa-grid="true"] { grid-template-columns: 66px minmax(330px,360px) minmax(0,1fr) 300px !important; } [data-corevix-wa-panel="true"] { display: block !important; } }
     @media (max-width: 1179px) { [data-corevix-wa-panel="true"] { display: none !important; } }
@@ -172,5 +173,5 @@ export function WhatsAppPanelPhase2Safe() {
       document.removeEventListener("click", run, true);
     };
   }, []);
-  return null;
+  return <WhatsAppQuickReplies />;
 }
