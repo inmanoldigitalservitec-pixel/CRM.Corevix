@@ -1,6 +1,7 @@
 import {
   Outlet,
   Link,
+  Navigate,
   createRootRoute,
   HeadContent,
   Scripts,
@@ -95,6 +96,7 @@ function AppShell() {
   const isLoginPage = currentPath === "/login";
   const isPublicProposalRoute = currentPath.startsWith("/proposal/public/");
   const isPublicInvoiceRoute = currentPath.startsWith("/invoice/public/");
+  const isPublicRoute = isLoginPage || isPublicProposalRoute || isPublicInvoiceRoute;
 
   if (loading) {
     return (
@@ -104,17 +106,14 @@ function AppShell() {
     );
   }
 
-  // Public proposal route renders without auth + CRM layout
-  if (isPublicProposalRoute || isPublicInvoiceRoute) {
+  // Public routes render without auth + CRM layout.
+  if (isPublicRoute) {
     return <Outlet />;
   }
 
-  // Login page renders without sidebar/topbar
-  if (isLoginPage || !user) {
-    if (!user && !isLoginPage) {
-      // Redirect to login — rendered via Navigate in index.tsx
-    }
-    return <Outlet />;
+  // Protect every private route, including direct deep links like /dashboard or /leads.
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
   return (
