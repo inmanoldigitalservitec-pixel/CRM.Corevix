@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ClipboardList, FileText, Inbox, Receipt, Reply, SearchCheck } from "lucide-react";
+import { CheckCircle2, ChevronDown, ClipboardList, FileText, Inbox, Receipt, Reply, SearchCheck } from "lucide-react";
 
 type FilterKey = "all" | "unread" | "pending" | "proposal" | "invoice" | "task" | "closed";
 
@@ -14,9 +14,9 @@ const FILTERS: FilterOption[] = [
   { key: "all", label: "Todos", icon: <Inbox className="h-3.5 w-3.5" /> },
   { key: "unread", label: "No leídos", icon: <SearchCheck className="h-3.5 w-3.5" /> },
   { key: "pending", label: "Sin responder", icon: <Reply className="h-3.5 w-3.5" /> },
-  { key: "proposal", label: "Propuesta", icon: <FileText className="h-3.5 w-3.5" /> },
-  { key: "invoice", label: "Factura", icon: <Receipt className="h-3.5 w-3.5" /> },
-  { key: "task", label: "Tarea", icon: <ClipboardList className="h-3.5 w-3.5" /> },
+  { key: "proposal", label: "Con propuesta", icon: <FileText className="h-3.5 w-3.5" /> },
+  { key: "invoice", label: "Con factura", icon: <Receipt className="h-3.5 w-3.5" /> },
+  { key: "task", label: "Con tarea", icon: <ClipboardList className="h-3.5 w-3.5" /> },
   { key: "closed", label: "Cerrados", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
 ];
 
@@ -75,6 +75,7 @@ function countForFilter(active: FilterKey) {
 export function WhatsAppOperationalFilters() {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [active, setActive] = useState<FilterKey>("all");
+  const [open, setOpen] = useState(false);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -109,48 +110,74 @@ export function WhatsAppOperationalFilters() {
     }, {} as Record<FilterKey, number>);
   }, [version]);
 
+  const activeOption = FILTERS.find((option) => option.key === active) || FILTERS[0];
+
   if (!slot) return null;
 
   return createPortal(
     <div className="mt-2 rounded-2xl border border-[#e0ebe6] bg-[#f7fbf9] p-2 shadow-inner">
       <div className="mb-1 flex items-center justify-between px-1">
-        <p className="text-[10px] font-black uppercase tracking-wide text-[#6c7f77]">Filtros CRM</p>
+        <p className="text-[10px] font-black uppercase tracking-wide text-[#6c7f77]">Filtro CRM</p>
+        {active !== "all" ? (
+          <button
+            type="button"
+            onClick={() => {
+              setActive("all");
+              setOpen(false);
+              window.requestAnimationFrame(() => applyFilter("all"));
+            }}
+            className="text-[10px] font-bold text-[#008069] hover:underline"
+          >
+            limpiar
+          </button>
+        ) : null}
+      </div>
+
+      <div className="relative">
         <button
           type="button"
-          onClick={() => {
-            setActive("all");
-            window.requestAnimationFrame(() => applyFilter("all"));
-          }}
-          className="text-[10px] font-bold text-[#008069] hover:underline"
+          onClick={() => setOpen((value) => !value)}
+          className="flex h-9 w-full items-center justify-between gap-2 rounded-2xl border border-[#dce8e2] bg-white px-3 text-left text-xs font-black text-[#52645d] shadow-sm hover:border-[#bcebd0] hover:bg-[#e9fff1] hover:text-[#008069]"
         >
-          limpiar
+          <span className="flex min-w-0 items-center gap-2">
+            {activeOption.icon}
+            <span className="truncate">{activeOption.label}</span>
+            <span className="rounded-full bg-[#edf6f2] px-1.5 py-0.5 text-[10px] text-[#52645d]">
+              {counts[activeOption.key] ?? 0}
+            </span>
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition ${open ? "rotate-180" : ""}`} />
         </button>
-      </div>
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {FILTERS.map((option) => {
-          const selected = active === option.key;
-          return (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => {
-                setActive(option.key);
-                window.requestAnimationFrame(() => applyFilter(option.key));
-              }}
-              className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-black transition ${
-                selected
-                  ? "border-[#a8e8c3] bg-[#d9fdd3] text-[#007a5d]"
-                  : "border-[#dce8e2] bg-white text-[#52645d] hover:border-[#bddfd0] hover:bg-[#f4faf7]"
-              }`}
-            >
-              {option.icon}
-              <span>{option.label}</span>
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${selected ? "bg-white/70" : "bg-[#edf6f2]"}`}>
-                {counts[option.key] ?? 0}
-              </span>
-            </button>
-          );
-        })}
+
+        {open ? (
+          <div className="absolute left-0 right-0 top-10 z-50 max-h-72 overflow-y-auto rounded-2xl border border-[#dce8e2] bg-white p-1.5 shadow-[0_16px_34px_rgba(18,35,29,.15)]">
+            {FILTERS.map((option) => {
+              const selected = active === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => {
+                    setActive(option.key);
+                    setOpen(false);
+                    window.requestAnimationFrame(() => applyFilter(option.key));
+                  }}
+                  className={`flex h-9 w-full items-center justify-between gap-2 rounded-xl px-2.5 text-left text-xs font-black transition ${
+                    selected ? "bg-[#d9fdd3] text-[#007a5d]" : "text-[#52645d] hover:bg-[#f1f8f5] hover:text-[#008069]"
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    {option.icon}
+                    <span className="truncate">{option.label}</span>
+                  </span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${selected ? "bg-white/70" : "bg-[#edf6f2]"}`}>
+                    {counts[option.key] ?? 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </div>,
     slot,
