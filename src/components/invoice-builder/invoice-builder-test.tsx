@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Download, Eye, Mail, Plus, Printer, Send, Sparkles, Trash2 } from "lucide-react";
+import { Eye, Plus, Printer, Send, Sparkles, Trash2 } from "lucide-react";
 
 type InvoiceItem = {
   id: string;
@@ -73,11 +73,9 @@ export function InvoiceBuilderTest() {
     [items],
   );
 
-  const tax = useMemo(
-    () => Math.max(0, subtotal - discount) * (taxRate / 100),
-    [subtotal, discount, taxRate],
-  );
-  const total = useMemo(() => Math.max(0, subtotal - discount) + tax, [subtotal, discount, tax]);
+  const taxableAmount = Math.max(0, subtotal - discount);
+  const tax = useMemo(() => taxableAmount * (taxRate / 100), [taxableAmount, taxRate]);
+  const total = useMemo(() => taxableAmount + tax, [taxableAmount, tax]);
 
   function updateItem(id: string, patch: Partial<InvoiceItem>) {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -133,10 +131,8 @@ export function InvoiceBuilderTest() {
 
       <div className="no-print sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white/95 px-5 backdrop-blur">
         <div>
-          <h1 className="text-lg font-bold">Invoice Builder</h1>
-          <p className="text-xs text-slate-500">
-            Crea facturas rápido con datos estructurados y salida visual con branding.
-          </p>
+          <h1 className="text-lg font-bold">Factura rápida</h1>
+          <p className="text-xs text-slate-500">Crea, revisa y envía facturas sin llenar campos innecesarios.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -167,93 +163,141 @@ export function InvoiceBuilderTest() {
         </div>
       </div>
 
-      <div className="grid gap-5 p-5 xl:grid-cols-[minmax(640px,720px)_minmax(360px,1fr)] print:block print:p-0">
+      <div className="grid gap-5 p-5 xl:grid-cols-[minmax(680px,760px)_minmax(340px,1fr)] print:block print:p-0">
         <aside className="no-print max-h-[calc(100vh-130px)] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-600">
-              <Sparkles className="h-5 w-5" />
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black">Nueva factura</h2>
+                <p className="text-sm text-slate-500">Solo llena cliente y servicios. El resto se calcula solo.</p>
+              </div>
             </div>
 
-            <div>
-              <h2 className="text-lg font-black">Factura rápida</h2>
-              <p className="text-sm text-slate-500">
-                Completa cliente, servicios y envía. Lo demás es automático.
-              </p>
+            <div className="rounded-2xl bg-blue-50 px-4 py-3 text-right">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-500">Total</p>
+              <p className="text-lg font-black text-blue-700">{money(total)}</p>
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid gap-4">
             <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-blue-600 text-xs font-black text-white">
-                  1
-                </span>
+              <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-black text-slate-950">Cliente</h3>
-                  <p className="text-xs text-slate-500">A quién se le enviará la factura.</p>
+                  <h3 className="font-black text-slate-950">1. Cliente</h3>
+                  <p className="text-xs text-slate-500">Datos básicos del destinatario.</p>
                 </div>
+
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500 shadow-sm">
+                  {invoiceNumber}
+                </span>
               </div>
 
-              <div className="grid gap-3">
-                <input
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  className="rounded-2xl border bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-blue-400"
-                  placeholder="Nombre del cliente"
-                />
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="grid gap-1 text-xs font-bold text-slate-500 md:col-span-3">
+                  Cliente
+                  <input
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="rounded-2xl border bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-blue-400"
+                    placeholder="Nombre del cliente"
+                  />
+                </label>
 
-                <input
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  className="rounded-2xl border bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
-                  placeholder="Email del cliente"
-                />
+                <label className="grid gap-1 text-xs font-bold text-slate-500 md:col-span-2">
+                  Email
+                  <input
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    className="rounded-2xl border bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
+                    placeholder="cliente@empresa.com"
+                  />
+                </label>
 
-                <input
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
-                  className="rounded-2xl border bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
-                  placeholder="Teléfono"
-                />
+                <label className="grid gap-1 text-xs font-bold text-slate-500">
+                  Teléfono
+                  <input
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="rounded-2xl border bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
+                    placeholder="809-000-0000"
+                  />
+                </label>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <section className="rounded-3xl border border-slate-200 bg-white p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-blue-600 text-xs font-black text-white">
-                    2
-                  </span>
-                  <div>
-                    <h3 className="font-black text-slate-950">Servicios</h3>
-                    <p className="text-xs text-slate-500">Qué estás cobrando.</p>
-                  </div>
+                <div>
+                  <h3 className="font-black text-slate-950">2. Servicios</h3>
+                  <p className="text-xs text-slate-500">Cada línea actualiza el preview y el total.</p>
                 </div>
 
                 <button
                   type="button"
                   onClick={addItem}
-                  className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Agregar
+                  Agregar servicio
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {items.map((item, index) => (
-                  <div key={item.id} className="rounded-2xl border bg-white p-3">
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500">
+              <div className="overflow-hidden rounded-2xl border border-slate-200">
+                <div className="grid grid-cols-[32px_1.4fr_1.9fr_70px_110px_116px_36px] gap-2 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+                  <span>#</span>
+                  <span>Servicio</span>
+                  <span>Descripción</span>
+                  <span>Cant.</span>
+                  <span>Precio</span>
+                  <span>Total</span>
+                  <span />
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {items.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="grid grid-cols-[32px_1.4fr_1.9fr_70px_110px_116px_36px] items-center gap-2 px-3 py-3"
+                    >
+                      <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500">
                         {index + 1}
                       </span>
 
                       <input
                         value={item.name}
                         onChange={(e) => updateItem(item.id, { name: e.target.value })}
-                        className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm font-bold outline-none focus:border-blue-400"
+                        className="min-w-0 rounded-xl border px-3 py-2 text-sm font-bold outline-none focus:border-blue-400"
                         placeholder="Servicio"
                       />
+
+                      <input
+                        value={item.description}
+                        onChange={(e) => updateItem(item.id, { description: e.target.value })}
+                        className="min-w-0 rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-400"
+                        placeholder="Descripción breve"
+                      />
+
+                      <input
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) || 0 })}
+                        type="number"
+                        className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-400"
+                      />
+
+                      <input
+                        value={item.price}
+                        onChange={(e) => updateItem(item.id, { price: Number(e.target.value) || 0 })}
+                        type="number"
+                        className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-400"
+                      />
+
+                      <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-black text-slate-950">
+                        {money(item.quantity * item.price)}
+                      </div>
 
                       {items.length > 1 ? (
                         <button
@@ -264,109 +308,22 @@ export function InvoiceBuilderTest() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
-                      ) : null}
+                      ) : (
+                        <span />
+                      )}
                     </div>
-
-                    <textarea
-                      value={item.description}
-                      onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                      rows={2}
-                      className="mb-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-400"
-                      placeholder="Descripción breve"
-                    />
-
-                    <div className="grid grid-cols-[76px_1fr_1fr] gap-2">
-                      <label className="grid gap-1 text-[11px] font-bold text-slate-500">
-                        Cant.
-                        <input
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateItem(item.id, { quantity: Number(e.target.value) || 0 })
-                          }
-                          type="number"
-                          className="rounded-xl border px-3 py-2 text-sm font-normal outline-none focus:border-blue-400"
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-[11px] font-bold text-slate-500">
-                        Precio
-                        <input
-                          value={item.price}
-                          onChange={(e) =>
-                            updateItem(item.id, { price: Number(e.target.value) || 0 })
-                          }
-                          type="number"
-                          className="rounded-xl border px-3 py-2 text-sm font-normal outline-none focus:border-blue-400"
-                        />
-                      </label>
-
-                      <div className="grid gap-1 text-[11px] font-bold text-slate-500">
-                        Total
-                        <div className="rounded-xl border bg-slate-50 px-3 py-2 text-sm font-black text-slate-950">
-                          {money(item.quantity * item.price)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-blue-100 bg-blue-50 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-blue-600 text-xs font-black text-white">
-                  3
-                </span>
-                <div>
-                  <h3 className="font-black text-slate-950">Revisar</h3>
-                  <p className="text-xs text-slate-500">Confirma el total antes de enviar.</p>
-                </div>
-              </div>
+            <section className="grid gap-4 lg:grid-cols-[1fr_260px]">
+              <details className="rounded-3xl border border-slate-200 bg-white p-4">
+                <summary className="cursor-pointer select-none font-black text-slate-950">
+                  Opciones avanzadas
+                </summary>
 
-              <div className="rounded-2xl bg-white p-4">
-                <div className="flex justify-between py-1 text-sm">
-                  <span className="text-slate-500">Subtotal</span>
-                  <strong>{money(subtotal)}</strong>
-                </div>
-
-                <div className="flex justify-between py-1 text-sm">
-                  <span className="text-slate-500">ITBIS ({taxRate}%)</span>
-                  <strong>{money(tax)}</strong>
-                </div>
-
-                <div className="mt-2 flex justify-between border-t pt-3 text-lg">
-                  <span className="font-black">Total</span>
-                  <strong style={{ color: brandColor }}>{money(total)}</strong>
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={printInvoice}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border bg-white px-4 py-3 text-sm font-bold hover:bg-slate-50"
-                >
-                  <Printer className="h-4 w-4" />
-                  PDF
-                </button>
-
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"
-                >
-                  <Send className="h-4 w-4" />
-                  Enviar
-                </button>
-              </div>
-            </section>
-
-            <details className="rounded-3xl border border-slate-200 bg-white p-4">
-              <summary className="cursor-pointer select-none font-black text-slate-950">
-                Opciones avanzadas
-              </summary>
-
-              <div className="mt-4 grid gap-4">
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <label className="grid gap-1 text-xs font-semibold text-slate-600">
                     Empresa
                     <input
@@ -475,36 +432,83 @@ export function InvoiceBuilderTest() {
                       className="rounded-xl border px-3 py-2 text-sm font-normal"
                     />
                   </label>
+
+                  <textarea
+                    value={clientAddress}
+                    onChange={(e) => setClientAddress(e.target.value)}
+                    rows={2}
+                    className="rounded-xl border px-3 py-2 text-sm md:col-span-2"
+                    placeholder="Dirección del cliente"
+                  />
+
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    className="rounded-xl border px-3 py-2 text-sm md:col-span-2"
+                    placeholder="Notas"
+                  />
+
+                  <textarea
+                    value={terms}
+                    onChange={(e) => setTerms(e.target.value)}
+                    rows={3}
+                    className="rounded-xl border px-3 py-2 text-sm md:col-span-2"
+                    placeholder="Términos"
+                  />
+                </div>
+              </details>
+
+              <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4">
+                <h3 className="font-black text-slate-950">3. Revisar</h3>
+                <p className="text-xs text-slate-500">Confirma el total antes de enviar.</p>
+
+                <div className="mt-4 rounded-2xl bg-white p-4">
+                  <div className="flex justify-between py-1 text-sm">
+                    <span className="text-slate-500">Subtotal</span>
+                    <strong>{money(subtotal)}</strong>
+                  </div>
+
+                  <div className="flex justify-between py-1 text-sm">
+                    <span className="text-slate-500">Descuento</span>
+                    <strong>- {money(discount)}</strong>
+                  </div>
+
+                  <div className="flex justify-between py-1 text-sm">
+                    <span className="text-slate-500">ITBIS ({taxRate}%)</span>
+                    <strong>{money(tax)}</strong>
+                  </div>
+
+                  <div className="mt-2 flex justify-between border-t pt-3 text-lg">
+                    <span className="font-black">Total</span>
+                    <strong style={{ color: brandColor }}>{money(total)}</strong>
+                  </div>
                 </div>
 
-                <textarea
-                  value={clientAddress}
-                  onChange={(e) => setClientAddress(e.target.value)}
-                  rows={2}
-                  className="rounded-xl border px-3 py-2 text-sm"
-                  placeholder="Dirección del cliente"
-                />
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={printInvoice}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border bg-white px-4 py-3 text-sm font-bold hover:bg-slate-50"
+                  >
+                    <Printer className="h-4 w-4" />
+                    PDF
+                  </button>
 
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  className="rounded-xl border px-3 py-2 text-sm"
-                  placeholder="Notas"
-                />
-
-                <textarea
-                  value={terms}
-                  onChange={(e) => setTerms(e.target.value)}
-                  rows={3}
-                  className="rounded-xl border px-3 py-2 text-sm"
-                  placeholder="Términos"
-                />
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"
+                  >
+                    <Send className="h-4 w-4" />
+                    Enviar
+                  </button>
+                </div>
               </div>
-            </details>
+            </section>
           </div>
         </aside>
-        <main className="overflow-hidden print:overflow-visible flex items-start justify-center">
+
+        <main className="flex items-start justify-center overflow-hidden print:overflow-visible">
           <div className="w-full py-2">
             <div className="mx-auto flex h-[calc(100vh-170px)] max-h-[calc(100vh-170px)] min-h-[560px] w-auto max-w-full flex-col">
               <div className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -513,7 +517,7 @@ export function InvoiceBuilderTest() {
 
               <section
                 id="invoice-preview"
-                className="aspect-[9/16] h-full max-h-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:min-h-screen print:aspect-auto print:h-auto print:max-w-none print:rounded-none print:border-0 print:shadow-none"
+                className="aspect-[9/16] h-full max-h-full overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:h-auto print:min-h-screen print:aspect-auto print:max-w-none print:rounded-none print:border-0 print:shadow-none"
               >
                 <div className="h-full overflow-y-auto">
                   <div
@@ -597,9 +601,7 @@ export function InvoiceBuilderTest() {
                             </div>
 
                             <div className="text-right">
-                              <p className="text-[11px] font-semibold text-slate-400">
-                                x{item.quantity}
-                              </p>
+                              <p className="text-[11px] font-semibold text-slate-400">x{item.quantity}</p>
                               <p className="mt-1 text-sm font-black text-slate-950">
                                 {money(item.quantity * item.price)}
                               </p>
