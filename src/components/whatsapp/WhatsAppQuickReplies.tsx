@@ -10,6 +10,45 @@ type QuickReply = {
 
 const STORAGE_KEY = "corevix_whatsapp_quick_replies_v1";
 
+function injectCompactFixStyles() {
+  if (document.getElementById("corevix-wa-compact-fix")) return;
+  const style = document.createElement("style");
+  style.id = "corevix-wa-compact-fix";
+  style.textContent = `
+    [data-corevix-wa-next="true"] {
+      padding: 11px 12px !important;
+      border-radius: 18px !important;
+      overflow: hidden !important;
+    }
+    [data-corevix-wa-next="true"] > div:first-child {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 118px !important;
+      align-items: center !important;
+      gap: 10px !important;
+    }
+    [data-corevix-wa-next="true"] [data-corevix-wa-main-button="true"] {
+      width: 118px !important;
+      min-width: 118px !important;
+      height: 34px !important;
+      border-radius: 13px !important;
+      padding: 0 10px !important;
+    }
+    [data-corevix-wa-next="true"] h4 {
+      font-size: 14px !important;
+      line-height: 1.1 !important;
+      max-width: 100% !important;
+    }
+    [data-corevix-wa-next="true"] p {
+      margin-top: 0 !important;
+    }
+    [data-corevix-wa-next="true"] > p:last-child {
+      margin-top: 7px !important;
+      line-height: 1.25 !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function readCustomReplies(): QuickReply[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -138,6 +177,7 @@ export function WhatsAppQuickReplies() {
   const [newMessage, setNewMessage] = useState("");
 
   useEffect(() => {
+    injectCompactFixStyles();
     setCustomReplies(readCustomReplies());
   }, []);
 
@@ -227,19 +267,10 @@ export function WhatsAppQuickReplies() {
             className="mb-2 min-h-[86px] w-full rounded-xl border border-[#dce8e2] bg-white px-3 py-2 text-xs text-[#12231d] outline-none focus:border-[#9edebc]"
           />
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setCreating(false)}
-              className="h-9 flex-1 rounded-xl border border-[#dce8e2] bg-white text-xs font-black text-[#52645d] hover:bg-[#edf6f2]"
-            >
+            <button type="button" onClick={() => setCreating(false)} className="h-9 flex-1 rounded-xl border border-[#dce8e2] bg-white text-xs font-black text-[#52645d] hover:bg-[#edf6f2]">
               Cancelar
             </button>
-            <button
-              type="button"
-              onClick={handleSaveCustomReply}
-              disabled={!newLabel.trim() || !newMessage.trim()}
-              className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-xl bg-[#00a884] text-xs font-black text-white hover:bg-[#008f72] disabled:opacity-50"
-            >
+            <button type="button" onClick={handleSaveCustomReply} disabled={!newLabel.trim() || !newMessage.trim()} className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-xl bg-[#00a884] text-xs font-black text-white hover:bg-[#008f72] disabled:opacity-50">
               <Save className="h-3.5 w-3.5" /> Guardar
             </button>
           </div>
@@ -248,11 +279,7 @@ export function WhatsAppQuickReplies() {
       ) : null}
 
       <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="flex h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 text-left text-xs font-black text-[#52645d] shadow-sm hover:border-[#bcebd0] hover:bg-[#e9fff1] hover:text-[#008069]"
-        >
+        <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 text-left text-xs font-black text-[#52645d] shadow-sm hover:border-[#bcebd0] hover:bg-[#e9fff1] hover:text-[#008069]">
           <span className="truncate">{selectedLabel}</span>
           <ChevronDown className={`h-4 w-4 shrink-0 transition ${open ? "rotate-180" : ""}`} />
         </button>
@@ -278,12 +305,7 @@ export function WhatsAppQuickReplies() {
                   <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#008069]" />
                 </button>
                 {reply.custom ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteCustomReply(reply.label)}
-                    className="mr-1 mt-2 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#7b8d86] hover:bg-red-50 hover:text-red-600"
-                    title="Eliminar respuesta"
-                  >
+                  <button type="button" onClick={() => handleDeleteCustomReply(reply.label)} className="mr-1 mt-2 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#7b8d86] hover:bg-red-50 hover:text-red-600" title="Eliminar respuesta">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 ) : null}
