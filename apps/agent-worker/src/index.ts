@@ -18,7 +18,7 @@ export default {
         ok: true,
         service: "corevix-agent-worker",
         openclaw_gateway_url: env.OPENCLAW_GATEWAY_URL,
-        tools: ["create_lead", "search_leads", "create_task", "list_tasks", "crm_summary", "create_client", "search_clients", "create_deal", "list_deals", "list_unpaid_invoices"],
+        tools: ["create_lead", "search_leads", "update_lead_status", "create_task", "create_reminder", "create_crm_demo", "list_tasks", "crm_summary", "create_deal", "list_deals", "create_project", "list_projects", "create_proposal", "search_products", "list_unpaid_invoices"],
       });
     }
 
@@ -211,7 +211,16 @@ Args:
   "query": "texto de búsqueda"
 }
 
-3. create_task
+3. update_lead_status
+Actualiza el estado de un lead.
+Args:
+{
+  "lead_id": "uuid opcional",
+  "name": "nombre opcional",
+  "status": "New | Contacted | Qualified | Proposal Needed | Proposal Sent | Negotiation | Won | Lost | Not Interested"
+}
+
+4. create_task
 Crea una tarea interna.
 Args:
 {
@@ -219,44 +228,40 @@ Args:
   "description": "Descripción",
   "due_date": "YYYY-MM-DD",
   "priority": "low | medium | high",
-  "status": "pending",
-  "related_lead_id": "uuid opcional",
-  "related_client_id": "uuid opcional",
-  "related_deal_id": "uuid opcional",
-  "related_project_id": "uuid opcional"
+  "status": "pending"
 }
 
-4. list_tasks
+5. create_reminder
+Crea un recordatorio como tarea.
+Args:
+{
+  "title": "Recordatorio",
+  "due_date": "YYYY-MM-DD",
+  "priority": "low | medium | high"
+}
+
+6. create_crm_demo
+Crea una tarea para demo del CRM.
+Args:
+{
+  "lead_name": "Nombre del prospecto",
+  "phone": "Teléfono opcional",
+  "due_date": "YYYY-MM-DD",
+  "notes": "Notas"
+}
+
+7. list_tasks
 Lista tareas.
 Args:
 {
   "status": "pending | completed | all"
 }
 
-5. crm_summary
+8. crm_summary
 Genera un resumen básico del CRM.
 Args: {}
 
-6. create_client
-Crea un cliente nuevo.
-Args:
-{
-  "company_name": "Nombre de empresa",
-  "contact_person": "Persona de contacto",
-  "phone": "Teléfono",
-  "email": "Email",
-  "status": "active",
-  "tags": []
-}
-
-7. search_clients
-Busca clientes por empresa, contacto, teléfono o email.
-Args:
-{
-  "query": "texto de búsqueda"
-}
-
-8. create_deal
+9. create_deal
 Crea una oportunidad/deal.
 Args:
 {
@@ -268,14 +273,59 @@ Args:
   "notes": "Notas"
 }
 
-9. list_deals
+10. list_deals
 Lista oportunidades/deals.
 Args:
 {
   "stage": "all | new | qualified | proposal | won | lost"
 }
 
-10. list_unpaid_invoices
+11. create_project
+Crea un proyecto.
+Args:
+{
+  "name": "Nombre del proyecto",
+  "description": "Descripción",
+  "lead_id": "uuid opcional",
+  "client_id": "uuid opcional",
+  "deal_id": "uuid opcional",
+  "product_id": "uuid opcional",
+  "budget": 0,
+  "start_date": "YYYY-MM-DD",
+  "due_date": "YYYY-MM-DD",
+  "priority": "low | medium | high"
+}
+
+12. list_projects
+Lista proyectos.
+Args:
+{
+  "status": "all | active | completed | pending"
+}
+
+13. create_proposal
+Crea una propuesta.
+Args:
+{
+  "title": "Título",
+  "amount": 0,
+  "currency": "USD",
+  "description": "Descripción",
+  "lead_id": "uuid opcional",
+  "client_id": "uuid opcional",
+  "deal_id": "uuid opcional",
+  "product_id": "uuid opcional",
+  "valid_until": "YYYY-MM-DD"
+}
+
+14. search_products
+Busca productos o servicios.
+Args:
+{
+  "query": "texto de búsqueda"
+}
+
+15. list_unpaid_invoices
 Lista facturas pendientes de pago.
 Args: {}
 

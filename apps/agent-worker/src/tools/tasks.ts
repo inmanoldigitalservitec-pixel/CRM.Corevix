@@ -4,10 +4,7 @@ export async function createTaskTool(ctx: ToolContext, args: any): Promise<ToolR
   const title = String(args.title || "").trim();
 
   if (!title) {
-    return {
-      ok: false,
-      error: "Falta el título de la tarea.",
-    };
+    return { ok: false, error: "Falta el título de la tarea." };
   }
 
   const payload = {
@@ -31,18 +28,39 @@ export async function createTaskTool(ctx: ToolContext, args: any): Promise<ToolR
     .select("id,title,description,due_date,priority,status,created_at")
     .single();
 
-  if (error) {
-    return {
-      ok: false,
-      error: error.message,
-    };
-  }
+  if (error) return { ok: false, error: error.message };
 
   return {
     ok: true,
     message: `Listo, creé la tarea "${data.title}".`,
     data,
   };
+}
+
+export async function createReminderTool(ctx: ToolContext, args: any): Promise<ToolResult> {
+  return createTaskTool(ctx, {
+    ...args,
+    title: args.title || args.reminder || "Recordatorio",
+    description: args.description || args.notes || "Recordatorio creado desde Corevix AI.",
+    priority: args.priority || "medium",
+    status: args.status || "pending",
+  });
+}
+
+export async function createCrmDemoTool(ctx: ToolContext, args: any): Promise<ToolResult> {
+  const leadName = args.lead_name || args.client_name || args.name || "prospecto";
+  const dueDate = args.due_date || args.demo_date || null;
+
+  return createTaskTool(ctx, {
+    ...args,
+    title: args.title || `Demo CRM con ${leadName}`,
+    description:
+      args.description ||
+      `Preparar y realizar demo del CRM con ${leadName}.${args.phone ? ` Teléfono: ${args.phone}.` : ""}${args.notes ? ` Notas: ${args.notes}` : ""}`,
+    due_date: dueDate,
+    priority: args.priority || "high",
+    status: "pending",
+  });
 }
 
 export async function listTasksTool(ctx: ToolContext, args: any): Promise<ToolResult> {
@@ -61,12 +79,7 @@ export async function listTasksTool(ctx: ToolContext, args: any): Promise<ToolRe
 
   const { data, error } = await query;
 
-  if (error) {
-    return {
-      ok: false,
-      error: error.message,
-    };
-  }
+  if (error) return { ok: false, error: error.message };
 
   return {
     ok: true,

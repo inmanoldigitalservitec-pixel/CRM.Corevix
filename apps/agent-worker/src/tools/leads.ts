@@ -1,5 +1,17 @@
 import type { ToolContext, ToolResult } from "../types";
 
+const LEAD_STATUSES = [
+  "New",
+  "Contacted",
+  "Qualified",
+  "Proposal Needed",
+  "Proposal Sent",
+  "Negotiation",
+  "Won",
+  "Lost",
+  "Not Interested",
+];
+
 function splitName(input: string) {
   const parts = input.trim().split(/\s+/).filter(Boolean);
   const firstName = parts[0] || "";
@@ -47,14 +59,20 @@ export async function createLeadTool(ctx: ToolContext, args: any): Promise<ToolR
   }
 
   if (!first_name) {
-    return {
-      ok: false,
-      error: "Falta el nombre del lead.",
-    };
+    return { ok: false, error: "Falta el nombre del lead." };
   }
 
   if (!last_name) {
     last_name = "Sin apellido";
+  }
+
+  const status = args.status ?? "New";
+
+  if (!LEAD_STATUSES.includes(status)) {
+    return {
+      ok: false,
+      error: `Estado inválido para lead: ${status}. Usa uno de estos: ${LEAD_STATUSES.join(", ")}`,
+    };
   }
 
   const payload = {
@@ -67,7 +85,7 @@ export async function createLeadTool(ctx: ToolContext, args: any): Promise<ToolR
     email: args.email ?? null,
     source: args.source ?? "AI Assistant",
     source_channel: args.source_channel ?? "ai",
-    status: args.status ?? "New",
+    status,
     notes: args.notes ?? null,
     estimated_value: args.estimated_value ?? null,
     metadata: {
@@ -83,19 +101,11 @@ export async function createLeadTool(ctx: ToolContext, args: any): Promise<ToolR
     .select("id,first_name,last_name,company_name,phone,email,whatsapp,source,source_channel,source_platform,status,notes,estimated_value,created_at,last_interaction_at")
     .single();
 
-  if (error) {
-    return {
-      ok: false,
-      error: error.message,
-    };
-  }
+  if (error) return { ok: false, error: error.message };
 
   return {
     ok: true,
-    message: `Listo, creé el lead ${data.first_name} ${data.last_name}.
-
-Información registrada:
-${formatLead(data, 0)}`,
+    message: `Listo, creé el lead ${data.first_name} ${data.last_name}.\n\nInformación registrada:\n${formatLead(data, 0)}`,
     data,
   };
 }
@@ -104,10 +114,7 @@ export async function searchLeadsTool(ctx: ToolContext, args: any): Promise<Tool
   const query = String(args.query || args.name || "").trim();
 
   if (!query) {
-    return {
-      ok: false,
-      error: "Falta el texto de búsqueda.",
-    };
+    return { ok: false, error: "Falta el texto de búsqueda." };
   }
 
   const { data, error } = await ctx.supabase
@@ -120,12 +127,7 @@ export async function searchLeadsTool(ctx: ToolContext, args: any): Promise<Tool
     .order("created_at", { ascending: false })
     .limit(10);
 
-  if (error) {
-    return {
-      ok: false,
-      error: error.message,
-    };
-  }
+  if (error) return { ok: false, error: error.message };
 
   if (!data?.length) {
     return {
@@ -137,9 +139,75 @@ export async function searchLeadsTool(ctx: ToolContext, args: any): Promise<Tool
 
   return {
     ok: true,
-    message: `Encontré ${data.length} lead(s) relacionados con "${query}":
+    message: `Encontré ${data.length} lead(s) relacionados con "${query}":\n\n${data.map(formatLead).join("\n\n")}`,
+    data,
+  };
+}
 
-${data.map(formatLead).join("\n\n")}`,
+export async function updateLeadStatusTool(ctx: ToolContext, args: any): Promise<ToolResult> {
+  const status = String(args.status || "").trim();
+
+  if (!LEAD_STATUSES.includes(status)) {
+    return {
+      ok: false,
+      error: `Estado inválido. Usa uno de estos: ${LEAD_STATUSES.join(", ")}`,
+    };
+  }
+
+  const leadId = String(args.lead_id || "").trim();
+  const queryText = String(args.query || args.name || args.lead_name || "").trim();
+
+  let query = ctx.supabase
+    .from("leads")
+    .select("id,first_name,last_name,company_name,phone,email,status,notes,created_at")
+    .eq("company_id", ctx.companyId);
+
+  if (leadId) {
+    query = query.eq("id", leadId);
+  } else if (queryText) {
+    query = query.or(
+      `first_name.ilike.%${queryText}%,last_name.ilike.%${queryText}%,company_name.ilike.%${queryText}%,phone.ilike.%${queryText}%,email.ilike.%${queryText}%`
+    );
+  } else {
+    return { ok: false, error: "Falta el lead_id o nombre del lead." };
+  }
+
+  const { data: matches, error: findError } = await query
+    .order("created_at", { ascending: false })
+    .limit(2);
+
+  if (findError) return { ok: false, error: findError.message };
+
+  if (!matches?.length) {
+    return { ok: false, error: "No encontré el lead para actualizar." };
+  }
+
+  if (matches.length > 1 && !leadId) {
+    return {
+      ok: false,
+      error: "Encontré más de un lead parecido. Indica el ID exacto del lead.",
+      data: matches,
+    };
+  }
+
+  const lead = matches[0];
+
+  const { data, error } = await ctx.supabase
+    .from("leads")
+    .update({
+      status,
+      last_interaction_at: new Date().toISOString(),
+    })
+    .eq("company_id", ctx.companyId)
+    .eq("id", lead.id)
+    .select("id,first_name,last_name,company_name,phone,email,status,notes,updated_at,last_interaction_at")
+    .single();
+
+  if (error) return { ok: false, error: error.message };
+
+  return {
+    ok: true,
+    message: `Actualicé el lead ${data.first_name} ${data.last_name} al estado ${data.status}.`,
     data,
   };
 }
