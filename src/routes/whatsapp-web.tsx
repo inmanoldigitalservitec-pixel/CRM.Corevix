@@ -862,69 +862,184 @@ function ContextPanel({
     );
   }
 
+  const contactState = getContactState(conversation, selectedWhatsappConversation);
+  const nextAction = getNextAction(conversation, selectedWhatsappConversation, isServiceWindowOpen);
+  const activity = getLatestActivity(conversation, selectedWhatsappConversation);
+  const conversationId = encodeURIComponent(conversation.id);
+  const leadId = encodeURIComponent(selectedWhatsappConversation?.lead_id || selectedWhatsappConversation?.whatsapp_lead_id || "");
+  const clientId = encodeURIComponent(selectedWhatsappConversation?.contact_id || "");
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
-      <div className="rounded-3xl border border-[#dce8e2] bg-white p-5 text-center shadow-sm">
-        <div className="flex justify-center">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
+      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-3">
           <Avatar conversation={conversation} size="lg" />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-bold text-[#12231d]">{conversation.displayName}</h3>
+            <p className="truncate text-xs text-[#6c7f77]">{conversation.subtitle || conversation.channel}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-[#edf6f2] px-2.5 py-1 text-[11px] font-bold text-[#52645d]">
+                {conversation.channel}
+              </span>
+              <span className="rounded-full bg-[#d9fdd3] px-2.5 py-1 text-[11px] font-bold text-[#008069]">
+                {contactState}
+              </span>
+            </div>
+          </div>
         </div>
-        <h3 className="mt-3 truncate text-lg font-bold text-[#12231d]">{conversation.displayName}</h3>
-        <p className="mt-1 truncate text-sm text-[#6c7f77]">{conversation.subtitle || conversation.channel}</p>
-        <div className="mt-4 flex justify-center gap-2">
-          <span className="rounded-full bg-[#edf6f2] px-3 py-1 text-xs font-semibold text-[#52645d]">{conversation.channel}</span>
-          <span className="rounded-full bg-[#d9fdd3] px-3 py-1 text-xs font-semibold text-[#008069]">
-            {conversation.status || "open"}
-          </span>
+        <a
+          href={clientId ? `/clients?id=${clientId}` : `/clients`}
+          className="mt-3 block rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-2 text-center text-xs font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
+        >
+          Ver perfil
+        </a>
+      </section>
+
+      <section className="rounded-3xl border border-[#bcebd0] bg-[#e9fff1] p-4 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-wide text-[#008069]">Siguiente acción</p>
+        <h4 className="mt-1 text-lg font-black text-[#12231d]">{nextAction.label}</h4>
+        <p className="mt-1 text-xs leading-5 text-[#52645d]">{nextAction.description}</p>
+        <a
+          href={nextAction.href}
+          className="mt-3 block rounded-2xl bg-[#00a884] px-4 py-3 text-center text-sm font-black text-white shadow-[0_10px_22px_rgba(0,168,132,.18)] transition hover:bg-[#008f72]"
+        >
+          {nextAction.cta}
+        </a>
+      </section>
+
+      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
+        <p className="mb-3 text-sm font-black text-[#12231d]">Accesos rápidos</p>
+        <div className="grid grid-cols-2 gap-2">
+          <QuickAction href={`/proposals?conversationId=${conversationId}${leadId ? `&leadId=${leadId}` : ""}`} label="Propuesta" />
+          <QuickAction href={`/invoices?conversationId=${conversationId}${clientId ? `&clientId=${clientId}` : ""}`} label="Factura" />
+          <QuickAction href={`/tasks?conversationId=${conversationId}`} label="Tarea" />
+          <button
+            type="button"
+            onClick={() => toast.info("Notas rápidas: pendiente conectar modal interno.")}
+            className="rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
+          >
+            Nota
+          </button>
         </div>
-      </div>
+      </section>
 
-      <PanelCard title="Contexto CRM">
-        <InfoRow label="Lead" value={selectedWhatsappConversation?.lead_name || "No vinculado"} />
-        <InfoRow label="Servicio" value={selectedWhatsappConversation?.selected_service || "—"} />
-        <InfoRow label="Etapa" value={selectedWhatsappConversation?.lead_stage || conversation.status || "—"} />
-        <InfoRow label="Hot lead" value={selectedWhatsappConversation?.is_hot_lead ? "Sí" : "No"} />
-        <InfoRow label="Sin asignar visible" value={canSeeUnassigned ? "Sí" : "No"} />
-      </PanelCard>
+      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
+        <p className="text-sm font-black text-[#12231d]">Último movimiento</p>
+        <p className="mt-2 rounded-2xl bg-[#f1f7f4] p-3 text-xs leading-5 text-[#60736b]">{activity}</p>
+      </section>
 
-      <PanelCard title="Ventana de atención">
-        <InfoRow label="Estado" value={isServiceWindowOpen ? "Abierta" : "Cerrada"} />
-        <InfoRow label="Tiempo restante" value={formatDuration(remainingServiceWindowMs)} />
-        <p className="mt-3 rounded-2xl bg-[#f1f7f4] p-3 text-xs leading-5 text-[#60736b]">
-          Esta vista mantiene la apariencia familiar de WhatsApp Web, pero con contexto CRM integrado para ventas y soporte.
-        </p>
-      </PanelCard>
+      <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
+        <p className="text-sm font-black text-[#12231d]">Atención</p>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-2xl bg-[#f7fbf9] p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-[#7b8d86]">Ventana</p>
+            <p className="mt-1 text-sm font-black text-[#12231d]">{isServiceWindowOpen ? "Abierta" : "Cerrada"}</p>
+          </div>
+          <div className="rounded-2xl bg-[#f7fbf9] p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-[#7b8d86]">Restante</p>
+            <p className="mt-1 text-sm font-black text-[#12231d]">{formatDuration(remainingServiceWindowMs)}</p>
+          </div>
+        </div>
+        {canSeeUnassigned ? (
+          <p className="mt-3 text-xs text-[#7b8d86]">Puedes ver conversaciones sin asignar por tu rol.</p>
+        ) : null}
+      </section>
 
       {errors.length ? (
-        <PanelCard title="Avisos">
+        <section className="rounded-3xl border border-red-100 bg-red-50 p-4 shadow-sm">
+          <p className="mb-2 text-sm font-black text-red-800">Avisos</p>
           <div className="space-y-2">
             {errors.map((error) => (
-              <p key={error} className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
+              <p key={error} className="rounded-xl bg-white px-3 py-2 text-xs text-red-700">
                 {error}
               </p>
             ))}
           </div>
-        </PanelCard>
+        </section>
       ) : null}
     </div>
   );
 }
 
-function PanelCard({ title, children }: { title: string; children: ReactNode }) {
+function QuickAction({ href, label }: { href: string; label: string }) {
   return (
-    <section className="rounded-3xl border border-[#dce8e2] bg-white p-4 shadow-sm">
-      <h4 className="mb-3 text-sm font-bold text-[#12231d]">{title}</h4>
-      {children}
-    </section>
+    <a
+      href={href}
+      className="rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] px-3 py-3 text-center text-sm font-bold text-[#52645d] transition hover:bg-[#edf6f2]"
+    >
+      {label}
+    </a>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-[#eef3f0] py-2 last:border-0">
-      <span className="text-xs font-semibold uppercase tracking-wide text-[#7b8d86]">{label}</span>
-      <span className="truncate text-sm font-semibold text-[#12231d]">{value}</span>
-    </div>
-  );
+function getContactState(conversation: UnifiedConversation, whatsapp: CrmWhatsappConversationListRow | null) {
+  if (whatsapp?.is_hot_lead) return "Lead caliente";
+  if (whatsapp?.lead_stage) return whatsapp.lead_stage;
+  if (whatsapp?.lead_id || whatsapp?.whatsapp_lead_id) return "Lead";
+  if (whatsapp?.contact_id) return "Contacto";
+  if (conversation.status) return conversation.status;
+  return "Sin registrar";
+}
+
+function getNextAction(
+  conversation: UnifiedConversation,
+  whatsapp: CrmWhatsappConversationListRow | null,
+  serviceWindowOpen: boolean,
+) {
+  const conversationId = encodeURIComponent(conversation.id);
+  const leadId = encodeURIComponent(whatsapp?.lead_id || whatsapp?.whatsapp_lead_id || "");
+  const clientId = encodeURIComponent(whatsapp?.contact_id || "");
+  const stage = String(whatsapp?.lead_stage || conversation.status || "").toLowerCase();
+
+  if (conversation.channel === "instagram") {
+    return {
+      label: "Revisar conversación",
+      description: "Instagram está en modo lectura. Usa el contexto para decidir el próximo paso.",
+      cta: "Ver detalles",
+      href: `/whatsapp-web?conversationId=${conversationId}`,
+    };
+  }
+
+  if (!whatsapp?.lead_id && !whatsapp?.whatsapp_lead_id && !whatsapp?.contact_id) {
+    return {
+      label: "Crear lead",
+      description: "Registra este contacto antes de cotizar, facturar o crear tareas.",
+      cta: "Crear lead",
+      href: `/leads?conversationId=${conversationId}`,
+    };
+  }
+
+  if (stage.includes("proposal") || stage.includes("propuesta") || stage.includes("cotiz")) {
+    return {
+      label: "Enviar factura",
+      description: "La conversación ya está en etapa de propuesta. El siguiente paso natural es facturar o cobrar.",
+      cta: "Crear factura",
+      href: `/invoices?conversationId=${conversationId}${clientId ? `&clientId=${clientId}` : ""}`,
+    };
+  }
+
+  if (!serviceWindowOpen && conversation.channel === "whatsapp") {
+    return {
+      label: "Usar plantilla",
+      description: "La ventana de WhatsApp está cerrada. Usa una plantilla aprobada para continuar.",
+      cta: "Preparar seguimiento",
+      href: `/automations?conversationId=${conversationId}`,
+    };
+  }
+
+  return {
+    label: "Crear propuesta",
+    description: "Convierte esta conversación en una propuesta sin salir del flujo comercial.",
+    cta: "Crear propuesta",
+    href: `/proposals?conversationId=${conversationId}${leadId ? `&leadId=${leadId}` : ""}`,
+  };
+}
+
+function getLatestActivity(conversation: UnifiedConversation, whatsapp: CrmWhatsappConversationListRow | null) {
+  if (whatsapp?.lead_summary) return whatsapp.lead_summary;
+  if (conversation.lastMessageText) return `Último mensaje: ${conversation.lastMessageText}`;
+  if (conversation.lastMessageAt) return `Última interacción: ${formatTime(conversation.lastMessageAt)}`;
+  return "Aún no hay actividad registrada para este contacto.";
 }
 
 function DatePill({ label }: { label: string }) {
