@@ -165,7 +165,7 @@ export async function updateLeadStatusTool(ctx: ToolContext, args: any): Promise
   if (leadId) {
     query = query.eq("id", leadId);
   } else if (queryText) {
-    const parts = queryText.split(/\\s+/).filter(Boolean);
+    const parts = queryText.split(/\s+/).filter(Boolean);
     const first = parts[0] || "";
     const last = parts.slice(1).join(" ");
 
