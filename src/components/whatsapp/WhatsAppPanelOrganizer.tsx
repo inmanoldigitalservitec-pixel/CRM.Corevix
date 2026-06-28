@@ -91,14 +91,13 @@ export function WhatsAppPanelOrganizer() {
     return () => observer.disconnect();
   }, []);
 
-  const taskHref = useMemo(() => `/tasks?conversationId=${encodeURIComponent(snapshot.conversationId)}`, [snapshot.conversationId]);
   const proposalHref = useMemo(() => `/proposals?conversationId=${encodeURIComponent(snapshot.conversationId)}`, [snapshot.conversationId]);
   const invoiceHref = useMemo(() => `/invoices?conversationId=${encodeURIComponent(snapshot.conversationId)}`, [snapshot.conversationId]);
 
   if (!aside) return null;
 
   return createPortal(
-    <div className="absolute inset-0 z-20 flex min-h-0 flex-col bg-[#f9fcfa] p-3 text-[#12231d]">
+    <div data-whatsapp-panel-root className="absolute inset-0 z-20 flex min-h-0 flex-col bg-[#f9fcfa] p-3 text-[#12231d]">
       <div className="mb-2 rounded-3xl border border-[#dce8e2] bg-white p-3 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#d9fdd3] text-sm font-black text-[#008069]">
@@ -162,7 +161,7 @@ export function WhatsAppPanelOrganizer() {
           <Clock3 className="h-4 w-4 text-[#00a884]" />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <ActionButton title="Tarea" href={taskHref} icon={<Clock3 className="h-4 w-4" />} label="Tarea" />
+          <TaskActionButton conversationId={snapshot.conversationId} />
           <button
             type="button"
             title="Nota"
@@ -174,6 +173,8 @@ export function WhatsAppPanelOrganizer() {
           </button>
         </div>
       </div>
+
+      <div data-whatsapp-task-slot className="mb-2" />
 
       <div className="mb-2 rounded-3xl border border-[#dce8e2] bg-white p-3 shadow-sm">
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -231,6 +232,26 @@ function ActionButton({ href, title, icon, label }: { href: string; title: strin
       {icon}
       {label}
     </a>
+  );
+}
+
+function TaskActionButton({ conversationId }: { conversationId: string }) {
+  return (
+    <button
+      type="button"
+      title="Tarea"
+      onClick={() => {
+        window.dispatchEvent(
+          new CustomEvent("corevix:whatsapp-open-task", {
+            detail: { conversationId },
+          }),
+        );
+      }}
+      className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#dce8e2] bg-[#f7fbf9] text-xs font-black text-[#52645d] hover:bg-[#edf6f2]"
+    >
+      <Clock3 className="h-4 w-4" />
+      Tarea
+    </button>
   );
 }
 
