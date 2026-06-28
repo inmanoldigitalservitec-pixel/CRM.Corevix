@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Plus, Save, X } from "lucide-react";
+import { Plus, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,8 +18,25 @@ import { logActivityEvent } from "@/lib/activity-log";
 
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 
+type InlineTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  priority: string;
+};
+
 function isoToday() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function emptyTaskForm() {
+  return {
+    title: "",
+    description: "",
+    due_date: isoToday(),
+    priority: "Medium",
+  };
 }
 
 function readSelectedProjectTitle() {
@@ -42,7 +59,9 @@ function findTasksContainer() {
 
 function findTasksList(container: HTMLElement | null) {
   if (!container) return null;
-  return Array.from(container.children).find((child) => child instanceof HTMLElement && child.className.includes("mt-3")) as HTMLElement | null;
+  return Array.from(container.children).find(
+    (child) => child instanceof HTMLElement && child.className.includes("mt-3"),
+  ) as HTMLElement | null;
 }
 
 export function InlineProjectTaskCreator() {
@@ -52,12 +71,8 @@ export function InlineProjectTaskCreator() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [projectTitle, setProjectTitle] = useState("");
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    due_date: isoToday(),
-    priority: "Medium",
-  });
+  const [createdTasks, setCreatedTasks] = useState<InlineTask[]>([]);
+  const [form, setForm] = useState(emptyTaskForm);
 
   useEffect(() => {
     setMounted(true);
@@ -89,8 +104,10 @@ export function InlineProjectTaskCreator() {
       event.stopPropagation();
       event.stopImmediatePropagation();
 
-      setProjectTitle(readSelectedProjectTitle());
-      setForm({ title: "", description: "", due_date: isoToday(), priority: "Medium" });
+      const nextProjectTitle = readSelectedProjectTitle();
+      setProjectTitle(nextProjectTitle);
+      setCreatedTasks([]);
+      setForm(emptyTaskForm());
       setTarget(findTasksList(container as HTMLElement) || (container as HTMLElement));
       setOpen(true);
     }
@@ -135,7 +152,7 @@ export function InlineProjectTaskCreator() {
         return;
       }
 
-      const { error: insertError } = await db.from("tasks").insert({
+      const payload = {
         company_id: profile.company_id,
         title: form.title.trim(),
         description: form.description.trim() || null,
@@ -147,16 +164,33 @@ export function InlineProjectTaskCreator() {
         related_client_id: project.client_id || null,
         related_lead_id: project.lead_id || null,
         related_deal_id: project.deal_id || null,
-      });
+      };
+
+      const { data: inserted, error: insertError } = await db
+        .from("tasks")
+        .insert(payload)
+        .select("id,title,description,due_date,priority")
+        .single();
 
       if (insertError) throw insertError;
+
+      const visibleTask: InlineTask = {
+        id: inserted?.id || crypto.randomUUID(),
+        title: inserted?.title || payload.title,
+        description: inserted?.description || payload.description,
+        due_date: inserted?.due_date || payload.due_date,
+        priority: inserted?.priority || payload.priority,
+      };
+
+      setCreatedTasks((prev) => [visibleTask, ...prev]);
+      setForm(emptyTaskForm());
 
       void logActivityEvent({
         companyId: profile.company_id,
         userId: profile.id || null,
         action: "task_created",
         entityType: "tasks",
-        detail: `Tarea creada desde proyecto: ${form.title.trim()}`,
+        detail: `Tarea creada desde proyecto: ${payload.title}`,
         metadata: {
           related_project_id: project.id,
           related_client_id: project.client_id || null,
@@ -164,9 +198,7 @@ export function InlineProjectTaskCreator() {
         },
       }).catch(() => {});
 
-      toast.success("Tarea creada");
-      setOpen(false);
-      window.setTimeout(() => window.location.reload(), 350);
+      toast.success("Tarea creada. Puedes crear otra sin salir del panel.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo crear la tarea");
     } finally {
@@ -177,76 +209,97 @@ export function InlineProjectTaskCreator() {
   if (!canRender || !target) return null;
 
   return createPortal(
-    <form
-      className="mb-2 rounded-xl border bg-background/70 p-3 shadow-sm"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void handleSave();
-      }}
-    >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Plus className="h-4 w-4" /> Nueva tarea
+    <div className="mb-2 space-y-2">
+      {createdTasks.map((task) => (
+        <div key={task.id} className="rounded-xl border bg-background/40 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate font-medium">{task.title}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                To Do · {task.priority} · {task.due_date || "Sin fecha"}
+              </div>
+              {task.description ? (
+                <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</div>
+              ) : null}
+            </div>
+            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700">
+              Creada
+            </span>
+          </div>
         </div>
-        <button
-          type="button"
-          className="grid h-8 w-8 place-items-center rounded-lg border bg-background text-muted-foreground hover:bg-muted"
-          onClick={() => setOpen(false)}
-          disabled={saving}
-          title="Cancelar"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      ))}
 
-      <div className="space-y-2">
-        <Input
-          autoFocus
-          value={form.title}
-          onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-          placeholder="Título de la tarea"
-          className="h-9"
-        />
-        <Textarea
-          value={form.description}
-          onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          placeholder="Descripción opcional"
-          rows={2}
-          className="min-h-[62px]"
-        />
-        <div className="grid grid-cols-2 gap-2">
+      <form
+        className="rounded-xl border bg-background/70 p-3 shadow-sm"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSave();
+        }}
+      >
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Plus className="h-4 w-4" /> Nueva tarea
+          </div>
+          <button
+            type="button"
+            className="grid h-8 w-8 place-items-center rounded-lg border bg-background text-muted-foreground hover:bg-muted"
+            onClick={() => setOpen(false)}
+            disabled={saving}
+            title="Cerrar creador"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-2">
           <Input
-            type="date"
-            value={form.due_date}
-            onChange={(event) => setForm((prev) => ({ ...prev, due_date: event.target.value }))}
+            autoFocus
+            value={form.title}
+            onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+            placeholder="Título de la tarea"
             className="h-9"
           />
-          <Select
-            value={form.priority}
-            onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value }))}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PRIORITIES.map((priority) => (
-                <SelectItem key={priority} value={priority}>
-                  {priority}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Textarea
+            value={form.description}
+            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            placeholder="Descripción opcional"
+            rows={2}
+            className="min-h-[62px]"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              type="date"
+              value={form.due_date}
+              onChange={(event) => setForm((prev) => ({ ...prev, due_date: event.target.value }))}
+              className="h-9"
+            />
+            <Select
+              value={form.priority}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value }))}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map((priority) => (
+                  <SelectItem key={priority} value={priority}>
+                    {priority}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={saving}>
+              Terminar
+            </Button>
+            <Button type="submit" size="sm" disabled={saving || !form.title.trim()} className="gap-1.5">
+              <Save className="h-3.5 w-3.5" /> {saving ? "Guardando..." : "Guardar y seguir"}
+            </Button>
+          </div>
         </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button type="submit" size="sm" disabled={saving || !form.title.trim()} className="gap-1.5">
-            <Save className="h-3.5 w-3.5" /> {saving ? "Guardando..." : "Guardar"}
-          </Button>
-        </div>
-      </div>
-    </form>,
+      </form>
+    </div>,
     target,
   );
 }
