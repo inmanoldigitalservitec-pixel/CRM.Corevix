@@ -1,8 +1,13 @@
 import { useEffect } from "react";
 
 const BUTTON_LABELS: Record<string, string> = {
+  "Crear lead": "Crear lead",
+  "Crear cliente": "Crear cliente",
   "Crear propuesta": "Crear propuesta",
   "Crear factura": "Crear factura",
+  "Preparar seguimiento": "Seguimiento",
+  Preparar: "Preparar",
+  Ver: "Ver",
   Tarea: "Tarea",
   Nota: "Nota",
   "Preparar mensaje": "Enviar",
@@ -14,7 +19,7 @@ function getRightAside() {
   return (
     asides.find((aside) =>
       aside.textContent?.includes("Envío rápido") ||
-      aside.querySelector('[title="Crear propuesta"], [title="Tarea"], [title="Preparar mensaje"]'),
+      aside.querySelector('[title="Crear propuesta"], [title="Crear lead"], [title="Tarea"], [title="Preparar mensaje"]'),
     ) || null
   );
 }
@@ -23,8 +28,8 @@ function ensureReadableButton(element: HTMLElement, label: string) {
   if (element.dataset.corevixLabelEnhanced === label) return;
 
   element.dataset.corevixLabelEnhanced = label;
-  element.classList.remove("grid", "place-items-center");
-  element.classList.add("flex", "items-center", "justify-center", "gap-2");
+  element.classList.remove("grid", "place-items-center", "w-10", "h-10", "w-9", "h-9");
+  element.classList.add("flex", "items-center", "justify-center", "gap-2", "px-3", "min-w-fit");
 
   const existing = element.querySelector<HTMLElement>("[data-corevix-button-label]");
   if (existing) {
@@ -35,7 +40,7 @@ function ensureReadableButton(element: HTMLElement, label: string) {
   const span = document.createElement("span");
   span.dataset.corevixButtonLabel = "true";
   span.textContent = label;
-  span.className = "text-[11px] font-black leading-none";
+  span.className = "text-[11px] font-black leading-none whitespace-nowrap";
   element.appendChild(span);
 }
 
@@ -56,6 +61,24 @@ function ensureSectionTitle(beforeNode: HTMLElement, title: string, subtitle?: s
   parent.insertBefore(header, beforeNode);
 }
 
+function enhanceNextActionCard(aside: HTMLElement) {
+  const nextButton = aside.querySelector<HTMLElement>(
+    '[title="Crear lead"], [title="Crear cliente"], [title="Crear propuesta"], [title="Crear factura"], [title="Preparar seguimiento"], [title="Preparar"], [title="Ver"]',
+  );
+  if (!nextButton) return;
+
+  const card = nextButton.closest("section") as HTMLElement | null;
+  if (!card || card.dataset.corevixNextActionEnhanced === "true") return;
+
+  card.dataset.corevixNextActionEnhanced = "true";
+  card.classList.add("cursor-pointer", "transition", "hover:shadow-md");
+  card.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("a,button,input,textarea,select")) return;
+    nextButton.click();
+  });
+}
+
 function enhancePanel() {
   const aside = getRightAside();
   if (!aside) return;
@@ -63,6 +86,8 @@ function enhancePanel() {
   for (const [title, label] of Object.entries(BUTTON_LABELS)) {
     aside.querySelectorAll<HTMLElement>(`[title="${title}"]`).forEach((element) => ensureReadableButton(element, label));
   }
+
+  enhanceNextActionCard(aside);
 
   const taskButton = aside.querySelector<HTMLElement>('[title="Tarea"]');
   const internalSection = taskButton?.closest("section") as HTMLElement | null;
