@@ -165,16 +165,26 @@ export async function updateLeadStatusTool(ctx: ToolContext, args: any): Promise
   if (leadId) {
     query = query.eq("id", leadId);
   } else if (queryText) {
-    query = query.or(
-      `first_name.ilike.%${queryText}%,last_name.ilike.%${queryText}%,company_name.ilike.%${queryText}%,phone.ilike.%${queryText}%,email.ilike.%${queryText}%`
-    );
+    const parts = queryText.split(/\\s+/).filter(Boolean);
+    const first = parts[0] || "";
+    const last = parts.slice(1).join(" ");
+
+    if (first && last) {
+      query = query
+        .ilike("first_name", `%${first}%`)
+        .ilike("last_name", `%${last}%`);
+    } else {
+      query = query.or(
+        `first_name.ilike.%${queryText}%,last_name.ilike.%${queryText}%,company_name.ilike.%${queryText}%,phone.ilike.%${queryText}%,email.ilike.%${queryText}%,whatsapp.ilike.%${queryText}%`
+      );
+    }
   } else {
     return { ok: false, error: "Falta el lead_id o nombre del lead." };
   }
 
   const { data: matches, error: findError } = await query
     .order("created_at", { ascending: false })
-    .limit(2);
+    .limit(5);
 
   if (findError) return { ok: false, error: findError.message };
 
@@ -182,15 +192,24 @@ export async function updateLeadStatusTool(ctx: ToolContext, args: any): Promise
     return { ok: false, error: "No encontré el lead para actualizar." };
   }
 
-  if (matches.length > 1 && !leadId) {
-    return {
-      ok: false,
-      error: "Encontré más de un lead parecido. Indica el ID exacto del lead.",
-      data: matches,
-    };
-  }
+  let lead = matches[0];
 
-  const lead = matches[0];
+  if (matches.length > 1 && !leadId) {
+    const normalizedQuery = queryText.toLowerCase().trim();
+    const exact = matches.find((item: any) =>
+      `${item.first_name ?? ""} ${item.last_name ?? ""}`.toLowerCase().trim() === normalizedQuery
+    );
+
+    if (exact) {
+      lead = exact;
+    } else {
+      return {
+        ok: false,
+        error: "Encontré más de un lead parecido. Indica el ID exacto del lead.",
+        data: matches,
+      };
+    }
+  }
 
   const { data, error } = await ctx.supabase
     .from("leads")
