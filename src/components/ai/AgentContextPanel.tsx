@@ -25,7 +25,7 @@ function ContextEmptyState() {
     <div className="agent-context-empty">
       <div className="agent-context-empty-icon"><Sparkles className="h-4 w-4" /></div>
       <h3>Contexto CRM</h3>
-      <p>Pide algo sobre leads, tareas, facturas, oportunidades, proyectos o productos. El panel mostrara datos reales cuando una tool devuelva contexto.</p>
+      <p>Pide algo sobre leads, tareas, facturas, oportunidades, proyectos o productos. El panel mostrara datos reales cuando haya contexto útil del CRM.</p>
     </div>
   );
 }
