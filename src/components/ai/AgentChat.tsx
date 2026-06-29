@@ -126,12 +126,6 @@ export function AgentChat({
           </header>
 
           <section className="agentic-ai-stage">
-            <div className="agentic-ai-snapshot" aria-label="Estado del agente">
-              <span className="agentic-ai-chip"><span className="agentic-ai-chip-dot"><Sparkles className="h-3.5 w-3.5" /></span>Agente real</span>
-              <span className="agentic-ai-chip"><span className="agentic-ai-chip-dot"><Bot className="h-3.5 w-3.5" /></span>OpenClaw</span>
-              <span className="agentic-ai-chip"><span className="agentic-ai-chip-dot"><Search className="h-3.5 w-3.5" /></span>Historial CRM</span>
-            </div>
-
             <div className="agentic-ai-core">
               {loadingHistory ? (
                 <div className="agentic-ai-empty">
