@@ -53,6 +53,13 @@ type ToolOption = {
   patterns: RegExp[];
 };
 
+type DashboardAction = {
+  label: string;
+  kind: "prompt" | "navigate";
+  value: string;
+  primary?: boolean;
+};
+
 type AgentDashboardStats = {
   loading: boolean;
   error: string | null;
@@ -437,37 +444,57 @@ function ThinkingBubble() {
   );
 }
 
-function ActionLink({ to, children, primary = false }: { to: string; children: ReactNode; primary?: boolean }) {
+function ActionControl({ action, onPrompt }: { action: DashboardAction; onPrompt: (prompt: string) => void }) {
+  const className = action.primary ? "action-btn" : "ghost-btn";
+
+  if (action.kind === "navigate") {
+    return (
+      <Link to={action.value} className={className}>
+        {action.label}
+      </Link>
+    );
+  }
+
   return (
-    <Link to={to} className={primary ? "action-btn" : "ghost-btn"}>
-      {children}
-    </Link>
+    <button type="button" className={className} onClick={() => onPrompt(action.value)}>
+      {action.label}
+    </button>
   );
 }
 
-function getActionLinks(intent: IntentKey) {
+function getDashboardActions(intent: IntentKey): DashboardAction[] {
   if (intent === "invoices") {
     return [
-      { to: "/invoices", label: "Ver facturas" },
-      { to: "/dashboard", label: "Ver resumen" },
+      { label: "Listar pendientes", kind: "prompt", value: "Muestrame las facturas pendientes no pagadas", primary: true },
+      { label: "Ver facturas", kind: "navigate", value: "/invoices" },
+      { label: "Priorizar cobros", kind: "prompt", value: "Prioriza mis cobros pendientes y dime cual debo atender primero" },
     ];
   }
   if (intent === "pipeline") {
     return [
-      { to: "/pipeline", label: "Ver pipeline" },
-      { to: "/proposals", label: "Ver propuestas" },
+      { label: "Listar oportunidades", kind: "prompt", value: "Muestrame las oportunidades abiertas y cual debo priorizar", primary: true },
+      { label: "Ver pipeline", kind: "navigate", value: "/pipeline" },
+      { label: "Ver propuestas", kind: "navigate", value: "/proposals" },
     ];
   }
   if (intent === "messages") {
     return [
-      { to: "/whatsapp", label: "Abrir WhatsApp" },
-      { to: "/email", label: "Abrir Email" },
+      { label: "Priorizar mensajes", kind: "prompt", value: "Que mensajes tengo pendientes y cual debo responder primero", primary: true },
+      { label: "Abrir WhatsApp", kind: "navigate", value: "/whatsapp" },
+      { label: "Abrir Email", kind: "navigate", value: "/email" },
+    ];
+  }
+  if (intent === "priorities") {
+    return [
+      { label: "Revisar prioridades", kind: "prompt", value: "Dame mis prioridades reales de hoy del CRM", primary: true },
+      { label: "Ver tareas", kind: "navigate", value: "/tasks" },
+      { label: "Ver leads", kind: "navigate", value: "/leads" },
     ];
   }
   return [
-    { to: "/tasks", label: "Ver tareas" },
-    { to: "/leads", label: "Ver leads" },
-    { to: "/invoices", label: "Ver facturas" },
+    { label: "Resumen del CRM", kind: "prompt", value: "Dame un resumen del CRM de hoy", primary: true },
+    { label: "Ver dashboard", kind: "navigate", value: "/dashboard" },
+    { label: "Ver tareas", kind: "navigate", value: "/tasks" },
   ];
 }
 
@@ -587,7 +614,7 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
     showToast("Volviste a la vista limpia del dashboard.");
   }
 
-  const actionLinks = getActionLinks(activeIntent);
+  const dashboardActions = getDashboardActions(activeIntent);
 
   return (
     <div className="agentic-dashboard">
@@ -713,8 +740,8 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
               <h3>Siguiente paso</h3>
               <p>{config.panelSummary}</p>
               <div className="panel-actions">
-                {actionLinks.map((action, index) => (
-                  <ActionLink key={action.to} to={action.to} primary={index === 0}>{action.label}</ActionLink>
+                {dashboardActions.map((action) => (
+                  <ActionControl key={`${action.kind}-${action.value}`} action={action} onPrompt={(prompt) => void sendMessage(prompt)} />
                 ))}
               </div>
             </ContextCard>
