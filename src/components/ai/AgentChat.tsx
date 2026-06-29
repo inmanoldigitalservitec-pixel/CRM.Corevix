@@ -6,7 +6,6 @@ import {
   Bot,
   BriefcaseBusiness,
   CalendarClock,
-  CheckCircle2,
   Circle,
   Copy,
   DollarSign,
