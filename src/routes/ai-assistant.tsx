@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AgentChat } from "@/components/ai/AgentChat";
 import "@/components/ai/AgenticDashboardInput.css";
+import "@/components/ai/AgenticDashboardWidgets.css";
 
 export const Route = createFileRoute("/ai-assistant")({
   component: AIAssistantPage,
