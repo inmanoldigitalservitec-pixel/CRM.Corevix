@@ -1,4 +1,5 @@
 import type { ToolContext, ToolResult } from "../types";
+import { createCrmDemoTool, createReminderTool, createTaskTool } from "./tasks";
 
 const PROFILE_SELECT = "id,user_id,full_name,email,is_active";
 
@@ -19,60 +20,25 @@ function isUuid(value: string) {
 function isSelf(value: any) {
   const text = normalize(value);
   if (!text) return true;
-  return [
-    "yo",
-    "mi",
-    "me",
-    "a mi",
-    "para mi",
-    "conmigo",
-    "mi usuario",
-    "usuario actual",
-    "current user",
-    "current_user",
-    "myself",
-    "me mismo",
-  ].includes(text);
+  return ["yo", "mi", "me", "a mi", "para mi", "conmigo", "mi usuario", "usuario actual", "current user", "current_user", "myself", "me mismo"].includes(text);
 }
 
 function getInput(args: any) {
-  const raw =
-    args.assigned_to ??
-    args.assignee ??
-    args.owner ??
-    args.owner_id ??
-    args.user ??
-    args.user_id ??
-    args.profile_id ??
-    args.responsible ??
-    args.responsable ??
-    args.assign_to;
-
+  const raw = args.assigned_to ?? args.assignee ?? args.owner ?? args.owner_id ?? args.user ?? args.user_id ?? args.profile_id ?? args.responsible ?? args.responsable ?? args.assign_to;
   if (raw && typeof raw === "object") {
     return raw.profile_id || raw.profileId || raw.id || raw.user_id || raw.userId || raw.email || raw.full_name || raw.name || "";
   }
-
   return raw;
 }
 
 async function currentProfile(ctx: ToolContext) {
-  const { data, error } = await ctx.supabase
-    .from("profiles")
-    .select(PROFILE_SELECT)
-    .eq("company_id", ctx.companyId)
-    .eq("user_id", ctx.userId)
-    .maybeSingle();
+  const { data, error } = await ctx.supabase.from("profiles").select(PROFILE_SELECT).eq("company_id", ctx.companyId).eq("user_id", ctx.userId).maybeSingle();
   if (error) throw new Error(error.message);
   return data ?? null;
 }
 
 async function companyProfiles(ctx: ToolContext) {
-  const { data, error } = await ctx.supabase
-    .from("profiles")
-    .select(PROFILE_SELECT)
-    .eq("company_id", ctx.companyId)
-    .order("full_name", { ascending: true })
-    .limit(100);
+  const { data, error } = await ctx.supabase.from("profiles").select(PROFILE_SELECT).eq("company_id", ctx.companyId).order("full_name", { ascending: true }).limit(100);
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -116,12 +82,7 @@ export async function resolveCrmAssignee(ctx: ToolContext, args: any): Promise<T
     return {
       ok: false,
       error: "Encontré más de un usuario parecido. Indica el email o nombre exacto del responsable.",
-      data: matches.slice(0, 8).map((profile: any) => ({
-        id: profile.id,
-        full_name: profile.full_name,
-        email: profile.email,
-        is_active: profile.is_active,
-      })),
+      data: matches.slice(0, 8).map((profile: any) => ({ id: profile.id, full_name: profile.full_name, email: profile.email, is_active: profile.is_active })),
     };
   }
 
@@ -132,4 +93,31 @@ export function hasAssigneeInput(args: any) {
   return ["assigned_to", "assignee", "owner", "owner_id", "user", "user_id", "profile_id", "responsible", "responsable", "assign_to"].some((key) =>
     Object.prototype.hasOwnProperty.call(args ?? {}, key),
   );
+}
+
+function withProfile(result: ToolResult, profile: any): ToolResult {
+  if (!result.ok) return result;
+  return {
+    ...result,
+    message: `${result.message || "Acción completada."} Responsable: ${profile?.full_name || profile?.email || "usuario asignado"}.`,
+    data: { ...(result.data || {}), assigned_user: profile },
+  };
+}
+
+export async function createTaskForResolvedUser(ctx: ToolContext, args: any): Promise<ToolResult> {
+  const resolved = await resolveCrmAssignee(ctx, args);
+  if (!resolved.ok || !resolved.profileId) return resolved;
+  return withProfile(await createTaskTool(ctx, { ...args, assigned_to: resolved.profileId }), resolved.profile);
+}
+
+export async function createReminderForResolvedUser(ctx: ToolContext, args: any): Promise<ToolResult> {
+  const resolved = await resolveCrmAssignee(ctx, args);
+  if (!resolved.ok || !resolved.profileId) return resolved;
+  return withProfile(await createReminderTool(ctx, { ...args, assigned_to: resolved.profileId }), resolved.profile);
+}
+
+export async function createDemoForResolvedUser(ctx: ToolContext, args: any): Promise<ToolResult> {
+  const resolved = await resolveCrmAssignee(ctx, args);
+  if (!resolved.ok || !resolved.profileId) return resolved;
+  return withProfile(await createCrmDemoTool(ctx, { ...args, assigned_to: resolved.profileId }), resolved.profile);
 }
