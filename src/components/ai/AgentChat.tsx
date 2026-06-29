@@ -3,10 +3,8 @@ import { useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
-  Bot,
   BriefcaseBusiness,
   CalendarClock,
-  Circle,
   Copy,
   DollarSign,
   FileText,
@@ -25,13 +23,13 @@ import {
 import { extractAgentReply, sendAgentMessage } from "@/lib/agentClient";
 import "./AgenticDashboard.css";
 import "./AgenticDashboardIcons.css";
+import "./AgenticDashboardPhase1.css";
 
 type IntentKey = "priorities" | "invoices" | "pipeline" | "messages" | "default";
 type ToolKey = "auto" | "crm" | "leads" | "clients" | "pipeline" | "invoices" | "tasks" | "messages" | "projects" | "documents";
 
 type IntentConfig = {
   contexts: string[];
-  chips: string[];
   title: string;
   summary: string;
   points: string[];
@@ -111,78 +109,58 @@ const toolOptions: ToolOption[] = [
 const intentConfig: Record<IntentKey, IntentConfig> = {
   priorities: {
     contexts: ["priorities", "pipeline", "actions", "activity", "agenda"],
-    chips: ["Prioridades", "Pipeline", "Actividad", "Agenda"],
     title: "Prioridad recomendada",
-    summary:
-      "Cobrar facturas vencidas, responder conversaciones abiertas y dar seguimiento a propuestas activas debe ir primero.",
+    summary: "Primero conviene cobrar pendientes, responder conversaciones abiertas y reactivar oportunidades con actividad reciente.",
     points: [
       "El agente cruza facturas, tareas, pipeline y actividad reciente.",
-      "Las prioridades se organizan por impacto en caja y avance comercial.",
-      "Puedes convertir la recomendacion en una accion dentro del CRM.",
+      "Las prioridades se ordenan por impacto en caja y avance comercial.",
     ],
     actions: ["Revisar prioridad", "Crear seguimiento", "Abrir actividad"],
-    panelSummary:
-      "Plan recomendado: cobrar pendientes, responder conversaciones activas y reactivar oportunidades abiertas.",
+    panelSummary: "Plan recomendado: cobrar pendientes, responder conversaciones activas y reactivar oportunidades abiertas.",
   },
   invoices: {
     contexts: ["invoices", "actions", "activity"],
-    chips: ["Facturas", "Cobros", "Actividad"],
     title: "Cobro recomendado",
-    summary:
-      "El agente revisa facturas pendientes, vencidas y por vencer para sugerir el siguiente cobro.",
+    summary: "Hay que priorizar facturas vencidas y cobros con impacto directo en caja.",
     points: [
-      "Se priorizan facturas vencidas y montos con impacto directo en caja.",
-      "El contexto incluye numero, estado, fecha de vencimiento y cliente relacionado.",
-      "La siguiente accion puede ser abrir factura, recordar pago o programar seguimiento.",
+      "Se priorizan facturas vencidas y montos altos.",
+      "La siguiente accion puede ser recordar pago o programar seguimiento.",
     ],
     actions: ["Enviar recordatorio", "Abrir factura", "Programar seguimiento"],
-    panelSummary:
-      "Accion sugerida: revisar cobros pendientes y preparar recordatorios para facturas vencidas.",
+    panelSummary: "Accion sugerida: revisar cobros pendientes y preparar recordatorios para facturas vencidas.",
   },
   pipeline: {
     contexts: ["pipeline", "actions", "activity"],
-    chips: ["Pipeline", "Oportunidades", "Actividad"],
     title: "Oportunidades a priorizar",
-    summary:
-      "El agente analiza oportunidades abiertas, propuestas enviadas y negociaciones para encontrar cierres probables.",
+    summary: "Las oportunidades con propuesta enviada o respuesta reciente deben moverse primero.",
     points: [
-      "El pipeline se organiza por etapa, valor, probabilidad y actividad reciente.",
-      "Las oportunidades con respuesta reciente deben moverse primero.",
+      "El pipeline se organiza por etapa, valor y actividad reciente.",
       "Puedes pedir follow-up, tarea comercial o resumen por etapa.",
     ],
     actions: ["Ver oportunidades", "Enviar follow-up", "Crear tarea comercial"],
-    panelSummary:
-      "Accion sugerida: dar seguimiento a propuestas y negociaciones con mayor probabilidad de cierre.",
+    panelSummary: "Accion sugerida: dar seguimiento a propuestas y negociaciones con mayor probabilidad de cierre.",
   },
   messages: {
     contexts: ["messages", "actions", "activity"],
-    chips: ["Mensajes", "Clientes", "Actividad"],
     title: "Mensajes pendientes",
-    summary:
-      "El agente revisa conversaciones abiertas y detecta mensajes conectados a leads, clientes y oportunidades.",
+    summary: "Responde primero las conversaciones conectadas a clientes, leads u oportunidades activas.",
     points: [
       "Las conversaciones con impacto comercial suben de prioridad.",
-      "El contexto puede relacionarse con propuestas, clientes o tareas pendientes.",
-      "Puedes pedir respuesta sugerida o abrir la bandeja del CRM.",
+      "Puedes pedir una respuesta sugerida o abrir la bandeja.",
     ],
     actions: ["Responder mensajes", "Abrir bandeja", "Crear seguimiento"],
-    panelSummary:
-      "Accion sugerida: responder primero las conversaciones conectadas a oportunidades activas.",
+    panelSummary: "Accion sugerida: responder primero las conversaciones conectadas a oportunidades activas.",
   },
   default: {
     contexts: ["priorities", "actions", "activity"],
-    chips: ["Prioridades", "Acciones", "Actividad"],
     title: "Contexto preparado",
-    summary:
-      "Corevix AI preparo el contexto mas util del CRM para trabajar sobre prioridades, actividad reciente y acciones sugeridas.",
+    summary: "Listo. Puedo ayudarte a priorizar, cobrar, responder mensajes o analizar oportunidades del CRM.",
     points: [
-      "Puedes pedirme que cobre, responda, priorice o analice oportunidades.",
-      "Los paneles se adaptan segun la intencion de tu mensaje.",
-      "El dashboard se mantiene visible mientras conversas con el agente.",
+      "El dashboard se adapta segun la intencion de tu mensaje.",
+      "Los paneles muestran solo la data relevante para la accion.",
     ],
     actions: ["Revisar prioridades", "Ver actividad", "Crear siguiente accion"],
-    panelSummary:
-      "Corevix AI esta listo para ayudarte a ejecutar la siguiente accion dentro del CRM.",
+    panelSummary: "Corevix AI esta listo para ayudarte a ejecutar la siguiente accion dentro del CRM.",
   },
 };
 
@@ -339,20 +317,24 @@ function AgentInput({
 function AiReply({ intent, reply }: { intent: IntentKey; reply: string }) {
   const config = intentConfig[intent] || intentConfig.default;
   const finalReply = reply.trim() || config.summary;
+  const visiblePoints = config.points.slice(0, 2);
+  const visibleActions = config.actions.slice(0, 2);
 
   return (
-    <div className="ai-card">
+    <div className="ai-card ai-card-compact">
       <h3>{config.title}</h3>
       <p>{finalReply}</p>
-      <ul className="ai-list">
-        {config.points.map((point) => <li key={point}>{point}</li>)}
-      </ul>
-      <div className="ai-actions">
-        {config.actions.map((action, index) => (
+      {visiblePoints.length ? (
+        <ul className="ai-list compact-list">
+          {visiblePoints.map((point) => <li key={point}>{point}</li>)}
+        </ul>
+      ) : null}
+      <div className="ai-actions compact-actions">
+        {visibleActions.map((action, index) => (
           <button key={action} type="button" className={index === 0 ? "ai-action-btn" : "ai-secondary-btn"}>{action}</button>
         ))}
       </div>
-      <div className="feedback">
+      <div className="feedback compact-feedback">
         <span><ThumbsUp /></span>
         <span><ThumbsDown /></span>
         <span><RefreshCw /></span>
@@ -544,12 +526,8 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
               </div>
 
               <div className="chat-view">
-                <div className="chat-head">
+                <div className="chat-head chat-head-clean">
                   <button type="button" className="clean-btn" onClick={resetCleanView}><ArrowLeft /> Vista limpia</button>
-                  <div className="context-chips">
-                    {selectedTool !== "auto" ? <span className="chip"><Bot /> Tool: {toolLabel(selectedTool)}</span> : null}
-                    {config.chips.map((chip) => <span className="chip" key={chip}><Circle /> {chip}</span>)}
-                  </div>
                 </div>
 
                 <div className="chat-scroll">
