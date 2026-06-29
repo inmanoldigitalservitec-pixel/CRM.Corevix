@@ -2,6 +2,8 @@
 .agentic-ai-hero-form,
 .agentic-ai-dock-form {
   align-items: flex-end;
+  position: relative;
+  gap: 8px;
 }
 
 .agentic-ai-hero-form textarea,
@@ -17,6 +19,98 @@
 .agentic-ai-hero-form textarea::placeholder,
 .agentic-ai-dock-form textarea::placeholder {
   color: #8a97ad;
+}
+
+.agentic-ai-scope-layer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-height: 36px;
+}
+
+.agentic-ai-tool-pill,
+.agentic-ai-tool-suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.agentic-ai-tool-pill-icon {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(29, 98, 249, 0.12);
+  color: #1d62f9;
+}
+
+.agentic-ai-tool-pill.is-selected {
+  padding: 4px 5px 4px 6px;
+  border: 1px solid rgba(29, 98, 249, 0.2);
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+  color: #11233f;
+  box-shadow: 0 8px 22px rgba(29, 98, 249, 0.12);
+}
+
+.agentic-ai-tool-pill.is-selected button {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  color: #6f7f96;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.agentic-ai-tool-pill.is-selected button:hover {
+  background: rgba(17, 24, 39, 0.08);
+  color: #111827;
+}
+
+.agentic-ai-tool-suggestion {
+  margin-left: 2px;
+  padding: 5px 6px 5px 6px;
+  border: 1px solid rgba(29, 98, 249, 0.16);
+  background: rgba(255, 255, 255, 0.86);
+  color: #334155;
+  box-shadow: 0 10px 26px rgba(22, 45, 90, 0.08);
+  cursor: pointer;
+  opacity: 0.92;
+  transform: translateY(0);
+  transition: transform 0.16s ease, opacity 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.agentic-ai-tool-suggestion:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+  border-color: rgba(29, 98, 249, 0.34);
+  box-shadow: 0 14px 30px rgba(29, 98, 249, 0.12);
+}
+
+.agentic-ai-tab-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #1d62f9;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 6px 14px rgba(29, 98, 249, 0.22);
 }
 
 .agentic-ai-empty-inner {
@@ -78,5 +172,9 @@
   .agentic-ai-hero-form,
   .agentic-ai-dock-form {
     width: 100%;
+  }
+
+  .agentic-ai-tool-suggestion span:not(.agentic-ai-tool-pill-icon):not(.agentic-ai-tab-hint) {
+    display: none;
   }
 }
