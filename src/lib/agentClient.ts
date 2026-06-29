@@ -12,13 +12,17 @@ type AgentChatResponse = {
   [key: string]: unknown;
 };
 
+type SendAgentMessageOptions = {
+  debug?: boolean;
+};
+
 export function getAgentUrl() {
   return AGENT_URL;
 }
 
 export function extractAgentReply(data: unknown) {
   if (typeof data === "string") return data;
-  if (!data || typeof data !== "object") return "No recibí respuesta del agente.";
+  if (!data || typeof data !== "object") return "No recibi respuesta del agente.";
 
   const payload = data as AgentChatResponse;
   const reply = payload.reply || payload.response || payload.message || payload.content;
@@ -28,7 +32,11 @@ export function extractAgentReply(data: unknown) {
   return JSON.stringify(data, null, 2);
 }
 
-export async function sendAgentMessage(message: string, history: AgentChatHistoryMessage[] = []) {
+export async function sendAgentMessage(
+  message: string,
+  history: AgentChatHistoryMessage[] = [],
+  options: SendAgentMessageOptions = {},
+) {
   if (!AGENT_URL) {
     throw new Error("Falta configurar VITE_AGENT_URL para conectar con Corevix AI.");
   }
@@ -45,8 +53,16 @@ export async function sendAgentMessage(message: string, history: AgentChatHistor
   const accessToken = session?.access_token;
 
   if (!accessToken) {
-    throw new Error("No hay sesión activa de Supabase. Inicia sesión otra vez en el CRM.");
+    throw new Error("No hay sesion activa de Supabase. Inicia sesion otra vez en el CRM.");
   }
+
+  const trimmedHistory = history
+    .filter((item) => item?.content?.trim())
+    .slice(-10)
+    .map((item) => ({
+      role: item.role,
+      content: item.content.slice(0, 2000),
+    }));
 
   const response = await fetch(`${AGENT_URL}/agent/chat`, {
     method: "POST",
@@ -56,13 +72,8 @@ export async function sendAgentMessage(message: string, history: AgentChatHistor
     },
     body: JSON.stringify({
       message,
-      history: history
-        .filter((item) => item?.content?.trim())
-        .slice(-10)
-        .map((item) => ({
-          role: item.role,
-          content: item.content.slice(0, 2000),
-        })),
+      history: trimmedHistory,
+      debug: Boolean(options.debug),
     }),
   });
 
