@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
-import { Bot, PanelLeft, Plus, Search, Send, Sparkles } from "lucide-react";
+import { Bot, PanelLeft, Plus, Send, Sparkles } from "lucide-react";
 import { getAgentUrl } from "@/lib/agentClient";
+import { AgentContextPanel } from "./AgentContextPanel";
+import { getLatestAgentToolContext } from "./agentToolContext";
 import { AGENT_CHAT_STARTERS, useAgentChatController } from "./useAgentChatController";
 import "./AgenticAgentShell.css";
 import "./AgenticPrompt.css";
@@ -29,6 +31,7 @@ export function AgentChat({
   } = useAgentChatController();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const activeToolContext = getLatestAgentToolContext(messages);
 
   const resizeTextarea = () => {
     const el = textareaRef.current;
@@ -88,46 +91,22 @@ export function AgentChat({
   return (
     <div className="agentic-ai-shell">
       <div className="agentic-ai-layout">
-        <aside className={`agentic-ai-history ${sidebarOpen ? "" : "is-closed"}`}>
-          <button type="button" onClick={newThread} className="agentic-ai-new-chat">
-            <Plus className="h-4 w-4" />
-            Nuevo chat
-          </button>
-
-          <div className="agentic-ai-search">
-            <Search />
-            <input placeholder="Buscar chats" />
-          </div>
-
-          <div className="agentic-ai-history-list">
-            <p className="agentic-ai-section-label">{loadingHistory ? "Cargando..." : "Recientes"}</p>
-
-            {historyError ? <p className="agentic-ai-error">{historyError}</p> : null}
-
-            <div className="agentic-ai-thread-list">
-              {threads.map((thread) => {
-                const active = thread.id === activeThreadId;
-                return (
-                  <button
-                    key={thread.id}
-                    type="button"
-                    onClick={() => loadThreadMessages(thread.id)}
-                    className={`agentic-ai-thread ${active ? "is-active" : ""}`}
-                  >
-                    <strong>{thread.title}</strong>
-                    <span>{thread.preview}</span>
-                    <small>{thread.updatedAt}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
+        <div className={sidebarOpen ? "" : "is-closed"}>
+          <AgentContextPanel
+            context={activeToolContext}
+            threads={threads}
+            activeThreadId={activeThreadId}
+            loadingHistory={loadingHistory}
+            historyError={historyError}
+            onNewThread={newThread}
+            onLoadThread={loadThreadMessages}
+          />
+        </div>
 
         <main className="agentic-ai-main">
           <header className="agentic-ai-topbar">
             <div className="agentic-ai-title-row">
-              <button type="button" onClick={() => setSidebarOpen((value) => !value)} className="agentic-ai-toggle" aria-label="Abrir historial">
+              <button type="button" onClick={() => setSidebarOpen((value) => !value)} className="agentic-ai-toggle" aria-label="Abrir panel CRM">
                 <PanelLeft className="h-4 w-4" />
               </button>
               <div className="agentic-ai-title">
