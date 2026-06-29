@@ -8,7 +8,7 @@ export const Route = createFileRoute("/ai-assistant")({
 
 function AIAssistantPage() {
   return (
-    <div className="h-screen min-h-0 overflow-hidden bg-[#fbfdff] text-[#111827]">
+    <div className="h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden bg-[#fbfdff] text-[#111827]">
       <AgentChat fullscreen />
     </div>
   );
