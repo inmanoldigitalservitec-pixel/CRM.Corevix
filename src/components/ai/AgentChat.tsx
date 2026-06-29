@@ -236,7 +236,7 @@ function ThinkingBubble() {
   );
 }
 
-export function AgentChat() {
+export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = {}) {
   const [activeNav, setActiveNav] = useState("Inicio");
   const [conversationMode, setConversationMode] = useState(false);
   const [mobileTab, setMobileTab] = useState("chat");
