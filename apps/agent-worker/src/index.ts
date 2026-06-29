@@ -59,6 +59,14 @@ const AVAILABLE_TOOLS = [
   "list_unpaid_invoices",
 ];
 
+type PromptStats = {
+  label: "initial" | "final";
+  chars: number;
+  estimated_tokens: number;
+  openclaw_usage?: unknown;
+  [key: string]: unknown;
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -87,6 +95,7 @@ export default {
 async function handleAgentChat(request: Request, env: Env) {
   try {
     const body = (await request.json()) as ChatBody;
+    const debugEnabled = Boolean(body.debug);
 
     if (!body.message?.trim()) {
       return json({ error: "Missing message" }, 400);
@@ -95,7 +104,7 @@ async function handleAgentChat(request: Request, env: Env) {
     const supabase = createSupabaseAdmin(env);
     const userContext = await getUserContext(request, supabase);
 
-    const openclaw = await askOpenClaw(env, body.message, body.history);
+    const openclaw = await askOpenClaw(env, body.message, body.history, debugEnabled);
     const toolCall = parseToolCall(openclaw.text);
 
     if (!toolCall) {
@@ -103,6 +112,7 @@ async function handleAgentChat(request: Request, env: Env) {
         reply: openclaw.text,
         mode: "chat",
         openclaw: openclaw.debug,
+        ...(debugEnabled ? { agent_debug: { initial: openclaw.promptStats } } : {}),
       });
     }
 
@@ -113,7 +123,7 @@ async function handleAgentChat(request: Request, env: Env) {
     });
 
     if (!toolResult.ok) {
-      const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
+      const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult, debugEnabled);
 
       return json({
         reply: final.text,
@@ -124,10 +134,11 @@ async function handleAgentChat(request: Request, env: Env) {
           initial: openclaw.debug,
           final: final.debug,
         },
+        ...(debugEnabled ? { agent_debug: { initial: openclaw.promptStats, final: final.promptStats } } : {}),
       });
     }
 
-    const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
+    const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult, debugEnabled);
 
     return json({
       reply: final.text,
@@ -138,6 +149,7 @@ async function handleAgentChat(request: Request, env: Env) {
         initial: openclaw.debug,
         final: final.debug,
       },
+      ...(debugEnabled ? { agent_debug: { initial: openclaw.promptStats, final: final.promptStats } } : {}),
     });
   } catch (error: any) {
     return json(
@@ -150,7 +162,18 @@ async function handleAgentChat(request: Request, env: Env) {
   }
 }
 
-async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMessage[] = []) {
+async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMessage[] = [], debugEnabled = false) {
+  const input = buildSystemPrompt(userMessage, history);
+  const promptStats = buildPromptStats("initial", input, {
+    user_message_chars: userMessage.length,
+    user_message_estimated_tokens: estimateTokens(userMessage),
+    history_items_received: history.length,
+    history_items_used: countUsedHistoryItems(history),
+    tools_available: AVAILABLE_TOOLS.length,
+  });
+
+  logPromptStats(promptStats, debugEnabled);
+
   const openclawResponse = await fetch(`${env.OPENCLAW_GATEWAY_URL}/v1/responses`, {
     method: "POST",
     headers: {
@@ -159,11 +182,12 @@ async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMe
     },
     body: JSON.stringify({
       model: "openclaw/default",
-      input: buildSystemPrompt(userMessage, history),
+      input,
     }),
   });
 
   const data: any = await openclawResponse.json();
+  promptStats.openclaw_usage = data?.usage ?? null;
 
   if (!openclawResponse.ok) {
     throw new Error(data?.error?.message ?? "OpenClaw error");
@@ -177,10 +201,24 @@ async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMe
   return {
     text,
     debug: getOpenClawDebug(data),
+    promptStats,
   };
 }
 
-async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall: any, toolResult: any) {
+async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall: any, toolResult: any, debugEnabled = false) {
+  const input = buildFinalResponsePrompt(userMessage, toolCall, toolResult);
+  const toolResultJson = JSON.stringify(toolResult);
+  const promptStats = buildPromptStats("final", input, {
+    tool: toolCall?.tool ?? null,
+    user_message_chars: userMessage.length,
+    user_message_estimated_tokens: estimateTokens(userMessage),
+    tool_call_chars: JSON.stringify(toolCall).length,
+    tool_result_chars: toolResultJson.length,
+    tool_result_estimated_tokens: estimateTokens(toolResultJson),
+  });
+
+  logPromptStats(promptStats, debugEnabled);
+
   const openclawResponse = await fetch(`${env.OPENCLAW_GATEWAY_URL}/v1/responses`, {
     method: "POST",
     headers: {
@@ -189,16 +227,18 @@ async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall:
     },
     body: JSON.stringify({
       model: "openclaw/default",
-      input: buildFinalResponsePrompt(userMessage, toolCall, toolResult),
+      input,
     }),
   });
 
   const data: any = await openclawResponse.json();
+  promptStats.openclaw_usage = data?.usage ?? null;
 
   if (!openclawResponse.ok) {
     return {
       text: toolResult.message ?? `No pude redactar la respuesta final: ${toolResult.error ?? "error desconocido"}`,
       debug: getOpenClawDebug(data),
+      promptStats,
     };
   }
 
@@ -211,7 +251,30 @@ async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall:
   return {
     text,
     debug: getOpenClawDebug(data),
+    promptStats,
   };
+}
+
+function estimateTokens(text: string) {
+  return Math.ceil(text.length / 4);
+}
+
+function countUsedHistoryItems(history: ChatHistoryMessage[] = []) {
+  return history.filter((item) => item?.content?.trim()).slice(-10).length;
+}
+
+function buildPromptStats(label: "initial" | "final", input: string, extra: Record<string, unknown> = {}): PromptStats {
+  return {
+    label,
+    chars: input.length,
+    estimated_tokens: estimateTokens(input),
+    ...extra,
+  };
+}
+
+function logPromptStats(stats: PromptStats, enabled: boolean) {
+  if (!enabled) return;
+  console.log(`[agent-token-stats:${stats.label}]`, stats);
 }
 
 function buildFinalResponsePrompt(userMessage: string, toolCall: any, toolResult: any) {
