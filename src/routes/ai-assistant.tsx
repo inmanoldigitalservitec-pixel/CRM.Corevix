@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AgentChat } from "@/components/ai/AgentChat";
+import { AgentDashboardContextController } from "@/components/ai/AgentDashboardContextController";
 import "@/components/ai/AgenticDashboardInput.css";
 import "@/components/ai/AgenticDashboardWidgets.css";
 import "@/components/ai/AgenticDashboardContext.css";
@@ -13,6 +14,7 @@ function AIAssistantPage() {
   return (
     <div className="h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden bg-[#fbfdff] text-[#111827]">
       <AgentChat fullscreen />
+      <AgentDashboardContextController />
     </div>
   );
 }
