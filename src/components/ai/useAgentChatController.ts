@@ -33,106 +33,6 @@ function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
 }
 
-function normalizeRouterText(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[¿?¡!.,;:()\[\]{}'"`´]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isOnlyOneOf(message: string, options: string[]) {
-  const normalized = normalizeRouterText(message);
-  return options.includes(normalized);
-}
-
-function getLocalLightweightReply(message: string): string | null {
-  const normalized = normalizeRouterText(message);
-
-  if (!normalized) return null;
-
-  if (
-    isOnlyOneOf(message, [
-      "hola",
-      "hey",
-      "ey",
-      "hello",
-      "hi",
-      "buenas",
-      "buenos dias",
-      "buen dia",
-      "buenas tardes",
-      "buenas noches",
-      "saludos",
-      "que tal",
-      "como estas",
-      "como esta",
-    ])
-  ) {
-    return "¡Hey! Estoy aquí. Dime qué quieres revisar o hacer en el CRM.";
-  }
-
-  if (
-    isOnlyOneOf(message, [
-      "gracias",
-      "muchas gracias",
-      "ok gracias",
-      "perfecto gracias",
-      "listo gracias",
-      "thanks",
-      "thank you",
-    ])
-  ) {
-    return "Con gusto. Cuando quieras seguimos.";
-  }
-
-  if (
-    isOnlyOneOf(message, [
-      "ok",
-      "okay",
-      "dale",
-      "perfecto",
-      "bien",
-      "listo",
-      "entendido",
-      "claro",
-      "cool",
-    ])
-  ) {
-    return "Perfecto.";
-  }
-
-  if (
-    isOnlyOneOf(message, [
-      "quien eres",
-      "quien eres tu",
-      "que eres",
-      "como te llamas",
-      "eres corevix ai",
-    ])
-  ) {
-    return "Soy Corevix AI, tu asistente dentro del CRM. Puedo ayudarte a revisar datos, crear registros, actualizar información y organizar el trabajo del equipo.";
-  }
-
-  if (
-    isOnlyOneOf(message, [
-      "ayuda",
-      "help",
-      "que puedes hacer",
-      "que puedes hacer por mi",
-      "que sabes hacer",
-      "como puedes ayudarme",
-      "que haces",
-    ])
-  ) {
-    return "Puedo ayudarte con leads, clientes, tareas, calendario, pipeline, reportes, búsqueda global y borradores de comunicación. Por ejemplo: “crea un lead”, “lista mis tareas”, “dame un briefing diario” o “busca globalmente a Juan”.";
-  }
-
-  return null;
-}
-
 function isInternalDebugMessage(message: AgentMessage) {
   return message.role === "assistant" && message.content.startsWith("Modo debug ");
 }
@@ -140,24 +40,16 @@ function isInternalDebugMessage(message: AgentMessage) {
 function logBrowserAgentDebug(userText: string, recentHistory: AgentMessage[], response: unknown) {
   const historyChars = recentHistory.reduce((total, item) => total + item.content.length, 0);
   const payload = response as any;
-  const localRouter = payload?.agent_debug?.local_router;
 
   console.groupCollapsed("[Corevix AI debug] contexto y tokens");
-  console.log(localRouter ? "Frontend -> router local" : "Frontend -> worker", {
+  console.log("Frontend -> worker", {
     message_chars: userText.length,
     message_estimated_tokens: estimateTokens(userText),
-    history_items_sent: localRouter ? 0 : recentHistory.length,
-    history_chars_sent: localRouter ? 0 : historyChars,
-    history_estimated_tokens: localRouter
-      ? 0
-      : estimateTokens(userText) + estimateTokens(recentHistory.map((item) => item.content).join("\n")),
-    skipped_worker: Boolean(localRouter),
-    saved_openclaw_tokens: Boolean(localRouter),
+    history_items_sent: recentHistory.length,
+    history_chars_sent: historyChars,
+    history_estimated_tokens: estimateTokens(userText) + estimateTokens(recentHistory.map((item) => item.content).join("\n")),
   });
-  console.log(
-    localRouter ? "Worker -> OpenClaw" : "Worker -> OpenClaw",
-    localRouter || payload?.agent_debug || "El worker no devolvio agent_debug. Verifica que el worker este actualizado/reiniciado.",
-  );
+  console.log("Worker -> OpenClaw", payload?.agent_debug || "El worker no devolvio agent_debug. Verifica que el worker este actualizado/reiniciado.");
   console.groupEnd();
 }
 
@@ -395,42 +287,6 @@ export function useAgentChatController() {
       const recentHistory = messages
         .filter((item) => item.content.trim() && !isInternalDebugMessage(item))
         .slice(-10);
-
-      const localReply = getLocalLightweightReply(userText);
-
-      if (localReply) {
-        const localResponse = {
-          mode: "local_chat",
-          reply: localReply,
-          agent_debug: {
-            local_router: {
-              route: "local_chat",
-              reason: "obvious_non_tool_message",
-              worker_request_sent: false,
-              openclaw_request_sent: false,
-              estimated_openclaw_tokens_used: 0,
-            },
-          },
-        };
-
-        if (debugMode) logBrowserAgentDebug(userText, recentHistory, localResponse);
-
-        await appendAiChatMessage(persistedThreadId, "assistant", localReply, {
-          agent_response: localResponse,
-        });
-
-        await updateAiChatThread(persistedThreadId, {
-          title: userText.slice(0, 42),
-          preview: localReply.slice(0, 72),
-        });
-
-        setMessagesByThread((prev) => ({
-          ...prev,
-          [persistedThreadId]: [...(prev[persistedThreadId] || []), { role: "assistant", content: localReply }],
-        }));
-        updateThreadPreviewLocal(persistedThreadId, userText, localReply);
-        return;
-      }
 
       const data = await sendAgentMessage(userText, recentHistory, { debug: debugMode });
       if (debugMode) logBrowserAgentDebug(userText, recentHistory, data);
