@@ -121,7 +121,7 @@ function AppShell() {
 
   return (
     <DemoTourProvider>
-      <SidebarProvider>
+      <SidebarProvider style={{ "--sidebar-width-icon": "4rem" } as React.CSSProperties}>
         <div className="flex h-screen w-full overflow-hidden">
           <AppSidebar />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
