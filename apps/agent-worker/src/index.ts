@@ -5,6 +5,25 @@ import { getUserContext } from "./auth";
 import { parseToolCall } from "./tool-parser";
 import { executeTool } from "./tool-router";
 
+const AVAILABLE_TOOLS = [
+  "create_lead",
+  "search_leads",
+  "update_lead_status",
+  "create_task",
+  "create_reminder",
+  "create_crm_demo",
+  "list_tasks",
+  "crm_summary",
+  "agent_dashboard_context",
+  "create_deal",
+  "list_deals",
+  "create_project",
+  "list_projects",
+  "create_proposal",
+  "search_products",
+  "list_unpaid_invoices",
+];
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -18,7 +37,7 @@ export default {
         ok: true,
         service: "corevix-agent-worker",
         openclaw_gateway_url: env.OPENCLAW_GATEWAY_URL,
-        tools: ["create_lead", "search_leads", "update_lead_status", "create_task", "create_reminder", "create_crm_demo", "list_tasks", "crm_summary", "create_deal", "list_deals", "create_project", "list_projects", "create_proposal", "search_products", "list_unpaid_invoices"],
+        tools: AVAILABLE_TOOLS,
       });
     }
 
@@ -58,21 +77,6 @@ async function handleAgentChat(request: Request, env: Env) {
       userId: userContext.userId,
     });
 
-    if (!toolResult.ok) {
-      const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
-
-      return json({
-        reply: final.text,
-        mode: "tool",
-        tool: toolCall.tool,
-        tool_result: toolResult,
-        openclaw: {
-          initial: openclaw.debug,
-          final: final.debug,
-        },
-      });
-    }
-
     const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
 
     return json({
@@ -91,7 +95,7 @@ async function handleAgentChat(request: Request, env: Env) {
         error: "Agent worker error",
         message: error?.message ?? "Unknown error",
       },
-      500
+      500,
     );
   }
 }
@@ -160,7 +164,6 @@ async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall:
   };
 }
 
-
 function buildFinalResponsePrompt(userMessage: string, toolCall: any, toolResult: any) {
   return `
 Eres Corevix AI, el asistente interno del CRM Corevix.
@@ -195,9 +198,6 @@ ${JSON.stringify(toolResult, null, 2)}
 Redacta la respuesta final para el usuario:
   `.trim();
 }
-
-
-
 
 function getOpenClawDebug(data: any) {
   return {
@@ -319,7 +319,12 @@ Args:
 Genera un resumen básico del CRM.
 Args: {}
 
-9. create_deal
+9. agent_dashboard_context
+Genera un contexto completo y compacto del CRM para alimentar el agente/dashboard.
+Usa esta tool cuando el usuario pida resumen general, prioridades, qué toca hoy, estado del negocio, cobros, ventas, agenda o contexto del CRM.
+Args: {}
+
+10. create_deal
 Crea una oportunidad/deal.
 Args:
 {
@@ -331,14 +336,14 @@ Args:
   "notes": "Notas"
 }
 
-10. list_deals
+11. list_deals
 Lista oportunidades/deals.
 Args:
 {
   "stage": "all | new | qualified | proposal | won | lost"
 }
 
-11. create_project
+12. create_project
 Crea un proyecto.
 Args:
 {
@@ -354,14 +359,14 @@ Args:
   "priority": "low | medium | high"
 }
 
-12. list_projects
+13. list_projects
 Lista proyectos.
 Args:
 {
   "status": "all | active | completed | pending"
 }
 
-13. create_proposal
+14. create_proposal
 Crea una propuesta.
 Args:
 {
@@ -376,14 +381,14 @@ Args:
   "valid_until": "YYYY-MM-DD"
 }
 
-14. search_products
+15. search_products
 Busca productos o servicios.
 Args:
 {
   "query": "texto de búsqueda"
 }
 
-15. list_unpaid_invoices
+16. list_unpaid_invoices
 Lista facturas pendientes de pago.
 Args: {}
 
@@ -391,6 +396,7 @@ REGLAS:
 - Responde en español.
 - Si el usuario solo conversa o pregunta algo general, responde normal.
 - Si el usuario pide crear, buscar, listar o resumir datos reales del CRM, responde SOLO con JSON.
+- Para resúmenes generales, prioridades del día o estado del CRM, prefiere agent_dashboard_context sobre crm_summary.
 - No uses markdown cuando respondas JSON.
 - No inventes IDs.
 - Si falta un dato obligatorio, pide aclaración en texto normal.
@@ -402,7 +408,7 @@ REGLAS:
 FORMATO EXACTO PARA TOOL:
 {
   "type": "tool_call",
-  "tool": "create_lead",
+  "tool": "agent_dashboard_context",
   "args": {}
 }
 
