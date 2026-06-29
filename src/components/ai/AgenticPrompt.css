@@ -113,6 +113,38 @@
   box-shadow: 0 6px 14px rgba(29, 98, 249, 0.22);
 }
 
+/* Embedded CRM layout fixes: keep global sidebar/topbar visible and keep chat scroll inside the agent. */
+.agentic-ai-shell,
+.agentic-ai-layout,
+.agentic-ai-main,
+.agentic-ai-stage,
+.agentic-ai-core,
+.agentic-ai-chat,
+.agentic-ai-scroll {
+  min-height: 0;
+}
+
+.agentic-ai-stage {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.agentic-ai-core,
+.agentic-ai-chat {
+  height: 100%;
+}
+
+.agentic-ai-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.agentic-ai-dock {
+  flex: 0 0 auto;
+}
+
 .agentic-ai-empty-inner {
   width: min(700px, 100%);
 }
