@@ -101,7 +101,7 @@ function AppShell() {
   const isPublicProposalRoute = currentPath.startsWith("/proposal/public/");
   const isPublicInvoiceRoute = currentPath.startsWith("/invoice/public/");
   const isPublicRoute = isLoginPage || isPublicProposalRoute || isPublicInvoiceRoute;
-  const isFullscreenAiRoute = currentPath === "/ai-assistant";
+  const isAiRoute = currentPath === "/ai-assistant";
 
   if (loading) {
     return (
@@ -119,10 +119,6 @@ function AppShell() {
     return <Navigate to="/login" replace />;
   }
 
-  if (isFullscreenAiRoute) {
-    return <Outlet />;
-  }
-
   return (
     <DemoTourProvider>
       <SidebarProvider>
@@ -130,7 +126,7 @@ function AppShell() {
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <TopBar />
-            <main className="flex-1 overflow-auto">
+            <main className={isAiRoute ? "flex-1 min-h-0 overflow-hidden" : "flex-1 overflow-auto"}>
               <Outlet />
             </main>
           </div>
