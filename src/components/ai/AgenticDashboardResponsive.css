@@ -1,0 +1,322 @@
+@media (min-width: 1680px) {
+  .agentic-dashboard .agent-shell {
+    padding: 22px 24px;
+  }
+
+  .agentic-dashboard .agent-stage.conversation-mode {
+    grid-template-columns: minmax(300px, 360px) minmax(720px, 1fr) minmax(300px, 360px);
+    gap: 18px;
+  }
+
+  .agentic-dashboard .chat-stream {
+    width: min(860px, 100%);
+  }
+
+  .agentic-dashboard .bubble {
+    max-width: min(800px, 88%);
+  }
+}
+
+@media (max-width: 1440px) {
+  .agentic-dashboard .agent-shell {
+    padding: 14px;
+  }
+
+  .agentic-dashboard .agent-stage,
+  .agentic-dashboard .agent-stage.conversation-mode {
+    gap: 12px;
+  }
+
+  .agentic-dashboard .agent-stage.conversation-mode {
+    grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(230px, 280px);
+  }
+
+  .agentic-dashboard .context-card {
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+
+  .agentic-dashboard .data-row {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 10px 0;
+  }
+
+  .agentic-dashboard .data-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .agentic-dashboard .data-row strong {
+    font-size: 12.5px;
+  }
+
+  .agentic-dashboard .data-row span {
+    font-size: 11px;
+  }
+
+  .agentic-dashboard .chat-scroll {
+    padding: 24px 28px 18px;
+  }
+
+  .agentic-dashboard .chat-input-dock {
+    padding: 0 28px 22px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .agentic-dashboard .agent-stage.conversation-mode {
+    grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(210px, 250px);
+  }
+
+  .agentic-dashboard .snapshot {
+    gap: 8px;
+  }
+
+  .agentic-dashboard .snap-item {
+    min-height: 64px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  .agentic-dashboard .snap-dot {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .agentic-dashboard .snap-item strong {
+    font-size: 15px;
+  }
+
+  .agentic-dashboard .snap-item > span:not(.snap-dot) {
+    font-size: 10px;
+  }
+
+  .agentic-dashboard .chat-stream {
+    width: min(680px, 100%);
+  }
+}
+
+@media (max-width: 1100px) {
+  .agentic-dashboard .agent-stage.conversation-mode {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .agentic-dashboard .conversation-mode .left-context,
+  .agentic-dashboard .conversation-mode .right-context {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .agentic-dashboard .conversation-mode .left-context {
+    order: 2;
+  }
+
+  .agentic-dashboard .conversation-mode .right-context {
+    order: 3;
+  }
+
+  .agentic-dashboard .conversation-mode .center-column {
+    order: 1;
+    min-height: 620px;
+  }
+
+  .agentic-dashboard .context-card {
+    margin-bottom: 0;
+  }
+
+  .agentic-dashboard .context-card.show {
+    min-height: 100%;
+  }
+
+  .agentic-dashboard .agent-core {
+    min-height: 520px;
+  }
+
+  .agentic-dashboard .chat-input-dock .agent-input {
+    width: min(820px, 100%);
+  }
+}
+
+@media (max-width: 920px) {
+  .agentic-dashboard .agent-stage.conversation-mode {
+    display: flex;
+  }
+
+  .agentic-dashboard .conversation-mode .left-context,
+  .agentic-dashboard .conversation-mode .right-context {
+    display: none;
+  }
+
+  .agentic-dashboard .conversation-mode[data-mobile-tab="data"] .left-context,
+  .agentic-dashboard .conversation-mode[data-mobile-tab="actions"] .right-context {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .agentic-dashboard .center-column {
+    min-height: min(760px, calc(100vh - 92px));
+  }
+
+  .agentic-dashboard .conversation-mode .center-column {
+    min-height: min(760px, calc(100vh - 132px));
+  }
+
+  .agentic-dashboard .agent-core {
+    min-height: min(640px, calc(100vh - 198px));
+    border-radius: 24px;
+  }
+
+  .agentic-dashboard .snapshot {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .agentic-dashboard .snap-item {
+    min-width: 148px;
+    scroll-snap-align: start;
+  }
+
+  .agentic-dashboard .welcome-inner {
+    width: min(720px, 100%);
+  }
+
+  .agentic-dashboard .quick-actions {
+    gap: 8px;
+  }
+
+  .agentic-dashboard .quick-actions button {
+    height: 38px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 720px) {
+  .agentic-dashboard .agent-shell {
+    padding: 10px;
+  }
+
+  .agentic-dashboard .snapshot .snap-item:nth-child(n + 4) {
+    display: none;
+  }
+
+  .agentic-dashboard .welcome {
+    padding: 24px 14px;
+  }
+
+  .agentic-dashboard h1 {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+
+  .agentic-dashboard .subtitle {
+    margin: 14px 0 22px;
+    max-width: 520px;
+  }
+
+  .agentic-dashboard .agent-input {
+    width: 100%;
+    min-height: 60px;
+    height: auto;
+    border-radius: 24px;
+    padding: 9px 10px;
+  }
+
+  .agentic-dashboard .agent-input input {
+    font-size: 14px;
+  }
+
+  .agentic-dashboard .input-btn {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .agentic-dashboard .chat-scroll {
+    padding: 22px 14px 16px;
+  }
+
+  .agentic-dashboard .chat-input-dock {
+    padding: 0 14px 18px;
+  }
+
+  .agentic-dashboard .bubble {
+    max-width: 94%;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .agentic-dashboard .agent-shell {
+    padding: 8px;
+  }
+
+  .agentic-dashboard .mobile-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+  }
+
+  .agentic-dashboard .snapshot {
+    display: none;
+  }
+
+  .agentic-dashboard .center-column,
+  .agentic-dashboard .conversation-mode .center-column {
+    min-height: calc(100vh - 88px);
+  }
+
+  .agentic-dashboard .agent-core {
+    min-height: calc(100vh - 108px);
+    border-radius: 20px;
+  }
+
+  .agentic-dashboard .welcome-inner {
+    justify-content: center;
+  }
+
+  .agentic-dashboard h1 {
+    font-size: 29px;
+    line-height: 1.08;
+  }
+
+  .agentic-dashboard .agent-label {
+    margin: 8px 0;
+    font-size: 13px;
+  }
+
+  .agentic-dashboard .subtitle {
+    font-size: 13px;
+  }
+
+  .agentic-dashboard .quick-actions {
+    margin-top: 16px;
+  }
+
+  .agentic-dashboard .input-tool-pill {
+    max-width: 104px;
+  }
+
+  .agentic-dashboard .chat-head {
+    padding: 12px 12px 0;
+  }
+
+  .agentic-dashboard .chat-scroll {
+    padding: 18px 12px 14px;
+  }
+
+  .agentic-dashboard .chat-input-dock {
+    padding: 0 12px 14px;
+  }
+}
