@@ -29,25 +29,24 @@ export const AGENT_CHAT_STARTERS = [
   "Dame un resumen del pipeline",
 ];
 
-function formatOpenClawUsageLine(openclaw: unknown) {
-  const payload = openclaw as any;
-  const debug = payload?.final || payload;
+function estimateTokens(text: string) {
+  return Math.ceil(text.length / 4);
+}
 
-  if (!debug) return "";
+function logBrowserAgentDebug(userText: string, recentHistory: AgentMessage[], response: unknown) {
+  const historyChars = recentHistory.reduce((total, item) => total + item.content.length, 0);
+  const payload = response as any;
 
-  const usage = debug?.usage;
-  const model = debug?.model || "modelo desconocido";
-  const responseId = debug?.id ? ` · ${String(debug.id).slice(0, 13)}...` : "";
-
-  if (!usage) {
-    return `\n\n---\nOpenClaw: ${model}${responseId}\nCréditos Codex restantes: no disponible desde el gateway`;
-  }
-
-  const input = usage.input_tokens ?? "?";
-  const output = usage.output_tokens ?? "?";
-  const total = usage.total_tokens ?? "?";
-
-  return `\n\n---\nOpenClaw: ${model} · input ${input} · output ${output} · total ${total}${responseId}\nCréditos Codex restantes: no disponible desde el gateway`;
+  console.groupCollapsed("[Corevix AI debug] contexto y tokens");
+  console.log("Frontend -> worker", {
+    message_chars: userText.length,
+    message_estimated_tokens: estimateTokens(userText),
+    history_items_sent: recentHistory.length,
+    history_chars_sent: historyChars,
+    history_estimated_tokens: estimateTokens(userText) + estimateTokens(recentHistory.map((item) => item.content).join("\n")),
+  });
+  console.log("Worker -> OpenClaw", payload?.agent_debug || "El worker no devolvio agent_debug. Verifica que el worker este actualizado/reiniciado.");
+  console.groupEnd();
 }
 
 function formatUpdatedAt(value?: string | null) {
@@ -255,7 +254,9 @@ export function useAgentChatController() {
           ...(prev[activeThreadId] || []),
           {
             role: "assistant",
-            content: nextDebugMode ? "Modo debug activado." : "Modo debug desactivado.",
+            content: nextDebugMode
+              ? "Modo debug activado. Las métricas saldrán en la consola del navegador."
+              : "Modo debug desactivado.",
           },
         ],
       }));
@@ -283,9 +284,10 @@ export function useAgentChatController() {
         .filter((item) => item.content.trim())
         .slice(-10);
 
-      const data = await sendAgentMessage(userText, recentHistory);
-      const baseReply = extractAgentReply(data);
-      const reply = debugMode ? `${baseReply}${formatOpenClawUsageLine((data as any)?.openclaw)}` : baseReply;
+      const data = await sendAgentMessage(userText, recentHistory, { debug: debugMode });
+      if (debugMode) logBrowserAgentDebug(userText, recentHistory, data);
+
+      const reply = extractAgentReply(data);
       const toolContext = toolContextFromAgentResponse(data);
 
       await appendAiChatMessage(persistedThreadId, "assistant", reply, {
