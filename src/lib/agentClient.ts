@@ -12,6 +12,14 @@ type AgentChatResponse = {
   [key: string]: unknown;
 };
 
+type AgentDashboardContextResponse = {
+  ok?: boolean;
+  data?: unknown;
+  message?: string;
+  error?: string;
+  [key: string]: unknown;
+};
+
 export function getAgentUrl() {
   return AGENT_URL;
 }
@@ -28,11 +36,7 @@ export function extractAgentReply(data: unknown) {
   return JSON.stringify(data, null, 2);
 }
 
-export async function sendAgentMessage(message: string, history: AgentChatHistoryMessage[] = []) {
-  if (!AGENT_URL) {
-    throw new Error("Falta configurar VITE_AGENT_URL para conectar con Corevix AI.");
-  }
-
+async function getAccessToken() {
   const {
     data: { session },
     error: sessionError,
@@ -47,6 +51,38 @@ export async function sendAgentMessage(message: string, history: AgentChatHistor
   if (!accessToken) {
     throw new Error("No hay sesión activa de Supabase. Inicia sesión otra vez en el CRM.");
   }
+
+  return accessToken;
+}
+
+export async function getAgentDashboardContext() {
+  if (!AGENT_URL) {
+    throw new Error("Falta configurar VITE_AGENT_URL para conectar con Corevix AI.");
+  }
+
+  const accessToken = await getAccessToken();
+
+  const response = await fetch(`${AGENT_URL}/agent/dashboard-context`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(error || `Error ${response.status} cargando el contexto del dashboard.`);
+  }
+
+  return response.json() as Promise<AgentDashboardContextResponse>;
+}
+
+export async function sendAgentMessage(message: string, history: AgentChatHistoryMessage[] = []) {
+  if (!AGENT_URL) {
+    throw new Error("Falta configurar VITE_AGENT_URL para conectar con Corevix AI.");
+  }
+
+  const accessToken = await getAccessToken();
 
   const response = await fetch(`${AGENT_URL}/agent/chat`, {
     method: "POST",
