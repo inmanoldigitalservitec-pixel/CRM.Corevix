@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 const AGENT_URL = (import.meta.env.VITE_AGENT_URL || "http://localhost:8787").replace(/\/$/, "");
 
 export type AgentChatHistoryMessage = { role: "user" | "assistant"; content: string };
+export type AgentToolScope = "general" | "leads" | "clients" | "tasks" | "pipeline" | "reports" | "communication" | "projects" | "finance";
 
 type AgentChatResponse = {
   reply?: string;
@@ -14,6 +15,7 @@ type AgentChatResponse = {
 
 type SendAgentMessageOptions = {
   debug?: boolean;
+  toolScope?: AgentToolScope | null;
 };
 
 export function getAgentUrl() {
@@ -41,13 +43,11 @@ export async function sendAgentMessage(
     throw new Error("Falta configurar VITE_AGENT_URL para conectar con Corevix AI.");
   }
 
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
+  const sessionResult = await supabase.auth.getSession();
+  const session = sessionResult.data.session;
 
-  if (sessionError) {
-    throw new Error(sessionError.message);
+  if (sessionResult.error) {
+    throw new Error(sessionResult.error.message);
   }
 
   const accessToken = session?.access_token;
@@ -74,6 +74,7 @@ export async function sendAgentMessage(
       message,
       history: trimmedHistory,
       debug: Boolean(options.debug),
+      tool_scope: options.toolScope || null,
     }),
   });
 
