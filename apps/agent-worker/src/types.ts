@@ -12,10 +12,13 @@ export type ChatHistoryMessage = {
   content: string;
 };
 
+export type AgentToolScope = "general" | "leads" | "clients" | "tasks" | "pipeline" | "reports" | "communication" | "projects" | "finance";
+
 export type ChatBody = {
   message: string;
   history?: ChatHistoryMessage[];
   debug?: boolean;
+  tool_scope?: AgentToolScope | null;
 };
 
 export type ToolCall = {
