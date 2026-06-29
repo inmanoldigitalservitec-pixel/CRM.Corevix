@@ -29,91 +29,83 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useT } from "@/i18n";
 import { usePermissions } from "@/hooks/use-permissions";
 
-const mainItems = [
-  {
-    titleKey: "nav.dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    iconClassName: "text-blue-600",
-  },
+type SidebarItem = {
+  titleKey: string;
+  url: string;
+  icon: React.ElementType;
+  iconClassName?: string;
+};
+
+const mainItems: SidebarItem[] = [
+  { titleKey: "nav.dashboard", url: "/dashboard", icon: LayoutDashboard, iconClassName: "text-blue-600" },
   { titleKey: "nav.leads", url: "/leads", icon: Users, iconClassName: "text-violet-600" },
   { titleKey: "nav.clients", url: "/clients", icon: Building2, iconClassName: "text-emerald-600" },
   { titleKey: "nav.pipeline", url: "/pipeline", icon: GitBranch, iconClassName: "text-amber-600" },
 ];
 
-const communicationItems = [
-  {
-    titleKey: "nav.whatsappInbox",
-    url: "/whatsapp",
-    icon: MessageCircle,
-    iconClassName: "text-green-600",
-  },
+const communicationItems: SidebarItem[] = [
+  { titleKey: "nav.whatsappInbox", url: "/whatsapp", icon: MessageCircle, iconClassName: "text-green-600" },
   { titleKey: "nav.emailInbox", url: "/email", icon: Mail, iconClassName: "text-sky-600" },
 ];
 
-const operationsItems = [
+const operationsItems: SidebarItem[] = [
   { titleKey: "nav.tasks", url: "/tasks", icon: CheckSquare, iconClassName: "text-rose-600" },
-  {
-    titleKey: "nav.projects",
-    url: "/projects",
-    icon: FolderOpen,
-    iconClassName: "text-indigo-600",
-  },
+  { titleKey: "nav.projects", url: "/projects", icon: FolderOpen, iconClassName: "text-indigo-600" },
   { titleKey: "nav.products", url: "/products", icon: Package, iconClassName: "text-slate-700" },
-  {
-    titleKey: "nav.proposals",
-    url: "/proposals",
-    icon: FileText,
-    iconClassName: "text-purple-600",
-  },
+  { titleKey: "nav.proposals", url: "/proposals", icon: FileText, iconClassName: "text-purple-600" },
   { titleKey: "nav.invoices", url: "/invoices", icon: Receipt, iconClassName: "text-orange-600" },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-slate-600" },
 ];
 
-const managementItems = [
+const managementItems: SidebarItem[] = [
   { titleKey: "nav.automations", url: "/automations", icon: Zap, iconClassName: "text-yellow-600" },
   { titleKey: "nav.reports", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
   { titleKey: "nav.team", url: "/team", icon: UserCog, iconClassName: "text-fuchsia-600" },
   { titleKey: "nav.settings", url: "/settings", icon: Settings, iconClassName: "text-slate-700" },
 ];
 
+const menuButtonClass =
+  "h-10 rounded-2xl px-3 text-slate-900 transition-all hover:bg-[#f1f5ff] hover:text-slate-950 data-[active=true]:bg-[#eaf1ff] data-[active=true]:font-semibold data-[active=true]:text-slate-950 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-2xl";
+
+const linkClass =
+  "flex w-full items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0";
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { t } = useT();
   const { can } = usePermissions();
-  const currentPath = useRouterState({
-    select: (s) => s.location.pathname,
-  });
+  const currentPath = useRouterState({ select: (s) => s.location.pathname });
 
   const isActive = (path: string) => currentPath === path || currentPath.startsWith(path + "/");
 
-  const renderGroup = (labelKey: string, items: typeof mainItems) => (
-    <SidebarGroup>
-      <SidebarGroupLabel className="text-slate-500 text-[10px] uppercase tracking-wider font-extrabold">
+  const renderGroup = (labelKey: string, items: SidebarItem[]) => (
+    <SidebarGroup className="px-2 py-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1.5">
+      <SidebarGroupLabel className="text-slate-500 text-[10px] uppercase tracking-wider font-extrabold group-data-[collapsible=icon]:!hidden">
         {t(labelKey)}
       </SidebarGroupLabel>
+      <SidebarSeparator className="mx-auto my-1 hidden w-7 bg-slate-200/80 group-data-[collapsible=icon]:block" />
       <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.titleKey}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(item.url)}
-                className="h-9 text-slate-900 hover:text-slate-900 data-[active=true]:text-slate-900"
-              >
-                <Link to={item.url} className="flex items-center gap-3">
-                  <item.icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
-                  {!collapsed && <span className="text-sm">{t(item.titleKey as any)}</span>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+        <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center">
+          {items.map((item) => {
+            const label = t(item.titleKey as any);
+            return (
+              <SidebarMenuItem key={item.titleKey} className="group-data-[collapsible=icon]:w-full">
+                <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={label} className={menuButtonClass}>
+                  <Link to={item.url} className={linkClass} aria-label={label} title={collapsed ? label : undefined}>
+                    <item.icon className={"h-[18px] w-[18px] shrink-0 " + (item.iconClassName || "")} />
+                    {!collapsed && <span className="text-sm font-medium">{label}</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -125,13 +117,14 @@ export function AppSidebar() {
     return true;
   });
 
+  const aiLabel = t("nav.aiAssistant");
+
   return (
     <Sidebar
       collapsible="icon"
       className="border-r border-[#e6eaf0]"
       style={
         {
-          // Make the sidebar light (white) while keeping the rest of the app theme intact.
           "--sidebar": "#ffffff",
           "--sidebar-foreground": "#111827",
           "--sidebar-accent": "#eaf1ff",
@@ -141,33 +134,34 @@ export function AppSidebar() {
         } as React.CSSProperties
       }
     >
-      <SidebarHeader className="p-4">
-        <Link to="/dashboard" className="flex items-center gap-2.5">
-          {!collapsed && (
-            <img
-              src="/corevix-logo.svg"
-              alt="Corevix"
-              className="h-7 w-auto max-w-[160px] object-contain"
-            />
-          )}
+      <SidebarHeader className="p-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
+          aria-label="Corevix Dashboard"
+          title={collapsed ? "Corevix" : undefined}
+        >
+          {!collapsed && <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-auto max-w-[160px] object-contain" />}
           {collapsed && (
-            <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-7 object-contain" />
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#eef4ff] text-sm font-black text-[#1d62f9]">
+              C
+            </span>
           )}
         </Link>
       </SidebarHeader>
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-2 group-data-[collapsible=icon]:px-2">
         {renderGroup("nav.main", mainItems)}
         {renderGroup("nav.communication", communicationItems)}
         {renderGroup("nav.operations", operationsItems)}
-        {renderGroup("nav.management", gatedManagementItems as any)}
+        {renderGroup("nav.management", gatedManagementItems)}
       </SidebarContent>
-      <SidebarFooter className="p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="h-9 text-slate-900 hover:text-slate-900">
-              <Link to="/ai-assistant" className="flex items-center gap-3">
-                <Bot className="h-4 w-4 shrink-0 text-indigo-600" />
-                {!collapsed && <span className="text-sm">{t("nav.aiAssistant")}</span>}
+      <SidebarFooter className="border-t border-[#e6eaf0] p-2 group-data-[collapsible=icon]:px-2">
+        <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
+            <SidebarMenuButton asChild isActive={isActive("/ai-assistant")} tooltip={aiLabel} className={menuButtonClass}>
+              <Link to="/ai-assistant" className={linkClass} aria-label={aiLabel} title={collapsed ? aiLabel : undefined}>
+                <Bot className="h-[18px] w-[18px] shrink-0 text-indigo-600" />
+                {!collapsed && <span className="text-sm font-medium">{aiLabel}</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
