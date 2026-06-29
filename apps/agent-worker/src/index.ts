@@ -33,6 +33,12 @@ const AVAILABLE_TOOLS = [
   "crm_summary",
   "create_deal",
   "list_deals",
+  "search_deals",
+  "update_deal",
+  "update_deal_stage",
+  "add_deal_note",
+  "link_deal_to_lead",
+  "assign_deal_owner",
   "create_project",
   "list_projects",
   "create_proposal",
@@ -297,14 +303,20 @@ ARGS RESUMIDOS POR TOOL:
 - add_task_note: task_id o title/query, note.
 - create_reminder: title, due_date, priority.
 - create_crm_demo: lead_name/client_name/name, phone, due_date/demo_date, notes.
-- list_tasks: status: all | To Do | In Progress | Completed | Cancelled | pending | completed, limit.
-- create_calendar_event: title/name, start_at/date/due_date, end_at, description/notes, location, type: event | reminder | call | meeting | demo | task, all_day.
+- list_tasks: status, limit.
+- create_calendar_event: title/name, start_at/date/due_date, end_at, description/notes, location, type, all_day.
 - list_calendar_events: type, status, from, to, limit.
 - update_calendar_event: event_id o title/query, title, description, location, start_at/date, end_at, type, status, all_day.
 - cancel_calendar_event: event_id o title/query.
 - crm_summary: sin args.
-- create_deal: name, lead_id, stage, value, expected_close, notes.
-- list_deals: stage.
+- create_deal: name/title, lead_id, stage, value, probability, expected_close, assigned_to, notes.
+- list_deals: stage, limit.
+- search_deals: query/name/title.
+- update_deal: deal_id o name/query/title, name/title, stage, value, probability, expected_close, assigned_to, lead_id, notes.
+- update_deal_stage: deal_id o name/query/title, stage/new_stage/to_stage.
+- add_deal_note: deal_id o name/query/title, note.
+- link_deal_to_lead: deal_id o name/query/title, lead_id.
+- assign_deal_owner: deal_id o name/query/title, assigned_to/owner_id/user_id.
 - create_project: name, description, lead_id, client_id, deal_id, product_id, budget, start_date, due_date, priority.
 - list_projects: status.
 - create_proposal: title, amount, currency, description, lead_id, client_id, deal_id, product_id, valid_until.
@@ -314,7 +326,7 @@ ARGS RESUMIDOS POR TOOL:
 REGLAS:
 - Responde en español.
 - Si el usuario solo conversa o pregunta algo general, responde normal.
-- Si el usuario pide crear, buscar, listar, editar, convertir, anotar, completar, reprogramar o resumir datos reales del CRM, responde SOLO con JSON.
+- Si el usuario pide crear, buscar, listar, editar, convertir, anotar, completar, mover, asignar, reprogramar o resumir datos reales del CRM, responde SOLO con JSON.
 - No uses markdown cuando respondas JSON.
 - No inventes IDs.
 - Si falta un dato obligatorio, pide aclaración en texto normal.
