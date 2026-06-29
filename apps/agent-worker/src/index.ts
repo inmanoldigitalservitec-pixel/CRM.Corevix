@@ -163,13 +163,15 @@ async function handleAgentChat(request: Request, env: Env) {
 }
 
 async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMessage[] = [], debugEnabled = false) {
-  const input = buildSystemPrompt(userMessage, history);
+  const route = isLikelyCrmAction(userMessage) ? "crm_tools" : "light_chat";
+  const input = route === "crm_tools" ? buildSystemPrompt(userMessage, history) : buildLightweightChatPrompt(userMessage, history);
   const promptStats = buildPromptStats("initial", input, {
+    prompt_route: route,
     user_message_chars: userMessage.length,
     user_message_estimated_tokens: estimateTokens(userMessage),
     history_items_received: history.length,
-    history_items_used: countUsedHistoryItems(history),
-    tools_available: AVAILABLE_TOOLS.length,
+    history_items_used: route === "crm_tools" ? countUsedHistoryItems(history) : countUsedLightweightHistoryItems(history),
+    tools_available: route === "crm_tools" ? AVAILABLE_TOOLS.length : 0,
   });
 
   logPromptStats(promptStats, debugEnabled);
@@ -263,6 +265,107 @@ function countUsedHistoryItems(history: ChatHistoryMessage[] = []) {
   return history.filter((item) => item?.content?.trim()).slice(-10).length;
 }
 
+function countUsedLightweightHistoryItems(history: ChatHistoryMessage[] = []) {
+  return history.filter((item) => item?.content?.trim()).slice(-4).length;
+}
+
+function normalizeIntentText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isLikelyCrmAction(message: string) {
+  const text = normalizeIntentText(message);
+
+  const actionWords = [
+    "crea",
+    "crear",
+    "agrega",
+    "agregar",
+    "anota",
+    "anotar",
+    "actualiza",
+    "actualizar",
+    "edita",
+    "editar",
+    "modifica",
+    "modificar",
+    "cambia",
+    "cambiar",
+    "convierte",
+    "convertir",
+    "lista",
+    "listar",
+    "muestra",
+    "mostrar",
+    "busca",
+    "buscar",
+    "encuentra",
+    "encontrar",
+    "resume",
+    "resumen",
+    "reporte",
+    "reportes",
+    "briefing",
+    "completa",
+    "completar",
+    "reprograma",
+    "reprogramar",
+    "mueve",
+    "mover",
+    "asigna",
+    "asignar",
+    "cancela",
+    "cancelar",
+    "prepara",
+    "preparar",
+    "borrador",
+  ];
+
+  const crmWords = [
+    "lead",
+    "leads",
+    "cliente",
+    "clientes",
+    "client",
+    "clients",
+    "tarea",
+    "tareas",
+    "task",
+    "tasks",
+    "calendario",
+    "agenda",
+    "reunion",
+    "reuniones",
+    "recordatorio",
+    "demo",
+    "pipeline",
+    "deal",
+    "deals",
+    "oportunidad",
+    "oportunidades",
+    "proyecto",
+    "proyectos",
+    "producto",
+    "productos",
+    "email",
+    "correo",
+    "whatsapp",
+    "inbox",
+    "conversacion",
+    "conversaciones",
+    "venta",
+    "ventas",
+    "crm",
+  ];
+
+  return actionWords.some((word) => text.includes(word)) || crmWords.some((word) => text.includes(word));
+}
+
 function buildPromptStats(label: "initial" | "final", input: string, extra: Record<string, unknown> = {}): PromptStats {
   return {
     label,
@@ -280,9 +383,6 @@ function logPromptStats(stats: PromptStats, enabled: boolean) {
 function buildFinalResponsePrompt(userMessage: string, toolCall: any, toolResult: any) {
   return `
 Eres Corevix AI, el asistente interno del CRM Corevix.
-
-SKILLS ACTIVAS:
-${getCorevixSkillsPrompt()}
 
 Tu tarea ahora NO es llamar otra tool.
 Tu tarea es redactar una respuesta final humana usando el resultado real de la tool.
@@ -336,6 +436,46 @@ function formatChatHistory(history: ChatHistoryMessage[] = []) {
   }
 
   return cleanHistory.map((item, index) => `${index + 1}. ${item.role}: ${item.content}`).join("\n");
+}
+
+function formatLightweightHistory(history: ChatHistoryMessage[] = []) {
+  const cleanHistory = history
+    .filter((item) => item?.content?.trim())
+    .slice(-4)
+    .map((item) => ({
+      role: item.role === "assistant" ? "Corevix AI" : "Usuario",
+      content: item.content.trim().slice(0, 500),
+    }));
+
+  if (!cleanHistory.length) {
+    return "No hay historial reciente.";
+  }
+
+  return cleanHistory.map((item, index) => `${index + 1}. ${item.role}: ${item.content}`).join("\n");
+}
+
+function buildLightweightChatPrompt(userMessage: string, history: ChatHistoryMessage[] = []) {
+  return `
+Eres Corevix AI, el asistente interno del CRM Corevix.
+
+Esta ruta es conversacional ligera.
+No tienes tools disponibles en esta llamada.
+No inventes datos del CRM ni digas que revisaste, creaste o modificaste registros.
+Si el usuario pide una accion concreta sobre datos del CRM y llegaste aqui por error, responde pidiendo que lo formule como accion del CRM.
+
+Personalidad:
+- Natural, breve y util.
+- Espanol claro.
+- Puedes saludar, explicar que haces, orientar al usuario y conversar.
+
+Historial reciente corto:
+${formatLightweightHistory(history)}
+
+Mensaje del usuario:
+${userMessage}
+
+Responde como Corevix AI:
+  `.trim();
 }
 
 function buildSystemPrompt(userMessage: string, history: ChatHistoryMessage[] = []) {
