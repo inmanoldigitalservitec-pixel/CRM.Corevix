@@ -513,7 +513,10 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
   const heroInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
-  const config = intentConfig[activeIntent] || intentConfig.default;
+  const activePrompt = conversationMode ? chatPrompt : heroPrompt;
+  const previewIntent = activePrompt.trim() ? detectIntent(activePrompt, selectedTool) : "default";
+  const effectiveIntent = previewIntent !== "default" ? previewIntent : activeIntent;
+  const config = intentConfig[effectiveIntent] || intentConfig.default;
   const highlightedContext = config.contexts[0];
   const valuePlaceholder = stats.loading ? "..." : "0";
 
@@ -614,10 +617,11 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
     showToast("Volviste a la vista limpia del dashboard.");
   }
 
-  const dashboardActions = getDashboardActions(activeIntent);
+  const dashboardActions = getDashboardActions(effectiveIntent);
+  const previewIntentAttr = previewIntent !== "default" ? previewIntent : undefined;
 
   return (
-    <div className="agentic-dashboard">
+    <div className="agentic-dashboard" data-preview-intent={previewIntentAttr}>
       <section className="agent-shell">
         <div className={`agent-stage ${conversationMode ? "conversation-mode" : ""}`} data-mobile-tab={mobileTab}>
           <div className="mobile-tabs">
