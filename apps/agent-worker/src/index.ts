@@ -41,6 +41,10 @@ export default {
       });
     }
 
+    if (url.pathname === "/agent/dashboard-context" && request.method === "GET") {
+      return handleAgentDashboardContext(request, env);
+    }
+
     if (url.pathname === "/agent/chat" && request.method === "POST") {
       return handleAgentChat(request, env);
     }
@@ -48,6 +52,47 @@ export default {
     return json({ error: "Not found" }, 404);
   },
 };
+
+async function handleAgentDashboardContext(request: Request, env: Env) {
+  try {
+    const supabase = createSupabaseAdmin(env);
+    const userContext = await getUserContext(request, supabase);
+    const toolResult = await executeTool(
+      { type: "tool_call", tool: "agent_dashboard_context", args: {} },
+      {
+        supabase,
+        companyId: userContext.companyId,
+        userId: userContext.userId,
+      },
+    );
+
+    if (!toolResult.ok) {
+      return json(
+        {
+          ok: false,
+          error: toolResult.error || "No pude cargar el contexto del dashboard.",
+          tool_result: toolResult,
+        },
+        500,
+      );
+    }
+
+    return json({
+      ok: true,
+      data: toolResult.data,
+      message: toolResult.message,
+    });
+  } catch (error: any) {
+    return json(
+      {
+        ok: false,
+        error: "Agent dashboard context error",
+        message: error?.message ?? "Unknown error",
+      },
+      500,
+    );
+  }
+}
 
 async function handleAgentChat(request: Request, env: Env) {
   try {
