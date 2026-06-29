@@ -41,6 +41,21 @@ import {
   updateDealStageTool,
   updateDealTool,
 } from "./tools/deals";
+import {
+  draftEmailReplyTool,
+  draftWhatsappReplyTool,
+  listEmailThreadsTool,
+  listInboxConversationsTool,
+  listWhatsappMessagesTool,
+  searchEmailMessagesTool,
+} from "./tools/communication";
+import {
+  activityReportTool,
+  agentDailyBriefingTool,
+  pipelineReportTool,
+  salesReportTool,
+} from "./tools/reports";
+import { addGlobalNoteTool, getRecordByIdTool, globalSearchTool } from "./tools/global";
 import { listUnpaidInvoicesTool } from "./tools/invoices";
 import { createProjectTool, listProjectsTool } from "./tools/projects";
 import { createProposalTool } from "./tools/proposals";
@@ -80,6 +95,19 @@ const ALLOWED_TOOLS = new Set([
   "add_deal_note",
   "link_deal_to_lead",
   "assign_deal_owner",
+  "list_email_threads",
+  "search_email_messages",
+  "draft_email_reply",
+  "list_inbox_conversations",
+  "list_whatsapp_messages",
+  "draft_whatsapp_reply",
+  "sales_report",
+  "pipeline_report",
+  "activity_report",
+  "agent_daily_briefing",
+  "global_search",
+  "get_record_by_id",
+  "add_global_note",
   "create_project",
   "list_projects",
   "create_proposal",
@@ -171,6 +199,32 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
       return runTool(call, ctx, () => linkDealToLeadTool(ctx, call.args));
     case "assign_deal_owner":
       return runTool(call, ctx, () => assignDealOwnerTool(ctx, call.args));
+    case "list_email_threads":
+      return runTool(call, ctx, () => listEmailThreadsTool(ctx, call.args));
+    case "search_email_messages":
+      return runTool(call, ctx, () => searchEmailMessagesTool(ctx, call.args));
+    case "draft_email_reply":
+      return runTool(call, ctx, () => draftEmailReplyTool(ctx, call.args));
+    case "list_inbox_conversations":
+      return runTool(call, ctx, () => listInboxConversationsTool(ctx, call.args));
+    case "list_whatsapp_messages":
+      return runTool(call, ctx, () => listWhatsappMessagesTool(ctx, call.args));
+    case "draft_whatsapp_reply":
+      return runTool(call, ctx, () => draftWhatsappReplyTool(ctx, call.args));
+    case "sales_report":
+      return runTool(call, ctx, () => salesReportTool(ctx));
+    case "pipeline_report":
+      return runTool(call, ctx, () => pipelineReportTool(ctx));
+    case "activity_report":
+      return runTool(call, ctx, () => activityReportTool(ctx));
+    case "agent_daily_briefing":
+      return runTool(call, ctx, () => agentDailyBriefingTool(ctx));
+    case "global_search":
+      return runTool(call, ctx, () => globalSearchTool(ctx, call.args));
+    case "get_record_by_id":
+      return runTool(call, ctx, () => getRecordByIdTool(ctx, call.args));
+    case "add_global_note":
+      return runTool(call, ctx, () => addGlobalNoteTool(ctx, call.args));
     case "create_project":
       return runTool(call, ctx, () => createProjectTool(ctx, call.args));
     case "list_projects":
