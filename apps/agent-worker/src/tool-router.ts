@@ -21,15 +21,13 @@ import {
   cancelCalendarEventTool,
   completeTaskTool,
   createCalendarEventTool,
-  createCrmDemoTool,
-  createReminderTool,
-  createTaskTool,
   listCalendarEventsTool,
   listTasksTool,
   rescheduleTaskTool,
   updateCalendarEventTool,
   updateTaskTool,
 } from "./tools/tasks";
+import { createDemoForResolvedUser, createReminderForResolvedUser, createTaskForResolvedUser } from "./tools/assignees";
 import { crmSummaryTool } from "./tools/summary";
 import {
   addDealNoteTool,
@@ -158,7 +156,7 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
     case "add_client_note":
       return runTool(call, ctx, () => addClientNoteTool(ctx, call.args));
     case "create_task":
-      return runTool(call, ctx, () => createTaskTool(ctx, call.args));
+      return runTool(call, ctx, () => createTaskForResolvedUser(ctx, call.args));
     case "update_task":
       return runTool(call, ctx, () => updateTaskTool(ctx, call.args));
     case "complete_task":
@@ -168,9 +166,9 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
     case "add_task_note":
       return runTool(call, ctx, () => addTaskNoteTool(ctx, call.args));
     case "create_reminder":
-      return runTool(call, ctx, () => createReminderTool(ctx, call.args));
+      return runTool(call, ctx, () => createReminderForResolvedUser(ctx, call.args));
     case "create_crm_demo":
-      return runTool(call, ctx, () => createCrmDemoTool(ctx, call.args));
+      return runTool(call, ctx, () => createDemoForResolvedUser(ctx, call.args));
     case "list_tasks":
       return runTool(call, ctx, () => listTasksTool(ctx, call.args));
     case "create_calendar_event":
