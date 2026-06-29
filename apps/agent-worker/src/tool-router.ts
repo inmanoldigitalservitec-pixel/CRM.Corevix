@@ -3,6 +3,7 @@ import { auditAgentToolAction } from "./tool-audit";
 import { createLeadTool, searchLeadsTool, updateLeadStatusTool } from "./tools/leads";
 import { createTaskTool, createReminderTool, createCrmDemoTool, listTasksTool } from "./tools/tasks";
 import { crmSummaryTool } from "./tools/summary";
+import { agentDashboardContextTool } from "./tools/dashboard-context";
 import { createDealTool, listDealsTool } from "./tools/deals";
 import { listUnpaidInvoicesTool } from "./tools/invoices";
 import { createProjectTool, listProjectsTool } from "./tools/projects";
@@ -18,6 +19,7 @@ const ALLOWED_TOOLS = new Set([
   "create_crm_demo",
   "list_tasks",
   "crm_summary",
+  "agent_dashboard_context",
   "create_deal",
   "list_deals",
   "create_project",
@@ -68,6 +70,9 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
 
     case "crm_summary":
       return runTool(call, ctx, () => crmSummaryTool(ctx));
+
+    case "agent_dashboard_context":
+      return runTool(call, ctx, () => agentDashboardContextTool(ctx));
 
     case "create_deal":
       return runTool(call, ctx, () => createDealTool(ctx, call.args));
