@@ -5,6 +5,9 @@ export type AgentWidgetKind =
   | "calendar"
   | "summary"
   | "deals"
+  | "communication"
+  | "reports"
+  | "global"
   | "invoices"
   | "projects"
   | "proposals"
@@ -78,6 +81,19 @@ const TOOL_KIND_MAP: Record<string, AgentWidgetKind> = {
   add_deal_note: "deals",
   link_deal_to_lead: "deals",
   assign_deal_owner: "deals",
+  list_email_threads: "communication",
+  search_email_messages: "communication",
+  draft_email_reply: "communication",
+  list_inbox_conversations: "communication",
+  list_whatsapp_messages: "communication",
+  draft_whatsapp_reply: "communication",
+  sales_report: "reports",
+  pipeline_report: "reports",
+  activity_report: "reports",
+  agent_daily_briefing: "reports",
+  global_search: "global",
+  get_record_by_id: "global",
+  add_global_note: "global",
   list_unpaid_invoices: "invoices",
   create_project: "projects",
   list_projects: "projects",
@@ -92,6 +108,9 @@ const KIND_TITLE_MAP: Record<AgentWidgetKind, string> = {
   calendar: "Agenda y calendario",
   summary: "Resumen CRM",
   deals: "Oportunidades",
+  communication: "Comunicacion",
+  reports: "Reportes CRM",
+  global: "Busqueda global",
   invoices: "Facturas pendientes",
   projects: "Proyectos",
   proposals: "Propuestas",
@@ -173,6 +192,14 @@ function unwrapTaskData(data: unknown) {
   const item = asRecord(data);
   if (item.task) return item.task;
   return data;
+}
+
+function flattenObjectArrays(data: unknown) {
+  const item = asRecord(data);
+  if (Array.isArray(data)) return data;
+  return Object.entries(item).flatMap(([type, value]) =>
+    Array.isArray(value) ? value.map((row) => ({ type, ...asRecord(row) })) : [],
+  );
 }
 
 function mapLeadRows(data: unknown): AgentWidgetRow[] {
@@ -292,6 +319,58 @@ function mapProductRows(data: unknown): AgentWidgetRow[] {
   });
 }
 
+function mapCommunicationRows(data: unknown): AgentWidgetRow[] {
+  const rows = Array.isArray(data) ? data : flattenObjectArrays(data);
+  return rows.map((row, index) => {
+    const item = asRecord(row);
+    return {
+      id: String(item.id || item.conversation_id || `communication-${index}`),
+      title: item.subject || item.display_name || item.contact_name || item.sender_name || item.phone || "Conversacion",
+      subtitle: compact([
+        item.type,
+        item.provider,
+        item.status || item.conversation_status,
+        item.snippet || item.last_message || item.last_message_text || item.body || item.text,
+      ]),
+      value: item.unread_count != null ? `${item.unread_count} sin leer` : formatDate(item.last_message_at || item.created_at || item.sent_at),
+      tone: Number(item.unread_count || 0) > 0 ? "blue" : "slate",
+    };
+  });
+}
+
+function mapGlobalRows(data: unknown): AgentWidgetRow[] {
+  const rows = flattenObjectArrays(data);
+  return rows.map((row, index) => {
+    const item = asRecord(row);
+    return {
+      id: String(item.id || `global-${index}`),
+      title: item.name || item.title || item.company_name || fullName(item),
+      subtitle: compact([item.type, item.status || item.stage || item.priority, item.phone || item.email || item.whatsapp]),
+      value: item.value != null ? formatCurrency(item.value) : formatDate(item.updated_at || item.created_at),
+      tone: "blue",
+    };
+  });
+}
+
+function mapReportRows(data: unknown): AgentWidgetRow[] {
+  const item = asRecord(data);
+  const topOpenDeals = Array.isArray(item.top_open_deals) ? item.top_open_deals : [];
+  const recentTasks = Array.isArray(item.recent_tasks) ? item.recent_tasks : [];
+  const nestedDeals = asRecord(item.pipeline).top_open_deals;
+  const rows = topOpenDeals.length ? topOpenDeals : recentTasks.length ? recentTasks : Array.isArray(nestedDeals) ? nestedDeals : [];
+
+  return rows.slice(0, 5).map((row, index) => {
+    const entry = asRecord(row);
+    return {
+      id: String(entry.id || `report-${index}`),
+      title: entry.name || entry.title || "Elemento destacado",
+      subtitle: compact([entry.stage || entry.status, entry.priority, formatDate(entry.expected_close || entry.due_date)]),
+      value: entry.value != null ? formatCurrency(entry.value) : undefined,
+      tone: "purple",
+    };
+  });
+}
+
 function mapSummaryMetrics(data: unknown): AgentWidgetMetric[] {
   const item = asRecord(data);
   return [
@@ -299,6 +378,21 @@ function mapSummaryMetrics(data: unknown): AgentWidgetMetric[] {
     { id: "open_tasks", label: "Tareas abiertas", value: String(item.open_tasks ?? 0), tone: "purple" },
     { id: "unpaid_invoices", label: "Facturas pendientes", value: String(item.unpaid_invoices ?? 0), tone: "orange" },
     { id: "active_projects", label: "Proyectos activos", value: String(item.active_projects ?? 0), tone: "teal" },
+  ];
+}
+
+function mapReportMetrics(data: unknown): AgentWidgetMetric[] {
+  const item = asRecord(data);
+  const sales = asRecord(item.sales);
+  const pipeline = asRecord(item.pipeline);
+  const activity = asRecord(item.activity);
+  const source = Object.keys(item).length ? item : {};
+
+  return [
+    { id: "open_pipeline", label: "Pipeline abierto", value: formatCurrency(source.open_pipeline_value ?? sales.open_pipeline_value ?? 0) || "0", tone: "blue" },
+    { id: "won_value", label: "Ganado", value: formatCurrency(source.won_value ?? sales.won_value ?? 0) || "0", tone: "teal" },
+    { id: "open_deals", label: "Oportunidades", value: String(source.open_deals ?? pipeline.total_deals ?? 0), tone: "purple" },
+    { id: "activity", label: "Actividad", value: String(source.urgent_tasks ?? activity.urgent_tasks ?? 0), tone: "orange" },
   ];
 }
 
@@ -322,6 +416,17 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
     return {
       ...context,
       status: metrics.length ? "ready" : "empty",
+      metrics,
+    };
+  }
+
+  if (["sales_report", "pipeline_report", "activity_report", "agent_daily_briefing"].includes(tool)) {
+    const rows = mapReportRows(result.data);
+    const metrics = mapReportMetrics(result.data);
+    return {
+      ...context,
+      status: rows.length || metrics.length ? "ready" : "empty",
+      rows,
       metrics,
     };
   }
@@ -359,6 +464,15 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
     add_deal_note: mapDealRows,
     link_deal_to_lead: mapDealRows,
     assign_deal_owner: mapDealRows,
+    list_email_threads: mapCommunicationRows,
+    search_email_messages: mapCommunicationRows,
+    draft_email_reply: mapCommunicationRows,
+    list_inbox_conversations: mapCommunicationRows,
+    list_whatsapp_messages: mapCommunicationRows,
+    draft_whatsapp_reply: mapCommunicationRows,
+    global_search: mapGlobalRows,
+    get_record_by_id: mapGlobalRows,
+    add_global_note: mapGlobalRows,
     list_unpaid_invoices: mapInvoiceRows,
     create_project: mapProjectRows,
     list_projects: mapProjectRows,
