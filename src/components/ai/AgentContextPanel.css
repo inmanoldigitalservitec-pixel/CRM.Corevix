@@ -357,6 +357,8 @@
 .agent-focused-hero.is-blue { border-color: rgba(39, 110, 241, 0.22); }
 .agent-focused-hero.is-orange { border-color: rgba(255, 123, 26, 0.22); }
 .agent-focused-hero.is-purple { border-color: rgba(138, 92, 255, 0.22); }
+.agent-focused-hero.is-teal { border-color: rgba(32, 200, 182, 0.22); }
+.agent-focused-hero.is-slate { border-color: rgba(100, 116, 139, 0.22); }
 
 .agent-focused-icon {
   width: 40px;
@@ -376,6 +378,16 @@
 .agent-focused-hero.is-purple .agent-focused-icon {
   background: var(--agent-purple-soft);
   color: var(--agent-purple);
+}
+
+.agent-focused-hero.is-teal .agent-focused-icon {
+  background: var(--agent-teal-soft);
+  color: var(--agent-teal);
+}
+
+.agent-focused-hero.is-slate .agent-focused-icon {
+  background: #eef2f7;
+  color: #475569;
 }
 
 .agent-focused-hero span,
@@ -475,6 +487,7 @@
 .agent-focused-row-icon.is-orange { background: var(--agent-orange-soft); }
 .agent-focused-row-icon.is-purple { background: var(--agent-purple-soft); }
 .agent-focused-row-icon.is-teal { background: var(--agent-teal-soft); }
+.agent-focused-row-icon.is-slate { background: #eef2f7; }
 
 .agent-focused-row strong,
 .agent-focused-row small {
