@@ -1,0 +1,62 @@
+.agentic-dashboard svg {
+  width: 1em;
+  height: 1em;
+  stroke-width: 2.2;
+}
+
+.agentic-dashboard .spark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agentic-dashboard .spark svg {
+  width: 26px;
+  height: 26px;
+}
+
+.agentic-dashboard .snap-dot svg,
+.agentic-dashboard .data-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.agentic-dashboard .input-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.agentic-dashboard .send-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.agentic-dashboard .input-tool-pill button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.agentic-dashboard .quick-actions button svg,
+.agentic-dashboard .clean-btn svg,
+.agentic-dashboard .chip svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.agentic-dashboard .clean-btn,
+.agentic-dashboard .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.agentic-dashboard .chip svg {
+  color: var(--blue);
+  fill: rgba(39, 110, 241, 0.12);
+}
+
+.agentic-dashboard .feedback svg {
+  width: 15px;
+  height: 15px;
+}
