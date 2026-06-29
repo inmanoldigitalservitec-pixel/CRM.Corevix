@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Bot, PanelLeft, Plus, Search, Send, Sparkles } from "lucide-react";
 import { getAgentUrl } from "@/lib/agentClient";
 import { AGENT_CHAT_STARTERS, useAgentChatController } from "./useAgentChatController";
+import "./AgenticAgentShell.css";
 
 export function AgentChat({
   compact = false,
@@ -72,154 +73,171 @@ export function AgentChat({
   }
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden bg-[#fbfbfa]">
-      <aside className={`${sidebarOpen ? "flex" : "hidden"} w-[292px] shrink-0 flex-col border-r border-[#e5e7eb] bg-[#f3f3f0] p-3 lg:flex`}>
-        <button
-          type="button"
-          onClick={newThread}
-          className="mb-3 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#111827] text-sm font-bold text-white"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo chat
-        </button>
+    <div className="agentic-ai-shell">
+      <div className="agentic-ai-layout">
+        <aside className={`agentic-ai-history ${sidebarOpen ? "" : "is-closed"}`}>
+          <button type="button" onClick={newThread} className="agentic-ai-new-chat">
+            <Plus className="h-4 w-4" />
+            Nuevo chat
+          </button>
 
-        <div className="mb-3 flex h-10 items-center gap-2 rounded-xl border border-[#deded8] bg-white px-3">
-          <Search className="h-4 w-4 text-[#6b7280]" />
-          <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Buscar chats" />
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <p className="px-2 py-2 text-[11px] font-black uppercase tracking-wide text-[#6b7280]">
-            {loadingHistory ? "Cargando..." : "Recientes"}
-          </p>
-
-          {historyError ? (
-            <div className="mb-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-              {historyError}
-            </div>
-          ) : null}
-
-          <div className="space-y-1">
-            {threads.map((thread) => {
-              const active = thread.id === activeThreadId;
-              return (
-                <button
-                  key={thread.id}
-                  type="button"
-                  onClick={() => loadThreadMessages(thread.id)}
-                  className={`w-full rounded-xl px-3 py-2 text-left transition ${active ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
-                >
-                  <p className="truncate text-sm font-bold text-[#111827]">{thread.title}</p>
-                  <p className="mt-0.5 truncate text-xs text-[#6b7280]">{thread.preview}</p>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[#9ca3af]">{thread.updatedAt}</p>
-                </button>
-              );
-            })}
+          <div className="agentic-ai-search">
+            <Search />
+            <input placeholder="Buscar chats" />
           </div>
-        </div>
-      </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#e5e7eb] bg-white/85 px-4 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((value) => !value)}
-              className="grid h-9 w-9 place-items-center rounded-xl border border-[#e5e7eb] bg-white text-[#374151] lg:hidden"
-            >
-              <PanelLeft className="h-4 w-4" />
-            </button>
-            <div>
-              <h1 className="text-sm font-black text-[#111827]">Corevix AI</h1>
-              <p className="text-xs font-semibold text-[#6b7280]">Historial guardado · OpenClaw local</p>
-            </div>
-          </div>
-          <span className="hidden rounded-full border border-[#dce8e2] bg-white px-2.5 py-1 text-[11px] font-black text-[#008069] sm:inline">
-            {getAgentUrl()}
-          </span>
-        </header>
+          <div className="agentic-ai-history-list">
+            <p className="agentic-ai-section-label">{loadingHistory ? "Cargando..." : "Recientes"}</p>
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-          {loadingHistory ? (
-            <div className="mx-auto flex min-h-full max-w-3xl items-center justify-center text-sm font-semibold text-[#6b7280]">
-              Cargando historial...
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="mx-auto flex min-h-full max-w-3xl flex-col items-center justify-center text-center">
-              <div className="mb-4 grid h-14 w-14 place-items-center rounded-3xl bg-[#111827] text-white">
-                <Bot className="h-6 w-6" />
-              </div>
-              <h2 className="text-3xl font-black tracking-[-0.04em] text-[#111827]">Hola, Inmanol</h2>
-              <p className="mt-2 text-sm font-semibold text-[#6b7280]">¿Cómo puedo ayudarte hoy?</p>
+            {historyError ? <p className="agentic-ai-error">{historyError}</p> : null}
 
-              <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
-                {AGENT_CHAT_STARTERS.map((starter) => (
-                  <button
-                    key={starter}
-                    type="button"
-                    onClick={() => handleSend(starter)}
-                    className="rounded-2xl border border-[#e5e7eb] bg-white p-4 text-left text-sm font-bold text-[#111827] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                  >
-                    <Sparkles className="mb-3 h-4 w-4 text-[#1d62f9]" />
-                    {starter}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="mx-auto max-w-3xl space-y-6">
-              {messages.map((msg, index) => {
-                const isUser = msg.role === "user";
+            <div className="agentic-ai-thread-list">
+              {threads.map((thread) => {
+                const active = thread.id === activeThreadId;
                 return (
-                  <div key={msg.id || `${msg.role}-${index}`} className={isUser ? "flex justify-end" : "flex justify-start"}>
-                    <div className={`max-w-[82%] whitespace-pre-wrap rounded-3xl px-4 py-3 text-[15px] leading-relaxed ${isUser ? "bg-[#111827] text-white" : "bg-transparent text-[#111827]"}`}>
-                      {msg.content}
-                    </div>
-                  </div>
+                  <button
+                    key={thread.id}
+                    type="button"
+                    onClick={() => loadThreadMessages(thread.id)}
+                    className={`agentic-ai-thread ${active ? "is-active" : ""}`}
+                  >
+                    <strong>{thread.title}</strong>
+                    <span>{thread.preview}</span>
+                    <small>{thread.updatedAt}</small>
+                  </button>
                 );
               })}
-              {loading && (
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#6b7280]">
-                  <Sparkles className="h-4 w-4 animate-pulse text-[#1d62f9]" />
-                  Pensando...
+            </div>
+          </div>
+        </aside>
+
+        <main className="agentic-ai-main">
+          <header className="agentic-ai-topbar">
+            <div className="agentic-ai-title-row">
+              <button type="button" onClick={() => setSidebarOpen((value) => !value)} className="agentic-ai-toggle" aria-label="Abrir historial">
+                <PanelLeft className="h-4 w-4" />
+              </button>
+              <div className="agentic-ai-title">
+                <h1>Corevix AI</h1>
+                <p>Historial guardado · OpenClaw local · Tools CRM activas</p>
+              </div>
+            </div>
+            <span className="agentic-ai-url">{getAgentUrl()}</span>
+          </header>
+
+          <section className="agentic-ai-stage">
+            <div className="agentic-ai-snapshot" aria-label="Estado del agente">
+              <span className="agentic-ai-chip"><span className="agentic-ai-chip-dot"><Sparkles className="h-3.5 w-3.5" /></span>Agente real</span>
+              <span className="agentic-ai-chip"><span className="agentic-ai-chip-dot"><Bot className="h-3.5 w-3.5" /></span>OpenClaw</span>
+              <span className="agentic-ai-chip"><span className="agentic-ai-chip-dot"><Search className="h-3.5 w-3.5" /></span>Historial CRM</span>
+            </div>
+
+            <div className="agentic-ai-core">
+              {loadingHistory ? (
+                <div className="agentic-ai-empty">
+                  <div className="agentic-ai-thinking">
+                    <span>Cargando historial</span>
+                    <span className="agentic-ai-dots"><span /><span /><span /></span>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="agentic-ai-empty">
+                  <div className="agentic-ai-empty-inner">
+                    <div className="agentic-ai-orb"><Bot className="h-6 w-6" /></div>
+                    <p className="agentic-ai-kicker">Corevix AI</p>
+                    <h2>¿Qué toca ahora, Inmanol?</h2>
+                    <p>Pregunta algo y el agente usa OpenClaw con tus tools reales del CRM. La interfaz cambia, la conexión se mantiene.</p>
+
+                    <form
+                      className="agentic-ai-hero-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        handleSend();
+                      }}
+                    >
+                      <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
+                      <textarea
+                        ref={textareaRef}
+                        value={text}
+                        onChange={(event) => setText(event.target.value)}
+                        placeholder="Pregúntale algo a Corevix AI..."
+                        rows={1}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            handleSend();
+                          }
+                        }}
+                      />
+                      <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
+                    </form>
+
+                    <div className="agentic-ai-starters">
+                      {AGENT_CHAT_STARTERS.map((starter) => (
+                        <button key={starter} type="button" onClick={() => handleSend(starter)}>
+                          <Sparkles className="h-4 w-4" />
+                          {starter}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="agentic-ai-chat">
+                  <div ref={scrollRef} className="agentic-ai-scroll">
+                    <div className="agentic-ai-stream">
+                      {messages.map((msg, index) => {
+                        const isUser = msg.role === "user";
+                        return (
+                          <div key={msg.id || `${msg.role}-${index}`} className={`agentic-ai-message ${isUser ? "is-user" : "is-assistant"}`}>
+                            <div className="agentic-ai-bubble">{msg.content}</div>
+                          </div>
+                        );
+                      })}
+                      {loading ? (
+                        <div className="agentic-ai-message is-assistant">
+                          <div className="agentic-ai-thinking">
+                            <span>Pensando</span>
+                            <span className="agentic-ai-dots"><span /><span /><span /></span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-        <div className="shrink-0 border-t border-[#e5e7eb] bg-[#fbfbfa] px-4 py-4">
-          <form
-            className="mx-auto flex max-w-3xl items-end gap-2 rounded-3xl border border-[#dcdedc] bg-white p-2 shadow-sm"
-            onSubmit={(event) => {
-              event.preventDefault();
-              handleSend();
-            }}
-          >
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Pregúntale algo a Corevix AI..."
-              rows={1}
-              className="max-h-36 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-[15px] outline-none placeholder:text-[#9ca3af]"
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  handleSend();
-                }
-              }}
-            />
-            <button
-              type="submit"
-              disabled={loading || !text.trim()}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#111827] text-white disabled:opacity-40"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </form>
-        </div>
-      </main>
+            {messages.length > 0 ? (
+              <div className="agentic-ai-dock">
+                <form
+                  className="agentic-ai-dock-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleSend();
+                  }}
+                >
+                  <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
+                  <textarea
+                    ref={textareaRef}
+                    value={text}
+                    onChange={(event) => setText(event.target.value)}
+                    placeholder="Escribe un mensaje para Corevix AI..."
+                    rows={1}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                  />
+                  <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
+                </form>
+              </div>
+            ) : null}
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
