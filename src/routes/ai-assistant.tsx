@@ -5,6 +5,7 @@ import { AgentDashboardRealActionsController } from "@/components/ai/AgentDashbo
 import "@/components/ai/AgenticDashboardInput.css";
 import "@/components/ai/AgenticDashboardWidgets.css";
 import "@/components/ai/AgenticDashboardContext.css";
+import "@/components/ai/AgenticDashboardResponsive.css";
 
 export const Route = createFileRoute("/ai-assistant")({
   component: AIAssistantPage,
