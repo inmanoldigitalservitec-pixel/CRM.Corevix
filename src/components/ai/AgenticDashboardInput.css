@@ -1,0 +1,35 @@
+.agentic-dashboard .welcome-inner {
+  width: min(980px, 100%);
+}
+
+.agentic-dashboard .agent-form {
+  width: min(920px, calc(100vw - 48px));
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.agentic-dashboard .agent-form .agent-input {
+  width: 100%;
+  max-width: 920px;
+}
+
+.agentic-dashboard .chat-input-dock {
+  width: 100%;
+}
+
+.agentic-dashboard .chat-input-dock .agent-input {
+  width: min(920px, 100%);
+  max-width: 920px;
+}
+
+@media (max-width: 640px) {
+  .agentic-dashboard .agent-form {
+    width: 100%;
+  }
+
+  .agentic-dashboard .agent-form .agent-input,
+  .agentic-dashboard .chat-input-dock .agent-input {
+    width: 100%;
+  }
+}
