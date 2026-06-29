@@ -31,7 +31,16 @@ import {
   updateTaskTool,
 } from "./tools/tasks";
 import { crmSummaryTool } from "./tools/summary";
-import { createDealTool, listDealsTool } from "./tools/deals";
+import {
+  addDealNoteTool,
+  assignDealOwnerTool,
+  createDealTool,
+  linkDealToLeadTool,
+  listDealsTool,
+  searchDealsTool,
+  updateDealStageTool,
+  updateDealTool,
+} from "./tools/deals";
 import { listUnpaidInvoicesTool } from "./tools/invoices";
 import { createProjectTool, listProjectsTool } from "./tools/projects";
 import { createProposalTool } from "./tools/proposals";
@@ -65,6 +74,12 @@ const ALLOWED_TOOLS = new Set([
   "crm_summary",
   "create_deal",
   "list_deals",
+  "search_deals",
+  "update_deal",
+  "update_deal_stage",
+  "add_deal_note",
+  "link_deal_to_lead",
+  "assign_deal_owner",
   "create_project",
   "list_projects",
   "create_proposal",
@@ -92,100 +107,80 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
   switch (call.tool) {
     case "create_lead":
       return runTool(call, ctx, () => createLeadTool(ctx, call.args));
-
     case "search_leads":
       return runTool(call, ctx, () => searchLeadsTool(ctx, call.args));
-
     case "list_leads":
       return runTool(call, ctx, () => listLeadsTool(ctx, call.args));
-
     case "update_lead":
       return runTool(call, ctx, () => updateLeadTool(ctx, call.args));
-
     case "update_lead_status":
       return runTool(call, ctx, () => updateLeadStatusTool(ctx, call.args));
-
     case "add_lead_note":
       return runTool(call, ctx, () => addLeadNoteTool(ctx, call.args));
-
     case "convert_lead_to_client":
       return runTool(call, ctx, () => convertLeadToClientTool(ctx, call.args));
-
     case "create_client":
       return runTool(call, ctx, () => createClientTool(ctx, call.args));
-
     case "search_clients":
       return runTool(call, ctx, () => searchClientsTool(ctx, call.args));
-
     case "list_clients":
       return runTool(call, ctx, () => listClientsTool(ctx, call.args));
-
     case "update_client":
       return runTool(call, ctx, () => updateClientTool(ctx, call.args));
-
     case "add_client_note":
       return runTool(call, ctx, () => addClientNoteTool(ctx, call.args));
-
     case "create_task":
       return runTool(call, ctx, () => createTaskTool(ctx, call.args));
-
     case "update_task":
       return runTool(call, ctx, () => updateTaskTool(ctx, call.args));
-
     case "complete_task":
       return runTool(call, ctx, () => completeTaskTool(ctx, call.args));
-
     case "reschedule_task":
       return runTool(call, ctx, () => rescheduleTaskTool(ctx, call.args));
-
     case "add_task_note":
       return runTool(call, ctx, () => addTaskNoteTool(ctx, call.args));
-
     case "create_reminder":
       return runTool(call, ctx, () => createReminderTool(ctx, call.args));
-
     case "create_crm_demo":
       return runTool(call, ctx, () => createCrmDemoTool(ctx, call.args));
-
     case "list_tasks":
       return runTool(call, ctx, () => listTasksTool(ctx, call.args));
-
     case "create_calendar_event":
       return runTool(call, ctx, () => createCalendarEventTool(ctx, call.args));
-
     case "list_calendar_events":
       return runTool(call, ctx, () => listCalendarEventsTool(ctx, call.args));
-
     case "update_calendar_event":
       return runTool(call, ctx, () => updateCalendarEventTool(ctx, call.args));
-
     case "cancel_calendar_event":
       return runTool(call, ctx, () => cancelCalendarEventTool(ctx, call.args));
-
     case "crm_summary":
       return runTool(call, ctx, () => crmSummaryTool(ctx));
-
     case "create_deal":
       return runTool(call, ctx, () => createDealTool(ctx, call.args));
-
     case "list_deals":
       return runTool(call, ctx, () => listDealsTool(ctx, call.args));
-
+    case "search_deals":
+      return runTool(call, ctx, () => searchDealsTool(ctx, call.args));
+    case "update_deal":
+      return runTool(call, ctx, () => updateDealTool(ctx, call.args));
+    case "update_deal_stage":
+      return runTool(call, ctx, () => updateDealStageTool(ctx, call.args));
+    case "add_deal_note":
+      return runTool(call, ctx, () => addDealNoteTool(ctx, call.args));
+    case "link_deal_to_lead":
+      return runTool(call, ctx, () => linkDealToLeadTool(ctx, call.args));
+    case "assign_deal_owner":
+      return runTool(call, ctx, () => assignDealOwnerTool(ctx, call.args));
     case "create_project":
       return runTool(call, ctx, () => createProjectTool(ctx, call.args));
-
     case "list_projects":
       return runTool(call, ctx, () => listProjectsTool(ctx, call.args));
-
     case "create_proposal":
       return runTool(call, ctx, () => createProposalTool(ctx, call.args));
-
     case "search_products":
       return runTool(call, ctx, () => searchProductsTool(ctx, call.args));
-
     case "list_unpaid_invoices":
       return runTool(call, ctx, () => listUnpaidInvoicesTool(ctx));
-
     default:
       return {
         ok: false,
