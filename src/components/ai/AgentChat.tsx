@@ -90,8 +90,8 @@ export function AgentChat({
 
   return (
     <div className="agentic-ai-shell">
-      <div className="agentic-ai-layout">
-        <div className={sidebarOpen ? "" : "is-closed"}>
+      <div className={`agentic-ai-layout ${sidebarOpen ? "" : "is-panel-closed"}`}>
+        <div className={`agentic-ai-panel-slot ${sidebarOpen ? "" : "is-closed"}`}>
           <AgentContextPanel
             context={activeToolContext}
             threads={threads}
