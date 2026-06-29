@@ -1,9 +1,14 @@
 .agentic-dashboard .panel-actions a.action-btn,
-.agentic-dashboard .panel-actions a.ghost-btn {
+.agentic-dashboard .panel-actions a.ghost-btn,
+.agentic-dashboard .panel-actions .real-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
+}
+
+.agentic-dashboard .panel-actions .real-action-btn {
+  font: inherit;
 }
 
 .agentic-dashboard .context-card p + .data-row,
