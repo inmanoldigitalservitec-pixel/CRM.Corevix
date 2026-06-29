@@ -1,5 +1,6 @@
 export type AgentWidgetKind =
   | "leads"
+  | "clients"
   | "tasks"
   | "summary"
   | "deals"
@@ -45,7 +46,16 @@ type ToolResultLike = {
 const TOOL_KIND_MAP: Record<string, AgentWidgetKind> = {
   create_lead: "leads",
   search_leads: "leads",
+  list_leads: "leads",
+  update_lead: "leads",
   update_lead_status: "leads",
+  add_lead_note: "leads",
+  convert_lead_to_client: "clients",
+  create_client: "clients",
+  search_clients: "clients",
+  list_clients: "clients",
+  update_client: "clients",
+  add_client_note: "clients",
   create_task: "tasks",
   create_reminder: "tasks",
   create_crm_demo: "tasks",
@@ -62,6 +72,7 @@ const TOOL_KIND_MAP: Record<string, AgentWidgetKind> = {
 
 const KIND_TITLE_MAP: Record<AgentWidgetKind, string> = {
   leads: "Leads relacionados",
+  clients: "Clientes relacionados",
   tasks: "Tareas del CRM",
   summary: "Resumen CRM",
   deals: "Oportunidades",
@@ -136,6 +147,12 @@ function baseContext(tool: string, result: ToolResultLike): AgentToolContext {
   };
 }
 
+function unwrapClientData(data: unknown) {
+  const item = asRecord(data);
+  if (item.client) return item.client;
+  return data;
+}
+
 function mapLeadRows(data: unknown): AgentWidgetRow[] {
   return asArray(data).map((lead, index) => {
     const item = asRecord(lead);
@@ -145,6 +162,19 @@ function mapLeadRows(data: unknown): AgentWidgetRow[] {
       subtitle: compact([item.company_name, item.status, item.phone || item.whatsapp || item.email]),
       value: formatCurrency(item.estimated_value),
       tone: "blue",
+    };
+  });
+}
+
+function mapClientRows(data: unknown): AgentWidgetRow[] {
+  return asArray(unwrapClientData(data)).map((client, index) => {
+    const item = asRecord(client);
+    return {
+      id: String(item.id || `client-${index}`),
+      title: item.company_name || item.contact_person || "Cliente sin nombre",
+      subtitle: compact([item.status, item.contact_person, item.phone || item.whatsapp || item.email, item.industry]),
+      value: Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 2).join(", ") : undefined,
+      tone: item.status === "VIP" ? "purple" : "teal",
     };
   });
 }
@@ -264,7 +294,16 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
   const rowMappers: Partial<Record<string, (data: unknown) => AgentWidgetRow[]>> = {
     create_lead: mapLeadRows,
     search_leads: mapLeadRows,
+    list_leads: mapLeadRows,
+    update_lead: mapLeadRows,
     update_lead_status: mapLeadRows,
+    add_lead_note: mapLeadRows,
+    convert_lead_to_client: mapClientRows,
+    create_client: mapClientRows,
+    search_clients: mapClientRows,
+    list_clients: mapClientRows,
+    update_client: mapClientRows,
+    add_client_note: mapClientRows,
     create_task: mapTaskRows,
     create_reminder: mapTaskRows,
     create_crm_demo: mapTaskRows,
