@@ -9,8 +9,15 @@ import {
   type AiChatMessage,
   type AiChatThread,
 } from "@/lib/aiChatHistory";
+import { mapAgentToolContext, type AgentToolContext } from "./agentToolContext";
 
-export type AgentMessage = { id?: string; role: "user" | "assistant"; content: string; created_at?: string };
+export type AgentMessage = {
+  id?: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at?: string;
+  toolContext?: AgentToolContext | null;
+};
 export type AgentThread = { id: string; title: string; preview: string; updatedAt: string; isLocal?: boolean };
 
 export const LOCAL_THREAD_ID = "local-new";
@@ -71,12 +78,21 @@ function threadFromDb(thread: AiChatThread): AgentThread {
   };
 }
 
+function toolContextFromAgentResponse(agentResponse: unknown) {
+  const payload = agentResponse as any;
+  return mapAgentToolContext(payload?.tool, payload?.tool_result);
+}
+
 function messageFromDb(message: AiChatMessage): AgentMessage {
+  const metadata = message.metadata || {};
+  const agentResponse = (metadata as any).agent_response;
+
   return {
     id: message.id,
     role: message.role === "user" ? "user" : "assistant",
     content: message.content,
     created_at: message.created_at,
+    toolContext: message.role === "assistant" ? toolContextFromAgentResponse(agentResponse) : null,
   };
 }
 
@@ -270,6 +286,7 @@ export function useAgentChatController() {
       const data = await sendAgentMessage(userText, recentHistory);
       const baseReply = extractAgentReply(data);
       const reply = debugMode ? `${baseReply}${formatOpenClawUsageLine((data as any)?.openclaw)}` : baseReply;
+      const toolContext = toolContextFromAgentResponse(data);
 
       await appendAiChatMessage(persistedThreadId, "assistant", reply, {
         agent_response: data,
@@ -282,7 +299,10 @@ export function useAgentChatController() {
 
       setMessagesByThread((prev) => ({
         ...prev,
-        [persistedThreadId]: [...(prev[persistedThreadId] || []), { role: "assistant", content: reply }],
+        [persistedThreadId]: [
+          ...(prev[persistedThreadId] || []),
+          { role: "assistant", content: reply, toolContext },
+        ],
       }));
       updateThreadPreviewLocal(persistedThreadId, userText, reply);
     } catch (error: any) {
