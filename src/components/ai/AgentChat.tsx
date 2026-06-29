@@ -1,11 +1,58 @@
-import { useEffect, useRef } from "react";
-import { Bot, PanelLeft, Plus, Send, Sparkles } from "lucide-react";
-import { getAgentUrl } from "@/lib/agentClient";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Bot, PanelLeft, Plus, Send, Sparkles, X } from "lucide-react";
+import { getAgentUrl, type AgentToolScope } from "@/lib/agentClient";
 import { AgentContextPanel } from "./AgentContextPanel";
 import { getLatestAgentToolContext } from "./agentToolContext";
 import { AGENT_CHAT_STARTERS, useAgentChatController } from "./useAgentChatController";
 import "./AgenticAgentShell.css";
 import "./AgenticPrompt.css";
+
+type ScopeSuggestion = { scope: AgentToolScope; label: string; reason: string };
+
+const SCOPE_LABELS: Record<AgentToolScope, string> = {
+  general: "General",
+  leads: "Leads",
+  clients: "Clientes",
+  tasks: "Tareas",
+  pipeline: "Pipeline",
+  reports: "Reportes",
+  communication: "Comunicación",
+  projects: "Proyectos",
+  finance: "Finanzas",
+};
+
+const SCOPE_KEYWORDS: Array<{ scope: AgentToolScope; words: string[] }> = [
+  { scope: "leads", words: ["lead", "leads", "prospecto", "prospectos", "interesado", "cliente potencial", "contacto nuevo", "nuevo contacto"] },
+  { scope: "clients", words: ["cliente", "clientes", "empresa", "empresas", "cuenta", "cuentas", "contacto", "contactos"] },
+  { scope: "tasks", words: ["tarea", "tareas", "recordatorio", "recordatorios", "recuerdame", "recuérdame", "agenda", "agendar", "calendario", "cita", "reunion", "reunión", "demo", "seguimiento"] },
+  { scope: "pipeline", words: ["pipeline", "deal", "deals", "oportunidad", "oportunidades", "venta", "ventas", "negocio", "negocios", "etapa", "probabilidad", "cierre"] },
+  { scope: "reports", words: ["reporte", "reportes", "resumen", "briefing", "metricas", "métricas", "dashboard", "actividad", "rendimiento"] },
+  { scope: "communication", words: ["email", "correo", "correos", "gmail", "outlook", "whatsapp", "mensaje", "mensajes", "inbox", "bandeja", "conversacion", "conversación", "borrador", "responder"] },
+  { scope: "projects", words: ["proyecto", "proyectos", "project", "projects", "entrega", "implementacion", "implementación"] },
+  { scope: "finance", words: ["factura", "facturas", "invoice", "invoices", "pago", "pagos", "cobro", "cobros", "deuda", "vencida", "vencidas"] },
+];
+
+function normalizeScopeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectScopeSuggestion(value: string, selectedScope: AgentToolScope | null): ScopeSuggestion | null {
+  if (selectedScope) return null;
+  const text = normalizeScopeText(value);
+  if (text.length < 3) return null;
+
+  for (const item of SCOPE_KEYWORDS) {
+    const reason = item.words.find((word) => text.includes(normalizeScopeText(word)));
+    if (reason) return { scope: item.scope, label: SCOPE_LABELS[item.scope], reason };
+  }
+
+  return null;
+}
 
 export function AgentChat({
   compact = false,
@@ -31,7 +78,9 @@ export function AgentChat({
   } = useAgentChatController();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [selectedScope, setSelectedScope] = useState<AgentToolScope | null>(null);
   const activeToolContext = getLatestAgentToolContext(messages);
+  const scopeSuggestion = useMemo(() => detectScopeSuggestion(text, selectedScope), [text, selectedScope]);
 
   const resizeTextarea = () => {
     const el = textareaRef.current;
@@ -50,9 +99,42 @@ export function AgentChat({
   };
 
   const submitAgentMessage = (message?: string) => {
-    void handleSend(message);
+    void handleSend(message, selectedScope);
+    setSelectedScope(null);
     scrollToLatestMessage("smooth");
   };
+
+  const handlePromptKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Tab" && scopeSuggestion) {
+      event.preventDefault();
+      setSelectedScope(scopeSuggestion.scope);
+      return;
+    }
+
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      submitAgentMessage();
+    }
+  };
+
+  const scopeControl = (
+    <>
+      {selectedScope ? (
+        <span className="agentic-ai-tool-pill">
+          {SCOPE_LABELS[selectedScope]}
+          <button type="button" onClick={() => setSelectedScope(null)} aria-label="Quitar contexto de herramienta">
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ) : null}
+      {scopeSuggestion ? (
+        <span className="agentic-ai-tool-suggestion">
+          {scopeSuggestion.label}
+          <kbd>Tab</kbd>
+        </span>
+      ) : null}
+    </>
+  );
 
   useEffect(() => {
     scrollToLatestMessage();
@@ -62,7 +144,7 @@ export function AgentChat({
 
   useEffect(() => {
     resizeTextarea();
-  }, [text, messages.length, fullscreen]);
+  }, [text, messages.length, fullscreen, selectedScope]);
 
   const chatMessages = (
     <>
@@ -156,18 +238,14 @@ export function AgentChat({
                       }}
                     >
                       <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
+                      {scopeControl}
                       <textarea
                         ref={textareaRef}
                         value={text}
                         onChange={(event) => setText(event.target.value)}
                         placeholder="Pregúntale algo a Corevix AI..."
                         rows={1}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" && !event.shiftKey) {
-                            event.preventDefault();
-                            submitAgentMessage();
-                          }
-                        }}
+                        onKeyDown={handlePromptKeyDown}
                       />
                       <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
                     </form>
@@ -218,18 +296,14 @@ export function AgentChat({
                   }}
                 >
                   <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
+                  {scopeControl}
                   <textarea
                     ref={textareaRef}
                     value={text}
                     onChange={(event) => setText(event.target.value)}
                     placeholder="Escribe un mensaje para Corevix AI..."
                     rows={1}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        submitAgentMessage();
-                      }
-                    }}
+                    onKeyDown={handlePromptKeyDown}
                   />
                   <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
                 </form>
