@@ -101,7 +101,6 @@ function AppShell() {
   const isPublicProposalRoute = currentPath.startsWith("/proposal/public/");
   const isPublicInvoiceRoute = currentPath.startsWith("/invoice/public/");
   const isPublicRoute = isLoginPage || isPublicProposalRoute || isPublicInvoiceRoute;
-  const isFullscreenAiRoute = currentPath === "/ai-assistant";
 
   if (loading) {
     return (
@@ -117,10 +116,6 @@ function AppShell() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
-  }
-
-  if (isFullscreenAiRoute) {
-    return <Outlet />;
   }
 
   return (
