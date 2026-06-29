@@ -1,6 +1,21 @@
 import type { ToolCall, ToolContext, ToolResult } from "./types";
 import { auditAgentToolAction } from "./tool-audit";
-import { createLeadTool, searchLeadsTool, updateLeadStatusTool } from "./tools/leads";
+import {
+  addLeadNoteTool,
+  convertLeadToClientTool,
+  createLeadTool,
+  listLeadsTool,
+  searchLeadsTool,
+  updateLeadStatusTool,
+  updateLeadTool,
+} from "./tools/leads";
+import {
+  addClientNoteTool,
+  createClientTool,
+  listClientsTool,
+  searchClientsTool,
+  updateClientTool,
+} from "./tools/clients";
 import { createTaskTool, createReminderTool, createCrmDemoTool, listTasksTool } from "./tools/tasks";
 import { crmSummaryTool } from "./tools/summary";
 import { createDealTool, listDealsTool } from "./tools/deals";
@@ -12,7 +27,16 @@ import { searchProductsTool } from "./tools/products";
 const ALLOWED_TOOLS = new Set([
   "create_lead",
   "search_leads",
+  "list_leads",
+  "update_lead",
   "update_lead_status",
+  "add_lead_note",
+  "convert_lead_to_client",
+  "create_client",
+  "search_clients",
+  "list_clients",
+  "update_client",
+  "add_client_note",
   "create_task",
   "create_reminder",
   "create_crm_demo",
@@ -51,8 +75,35 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
     case "search_leads":
       return runTool(call, ctx, () => searchLeadsTool(ctx, call.args));
 
+    case "list_leads":
+      return runTool(call, ctx, () => listLeadsTool(ctx, call.args));
+
+    case "update_lead":
+      return runTool(call, ctx, () => updateLeadTool(ctx, call.args));
+
     case "update_lead_status":
       return runTool(call, ctx, () => updateLeadStatusTool(ctx, call.args));
+
+    case "add_lead_note":
+      return runTool(call, ctx, () => addLeadNoteTool(ctx, call.args));
+
+    case "convert_lead_to_client":
+      return runTool(call, ctx, () => convertLeadToClientTool(ctx, call.args));
+
+    case "create_client":
+      return runTool(call, ctx, () => createClientTool(ctx, call.args));
+
+    case "search_clients":
+      return runTool(call, ctx, () => searchClientsTool(ctx, call.args));
+
+    case "list_clients":
+      return runTool(call, ctx, () => listClientsTool(ctx, call.args));
+
+    case "update_client":
+      return runTool(call, ctx, () => updateClientTool(ctx, call.args));
+
+    case "add_client_note":
+      return runTool(call, ctx, () => addClientNoteTool(ctx, call.args));
 
     case "create_task":
       return runTool(call, ctx, () => createTaskTool(ctx, call.args));
