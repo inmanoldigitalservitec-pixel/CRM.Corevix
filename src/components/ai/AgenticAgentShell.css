@@ -829,3 +829,24 @@
     display: none;
   }
 }
+
+/* Scroll contract for active conversations. */
+.agentic-ai-core {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.agentic-ai-chat {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.agentic-ai-scroll {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
