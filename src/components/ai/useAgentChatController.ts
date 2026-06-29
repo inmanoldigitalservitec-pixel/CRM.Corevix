@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { extractAgentReply, sendAgentMessage } from "@/lib/agentClient";
+import { extractAgentReply, sendAgentMessage, type AgentToolScope } from "@/lib/agentClient";
 import {
   appendAiChatMessage,
   createAiChatThread,
@@ -48,6 +48,7 @@ function logBrowserAgentDebug(userText: string, recentHistory: AgentMessage[], r
     history_items_sent: recentHistory.length,
     history_chars_sent: historyChars,
     history_estimated_tokens: estimateTokens(userText) + estimateTokens(recentHistory.map((item) => item.content).join("\n")),
+    selected_tool_scope: payload?.agent_debug?.initial?.tool_scope_selected ?? null,
   });
   console.log("Worker -> OpenClaw", payload?.agent_debug || "El worker no devolvio agent_debug. Verifica que el worker este actualizado/reiniciado.");
   console.groupEnd();
@@ -244,7 +245,7 @@ export function useAgentChatController() {
     return dbThread.id;
   }
 
-  async function handleSend(raw = text) {
+  async function handleSend(raw = text, toolScope: AgentToolScope | null = null) {
     const userText = raw.trim();
     if (!userText || loading) return;
 
@@ -288,7 +289,7 @@ export function useAgentChatController() {
         .filter((item) => item.content.trim() && !isInternalDebugMessage(item))
         .slice(-10);
 
-      const data = await sendAgentMessage(userText, recentHistory, { debug: debugMode });
+      const data = await sendAgentMessage(userText, recentHistory, { debug: debugMode, toolScope });
       if (debugMode) logBrowserAgentDebug(userText, recentHistory, data);
 
       const reply = extractAgentReply(data);
