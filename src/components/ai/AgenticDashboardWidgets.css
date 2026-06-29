@@ -1,0 +1,213 @@
+.agentic-dashboard {
+  --widget-bg: rgba(255, 255, 255, 0.9);
+  --widget-border: rgba(218, 229, 246, 0.96);
+  --widget-shadow: 0 16px 34px rgba(22, 45, 90, 0.08);
+}
+
+.agentic-dashboard .snapshot {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(128px, 1fr));
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+}
+
+.agentic-dashboard .conversation-mode .snapshot {
+  overflow: visible;
+}
+
+.agentic-dashboard .snap-item {
+  min-width: 0;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  column-gap: 11px;
+  row-gap: 2px;
+  padding: 14px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 253, 255, 0.86));
+  border: 1px solid var(--widget-border);
+  box-shadow: var(--widget-shadow);
+  color: #233452;
+}
+
+.agentic-dashboard .snap-dot {
+  grid-row: 1 / span 2;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.agentic-dashboard .snap-item strong {
+  min-width: 0;
+  display: block;
+  color: #0b1c42;
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: -0.35px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agentic-dashboard .snap-item > span:not(.snap-dot) {
+  min-width: 0;
+  color: #60718f;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agentic-dashboard .context-card {
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 252, 255, 0.9));
+  border-color: var(--widget-border);
+  box-shadow: var(--widget-shadow);
+}
+
+.agentic-dashboard .context-card h3 {
+  margin-bottom: 14px;
+  color: #0b1c42;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.agentic-dashboard .context-card p {
+  color: #61718d;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.agentic-dashboard .data-row {
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 13px 0;
+}
+
+.agentic-dashboard .data-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+}
+
+.agentic-dashboard .data-row strong {
+  color: #132446;
+  font-size: 13.5px;
+  font-weight: 900;
+}
+
+.agentic-dashboard .data-row span {
+  color: #6b7890;
+  font-size: 11.5px;
+}
+
+.agentic-dashboard .data-row b {
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.agentic-dashboard .pill {
+  height: 28px;
+  min-width: 32px;
+  justify-content: center;
+  background: #eef4ff;
+  color: #50617c;
+}
+
+.agentic-dashboard .panel-actions {
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.agentic-dashboard .action-btn,
+.agentic-dashboard .ghost-btn {
+  height: 44px;
+  border-radius: 14px;
+}
+
+.agentic-dashboard .progress-list {
+  gap: 14px;
+}
+
+.agentic-dashboard .progress-item strong {
+  font-size: 13px;
+}
+
+.agentic-dashboard .bar {
+  height: 9px;
+  background: #e8f0fb;
+}
+
+.agentic-dashboard .money {
+  color: #f97316;
+  background: linear-gradient(135deg, #fff1e7, #fff8f2);
+}
+
+.agentic-dashboard .deal {
+  color: var(--blue);
+  background: linear-gradient(135deg, #edf4ff, #f7fbff);
+}
+
+.agentic-dashboard .msg {
+  color: var(--purple);
+  background: linear-gradient(135deg, #f1edff, #fbf9ff);
+}
+
+.agentic-dashboard .danger {
+  color: var(--red);
+  background: linear-gradient(135deg, #fff0f4, #fff8fa);
+}
+
+.agentic-dashboard .doc {
+  color: var(--teal);
+  background: linear-gradient(135deg, #e9fbf8, #f7fffd);
+}
+
+@media (max-width: 1500px) {
+  .agentic-dashboard .snapshot {
+    grid-template-columns: repeat(3, minmax(132px, 1fr));
+  }
+
+  .agentic-dashboard .snap-item {
+    min-height: 72px;
+    padding: 12px;
+  }
+
+  .agentic-dashboard .snap-dot {
+    width: 38px;
+    height: 38px;
+    border-radius: 13px;
+  }
+
+  .agentic-dashboard .snap-item strong {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .agentic-dashboard .snapshot {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agentic-dashboard .snap-item:nth-child(n + 5) {
+    display: none;
+  }
+}
