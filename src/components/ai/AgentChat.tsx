@@ -1,16 +1,20 @@
-import type { MouseEvent, ReactNode, RefObject } from "react";
-import { useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ArrowLeft,
   BriefcaseBusiness,
   CalendarClock,
+  CheckSquare,
   Copy,
   DollarSign,
   FileText,
+  GitBranch,
   MessageSquare,
   MoreHorizontal,
   Plus,
+  Receipt,
   RefreshCw,
   SendHorizontal,
   Sparkles,
@@ -18,9 +22,23 @@ import {
   ThumbsDown,
   ThumbsUp,
   TrendingUp,
+  Users,
   X,
 } from "lucide-react";
 import { extractAgentReply, sendAgentMessage } from "@/lib/agentClient";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  isActiveProjectStatus,
+  isClosedDealStageValue,
+  isClosedLeadStatusValue,
+  isCompletedTaskStatusValue,
+  isOpenConversationStatus,
+  isOpenInvoiceStatus,
+  isOverdueInvoiceStatus,
+  isPaidInvoiceStatus,
+  isPendingProposalStatus,
+} from "@/lib/crm/status";
 import "./AgenticDashboard.css";
 import "./AgenticDashboardIcons.css";
 import "./AgenticDashboardPhase1.css";
@@ -46,6 +64,93 @@ type ToolOption = {
   label: string;
   prompt: string;
   patterns: RegExp[];
+};
+
+type AgentDashboardStats = {
+  loading: boolean;
+  error: string | null;
+  leadsNeedFollowUp: number;
+  openLeads: number;
+  overdueTasks: number;
+  tasksToday: number;
+  upcomingAgenda: number;
+  receivableTotal: number;
+  pendingInvoices: number;
+  overdueInvoices: number;
+  openDeals: number;
+  pipelineValue: number;
+  pendingProposals: number;
+  inboxPending: number;
+  whatsappOpen: number;
+  emailOpen: number;
+  activeProjects: number;
+  projectsAtRisk: number;
+};
+
+type LeadRow = {
+  id: string;
+  status: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  last_interaction_at?: string | null;
+  next_follow_up?: string | null;
+};
+
+type DealRow = {
+  id: string;
+  stage: string | null;
+  value: number | string | null;
+};
+
+type TaskRow = {
+  id: string;
+  status: string | null;
+  due_date: string | null;
+};
+
+type ProjectRow = {
+  id: string;
+  status: string | null;
+  due_date: string | null;
+};
+
+type InvoiceRow = {
+  id: string;
+  status: string | null;
+  total: number | string | null;
+  due_date?: string | null;
+};
+
+type ProposalRow = {
+  id: string;
+  status: string | null;
+  valid_until?: string | null;
+};
+
+type ConversationRow = {
+  id: string;
+  status: string | null;
+};
+
+const emptyStats: AgentDashboardStats = {
+  loading: true,
+  error: null,
+  leadsNeedFollowUp: 0,
+  openLeads: 0,
+  overdueTasks: 0,
+  tasksToday: 0,
+  upcomingAgenda: 0,
+  receivableTotal: 0,
+  pendingInvoices: 0,
+  overdueInvoices: 0,
+  openDeals: 0,
+  pipelineValue: 0,
+  pendingProposals: 0,
+  inboxPending: 0,
+  whatsappOpen: 0,
+  emailOpen: 0,
+  activeProjects: 0,
+  projectsAtRisk: 0,
 };
 
 const toolOptions: ToolOption[] = [
@@ -108,58 +213,58 @@ const toolOptions: ToolOption[] = [
 
 const intentConfig: Record<IntentKey, IntentConfig> = {
   priorities: {
-    contexts: ["priorities", "pipeline", "actions", "activity", "agenda"],
+    contexts: ["priorities", "agenda", "actions"],
     title: "Prioridad recomendada",
-    summary: "Primero conviene cobrar pendientes, responder conversaciones abiertas y reactivar oportunidades con actividad reciente.",
+    summary: "Primero conviene atender lo que afecta seguimiento, cobros y conversaciones abiertas.",
     points: [
-      "El agente cruza facturas, tareas, pipeline y actividad reciente.",
-      "Las prioridades se ordenan por impacto en caja y avance comercial.",
+      "El contexto lateral muestra solo indicadores reales del CRM.",
+      "Puedes pedirme que liste, priorice o cree el siguiente seguimiento.",
     ],
-    actions: ["Revisar prioridad", "Crear seguimiento", "Abrir actividad"],
-    panelSummary: "Plan recomendado: cobrar pendientes, responder conversaciones activas y reactivar oportunidades abiertas.",
+    actions: ["Ver tareas", "Ver leads", "Ver facturas"],
+    panelSummary: "Enfocate en tareas vencidas, leads sin seguimiento y cobros pendientes.",
   },
   invoices: {
-    contexts: ["invoices", "actions", "activity"],
+    contexts: ["invoices", "actions", "agenda"],
     title: "Cobro recomendado",
-    summary: "Hay que priorizar facturas vencidas y cobros con impacto directo en caja.",
+    summary: "Revisemos facturas pendientes y vencidas para priorizar seguimiento financiero.",
     points: [
-      "Se priorizan facturas vencidas y montos altos.",
-      "La siguiente accion puede ser recordar pago o programar seguimiento.",
+      "El panel muestra cobros reales del CRM.",
+      "Puedes pedir la lista de facturas pendientes para que OpenClaw use la tool correspondiente.",
     ],
-    actions: ["Enviar recordatorio", "Abrir factura", "Programar seguimiento"],
-    panelSummary: "Accion sugerida: revisar cobros pendientes y preparar recordatorios para facturas vencidas.",
+    actions: ["Ver facturas", "Listar pendientes"],
+    panelSummary: "Accion sugerida: revisar cobros pendientes y pedir al agente la lista de facturas no pagadas.",
   },
   pipeline: {
-    contexts: ["pipeline", "actions", "activity"],
+    contexts: ["pipeline", "actions", "agenda"],
     title: "Oportunidades a priorizar",
-    summary: "Las oportunidades con propuesta enviada o respuesta reciente deben moverse primero.",
+    summary: "El pipeline abierto y las propuestas pendientes ayudan a decidir el siguiente movimiento comercial.",
     points: [
-      "El pipeline se organiza por etapa, valor y actividad reciente.",
-      "Puedes pedir follow-up, tarea comercial o resumen por etapa.",
+      "Usa el contexto de oportunidades para pedir seguimiento, resumen o creacion de tarea.",
+      "Las propuestas pendientes deben revisarse antes de abrir mas trabajo comercial.",
     ],
-    actions: ["Ver oportunidades", "Enviar follow-up", "Crear tarea comercial"],
-    panelSummary: "Accion sugerida: dar seguimiento a propuestas y negociaciones con mayor probabilidad de cierre.",
+    actions: ["Ver pipeline", "Ver propuestas"],
+    panelSummary: "Accion sugerida: revisar oportunidades abiertas y propuestas pendientes.",
   },
   messages: {
-    contexts: ["messages", "actions", "activity"],
+    contexts: ["messages", "actions", "agenda"],
     title: "Mensajes pendientes",
-    summary: "Responde primero las conversaciones conectadas a clientes, leads u oportunidades activas.",
+    summary: "Las conversaciones abiertas son una senal directa de atencion comercial pendiente.",
     points: [
-      "Las conversaciones con impacto comercial suben de prioridad.",
-      "Puedes pedir una respuesta sugerida o abrir la bandeja.",
+      "El panel separa WhatsApp y Email cuando hay datos disponibles.",
+      "Puedes pedir una respuesta sugerida o abrir la bandeja correspondiente.",
     ],
-    actions: ["Responder mensajes", "Abrir bandeja", "Crear seguimiento"],
-    panelSummary: "Accion sugerida: responder primero las conversaciones conectadas a oportunidades activas.",
+    actions: ["Abrir WhatsApp", "Abrir Email"],
+    panelSummary: "Accion sugerida: responder primero conversaciones abiertas con intencion comercial.",
   },
   default: {
-    contexts: ["priorities", "actions", "activity"],
+    contexts: ["priorities", "actions", "agenda"],
     title: "Contexto preparado",
     summary: "Listo. Puedo ayudarte a priorizar, cobrar, responder mensajes o analizar oportunidades del CRM.",
     points: [
-      "El dashboard se adapta segun la intencion de tu mensaje.",
-      "Los paneles muestran solo la data relevante para la accion.",
+      "El chat sigue conectado al agente real.",
+      "Los widgets muestran contexto minimo del CRM para no saturar la pantalla.",
     ],
-    actions: ["Revisar prioridades", "Ver actividad", "Crear siguiente accion"],
+    actions: ["Ver resumen", "Ver actividad"],
     panelSummary: "Corevix AI esta listo para ayudarte a ejecutar la siguiente accion dentro del CRM.",
   },
 };
@@ -167,6 +272,57 @@ const intentConfig: Record<IntentKey, IntentConfig> = {
 function uid(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+}
+
+function toNumber(value: number | string | null | undefined) {
+  if (value === null || value === undefined) return 0;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatMoney(value: number) {
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
+function dateKeyFromISO(iso?: string | null) {
+  const parsed = Date.parse(String(iso || ""));
+  if (!Number.isFinite(parsed)) return null;
+  const date = new Date(parsed);
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function localTodayKey() {
+  const date = new Date();
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function toDateKey(value?: string | null) {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return dateKeyFromISO(value);
+}
+
+function hoursSince(iso?: string | null) {
+  const parsed = Date.parse(String(iso || ""));
+  if (!Number.isFinite(parsed)) return Infinity;
+  return (Date.now() - parsed) / 36e5;
+}
+
+function isDateKeyInNextDays(dateKey: string, days: number) {
+  const [year, month, day] = dateKey.split("-").map((item) => Number(item));
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return false;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + days);
+  const date = new Date(year, month - 1, day);
+  return date >= start && date <= end;
 }
 
 function detectSuggestedTool(text: string): ToolKey | null {
@@ -318,7 +474,6 @@ function AiReply({ intent, reply }: { intent: IntentKey; reply: string }) {
   const config = intentConfig[intent] || intentConfig.default;
   const finalReply = reply.trim() || config.summary;
   const visiblePoints = config.points.slice(0, 2);
-  const visibleActions = config.actions.slice(0, 2);
 
   return (
     <div className="ai-card ai-card-compact">
@@ -329,11 +484,6 @@ function AiReply({ intent, reply }: { intent: IntentKey; reply: string }) {
           {visiblePoints.map((point) => <li key={point}>{point}</li>)}
         </ul>
       ) : null}
-      <div className="ai-actions compact-actions">
-        {visibleActions.map((action, index) => (
-          <button key={action} type="button" className={index === 0 ? "ai-action-btn" : "ai-secondary-btn"}>{action}</button>
-        ))}
-      </div>
       <div className="feedback compact-feedback">
         <span><ThumbsUp /></span>
         <span><ThumbsDown /></span>
@@ -354,7 +504,42 @@ function ThinkingBubble() {
   );
 }
 
+function ActionLink({ to, children, primary = false }: { to: string; children: ReactNode; primary?: boolean }) {
+  return (
+    <Link to={to} className={primary ? "action-btn" : "ghost-btn"}>
+      {children}
+    </Link>
+  );
+}
+
+function getActionLinks(intent: IntentKey) {
+  if (intent === "invoices") {
+    return [
+      { to: "/invoices", label: "Ver facturas" },
+      { to: "/dashboard", label: "Ver resumen" },
+    ];
+  }
+  if (intent === "pipeline") {
+    return [
+      { to: "/pipeline", label: "Ver pipeline" },
+      { to: "/proposals", label: "Ver propuestas" },
+    ];
+  }
+  if (intent === "messages") {
+    return [
+      { to: "/whatsapp", label: "Abrir WhatsApp" },
+      { to: "/email", label: "Abrir Email" },
+    ];
+  }
+  return [
+    { to: "/tasks", label: "Ver tareas" },
+    { to: "/leads", label: "Ver leads" },
+    { to: "/invoices", label: "Ver facturas" },
+  ];
+}
+
 export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = {}) {
+  const { profile } = useAuth();
   const [conversationMode, setConversationMode] = useState(false);
   const [mobileTab, setMobileTab] = useState("chat");
   const [heroPrompt, setHeroPrompt] = useState("");
@@ -364,12 +549,164 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
   const [isThinking, setIsThinking] = useState(false);
   const [toast, setToast] = useState("");
   const [selectedTool, setSelectedTool] = useState<ToolKey>("auto");
+  const [stats, setStats] = useState<AgentDashboardStats>(emptyStats);
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const heroInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
   const config = intentConfig[activeIntent] || intentConfig.default;
   const highlightedContext = config.contexts[0];
+  const valuePlaceholder = stats.loading ? "..." : "0";
+
+  useEffect(() => {
+    if (!profile?.company_id) {
+      setStats({ ...emptyStats, loading: false, error: "No hay empresa asociada al usuario." });
+      return;
+    }
+
+    let cancelled = false;
+    const cid = profile.company_id;
+    const db = supabase as any;
+
+    async function loadDashboardContext() {
+      setStats((current) => ({ ...current, loading: true, error: null }));
+
+      const results = await Promise.allSettled([
+        db
+          .from("leads")
+          .select("id,status,created_at,updated_at,last_interaction_at,next_follow_up")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(120),
+        db
+          .from("tasks")
+          .select("id,status,due_date")
+          .eq("company_id", cid)
+          .order("due_date", { ascending: true })
+          .limit(120),
+        db
+          .from("invoices")
+          .select("id,status,total,due_date")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(120),
+        db
+          .from("deals")
+          .select("id,stage,value")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(120),
+        db
+          .from("proposals")
+          .select("id,status,valid_until")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(100),
+        db
+          .from("whatsapp_conversations")
+          .select("id,status")
+          .eq("company_id", cid)
+          .limit(80),
+        db
+          .from("email_conversations")
+          .select("id,status")
+          .eq("company_id", cid)
+          .limit(80),
+        db
+          .from("projects")
+          .select("id,status,due_date")
+          .eq("company_id", cid)
+          .limit(100),
+      ]);
+
+      if (cancelled) return;
+
+      const getData = <T,>(index: number): T[] => {
+        const result = results[index];
+        if (result.status !== "fulfilled" || result.value?.error) return [];
+        return (result.value?.data || []) as T[];
+      };
+
+      const hadError = results.some((result) => result.status === "rejected" || (result.status === "fulfilled" && result.value?.error));
+      const today = localTodayKey();
+      const leads = getData<LeadRow>(0);
+      const tasks = getData<TaskRow>(1);
+      const invoices = getData<InvoiceRow>(2);
+      const deals = getData<DealRow>(3);
+      const proposals = getData<ProposalRow>(4);
+      const whatsapp = getData<ConversationRow>(5);
+      const email = getData<ConversationRow>(6);
+      const projects = getData<ProjectRow>(7);
+
+      const openLeads = leads.filter((lead) => !isClosedLeadStatusValue(String(lead.status || "")));
+      const leadsNeedFollowUp = openLeads.filter((lead) => {
+        const staleUpdate = hoursSince(lead.updated_at || lead.created_at) > 24;
+        const staleInteraction = lead.last_interaction_at ? hoursSince(lead.last_interaction_at) > 72 : false;
+        const missingFollowUp = Object.prototype.hasOwnProperty.call(lead, "next_follow_up") ? !lead.next_follow_up : false;
+        return staleUpdate || staleInteraction || missingFollowUp;
+      }).length;
+
+      const openTasks = tasks.filter((task) => !isCompletedTaskStatusValue(String(task.status || "")));
+      const overdueTasks = openTasks.filter((task) => {
+        const dueKey = toDateKey(task.due_date);
+        return Boolean(dueKey && dueKey < today);
+      }).length;
+      const tasksToday = openTasks.filter((task) => toDateKey(task.due_date) === today).length;
+      const taskAgenda = openTasks.filter((task) => {
+        const dueKey = toDateKey(task.due_date);
+        return Boolean(dueKey && isDateKeyInNextDays(dueKey, 7));
+      }).length;
+
+      const pendingInvoiceRows = invoices.filter((invoice) => isOpenInvoiceStatus(String(invoice.status || "")));
+      const overdueInvoiceRows = invoices.filter((invoice) => {
+        const dueKey = toDateKey(invoice.due_date);
+        return isOverdueInvoiceStatus(String(invoice.status || "")) || Boolean(dueKey && !isPaidInvoiceStatus(String(invoice.status || "")) && dueKey < today);
+      });
+      const receivableTotal = pendingInvoiceRows.reduce((sum, invoice) => sum + toNumber(invoice.total), 0);
+
+      const openDealRows = deals.filter((deal) => !isClosedDealStageValue(String(deal.stage || "")));
+      const pipelineValue = openDealRows.reduce((sum, deal) => sum + toNumber(deal.value), 0);
+      const pendingProposalRows = proposals.filter((proposal) => isPendingProposalStatus(String(proposal.status || "")));
+      const whatsappOpen = whatsapp.filter((conversation) => isOpenConversationStatus(conversation.status)).length;
+      const emailOpen = email.filter((conversation) => isOpenConversationStatus(conversation.status)).length;
+      const activeProjectRows = projects.filter((project) => isActiveProjectStatus(String(project.status || "")));
+      const projectsAtRisk = activeProjectRows.filter((project) => {
+        const dueKey = toDateKey(project.due_date);
+        return Boolean(dueKey && dueKey < today);
+      }).length;
+      const projectAgenda = activeProjectRows.filter((project) => {
+        const dueKey = toDateKey(project.due_date);
+        return Boolean(dueKey && isDateKeyInNextDays(dueKey, 7));
+      }).length;
+
+      setStats({
+        loading: false,
+        error: hadError ? "Algunos indicadores no pudieron cargarse." : null,
+        leadsNeedFollowUp,
+        openLeads: openLeads.length,
+        overdueTasks,
+        tasksToday,
+        upcomingAgenda: taskAgenda + projectAgenda,
+        receivableTotal,
+        pendingInvoices: pendingInvoiceRows.length,
+        overdueInvoices: overdueInvoiceRows.length,
+        openDeals: openDealRows.length,
+        pipelineValue,
+        pendingProposals: pendingProposalRows.length,
+        inboxPending: whatsappOpen + emailOpen,
+        whatsappOpen,
+        emailOpen,
+        activeProjects: activeProjectRows.length,
+        projectsAtRisk,
+      });
+    }
+
+    void loadDashboardContext();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.company_id]);
 
   function showToast(message: string) {
     setToast(message);
@@ -441,24 +778,10 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
     showToast("Volviste a la vista limpia del dashboard.");
   }
 
-  function handleActionClick(event: MouseEvent<HTMLDivElement>) {
-    const button = (event.target as HTMLElement).closest("button");
-    if (!button || !button.matches(".action-btn, .ghost-btn, .ai-action-btn, .ai-secondary-btn")) return;
-    const originalText = button.textContent || "Accion";
-    button.textContent = "Preparando...";
-    button.setAttribute("disabled", "true");
-    window.setTimeout(() => {
-      button.textContent = "Listo";
-      showToast("Accion preparada: " + originalText);
-      window.setTimeout(() => {
-        button.textContent = originalText;
-        button.removeAttribute("disabled");
-      }, 1200);
-    }, 800);
-  }
+  const actionLinks = getActionLinks(activeIntent);
 
   return (
-    <div className="agentic-dashboard" onClick={handleActionClick}>
+    <div className="agentic-dashboard">
       <section className="agent-shell">
         <div className={`agent-stage ${conversationMode ? "conversation-mode" : ""}`} data-mobile-tab={mobileTab}>
           <div className="mobile-tabs">
@@ -471,44 +794,42 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
 
           <aside className="context-column left-context">
             <ContextCard name="priorities" activeContexts={config.contexts} highlightedContext={highlightedContext}>
-              <h3>Prioridades detectadas</h3>
-              <DataRow icon={<AlertTriangle />} iconClass="danger" title="Facturas vencidas" subtitle="Cobros pendientes del CRM" value="$15,680" valueClass="amount" />
-              <DataRow icon={<MessageSquare />} iconClass="msg" title="Mensajes sin responder" subtitle="Conversaciones abiertas" value="2" />
-              <DataRow icon={<FileText />} iconClass="doc" title="Propuestas abiertas" subtitle="Esperando seguimiento" value="6" />
+              <h3>Atencion ahora</h3>
+              {stats.error ? <p>{stats.error}</p> : null}
+              <DataRow icon={<Users />} iconClass="deal" title="Leads sin seguimiento" subtitle="Prospectos abiertos que requieren accion" value={stats.loading ? valuePlaceholder : String(stats.leadsNeedFollowUp)} />
+              <DataRow icon={<AlertTriangle />} iconClass="danger" title="Tareas atrasadas" subtitle="Pendientes con fecha vencida" value={stats.loading ? valuePlaceholder : String(stats.overdueTasks)} />
+              <DataRow icon={<Receipt />} iconClass="money" title="Facturas por cobrar" subtitle="Pendientes o enviadas" value={stats.loading ? valuePlaceholder : formatMoney(stats.receivableTotal)} valueClass="amount" />
             </ContextCard>
 
             <ContextCard name="invoices" activeContexts={config.contexts} highlightedContext={highlightedContext}>
-              <h3>Facturas relevantes</h3>
-              <DataRow icon={<DollarSign />} iconClass="danger" title="Facturas vencidas" subtitle="Estado Overdue / Pending" value="$15,680" valueClass="amount" />
-              <DataRow icon={<DollarSign />} iconClass="money" title="Por cobrar" subtitle="Facturas enviadas" value="$8,400" />
+              <h3>Cobros</h3>
+              <DataRow icon={<AlertTriangle />} iconClass="danger" title="Facturas vencidas" subtitle="Requieren seguimiento" value={stats.loading ? valuePlaceholder : String(stats.overdueInvoices)} />
+              <DataRow icon={<Receipt />} iconClass="money" title="Facturas pendientes" subtitle="No pagadas" value={stats.loading ? valuePlaceholder : String(stats.pendingInvoices)} />
+              <DataRow icon={<DollarSign />} iconClass="money" title="Total por cobrar" subtitle="Monto abierto" value={stats.loading ? valuePlaceholder : formatMoney(stats.receivableTotal)} valueClass="amount" />
             </ContextCard>
 
             <ContextCard name="pipeline" activeContexts={config.contexts} highlightedContext={highlightedContext}>
-              <h3>Pipeline</h3>
-              <div className="progress-list">
-                {[["Prospectos", "7", "68%"], ["Propuesta enviada", "6", "58%"], ["Negociacion", "4", "42%"]].map(([label, value, width]) => (
-                  <div className="progress-item" key={label}>
-                    <strong><span>{label}</span><span>{value}</span></strong>
-                    <div className="bar"><span style={{ width }} /></div>
-                  </div>
-                ))}
-              </div>
+              <h3>Ventas</h3>
+              <DataRow icon={<GitBranch />} iconClass="deal" title="Oportunidades abiertas" subtitle="Deals activos" value={stats.loading ? valuePlaceholder : String(stats.openDeals)} />
+              <DataRow icon={<TrendingUp />} iconClass="deal" title="Pipeline abierto" subtitle="Valor estimado" value={stats.loading ? valuePlaceholder : formatMoney(stats.pipelineValue)} valueClass="amount" />
+              <DataRow icon={<FileText />} iconClass="doc" title="Propuestas pendientes" subtitle="Esperando respuesta" value={stats.loading ? valuePlaceholder : String(stats.pendingProposals)} />
             </ContextCard>
 
             <ContextCard name="messages" activeContexts={config.contexts} highlightedContext={highlightedContext}>
-              <h3>Mensajes recientes</h3>
-              <DataRow icon={<MessageSquare />} iconClass="msg" title="WhatsApp Inbox" subtitle="Conversaciones abiertas" value="12m" />
-              <DataRow icon={<MessageSquare />} iconClass="msg" title="Email Inbox" subtitle="Solicitudes sin responder" value="1h" />
+              <h3>Bandejas</h3>
+              <DataRow icon={<MessageSquare />} iconClass="msg" title="Conversaciones abiertas" subtitle="WhatsApp y Email" value={stats.loading ? valuePlaceholder : String(stats.inboxPending)} />
+              <DataRow icon={<MessageSquare />} iconClass="msg" title="WhatsApp" subtitle="Conversaciones abiertas" value={stats.loading ? valuePlaceholder : String(stats.whatsappOpen)} />
+              <DataRow icon={<MessageSquare />} iconClass="msg" title="Email" subtitle="Conversaciones abiertas" value={stats.loading ? valuePlaceholder : String(stats.emailOpen)} />
             </ContextCard>
           </aside>
 
           <section className="center-column">
             <div className="snapshot">
-              <div className="snap-item"><span className="snap-dot money"><DollarSign /></span><strong>$909,050</strong><span>por cobrar</span></div>
-              <div className="snap-item"><span className="snap-dot deal"><TrendingUp /></span><strong>17</strong><span>oportunidades</span></div>
-              <div className="snap-item"><span className="snap-dot msg"><MessageSquare /></span><strong>2</strong><span>mensajes</span></div>
-              <div className="snap-item"><span className="snap-dot danger"><AlertTriangle /></span><strong>1</strong><span>vencida</span></div>
-              <div className="snap-item"><span className="snap-dot doc"><FileText /></span><strong>6</strong><span>propuestas</span></div>
+              <div className="snap-item"><span className="snap-dot money"><DollarSign /></span><strong>{stats.loading ? valuePlaceholder : formatMoney(stats.receivableTotal)}</strong><span>por cobrar</span></div>
+              <div className="snap-item"><span className="snap-dot deal"><TrendingUp /></span><strong>{stats.loading ? valuePlaceholder : String(stats.openDeals)}</strong><span>oportunidades</span></div>
+              <div className="snap-item"><span className="snap-dot msg"><MessageSquare /></span><strong>{stats.loading ? valuePlaceholder : String(stats.inboxPending)}</strong><span>mensajes</span></div>
+              <div className="snap-item"><span className="snap-dot danger"><CheckSquare /></span><strong>{stats.loading ? valuePlaceholder : String(stats.tasksToday)}</strong><span>hoy</span></div>
+              <div className="snap-item"><span className="snap-dot doc"><FileText /></span><strong>{stats.loading ? valuePlaceholder : String(stats.pendingProposals)}</strong><span>propuestas</span></div>
             </div>
 
             <div className="agent-core">
@@ -517,7 +838,7 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
                   <div className="spark"><Sparkles /></div>
                   <p className="agent-label">Corevix AI</p>
                   <h1>¿Qué toca ahora, Inma?</h1>
-                  <p className="subtitle">El agente es el centro, pero el dashboard sigue vivo: pregunta algo y Corevix AI abre solo la data que necesitas.</p>
+                  <p className="subtitle">Pregunta algo y Corevix AI usa el CRM real para ayudarte a priorizar, cobrar, responder o avanzar oportunidades.</p>
 
                   <form className="agent-form" onSubmit={(event) => { event.preventDefault(); void sendMessage(heroPrompt); }}>
                     <AgentInput
@@ -532,10 +853,10 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
                   </form>
 
                   <div className="quick-actions">
-                    <button type="button" onClick={() => void sendMessage("Revisa mis prioridades de hoy")}><Target /> Prioridades de hoy</button>
-                    <button type="button" onClick={() => void sendMessage("Muestrame las facturas vencidas")}><DollarSign /> Facturas vencidas</button>
-                    <button type="button" onClick={() => void sendMessage("Que oportunidades debo cerrar primero")}><TrendingUp /> Cerrar oportunidades</button>
-                    <button type="button" onClick={() => void sendMessage("Responde los mensajes pendientes")}><MessageSquare /> Mensajes pendientes</button>
+                    <button type="button" onClick={() => void sendMessage("Dame un resumen del CRM de hoy")}><Target /> Resumen de hoy</button>
+                    <button type="button" onClick={() => void sendMessage("Muestrame las facturas pendientes")}><DollarSign /> Facturas pendientes</button>
+                    <button type="button" onClick={() => void sendMessage("Que oportunidades debo priorizar")}><TrendingUp /> Oportunidades</button>
+                    <button type="button" onClick={() => void sendMessage("Que mensajes tengo pendientes")}><MessageSquare /> Mensajes pendientes</button>
                   </div>
                 </div>
               </div>
@@ -580,24 +901,20 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
 
           <aside className="context-column right-context">
             <ContextCard name="actions" activeContexts={config.contexts} highlightedContext={highlightedContext}>
-              <h3>Acciones sugeridas</h3>
+              <h3>Siguiente paso</h3>
               <p>{config.panelSummary}</p>
               <div className="panel-actions">
-                {config.actions.map((action, index) => <button key={action} type="button" className={index === 0 ? "action-btn" : "ghost-btn"}>{action}</button>)}
+                {actionLinks.map((action, index) => (
+                  <ActionLink key={action.to} to={action.to} primary={index === 0}>{action.label}</ActionLink>
+                ))}
               </div>
             </ContextCard>
 
-            <ContextCard name="activity" activeContexts={config.contexts} highlightedContext={highlightedContext}>
-              <h3>Actividad relacionada</h3>
-              <DataRow icon={<MessageSquare />} iconClass="msg" title="Conversacion respondida" subtitle="Sobre propuesta CRM" value="12m" />
-              <DataRow icon={<AlertTriangle />} iconClass="danger" title="Nueva factura vencida" subtitle="Modulo de facturas" value="45m" />
-              <DataRow icon={<FileText />} iconClass="doc" title="Propuesta enviada" subtitle="Pipeline comercial" value="2h" />
-            </ContextCard>
-
             <ContextCard name="agenda" activeContexts={config.contexts} highlightedContext={highlightedContext}>
-              <h3>Agenda</h3>
-              <DataRow icon={<CalendarClock />} iconClass="deal" title="Llamada seguimiento" subtitle="Cliente activo" value="AM" />
-              <DataRow icon={<BriefcaseBusiness />} iconClass="doc" title="Reunion con cliente" subtitle="Proyecto abierto" value="PM" />
+              <h3>Agenda breve</h3>
+              <DataRow icon={<CheckSquare />} iconClass="danger" title="Tareas para hoy" subtitle="Pendientes con fecha de hoy" value={stats.loading ? valuePlaceholder : String(stats.tasksToday)} />
+              <DataRow icon={<CalendarClock />} iconClass="deal" title="Proximos 7 dias" subtitle="Tareas y entregas" value={stats.loading ? valuePlaceholder : String(stats.upcomingAgenda)} />
+              <DataRow icon={<BriefcaseBusiness />} iconClass="doc" title="Proyectos activos" subtitle="Trabajo en curso" value={stats.loading ? valuePlaceholder : String(stats.activeProjects)} />
             </ContextCard>
           </aside>
         </div>
