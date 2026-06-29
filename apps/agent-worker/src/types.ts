@@ -15,6 +15,7 @@ export type ChatHistoryMessage = {
 export type ChatBody = {
   message: string;
   history?: ChatHistoryMessage[];
+  debug?: boolean;
 };
 
 export type ToolCall = {
