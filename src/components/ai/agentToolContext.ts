@@ -72,6 +72,12 @@ const TOOL_KIND_MAP: Record<string, AgentWidgetKind> = {
   crm_summary: "summary",
   create_deal: "deals",
   list_deals: "deals",
+  search_deals: "deals",
+  update_deal: "deals",
+  update_deal_stage: "deals",
+  add_deal_note: "deals",
+  link_deal_to_lead: "deals",
+  assign_deal_owner: "deals",
   list_unpaid_invoices: "invoices",
   create_project: "projects",
   list_projects: "projects",
@@ -227,9 +233,9 @@ function mapDealRows(data: unknown): AgentWidgetRow[] {
     return {
       id: String(item.id || `deal-${index}`),
       title: item.name || "Oportunidad sin nombre",
-      subtitle: compact([item.stage, item.notes, formatDate(item.expected_close)]),
+      subtitle: compact([item.stage, item.probability != null ? `${item.probability}%` : null, item.notes, formatDate(item.expected_close)]),
       value: formatCurrency(item.value),
-      tone: "blue",
+      tone: item.stage === "Won" ? "teal" : item.stage === "Lost" ? "red" : "blue",
     };
   });
 }
@@ -347,6 +353,12 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
     cancel_calendar_event: mapCalendarRows,
     create_deal: mapDealRows,
     list_deals: mapDealRows,
+    search_deals: mapDealRows,
+    update_deal: mapDealRows,
+    update_deal_stage: mapDealRows,
+    add_deal_note: mapDealRows,
+    link_deal_to_lead: mapDealRows,
+    assign_deal_owner: mapDealRows,
     list_unpaid_invoices: mapInvoiceRows,
     create_project: mapProjectRows,
     list_projects: mapProjectRows,
