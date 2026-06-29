@@ -3,7 +3,7 @@ import { extractAgentReply, sendAgentMessage } from "@/lib/agentClient";
 import "./AgenticDashboard.css";
 
 type IntentKey = "priorities" | "invoices" | "pipeline" | "messages" | "default";
-type ToolKey = "auto" | "crm" | "leads" | "pipeline" | "invoices" | "tasks" | "messages" | "projects" | "documents";
+type ToolKey = "auto" | "crm" | "leads" | "clients" | "pipeline" | "invoices" | "tasks" | "messages" | "projects" | "documents";
 
 type IntentConfig = {
   contexts: string[];
@@ -19,16 +19,69 @@ type ChatMessage =
   | { id: string; type: "user"; text: string; tool: ToolKey }
   | { id: string; type: "ai"; intent: IntentKey; reply: string };
 
-const toolOptions: Array<{ key: ToolKey; label: string; description: string; prompt: string }> = [
-  { key: "auto", label: "Auto", description: "Corevix decide el mejor contexto.", prompt: "" },
-  { key: "crm", label: "CRM", description: "Resumen general del negocio.", prompt: "Usa el contexto general del CRM." },
-  { key: "leads", label: "Leads", description: "Prospectos y seguimiento comercial.", prompt: "Usa la tool/contexto de leads y prospectos." },
-  { key: "pipeline", label: "Pipeline", description: "Oportunidades, etapas y cierres.", prompt: "Usa la tool/contexto de pipeline y oportunidades." },
-  { key: "invoices", label: "Facturas", description: "Cobros, vencidas y pendientes.", prompt: "Usa la tool/contexto de facturas y cobros." },
-  { key: "tasks", label: "Tareas", description: "Pendientes, vencidas y prioridades.", prompt: "Usa la tool/contexto de tareas." },
-  { key: "messages", label: "Mensajes", description: "WhatsApp, email y conversaciones.", prompt: "Usa la tool/contexto de mensajes y bandejas." },
-  { key: "projects", label: "Proyectos", description: "Produccion, entregas y riesgo.", prompt: "Usa la tool/contexto de proyectos." },
-  { key: "documents", label: "Docs", description: "Propuestas, documentos y archivos.", prompt: "Usa la tool/contexto de documentos y propuestas." },
+type ToolOption = {
+  key: ToolKey;
+  label: string;
+  prompt: string;
+  patterns: RegExp[];
+};
+
+const toolOptions: ToolOption[] = [
+  { key: "auto", label: "Auto", prompt: "", patterns: [] },
+  {
+    key: "crm",
+    label: "CRM",
+    prompt: "Usa el contexto general del CRM.",
+    patterns: [/\bcrm\b/i, /\bnegocio\b/i, /\bresumen general\b/i, /\bempresa\b/i],
+  },
+  {
+    key: "leads",
+    label: "Leads",
+    prompt: "Usa la tool/contexto de leads y prospectos.",
+    patterns: [/\bleads?\b/i, /\bprospectos?\b/i, /\bseguimiento\b/i, /\bcontactar\b/i],
+  },
+  {
+    key: "clients",
+    label: "Clientes",
+    prompt: "Usa la tool/contexto de clientes y cuentas.",
+    patterns: [/\bclientes?\b/i, /\bcuentas?\b/i, /\bcontacto\b/i, /\bempresa\b/i],
+  },
+  {
+    key: "pipeline",
+    label: "Pipeline",
+    prompt: "Usa la tool/contexto de pipeline y oportunidades.",
+    patterns: [/\bpipeline\b/i, /\boportunidades?\b/i, /\bdeals?\b/i, /\bcerrar\b/i, /\bnegociaci[oó]n\b/i, /\bventa\b/i],
+  },
+  {
+    key: "invoices",
+    label: "Facturas",
+    prompt: "Usa la tool/contexto de facturas y cobros.",
+    patterns: [/\bfacturas?\b/i, /\bcobros?\b/i, /\bvencid[ao]s?\b/i, /\bpago\b/i, /\bpor cobrar\b/i, /\binvoices?\b/i],
+  },
+  {
+    key: "tasks",
+    label: "Tareas",
+    prompt: "Usa la tool/contexto de tareas.",
+    patterns: [/\btareas?\b/i, /\bpendientes?\b/i, /\batrasad[ao]s?\b/i, /\bprioridad(es)?\b/i, /\bagenda\b/i],
+  },
+  {
+    key: "messages",
+    label: "Mensajes",
+    prompt: "Usa la tool/contexto de mensajes y bandejas.",
+    patterns: [/\bmensajes?\b/i, /\bwhatsapp\b/i, /\bcorreo\b/i, /\bemail\b/i, /\bbandeja\b/i, /\bresponde(r)?\b/i],
+  },
+  {
+    key: "projects",
+    label: "Proyectos",
+    prompt: "Usa la tool/contexto de proyectos.",
+    patterns: [/\bproyectos?\b/i, /\bproducci[oó]n\b/i, /\bentregas?\b/i, /\bdeadline\b/i, /\briesgo\b/i],
+  },
+  {
+    key: "documents",
+    label: "Docs",
+    prompt: "Usa la tool/contexto de documentos y propuestas.",
+    patterns: [/\bdocs?\b/i, /\bdocumentos?\b/i, /\bpropuestas?\b/i, /\bcontratos?\b/i, /\barchivos?\b/i],
+  },
 ];
 
 const intentConfig: Record<IntentKey, IntentConfig> = {
@@ -114,9 +167,21 @@ function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
 
+function detectSuggestedTool(text: string): ToolKey | null {
+  const clean = text.trim();
+  if (!clean) return null;
+
+  for (const tool of toolOptions) {
+    if (tool.key === "auto") continue;
+    if (tool.patterns.some((pattern) => pattern.test(clean))) return tool.key;
+  }
+
+  return null;
+}
+
 function detectIntent(text: string, tool: ToolKey): IntentKey {
   if (tool === "invoices") return "invoices";
-  if (tool === "pipeline" || tool === "leads" || tool === "documents") return "pipeline";
+  if (tool === "pipeline" || tool === "leads" || tool === "clients" || tool === "documents") return "pipeline";
   if (tool === "messages") return "messages";
   if (tool === "tasks" || tool === "projects" || tool === "crm") return "priorities";
 
@@ -162,28 +227,87 @@ function DataRow({ icon, iconClass, title, subtitle, value, valueClass = "pill" 
   );
 }
 
-function ToolPicker({ selectedTool, open, onToggle, onSelect }: { selectedTool: ToolKey; open: boolean; onToggle: () => void; onSelect: (tool: ToolKey) => void }) {
+function SmartToolButton({ selectedTool, suggestedTool, onAccept, onClear }: { selectedTool: ToolKey; suggestedTool: ToolKey | null; onAccept: () => void; onClear: () => void }) {
+  const hasSelected = selectedTool !== "auto";
+
   return (
-    <div className="tool-picker">
-      <button type="button" className={`input-btn ${selectedTool !== "auto" ? "has-tool" : ""}`} onClick={onToggle} aria-label="Seleccionar tool">
-        +
-      </button>
-      {open ? (
-        <div className="tool-menu">
-          <div className="tool-menu-title">Seleccionar tool</div>
-          {toolOptions.map((tool) => (
-            <button
-              type="button"
-              key={tool.key}
-              className={selectedTool === tool.key ? "selected" : ""}
-              onClick={() => onSelect(tool.key)}
-            >
-              <strong>{tool.label}</strong>
-              <span>{tool.description}</span>
-            </button>
-          ))}
-        </div>
+    <button
+      type="button"
+      className={`input-btn smart-tool-btn ${hasSelected ? "has-tool" : suggestedTool ? "has-suggestion" : ""}`}
+      onClick={hasSelected ? onClear : onAccept}
+      aria-label={hasSelected ? "Quitar tool" : "Aceptar tool sugerida"}
+      title={hasSelected ? "Quitar tool" : suggestedTool ? `Usar ${toolLabel(suggestedTool)}` : "Tool auto"}
+    >
+      {hasSelected ? "×" : "+"}
+    </button>
+  );
+}
+
+function AgentInput({
+  value,
+  onChange,
+  onSubmit,
+  inputRef,
+  selectedTool,
+  onSelectTool,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  selectedTool: ToolKey;
+  onSelectTool: (tool: ToolKey) => void;
+  placeholder: string;
+}) {
+  const suggestedTool = selectedTool === "auto" ? detectSuggestedTool(value) : null;
+
+  function acceptSuggestion() {
+    if (!suggestedTool) return;
+    onSelectTool(suggestedTool);
+  }
+
+  return (
+    <div className="agent-input">
+      {selectedTool !== "auto" ? (
+        <span className="input-tool-pill">
+          {toolLabel(selectedTool)}
+          <button type="button" onClick={() => onSelectTool("auto")} aria-label="Quitar tool">×</button>
+        </span>
       ) : null}
+
+      <SmartToolButton
+        selectedTool={selectedTool}
+        suggestedTool={suggestedTool}
+        onAccept={acceptSuggestion}
+        onClear={() => onSelectTool("auto")}
+      />
+
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Tab" && suggestedTool) {
+            event.preventDefault();
+            onSelectTool(suggestedTool);
+            return;
+          }
+          if (event.key === "Backspace" && !value && selectedTool !== "auto") {
+            onSelectTool("auto");
+            return;
+          }
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onSubmit();
+          }
+        }}
+        type="text"
+        placeholder={placeholder}
+      />
+
+      {suggestedTool ? <span className="tool-suggestion">Tab para usar {toolLabel(suggestedTool)}</span> : null}
+      <button type="submit" className="input-btn send-btn">↗</button>
     </div>
   );
 }
@@ -228,7 +352,6 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
   const [isThinking, setIsThinking] = useState(false);
   const [toast, setToast] = useState("");
   const [selectedTool, setSelectedTool] = useState<ToolKey>("auto");
-  const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const heroInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -244,8 +367,7 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
 
   function selectTool(tool: ToolKey) {
     setSelectedTool(tool);
-    setToolMenuOpen(false);
-    showToast(`Tool seleccionada: ${toolLabel(tool)}`);
+    if (tool !== "auto") showToast(`Tool seleccionada: ${toolLabel(tool)}`);
   }
 
   async function sendMessage(text: string) {
@@ -266,7 +388,6 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
     setActiveIntent(intent);
     setConversationMode(true);
     setMobileTab("chat");
-    setToolMenuOpen(false);
     setMessages((current) => [...current, { id: uid("user"), type: "user", text: clean, tool }]);
     setHeroPrompt("");
     setChatPrompt("");
@@ -371,11 +492,16 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
                   <h1>¿Qué toca ahora, Inma?</h1>
                   <p className="subtitle">El agente es el centro, pero el dashboard sigue vivo: pregunta algo y Corevix AI abre solo la data que necesitas.</p>
 
-                  <form className="agent-input" onSubmit={(event) => { event.preventDefault(); void sendMessage(heroPrompt); }}>
-                    <ToolPicker selectedTool={selectedTool} open={toolMenuOpen} onToggle={() => setToolMenuOpen((value) => !value)} onSelect={selectTool} />
-                    <input ref={heroInputRef} value={heroPrompt} onChange={(event) => setHeroPrompt(event.target.value)} type="text" placeholder="Pidele algo a Corevix AI..." />
-                    <button type="button" className="mode-btn">{toolLabel(selectedTool)} ⌄</button>
-                    <button type="submit" className="input-btn send-btn">↗</button>
+                  <form className="agent-form" onSubmit={(event) => { event.preventDefault(); void sendMessage(heroPrompt); }}>
+                    <AgentInput
+                      value={heroPrompt}
+                      onChange={setHeroPrompt}
+                      onSubmit={() => void sendMessage(heroPrompt)}
+                      inputRef={heroInputRef}
+                      selectedTool={selectedTool}
+                      onSelectTool={selectTool}
+                      placeholder="Pidele algo a Corevix AI..."
+                    />
                   </form>
 
                   <div className="quick-actions">
@@ -391,7 +517,7 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
                 <div className="chat-head">
                   <button type="button" className="clean-btn" onClick={resetCleanView}>← Vista limpia</button>
                   <div className="context-chips">
-                    <span className="chip">Tool: {toolLabel(selectedTool)}</span>
+                    {selectedTool !== "auto" ? <span className="chip">Tool: {toolLabel(selectedTool)}</span> : null}
                     {config.chips.map((chip) => <span className="chip" key={chip}>● {chip}</span>)}
                   </div>
                 </div>
@@ -415,12 +541,15 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
                 </div>
 
                 <form className="chat-input-dock" onSubmit={(event) => { event.preventDefault(); void sendMessage(chatPrompt); }}>
-                  <div className="agent-input">
-                    <ToolPicker selectedTool={selectedTool} open={toolMenuOpen} onToggle={() => setToolMenuOpen((value) => !value)} onSelect={selectTool} />
-                    <input ref={chatInputRef} value={chatPrompt} onChange={(event) => setChatPrompt(event.target.value)} type="text" placeholder="Escribe un mensaje para Corevix AI..." />
-                    <button type="button" className="mode-btn">{toolLabel(selectedTool)} ⌄</button>
-                    <button type="submit" className="input-btn send-btn">↗</button>
-                  </div>
+                  <AgentInput
+                    value={chatPrompt}
+                    onChange={setChatPrompt}
+                    onSubmit={() => void sendMessage(chatPrompt)}
+                    inputRef={chatInputRef}
+                    selectedTool={selectedTool}
+                    onSelectTool={selectTool}
+                    placeholder="Escribe un mensaje para Corevix AI..."
+                  />
                 </form>
               </div>
             </div>
