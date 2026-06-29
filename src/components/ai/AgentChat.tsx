@@ -1,6 +1,31 @@
+import type { MouseEvent, ReactNode, RefObject } from "react";
 import { useRef, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Bot,
+  BriefcaseBusiness,
+  CalendarClock,
+  CheckCircle2,
+  Circle,
+  Copy,
+  DollarSign,
+  FileText,
+  MessageSquare,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  SendHorizontal,
+  Sparkles,
+  Target,
+  ThumbsDown,
+  ThumbsUp,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { extractAgentReply, sendAgentMessage } from "@/lib/agentClient";
 import "./AgenticDashboard.css";
+import "./AgenticDashboardIcons.css";
 
 type IntentKey = "priorities" | "invoices" | "pipeline" | "messages" | "default";
 type ToolKey = "auto" | "crm" | "leads" | "clients" | "pipeline" | "invoices" | "tasks" | "messages" | "projects" | "documents";
@@ -203,7 +228,7 @@ function buildToolMessage(text: string, tool: ToolKey) {
   return `${selected.prompt}\n\nSolicitud del usuario: ${text}`;
 }
 
-function ContextCard({ name, activeContexts, highlightedContext, children }: { name: string; activeContexts: string[]; highlightedContext: string; children: React.ReactNode }) {
+function ContextCard({ name, activeContexts, highlightedContext, children }: { name: string; activeContexts: string[]; highlightedContext: string; children: ReactNode }) {
   const isActive = activeContexts.includes(name);
   const isHighlighted = highlightedContext === name;
 
@@ -214,7 +239,7 @@ function ContextCard({ name, activeContexts, highlightedContext, children }: { n
   );
 }
 
-function DataRow({ icon, iconClass, title, subtitle, value, valueClass = "pill" }: { icon: string; iconClass: string; title: string; subtitle: string; value: string; valueClass?: "pill" | "amount" }) {
+function DataRow({ icon, iconClass, title, subtitle, value, valueClass = "pill" }: { icon: ReactNode; iconClass: string; title: string; subtitle: string; value: string; valueClass?: "pill" | "amount" }) {
   return (
     <div className="data-row">
       <div className={`data-icon ${iconClass}`}>{icon}</div>
@@ -238,7 +263,7 @@ function SmartToolButton({ selectedTool, suggestedTool, onAccept, onClear }: { s
       aria-label={hasSelected ? "Quitar tool" : "Aceptar tool sugerida"}
       title={hasSelected ? "Quitar tool" : suggestedTool ? `Usar ${toolLabel(suggestedTool)}` : "Tool auto"}
     >
-      {hasSelected ? "×" : "+"}
+      {hasSelected ? <X /> : <Plus />}
     </button>
   );
 }
@@ -255,7 +280,7 @@ function AgentInput({
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: RefObject<HTMLInputElement | null>;
   selectedTool: ToolKey;
   onSelectTool: (tool: ToolKey) => void;
   placeholder: string;
@@ -272,7 +297,7 @@ function AgentInput({
       {selectedTool !== "auto" ? (
         <span className="input-tool-pill">
           {toolLabel(selectedTool)}
-          <button type="button" onClick={() => onSelectTool("auto")} aria-label="Quitar tool">×</button>
+          <button type="button" onClick={() => onSelectTool("auto")} aria-label="Quitar tool"><X /></button>
         </span>
       ) : null}
 
@@ -307,7 +332,7 @@ function AgentInput({
       />
 
       {suggestedTool ? <span className="tool-suggestion">Tab para usar {toolLabel(suggestedTool)}</span> : null}
-      <button type="submit" className="input-btn send-btn">↗</button>
+      <button type="submit" className="input-btn send-btn" aria-label="Enviar"><SendHorizontal /></button>
     </div>
   );
 }
@@ -328,7 +353,13 @@ function AiReply({ intent, reply }: { intent: IntentKey; reply: string }) {
           <button key={action} type="button" className={index === 0 ? "ai-action-btn" : "ai-secondary-btn"}>{action}</button>
         ))}
       </div>
-      <div className="feedback"><span>👍</span><span>👎</span><span>↻</span><span>⧉</span><span>•••</span></div>
+      <div className="feedback">
+        <span><ThumbsUp /></span>
+        <span><ThumbsDown /></span>
+        <span><RefreshCw /></span>
+        <span><Copy /></span>
+        <span><MoreHorizontal /></span>
+      </div>
     </div>
   );
 }
@@ -414,7 +445,7 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
     showToast("Volviste a la vista limpia del dashboard.");
   }
 
-  function handleActionClick(event: React.MouseEvent<HTMLDivElement>) {
+  function handleActionClick(event: MouseEvent<HTMLDivElement>) {
     const button = (event.target as HTMLElement).closest("button");
     if (!button || !button.matches(".action-btn, .ghost-btn, .ai-action-btn, .ai-secondary-btn")) return;
     const originalText = button.textContent || "Accion";
@@ -445,15 +476,15 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
           <aside className="context-column left-context">
             <ContextCard name="priorities" activeContexts={config.contexts} highlightedContext={highlightedContext}>
               <h3>Prioridades detectadas</h3>
-              <DataRow icon="!" iconClass="danger" title="Facturas vencidas" subtitle="Cobros pendientes del CRM" value="$15,680" valueClass="amount" />
-              <DataRow icon="□" iconClass="msg" title="Mensajes sin responder" subtitle="Conversaciones abiertas" value="2" />
-              <DataRow icon="▤" iconClass="doc" title="Propuestas abiertas" subtitle="Esperando seguimiento" value="6" />
+              <DataRow icon={<AlertTriangle />} iconClass="danger" title="Facturas vencidas" subtitle="Cobros pendientes del CRM" value="$15,680" valueClass="amount" />
+              <DataRow icon={<MessageSquare />} iconClass="msg" title="Mensajes sin responder" subtitle="Conversaciones abiertas" value="2" />
+              <DataRow icon={<FileText />} iconClass="doc" title="Propuestas abiertas" subtitle="Esperando seguimiento" value="6" />
             </ContextCard>
 
             <ContextCard name="invoices" activeContexts={config.contexts} highlightedContext={highlightedContext}>
               <h3>Facturas relevantes</h3>
-              <DataRow icon="$" iconClass="danger" title="Facturas vencidas" subtitle="Estado Overdue / Pending" value="$15,680" valueClass="amount" />
-              <DataRow icon="$" iconClass="money" title="Por cobrar" subtitle="Facturas enviadas" value="$8,400" />
+              <DataRow icon={<DollarSign />} iconClass="danger" title="Facturas vencidas" subtitle="Estado Overdue / Pending" value="$15,680" valueClass="amount" />
+              <DataRow icon={<DollarSign />} iconClass="money" title="Por cobrar" subtitle="Facturas enviadas" value="$8,400" />
             </ContextCard>
 
             <ContextCard name="pipeline" activeContexts={config.contexts} highlightedContext={highlightedContext}>
@@ -470,24 +501,24 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
 
             <ContextCard name="messages" activeContexts={config.contexts} highlightedContext={highlightedContext}>
               <h3>Mensajes recientes</h3>
-              <DataRow icon="□" iconClass="msg" title="WhatsApp Inbox" subtitle="Conversaciones abiertas" value="12m" />
-              <DataRow icon="□" iconClass="msg" title="Email Inbox" subtitle="Solicitudes sin responder" value="1h" />
+              <DataRow icon={<MessageSquare />} iconClass="msg" title="WhatsApp Inbox" subtitle="Conversaciones abiertas" value="12m" />
+              <DataRow icon={<MessageSquare />} iconClass="msg" title="Email Inbox" subtitle="Solicitudes sin responder" value="1h" />
             </ContextCard>
           </aside>
 
           <section className="center-column">
             <div className="snapshot">
-              <div className="snap-item"><span className="snap-dot money">$</span><strong>$909,050</strong><span>por cobrar</span></div>
-              <div className="snap-item"><span className="snap-dot deal">⌁</span><strong>17</strong><span>oportunidades</span></div>
-              <div className="snap-item"><span className="snap-dot msg">□</span><strong>2</strong><span>mensajes</span></div>
-              <div className="snap-item"><span className="snap-dot danger">!</span><strong>1</strong><span>vencida</span></div>
-              <div className="snap-item"><span className="snap-dot doc">▤</span><strong>6</strong><span>propuestas</span></div>
+              <div className="snap-item"><span className="snap-dot money"><DollarSign /></span><strong>$909,050</strong><span>por cobrar</span></div>
+              <div className="snap-item"><span className="snap-dot deal"><TrendingUp /></span><strong>17</strong><span>oportunidades</span></div>
+              <div className="snap-item"><span className="snap-dot msg"><MessageSquare /></span><strong>2</strong><span>mensajes</span></div>
+              <div className="snap-item"><span className="snap-dot danger"><AlertTriangle /></span><strong>1</strong><span>vencida</span></div>
+              <div className="snap-item"><span className="snap-dot doc"><FileText /></span><strong>6</strong><span>propuestas</span></div>
             </div>
 
             <div className="agent-core">
               <div className="welcome">
                 <div className="welcome-inner">
-                  <div className="spark">✦</div>
+                  <div className="spark"><Sparkles /></div>
                   <p className="agent-label">Corevix AI</p>
                   <h1>¿Qué toca ahora, Inma?</h1>
                   <p className="subtitle">El agente es el centro, pero el dashboard sigue vivo: pregunta algo y Corevix AI abre solo la data que necesitas.</p>
@@ -505,20 +536,20 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
                   </form>
 
                   <div className="quick-actions">
-                    <button type="button" onClick={() => void sendMessage("Revisa mis prioridades de hoy")}>✧ Prioridades de hoy</button>
-                    <button type="button" onClick={() => void sendMessage("Muestrame las facturas vencidas")}>$ Facturas vencidas</button>
-                    <button type="button" onClick={() => void sendMessage("Que oportunidades debo cerrar primero")}>⌁ Cerrar oportunidades</button>
-                    <button type="button" onClick={() => void sendMessage("Responde los mensajes pendientes")}>□ Mensajes pendientes</button>
+                    <button type="button" onClick={() => void sendMessage("Revisa mis prioridades de hoy")}><Target /> Prioridades de hoy</button>
+                    <button type="button" onClick={() => void sendMessage("Muestrame las facturas vencidas")}><DollarSign /> Facturas vencidas</button>
+                    <button type="button" onClick={() => void sendMessage("Que oportunidades debo cerrar primero")}><TrendingUp /> Cerrar oportunidades</button>
+                    <button type="button" onClick={() => void sendMessage("Responde los mensajes pendientes")}><MessageSquare /> Mensajes pendientes</button>
                   </div>
                 </div>
               </div>
 
               <div className="chat-view">
                 <div className="chat-head">
-                  <button type="button" className="clean-btn" onClick={resetCleanView}>← Vista limpia</button>
+                  <button type="button" className="clean-btn" onClick={resetCleanView}><ArrowLeft /> Vista limpia</button>
                   <div className="context-chips">
-                    {selectedTool !== "auto" ? <span className="chip">Tool: {toolLabel(selectedTool)}</span> : null}
-                    {config.chips.map((chip) => <span className="chip" key={chip}>● {chip}</span>)}
+                    {selectedTool !== "auto" ? <span className="chip"><Bot /> Tool: {toolLabel(selectedTool)}</span> : null}
+                    {config.chips.map((chip) => <span className="chip" key={chip}><Circle /> {chip}</span>)}
                   </div>
                 </div>
 
@@ -566,15 +597,15 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
 
             <ContextCard name="activity" activeContexts={config.contexts} highlightedContext={highlightedContext}>
               <h3>Actividad relacionada</h3>
-              <DataRow icon="□" iconClass="msg" title="Conversacion respondida" subtitle="Sobre propuesta CRM" value="12m" />
-              <DataRow icon="▧" iconClass="danger" title="Nueva factura vencida" subtitle="Modulo de facturas" value="45m" />
-              <DataRow icon="▤" iconClass="doc" title="Propuesta enviada" subtitle="Pipeline comercial" value="2h" />
+              <DataRow icon={<MessageSquare />} iconClass="msg" title="Conversacion respondida" subtitle="Sobre propuesta CRM" value="12m" />
+              <DataRow icon={<AlertTriangle />} iconClass="danger" title="Nueva factura vencida" subtitle="Modulo de facturas" value="45m" />
+              <DataRow icon={<FileText />} iconClass="doc" title="Propuesta enviada" subtitle="Pipeline comercial" value="2h" />
             </ContextCard>
 
             <ContextCard name="agenda" activeContexts={config.contexts} highlightedContext={highlightedContext}>
               <h3>Agenda</h3>
-              <DataRow icon="11" iconClass="deal" title="Llamada seguimiento" subtitle="Cliente activo" value="AM" />
-              <DataRow icon="15" iconClass="doc" title="Reunion con cliente" subtitle="Proyecto abierto" value="PM" />
+              <DataRow icon={<CalendarClock />} iconClass="deal" title="Llamada seguimiento" subtitle="Cliente activo" value="AM" />
+              <DataRow icon={<BriefcaseBusiness />} iconClass="doc" title="Reunion con cliente" subtitle="Proyecto abierto" value="PM" />
             </ContextCard>
           </aside>
         </div>
