@@ -33,6 +33,10 @@ function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
 }
 
+function isInternalDebugMessage(message: AgentMessage) {
+  return message.role === "assistant" && message.content.startsWith("Modo debug ");
+}
+
 function logBrowserAgentDebug(userText: string, recentHistory: AgentMessage[], response: unknown) {
   const historyChars = recentHistory.reduce((total, item) => total + item.content.length, 0);
   const payload = response as any;
@@ -281,7 +285,7 @@ export function useAgentChatController() {
       await appendAiChatMessage(persistedThreadId, "user", userText);
 
       const recentHistory = messages
-        .filter((item) => item.content.trim())
+        .filter((item) => item.content.trim() && !isInternalDebugMessage(item))
         .slice(-10);
 
       const data = await sendAgentMessage(userText, recentHistory, { debug: debugMode });
