@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Clock3, History, Plus, Search, Sparkles } from "lucide-react";
-import type { AgentToolContext } from "./agentToolContext";
+import { CheckSquare, Clock3, History, Plus, ReceiptText, Search, Sparkles, Users } from "lucide-react";
+import type { AgentToolContext, AgentWidgetRow } from "./agentToolContext";
 import type { AgentThread } from "./useAgentChatController";
 import "./AgentContextPanel.css";
 
@@ -16,6 +16,46 @@ type AgentContextPanelProps = {
 
 type PanelMode = "context" | "history";
 
+type FocusedToolMeta = {
+  title: string;
+  eyebrow: string;
+  description: string;
+  empty: string;
+  nextStep: string;
+  tone: "blue" | "orange" | "purple";
+  icon: typeof Users;
+};
+
+const FOCUSED_TOOL_META: Partial<Record<string, FocusedToolMeta>> = {
+  search_leads: {
+    title: "Leads encontrados",
+    eyebrow: "Ventas",
+    description: "Coincidencias reales del CRM para trabajar seguimiento comercial.",
+    empty: "No hay leads que coincidan con esta búsqueda.",
+    nextStep: "Abre el lead correcto o pide crear una tarea de seguimiento.",
+    tone: "blue",
+    icon: Users,
+  },
+  list_unpaid_invoices: {
+    title: "Cobros pendientes",
+    eyebrow: "Facturación",
+    description: "Facturas no pagadas ordenadas para priorizar seguimiento.",
+    empty: "No hay facturas pendientes para mostrar.",
+    nextStep: "Prioriza las vencidas o las de mayor monto antes de contactar clientes.",
+    tone: "orange",
+    icon: ReceiptText,
+  },
+  list_tasks: {
+    title: "Tareas pendientes",
+    eyebrow: "Operación",
+    description: "Tareas reales del CRM para organizar el próximo bloque de trabajo.",
+    empty: "No hay tareas con ese filtro.",
+    nextStep: "Resuelve primero las tareas de prioridad alta o con fecha más cercana.",
+    tone: "purple",
+    icon: CheckSquare,
+  },
+};
+
 function toneClass(tone?: string) {
   return tone ? `is-${tone}` : "is-slate";
 }
@@ -30,6 +70,56 @@ function ContextEmptyState() {
   );
 }
 
+function FocusedWidgetRow({ row }: { row: AgentWidgetRow }) {
+  return (
+    <div className="agent-focused-row">
+      <span className={`agent-focused-row-icon ${toneClass(row.tone)}`} />
+      <div>
+        <strong>{row.title}</strong>
+        {row.subtitle ? <small>{row.subtitle}</small> : null}
+      </div>
+      {row.value ? <b>{row.value}</b> : null}
+    </div>
+  );
+}
+
+function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta: FocusedToolMeta }) {
+  const Icon = meta.icon;
+  const count = context.rows.length;
+  const visibleRows = context.rows.slice(0, 6);
+
+  return (
+    <div className="agent-focused-widget">
+      <section className={`agent-focused-hero is-${meta.tone}`}>
+        <div className="agent-focused-icon"><Icon className="h-4 w-4" /></div>
+        <div>
+          <span>{meta.eyebrow}</span>
+          <h3>{meta.title}</h3>
+          <p>{count ? meta.description : meta.empty}</p>
+        </div>
+        <strong>{count}</strong>
+      </section>
+
+      {count ? (
+        <section className="agent-context-card agent-focused-list-card">
+          <div className="agent-focused-list-head">
+            <span>Resultados</span>
+            {count > visibleRows.length ? <small>Mostrando {visibleRows.length} de {count}</small> : null}
+          </div>
+          <div className="agent-focused-list">
+            {visibleRows.map((row) => <FocusedWidgetRow key={row.id} row={row} />)}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="agent-focused-next-step">
+        <Sparkles className="h-3.5 w-3.5" />
+        <span>{meta.nextStep}</span>
+      </section>
+    </div>
+  );
+}
+
 function ContextView({ context }: { context: AgentToolContext | null }) {
   if (!context) return <ContextEmptyState />;
 
@@ -40,6 +130,11 @@ function ContextView({ context }: { context: AgentToolContext | null }) {
         <p>{context.summary || "No se pudo cargar este contexto."}</p>
       </section>
     );
+  }
+
+  const focusedMeta = FOCUSED_TOOL_META[context.tool];
+  if (focusedMeta) {
+    return <FocusedToolWidget context={context} meta={focusedMeta} />;
   }
 
   if (context.status === "empty") {
