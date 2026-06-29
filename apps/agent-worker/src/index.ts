@@ -41,13 +41,14 @@ async function handleAgentChat(request: Request, env: Env) {
     const supabase = createSupabaseAdmin(env);
     const userContext = await getUserContext(request, supabase);
 
-    const openclawText = await askOpenClaw(env, body.message, body.history);
-    const toolCall = parseToolCall(openclawText);
+    const openclaw = await askOpenClaw(env, body.message, body.history);
+    const toolCall = parseToolCall(openclaw.text);
 
     if (!toolCall) {
       return json({
-        reply: openclawText,
+        reply: openclaw.text,
         mode: "chat",
+        openclaw: openclaw.debug,
       });
     }
 
@@ -58,23 +59,31 @@ async function handleAgentChat(request: Request, env: Env) {
     });
 
     if (!toolResult.ok) {
-      const finalReply = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
+      const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
 
       return json({
-        reply: finalReply,
+        reply: final.text,
         mode: "tool",
         tool: toolCall.tool,
         tool_result: toolResult,
+        openclaw: {
+          initial: openclaw.debug,
+          final: final.debug,
+        },
       });
     }
 
-    const finalReply = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
+    const final = await askOpenClawFinalResponse(env, body.message, toolCall, toolResult);
 
     return json({
-      reply: finalReply,
+      reply: final.text,
       mode: "tool",
       tool: toolCall.tool,
       tool_result: toolResult,
+      openclaw: {
+        initial: openclaw.debug,
+        final: final.debug,
+      },
     });
   } catch (error: any) {
     return json(
@@ -106,11 +115,15 @@ async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMe
     throw new Error(data?.error?.message ?? "OpenClaw error");
   }
 
-  return (
+  const text =
     data?.output?.[0]?.content?.find((item: any) => item.type === "output_text")?.text ??
     data?.output_text ??
-    "OpenClaw respondió, pero no pude extraer el texto."
-  );
+    "OpenClaw respondió, pero no pude extraer el texto.";
+
+  return {
+    text,
+    debug: getOpenClawDebug(data),
+  };
 }
 
 async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall: any, toolResult: any) {
@@ -129,15 +142,22 @@ async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall:
   const data: any = await openclawResponse.json();
 
   if (!openclawResponse.ok) {
-    return toolResult.message ?? `No pude redactar la respuesta final: ${toolResult.error ?? "error desconocido"}`;
+    return {
+      text: toolResult.message ?? `No pude redactar la respuesta final: ${toolResult.error ?? "error desconocido"}`,
+      debug: getOpenClawDebug(data),
+    };
   }
 
-  return (
+  const text =
     data?.output?.[0]?.content?.find((item: any) => item.type === "output_text")?.text ??
     data?.output_text ??
     toolResult.message ??
-    "Acción ejecutada correctamente."
-  );
+    "Acción ejecutada correctamente.";
+
+  return {
+    text,
+    debug: getOpenClawDebug(data),
+  };
 }
 
 
@@ -177,6 +197,17 @@ Redacta la respuesta final para el usuario:
 }
 
 
+
+
+function getOpenClawDebug(data: any) {
+  return {
+    id: data?.id ?? null,
+    model: data?.model ?? null,
+    status: data?.status ?? null,
+    created_at: data?.created_at ?? null,
+    usage: data?.usage ?? null,
+  };
+}
 
 function formatChatHistory(history: ChatHistoryMessage[] = []) {
   const cleanHistory = history

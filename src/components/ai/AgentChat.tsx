@@ -23,6 +23,28 @@ const STARTERS = [
   "Dame un resumen del pipeline",
 ];
 
+
+function formatOpenClawUsageLine(openclaw: unknown) {
+  const payload = openclaw as any;
+  const debug = payload?.final || payload;
+
+  if (!debug) return "";
+
+  const usage = debug?.usage;
+  const model = debug?.model || "modelo desconocido";
+  const responseId = debug?.id ? ` · ${String(debug.id).slice(0, 13)}...` : "";
+
+  if (!usage) {
+    return `\n\n---\nOpenClaw: ${model}${responseId}\nCréditos Codex restantes: no disponible desde el gateway`;
+  }
+
+  const input = usage.input_tokens ?? "?";
+  const output = usage.output_tokens ?? "?";
+  const total = usage.total_tokens ?? "?";
+
+  return `\n\n---\nOpenClaw: ${model} · input ${input} · output ${output} · total ${total}${responseId}\nCréditos Codex restantes: no disponible desde el gateway`;
+}
+
 function formatUpdatedAt(value?: string | null) {
   if (!value) return "Ahora";
 
@@ -87,6 +109,7 @@ export function AgentChat({
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [debugMode, setDebugMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -221,6 +244,23 @@ export function AgentChat({
     const userText = raw.trim();
     if (!userText || loading) return;
 
+    if (userText.toLowerCase() === "/debug") {
+      const nextDebugMode = !debugMode;
+      setDebugMode(nextDebugMode);
+      setText("");
+      setMessagesByThread((prev) => ({
+        ...prev,
+        [activeThreadId]: [
+          ...(prev[activeThreadId] || []),
+          {
+            role: "assistant",
+            content: nextDebugMode ? "Modo debug activado." : "Modo debug desactivado.",
+          },
+        ],
+      }));
+      return;
+    }
+
     const currentThreadId = activeThreadId;
     setText("");
     setLoading(true);
@@ -243,7 +283,8 @@ export function AgentChat({
         .slice(-10);
 
       const data = await sendAgentMessage(userText, recentHistory);
-      const reply = extractAgentReply(data);
+      const baseReply = extractAgentReply(data);
+      const reply = debugMode ? `${baseReply}${formatOpenClawUsageLine((data as any)?.openclaw)}` : baseReply;
 
       await appendAiChatMessage(persistedThreadId, "assistant", reply, {
         agent_response: data,
