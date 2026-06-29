@@ -5,6 +5,33 @@ import { getUserContext } from "./auth";
 import { parseToolCall } from "./tool-parser";
 import { executeTool } from "./tool-router";
 
+const AVAILABLE_TOOLS = [
+  "create_lead",
+  "search_leads",
+  "list_leads",
+  "update_lead",
+  "update_lead_status",
+  "add_lead_note",
+  "convert_lead_to_client",
+  "create_client",
+  "search_clients",
+  "list_clients",
+  "update_client",
+  "add_client_note",
+  "create_task",
+  "create_reminder",
+  "create_crm_demo",
+  "list_tasks",
+  "crm_summary",
+  "create_deal",
+  "list_deals",
+  "create_project",
+  "list_projects",
+  "create_proposal",
+  "search_products",
+  "list_unpaid_invoices",
+];
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -18,7 +45,7 @@ export default {
         ok: true,
         service: "corevix-agent-worker",
         openclaw_gateway_url: env.OPENCLAW_GATEWAY_URL,
-        tools: ["create_lead", "search_leads", "update_lead_status", "create_task", "create_reminder", "create_crm_demo", "list_tasks", "crm_summary", "create_deal", "list_deals", "create_project", "list_projects", "create_proposal", "search_products", "list_unpaid_invoices"],
+        tools: AVAILABLE_TOOLS,
       });
     }
 
@@ -91,7 +118,7 @@ async function handleAgentChat(request: Request, env: Env) {
         error: "Agent worker error",
         message: error?.message ?? "Unknown error",
       },
-      500
+      500,
     );
   }
 }
@@ -160,7 +187,6 @@ async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall:
   };
 }
 
-
 function buildFinalResponsePrompt(userMessage: string, toolCall: any, toolResult: any) {
   return `
 Eres Corevix AI, el asistente interno del CRM Corevix.
@@ -196,9 +222,6 @@ Redacta la respuesta final para el usuario:
   `.trim();
 }
 
-
-
-
 function getOpenClawDebug(data: any) {
   return {
     id: data?.id ?? null,
@@ -222,9 +245,7 @@ function formatChatHistory(history: ChatHistoryMessage[] = []) {
     return "No hay historial reciente.";
   }
 
-  return cleanHistory
-    .map((item, index) => `${index + 1}. ${item.role}: ${item.content}`)
-    .join("\n");
+  return cleanHistory.map((item, index) => `${index + 1}. ${item.role}: ${item.content}`).join("\n");
 }
 
 function buildSystemPrompt(userMessage: string, history: ChatHistoryMessage[] = []) {
@@ -246,151 +267,38 @@ Si el usuario dice "ese", "eso", "él", "ella", "lo anterior" o "hazlo igual", u
 
 TOOLS DISPONIBLES:
 
-1. create_lead
-Crea un lead nuevo.
-Args:
-{
-  "name": "Nombre completo opcional",
-  "first_name": "Nombre",
-  "last_name": "Apellido",
-  "phone": "Teléfono",
-  "whatsapp": "WhatsApp",
-  "email": "Email",
-  "company_name": "Empresa",
-  "source": "Origen",
-  "notes": "Notas",
-  "estimated_value": 0
-}
+${AVAILABLE_TOOLS.map((tool, index) => `${index + 1}. ${tool}`).join("\n")}
 
-2. search_leads
-Busca leads por nombre, teléfono, WhatsApp, email o empresa.
-Args:
-{
-  "query": "texto de búsqueda"
-}
-
-3. update_lead_status
-Actualiza el estado de un lead.
-Args:
-{
-  "lead_id": "uuid opcional",
-  "name": "nombre opcional",
-  "status": "New | Contacted | Qualified | Proposal Needed | Proposal Sent | Negotiation | Won | Lost | Not Interested"
-}
-
-4. create_task
-Crea una tarea interna.
-Args:
-{
-  "title": "Título",
-  "description": "Descripción",
-  "due_date": "YYYY-MM-DD",
-  "priority": "low | medium | high",
-  "status": "pending"
-}
-
-5. create_reminder
-Crea un recordatorio como tarea.
-Args:
-{
-  "title": "Recordatorio",
-  "due_date": "YYYY-MM-DD",
-  "priority": "low | medium | high"
-}
-
-6. create_crm_demo
-Crea una tarea para demo del CRM.
-Args:
-{
-  "lead_name": "Nombre del prospecto",
-  "phone": "Teléfono opcional",
-  "due_date": "YYYY-MM-DD",
-  "notes": "Notas"
-}
-
-7. list_tasks
-Lista tareas.
-Args:
-{
-  "status": "pending | completed | all"
-}
-
-8. crm_summary
-Genera un resumen básico del CRM.
-Args: {}
-
-9. create_deal
-Crea una oportunidad/deal.
-Args:
-{
-  "name": "Nombre de la oportunidad",
-  "lead_id": "uuid opcional",
-  "stage": "new",
-  "value": 0,
-  "expected_close": "YYYY-MM-DD",
-  "notes": "Notas"
-}
-
-10. list_deals
-Lista oportunidades/deals.
-Args:
-{
-  "stage": "all | new | qualified | proposal | won | lost"
-}
-
-11. create_project
-Crea un proyecto.
-Args:
-{
-  "name": "Nombre del proyecto",
-  "description": "Descripción",
-  "lead_id": "uuid opcional",
-  "client_id": "uuid opcional",
-  "deal_id": "uuid opcional",
-  "product_id": "uuid opcional",
-  "budget": 0,
-  "start_date": "YYYY-MM-DD",
-  "due_date": "YYYY-MM-DD",
-  "priority": "low | medium | high"
-}
-
-12. list_projects
-Lista proyectos.
-Args:
-{
-  "status": "all | active | completed | pending"
-}
-
-13. create_proposal
-Crea una propuesta.
-Args:
-{
-  "title": "Título",
-  "amount": 0,
-  "currency": "USD",
-  "description": "Descripción",
-  "lead_id": "uuid opcional",
-  "client_id": "uuid opcional",
-  "deal_id": "uuid opcional",
-  "product_id": "uuid opcional",
-  "valid_until": "YYYY-MM-DD"
-}
-
-14. search_products
-Busca productos o servicios.
-Args:
-{
-  "query": "texto de búsqueda"
-}
-
-15. list_unpaid_invoices
-Lista facturas pendientes de pago.
-Args: {}
+ARGS RESUMIDOS POR TOOL:
+- create_lead: name, first_name, last_name, phone, whatsapp, email, company_name, source, notes, estimated_value, status.
+- search_leads: query.
+- list_leads: status: all | New | Contacted | Qualified | Proposal Needed | Proposal Sent | Negotiation | Won | Lost | Not Interested, limit.
+- update_lead: lead_id o name/query, más campos editables del lead.
+- update_lead_status: lead_id o name/query, status.
+- add_lead_note: lead_id o name/query, note.
+- convert_lead_to_client: lead_id o name/query, company_name opcional, status opcional, notes opcional.
+- create_client: company_name/name, contact_person/contact_name, email, phone, whatsapp, address, city, country, tax_id, website, industry, status, account_manager, tags, notes.
+- search_clients: query.
+- list_clients: status: all | Active | VIP | Pending | Inactive | Past Client, limit.
+- update_client: client_id o name/query/company_name, más campos editables del cliente.
+- add_client_note: client_id o name/query/company_name, note.
+- create_task: title, description, due_date, priority, status, related_lead_id, related_client_id, related_deal_id, related_project_id.
+- create_reminder: title, due_date, priority.
+- create_crm_demo: lead_name, phone, due_date, notes.
+- list_tasks: status.
+- crm_summary: sin args.
+- create_deal: name, lead_id, stage, value, expected_close, notes.
+- list_deals: stage.
+- create_project: name, description, lead_id, client_id, deal_id, product_id, budget, start_date, due_date, priority.
+- list_projects: status.
+- create_proposal: title, amount, currency, description, lead_id, client_id, deal_id, product_id, valid_until.
+- search_products: query.
+- list_unpaid_invoices: sin args.
 
 REGLAS:
 - Responde en español.
 - Si el usuario solo conversa o pregunta algo general, responde normal.
-- Si el usuario pide crear, buscar, listar o resumir datos reales del CRM, responde SOLO con JSON.
+- Si el usuario pide crear, buscar, listar, editar, convertir, anotar o resumir datos reales del CRM, responde SOLO con JSON.
 - No uses markdown cuando respondas JSON.
 - No inventes IDs.
 - Si falta un dato obligatorio, pide aclaración en texto normal.
