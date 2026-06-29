@@ -2,6 +2,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "super_admin" | "admin" | "manager" | "sales_agent" | "viewer";
 
+export type TeamInvitationActionResult = {
+  ok: true;
+  email_sent: boolean;
+  invitation_link: string;
+  token?: string;
+  invitationId?: string;
+  resend_error?: string;
+  status?: string;
+};
+
 export function useUpdateUserRole() {
   const updateRole = async (targetUserId: string, newRole: AppRole) => {
     const { error } = await (supabase as any).rpc("update_team_member_role", {
@@ -33,18 +43,30 @@ export function useInviteUser() {
     redirectTo?: string;
   }) => {
     const { data, error } = await (supabase as any).functions.invoke("invite-user", {
-      body: args,
+      body: { action: "create", ...args },
     });
     if (error) throw error;
     if (!data?.ok) throw new Error(data?.error || "Invite failed");
-    return data as {
-      ok: true;
-      email_sent: boolean;
-      invitation_link: string;
-      token?: string;
-      invitationId?: string;
-      resend_error?: string;
-    };
+    return data as TeamInvitationActionResult;
   };
-  return { invite };
+
+  const resendInvite = async (invitationId: string, redirectTo?: string) => {
+    const { data, error } = await (supabase as any).functions.invoke("invite-user", {
+      body: { action: "resend", invitationId, redirectTo },
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || "Resend failed");
+    return data as TeamInvitationActionResult;
+  };
+
+  const revokeInvite = async (invitationId: string) => {
+    const { data, error } = await (supabase as any).functions.invoke("invite-user", {
+      body: { action: "revoke", invitationId },
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || "Revoke failed");
+    return data as TeamInvitationActionResult;
+  };
+
+  return { invite, resendInvite, revokeInvite };
 }
