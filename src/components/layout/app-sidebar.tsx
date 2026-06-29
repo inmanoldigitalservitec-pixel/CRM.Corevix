@@ -71,14 +71,15 @@ const managementItems: SidebarItem[] = [
 ];
 
 const menuButtonClass =
-  "h-10 rounded-2xl px-3 text-slate-900 transition-all hover:bg-[#f1f5ff] hover:text-slate-950 data-[active=true]:bg-[#eaf1ff] data-[active=true]:font-semibold data-[active=true]:text-slate-950 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-2xl";
+  "h-10 rounded-2xl px-3 text-slate-900 transition-all hover:bg-[#f1f5ff] hover:text-slate-950 data-[active=true]:bg-[#eaf1ff] data-[active=true]:font-semibold data-[active=true]:text-slate-950 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-2xl group-data-[mobile=true]:mx-0 group-data-[mobile=true]:!h-10 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-3";
 
 const linkClass =
-  "flex w-full items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0";
+  "flex w-full items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[mobile=true]:justify-start group-data-[mobile=true]:gap-3";
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
+  const showLabels = isMobile || !collapsed;
   const { t } = useT();
   const { can } = usePermissions();
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
@@ -86,21 +87,21 @@ export function AppSidebar() {
   const isActive = (path: string) => currentPath === path || currentPath.startsWith(path + "/");
 
   const renderGroup = (labelKey: string, items: SidebarItem[]) => (
-    <SidebarGroup className="px-2 py-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1.5">
-      <SidebarGroupLabel className="text-slate-500 text-[10px] uppercase tracking-wider font-extrabold group-data-[collapsible=icon]:!hidden">
+    <SidebarGroup className="px-2 py-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1.5 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-2">
+      <SidebarGroupLabel className="text-slate-500 text-[10px] uppercase tracking-wider font-extrabold group-data-[collapsible=icon]:!hidden group-data-[mobile=true]:!flex">
         {t(labelKey)}
       </SidebarGroupLabel>
-      <SidebarSeparator className="mx-auto my-1 hidden w-7 bg-slate-200/80 group-data-[collapsible=icon]:block" />
+      <SidebarSeparator className="mx-auto my-1 hidden w-7 bg-slate-200/80 group-data-[collapsible=icon]:block group-data-[mobile=true]:hidden" />
       <SidebarGroupContent>
-        <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center">
+        <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
           {items.map((item) => {
             const label = t(item.titleKey as any);
             return (
               <SidebarMenuItem key={item.titleKey} className="group-data-[collapsible=icon]:w-full">
-                <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={label} className={menuButtonClass}>
-                  <Link to={item.url} className={linkClass} aria-label={label} title={collapsed ? label : undefined}>
+                <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={isMobile ? undefined : label} className={menuButtonClass}>
+                  <Link to={item.url} className={linkClass} aria-label={label} title={collapsed && !isMobile ? label : undefined}>
                     <item.icon className={"h-[18px] w-[18px] shrink-0 " + (item.iconClassName || "")} />
-                    {!collapsed && <span className="text-sm font-medium">{label}</span>}
+                    {showLabels && <span className="truncate text-sm font-medium">{label}</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -134,15 +135,15 @@ export function AppSidebar() {
         } as React.CSSProperties
       }
     >
-      <SidebarHeader className="p-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+      <SidebarHeader className="p-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3 group-data-[mobile=true]:p-4">
         <Link
           to="/dashboard"
-          className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
+          className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:justify-start"
           aria-label="Corevix Dashboard"
-          title={collapsed ? "Corevix" : undefined}
+          title={collapsed && !isMobile ? "Corevix" : undefined}
         >
-          {!collapsed && <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-auto max-w-[160px] object-contain" />}
-          {collapsed && (
+          {showLabels && <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-auto max-w-[160px] object-contain" />}
+          {!showLabels && (
             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#eef4ff] shadow-[inset_0_0_0_1px_rgba(29,98,249,0.14)]">
               <img src="/imagotipo_corevix.svg" alt="Corevix" className="h-5 w-5 object-contain" />
             </span>
@@ -156,12 +157,12 @@ export function AppSidebar() {
         {renderGroup("nav.management", gatedManagementItems)}
       </SidebarContent>
       <SidebarFooter className="border-t border-[#e6eaf0] p-2 group-data-[collapsible=icon]:px-2">
-        <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+        <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
           <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
-            <SidebarMenuButton asChild isActive={isActive("/ai-assistant")} tooltip={aiLabel} className={menuButtonClass}>
-              <Link to="/ai-assistant" className={linkClass} aria-label={aiLabel} title={collapsed ? aiLabel : undefined}>
+            <SidebarMenuButton asChild isActive={isActive("/ai-assistant")} tooltip={isMobile ? undefined : aiLabel} className={menuButtonClass}>
+              <Link to="/ai-assistant" className={linkClass} aria-label={aiLabel} title={collapsed && !isMobile ? aiLabel : undefined}>
                 <Bot className="h-[18px] w-[18px] shrink-0 text-indigo-600" />
-                {!collapsed && <span className="text-sm font-medium">{aiLabel}</span>}
+                {showLabels && <span className="truncate text-sm font-medium">{aiLabel}</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
