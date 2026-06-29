@@ -19,9 +19,17 @@ const AVAILABLE_TOOLS = [
   "update_client",
   "add_client_note",
   "create_task",
+  "update_task",
+  "complete_task",
+  "reschedule_task",
+  "add_task_note",
   "create_reminder",
   "create_crm_demo",
   "list_tasks",
+  "create_calendar_event",
+  "list_calendar_events",
+  "update_calendar_event",
+  "cancel_calendar_event",
   "crm_summary",
   "create_deal",
   "list_deals",
@@ -272,20 +280,28 @@ ${AVAILABLE_TOOLS.map((tool, index) => `${index + 1}. ${tool}`).join("\n")}
 ARGS RESUMIDOS POR TOOL:
 - create_lead: name, first_name, last_name, phone, whatsapp, email, company_name, source, notes, estimated_value, status.
 - search_leads: query.
-- list_leads: status: all | New | Contacted | Qualified | Proposal Needed | Proposal Sent | Negotiation | Won | Lost | Not Interested, limit.
+- list_leads: status, limit.
 - update_lead: lead_id o name/query, más campos editables del lead.
 - update_lead_status: lead_id o name/query, status.
 - add_lead_note: lead_id o name/query, note.
 - convert_lead_to_client: lead_id o name/query, company_name opcional, status opcional, notes opcional.
 - create_client: company_name/name, contact_person/contact_name, email, phone, whatsapp, address, city, country, tax_id, website, industry, status, account_manager, tags, notes.
 - search_clients: query.
-- list_clients: status: all | Active | VIP | Pending | Inactive | Past Client, limit.
+- list_clients: status, limit.
 - update_client: client_id o name/query/company_name, más campos editables del cliente.
 - add_client_note: client_id o name/query/company_name, note.
-- create_task: title, description, due_date, priority, status, related_lead_id, related_client_id, related_deal_id, related_project_id.
+- create_task: title, description, due_date, priority: Low | Medium | High | Urgent, status: To Do | In Progress | Completed | Cancelled, assigned_to, related_lead_id, related_client_id, related_deal_id, related_project_id.
+- update_task: task_id o title/query, title, description, due_date, priority, status, assigned_to, related IDs.
+- complete_task: task_id o title/query.
+- reschedule_task: task_id o title/query, due_date/date/start_at.
+- add_task_note: task_id o title/query, note.
 - create_reminder: title, due_date, priority.
-- create_crm_demo: lead_name, phone, due_date, notes.
-- list_tasks: status.
+- create_crm_demo: lead_name/client_name/name, phone, due_date/demo_date, notes.
+- list_tasks: status: all | To Do | In Progress | Completed | Cancelled | pending | completed, limit.
+- create_calendar_event: title/name, start_at/date/due_date, end_at, description/notes, location, type: event | reminder | call | meeting | demo | task, all_day.
+- list_calendar_events: type, status, from, to, limit.
+- update_calendar_event: event_id o title/query, title, description, location, start_at/date, end_at, type, status, all_day.
+- cancel_calendar_event: event_id o title/query.
 - crm_summary: sin args.
 - create_deal: name, lead_id, stage, value, expected_close, notes.
 - list_deals: stage.
@@ -298,7 +314,7 @@ ARGS RESUMIDOS POR TOOL:
 REGLAS:
 - Responde en español.
 - Si el usuario solo conversa o pregunta algo general, responde normal.
-- Si el usuario pide crear, buscar, listar, editar, convertir, anotar o resumir datos reales del CRM, responde SOLO con JSON.
+- Si el usuario pide crear, buscar, listar, editar, convertir, anotar, completar, reprogramar o resumir datos reales del CRM, responde SOLO con JSON.
 - No uses markdown cuando respondas JSON.
 - No inventes IDs.
 - Si falta un dato obligatorio, pide aclaración en texto normal.
