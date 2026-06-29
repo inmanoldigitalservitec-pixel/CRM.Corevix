@@ -1,5 +1,21 @@
 import { useState } from "react";
-import { CheckSquare, Clock3, History, Plus, ReceiptText, Search, Sparkles, Users } from "lucide-react";
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  CheckSquare,
+  Clock3,
+  FileText,
+  FolderKanban,
+  History,
+  PackageSearch,
+  Plus,
+  ReceiptText,
+  Search,
+  Sparkles,
+  UserCheck,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import type { AgentToolContext, AgentWidgetRow } from "./agentToolContext";
 import type { AgentThread } from "./useAgentChatController";
 import "./AgentContextPanel.css";
@@ -15,6 +31,7 @@ type AgentContextPanelProps = {
 };
 
 type PanelMode = "context" | "history";
+type FocusedTone = "blue" | "orange" | "purple" | "teal" | "slate";
 
 type FocusedToolMeta = {
   title: string;
@@ -22,37 +39,145 @@ type FocusedToolMeta = {
   description: string;
   empty: string;
   nextStep: string;
-  tone: "blue" | "orange" | "purple";
+  tone: FocusedTone;
   icon: typeof Users;
 };
 
 const FOCUSED_TOOL_META: Partial<Record<string, FocusedToolMeta>> = {
+  create_lead: {
+    title: "Lead creado",
+    eyebrow: "Ventas",
+    description: "Nuevo prospecto registrado en el CRM.",
+    empty: "El lead fue procesado, pero no hay detalle visual disponible.",
+    nextStep: "Crea una tarea de seguimiento para no dejar enfriar este prospecto.",
+    tone: "blue",
+    icon: UserPlus,
+  },
   search_leads: {
     title: "Leads encontrados",
     eyebrow: "Ventas",
     description: "Coincidencias reales del CRM para trabajar seguimiento comercial.",
-    empty: "No hay leads que coincidan con esta búsqueda.",
+    empty: "No hay leads que coincidan con esta busqueda.",
     nextStep: "Abre el lead correcto o pide crear una tarea de seguimiento.",
     tone: "blue",
     icon: Users,
   },
+  update_lead_status: {
+    title: "Lead actualizado",
+    eyebrow: "Ventas",
+    description: "Estado comercial actualizado en el CRM.",
+    empty: "No hay detalle visual para este cambio de estado.",
+    nextStep: "Pide ver el lead o crear una siguiente accion comercial.",
+    tone: "blue",
+    icon: UserCheck,
+  },
+  create_task: {
+    title: "Tarea creada",
+    eyebrow: "Operacion",
+    description: "Nueva accion operativa registrada en el CRM.",
+    empty: "La tarea fue procesada, pero no hay detalle visual disponible.",
+    nextStep: "Revisa prioridad y fecha para organizar el siguiente bloque de trabajo.",
+    tone: "purple",
+    icon: CheckSquare,
+  },
+  create_reminder: {
+    title: "Recordatorio creado",
+    eyebrow: "Agenda",
+    description: "Seguimiento programado desde el CRM.",
+    empty: "El recordatorio fue procesado, pero no hay detalle visual disponible.",
+    nextStep: "Cuando llegue la fecha, puedes pedirle al agente ejecutar el seguimiento.",
+    tone: "purple",
+    icon: Clock3,
+  },
+  create_crm_demo: {
+    title: "Demo CRM creada",
+    eyebrow: "Agenda",
+    description: "Actividad comercial preparada para una demostracion.",
+    empty: "La demo fue procesada, pero no hay detalle visual disponible.",
+    nextStep: "Antes de la demo, pide revisar el lead o preparar una propuesta.",
+    tone: "purple",
+    icon: BriefcaseBusiness,
+  },
+  list_tasks: {
+    title: "Tareas pendientes",
+    eyebrow: "Operacion",
+    description: "Tareas reales del CRM para organizar el proximo bloque de trabajo.",
+    empty: "No hay tareas con ese filtro.",
+    nextStep: "Resuelve primero las tareas de prioridad alta o con fecha mas cercana.",
+    tone: "purple",
+    icon: CheckSquare,
+  },
+  crm_summary: {
+    title: "Resumen CRM",
+    eyebrow: "Dashboard",
+    description: "Lectura general con los indicadores reales disponibles.",
+    empty: "No hay indicadores disponibles para mostrar.",
+    nextStep: "Usa este resumen para decidir si conviene revisar leads, tareas, cobros o proyectos.",
+    tone: "blue",
+    icon: BarChart3,
+  },
+  create_deal: {
+    title: "Oportunidad creada",
+    eyebrow: "Pipeline",
+    description: "Nueva oportunidad registrada en ventas.",
+    empty: "La oportunidad fue procesada, pero no hay detalle visual disponible.",
+    nextStep: "Agrega seguimiento, propuesta o fecha esperada de cierre.",
+    tone: "blue",
+    icon: BriefcaseBusiness,
+  },
+  list_deals: {
+    title: "Oportunidades",
+    eyebrow: "Pipeline",
+    description: "Deals reales del CRM para priorizar ventas.",
+    empty: "No hay oportunidades con ese filtro.",
+    nextStep: "Prioriza oportunidades con mayor valor o cierre mas cercano.",
+    tone: "blue",
+    icon: BriefcaseBusiness,
+  },
   list_unpaid_invoices: {
     title: "Cobros pendientes",
-    eyebrow: "Facturación",
+    eyebrow: "Facturacion",
     description: "Facturas no pagadas ordenadas para priorizar seguimiento.",
     empty: "No hay facturas pendientes para mostrar.",
     nextStep: "Prioriza las vencidas o las de mayor monto antes de contactar clientes.",
     tone: "orange",
     icon: ReceiptText,
   },
-  list_tasks: {
-    title: "Tareas pendientes",
-    eyebrow: "Operación",
-    description: "Tareas reales del CRM para organizar el próximo bloque de trabajo.",
-    empty: "No hay tareas con ese filtro.",
-    nextStep: "Resuelve primero las tareas de prioridad alta o con fecha más cercana.",
-    tone: "purple",
-    icon: CheckSquare,
+  create_project: {
+    title: "Proyecto creado",
+    eyebrow: "Proyectos",
+    description: "Nuevo proyecto operativo registrado en el CRM.",
+    empty: "El proyecto fue procesado, pero no hay detalle visual disponible.",
+    nextStep: "Define tareas, fechas y responsables para mantenerlo en movimiento.",
+    tone: "teal",
+    icon: FolderKanban,
+  },
+  list_projects: {
+    title: "Proyectos",
+    eyebrow: "Proyectos",
+    description: "Proyectos reales del CRM con estado y prioridad.",
+    empty: "No hay proyectos con ese filtro.",
+    nextStep: "Revisa proyectos activos con entrega cercana o prioridad alta.",
+    tone: "teal",
+    icon: FolderKanban,
+  },
+  create_proposal: {
+    title: "Propuesta creada",
+    eyebrow: "Propuestas",
+    description: "Nueva propuesta comercial registrada en el CRM.",
+    empty: "La propuesta fue procesada, pero no hay detalle visual disponible.",
+    nextStep: "Pide revisar la propuesta o crear una tarea de seguimiento al cliente.",
+    tone: "teal",
+    icon: FileText,
+  },
+  search_products: {
+    title: "Productos encontrados",
+    eyebrow: "Catalogo",
+    description: "Productos o servicios reales disponibles para vender.",
+    empty: "No hay productos que coincidan con esta busqueda.",
+    nextStep: "Usa el producto correcto para preparar una oportunidad o propuesta.",
+    tone: "slate",
+    icon: PackageSearch,
   },
 };
 
@@ -65,7 +190,7 @@ function ContextEmptyState() {
     <div className="agent-context-empty">
       <div className="agent-context-empty-icon"><Sparkles className="h-4 w-4" /></div>
       <h3>Contexto CRM</h3>
-      <p>Pide algo sobre leads, tareas, facturas, oportunidades, proyectos o productos. El panel mostrara datos reales cuando haya contexto útil del CRM.</p>
+      <p>Pide algo sobre leads, tareas, facturas, oportunidades, proyectos o productos. El panel mostrara datos reales cuando haya contexto util del CRM.</p>
     </div>
   );
 }
@@ -85,7 +210,7 @@ function FocusedWidgetRow({ row }: { row: AgentWidgetRow }) {
 
 function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta: FocusedToolMeta }) {
   const Icon = meta.icon;
-  const count = context.rows.length;
+  const count = context.metrics?.length ? context.metrics.length : context.rows.length;
   const visibleRows = context.rows.slice(0, 6);
 
   return (
@@ -100,11 +225,24 @@ function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta:
         <strong>{count}</strong>
       </section>
 
-      {count ? (
+      {context.metrics?.length ? (
+        <section className="agent-context-card agent-focused-list-card">
+          <div className="agent-context-metrics">
+            {context.metrics.map((metric) => (
+              <div key={metric.id} className={`agent-context-metric ${toneClass(metric.tone)}`}>
+                <strong>{metric.value}</strong>
+                <span>{metric.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {visibleRows.length ? (
         <section className="agent-context-card agent-focused-list-card">
           <div className="agent-focused-list-head">
             <span>Resultados</span>
-            {count > visibleRows.length ? <small>Mostrando {visibleRows.length} de {count}</small> : null}
+            {context.rows.length > visibleRows.length ? <small>Mostrando {visibleRows.length} de {context.rows.length}</small> : null}
           </div>
           <div className="agent-focused-list">
             {visibleRows.map((row) => <FocusedWidgetRow key={row.id} row={row} />)}
