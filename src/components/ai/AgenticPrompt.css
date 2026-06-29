@@ -1,0 +1,82 @@
+/* Phase 4: prompt behavior and compact empty state polish. */
+.agentic-ai-hero-form,
+.agentic-ai-dock-form {
+  align-items: flex-end;
+}
+
+.agentic-ai-hero-form textarea,
+.agentic-ai-dock-form textarea {
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  scrollbar-width: thin;
+  transition: height 0.12s ease;
+}
+
+.agentic-ai-hero-form textarea::placeholder,
+.agentic-ai-dock-form textarea::placeholder {
+  color: #8a97ad;
+}
+
+.agentic-ai-empty-inner {
+  width: min(700px, 100%);
+}
+
+.agentic-ai-empty h2 {
+  max-width: 680px;
+}
+
+.agentic-ai-empty p {
+  max-width: 560px;
+}
+
+.agentic-ai-widget-zone {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.agentic-ai-widget-card {
+  min-width: 0;
+  border: 1px solid rgba(226, 236, 249, 0.88);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 12px 28px rgba(22, 45, 90, 0.06);
+}
+
+@media (max-height: 780px) {
+  .agentic-ai-empty {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .agentic-ai-orb {
+    width: 42px;
+    height: 42px;
+    border-radius: 16px;
+  }
+
+  .agentic-ai-kicker {
+    margin: 8px 0 6px;
+  }
+
+  .agentic-ai-empty h2 {
+    font-size: clamp(28px, 3.1vw, 40px);
+  }
+
+  .agentic-ai-empty p {
+    margin: 10px 0 16px;
+  }
+
+  .agentic-ai-starters {
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 720px) {
+  .agentic-ai-hero-form,
+  .agentic-ai-dock-form {
+    width: 100%;
+  }
+}
