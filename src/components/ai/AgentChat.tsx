@@ -1,5 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, PanelLeft, Plus, Send, Sparkles, X } from "lucide-react";
+import type { ElementType, KeyboardEvent } from "react";
+import {
+  BarChart3,
+  Bot,
+  Building2,
+  CheckSquare,
+  FolderKanban,
+  Keyboard,
+  MessageSquare,
+  PanelLeft,
+  Plus,
+  Receipt,
+  Send,
+  Sparkles,
+  TrendingUp,
+  Users,
+  X,
+} from "lucide-react";
 import { getAgentUrl, type AgentToolScope } from "@/lib/agentClient";
 import { AgentContextPanel } from "./AgentContextPanel";
 import { getLatestAgentToolContext } from "./agentToolContext";
@@ -19,6 +36,18 @@ const SCOPE_LABELS: Record<AgentToolScope, string> = {
   communication: "Comunicación",
   projects: "Proyectos",
   finance: "Finanzas",
+};
+
+const SCOPE_ICONS: Record<AgentToolScope, ElementType> = {
+  general: Sparkles,
+  leads: Users,
+  clients: Building2,
+  tasks: CheckSquare,
+  pipeline: TrendingUp,
+  reports: BarChart3,
+  communication: MessageSquare,
+  projects: FolderKanban,
+  finance: Receipt,
 };
 
 const SCOPE_KEYWORDS: Array<{ scope: AgentToolScope; words: string[] }> = [
@@ -52,6 +81,11 @@ function detectScopeSuggestion(value: string, selectedScope: AgentToolScope | nu
   }
 
   return null;
+}
+
+function ScopeIcon({ scope, className = "h-3.5 w-3.5" }: { scope: AgentToolScope; className?: string }) {
+  const Icon = SCOPE_ICONS[scope] || Sparkles;
+  return <Icon className={className} />;
 }
 
 export function AgentChat({
@@ -104,7 +138,7 @@ export function AgentChat({
     scrollToLatestMessage("smooth");
   };
 
-  const handlePromptKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handlePromptKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Tab" && scopeSuggestion) {
       event.preventDefault();
       setSelectedScope(scopeSuggestion.scope);
@@ -118,22 +152,29 @@ export function AgentChat({
   };
 
   const scopeControl = (
-    <>
+    <div className="agentic-ai-scope-layer" aria-live="polite">
       {selectedScope ? (
-        <span className="agentic-ai-tool-pill">
-          {SCOPE_LABELS[selectedScope]}
-          <button type="button" onClick={() => setSelectedScope(null)} aria-label="Quitar contexto de herramienta">
+        <span className="agentic-ai-tool-pill is-selected">
+          <span className="agentic-ai-tool-pill-icon"><ScopeIcon scope={selectedScope} /></span>
+          <span>{SCOPE_LABELS[selectedScope]}</span>
+          <button type="button" onClick={() => setSelectedScope(null)} aria-label="Quitar tool seleccionada">
             <X className="h-3 w-3" />
           </button>
         </span>
       ) : null}
       {scopeSuggestion ? (
-        <span className="agentic-ai-tool-suggestion">
-          {scopeSuggestion.label}
-          <kbd>Tab</kbd>
-        </span>
+        <button
+          type="button"
+          className="agentic-ai-tool-suggestion"
+          onClick={() => setSelectedScope(scopeSuggestion.scope)}
+          aria-label={`Usar tools de ${scopeSuggestion.label}`}
+        >
+          <span className="agentic-ai-tool-pill-icon"><ScopeIcon scope={scopeSuggestion.scope} /></span>
+          <span>Usar {scopeSuggestion.label}</span>
+          <span className="agentic-ai-tab-hint"><Keyboard className="h-3 w-3" /> Tab</span>
+        </button>
       ) : null}
-    </>
+    </div>
   );
 
   useEffect(() => {
