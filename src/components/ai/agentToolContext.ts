@@ -2,6 +2,7 @@ export type AgentWidgetKind =
   | "leads"
   | "clients"
   | "tasks"
+  | "calendar"
   | "summary"
   | "deals"
   | "invoices"
@@ -57,9 +58,17 @@ const TOOL_KIND_MAP: Record<string, AgentWidgetKind> = {
   update_client: "clients",
   add_client_note: "clients",
   create_task: "tasks",
+  update_task: "tasks",
+  complete_task: "tasks",
+  reschedule_task: "tasks",
+  add_task_note: "tasks",
   create_reminder: "tasks",
   create_crm_demo: "tasks",
   list_tasks: "tasks",
+  create_calendar_event: "calendar",
+  list_calendar_events: "calendar",
+  update_calendar_event: "calendar",
+  cancel_calendar_event: "calendar",
   crm_summary: "summary",
   create_deal: "deals",
   list_deals: "deals",
@@ -74,6 +83,7 @@ const KIND_TITLE_MAP: Record<AgentWidgetKind, string> = {
   leads: "Leads relacionados",
   clients: "Clientes relacionados",
   tasks: "Tareas del CRM",
+  calendar: "Agenda y calendario",
   summary: "Resumen CRM",
   deals: "Oportunidades",
   invoices: "Facturas pendientes",
@@ -153,6 +163,12 @@ function unwrapClientData(data: unknown) {
   return data;
 }
 
+function unwrapTaskData(data: unknown) {
+  const item = asRecord(data);
+  if (item.task) return item.task;
+  return data;
+}
+
 function mapLeadRows(data: unknown): AgentWidgetRow[] {
   return asArray(data).map((lead, index) => {
     const item = asRecord(lead);
@@ -180,14 +196,27 @@ function mapClientRows(data: unknown): AgentWidgetRow[] {
 }
 
 function mapTaskRows(data: unknown): AgentWidgetRow[] {
-  return asArray(data).map((task, index) => {
+  return asArray(unwrapTaskData(data)).map((task, index) => {
     const item = asRecord(task);
     return {
       id: String(item.id || `task-${index}`),
       title: item.title || "Tarea sin titulo",
       subtitle: compact([item.priority, item.status, item.description]),
       value: formatDate(item.due_date),
-      tone: item.priority === "high" ? "red" : "purple",
+      tone: item.priority === "High" || item.priority === "Urgent" || item.priority === "high" ? "red" : "purple",
+    };
+  });
+}
+
+function mapCalendarRows(data: unknown): AgentWidgetRow[] {
+  return asArray(data).map((event, index) => {
+    const item = asRecord(event);
+    return {
+      id: String(item.id || `calendar-${index}`),
+      title: item.title || "Evento sin titulo",
+      subtitle: compact([item.type, item.status, item.location, item.description]),
+      value: formatDate(item.start_at),
+      tone: item.status === "cancelled" ? "red" : item.type === "demo" ? "purple" : "blue",
     };
   });
 }
@@ -305,9 +334,17 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
     update_client: mapClientRows,
     add_client_note: mapClientRows,
     create_task: mapTaskRows,
+    update_task: mapTaskRows,
+    complete_task: mapTaskRows,
+    reschedule_task: mapTaskRows,
+    add_task_note: mapTaskRows,
     create_reminder: mapTaskRows,
     create_crm_demo: mapTaskRows,
     list_tasks: mapTaskRows,
+    create_calendar_event: mapCalendarRows,
+    list_calendar_events: mapCalendarRows,
+    update_calendar_event: mapCalendarRows,
+    cancel_calendar_event: mapCalendarRows,
     create_deal: mapDealRows,
     list_deals: mapDealRows,
     list_unpaid_invoices: mapInvoiceRows,
