@@ -382,10 +382,25 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
     if (tool !== "auto") showToast(`Tool seleccionada: ${toolLabel(tool)}`);
   }
 
+  function openConversationLayer() {
+    setActiveIntent("default");
+    setConversationMode(true);
+    setMobileTab("chat");
+    setHeroPrompt("");
+    setChatPrompt("");
+    setIsThinking(false);
+    window.setTimeout(() => chatInputRef.current?.focus(), 50);
+  }
+
   async function sendMessage(text: string) {
     const clean = text.trim();
     if (!clean) {
       showToast("Escribe una instruccion para Corevix AI.");
+      return;
+    }
+
+    if (clean === ".") {
+      openConversationLayer();
       return;
     }
 
