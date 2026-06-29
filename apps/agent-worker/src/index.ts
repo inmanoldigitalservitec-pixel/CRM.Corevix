@@ -39,6 +39,19 @@ const AVAILABLE_TOOLS = [
   "add_deal_note",
   "link_deal_to_lead",
   "assign_deal_owner",
+  "list_email_threads",
+  "search_email_messages",
+  "draft_email_reply",
+  "list_inbox_conversations",
+  "list_whatsapp_messages",
+  "draft_whatsapp_reply",
+  "sales_report",
+  "pipeline_report",
+  "activity_report",
+  "agent_daily_briefing",
+  "global_search",
+  "get_record_by_id",
+  "add_global_note",
   "create_project",
   "list_projects",
   "create_proposal",
@@ -159,7 +172,7 @@ async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMe
   const text =
     data?.output?.[0]?.content?.find((item: any) => item.type === "output_text")?.text ??
     data?.output_text ??
-    "OpenClaw respondió, pero no pude extraer el texto.";
+    "OpenClaw respondio, pero no pude extraer el texto.";
 
   return {
     text,
@@ -193,7 +206,7 @@ async function askOpenClawFinalResponse(env: Env, userMessage: string, toolCall:
     data?.output?.[0]?.content?.find((item: any) => item.type === "output_text")?.text ??
     data?.output_text ??
     toolResult.message ??
-    "Acción ejecutada correctamente.";
+    "Accion ejecutada correctamente.";
 
   return {
     text,
@@ -212,16 +225,16 @@ Tu tarea ahora NO es llamar otra tool.
 Tu tarea es redactar una respuesta final humana usando el resultado real de la tool.
 
 REGLAS:
-- Responde en español natural.
+- Responde en espanol natural.
 - No respondas seco.
 - No digas solo conteos si hay datos.
-- Muestra la información útil del CRM.
+- Muestra la informacion util del CRM.
 - Si faltan datos, dilo de forma natural.
-- Sugiere un próximo paso razonable.
-- No inventes información.
-- No digas que hiciste algo que la tool no confirmó.
+- Sugiere un proximo paso razonable.
+- No inventes informacion.
+- No digas que hiciste algo que la tool no confirmo.
 - No devuelvas JSON.
-- No menciones detalles técnicos como tool_call, payload, raw JSON o Supabase.
+- No menciones detalles tecnicos como tool_call, payload, raw JSON o Supabase.
 
 Mensaje original del usuario:
 ${userMessage}
@@ -277,7 +290,7 @@ ${formatChatHistory(history)}
 Usa este historial solo como contexto conversacional reciente.
 No repitas el historial.
 No inventes datos.
-Si el usuario dice "ese", "eso", "él", "ella", "lo anterior" o "hazlo igual", usa este historial para entender la referencia.
+Si el usuario dice "ese", "eso", "el", "ella", "lo anterior" o "hazlo igual", usa este historial para entender la referencia.
 
 TOOLS DISPONIBLES:
 
@@ -287,14 +300,14 @@ ARGS RESUMIDOS POR TOOL:
 - create_lead: name, first_name, last_name, phone, whatsapp, email, company_name, source, notes, estimated_value, status.
 - search_leads: query.
 - list_leads: status, limit.
-- update_lead: lead_id o name/query, más campos editables del lead.
+- update_lead: lead_id o name/query, mas campos editables del lead.
 - update_lead_status: lead_id o name/query, status.
 - add_lead_note: lead_id o name/query, note.
 - convert_lead_to_client: lead_id o name/query, company_name opcional, status opcional, notes opcional.
 - create_client: company_name/name, contact_person/contact_name, email, phone, whatsapp, address, city, country, tax_id, website, industry, status, account_manager, tags, notes.
 - search_clients: query.
 - list_clients: status, limit.
-- update_client: client_id o name/query/company_name, más campos editables del cliente.
+- update_client: client_id o name/query/company_name, mas campos editables del cliente.
 - add_client_note: client_id o name/query/company_name, note.
 - create_task: title, description, due_date, priority: Low | Medium | High | Urgent, status: To Do | In Progress | Completed | Cancelled, assigned_to, related_lead_id, related_client_id, related_deal_id, related_project_id.
 - update_task: task_id o title/query, title, description, due_date, priority, status, assigned_to, related IDs.
@@ -317,6 +330,19 @@ ARGS RESUMIDOS POR TOOL:
 - add_deal_note: deal_id o name/query/title, note.
 - link_deal_to_lead: deal_id o name/query/title, lead_id.
 - assign_deal_owner: deal_id o name/query/title, assigned_to/owner_id/user_id.
+- list_email_threads: provider: gmail | outlook | all, status, limit.
+- search_email_messages: query, limit.
+- draft_email_reply: to/recipient, subject, intent/message/notes. No envia email.
+- list_inbox_conversations: channel: all | whatsapp | messenger | instagram, limit.
+- list_whatsapp_messages: conversation_id, limit.
+- draft_whatsapp_reply: channel, to/phone/recipient, intent/message/notes. No envia mensaje.
+- sales_report: sin args.
+- pipeline_report: sin args.
+- activity_report: sin args.
+- agent_daily_briefing: sin args.
+- global_search: query, scope: all | leads | clients | deals | tasks | projects | products, limit.
+- get_record_by_id: type/entity_type, id/record_id.
+- add_global_note: type/entity_type, id/record_id, note.
 - create_project: name, description, lead_id, client_id, deal_id, product_id, budget, start_date, due_date, priority.
 - list_projects: status.
 - create_proposal: title, amount, currency, description, lead_id, client_id, deal_id, product_id, valid_until.
@@ -324,16 +350,17 @@ ARGS RESUMIDOS POR TOOL:
 - list_unpaid_invoices: sin args.
 
 REGLAS:
-- Responde en español.
+- Responde en espanol.
 - Si el usuario solo conversa o pregunta algo general, responde normal.
-- Si el usuario pide crear, buscar, listar, editar, convertir, anotar, completar, mover, asignar, reprogramar o resumir datos reales del CRM, responde SOLO con JSON.
+- Si el usuario pide crear, buscar, listar, editar, convertir, anotar, completar, mover, asignar, reprogramar, resumir, reportar, revisar comunicacion o preparar borradores con datos reales del CRM, responde SOLO con JSON.
 - No uses markdown cuando respondas JSON.
 - No inventes IDs.
-- Si falta un dato obligatorio, pide aclaración en texto normal.
+- Si falta un dato obligatorio, pide aclaracion en texto normal.
 - Solo puedes usar una tool por mensaje.
 - Nunca digas que creaste o modificaste algo si no recibiste resultado de la tool.
 - No borres datos.
 - No modifiques pagos, facturas o montos todavía.
+- No digas que enviaste emails o mensajes. Email y WhatsApp solo pueden revisarse o preparar borradores por ahora.
 
 FORMATO EXACTO PARA TOOL:
 {
