@@ -185,3 +185,29 @@
     @apply h-9 text-sm;
   }
 }
+
+/* Mobile sidebar should look like the same Corevix sidebar, not the default dark sheet. */
+@media (max-width: 767px) {
+  [data-sidebar="sidebar"][data-mobile="true"] {
+    --sidebar: #ffffff;
+    --sidebar-foreground: #111827;
+    --sidebar-accent: #eaf1ff;
+    --sidebar-accent-foreground: #111827;
+    --sidebar-border: #e6eaf0;
+    --sidebar-ring: #1d62f9;
+    width: min(18rem, calc(100vw - 28px)) !important;
+    border-right: 1px solid #e6eaf0 !important;
+    border-radius: 0 24px 24px 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    box-shadow: 18px 0 55px rgba(15, 23, 42, 0.14) !important;
+  }
+
+  [data-sidebar="sidebar"][data-mobile="true"] [data-sidebar="header"] {
+    border-bottom: 1px solid #eef2f7;
+  }
+
+  [data-sidebar="sidebar"][data-mobile="true"] [data-sidebar="footer"] {
+    border-top: 1px solid #eef2f7;
+  }
+}
