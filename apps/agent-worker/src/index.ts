@@ -1,5 +1,5 @@
 import { getCorevixSkillsPrompt } from "./skills";
-import type { ChatBody, ChatHistoryMessage, Env } from "./types";
+import type { AgentToolScope, ChatBody, ChatHistoryMessage, Env } from "./types";
 import { createSupabaseAdmin } from "./supabase";
 import { getUserContext } from "./auth";
 import { parseToolCall } from "./tool-parser";
@@ -59,6 +59,91 @@ const AVAILABLE_TOOLS = [
   "list_unpaid_invoices",
 ];
 
+const TOOL_SCOPES: Record<AgentToolScope, string[]> = {
+  general: [],
+  leads: ["create_lead", "search_leads", "list_leads", "update_lead", "update_lead_status", "add_lead_note", "convert_lead_to_client", "global_search"],
+  clients: ["create_client", "search_clients", "list_clients", "update_client", "add_client_note", "global_search", "get_record_by_id", "add_global_note"],
+  tasks: ["create_task", "update_task", "complete_task", "reschedule_task", "add_task_note", "create_reminder", "create_crm_demo", "list_tasks", "create_calendar_event", "list_calendar_events", "update_calendar_event", "cancel_calendar_event"],
+  pipeline: ["crm_summary", "create_deal", "list_deals", "search_deals", "update_deal", "update_deal_stage", "add_deal_note", "link_deal_to_lead", "assign_deal_owner", "pipeline_report"],
+  reports: ["crm_summary", "sales_report", "pipeline_report", "activity_report", "agent_daily_briefing", "global_search"],
+  communication: ["list_email_threads", "search_email_messages", "draft_email_reply", "list_inbox_conversations", "list_whatsapp_messages", "draft_whatsapp_reply", "global_search"],
+  projects: ["create_project", "list_projects", "global_search", "get_record_by_id", "add_global_note"],
+  finance: ["list_unpaid_invoices", "create_proposal", "search_products", "crm_summary", "sales_report", "global_search"],
+};
+
+const TOOL_ARGS: Record<string, string> = {
+  create_lead: "name, first_name, last_name, phone, whatsapp, email, company_name, source, notes, estimated_value, status.",
+  search_leads: "query.",
+  list_leads: "status, limit.",
+  update_lead: "lead_id o name/query, campos editables del lead.",
+  update_lead_status: "lead_id o name/query, status.",
+  add_lead_note: "lead_id o name/query, note.",
+  convert_lead_to_client: "lead_id o name/query, company_name opcional, status opcional, notes opcional.",
+
+  create_client: "company_name/name, contact_person/contact_name, email, phone, whatsapp, address, city, country, tax_id, website, industry, status, account_manager, tags, notes.",
+  search_clients: "query.",
+  list_clients: "status, limit.",
+  update_client: "client_id o name/query/company_name, campos editables del cliente.",
+  add_client_note: "client_id o name/query/company_name, note.",
+
+  create_task: "title, description, due_date, priority, status, assigned_to, related IDs.",
+  update_task: "task_id o title/query, title, description, due_date, priority, status, assigned_to, related IDs.",
+  complete_task: "task_id o title/query.",
+  reschedule_task: "task_id o title/query, due_date/date/start_at.",
+  add_task_note: "task_id o title/query, note.",
+  create_reminder: "title, due_date, priority.",
+  create_crm_demo: "lead_name/client_name/name, phone, due_date/demo_date, notes.",
+  list_tasks: "status, limit.",
+  create_calendar_event: "title/name, start_at/date/due_date, end_at, description/notes, location, type, all_day.",
+  list_calendar_events: "type, status, from, to, limit.",
+  update_calendar_event: "event_id o title/query, title, description, location, start_at/date, end_at, type, status, all_day.",
+  cancel_calendar_event: "event_id o title/query.",
+
+  crm_summary: "sin args.",
+  create_deal: "name/title, lead_id, stage, value, probability, expected_close, assigned_to, notes.",
+  list_deals: "stage, limit.",
+  search_deals: "query/name/title.",
+  update_deal: "deal_id o name/query/title, name/title, stage, value, probability, expected_close, assigned_to, lead_id, notes.",
+  update_deal_stage: "deal_id o name/query/title, stage/new_stage/to_stage.",
+  add_deal_note: "deal_id o name/query/title, note.",
+  link_deal_to_lead: "deal_id o name/query/title, lead_id.",
+  assign_deal_owner: "deal_id o name/query/title, assigned_to/owner_id/user_id.",
+
+  list_email_threads: "provider, status, limit.",
+  search_email_messages: "query, limit.",
+  draft_email_reply: "to/recipient, subject, intent/message/notes. No envia email.",
+  list_inbox_conversations: "channel, limit.",
+  list_whatsapp_messages: "conversation_id, limit.",
+  draft_whatsapp_reply: "channel, to/phone/recipient, intent/message/notes. No envia mensaje.",
+
+  sales_report: "sin args.",
+  pipeline_report: "sin args.",
+  activity_report: "sin args.",
+  agent_daily_briefing: "sin args.",
+  global_search: "query, scope, limit.",
+  get_record_by_id: "type/entity_type, id/record_id.",
+  add_global_note: "type/entity_type, id/record_id, note.",
+
+  create_project: "name, description, lead_id, client_id, deal_id, product_id, budget, start_date, due_date, priority.",
+  list_projects: "status.",
+  create_proposal: "title, amount, currency, description, lead_id, client_id, deal_id, product_id, valid_until.",
+  search_products: "query.",
+  list_unpaid_invoices: "sin args.",
+};
+
+function getToolsForScope(scope?: AgentToolScope | null) {
+  if (!scope || scope === "general") return [];
+  return TOOL_SCOPES[scope] || [];
+}
+
+function formatToolList(tools: readonly string[]) {
+  return tools.map((tool, index) => `${index + 1}. ${tool}`).join("\n");
+}
+
+function formatToolArgs(tools: readonly string[]) {
+  return tools.map((tool) => `- ${tool}: ${TOOL_ARGS[tool] || "sin args documentados."}`).join("\n");
+}
+
 type PromptStats = {
   label: "initial" | "final";
   chars: number;
@@ -104,7 +189,7 @@ async function handleAgentChat(request: Request, env: Env) {
     const supabase = createSupabaseAdmin(env);
     const userContext = await getUserContext(request, supabase);
 
-    const openclaw = await askOpenClaw(env, body.message, body.history, debugEnabled);
+    const openclaw = await askOpenClaw(env, body.message, body.history, debugEnabled, body.tool_scope);
     const toolCall = parseToolCall(openclaw.text);
 
     if (!toolCall) {
@@ -162,16 +247,32 @@ async function handleAgentChat(request: Request, env: Env) {
   }
 }
 
-async function askOpenClaw(env: Env, userMessage: string, history: ChatHistoryMessage[] = [], debugEnabled = false) {
-  const route = isLikelyCrmAction(userMessage) ? "crm_tools" : "light_chat";
-  const input = route === "crm_tools" ? buildSystemPrompt(userMessage, history) : buildLightweightChatPrompt(userMessage, history);
+async function askOpenClaw(
+  env: Env,
+  userMessage: string,
+  history: ChatHistoryMessage[] = [],
+  debugEnabled = false,
+  requestedScope?: AgentToolScope | null,
+) {
+  const scopedTools = getToolsForScope(requestedScope);
+  const route = scopedTools.length || isLikelyCrmAction(userMessage) ? "crm_tools" : "light_chat";
+  const toolsForPrompt = route === "crm_tools" ? (scopedTools.length ? scopedTools : [...AVAILABLE_TOOLS]) : [];
+
+  const input =
+    route === "crm_tools"
+      ? buildSystemPrompt(userMessage, history, toolsForPrompt, requestedScope || null)
+      : buildLightweightChatPrompt(userMessage, history);
+
   const promptStats = buildPromptStats("initial", input, {
     prompt_route: route,
+    tool_scope_requested: requestedScope || null,
+    tool_scope_selected: scopedTools.length ? requestedScope : null,
     user_message_chars: userMessage.length,
     user_message_estimated_tokens: estimateTokens(userMessage),
     history_items_received: history.length,
     history_items_used: route === "crm_tools" ? countUsedHistoryItems(history) : countUsedLightweightHistoryItems(history),
-    tools_available: route === "crm_tools" ? AVAILABLE_TOOLS.length : 0,
+    tools_available: toolsForPrompt.length,
+    tools_in_prompt: toolsForPrompt,
   });
 
   logPromptStats(promptStats, debugEnabled);
@@ -478,11 +579,19 @@ Responde como Corevix AI:
   `.trim();
 }
 
-function buildSystemPrompt(userMessage: string, history: ChatHistoryMessage[] = []) {
+function buildSystemPrompt(
+  userMessage: string,
+  history: ChatHistoryMessage[] = [],
+  tools: readonly string[] = AVAILABLE_TOOLS,
+  scope: AgentToolScope | null = null,
+) {
   return `
 Eres Corevix AI, el asistente interno del CRM Corevix.
 
 Puedes responder normalmente o solicitar una tool.
+
+CONTEXTO DE TRABAJO:
+${scope ? `El usuario selecciono el modulo ${scope}. Usa solamente las tools listadas para ese modulo.` : "No hay modulo seleccionado. Puedes usar cualquier tool listada."}
 
 SKILLS ACTIVAS:
 ${getCorevixSkillsPrompt()}
@@ -496,61 +605,10 @@ No inventes datos.
 Si el usuario dice "ese", "eso", "el", "ella", "lo anterior" o "hazlo igual", usa este historial para entender la referencia.
 
 TOOLS DISPONIBLES:
-
-${AVAILABLE_TOOLS.map((tool, index) => `${index + 1}. ${tool}`).join("\n")}
+${formatToolList(tools)}
 
 ARGS RESUMIDOS POR TOOL:
-- create_lead: name, first_name, last_name, phone, whatsapp, email, company_name, source, notes, estimated_value, status.
-- search_leads: query.
-- list_leads: status, limit.
-- update_lead: lead_id o name/query, mas campos editables del lead.
-- update_lead_status: lead_id o name/query, status.
-- add_lead_note: lead_id o name/query, note.
-- convert_lead_to_client: lead_id o name/query, company_name opcional, status opcional, notes opcional.
-- create_client: company_name/name, contact_person/contact_name, email, phone, whatsapp, address, city, country, tax_id, website, industry, status, account_manager, tags, notes.
-- search_clients: query.
-- list_clients: status, limit.
-- update_client: client_id o name/query/company_name, mas campos editables del cliente.
-- add_client_note: client_id o name/query/company_name, note.
-- create_task: title, description, due_date, priority: Low | Medium | High | Urgent, status: To Do | In Progress | Completed | Cancelled, assigned_to, related_lead_id, related_client_id, related_deal_id, related_project_id.
-- update_task: task_id o title/query, title, description, due_date, priority, status, assigned_to, related IDs.
-- complete_task: task_id o title/query.
-- reschedule_task: task_id o title/query, due_date/date/start_at.
-- add_task_note: task_id o title/query, note.
-- create_reminder: title, due_date, priority.
-- create_crm_demo: lead_name/client_name/name, phone, due_date/demo_date, notes.
-- list_tasks: status, limit.
-- create_calendar_event: title/name, start_at/date/due_date, end_at, description/notes, location, type, all_day.
-- list_calendar_events: type, status, from, to, limit.
-- update_calendar_event: event_id o title/query, title, description, location, start_at/date, end_at, type, status, all_day.
-- cancel_calendar_event: event_id o title/query.
-- crm_summary: sin args.
-- create_deal: name/title, lead_id, stage, value, probability, expected_close, assigned_to, notes.
-- list_deals: stage, limit.
-- search_deals: query/name/title.
-- update_deal: deal_id o name/query/title, name/title, stage, value, probability, expected_close, assigned_to, lead_id, notes.
-- update_deal_stage: deal_id o name/query/title, stage/new_stage/to_stage.
-- add_deal_note: deal_id o name/query/title, note.
-- link_deal_to_lead: deal_id o name/query/title, lead_id.
-- assign_deal_owner: deal_id o name/query/title, assigned_to/owner_id/user_id.
-- list_email_threads: provider: gmail | outlook | all, status, limit.
-- search_email_messages: query, limit.
-- draft_email_reply: to/recipient, subject, intent/message/notes. No envia email.
-- list_inbox_conversations: channel: all | whatsapp | messenger | instagram, limit.
-- list_whatsapp_messages: conversation_id, limit.
-- draft_whatsapp_reply: channel, to/phone/recipient, intent/message/notes. No envia mensaje.
-- sales_report: sin args.
-- pipeline_report: sin args.
-- activity_report: sin args.
-- agent_daily_briefing: sin args.
-- global_search: query, scope: all | leads | clients | deals | tasks | projects | products, limit.
-- get_record_by_id: type/entity_type, id/record_id.
-- add_global_note: type/entity_type, id/record_id, note.
-- create_project: name, description, lead_id, client_id, deal_id, product_id, budget, start_date, due_date, priority.
-- list_projects: status.
-- create_proposal: title, amount, currency, description, lead_id, client_id, deal_id, product_id, valid_until.
-- search_products: query.
-- list_unpaid_invoices: sin args.
+${formatToolArgs(tools)}
 
 REGLAS:
 - Responde en espanol.
