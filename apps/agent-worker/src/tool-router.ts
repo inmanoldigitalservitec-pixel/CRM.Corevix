@@ -16,7 +16,20 @@ import {
   searchClientsTool,
   updateClientTool,
 } from "./tools/clients";
-import { createTaskTool, createReminderTool, createCrmDemoTool, listTasksTool } from "./tools/tasks";
+import {
+  addTaskNoteTool,
+  cancelCalendarEventTool,
+  completeTaskTool,
+  createCalendarEventTool,
+  createCrmDemoTool,
+  createReminderTool,
+  createTaskTool,
+  listCalendarEventsTool,
+  listTasksTool,
+  rescheduleTaskTool,
+  updateCalendarEventTool,
+  updateTaskTool,
+} from "./tools/tasks";
 import { crmSummaryTool } from "./tools/summary";
 import { createDealTool, listDealsTool } from "./tools/deals";
 import { listUnpaidInvoicesTool } from "./tools/invoices";
@@ -38,9 +51,17 @@ const ALLOWED_TOOLS = new Set([
   "update_client",
   "add_client_note",
   "create_task",
+  "update_task",
+  "complete_task",
+  "reschedule_task",
+  "add_task_note",
   "create_reminder",
   "create_crm_demo",
   "list_tasks",
+  "create_calendar_event",
+  "list_calendar_events",
+  "update_calendar_event",
+  "cancel_calendar_event",
   "crm_summary",
   "create_deal",
   "list_deals",
@@ -108,6 +129,18 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
     case "create_task":
       return runTool(call, ctx, () => createTaskTool(ctx, call.args));
 
+    case "update_task":
+      return runTool(call, ctx, () => updateTaskTool(ctx, call.args));
+
+    case "complete_task":
+      return runTool(call, ctx, () => completeTaskTool(ctx, call.args));
+
+    case "reschedule_task":
+      return runTool(call, ctx, () => rescheduleTaskTool(ctx, call.args));
+
+    case "add_task_note":
+      return runTool(call, ctx, () => addTaskNoteTool(ctx, call.args));
+
     case "create_reminder":
       return runTool(call, ctx, () => createReminderTool(ctx, call.args));
 
@@ -116,6 +149,18 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
 
     case "list_tasks":
       return runTool(call, ctx, () => listTasksTool(ctx, call.args));
+
+    case "create_calendar_event":
+      return runTool(call, ctx, () => createCalendarEventTool(ctx, call.args));
+
+    case "list_calendar_events":
+      return runTool(call, ctx, () => listCalendarEventsTool(ctx, call.args));
+
+    case "update_calendar_event":
+      return runTool(call, ctx, () => updateCalendarEventTool(ctx, call.args));
+
+    case "cancel_calendar_event":
+      return runTool(call, ctx, () => cancelCalendarEventTool(ctx, call.args));
 
     case "crm_summary":
       return runTool(call, ctx, () => crmSummaryTool(ctx));
