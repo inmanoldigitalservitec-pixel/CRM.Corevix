@@ -3,6 +3,7 @@ import { Bot, PanelLeft, Plus, Search, Send, Sparkles } from "lucide-react";
 import { getAgentUrl } from "@/lib/agentClient";
 import { AGENT_CHAT_STARTERS, useAgentChatController } from "./useAgentChatController";
 import "./AgenticAgentShell.css";
+import "./AgenticPrompt.css";
 
 export function AgentChat({
   compact = false,
