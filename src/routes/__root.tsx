@@ -14,7 +14,6 @@ import { DemoTourProvider } from "@/components/demo/demo-tour";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { I18nProvider, useT } from "@/i18n";
-import { CrmAiFloatingChat } from "@/components/ai/CrmAiFloatingChat";
 import { InlineProjectTaskCreator } from "@/components/projects/InlineProjectTaskCreator";
 import { WhatsAppClient360Bridge } from "@/components/whatsapp/WhatsAppClient360Bridge";
 import { WhatsAppInternalWorkPanel } from "@/components/whatsapp/WhatsAppInternalWorkPanel";
@@ -102,6 +101,7 @@ function AppShell() {
   const isPublicProposalRoute = currentPath.startsWith("/proposal/public/");
   const isPublicInvoiceRoute = currentPath.startsWith("/invoice/public/");
   const isPublicRoute = isLoginPage || isPublicProposalRoute || isPublicInvoiceRoute;
+  const isFullscreenAiRoute = currentPath === "/ai-assistant";
 
   if (loading) {
     return (
@@ -117,6 +117,10 @@ function AppShell() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isFullscreenAiRoute) {
+    return <Outlet />;
   }
 
   return (
@@ -137,7 +141,6 @@ function AppShell() {
         {currentPath === "/whatsapp-web" ? <WhatsAppResponsiveCompact /> : null}
         {currentPath === "/whatsapp-web" ? <WhatsAppClient360Bridge mode="whatsapp" /> : null}
         {currentPath === "/clients" ? <WhatsAppClient360Bridge mode="clients" /> : null}
-        <CrmAiFloatingChat />
       </SidebarProvider>
     </DemoTourProvider>
   );
