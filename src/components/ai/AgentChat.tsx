@@ -41,10 +41,24 @@ export function AgentChat({
     el.style.height = `${Math.min(el.scrollHeight, 156)}px`;
   };
 
+  const scrollToLatestMessage = (behavior: ScrollBehavior = "auto") => {
+    window.requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      el.scrollTo({ top: el.scrollHeight, behavior });
+    });
+  };
+
+  const submitAgentMessage = (message?: string) => {
+    void handleSend(message);
+    scrollToLatestMessage("smooth");
+  };
+
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, loading]);
+    scrollToLatestMessage();
+    const timer = window.setTimeout(() => scrollToLatestMessage("smooth"), 80);
+    return () => window.clearTimeout(timer);
+  }, [messages.length, loading]);
 
   useEffect(() => {
     resizeTextarea();
@@ -78,7 +92,7 @@ export function AgentChat({
           {loadingHistory ? <p className="text-sm text-[#667085]">Cargando historial...</p> : chatMessages}
         </div>
 
-        <form className="flex gap-2 border-t border-[#e6eaf0] p-3" onSubmit={(event) => { event.preventDefault(); handleSend(); }}>
+        <form className="flex gap-2 border-t border-[#e6eaf0] p-3" onSubmit={(event) => { event.preventDefault(); submitAgentMessage(); }}>
           <input className="h-11 flex-1 rounded-2xl border border-[#e6eaf0] px-3 text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Pregúntale algo a Corevix AI..." />
           <button className="grid h-11 w-11 place-items-center rounded-2xl bg-[#1d62f9] text-white disabled:opacity-50" type="submit" disabled={loading || !text.trim()}>
             <Send className="h-4 w-4" />
@@ -138,7 +152,7 @@ export function AgentChat({
                       className="agentic-ai-hero-form"
                       onSubmit={(event) => {
                         event.preventDefault();
-                        handleSend();
+                        submitAgentMessage();
                       }}
                     >
                       <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
@@ -151,7 +165,7 @@ export function AgentChat({
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey) {
                             event.preventDefault();
-                            handleSend();
+                            submitAgentMessage();
                           }
                         }}
                       />
@@ -160,7 +174,7 @@ export function AgentChat({
 
                     <div className="agentic-ai-starters">
                       {AGENT_CHAT_STARTERS.map((starter) => (
-                        <button key={starter} type="button" onClick={() => handleSend(starter)}>
+                        <button key={starter} type="button" onClick={() => submitAgentMessage(starter)}>
                           <Sparkles className="h-4 w-4" />
                           {starter}
                         </button>
@@ -200,7 +214,7 @@ export function AgentChat({
                   className="agentic-ai-dock-form"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    handleSend();
+                    submitAgentMessage();
                   }}
                 >
                   <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
@@ -213,7 +227,7 @@ export function AgentChat({
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();
-                        handleSend();
+                        submitAgentMessage();
                       }
                     }}
                   />
