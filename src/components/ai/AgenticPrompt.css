@@ -211,7 +211,7 @@
   }
 }
 
-/* Mobile agent: make context an inline compact strip above the chat, not an overlay. */
+/* Mobile agent: the context becomes the chat header, not a separate section. */
 @media (max-width: 760px) {
   .agentic-ai-shell {
     background: #fbfdff;
@@ -234,24 +234,6 @@
   }
 
   .agentic-ai-topbar {
-    height: 48px !important;
-    padding: 0 10px !important;
-    background: rgba(255, 255, 255, 0.86);
-  }
-
-  .agentic-ai-toggle {
-    display: grid !important;
-    width: 34px !important;
-    height: 34px !important;
-    border-radius: 12px !important;
-  }
-
-  .agentic-ai-title h1 {
-    font-size: 13px !important;
-  }
-
-  .agentic-ai-title p,
-  .agentic-ai-url {
     display: none !important;
   }
 
@@ -299,30 +281,22 @@
     font-size: 14px !important;
   }
 
-  .agentic-ai-panel-slot {
+  .agentic-ai-panel-slot,
+  .agentic-ai-panel-slot.is-closed {
     position: static !important;
+    display: block !important;
     inset: auto !important;
     z-index: auto !important;
     width: 100% !important;
-    max-height: 112px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    padding: 7px 8px 0 !important;
+    height: 118px !important;
+    max-height: 118px !important;
+    overflow: hidden !important;
+    padding: 8px 8px 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
-    background: transparent !important;
+    background: #fbfdff !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .agentic-ai-panel-slot::-webkit-scrollbar {
-    display: none;
-  }
-
-  .agentic-ai-panel-slot.is-closed {
-    display: none !important;
   }
 
   .agentic-ai-panel-slot::before {
@@ -330,9 +304,8 @@
   }
 
   .agentic-ai-panel-slot > .agent-context-panel {
-    width: max-content;
-    min-width: 100%;
-    height: 104px !important;
+    width: 100% !important;
+    height: 110px !important;
     display: block !important;
     padding: 0 !important;
     border: 0 !important;
@@ -340,7 +313,7 @@
     background: transparent !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
   }
 
   .agentic-ai-panel-slot .agent-context-actions,
@@ -351,41 +324,38 @@
   }
 
   .agentic-ai-panel-slot .agent-context-body {
-    height: 104px !important;
-    overflow: visible !important;
+    height: 110px !important;
+    overflow: hidden !important;
   }
 
   .agentic-ai-panel-slot .agent-focused-widget,
   .agentic-ai-panel-slot .agent-context-stack {
-    height: 104px !important;
-    display: flex !important;
-    gap: 8px !important;
-    overflow: visible !important;
+    height: 110px !important;
+    display: block !important;
   }
 
   .agentic-ai-panel-slot .agent-context-empty,
   .agentic-ai-panel-slot .agent-context-card,
   .agentic-ai-panel-slot .agent-focused-hero {
-    width: min(238px, calc(100vw - 22px)) !important;
-    height: 96px !important;
-    min-height: 96px !important;
-    flex: 0 0 auto !important;
-    padding: 10px 12px !important;
-    border-radius: 18px !important;
-    box-shadow: 0 8px 22px rgba(22, 45, 90, 0.06) !important;
+    width: 100% !important;
+    height: 104px !important;
+    min-height: 104px !important;
+    padding: 13px 14px !important;
+    border-radius: 20px !important;
+    box-shadow: 0 8px 22px rgba(22, 45, 90, 0.055) !important;
   }
 
   .agentic-ai-panel-slot .agent-context-empty {
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 10px !important;
+    gap: 12px !important;
     text-align: left !important;
   }
 
   .agentic-ai-panel-slot .agent-context-empty-icon {
-    width: 34px !important;
-    height: 34px !important;
+    width: 38px !important;
+    height: 38px !important;
     margin: 0 !important;
     flex: 0 0 auto;
   }
@@ -393,7 +363,7 @@
   .agentic-ai-panel-slot .agent-context-empty h3,
   .agentic-ai-panel-slot .agent-context-card h3,
   .agentic-ai-panel-slot .agent-focused-hero h3 {
-    font-size: 12.5px !important;
+    font-size: 14px !important;
     margin: 0 !important;
     white-space: nowrap;
     overflow: hidden;
@@ -407,30 +377,30 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    margin-top: 4px !important;
-    font-size: 10.5px !important;
-    line-height: 1.25 !important;
+    margin-top: 5px !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
   }
 
   .agentic-ai-panel-slot .agent-focused-hero {
-    grid-template-columns: 34px minmax(0, 1fr) 30px !important;
-    gap: 8px !important;
+    grid-template-columns: 40px minmax(0, 1fr) 34px !important;
+    gap: 10px !important;
     align-items: center;
   }
 
   .agentic-ai-panel-slot .agent-focused-icon {
-    width: 34px !important;
-    height: 34px !important;
-    border-radius: 13px !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 15px !important;
   }
 
   .agentic-ai-panel-slot .agent-focused-hero span {
-    font-size: 9px !important;
+    font-size: 9.5px !important;
   }
 
   .agentic-ai-panel-slot .agent-focused-hero > strong {
-    min-width: 30px !important;
-    height: 30px !important;
-    font-size: 13px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    font-size: 14px !important;
   }
 }
