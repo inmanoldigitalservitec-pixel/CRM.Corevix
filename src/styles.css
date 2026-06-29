@@ -211,3 +211,90 @@
     border-top: 1px solid #eef2f7;
   }
 }
+
+/* Mobile AI composer guardrails: keep pills, text and send button inside the viewport. */
+@media (max-width: 760px) {
+  .agentic-ai-stage {
+    min-width: 0 !important;
+    max-width: 100vw !important;
+    overflow: hidden !important;
+  }
+
+  .agentic-ai-dock,
+  .agentic-ai-dock-form,
+  .agentic-ai-hero-form {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .agentic-ai-dock-form,
+  .agentic-ai-hero-form {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    padding: 6px !important;
+  }
+
+  .agentic-ai-input-action,
+  .agentic-ai-send {
+    width: 36px !important;
+    height: 36px !important;
+    flex: 0 0 36px !important;
+  }
+
+  .agentic-ai-scope-layer {
+    min-width: 0 !important;
+    max-width: 42vw !important;
+    flex: 0 1 auto !important;
+    overflow: hidden !important;
+  }
+
+  .agentic-ai-tool-pill,
+  .agentic-ai-tool-suggestion {
+    max-width: 100% !important;
+    height: 30px !important;
+    gap: 4px !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+  }
+
+  .agentic-ai-tool-pill-icon {
+    width: 22px !important;
+    height: 22px !important;
+    flex: 0 0 22px !important;
+  }
+
+  .agentic-ai-tab-hint {
+    height: 20px !important;
+    padding: 0 6px !important;
+    font-size: 10px !important;
+  }
+
+  .agentic-ai-tool-pill.is-selected button {
+    width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 18px !important;
+  }
+
+  .agentic-ai-dock-form textarea,
+  .agentic-ai-hero-form textarea {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+    min-height: 36px !important;
+    padding: 8px 2px !important;
+    overflow-x: hidden !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    font-size: 13.5px !important;
+    line-height: 1.25 !important;
+  }
+
+  .agentic-ai-dock-form textarea::placeholder,
+  .agentic-ai-hero-form textarea::placeholder {
+    font-size: 13px !important;
+  }
+}
