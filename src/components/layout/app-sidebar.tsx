@@ -143,8 +143,8 @@ export function AppSidebar() {
         >
           {!collapsed && <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-auto max-w-[160px] object-contain" />}
           {collapsed && (
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#eef4ff] text-sm font-black text-[#1d62f9]">
-              C
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#eef4ff] shadow-[inset_0_0_0_1px_rgba(29,98,249,0.14)]">
+              <img src="/imagotipo_corevix.svg" alt="Corevix" className="h-5 w-5 object-contain" />
             </span>
           )}
         </Link>
