@@ -1,0 +1,16 @@
+.agentic-dashboard .panel-actions a.action-btn,
+.agentic-dashboard .panel-actions a.ghost-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.agentic-dashboard .context-card p + .data-row,
+.agentic-dashboard .context-card h3 + .data-row {
+  margin-top: 2px;
+}
+
+.agentic-dashboard .context-card p {
+  margin-bottom: 8px;
+}
