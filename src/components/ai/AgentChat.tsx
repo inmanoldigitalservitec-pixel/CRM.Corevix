@@ -25,20 +25,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { extractAgentReply, sendAgentMessage } from "@/lib/agentClient";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import {
-  isActiveProjectStatus,
-  isClosedDealStageValue,
-  isClosedLeadStatusValue,
-  isCompletedTaskStatusValue,
-  isOpenConversationStatus,
-  isOpenInvoiceStatus,
-  isOverdueInvoiceStatus,
-  isPaidInvoiceStatus,
-  isPendingProposalStatus,
-} from "@/lib/crm/status";
+import { extractAgentReply, getAgentDashboardContext, sendAgentMessage } from "@/lib/agentClient";
 import "./AgenticDashboard.css";
 import "./AgenticDashboardIcons.css";
 import "./AgenticDashboardPhase1.css";
@@ -87,49 +74,9 @@ type AgentDashboardStats = {
   projectsAtRisk: number;
 };
 
-type LeadRow = {
-  id: string;
-  status: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  last_interaction_at?: string | null;
-  next_follow_up?: string | null;
-};
-
-type DealRow = {
-  id: string;
-  stage: string | null;
-  value: number | string | null;
-};
-
-type TaskRow = {
-  id: string;
-  status: string | null;
-  due_date: string | null;
-};
-
-type ProjectRow = {
-  id: string;
-  status: string | null;
-  due_date: string | null;
-};
-
-type InvoiceRow = {
-  id: string;
-  status: string | null;
-  total: number | string | null;
-  due_date?: string | null;
-};
-
-type ProposalRow = {
-  id: string;
-  status: string | null;
-  valid_until?: string | null;
-};
-
-type ConversationRow = {
-  id: string;
-  status: string | null;
+type DashboardContextPayload = {
+  counts?: Record<string, unknown>;
+  partial_errors?: unknown;
 };
 
 const emptyStats: AgentDashboardStats = {
@@ -274,7 +221,7 @@ function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
 
-function toNumber(value: number | string | null | undefined) {
+function toNumber(value: unknown) {
   if (value === null || value === undefined) return 0;
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -284,45 +231,31 @@ function formatMoney(value: number) {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
-function dateKeyFromISO(iso?: string | null) {
-  const parsed = Date.parse(String(iso || ""));
-  if (!Number.isFinite(parsed)) return null;
-  const date = new Date(parsed);
-  const yyyy = String(date.getFullYear());
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
+function statsFromDashboardContext(payload: unknown): AgentDashboardStats {
+  const data = (payload && typeof payload === "object" ? payload : {}) as DashboardContextPayload;
+  const counts = data.counts || {};
+  const partialErrors = Array.isArray(data.partial_errors) ? data.partial_errors : [];
 
-function localTodayKey() {
-  const date = new Date();
-  const yyyy = String(date.getFullYear());
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function toDateKey(value?: string | null) {
-  if (!value) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  return dateKeyFromISO(value);
-}
-
-function hoursSince(iso?: string | null) {
-  const parsed = Date.parse(String(iso || ""));
-  if (!Number.isFinite(parsed)) return Infinity;
-  return (Date.now() - parsed) / 36e5;
-}
-
-function isDateKeyInNextDays(dateKey: string, days: number) {
-  const [year, month, day] = dateKey.split("-").map((item) => Number(item));
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return false;
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + days);
-  const date = new Date(year, month - 1, day);
-  return date >= start && date <= end;
+  return {
+    loading: false,
+    error: partialErrors.length ? "Algunos indicadores no pudieron cargarse." : null,
+    leadsNeedFollowUp: toNumber(counts.leads_need_followup),
+    openLeads: toNumber(counts.open_leads),
+    overdueTasks: toNumber(counts.overdue_tasks),
+    tasksToday: toNumber(counts.tasks_today),
+    upcomingAgenda: toNumber(counts.upcoming_agenda),
+    receivableTotal: toNumber(counts.receivable_total),
+    pendingInvoices: toNumber(counts.pending_invoices),
+    overdueInvoices: toNumber(counts.overdue_invoices),
+    openDeals: toNumber(counts.open_deals),
+    pipelineValue: toNumber(counts.pipeline_value),
+    pendingProposals: toNumber(counts.pending_proposals),
+    inboxPending: toNumber(counts.open_conversations),
+    whatsappOpen: toNumber(counts.whatsapp_open),
+    emailOpen: toNumber(counts.email_open),
+    activeProjects: toNumber(counts.active_projects),
+    projectsAtRisk: toNumber(counts.projects_at_risk),
+  };
 }
 
 function detectSuggestedTool(text: string): ToolKey | null {
@@ -539,7 +472,6 @@ function getActionLinks(intent: IntentKey) {
 }
 
 export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = {}) {
-  const { profile } = useAuth();
   const [conversationMode, setConversationMode] = useState(false);
   const [mobileTab, setMobileTab] = useState("chat");
   const [heroPrompt, setHeroPrompt] = useState("");
@@ -559,146 +491,23 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
   const valuePlaceholder = stats.loading ? "..." : "0";
 
   useEffect(() => {
-    if (!profile?.company_id) {
-      setStats({ ...emptyStats, loading: false, error: "No hay empresa asociada al usuario." });
-      return;
-    }
-
     let cancelled = false;
-    const cid = profile.company_id;
-    const db = supabase as any;
 
     async function loadDashboardContext() {
       setStats((current) => ({ ...current, loading: true, error: null }));
 
-      const results = await Promise.allSettled([
-        db
-          .from("leads")
-          .select("id,status,created_at,updated_at,last_interaction_at,next_follow_up")
-          .eq("company_id", cid)
-          .order("updated_at", { ascending: false })
-          .limit(120),
-        db
-          .from("tasks")
-          .select("id,status,due_date")
-          .eq("company_id", cid)
-          .order("due_date", { ascending: true })
-          .limit(120),
-        db
-          .from("invoices")
-          .select("id,status,total,due_date")
-          .eq("company_id", cid)
-          .order("updated_at", { ascending: false })
-          .limit(120),
-        db
-          .from("deals")
-          .select("id,stage,value")
-          .eq("company_id", cid)
-          .order("updated_at", { ascending: false })
-          .limit(120),
-        db
-          .from("proposals")
-          .select("id,status,valid_until")
-          .eq("company_id", cid)
-          .order("updated_at", { ascending: false })
-          .limit(100),
-        db
-          .from("whatsapp_conversations")
-          .select("id,status")
-          .eq("company_id", cid)
-          .limit(80),
-        db
-          .from("email_conversations")
-          .select("id,status")
-          .eq("company_id", cid)
-          .limit(80),
-        db
-          .from("projects")
-          .select("id,status,due_date")
-          .eq("company_id", cid)
-          .limit(100),
-      ]);
-
-      if (cancelled) return;
-
-      const getData = <T,>(index: number): T[] => {
-        const result = results[index];
-        if (result.status !== "fulfilled" || result.value?.error) return [];
-        return (result.value?.data || []) as T[];
-      };
-
-      const hadError = results.some((result) => result.status === "rejected" || (result.status === "fulfilled" && result.value?.error));
-      const today = localTodayKey();
-      const leads = getData<LeadRow>(0);
-      const tasks = getData<TaskRow>(1);
-      const invoices = getData<InvoiceRow>(2);
-      const deals = getData<DealRow>(3);
-      const proposals = getData<ProposalRow>(4);
-      const whatsapp = getData<ConversationRow>(5);
-      const email = getData<ConversationRow>(6);
-      const projects = getData<ProjectRow>(7);
-
-      const openLeads = leads.filter((lead) => !isClosedLeadStatusValue(String(lead.status || "")));
-      const leadsNeedFollowUp = openLeads.filter((lead) => {
-        const staleUpdate = hoursSince(lead.updated_at || lead.created_at) > 24;
-        const staleInteraction = lead.last_interaction_at ? hoursSince(lead.last_interaction_at) > 72 : false;
-        const missingFollowUp = Object.prototype.hasOwnProperty.call(lead, "next_follow_up") ? !lead.next_follow_up : false;
-        return staleUpdate || staleInteraction || missingFollowUp;
-      }).length;
-
-      const openTasks = tasks.filter((task) => !isCompletedTaskStatusValue(String(task.status || "")));
-      const overdueTasks = openTasks.filter((task) => {
-        const dueKey = toDateKey(task.due_date);
-        return Boolean(dueKey && dueKey < today);
-      }).length;
-      const tasksToday = openTasks.filter((task) => toDateKey(task.due_date) === today).length;
-      const taskAgenda = openTasks.filter((task) => {
-        const dueKey = toDateKey(task.due_date);
-        return Boolean(dueKey && isDateKeyInNextDays(dueKey, 7));
-      }).length;
-
-      const pendingInvoiceRows = invoices.filter((invoice) => isOpenInvoiceStatus(String(invoice.status || "")));
-      const overdueInvoiceRows = invoices.filter((invoice) => {
-        const dueKey = toDateKey(invoice.due_date);
-        return isOverdueInvoiceStatus(String(invoice.status || "")) || Boolean(dueKey && !isPaidInvoiceStatus(String(invoice.status || "")) && dueKey < today);
-      });
-      const receivableTotal = pendingInvoiceRows.reduce((sum, invoice) => sum + toNumber(invoice.total), 0);
-
-      const openDealRows = deals.filter((deal) => !isClosedDealStageValue(String(deal.stage || "")));
-      const pipelineValue = openDealRows.reduce((sum, deal) => sum + toNumber(deal.value), 0);
-      const pendingProposalRows = proposals.filter((proposal) => isPendingProposalStatus(String(proposal.status || "")));
-      const whatsappOpen = whatsapp.filter((conversation) => isOpenConversationStatus(conversation.status)).length;
-      const emailOpen = email.filter((conversation) => isOpenConversationStatus(conversation.status)).length;
-      const activeProjectRows = projects.filter((project) => isActiveProjectStatus(String(project.status || "")));
-      const projectsAtRisk = activeProjectRows.filter((project) => {
-        const dueKey = toDateKey(project.due_date);
-        return Boolean(dueKey && dueKey < today);
-      }).length;
-      const projectAgenda = activeProjectRows.filter((project) => {
-        const dueKey = toDateKey(project.due_date);
-        return Boolean(dueKey && isDateKeyInNextDays(dueKey, 7));
-      }).length;
-
-      setStats({
-        loading: false,
-        error: hadError ? "Algunos indicadores no pudieron cargarse." : null,
-        leadsNeedFollowUp,
-        openLeads: openLeads.length,
-        overdueTasks,
-        tasksToday,
-        upcomingAgenda: taskAgenda + projectAgenda,
-        receivableTotal,
-        pendingInvoices: pendingInvoiceRows.length,
-        overdueInvoices: overdueInvoiceRows.length,
-        openDeals: openDealRows.length,
-        pipelineValue,
-        pendingProposals: pendingProposalRows.length,
-        inboxPending: whatsappOpen + emailOpen,
-        whatsappOpen,
-        emailOpen,
-        activeProjects: activeProjectRows.length,
-        projectsAtRisk,
-      });
+      try {
+        const response = await getAgentDashboardContext();
+        if (cancelled) return;
+        setStats(statsFromDashboardContext(response.data));
+      } catch (error: any) {
+        if (cancelled) return;
+        setStats({
+          ...emptyStats,
+          loading: false,
+          error: error?.message || "No pude cargar el contexto del CRM.",
+        });
+      }
     }
 
     void loadDashboardContext();
@@ -706,7 +515,7 @@ export function AgentChat(_props: { compact?: boolean; fullscreen?: boolean } = 
     return () => {
       cancelled = true;
     };
-  }, [profile?.company_id]);
+  }, []);
 
   function showToast(message: string) {
     setToast(message);
