@@ -1,0 +1,93 @@
+.agentic-dashboard .chat-head-clean {
+  justify-content: flex-start;
+  padding: 16px 22px 0;
+}
+
+.agentic-dashboard .chat-head-clean .clean-btn {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+  box-shadow: 0 8px 18px rgba(22, 45, 90, 0.045);
+}
+
+.agentic-dashboard .context-chips {
+  display: none;
+}
+
+.agentic-dashboard .ai-card-compact {
+  max-width: 680px;
+  gap: 10px;
+}
+
+.agentic-dashboard .ai-card-compact h3 {
+  font-size: 16px;
+}
+
+.agentic-dashboard .ai-card-compact p {
+  line-height: 1.58;
+}
+
+.agentic-dashboard .compact-list {
+  gap: 6px;
+}
+
+.agentic-dashboard .compact-list li {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.agentic-dashboard .compact-list li::before {
+  width: 6px;
+  height: 6px;
+  flex-basis: 6px;
+  margin-top: 8px;
+}
+
+.agentic-dashboard .compact-actions {
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.agentic-dashboard .compact-actions .ai-action-btn,
+.agentic-dashboard .compact-actions .ai-secondary-btn {
+  height: 34px;
+  padding: 0 12px;
+}
+
+.agentic-dashboard .compact-feedback {
+  gap: 4px;
+  opacity: 0.72;
+}
+
+.agentic-dashboard .compact-feedback span {
+  width: 26px;
+  height: 26px;
+}
+
+@media (max-width: 1280px) {
+  .agentic-dashboard .chat-head-clean {
+    padding: 14px 18px 0;
+  }
+
+  .agentic-dashboard .chat-scroll {
+    padding-top: 24px;
+  }
+
+  .agentic-dashboard .ai-card-compact {
+    max-width: 620px;
+  }
+}
+
+@media (max-width: 920px) {
+  .agentic-dashboard .chat-head-clean {
+    padding: 14px 14px 0;
+  }
+
+  .agentic-dashboard .ai-card-compact h3 {
+    font-size: 15px;
+  }
+
+  .agentic-dashboard .compact-list {
+    display: none;
+  }
+}
