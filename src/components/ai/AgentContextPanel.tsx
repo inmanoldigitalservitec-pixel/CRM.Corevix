@@ -16,7 +16,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import type { AgentToolContext, AgentWidgetRow } from "./agentToolContext";
+import type { AgentToolContext, AgentWidgetMetric, AgentWidgetRow } from "./agentToolContext";
 import type { AgentThread } from "./useAgentChatController";
 import "./AgentContextPanel.css";
 
@@ -195,16 +195,42 @@ function ContextEmptyState() {
   );
 }
 
+function MetricAction({ metric }: { metric: AgentWidgetMetric }) {
+  const action = metric.actions?.[0];
+  const className = `agent-context-metric ${toneClass(metric.tone)} ${action ? "is-clickable" : ""}`;
+  const body = (
+    <>
+      <strong>{metric.value}</strong>
+      <span>{metric.label}</span>
+      {action ? <em>{action.label}</em> : null}
+    </>
+  );
+
+  return action ? (
+    <a key={metric.id} href={action.href} className={className}>{body}</a>
+  ) : (
+    <div key={metric.id} className={className}>{body}</div>
+  );
+}
+
 function FocusedWidgetRow({ row }: { row: AgentWidgetRow }) {
-  return (
-    <div className="agent-focused-row">
+  const action = row.actions?.[0];
+  const body = (
+    <>
       <span className={`agent-focused-row-icon ${toneClass(row.tone)}`} />
       <div>
         <strong>{row.title}</strong>
         {row.subtitle ? <small>{row.subtitle}</small> : null}
       </div>
       {row.value ? <b>{row.value}</b> : null}
-    </div>
+      {action ? <em>{action.label}</em> : null}
+    </>
+  );
+
+  return action ? (
+    <a href={action.href} className="agent-focused-row is-clickable">{body}</a>
+  ) : (
+    <div className="agent-focused-row">{body}</div>
   );
 }
 
@@ -225,15 +251,16 @@ function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta:
         <strong>{count}</strong>
       </section>
 
+      {context.primaryAction ? (
+        <a href={context.primaryAction.href} className={`agent-context-primary-action is-${context.primaryAction.tone || meta.tone}`}>
+          {context.primaryAction.label}
+        </a>
+      ) : null}
+
       {context.metrics?.length ? (
         <section className="agent-context-card agent-focused-list-card">
           <div className="agent-context-metrics">
-            {context.metrics.map((metric) => (
-              <div key={metric.id} className={`agent-context-metric ${toneClass(metric.tone)}`}>
-                <strong>{metric.value}</strong>
-                <span>{metric.label}</span>
-              </div>
-            ))}
+            {context.metrics.map((metric) => <MetricAction key={metric.id} metric={metric} />)}
           </div>
         </section>
       ) : null}
@@ -289,17 +316,17 @@ function ContextView({ context }: { context: AgentToolContext | null }) {
       <section className="agent-context-card is-highlighted">
         <h3>{context.title}</h3>
         {context.summary ? <p>{context.summary}</p> : null}
+        {context.primaryAction ? (
+          <a href={context.primaryAction.href} className={`agent-context-primary-action is-${context.primaryAction.tone || "blue"}`}>
+            {context.primaryAction.label}
+          </a>
+        ) : null}
       </section>
 
       {context.metrics?.length ? (
         <section className="agent-context-card">
           <div className="agent-context-metrics">
-            {context.metrics.map((metric) => (
-              <div key={metric.id} className={`agent-context-metric ${toneClass(metric.tone)}`}>
-                <strong>{metric.value}</strong>
-                <span>{metric.label}</span>
-              </div>
-            ))}
+            {context.metrics.map((metric) => <MetricAction key={metric.id} metric={metric} />)}
           </div>
         </section>
       ) : null}
@@ -307,16 +334,26 @@ function ContextView({ context }: { context: AgentToolContext | null }) {
       {context.rows.length ? (
         <section className="agent-context-card">
           <div className="agent-context-rows">
-            {context.rows.slice(0, 6).map((row) => (
-              <div key={row.id} className="agent-context-row">
-                <span className={`agent-context-dot ${toneClass(row.tone)}`} />
-                <div>
-                  <strong>{row.title}</strong>
-                  {row.subtitle ? <small>{row.subtitle}</small> : null}
-                </div>
-                {row.value ? <b>{row.value}</b> : null}
-              </div>
-            ))}
+            {context.rows.slice(0, 6).map((row) => {
+              const action = row.actions?.[0];
+              const body = (
+                <>
+                  <span className={`agent-context-dot ${toneClass(row.tone)}`} />
+                  <div>
+                    <strong>{row.title}</strong>
+                    {row.subtitle ? <small>{row.subtitle}</small> : null}
+                  </div>
+                  {row.value ? <b>{row.value}</b> : null}
+                  {action ? <em>{action.label}</em> : null}
+                </>
+              );
+
+              return action ? (
+                <a key={row.id} href={action.href} className="agent-context-row is-clickable">{body}</a>
+              ) : (
+                <div key={row.id} className="agent-context-row">{body}</div>
+              );
+            })}
           </div>
         </section>
       ) : null}
