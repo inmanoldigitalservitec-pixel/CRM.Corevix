@@ -16,15 +16,16 @@ type DetailSheetSize = "md" | "lg";
 
 interface DetailSheetProps {
   open: boolean;
-  onClose: () => void;
-  title: string;
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  title?: string;
   subtitle?: string;
   status?: string;
   badges?: React.ReactNode;
   icon?: React.ReactNode;
   accent?: "blue" | "green" | "violet" | "orange" | "amber" | "slate";
   size?: DetailSheetSize;
-  fields: DetailField[];
+  fields?: DetailField[];
   fieldGroupDataDemo?: string;
   notes?: string;
   onEdit?: () => void;
@@ -50,6 +51,7 @@ function getSheetWidth(size: DetailSheetSize | undefined) {
 export function DetailSheet({
   open,
   onClose,
+  onOpenChange,
   title,
   subtitle,
   status,
@@ -57,7 +59,7 @@ export function DetailSheet({
   icon,
   accent = "slate",
   size = "md",
-  fields,
+  fields = [],
   fieldGroupDataDemo,
   notes,
   onEdit,
@@ -66,81 +68,96 @@ export function DetailSheet({
   children,
 }: DetailSheetProps) {
   const { t } = useT();
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange?.(nextOpen);
+    if (!nextOpen) onClose?.();
+  };
+
+  const handleClose = () => {
+    onOpenChange?.(false);
+    onClose?.();
+  };
+
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent className={getSheetWidth(size) + " p-0"}>
-        <SheetHeader className="relative border-b px-5 py-4 text-left">
-          <div
-            className={
-              "pointer-events-none absolute inset-x-0 top-0 h-[84px] bg-gradient-to-b " +
-              ACCENT_CLASS[accent]
-            }
-          />
-          <div className="relative flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3">
-              {icon ? (
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border bg-background/85 shadow-[0_12px_24px_rgba(15,23,42,.06)]">
-                  {icon}
-                </div>
-              ) : null}
-              <div className="min-w-0">
-                <SheetTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">
-                  {title}
-                </SheetTitle>
-                {subtitle ? (
-                  <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{subtitle}</p>
+        {(title || subtitle || status || badges || icon || actions || onEdit || onDelete) ? (
+          <SheetHeader className="relative border-b px-5 py-4 text-left">
+            <div
+              className={
+                "pointer-events-none absolute inset-x-0 top-0 h-[84px] bg-gradient-to-b " +
+                ACCENT_CLASS[accent]
+              }
+            />
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                {icon ? (
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border bg-background/85 shadow-[0_12px_24px_rgba(15,23,42,.06)]">
+                    {icon}
+                  </div>
                 ) : null}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {status ? <StatusBadge status={status} /> : null}
-                  {badges ? badges : null}
+                <div className="min-w-0">
+                  {title ? (
+                    <SheetTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">
+                      {title}
+                    </SheetTitle>
+                  ) : null}
+                  {subtitle ? (
+                    <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{subtitle}</p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {status ? <StatusBadge status={status} /> : null}
+                    {badges ? badges : null}
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="grid h-9 w-9 place-items-center rounded-[12px] border bg-background/90 text-muted-foreground shadow-[0_10px_22px_rgba(15,23,42,.06)] transition hover:-translate-y-[1px] hover:bg-background"
+                  aria-label={t("common.close")}
+                  title={t("common.close")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
-            <div className="flex items-start gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="grid h-9 w-9 place-items-center rounded-[12px] border bg-background/90 text-muted-foreground shadow-[0_10px_22px_rgba(15,23,42,.06)] transition hover:-translate-y-[1px] hover:bg-background"
-                aria-label={t("common.close")}
-                title={t("common.close")}
-              >
-                <X className="h-4 w-4" />
-              </button>
+            <div className="relative mt-3 flex flex-wrap items-center gap-2">
+              {actions ? (
+                actions
+              ) : (
+                <>
+                  {onEdit ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onEdit}
+                      className="h-8 gap-1.5 text-xs"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> {t("common.edit")}
+                    </Button>
+                  ) : null}
+                  {onDelete ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onDelete}
+                      className="h-8 gap-1.5 text-xs text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> {t("common.delete")}
+                    </Button>
+                  ) : null}
+                </>
+              )}
             </div>
-          </div>
+          </SheetHeader>
+        ) : null}
 
-          <div className="relative mt-3 flex flex-wrap items-center gap-2">
-            {actions ? (
-              actions
-            ) : (
-              <>
-                {onEdit ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onEdit}
-                    className="h-8 gap-1.5 text-xs"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> {t("common.edit")}
-                  </Button>
-                ) : null}
-                {onDelete ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onDelete}
-                    className="h-8 gap-1.5 text-xs text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> {t("common.delete")}
-                  </Button>
-                ) : null}
-              </>
-            )}
-          </div>
-        </SheetHeader>
-
-        <ScrollArea className="h-[calc(100vh-118px)]">
+        <ScrollArea className={title ? "h-[calc(100vh-118px)]" : "h-screen"}>
           <div className="p-4 space-y-3">
             {fields.length > 0 ? (
               <div data-demo={fieldGroupDataDemo} className="grid grid-cols-2 gap-4">
