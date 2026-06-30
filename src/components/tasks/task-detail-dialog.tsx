@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,11 +92,15 @@ type DriveFileRow = {
   created_at: string;
 };
 
-type RelationRows = {
-  projectName: string;
-  clientName: string;
-  productName: string;
+type ProjectOption = {
+  id: string;
+  name: string;
+  client_id: string | null;
+  product_id: string | null;
 };
+
+type ClientOption = { id: string; company_name: string; contact_person: string | null };
+type ProductOption = { id: string; name: string };
 
 type TaskDetailDialogProps = {
   open: boolean;
@@ -124,7 +128,7 @@ type TaskDetailDialogProps = {
   onDriveUrlChange?: (value: string) => void;
   onAttachDriveUrl?: () => void | Promise<void>;
   onUploadClick?: () => void;
-  onFilePicked?: (event: React.ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onFilePicked?: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onCopyFileLink?: (file: DriveFileRow) => void | Promise<void>;
   onDeleteDriveFile?: (file: DriveFileRow) => void | Promise<void>;
 };
@@ -132,6 +136,8 @@ type TaskDetailDialogProps = {
 const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
 const TASK_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 const UNASSIGNED_VALUE = "__unassigned__";
+const NO_PROJECT_VALUE = "__no_project__";
+const NO_CLIENT_VALUE = "__no_client__";
 
 function readTaskIdFromUrl() {
   if (typeof window === "undefined") return null;
@@ -153,7 +159,6 @@ function readTaskTextSnapshot(root: HTMLDivElement | null) {
     return found?.parentElement?.querySelector(".mt-1")?.textContent?.trim() || "";
   };
   const due = readValue("Vence");
-
   return {
     title,
     description: description === "Sin descripción." ? "" : description,
@@ -211,6 +216,11 @@ function getGoogleDrivePreviewUrl(rawHref: string | null | undefined, driveFileI
   }
 }
 
+function clientLabel(client: ClientOption | null | undefined) {
+  if (!client) return "—";
+  return client.contact_person ? `${client.company_name} · ${client.contact_person}` : client.company_name || "—";
+}
+
 function eventIcon(type: string) {
   if (type.includes("comment")) return <MessageSquare className="h-4 w-4" />;
   if (type.includes("checklist")) return <Check className="h-4 w-4" />;
@@ -248,7 +258,9 @@ export function TaskDetailDialog({
   const legacyContentRef = useRef<HTMLDivElement | null>(null);
   const [task, setTask] = useState<TaskRow | null>(null);
   const [profiles, setProfiles] = useState<QuickProfile[]>([]);
-  const [relations, setRelations] = useState<RelationRows>({ projectName: "—", clientName: "—", productName: "—" });
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
   const [checklist, setChecklist] = useState<TaskChecklistItem[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
@@ -267,7 +279,28 @@ export function TaskDetailDialog({
     priority: "Medium",
     dueDate: "",
     assignedTo: UNASSIGNED_VALUE,
+    projectId: NO_PROJECT_VALUE,
+    clientId: NO_CLIENT_VALUE,
   });
+
+  const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+  const clientsById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
+  const productsById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+
+  const selectedProject = task?.related_project_id ? projectsById.get(task.related_project_id) || null : null;
+  const selectedClient = task?.related_client_id
+    ? clientsById.get(task.related_client_id) || null
+    : selectedProject?.client_id
+      ? clientsById.get(selectedProject.client_id) || null
+      : null;
+  const selectedProduct = selectedProject?.product_id ? productsById.get(selectedProject.product_id) || null : null;
+
+  const displayProjectName = selectedProject?.name || projectName || "—";
+  const displayClientName = selectedClient ? clientLabel(selectedClient) : clientName || "—";
+  const displayProductName = selectedProduct?.name || productName || "—";
+
+  const draftProject = draft.projectId !== NO_PROJECT_VALUE ? projectsById.get(draft.projectId) || null : null;
+  const draftProductName = draftProject?.product_id ? productsById.get(draftProject.product_id)?.name || "—" : "—";
 
   const assigneeLabel = useMemo(() => {
     if (!task?.assigned_to) return "Sin asignar";
@@ -280,7 +313,6 @@ export function TaskDetailDialog({
 
   const resetState = () => {
     setTask(null);
-    setRelations({ projectName: "—", clientName: "—", productName: "—" });
     setChecklist([]);
     setComments([]);
     setActivity([]);
@@ -296,54 +328,31 @@ export function TaskDetailDialog({
     if (!open) resetState();
   }, [open]);
 
-  const loadRelations = async (loadedTask: TaskRow) => {
-    const next: RelationRows = { projectName: "—", clientName: "—", productName: "—" };
-
-    if (loadedTask.related_project_id) {
-      const { data: project } = await (supabase as any)
+  const loadRelationOptions = async (companyId: string) => {
+    const [projectResult, clientResult, productResult] = await Promise.all([
+      (supabase as any)
         .from("projects")
         .select("id,name,client_id,product_id")
-        .eq("id", loadedTask.related_project_id)
-        .maybeSingle();
-      if (project) {
-        next.projectName = project.name || "—";
-        if (project.client_id) {
-          const { data: client } = await (supabase as any)
-            .from("clients")
-            .select("company_name,contact_person")
-            .eq("id", project.client_id)
-            .maybeSingle();
-          if (client) {
-            next.clientName = client.contact_person
-              ? `${client.company_name} · ${client.contact_person}`
-              : client.company_name || "—";
-          }
-        }
-        if (project.product_id) {
-          const { data: product } = await (supabase as any)
-            .from("products")
-            .select("name")
-            .eq("id", project.product_id)
-            .maybeSingle();
-          if (product) next.productName = product.name || "—";
-        }
-      }
-    }
-
-    if (loadedTask.related_client_id && next.clientName === "—") {
-      const { data: client } = await (supabase as any)
+        .eq("company_id", companyId)
+        .order("name", { ascending: true })
+        .limit(500),
+      (supabase as any)
         .from("clients")
-        .select("company_name,contact_person")
-        .eq("id", loadedTask.related_client_id)
-        .maybeSingle();
-      if (client) {
-        next.clientName = client.contact_person
-          ? `${client.company_name} · ${client.contact_person}`
-          : client.company_name || "—";
-      }
-    }
+        .select("id,company_name,contact_person")
+        .eq("company_id", companyId)
+        .order("company_name", { ascending: true })
+        .limit(500),
+      (supabase as any)
+        .from("products")
+        .select("id,name")
+        .eq("company_id", companyId)
+        .order("name", { ascending: true })
+        .limit(500),
+    ]);
 
-    setRelations(next);
+    if (!projectResult.error) setProjects(Array.isArray(projectResult.data) ? projectResult.data : []);
+    if (!clientResult.error) setClients(Array.isArray(clientResult.data) ? clientResult.data : []);
+    if (!productResult.error) setProducts(Array.isArray(productResult.data) ? productResult.data : []);
   };
 
   const loadTaskDetails = async (taskId: string) => {
@@ -378,10 +387,27 @@ export function TaskDetailDialog({
     if (!checklistResult.error) setChecklist(Array.isArray(checklistResult.data) ? checklistResult.data : []);
     if (!commentsResult.error) setComments(Array.isArray(commentsResult.data) ? commentsResult.data : []);
     if (!activityResult.error) setActivity(Array.isArray(activityResult.data) ? activityResult.data : []);
-    if (!driveResult.error) setDriveFiles(Array.isArray(driveResult.data) ? driveResult.data : []);
+    if (!driveResult.error && !propDriveFiles) setDriveFiles(Array.isArray(driveResult.data) ? driveResult.data : []);
 
     const errors = [checklistResult.error, commentsResult.error, activityResult.error, driveResult.error].filter(Boolean);
     setMessage(errors[0]?.message || null);
+  };
+
+  const applyLoadedTask = async (loadedTask: TaskRow, loadedProfiles: QuickProfile[] = propProfiles) => {
+    setTask(loadedTask);
+    setProfiles(loadedProfiles);
+    setDraft({
+      title: loadedTask.title || "",
+      description: loadedTask.description || "",
+      status: loadedTask.status || "To Do",
+      priority: loadedTask.priority || "Medium",
+      dueDate: loadedTask.due_date || "",
+      assignedTo: loadedTask.assigned_to || UNASSIGNED_VALUE,
+      projectId: loadedTask.related_project_id || NO_PROJECT_VALUE,
+      clientId: loadedTask.related_client_id || NO_CLIENT_VALUE,
+    });
+    await Promise.all([loadRelationOptions(loadedTask.company_id), loadTaskDetails(loadedTask.id)]);
+    if (propDriveFiles) setDriveFiles(propDriveFiles);
   };
 
   const resolveTask = async () => {
@@ -389,33 +415,19 @@ export function TaskDetailDialog({
     setMessage(null);
     try {
       if (propTask) {
-        const loadedTask = propTask as TaskRow;
-        setTask(loadedTask);
-        setProfiles(propProfiles);
-        setRelations({ projectName, clientName, productName });
-        if (propDriveFiles) setDriveFiles(propDriveFiles);
-        setDraft({
-          title: loadedTask.title || "",
-          description: loadedTask.description || "",
-          status: loadedTask.status || "To Do",
-          priority: loadedTask.priority || "Medium",
-          dueDate: loadedTask.due_date || "",
-          assignedTo: loadedTask.assigned_to || UNASSIGNED_VALUE,
-        });
-
-        await loadTaskDetails(loadedTask.id);
-        if (propDriveFiles) setDriveFiles(propDriveFiles);
+        await applyLoadedTask(propTask as TaskRow, propProfiles);
         return;
       }
 
       const snapshot = readTaskTextSnapshot(legacyContentRef.current);
       const taskIdFromUrl = readTaskIdFromUrl();
+
       const { data: profileRows } = await (supabase as any)
         .from("profiles")
         .select("id,user_id,full_name,email,is_active")
         .order("full_name", { ascending: true })
         .limit(500);
-      setProfiles(Array.isArray(profileRows) ? profileRows.filter((p) => p && p.is_active !== false) : []);
+      const loadedProfiles = Array.isArray(profileRows) ? profileRows.filter((p) => p && p.is_active !== false) : [];
 
       let query = (supabase as any)
         .from("tasks")
@@ -442,18 +454,7 @@ export function TaskDetailDialog({
         return;
       }
 
-      const loadedTask = rows[0] as TaskRow;
-      setTask(loadedTask);
-      setDraft({
-        title: loadedTask.title || "",
-        description: loadedTask.description || "",
-        status: loadedTask.status || "To Do",
-        priority: loadedTask.priority || "Medium",
-        dueDate: loadedTask.due_date || "",
-        assignedTo: loadedTask.assigned_to || UNASSIGNED_VALUE,
-      });
-
-      await Promise.all([loadRelations(loadedTask), loadTaskDetails(loadedTask.id)]);
+      await applyLoadedTask(rows[0] as TaskRow, loadedProfiles);
     } catch (error: any) {
       setMessage(error?.message || "No se pudo cargar el detalle de la tarea.");
     } finally {
@@ -465,14 +466,34 @@ export function TaskDetailDialog({
     if (!open) return;
     const timer = window.setTimeout(() => void resolveTask(), 50);
     return () => window.clearTimeout(timer);
-  }, [open, children, propTask?.id, propDriveFiles?.length, projectName, clientName, productName]);
+  }, [
+    open,
+    children,
+    propTask?.id,
+    propTask?.title,
+    propTask?.description,
+    propTask?.status,
+    propTask?.priority,
+    propTask?.due_date,
+    propTask?.assigned_to,
+    propTask?.related_project_id,
+    propTask?.related_client_id,
+    propDriveFiles?.length,
+    projectName,
+    clientName,
+    productName,
+  ]);
 
-  const updateTask = async (patch: Record<string, string | null>) => {
+  useEffect(() => {
+    if (propDriveFiles) setDriveFiles(propDriveFiles);
+  }, [propDriveFiles]);
+
+  const updateTask = async (patch: Partial<TaskRow>) => {
     if (!task?.id) return;
     setSaving(true);
     try {
       if (onUpdateTask) {
-        await onUpdateTask(task.id, patch as Partial<TaskRow>);
+        await onUpdateTask(task.id, patch);
       } else {
         const { error } = await (supabase as any).from("tasks").update(patch).eq("id", task.id);
         if (error) throw error;
@@ -485,7 +506,7 @@ export function TaskDetailDialog({
     setSaving(false);
     const next = { ...task, ...patch } as TaskRow;
     setTask(next);
-    await loadTaskDetails(task.id);
+    await Promise.all([loadRelationOptions(next.company_id), loadTaskDetails(next.id)]);
     toast.success("Tarea actualizada.");
   };
 
@@ -498,6 +519,8 @@ export function TaskDetailDialog({
       priority: draft.priority,
       due_date: draft.dueDate || null,
       assigned_to: draft.assignedTo === UNASSIGNED_VALUE ? null : draft.assignedTo,
+      related_project_id: draft.projectId === NO_PROJECT_VALUE ? null : draft.projectId,
+      related_client_id: draft.clientId === NO_CLIENT_VALUE ? null : draft.clientId,
     });
     setEditing(false);
   };
@@ -562,10 +585,6 @@ export function TaskDetailDialog({
     await loadTaskDetails(task.id);
   };
 
-  useEffect(() => {
-    if (propDriveFiles) setDriveFiles(propDriveFiles);
-  }, [propDriveFiles]);
-
   const copyFileLink = async (file: DriveFileRow) => {
     if (onCopyFileLink) {
       await onCopyFileLink(file);
@@ -581,21 +600,31 @@ export function TaskDetailDialog({
     }
   };
 
+  const renderMetaChip = (label: string, value: string, icon: ReactNode) => (
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border bg-white px-3 py-2 shadow-sm">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-700">{icon}</div>
+      <div className="min-w-0">
+        <div className="text-[11px] font-bold text-slate-500">{label}</div>
+        <div className="truncate text-sm font-extrabold text-slate-900">{value || "—"}</div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1180px] sm:rounded-[24px] sm:border">
+        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1240px] sm:rounded-[24px] sm:border">
           <div ref={legacyContentRef} className="pointer-events-none absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden opacity-0">
             {children}
           </div>
 
-          <div className="flex h-full min-h-0 flex-col bg-white sm:max-h-[92vh]">
-            <div className="sticky top-0 z-20 border-b bg-white/95 px-5 py-4 backdrop-blur sm:px-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white sm:max-h-[92vh]">
+            <div className="shrink-0 border-b bg-white px-5 py-4 sm:px-6">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     {editing ? (
-                      <Input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} className="h-10 max-w-xl text-lg font800" />
+                      <Input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} className="h-10 max-w-2xl text-lg font-extrabold" />
                     ) : (
                       <h2 className="truncate text-[22px] font-extrabold tracking-[-0.035em] text-slate-950">
                         {task?.title || "Cargando tarea..."}
@@ -604,49 +633,59 @@ export function TaskDetailDialog({
                     {task ? <StatusBadge status={task.status} /> : null}
                   </div>
 
-                  <div className="mt-3 grid max-w-2xl grid-cols-1 overflow-hidden rounded-xl border bg-white shadow-sm sm:grid-cols-3">
-                    <div className="flex items-center gap-3 border-b p-3 sm:border-b-0 sm:border-r">
-                      <div className="grid h-8 w-8 place-items-center rounded-lg bg-slate-50"><Flag className="h-4 w-4" /></div>
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-bold text-slate-500">Priority</div>
-                        {editing ? (
-                          <Select value={draft.priority} onValueChange={(value) => setDraft((d) => ({ ...d, priority: value }))}>
-                            <SelectTrigger className="mt-1 h-8 border-0 p-0 font-bold shadow-none"><SelectValue /></SelectTrigger>
-                            <SelectContent>{TASK_PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                          </Select>
-                        ) : <div className="text-sm font-extrabold text-slate-900">{task?.priority || "—"}</div>}
+                  {editing ? (
+                    <div className="mt-3 grid max-w-5xl grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+                      <Select value={draft.status} onValueChange={(value) => setDraft((d) => ({ ...d, status: value }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Estado" /></SelectTrigger>
+                        <SelectContent>{TASK_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Select value={draft.priority} onValueChange={(value) => setDraft((d) => ({ ...d, priority: value }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Prioridad" /></SelectTrigger>
+                        <SelectContent>{TASK_PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Input type="date" value={draft.dueDate} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} className="h-10" />
+                      <Select value={draft.assignedTo} onValueChange={(value) => setDraft((d) => ({ ...d, assignedTo: value }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Responsable" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={UNASSIGNED_VALUE}>Sin asignar</SelectItem>
+                          {profiles.map((p) => <SelectItem key={p.id} value={String(p.user_id || p.id)}>{String(p.full_name || p.email || "Usuario")}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={draft.projectId} onValueChange={(value) => setDraft((d) => ({ ...d, projectId: value }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Proyecto" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>
+                          {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={draft.clientId} onValueChange={(value) => setDraft((d) => ({ ...d, clientId: value }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Cliente" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_CLIENT_VALUE}>Sin cliente directo</SelectItem>
+                          {clients.map((client) => <SelectItem key={client.id} value={client.id}>{clientLabel(client)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <div className="rounded-xl border bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 sm:col-span-2 lg:col-span-4 xl:col-span-6">
+                        Producto automático desde proyecto: <span className="font-extrabold text-slate-900">{draftProductName}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 border-b p-3 sm:border-b-0 sm:border-r">
-                      <div className="grid h-8 w-8 place-items-center rounded-lg bg-slate-50"><CalendarDays className="h-4 w-4" /></div>
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-bold text-slate-500">Due date</div>
-                        {editing ? <Input type="date" value={draft.dueDate} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} className="mt-1 h-8 border-0 p-0 font-bold shadow-none" /> : <div className="text-sm font-extrabold text-slate-900">{formatDate(task?.due_date)}</div>}
-                      </div>
+                  ) : (
+                    <div className="mt-3 grid max-w-5xl grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                      {renderMetaChip("Priority", task?.priority || "—", <Flag className="h-4 w-4" />)}
+                      {renderMetaChip("Due date", formatDate(task?.due_date), <CalendarDays className="h-4 w-4" />)}
+                      {renderMetaChip("Assignee", assigneeLabel, <User className="h-4 w-4" />)}
+                      {renderMetaChip("Project", displayProjectName, <FolderKanban className="h-4 w-4" />)}
+                      {renderMetaChip("Client", displayClientName, <User className="h-4 w-4" />)}
+                      {renderMetaChip("Product", displayProductName, <FileText className="h-4 w-4" />)}
                     </div>
-                    <div className="flex items-center gap-3 p-3">
-                      <div className="grid h-8 w-8 place-items-center rounded-lg bg-slate-50"><User className="h-4 w-4" /></div>
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-bold text-slate-500">Assignee</div>
-                        {editing ? (
-                          <Select value={draft.assignedTo} onValueChange={(value) => setDraft((d) => ({ ...d, assignedTo: value }))}>
-                            <SelectTrigger className="mt-1 h-8 border-0 p-0 font-bold shadow-none"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={UNASSIGNED_VALUE}>Sin asignar</SelectItem>
-                              {profiles.map((p) => <SelectItem key={p.id} value={String(p.user_id || p.id)}>{String(p.full_name || p.email || "Usuario")}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        ) : <div className="truncate text-sm font-extrabold text-slate-900">{assigneeLabel}</div>}
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
                   {editing ? (
                     <>
                       <Button variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
-                      <Button onClick={() => void saveInlineEdit()} disabled={saving}>Guardar</Button>
+                      <Button onClick={() => void saveInlineEdit()} disabled={saving || !canEdit}>Guardar cambios</Button>
                     </>
                   ) : (
                     <>
@@ -666,23 +705,29 @@ export function TaskDetailDialog({
               </div>
             </div>
 
-            <div className="border-b bg-white px-5 py-4 sm:px-6">
-              {editing ? (
-                <Textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} className="min-h-[78px]" placeholder="Descripción de la tarea..." />
-              ) : (
-                <>
-                  <p className="text-sm font-medium text-slate-900">{task?.description || "Sin descripción."}</p>
-                  <p className="mt-2 text-xs font-semibold text-slate-500">Task ID: {task?.id ? task.id.slice(0, 8) : "—"} · Creada {formatDate(task?.created_at)}</p>
-                </>
-              )}
-              {message ? <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">{message}</div> : null}
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-4">
               {loading && !task ? (
                 <div className="rounded-2xl border bg-white p-6 text-sm font-semibold text-slate-500">Cargando detalle de tarea...</div>
               ) : (
-                <div className="mx-auto grid max-w-[1120px] grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.85fr)] lg:items-start">
+                <div className="mx-auto grid max-w-[1160px] grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.85fr)] lg:items-start">
+                  <section className="rounded-2xl border bg-white p-4 shadow-sm lg:col-span-2">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-extrabold text-slate-950">Task Brief / Instrucciones</h3>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">Script, indicaciones, copy y detalles completos de la tarea.</p>
+                      </div>
+                    </div>
+                    {editing ? (
+                      <Textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} className="min-h-[220px] text-sm leading-6" placeholder="Escribe aquí el script completo, instrucciones, copy, detalles del video, notas del cliente..." />
+                    ) : (
+                      <div className="max-h-[240px] overflow-auto whitespace-pre-wrap rounded-xl border bg-slate-50 px-4 py-3 text-sm font-medium leading-6 text-slate-800">
+                        {task?.description || "Sin descripción."}
+                      </div>
+                    )}
+                    <p className="mt-3 text-xs font-semibold text-slate-500">Task ID: {task?.id ? task.id.slice(0, 8) : "—"} · Creada {formatDate(task?.created_at)}</p>
+                    {message ? <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">{message}</div> : null}
+                  </section>
+
                   <div className="grid content-start gap-3">
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-start justify-between gap-3">
@@ -740,25 +785,6 @@ export function TaskDetailDialog({
                   </div>
 
                   <aside className="grid content-start gap-3">
-                    <section className="rounded-2xl border bg-white p-4 shadow-sm">
-                      <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-950"><FolderKanban className="h-4 w-4" /> Context / Relations</h3>
-                      {relations.projectName === "—" && relations.clientName === "—" && relations.productName === "—" ? (
-                        <div className="mt-3 rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
-                          Sin relaciones vinculadas todavía.
-                        </div>
-                      ) : (
-                        <div className="mt-3 divide-y border-t">
-                          {[['Project', relations.projectName], ['Client', relations.clientName], ['Product', relations.productName]].map(([label, value]) => (
-                            <div key={label} className="grid min-h-[40px] grid-cols-[80px_minmax(0,1fr)_24px] items-center gap-2 text-sm">
-                              <div className="font-semibold text-slate-500">{label}</div>
-                              <div className="truncate font-bold text-slate-900">{value}</div>
-                              <ExternalLink className="h-4 w-4 text-slate-400" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
@@ -821,7 +847,7 @@ export function TaskDetailDialog({
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
                       <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-950"><MessageSquare className="h-4 w-4" /> Internal Comments</h3>
                       <div className="mt-2 space-y-2">
-                        <Textarea value={newCommentBody} onChange={(e) => setNewCommentBody(e.target.value)} placeholder="Write an internal comment..." className="min-h-[86px]" />
+                        <Textarea value={newCommentBody} onChange={(e) => setNewCommentBody(e.target.value)} placeholder="Write an internal comment..." className="min-h-[100px]" />
                         <div className="flex justify-end"><Button onClick={() => void addComment()} disabled={!task?.id || saving || !newCommentBody.trim()}>Add comment</Button></div>
                       </div>
                       <div className="mt-2 space-y-2">
