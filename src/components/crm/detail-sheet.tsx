@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,19 +17,6 @@ interface DetailField {
 }
 
 type DetailSheetSize = "md" | "lg";
-
-type TaskQuickEditState = {
-  enabled: boolean;
-  id: string | null;
-  title: string;
-  status: string;
-  priority: string;
-  dueDate: string;
-  assignedTo: string;
-  resolving: boolean;
-  saving: boolean;
-  message: string | null;
-};
 
 type QuickProfile = {
   id: string;
@@ -55,6 +42,30 @@ type TaskComment = {
   created_at: string;
 };
 
+type TaskActivityEvent = {
+  id: string;
+  task_id: string;
+  event_type: string;
+  title: string;
+  description: string | null;
+  metadata: Record<string, unknown> | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+type TaskQuickEditState = {
+  enabled: boolean;
+  id: string | null;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate: string;
+  assignedTo: string;
+  resolving: boolean;
+  saving: boolean;
+  message: string | null;
+};
+
 interface DetailSheetProps {
   open: boolean;
   onClose?: () => void;
@@ -62,8 +73,8 @@ interface DetailSheetProps {
   title?: string;
   subtitle?: string;
   status?: string;
-  badges?: React.ReactNode;
-  icon?: React.ReactNode;
+  badges?: ReactNode;
+  icon?: ReactNode;
   accent?: "blue" | "green" | "violet" | "orange" | "amber" | "slate";
   size?: DetailSheetSize;
   fields?: DetailField[];
@@ -71,8 +82,8 @@ interface DetailSheetProps {
   notes?: string;
   onEdit?: () => void;
   onDelete?: () => void;
-  actions?: React.ReactNode;
-  children?: React.ReactNode;
+  actions?: ReactNode;
+  children?: ReactNode;
 }
 
 const ACCENT_CLASS: Record<NonNullable<DetailSheetProps["accent"]>, string> = {
@@ -128,13 +139,22 @@ function readTaskTextSnapshot(root: HTMLDivElement) {
     const found = labels.find((node) => node.textContent?.trim().toLowerCase() === label.toLowerCase());
     return found?.parentElement?.querySelector(".mt-1")?.textContent?.trim() || "";
   };
+  const due = readValue("Vence");
 
   return {
     title,
     description: description === "Sin descripción." ? "" : description,
     priority: readValue("Prioridad") || "Medium",
-    dueDate: readValue("Vence") === "—" ? "" : readValue("Vence"),
+    dueDate: due === "—" ? "" : due,
   };
+}
+
+function formatActivityDate(value: string) {
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
 }
 
 export function DetailSheet({
@@ -174,6 +194,7 @@ export function DetailSheet({
   });
   const [checklist, setChecklist] = useState<TaskChecklistItem[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
+  const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
   const [newChecklistTitle, setNewChecklistTitle] = useState("");
   const [newCommentBody, setNewCommentBody] = useState("");
   const [collabLoading, setCollabLoading] = useState(false);
@@ -198,6 +219,7 @@ export function DetailSheet({
       setTaskQuickEdit((current) => ({ ...current, enabled: false, id: null, message: null }));
       setChecklist([]);
       setComments([]);
+      setActivity([]);
       setNewChecklistTitle("");
       setNewCommentBody("");
       setCollabMessage(null);
@@ -243,13 +265,32 @@ export function DetailSheet({
       if (!isTaskDetail) return;
       const snapshot = readTaskTextSnapshot(root);
       if (!snapshot.title) return;
-      setTaskQuickEdit((current) => ({ ...current, enabled: true, title: snapshot.title, priority: snapshot.priority, dueDate: snapshot.dueDate, resolving: true, message: "Preparando edición rápida..." }));
+
+      setTaskQuickEdit((current) => ({
+        ...current,
+        enabled: true,
+        title: snapshot.title,
+        priority: snapshot.priority,
+        dueDate: snapshot.dueDate,
+        resolving: true,
+        message: "Preparando edición rápida...",
+      }));
+
       void (async () => {
         try {
-          const { data: profileRows } = await (supabase as any).from("profiles").select("id,user_id,full_name,email,is_active").order("full_name", { ascending: true }).limit(500);
+          const { data: profileRows } = await (supabase as any)
+            .from("profiles")
+            .select("id,user_id,full_name,email,is_active")
+            .order("full_name", { ascending: true })
+            .limit(500);
           setProfiles(Array.isArray(profileRows) ? profileRows.filter((p) => p && p.is_active !== false) : []);
+
           const taskIdFromUrl = readTaskIdFromUrl();
-          let taskQuery = (supabase as any).from("tasks").select("id,title,status,priority,due_date,assigned_to,description").limit(2);
+          let taskQuery = (supabase as any)
+            .from("tasks")
+            .select("id,title,status,priority,due_date,assigned_to,description")
+            .limit(2);
+
           if (taskIdFromUrl) {
             taskQuery = taskQuery.eq("id", taskIdFromUrl);
           } else {
@@ -258,17 +299,42 @@ export function DetailSheet({
             if (snapshot.priority) taskQuery = taskQuery.eq("priority", snapshot.priority);
             if (snapshot.dueDate) taskQuery = taskQuery.eq("due_date", snapshot.dueDate);
           }
+
           const { data, error } = await taskQuery;
           if (error) throw error;
           const rows = Array.isArray(data) ? data : [];
           if (rows.length !== 1) {
-            setTaskQuickEdit((current) => ({ ...current, resolving: false, id: null, message: taskIdFromUrl ? "No pude cargar esta tarea para edición rápida." : "Edición rápida disponible mejor desde /tasks?taskId=..." }));
+            setTaskQuickEdit((current) => ({
+              ...current,
+              resolving: false,
+              id: null,
+              message: taskIdFromUrl
+                ? "No pude cargar esta tarea para edición rápida."
+                : "Edición rápida disponible mejor desde /tasks?taskId=...",
+            }));
             return;
           }
+
           const task = rows[0];
-          setTaskQuickEdit({ enabled: true, id: String(task.id), title: String(task.title || snapshot.title), status: String(task.status || "To Do"), priority: String(task.priority || "Medium"), dueDate: String(task.due_date || ""), assignedTo: task.assigned_to ? String(task.assigned_to) : UNASSIGNED_VALUE, resolving: false, saving: false, message: null });
+          setTaskQuickEdit({
+            enabled: true,
+            id: String(task.id),
+            title: String(task.title || snapshot.title),
+            status: String(task.status || "To Do"),
+            priority: String(task.priority || "Medium"),
+            dueDate: String(task.due_date || ""),
+            assignedTo: task.assigned_to ? String(task.assigned_to) : UNASSIGNED_VALUE,
+            resolving: false,
+            saving: false,
+            message: null,
+          });
         } catch (error: any) {
-          setTaskQuickEdit((current) => ({ ...current, resolving: false, id: null, message: error?.message || "No se pudo preparar la edición rápida." }));
+          setTaskQuickEdit((current) => ({
+            ...current,
+            resolving: false,
+            id: null,
+            message: error?.message || "No se pudo preparar la edición rápida.",
+          }));
         }
       })();
     }, 80);
@@ -279,16 +345,34 @@ export function DetailSheet({
     setCollabLoading(true);
     setCollabMessage(null);
     try {
-      const [checklistResult, commentsResult] = await Promise.all([
-        (supabase as any).from("task_checklist_items").select("id,task_id,title,is_completed,order_index,created_at").eq("task_id", taskId).order("order_index", { ascending: true }).order("created_at", { ascending: true }),
-        (supabase as any).from("task_comments").select("id,task_id,body,created_by,created_at").eq("task_id", taskId).order("created_at", { ascending: false }).limit(50),
+      const [checklistResult, commentsResult, activityResult] = await Promise.all([
+        (supabase as any)
+          .from("task_checklist_items")
+          .select("id,task_id,title,is_completed,order_index,created_at")
+          .eq("task_id", taskId)
+          .order("order_index", { ascending: true })
+          .order("created_at", { ascending: true }),
+        (supabase as any)
+          .from("task_comments")
+          .select("id,task_id,body,created_by,created_at")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        (supabase as any)
+          .from("task_activity_events")
+          .select("id,task_id,event_type,title,description,metadata,created_by,created_at")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: false })
+          .limit(80),
       ]);
       if (checklistResult.error) throw checklistResult.error;
       if (commentsResult.error) throw commentsResult.error;
+      if (activityResult.error) throw activityResult.error;
       setChecklist(Array.isArray(checklistResult.data) ? checklistResult.data : []);
       setComments(Array.isArray(commentsResult.data) ? commentsResult.data : []);
+      setActivity(Array.isArray(activityResult.data) ? activityResult.data : []);
     } catch (error: any) {
-      setCollabMessage(error?.message || "No se pudieron cargar checklist y comentarios.");
+      setCollabMessage(error?.message || "No se pudieron cargar checklist, comentarios y actividad.");
     } finally {
       setCollabLoading(false);
     }
@@ -320,15 +404,21 @@ export function DetailSheet({
       saving: false,
       message: "Guardado. Los datos se reflejarán al refrescar o reabrir la tarea.",
     }));
+    await loadTaskCollaboration(taskQuickEdit.id);
     toast.success("Tarea actualizada.");
   };
 
   const addChecklistItem = async () => {
-    const title = newChecklistTitle.trim();
-    if (!taskQuickEdit.id || !title) return;
+    const itemTitle = newChecklistTitle.trim();
+    if (!taskQuickEdit.id || !itemTitle) return;
     setCollabSaving(true);
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = await (supabase as any).from("task_checklist_items").insert({ task_id: taskQuickEdit.id, title, order_index: checklist.length + 1, created_by: userData?.user?.id || null });
+    const { error } = await (supabase as any).from("task_checklist_items").insert({
+      task_id: taskQuickEdit.id,
+      title: itemTitle,
+      order_index: checklist.length + 1,
+      created_by: userData?.user?.id || null,
+    });
     setCollabSaving(false);
     if (error) {
       toast.error(error.message || "No se pudo agregar el item.");
@@ -339,12 +429,16 @@ export function DetailSheet({
   };
 
   const toggleChecklistItem = async (item: TaskChecklistItem) => {
-    const { error } = await (supabase as any).from("task_checklist_items").update({ is_completed: !item.is_completed, updated_at: new Date().toISOString() }).eq("id", item.id);
+    const { error } = await (supabase as any)
+      .from("task_checklist_items")
+      .update({ is_completed: !item.is_completed, updated_at: new Date().toISOString() })
+      .eq("id", item.id);
     if (error) {
       toast.error(error.message || "No se pudo actualizar el checklist.");
       return;
     }
     setChecklist((current) => current.map((row) => (row.id === item.id ? { ...row, is_completed: !item.is_completed } : row)));
+    if (taskQuickEdit.id) await loadTaskCollaboration(taskQuickEdit.id);
   };
 
   const deleteChecklistItem = async (item: TaskChecklistItem) => {
@@ -354,6 +448,7 @@ export function DetailSheet({
       return;
     }
     setChecklist((current) => current.filter((row) => row.id !== item.id));
+    if (taskQuickEdit.id) await loadTaskCollaboration(taskQuickEdit.id);
   };
 
   const addComment = async () => {
@@ -361,7 +456,11 @@ export function DetailSheet({
     if (!taskQuickEdit.id || !body) return;
     setCollabSaving(true);
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = await (supabase as any).from("task_comments").insert({ task_id: taskQuickEdit.id, body, created_by: userData?.user?.id || null });
+    const { error } = await (supabase as any).from("task_comments").insert({
+      task_id: taskQuickEdit.id,
+      body,
+      created_by: userData?.user?.id || null,
+    });
     setCollabSaving(false);
     if (error) {
       toast.error(error.message || "No se pudo agregar el comentario.");
@@ -380,13 +479,36 @@ export function DetailSheet({
             <div className="text-sm font-semibold text-slate-900">Acciones rápidas</div>
             <div className="text-xs text-slate-500">Cambia estado, prioridad, vencimiento y responsable sin abrir el editor completo.</div>
           </div>
-          {taskQuickEdit.saving || taskQuickEdit.resolving ? <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">{taskQuickEdit.saving ? "Guardando..." : "Cargando..."}</span> : null}
+          {taskQuickEdit.saving || taskQuickEdit.resolving ? (
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">
+              {taskQuickEdit.saving ? "Guardando..." : "Cargando..."}
+            </span>
+          ) : null}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="space-y-1.5 text-xs font-semibold text-slate-500">Estado<select value={taskQuickEdit.status} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ status: event.target.value })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60">{TASK_STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-          <label className="space-y-1.5 text-xs font-semibold text-slate-500">Prioridad<select value={taskQuickEdit.priority} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ priority: event.target.value })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60">{TASK_PRIORITIES.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-          <label className="space-y-1.5 text-xs font-semibold text-slate-500">Vencimiento<input type="date" value={taskQuickEdit.dueDate} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ due_date: event.target.value || null })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60" /></label>
-          <label className="space-y-1.5 text-xs font-semibold text-slate-500">Responsable<select value={taskQuickEdit.assignedTo} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ assigned_to: event.target.value === UNASSIGNED_VALUE ? null : event.target.value })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60"><option value={UNASSIGNED_VALUE}>Sin asignar</option>{profiles.map((profile) => <option key={profile.id} value={String(profile.user_id || profile.id)}>{String(profile.full_name || profile.email || "Usuario")}</option>)}</select></label>
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Estado
+            <select value={taskQuickEdit.status} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ status: event.target.value })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60">
+              {TASK_STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Prioridad
+            <select value={taskQuickEdit.priority} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ priority: event.target.value })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60">
+              {TASK_PRIORITIES.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Vencimiento
+            <input type="date" value={taskQuickEdit.dueDate} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ due_date: event.target.value || null })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60" />
+          </label>
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Responsable
+            <select value={taskQuickEdit.assignedTo} disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving} onChange={(event) => void updateTaskQuickField({ assigned_to: event.target.value === UNASSIGNED_VALUE ? null : event.target.value })} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60">
+              <option value={UNASSIGNED_VALUE}>Sin asignar</option>
+              {profiles.map((profile) => <option key={profile.id} value={String(profile.user_id || profile.id)}>{String(profile.full_name || profile.email || "Usuario")}</option>)}
+            </select>
+          </label>
         </div>
         {taskQuickEdit.message ? <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">{taskQuickEdit.message}</div> : null}
       </div>
@@ -410,7 +532,19 @@ export function DetailSheet({
             <input value={newChecklistTitle} onChange={(event) => setNewChecklistTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void addChecklistItem(); }} placeholder="Nueva subtarea" className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400" />
             <Button type="button" size="sm" variant="outline" disabled={!taskQuickEdit.id || collabSaving || !newChecklistTitle.trim()} onClick={() => void addChecklistItem()}>Agregar</Button>
           </div>
-          {checklist.length === 0 ? <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">No hay subtareas todavía.</div> : <div className="space-y-2">{checklist.map((item) => <div key={item.id} className="flex items-center gap-2 rounded-xl border bg-slate-50 p-2.5"><input type="checkbox" checked={item.is_completed} onChange={() => void toggleChecklistItem(item)} className="h-4 w-4 shrink-0" /><span className={"min-w-0 flex-1 text-sm font-medium " + (item.is_completed ? "text-slate-400 line-through" : "text-slate-800")}>{item.title}</span><button type="button" onClick={() => void deleteChecklistItem(item)} className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Borrar</button></div>)}</div>}
+          {checklist.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">No hay subtareas todavía.</div>
+          ) : (
+            <div className="space-y-2">
+              {checklist.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 rounded-xl border bg-slate-50 p-2.5">
+                  <input type="checkbox" checked={item.is_completed} onChange={() => void toggleChecklistItem(item)} className="h-4 w-4 shrink-0" />
+                  <span className={"min-w-0 flex-1 text-sm font-medium " + (item.is_completed ? "text-slate-400 line-through" : "text-slate-800")}>{item.title}</span>
+                  <button type="button" onClick={() => void deleteChecklistItem(item)} className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Borrar</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -420,9 +554,54 @@ export function DetailSheet({
           </div>
           <textarea value={newCommentBody} onChange={(event) => setNewCommentBody(event.target.value)} placeholder="Escribe una nota interna..." className="mb-2 min-h-[86px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
           <div className="mb-3 flex justify-end"><Button type="button" size="sm" disabled={!taskQuickEdit.id || collabSaving || !newCommentBody.trim()} onClick={() => void addComment()}>Agregar nota</Button></div>
-          {comments.length === 0 ? <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">No hay comentarios todavía.</div> : <div className="max-h-[320px] space-y-2 overflow-auto pr-1">{comments.map((comment) => <div key={comment.id} className="rounded-xl border bg-slate-50 p-3"><div className="mb-1 text-[11px] font-semibold text-slate-400">{new Date(comment.created_at).toLocaleString()}</div><div className="whitespace-pre-wrap text-sm text-slate-700">{comment.body}</div></div>)}</div>}
+          {comments.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">No hay comentarios todavía.</div>
+          ) : (
+            <div className="max-h-[320px] space-y-2 overflow-auto pr-1">
+              {comments.map((comment) => (
+                <div key={comment.id} className="rounded-xl border bg-slate-50 p-3">
+                  <div className="mb-1 text-[11px] font-semibold text-slate-400">{formatActivityDate(comment.created_at)}</div>
+                  <div className="whitespace-pre-wrap text-sm text-slate-700">{comment.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        {collabMessage ? <div className="lg:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{collabMessage}</div> : null}
+        {collabMessage ? <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 lg:col-span-2">{collabMessage}</div> : null}
+      </div>
+    );
+  };
+
+  const renderTaskActivity = () => {
+    if (!taskQuickEdit.enabled) return null;
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Actividad</div>
+            <div className="text-xs text-slate-500">Historial de cambios, checklist y notas de esta tarea.</div>
+          </div>
+          {activity.length ? <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">{activity.length}</span> : null}
+        </div>
+        {activity.length === 0 ? (
+          <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">Todavía no hay actividad registrada.</div>
+        ) : (
+          <div className="max-h-[360px] space-y-3 overflow-auto pr-1">
+            {activity.map((event) => (
+              <div key={event.id} className="relative pl-5">
+                <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border border-slate-300 bg-white" />
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-slate-900">{event.title}</div>
+                    <div className="text-[11px] font-semibold text-slate-400">{formatActivityDate(event.created_at)}</div>
+                  </div>
+                  {event.description ? <div className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{event.description}</div> : null}
+                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{event.event_type}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -436,6 +615,7 @@ export function DetailSheet({
               <div ref={customDialogContentRef} className="p-3 sm:p-5 [&>div]:grid [&>div]:grid-cols-1 [&>div]:gap-5 [&>div]:space-y-0 lg:[&>div]:grid-cols-[minmax(0,1fr)_390px] lg:[&>div>*:first-child]:col-span-2 [&>div>*:first-child]:sticky [&>div>*:first-child]:top-0 [&>div>*:first-child]:z-20 [&>div>*:first-child]:shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
                 {renderTaskQuickActions()}
                 {renderTaskCollaboration()}
+                {renderTaskActivity()}
                 {children}
               </div>
             </ScrollArea>
@@ -444,7 +624,13 @@ export function DetailSheet({
 
         <Dialog open={!!drivePreview} onOpenChange={(nextOpen) => !nextOpen && setDrivePreview(null)}>
           <DialogContent className="h-[92dvh] w-[calc(100vw-20px)] max-w-[1040px] gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b px-4 py-3"><div className="min-w-0"><div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Preview de Drive</div><div className="truncate text-sm font-semibold text-slate-900">{drivePreview?.title || "Archivo"}</div></div><Button type="button" variant="outline" size="sm" onClick={() => setDrivePreview(null)}>Cerrar</Button></div>
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Preview de Drive</div>
+                <div className="truncate text-sm font-semibold text-slate-900">{drivePreview?.title || "Archivo"}</div>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setDrivePreview(null)}>Cerrar</Button>
+            </div>
             {drivePreview?.url ? <iframe src={drivePreview.url} title={drivePreview.title || "Preview de Drive"} className="h-[calc(92dvh-57px)] w-full border-0 bg-slate-100" allow="autoplay" /> : null}
           </DialogContent>
         </Dialog>
@@ -462,8 +648,8 @@ export function DetailSheet({
               <div className="flex min-w-0 items-start gap-3">
                 {icon ? <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border bg-background/85 shadow-[0_12px_24px_rgba(15,23,42,.06)]">{icon}</div> : null}
                 <div className="min-w-0">
-                  {title ? <SheetTitle className="text-[18px] font-semibold tracking-[-0.02em] truncate">{title}</SheetTitle> : null}
-                  {subtitle ? <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{subtitle}</p> : null}
+                  {title ? <SheetTitle className="truncate text-[18px] font-semibold tracking-[-0.02em]">{title}</SheetTitle> : null}
+                  {subtitle ? <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{subtitle}</p> : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2">{status ? <StatusBadge status={status} /> : null}{badges ? badges : null}</div>
                 </div>
               </div>
@@ -476,18 +662,28 @@ export function DetailSheet({
         ) : null}
 
         <ScrollArea className={hasHeaderContent ? "h-[calc(100vh-118px)]" : "h-screen"}>
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             {fields.length > 0 ? (
               <div data-demo={fieldGroupDataDemo} className="grid grid-cols-2 gap-4">
-                {fields.map((f) => (
-                  <div key={f.label} className={f.type === "tags" ? "col-span-2" : ""}>
-                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{f.label}</span>
-                    {f.type === "badge" && f.value ? <div className="mt-1"><StatusBadge status={String(f.value)} /></div> : f.type === "currency" ? <p className="text-sm font-semibold mt-0.5">${Number(f.value || 0).toLocaleString()}</p> : f.type === "tags" && f.value ? <div className="flex flex-wrap gap-1 mt-1">{String(f.value).split(",").map((t) => <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{t.trim()}</span>)}</div> : <p className="text-sm font-medium mt-0.5">{f.value || t("common.none")}</p>}
+                {fields.map((field) => (
+                  <div key={field.label} className={field.type === "tags" ? "col-span-2" : ""}>
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{field.label}</span>
+                    {field.type === "badge" && field.value ? (
+                      <div className="mt-1"><StatusBadge status={String(field.value)} /></div>
+                    ) : field.type === "currency" ? (
+                      <p className="mt-0.5 text-sm font-semibold">${Number(field.value || 0).toLocaleString()}</p>
+                    ) : field.type === "tags" && field.value ? (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {String(field.value).split(",").map((tag) => <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{tag.trim()}</span>)}
+                      </div>
+                    ) : (
+                      <p className="mt-0.5 text-sm font-medium">{field.value || t("common.none")}</p>
+                    )}
                   </div>
                 ))}
               </div>
             ) : null}
-            {notes && <><Separator /><div><span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{t("common.notes")}</span><p className="text-sm mt-1 text-muted-foreground whitespace-pre-wrap">{notes}</p></div></>}
+            {notes ? <><Separator /><div><span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("common.notes")}</span><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{notes}</p></div></> : null}
             {children && <>{children}</>}
           </div>
         </ScrollArea>
