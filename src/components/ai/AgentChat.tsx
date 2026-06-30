@@ -260,17 +260,27 @@ function AgentComposerActionPanel({
   const summary = context.rows[0]?.subtitle || context.summary || meta?.nextStep || "Accion procesada por Corevix AI.";
   const visibleRows = context.rows.slice(0, 4);
   const visibleMetrics = context.metrics?.slice(0, 4) || [];
+  const primaryAction = context.primaryAction;
 
   return (
     <div className={`agentic-ai-action-panel ${expanded ? "is-expanded" : ""} ${toneClass(tone)}`}>
-      <button type="button" className="agentic-ai-action-summary" onClick={onToggle} aria-expanded={expanded}>
-        <span className="agentic-ai-action-count">{countLabel}</span>
-        <span className="agentic-ai-action-copy">
-          <strong>{title}</strong>
-          <small>{summary}</small>
-        </span>
-        <span className="agentic-ai-action-expand"><ChevronUp className="h-4 w-4" /></span>
-      </button>
+      <div className="agentic-ai-action-summary">
+        <button type="button" className="agentic-ai-action-toggle" onClick={onToggle} aria-expanded={expanded}>
+          <span className="agentic-ai-action-count">{countLabel}</span>
+          <span className="agentic-ai-action-copy">
+            <strong>{title}</strong>
+            <small>{summary}</small>
+          </span>
+        </button>
+        {primaryAction ? (
+          <a className="agentic-ai-action-primary" href={primaryAction.href}>
+            {primaryAction.label}
+          </a>
+        ) : null}
+        <button type="button" className="agentic-ai-action-expand" onClick={onToggle} aria-label={expanded ? "Contraer detalle" : "Ver detalle"}>
+          <ChevronUp className="h-4 w-4" />
+        </button>
+      </div>
 
       <div className="agentic-ai-action-details" aria-hidden={!expanded}>
         <div className="agentic-ai-action-tool-pill">
@@ -281,27 +291,49 @@ function AgentComposerActionPanel({
 
         {visibleMetrics.length ? (
           <div className="agentic-ai-action-metrics">
-            {visibleMetrics.map((metric) => (
-              <div key={metric.id} className={`agentic-ai-action-metric ${toneClass(metric.tone)}`}>
-                <strong>{metric.value}</strong>
-                <span>{metric.label}</span>
-              </div>
-            ))}
+            {visibleMetrics.map((metric) => {
+              const metricAction = metric.actions?.[0];
+              return metricAction ? (
+                <a key={metric.id} href={metricAction.href} className={`agentic-ai-action-metric ${toneClass(metric.tone)}`}>
+                  <strong>{metric.value}</strong>
+                  <span>{metric.label}</span>
+                  <em>{metricAction.label}</em>
+                </a>
+              ) : (
+                <div key={metric.id} className={`agentic-ai-action-metric ${toneClass(metric.tone)}`}>
+                  <strong>{metric.value}</strong>
+                  <span>{metric.label}</span>
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
         {visibleRows.length ? (
           <div className="agentic-ai-action-rows">
-            {visibleRows.map((row) => (
-              <div key={row.id} className="agentic-ai-action-row">
-                <span className={`agentic-ai-action-row-dot ${toneClass(row.tone || tone)}`} />
-                <span>
-                  <strong>{row.title}</strong>
-                  {row.subtitle ? <small>{row.subtitle}</small> : null}
-                </span>
-                {row.value ? <b>{row.value}</b> : null}
-              </div>
-            ))}
+            {visibleRows.map((row) => {
+              const rowAction = row.actions?.[0];
+              const content = (
+                <>
+                  <span className={`agentic-ai-action-row-dot ${toneClass(row.tone || tone)}`} />
+                  <span>
+                    <strong>{row.title}</strong>
+                    {row.subtitle ? <small>{row.subtitle}</small> : null}
+                  </span>
+                  {row.value ? <b>{row.value}</b> : null}
+                  {rowAction ? <em>{rowAction.label}</em> : null}
+                </>
+              );
+              return rowAction ? (
+                <a key={row.id} href={rowAction.href} className="agentic-ai-action-row is-clickable">
+                  {content}
+                </a>
+              ) : (
+                <div key={row.id} className="agentic-ai-action-row">
+                  {content}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="agentic-ai-action-empty">
