@@ -228,6 +228,10 @@
     overflow: hidden !important;
   }
 
+  .agentic-ai-shell .agentic-ai-dock {
+    z-index: 30 !important;
+  }
+
   .agentic-ai-dock-form,
   .agentic-ai-hero-form {
     display: flex !important;
