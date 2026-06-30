@@ -117,7 +117,6 @@ type ProjectRow = {
   client_id: string | null;
   product_id: string | null;
 };
-
 type ClientRow = { id: string; company_name: string; contact_person: string | null };
 type ProductRow = { id: string; name: string };
 type ProfileRow = {
@@ -300,6 +299,16 @@ function sortTaskRows(a: Task, b: Task) {
 function TasksPage() {
   const { profile, user } = useAuth();
   const { can } = usePermissions();
+  const deepLinkTaskId = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const value = new URLSearchParams(window.location.search).get("taskId");
+      return value && value.trim().length ? value.trim() : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const handledDeepLinkTaskRef = useRef(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -382,6 +391,25 @@ function TasksPage() {
       { column: "linked_id", op: "eq", value: selectedTask?.id || null },
     ],
   });
+
+  useEffect(() => {
+    if (handledDeepLinkTaskRef.current) return;
+    if (!deepLinkTaskId) return;
+    if (loading) return;
+
+    handledDeepLinkTaskRef.current = true;
+    const found = tasks.find((task) => String(task.id) === String(deepLinkTaskId));
+
+    if (!found) {
+      toast.error("No encontré esa tarea.");
+      return;
+    }
+
+    setSelectedTask(found);
+    if (found.related_project_id) {
+      setExpandedProjectId(found.related_project_id);
+    }
+  }, [deepLinkTaskId, loading, tasks]);
 
   useEffect(() => {
     setDriveUrlInput("");
@@ -1400,218 +1428,88 @@ function TasksPage() {
                                     {g.projectName}
                                   </div>
                                   {g.isOverdue ? (
-                                    <span className="shrink-0 inline-flex items-center rounded-full border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 text-[10px] font-extrabold text-[#b91c1c]">
-                                      Vencido
+                                    <span className="shrink-0 inline-flex items-center rounded-full border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 text-[10px] font-bold text-[#b91c1c]">
+                                      Atrasado
                                     </span>
                                   ) : g.isDueToday ? (
-                                    <span className="shrink-0 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-extrabold text-amber-800">
-                                      Vence hoy
+                                    <span className="shrink-0 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                      Hoy
                                     </span>
                                   ) : null}
-                                  {g.projectStatus ? (
-                                    <span className="shrink-0 hidden sm:inline-flex">
-                                      <StatusBadge status={g.projectStatus} />
-                                    </span>
-                                  ) : null}
+                                  {g.projectStatus ? <StatusBadge status={g.projectStatus} /> : null}
                                 </div>
-                                <div className="mt-1 text-[12px] text-slate-500 truncate">
-                                  {g.clientLabel ? (
-                                    <span>{g.clientLabel}</span>
-                                  ) : (
-                                    <span>Sin cliente</span>
-                                  )}
-                                  {g.productLabel ? (
-                                    <span className="text-slate-400"> · {g.productLabel}</span>
-                                  ) : null}
+                                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+                                  {g.clientLabel ? <span>{g.clientLabel}</span> : null}
+                                  {g.productLabel ? <span>· {g.productLabel}</span> : null}
+                                  <span>· Vence: {formatShortDate(g.projectDueDate)}</span>
                                 </div>
                               </div>
-
-                              <div className="shrink-0 flex items-center gap-2">
-                                <Link
-                                  to={"/projects" as any}
-                                  className="hidden sm:inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  Ver proyecto
-                                </Link>
-                                {can("tasks.create") ? (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-2 border-slate-200 bg-white"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setPresetProjectId(g.projectId);
-                                      setEditTask(null);
-                                      setDialogOpen(true);
-                                    }}
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                ) : null}
+                              <div className="hidden min-w-[160px] sm:block">
+                                <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                                  <span>Progreso</span>
+                                  <span>{g.progress}%</span>
+                                </div>
+                                <Progress value={g.progress} className="h-2" />
                               </div>
                             </div>
 
-                            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold">
-                                {g.total} tareas
-                              </span>
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold">
-                                {g.inProgress} en progreso
-                              </span>
-                              <span
-                                className={
-                                  "inline-flex items-center rounded-full border px-2 py-0.5 font-semibold " +
-                                  (g.overdue
-                                    ? "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]"
-                                    : "border-slate-200 bg-slate-50")
-                                }
-                              >
-                                {g.overdue} atrasadas
-                              </span>
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold">
-                                {g.progress}% completado
-                              </span>
-                              {g.nextDue ? (
-                                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold">
-                                  próxima: {g.nextDue}
-                                </span>
-                              ) : null}
-                            </div>
-
-                            <div className="mt-3 flex items-center gap-3">
-                              <Progress value={g.progress || 0} className="h-2 w-full" />
-                              <span className="shrink-0 text-[12px] font-semibold text-slate-500">
-                                {g.progress || 0}%
-                              </span>
+                            <div className="mt-3 grid grid-cols-4 gap-2 text-[11px] text-slate-600 sm:max-w-lg">
+                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
+                                <strong className="block text-slate-900">{g.total}</strong>
+                                total
+                              </div>
+                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
+                                <strong className="block text-slate-900">{g.active}</strong>
+                                activas
+                              </div>
+                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
+                                <strong className="block text-slate-900">{g.dueToday}</strong>
+                                hoy
+                              </div>
+                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
+                                <strong className="block text-slate-900">{g.overdue}</strong>
+                                atrasadas
+                              </div>
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="px-4 pb-4 pt-0">
-                          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  {canDeleteTasks ? (
-                                    <TableHead className="w-[42px] pl-4 pr-0" />
-                                  ) : null}
-                                  <TableHead className="pl-4">Tarea</TableHead>
-                                  <TableHead className="hidden md:table-cell">
-                                    Responsable
-                                  </TableHead>
-                                  <TableHead>Priority</TableHead>
-                                  <TableHead>Status</TableHead>
-                                  <TableHead>Vence</TableHead>
-                                  <TableHead className="hidden lg:table-cell">Archivos</TableHead>
-                                  <TableHead className="pr-4 text-right">Actions</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {g.tasks.map((t) => {
-                                  const assignee = t.assigned_to
-                                    ? assigneesByAnyId.get(t.assigned_to)
-                                    : null;
-                                  const assigneeLabel = assignee
-                                    ? String(assignee.full_name || assignee.email || "").trim() ||
-                                      "—"
-                                    : "—";
-                                  const dueKey = toDateKeyLocal(t.due_date);
-                                  const todayKey = isoTodayLocal();
-                                  const isActive = !isClosedTaskStatusValue(t.status);
-                                  const isOverdue = isActive && !!dueKey && dueKey < todayKey;
-                                  const isDueToday = isActive && !!dueKey && dueKey === todayKey;
-                                  const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;
-                                  return (
-                                    <TableRow
-                                      key={t.id}
-                                      className={
-                                        "cursor-pointer hover:bg-slate-50 transition-colors " +
-                                        (selectedTaskIdSet.has(t.id) ? "bg-[#f4f8ff]" : "") +
-                                        (isOverdue
-                                          ? "border-l-2 border-l-[#e11d48] bg-[#fff1f3]/40"
-                                          : isDueToday
-                                            ? "border-l-2 border-l-amber-400 bg-amber-50/30"
-                                            : "")
-                                      }
-                                      onClick={() => setSelectedTask(t)}
-                                    >
-                                      {canDeleteTasks ? (
-                                        <TableCell
-                                          className="pl-4 pr-0"
-                                          onClick={(event) => event.stopPropagation()}
-                                        >
-                                          <Checkbox
-                                            type="button"
-                                            checked={selectedTaskIdSet.has(t.id)}
-                                            onCheckedChange={() => toggleTaskSelection(t.id)}
-                                            aria-label={
-                                              selectedTaskIdSet.has(t.id)
-                                                ? "Deseleccionar tarea"
-                                                : "Seleccionar tarea"
-                                            }
-                                          />
-                                        </TableCell>
-                                      ) : null}
-                                      <TableCell className="pl-4">
-                                        <div className="min-w-0">
-                                          <div className="font-semibold truncate text-slate-900">
-                                            {t.title}
-                                          </div>
-                                          {t.description ? (
-                                            <div className="mt-0.5 text-[12px] text-slate-500 truncate">
-                                              {t.description}
-                                            </div>
-                                          ) : null}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="hidden md:table-cell text-slate-500 truncate max-w-[220px]">
-                                        {t.assigned_to ? (
-                                          assigneeLabel
-                                        ) : (
-                                          <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                                            Sin asignar
-                                          </span>
-                                        )}
-                                      </TableCell>
-                                      <TableCell>
-                                        <StatusBadge status={t.priority} />
-                                      </TableCell>
-                                      <TableCell>
-                                        <StatusBadge status={t.status} />
-                                      </TableCell>
-                                      <TableCell className="text-slate-500 text-sm">
-                                        <div className="flex items-center gap-2">
-                                          <span>{formatShortDate(t.due_date)}</span>
-                                          {isOverdue ? (
-                                            <span className="inline-flex rounded-full border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 text-[10px] font-bold text-[#b91c1c]">
-                                              Atrasada
-                                            </span>
-                                          ) : isDueToday ? (
-                                            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                                              Hoy
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="hidden lg:table-cell text-slate-500 text-sm">
-                                        {filesCount ? (
-                                          <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold">
-                                            {filesCount}
-                                          </span>
-                                        ) : (
-                                          <span className="text-slate-400">—</span>
-                                        )}
-                                      </TableCell>
-                                      <TableCell className="pr-4 text-right">
-                                        {renderTaskActions(t)}
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
+                        <AccordionContent className="bg-white px-4 pb-4">
+                          <div className="space-y-2 pt-2">
+                            {g.tasks.map((t) => {
+                              const assignee = t.assigned_to
+                                ? assigneesByAnyId.get(t.assigned_to)
+                                : null;
+                              const assigneeLabel = assignee
+                                ? String(assignee.full_name || assignee.email || "").trim() || "—"
+                                : "—";
+                              const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;
+                              return (
+                                <div
+                                  key={t.id}
+                                  className="flex cursor-pointer flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 transition-colors hover:border-slate-300 hover:bg-white lg:flex-row lg:items-center"
+                                  onClick={() => setSelectedTask(t)}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <div className="truncate font-semibold text-slate-900">
+                                        {t.title}
+                                      </div>
+                                      <StatusBadge status={t.priority} />
+                                      <StatusBadge status={t.status} />
+                                    </div>
+                                    <div className="mt-1 text-sm text-slate-600">
+                                      {t.description || "Sin descripción."}
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+                                      <span>Asignado: {t.assigned_to ? assigneeLabel : "—"}</span>
+                                      <span>· Vence: {formatShortDate(t.due_date)}</span>
+                                      <span>· Archivos: {filesCount || "—"}</span>
+                                    </div>
+                                  </div>
+                                  <div onClick={(e) => e.stopPropagation()}>{renderTaskActions(t)}</div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -1624,77 +1522,26 @@ function TasksPage() {
         </div>
       </DataCard>
 
-      <AlertDialog open={bulkDeleteOpen} onOpenChange={(open) => !open && setBulkDeleteOpen(false)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vas a eliminar {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}. Esta
-              acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkDeleteSaving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleBulkDelete();
-              }}
-              disabled={bulkDeleteSaving}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {bulkDeleteSaving ? "Eliminando..." : "Eliminar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(o) => {
-          setDialogOpen(o);
-          if (!o) setEditTask(null);
-        }}
-      >
-        <DialogContent className="max-w-lg">
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editTask ? "Edit Task" : "New Task"}</DialogTitle>
+            <DialogTitle>{editTask ? "Edit Task" : "Add Task"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Title</Label>
-              <Input name="title" defaultValue={editTask?.title} required />
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" name="title" defaultValue={editTask?.title || ""} required />
             </div>
-
-            <div className="space-y-1.5">
-              <Label>Description</Label>
-              <Textarea name="description" defaultValue={editTask?.description || ""} rows={3} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Project</Label>
-              <Select
-                name="related_project_id"
-                defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sin proyecto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no-project">Sin proyecto</SelectItem>
-                  {projects
-                    .slice()
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                defaultValue={editTask?.description || ""}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label>Status</Label>
                 <Select name="status" defaultValue={editTask?.status || "To Do"}>
                   <SelectTrigger>
@@ -1709,340 +1556,311 @@ function TasksPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label>Priority</Label>
                 <Select name="priority" defaultValue={editTask?.priority || "Medium"}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PRIORITIES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
+                    {PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Due Date</Label>
-              <Input name="due_date" type="date" defaultValue={editTask?.due_date || ""} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="due_date">Due Date</Label>
+                <Input
+                  id="due_date"
+                  name="due_date"
+                  type="date"
+                  defaultValue={editTask?.due_date || ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Project</Label>
+                <Select
+                  name="related_project_id"
+                  defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin proyecto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no-project">Sin proyecto</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDialogOpen(false);
-                  setEditTask(null);
-                }}
-              >
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{editTask ? "Save" : "Create Task"}</Button>
+              <Button type="submit">{editTask ? "Update" : "Create"}</Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={!!deleteId}
-        onOpenChange={(o) => {
-          if (!o) setDeleteId(null);
-        }}
-      >
+      <DetailSheet open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
+        {selectedTask ? (
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                    Tarea
+                  </div>
+                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-slate-900">
+                    {selectedTask.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {selectedTask.description || "Sin descripción."}
+                  </p>
+                </div>
+                <StatusBadge status={selectedTask.status} />
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Prioridad</div>
+                  <div className="mt-1 font-semibold text-slate-900">{selectedTask.priority}</div>
+                </div>
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Vence</div>
+                  <div className="mt-1 font-semibold text-slate-900">
+                    {formatShortDate(selectedTask.due_date)}
+                  </div>
+                </div>
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Asignado</div>
+                  <div className="mt-1 font-semibold text-slate-900">{selectedAssigneeLabel}</div>
+                </div>
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Creada</div>
+                  <div className="mt-1 font-semibold text-slate-900">{selectedCreated}</div>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {!isClosedTaskStatusValue(selectedTask.status) ? (
+                  <Button size="sm" onClick={() => void updateSelectedTaskStatus("Completed")}>
+                    Marcar completada
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void updateSelectedTaskStatus("In Progress")}
+                  disabled={isInProgressTaskStatusValue(selectedTask.status)}
+                >
+                  En progreso
+                </Button>
+                {can("tasks.edit") ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditTask(selectedTask);
+                      setPresetProjectId(null);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    Editar
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Contexto</div>
+                  <div className="text-xs text-slate-500">Cliente, proyecto y producto relacionado.</div>
+                </div>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-3 border-b pb-2">
+                  <span className="text-slate-500">Proyecto</span>
+                  <span className="text-right font-medium text-slate-900">
+                    {selectedProject?.name || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3 border-b pb-2">
+                  <span className="text-slate-500">Cliente</span>
+                  <span className="text-right font-medium text-slate-900">
+                    {selectedClient
+                      ? selectedClient.contact_person
+                        ? `${selectedClient.company_name} · ${selectedClient.contact_person}`
+                        : selectedClient.company_name
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Producto</span>
+                  <span className="text-right font-medium text-slate-900">
+                    {selectedProduct?.name || "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Archivos de Drive</div>
+                  <div className="text-xs text-slate-500">
+                    Adjunta carpetas, documentos o sube archivos al Drive de esta tarea.
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={openDriveAttachmentPicker}>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Adjuntar enlace
+                  </Button>
+                  <Button size="sm" onClick={handleUploadClick} disabled={isUploadingFile}>
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Subir archivo
+                  </Button>
+                </div>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFilePicked}
+              />
+
+              <div className="mb-3 flex gap-2">
+                <Input
+                  value={driveUrlInput}
+                  onChange={(event) => setDriveUrlInput(event.target.value)}
+                  placeholder="Pega URL de Google Drive"
+                />
+                <Button type="button" variant="outline" onClick={attachDriveUrl}>
+                  Adjuntar
+                </Button>
+              </div>
+
+              {isUploadingFile ? (
+                <div className="mb-3 rounded-xl border bg-slate-50 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+                    <span className="truncate">Subiendo {uploadingFileName || "archivo"}</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              ) : null}
+
+              {driveFilesLoading ? (
+                <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">
+                  Cargando archivos...
+                </div>
+              ) : driveFiles.length === 0 ? (
+                <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">
+                  No hay archivos adjuntos todavía.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {driveFiles.map((file) => {
+                    const url = file.web_view_link || file.web_content_link;
+                    return (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border bg-slate-50 p-3"
+                      >
+                        <div className="min-w-0 flex items-center gap-3">
+                          {file.icon_link ? (
+                            <img src={file.icon_link} alt="" className="h-6 w-6 shrink-0" />
+                          ) : (
+                            <FileUp className="h-5 w-5 shrink-0 text-slate-500" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-slate-900">
+                              {file.name}
+                            </div>
+                            <div className="text-xs text-slate-500">{formatBytes(file.size_bytes)}</div>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {url ? (
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={url} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          ) : null}
+                          <Button size="sm" variant="outline" onClick={() => void copyFileLink(file)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          {can("tasks.edit") ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => void deleteDriveFile(file)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </DetailSheet>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Task</AlertDialogTitle>
-            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Eliminar tarea</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. La tarea será eliminada permanentemente.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDelete()} className="bg-red-600 text-white">
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {selectedTask && (
-        <DetailSheet
-          open={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
-          title={selectedTask.title}
-          status={selectedTask.status}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              {can("tasks.edit") ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => {
-                    setEditTask(selectedTask);
-                    setDialogOpen(true);
-                  }}
-                >
-                  Edit
-                </Button>
-              ) : null}
-              {can("tasks.delete") ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs text-destructive hover:text-destructive"
-                  onClick={() => setDeleteId(selectedTask.id)}
-                >
-                  Delete
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => void updateSelectedTaskStatus("In Progress")}
-                disabled={isInProgressTaskStatusValue(selectedTask.status)}
-              >
-                Marcar en progreso
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => void updateSelectedTaskStatus("Completed")}
-                disabled={isCompletedTaskStatusValue(selectedTask.status)}
-              >
-                Marcar completada
-              </Button>
-            </div>
-          }
-          fields={[
-            { label: "Priority", value: selectedTask.priority, type: "badge" },
-            { label: "Status", value: selectedTask.status, type: "badge" },
-            { label: "Due Date", value: selectedTask.due_date },
-            { label: "Assigned to", value: selectedAssigneeLabel },
-            { label: "Project", value: selectedProject?.name || "Sin proyecto" },
-            { label: "Client", value: selectedClient?.company_name || "Sin cliente" },
-            { label: "Created", value: selectedCreated },
-          ]}
-        >
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Contexto</h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="rounded-lg border p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Proyecto
-                  </p>
-                  <p className="mt-1 text-sm font-medium">
-                    {selectedProject?.name || "Sin proyecto"}
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Cliente
-                  </p>
-                  <p className="mt-1 text-sm font-medium">
-                    {selectedClient?.company_name || "Sin cliente"}
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3 sm:col-span-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Servicio / Producto
-                  </p>
-                  <p className="mt-1 text-sm font-medium">
-                    {selectedProduct?.name || "Sin servicio relacionado"}
-                  </p>
-                </div>
-              </div>
-              {selectedTask.related_project_id ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => window.open("/projects", "_blank", "noopener,noreferrer")}
-                >
-                  Ver proyecto
-                </Button>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Descripcion</h3>
-              <div className="rounded-lg border p-3 text-sm text-muted-foreground whitespace-pre-wrap">
-                {selectedTask.description || "Sin descripcion."}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Archivos de la tarea</h3>
-              <div className="flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFilePicked}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={handleUploadClick}
-                >
-                  <FileUp className="h-3.5 w-3.5 mr-1" />
-                  {isUploadingFile ? "Subiendo..." : "Subir archivo"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={openDriveAttachmentPicker}
-                >
-                  Adjuntar desde Drive
-                </Button>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <Input
-                value={driveUrlInput}
-                onChange={(e) => setDriveUrlInput(e.target.value)}
-                placeholder="Pega aquí la URL de Google Drive"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10"
-                onClick={() => void attachDriveUrl()}
-                disabled={!driveUrlInput.trim()}
-              >
-                Pegar URL
-              </Button>
-            </div>
-            {isUploadingFile ? (
-              <div className="rounded-lg border p-3">
-                <div className="text-xs font-medium truncate">
-                  Archivo: {uploadingFileName || "Archivo"}
-                </div>
-                <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 transition-all duration-150"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Subiendo archivo... {uploadProgress}%
-                </div>
-              </div>
-            ) : null}
-
-            {driveFilesLoading ? (
-              <p className="text-xs text-muted-foreground">Cargando archivos...</p>
-            ) : driveFiles.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                Esta tarea todavia no tiene archivos.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {driveFiles.map((file) => {
-                  const hasView = !!file.web_view_link;
-                  const hasDownload = !!file.web_content_link;
-                  const isPendingDrive = file.drive_file_id.startsWith("pending_");
-                  return (
-                    <div key={file.id} className="rounded-lg border p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium truncate">{file.name}</div>
-                        {isPendingDrive ? (
-                          <span className="inline-flex h-6 items-center rounded-full border border-amber-200 bg-amber-50 px-2 text-[10px] font-medium text-amber-700">
-                            Pendiente de Drive
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {file.mime_type || "Tipo desconocido"} · {formatBytes(file.size_bytes)}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          disabled={!hasView}
-                          onClick={() =>
-                            hasView &&
-                            window.open(file.web_view_link!, "_blank", "noopener,noreferrer")
-                          }
-                        >
-                          <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                          Abrir
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          disabled={!hasDownload}
-                          onClick={() =>
-                            hasDownload &&
-                            window.open(file.web_content_link!, "_blank", "noopener,noreferrer")
-                          }
-                        >
-                          <Download className="h-3.5 w-3.5 mr-1" />
-                          Descargar
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          onClick={() => copyFileLink(file)}
-                        >
-                          <Copy className="h-3.5 w-3.5 mr-1" />
-                          Copiar enlace
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs text-destructive hover:text-destructive border-red-200 hover:bg-red-50"
-                          onClick={() => void deleteDriveFile(file)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-1" />
-                          Eliminar
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          disabled
-                        >
-                          <MessageCirclePlus className="h-3.5 w-3.5 mr-1" />
-                          Enviar por WhatsApp
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Actividad</h3>
-              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                Sin actividad reciente.
-              </div>
-            </div>
-          </div>
-        </DetailSheet>
-      )}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}.
+              No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleteSaving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleBulkDelete()}
+              disabled={bulkDeleteSaving}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {bulkDeleteSaving ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
