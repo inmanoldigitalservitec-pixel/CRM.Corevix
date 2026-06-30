@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,6 +50,30 @@ function getSheetWidth(size: DetailSheetSize | undefined) {
   return "w-full sm:max-w-[520px]";
 }
 
+function getGoogleDrivePreviewUrl(rawHref: string | null | undefined) {
+  if (!rawHref) return null;
+
+  try {
+    const url = new URL(rawHref);
+    const pathname = url.pathname || "";
+
+    const fileMatch = pathname.match(/\/file\/d\/([^/]+)/);
+    if (fileMatch?.[1]) return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
+
+    const docsMatch = pathname.match(/\/(document|spreadsheets|presentation)\/d\/([^/]+)/);
+    if (docsMatch?.[1] && docsMatch?.[2]) {
+      return `https://docs.google.com/${docsMatch[1]}/d/${docsMatch[2]}/preview`;
+    }
+
+    const queryId = url.searchParams.get("id");
+    if (queryId) return `https://drive.google.com/file/d/${queryId}/preview`;
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function DetailSheet({
   open,
   onClose,
@@ -69,6 +94,8 @@ export function DetailSheet({
   children,
 }: DetailSheetProps) {
   const { t } = useT();
+  const customDialogContentRef = useRef<HTMLDivElement | null>(null);
+  const [drivePreview, setDrivePreview] = useState<{ url: string; title: string } | null>(null);
 
   const hasHeaderContent = Boolean(title || subtitle || status || badges || icon || actions || onEdit || onDelete);
 
@@ -82,17 +109,95 @@ export function DetailSheet({
     onClose?.();
   };
 
+  useEffect(() => {
+    if (!open || hasHeaderContent || fields.length > 0) return;
+
+    const timer = window.setTimeout(() => {
+      const root = customDialogContentRef.current;
+      if (!root) return;
+
+      const anchors = Array.from(
+        root.querySelectorAll<HTMLAnchorElement>(
+          'a[href*="drive.google.com"], a[href*="docs.google.com"]',
+        ),
+      );
+
+      for (const anchor of anchors) {
+        const previewUrl = getGoogleDrivePreviewUrl(anchor.href);
+        if (!previewUrl) continue;
+
+        const actionsContainer = anchor.parentElement;
+        if (!actionsContainer || actionsContainer.querySelector("[data-corevix-drive-preview-button]")) {
+          continue;
+        }
+
+        const fileCard = anchor.closest(".rounded-xl");
+        const fileTitle =
+          fileCard?.querySelector(".truncate")?.textContent?.trim() ||
+          anchor.getAttribute("aria-label") ||
+          "Vista previa de Drive";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "Preview";
+        button.setAttribute("data-corevix-drive-preview-button", "true");
+        button.className =
+          "inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 hover:text-slate-950";
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setDrivePreview({ url: previewUrl, title: fileTitle });
+        });
+
+        actionsContainer.insertBefore(button, anchor);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [open, hasHeaderContent, fields.length, children]);
+
   if (!hasHeaderContent && fields.length === 0 && children) {
     return (
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1180px] sm:rounded-3xl sm:border">
-          <ScrollArea className="h-full max-h-[100dvh] sm:max-h-[92vh]">
-            <div className="p-3 sm:p-5 [&>div]:grid [&>div]:grid-cols-1 [&>div]:gap-5 [&>div]:space-y-0 lg:[&>div]:grid-cols-[minmax(0,1fr)_390px] lg:[&>div>*:first-child]:col-span-2 [&>div>*:first-child]:sticky [&>div>*:first-child]:top-0 [&>div>*:first-child]:z-20 [&>div>*:first-child]:shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
-              {children}
+      <>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+          <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1180px] sm:rounded-3xl sm:border">
+            <ScrollArea className="h-full max-h-[100dvh] sm:max-h-[92vh]">
+              <div
+                ref={customDialogContentRef}
+                className="p-3 sm:p-5 [&>div]:grid [&>div]:grid-cols-1 [&>div]:gap-5 [&>div]:space-y-0 lg:[&>div]:grid-cols-[minmax(0,1fr)_390px] lg:[&>div>*:first-child]:col-span-2 [&>div>*:first-child]:sticky [&>div>*:first-child]:top-0 [&>div>*:first-child]:z-20 [&>div>*:first-child]:shadow-[0_14px_40px_rgba(15,23,42,0.08)]"
+              >
+                {children}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!drivePreview} onOpenChange={(nextOpen) => !nextOpen && setDrivePreview(null)}>
+          <DialogContent className="h-[92dvh] w-[calc(100vw-20px)] max-w-[1040px] gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Preview de Drive
+                </div>
+                <div className="truncate text-sm font-semibold text-slate-900">
+                  {drivePreview?.title || "Archivo"}
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setDrivePreview(null)}>
+                Cerrar
+              </Button>
             </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+            {drivePreview?.url ? (
+              <iframe
+                src={drivePreview.url}
+                title={drivePreview.title || "Preview de Drive"}
+                className="h-[calc(92dvh-57px)] w-full border-0 bg-slate-100"
+                allow="autoplay"
+              />
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
