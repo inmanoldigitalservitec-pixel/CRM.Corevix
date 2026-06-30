@@ -6,7 +6,9 @@ import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { useT } from "@/i18n";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DetailField {
   label: string;
@@ -15,6 +17,26 @@ interface DetailField {
 }
 
 type DetailSheetSize = "md" | "lg";
+
+type TaskQuickEditState = {
+  enabled: boolean;
+  id: string | null;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate: string;
+  assignedTo: string;
+  resolving: boolean;
+  saving: boolean;
+  message: string | null;
+};
+
+type QuickProfile = {
+  id: string;
+  user_id: string | null;
+  full_name: string | null;
+  email: string | null;
+};
 
 interface DetailSheetProps {
   open: boolean;
@@ -45,6 +67,10 @@ const ACCENT_CLASS: Record<NonNullable<DetailSheetProps["accent"]>, string> = {
   slate: "from-slate-600/30 via-slate-500/10 to-transparent",
 };
 
+const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
+const TASK_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const UNASSIGNED_VALUE = "__unassigned__";
+
 function getSheetWidth(size: DetailSheetSize | undefined) {
   if (size === "lg") return "w-full sm:max-w-[640px]";
   return "w-full sm:max-w-[520px]";
@@ -74,6 +100,34 @@ function getGoogleDrivePreviewUrl(rawHref: string | null | undefined) {
   }
 }
 
+function readTaskIdFromUrl() {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = new URLSearchParams(window.location.search).get("taskId");
+    return value && value.trim().length ? value.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function readTaskTextSnapshot(root: HTMLDivElement) {
+  const title = root.querySelector("h2")?.textContent?.trim() || "";
+  const description = root.querySelector("h2 + p")?.textContent?.trim() || "";
+  const labels = Array.from(root.querySelectorAll(".rounded-xl .text-xs.font-semibold.text-slate-500"));
+  const readValue = (label: string) => {
+    const found = labels.find((node) => node.textContent?.trim().toLowerCase() === label.toLowerCase());
+    return found?.parentElement?.querySelector(".mt-1")?.textContent?.trim() || "";
+  };
+
+  return {
+    title,
+    description: description === "Sin descripción." ? "" : description,
+    priority: readValue("Prioridad") || "Medium",
+    dueDate: readValue("Vence") === "—" ? "" : readValue("Vence"),
+    assignedLabel: readValue("Asignado"),
+  };
+}
+
 export function DetailSheet({
   open,
   onClose,
@@ -96,6 +150,19 @@ export function DetailSheet({
   const { t } = useT();
   const customDialogContentRef = useRef<HTMLDivElement | null>(null);
   const [drivePreview, setDrivePreview] = useState<{ url: string; title: string } | null>(null);
+  const [profiles, setProfiles] = useState<QuickProfile[]>([]);
+  const [taskQuickEdit, setTaskQuickEdit] = useState<TaskQuickEditState>({
+    enabled: false,
+    id: null,
+    title: "",
+    status: "To Do",
+    priority: "Medium",
+    dueDate: "",
+    assignedTo: UNASSIGNED_VALUE,
+    resolving: false,
+    saving: false,
+    message: null,
+  });
 
   const hasHeaderContent = Boolean(title || subtitle || status || badges || icon || actions || onEdit || onDelete);
 
@@ -108,6 +175,13 @@ export function DetailSheet({
     onOpenChange?.(false);
     onClose?.();
   };
+
+  useEffect(() => {
+    if (!open) {
+      setDrivePreview(null);
+      setTaskQuickEdit((current) => ({ ...current, enabled: false, id: null, message: null }));
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open || hasHeaderContent || fields.length > 0) return;
@@ -156,6 +230,225 @@ export function DetailSheet({
     return () => window.clearTimeout(timer);
   }, [open, hasHeaderContent, fields.length, children]);
 
+  useEffect(() => {
+    if (!open || hasHeaderContent || fields.length > 0) return;
+
+    const timer = window.setTimeout(() => {
+      const root = customDialogContentRef.current;
+      if (!root) return;
+      const text = root.textContent || "";
+      const isTaskDetail = text.includes("Archivos de Drive") && text.includes("Tarea");
+      if (!isTaskDetail) return;
+
+      const snapshot = readTaskTextSnapshot(root);
+      if (!snapshot.title) return;
+
+      setTaskQuickEdit((current) => ({
+        ...current,
+        enabled: true,
+        title: snapshot.title,
+        priority: snapshot.priority,
+        dueDate: snapshot.dueDate,
+        resolving: true,
+        message: "Preparando edición rápida...",
+      }));
+
+      void (async () => {
+        try {
+          const { data: profileRows } = await (supabase as any)
+            .from("profiles")
+            .select("id,user_id,full_name,email,is_active")
+            .order("full_name", { ascending: true })
+            .limit(500);
+          const activeProfiles = Array.isArray(profileRows)
+            ? profileRows.filter((p) => p && p.is_active !== false)
+            : [];
+          setProfiles(activeProfiles);
+
+          const taskIdFromUrl = readTaskIdFromUrl();
+          let taskQuery = (supabase as any)
+            .from("tasks")
+            .select("id,title,status,priority,due_date,assigned_to,description")
+            .limit(2);
+
+          if (taskIdFromUrl) {
+            taskQuery = taskQuery.eq("id", taskIdFromUrl);
+          } else {
+            taskQuery = taskQuery.eq("title", snapshot.title);
+            if (snapshot.description) taskQuery = taskQuery.eq("description", snapshot.description);
+            if (snapshot.priority) taskQuery = taskQuery.eq("priority", snapshot.priority);
+            if (snapshot.dueDate) taskQuery = taskQuery.eq("due_date", snapshot.dueDate);
+          }
+
+          const { data, error } = await taskQuery;
+          if (error) throw error;
+          const rows = Array.isArray(data) ? data : [];
+
+          if (rows.length !== 1) {
+            setTaskQuickEdit((current) => ({
+              ...current,
+              resolving: false,
+              id: null,
+              message: taskIdFromUrl
+                ? "No pude cargar esta tarea para edición rápida."
+                : "Edición rápida disponible mejor desde /tasks?taskId=...",
+            }));
+            return;
+          }
+
+          const task = rows[0];
+          setTaskQuickEdit({
+            enabled: true,
+            id: String(task.id),
+            title: String(task.title || snapshot.title),
+            status: String(task.status || "To Do"),
+            priority: String(task.priority || "Medium"),
+            dueDate: String(task.due_date || ""),
+            assignedTo: task.assigned_to ? String(task.assigned_to) : UNASSIGNED_VALUE,
+            resolving: false,
+            saving: false,
+            message: null,
+          });
+        } catch (error: any) {
+          setTaskQuickEdit((current) => ({
+            ...current,
+            resolving: false,
+            id: null,
+            message: error?.message || "No se pudo preparar la edición rápida.",
+          }));
+        }
+      })();
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [open, hasHeaderContent, fields.length, children]);
+
+  const updateTaskQuickField = async (patch: Record<string, string | null>) => {
+    if (!taskQuickEdit.id) {
+      toast.error("No pude identificar esta tarea para editarla rápido.");
+      return;
+    }
+
+    setTaskQuickEdit((current) => ({ ...current, saving: true, message: "Guardando..." }));
+    const { error } = await (supabase as any).from("tasks").update(patch).eq("id", taskQuickEdit.id);
+
+    if (error) {
+      setTaskQuickEdit((current) => ({ ...current, saving: false, message: error.message }));
+      toast.error(error.message || "No se pudo actualizar la tarea.");
+      return;
+    }
+
+    setTaskQuickEdit((current) => ({
+      ...current,
+      status: patch.status !== undefined ? String(patch.status || "To Do") : current.status,
+      priority: patch.priority !== undefined ? String(patch.priority || "Medium") : current.priority,
+      dueDate: patch.due_date !== undefined ? String(patch.due_date || "") : current.dueDate,
+      assignedTo:
+        patch.assigned_to !== undefined ? String(patch.assigned_to || UNASSIGNED_VALUE) : current.assignedTo,
+      saving: false,
+      message: "Guardado. Los datos se reflejarán al refrescar o reabrir la tarea.",
+    }));
+    toast.success("Tarea actualizada.");
+  };
+
+  const renderTaskQuickActions = () => {
+    if (!taskQuickEdit.enabled) return null;
+
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Acciones rápidas</div>
+            <div className="text-xs text-slate-500">
+              Cambia estado, prioridad, vencimiento y responsable sin abrir el editor completo.
+            </div>
+          </div>
+          {taskQuickEdit.saving || taskQuickEdit.resolving ? (
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">
+              {taskQuickEdit.saving ? "Guardando..." : "Cargando..."}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Estado
+            <select
+              value={taskQuickEdit.status}
+              disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving}
+              onChange={(event) => void updateTaskQuickField({ status: event.target.value })}
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60"
+            >
+              {TASK_STATUSES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Prioridad
+            <select
+              value={taskQuickEdit.priority}
+              disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving}
+              onChange={(event) => void updateTaskQuickField({ priority: event.target.value })}
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60"
+            >
+              {TASK_PRIORITIES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Vencimiento
+            <input
+              type="date"
+              value={taskQuickEdit.dueDate}
+              disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving}
+              onChange={(event) => void updateTaskQuickField({ due_date: event.target.value || null })}
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60"
+            />
+          </label>
+
+          <label className="space-y-1.5 text-xs font-semibold text-slate-500">
+            Responsable
+            <select
+              value={taskQuickEdit.assignedTo}
+              disabled={!taskQuickEdit.id || taskQuickEdit.saving || taskQuickEdit.resolving}
+              onChange={(event) =>
+                void updateTaskQuickField({
+                  assigned_to: event.target.value === UNASSIGNED_VALUE ? null : event.target.value,
+                })
+              }
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:opacity-60"
+            >
+              <option value={UNASSIGNED_VALUE}>Sin asignar</option>
+              {profiles.map((profile) => {
+                const value = String(profile.user_id || profile.id);
+                const label = String(profile.full_name || profile.email || "Usuario");
+                return (
+                  <option key={profile.id} value={value}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        </div>
+
+        {taskQuickEdit.message ? (
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+            {taskQuickEdit.message}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   if (!hasHeaderContent && fields.length === 0 && children) {
     return (
       <>
@@ -166,6 +459,7 @@ export function DetailSheet({
                 ref={customDialogContentRef}
                 className="p-3 sm:p-5 [&>div]:grid [&>div]:grid-cols-1 [&>div]:gap-5 [&>div]:space-y-0 lg:[&>div]:grid-cols-[minmax(0,1fr)_390px] lg:[&>div>*:first-child]:col-span-2 [&>div>*:first-child]:sticky [&>div>*:first-child]:top-0 [&>div>*:first-child]:z-20 [&>div>*:first-child]:shadow-[0_14px_40px_rgba(15,23,42,0.08)]"
               >
+                {renderTaskQuickActions()}
                 {children}
               </div>
             </ScrollArea>
