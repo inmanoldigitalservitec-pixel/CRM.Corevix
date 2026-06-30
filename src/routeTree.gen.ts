@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WhatsappWebRouteImport } from './routes/whatsapp-web'
 import { Route as WhatsappRouteImport } from './routes/whatsapp'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
@@ -35,6 +36,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProposalPublicPublicTokenRouteImport } from './routes/proposal/public/$publicToken'
 import { Route as InvoicePublicPublicTokenRouteImport } from './routes/invoice/public/$publicToken'
 
+const WhatsappWebRoute = WhatsappWebRouteImport.update({
+  id: '/whatsapp-web',
+  path: '/whatsapp-web',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WhatsappRoute = WhatsappRouteImport.update({
   id: '/whatsapp',
   path: '/whatsapp',
@@ -187,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/whatsapp': typeof WhatsappRoute
+  '/whatsapp-web': typeof WhatsappWebRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
 }
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/whatsapp': typeof WhatsappRoute
+  '/whatsapp-web': typeof WhatsappWebRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
 }
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/whatsapp': typeof WhatsappRoute
+  '/whatsapp-web': typeof WhatsappWebRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
 }
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/whatsapp'
+    | '/whatsapp-web'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
   fileRoutesByTo: FileRoutesByTo
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/whatsapp'
+    | '/whatsapp-web'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
   id:
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/whatsapp'
+    | '/whatsapp-web'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
   fileRoutesById: FileRoutesById
@@ -353,12 +365,20 @@ export interface RootRouteChildren {
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
   WhatsappRoute: typeof WhatsappRoute
+  WhatsappWebRoute: typeof WhatsappWebRoute
   InvoicePublicPublicTokenRoute: typeof InvoicePublicPublicTokenRoute
   ProposalPublicPublicTokenRoute: typeof ProposalPublicPublicTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/whatsapp-web': {
+      id: '/whatsapp-web'
+      path: '/whatsapp-web'
+      fullPath: '/whatsapp-web'
+      preLoaderRoute: typeof WhatsappWebRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/whatsapp': {
       id: '/whatsapp'
       path: '/whatsapp'
@@ -561,6 +581,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
   WhatsappRoute: WhatsappRoute,
+  WhatsappWebRoute: WhatsappWebRoute,
   InvoicePublicPublicTokenRoute: InvoicePublicPublicTokenRoute,
   ProposalPublicPublicTokenRoute: ProposalPublicPublicTokenRoute,
 }
