@@ -17,7 +17,6 @@ import {
   updateClientTool,
 } from "./tools/clients";
 import {
-  addTaskNoteTool,
   cancelCalendarEventTool,
   completeTaskTool,
   createCalendarEventTool,
@@ -27,6 +26,17 @@ import {
   updateCalendarEventTool,
   updateTaskTool,
 } from "./tools/tasks";
+import {
+  addTaskChecklistItemTool,
+  addTaskCommentTool,
+  completeTaskChecklistItemTool,
+  deleteTaskChecklistItemTool,
+  deleteTaskCommentTool,
+  getTaskDetailTool,
+  listTaskChecklistTool,
+  listTaskCommentsTool,
+  updateTaskChecklistItemTool,
+} from "./tools/task-collaboration";
 import { createDemoForResolvedUser, createReminderForResolvedUser, createTaskForResolvedUser } from "./tools/assignees";
 import { crmSummaryTool } from "./tools/summary";
 import {
@@ -77,6 +87,15 @@ const ALLOWED_TOOLS = new Set([
   "complete_task",
   "reschedule_task",
   "add_task_note",
+  "get_task_detail",
+  "add_task_comment",
+  "list_task_comments",
+  "delete_task_comment",
+  "add_task_checklist_item",
+  "list_task_checklist",
+  "update_task_checklist_item",
+  "complete_task_checklist_item",
+  "delete_task_checklist_item",
   "create_reminder",
   "create_crm_demo",
   "list_tasks",
@@ -164,7 +183,25 @@ export async function executeTool(call: ToolCall, ctx: ToolContext): Promise<Too
     case "reschedule_task":
       return runTool(call, ctx, () => rescheduleTaskTool(ctx, call.args));
     case "add_task_note":
-      return runTool(call, ctx, () => addTaskNoteTool(ctx, call.args));
+      return runTool(call, ctx, () => addTaskCommentTool(ctx, call.args));
+    case "get_task_detail":
+      return runTool(call, ctx, () => getTaskDetailTool(ctx, call.args));
+    case "add_task_comment":
+      return runTool(call, ctx, () => addTaskCommentTool(ctx, call.args));
+    case "list_task_comments":
+      return runTool(call, ctx, () => listTaskCommentsTool(ctx, call.args));
+    case "delete_task_comment":
+      return runTool(call, ctx, () => deleteTaskCommentTool(ctx, call.args));
+    case "add_task_checklist_item":
+      return runTool(call, ctx, () => addTaskChecklistItemTool(ctx, call.args));
+    case "list_task_checklist":
+      return runTool(call, ctx, () => listTaskChecklistTool(ctx, call.args));
+    case "update_task_checklist_item":
+      return runTool(call, ctx, () => updateTaskChecklistItemTool(ctx, call.args));
+    case "complete_task_checklist_item":
+      return runTool(call, ctx, () => completeTaskChecklistItemTool(ctx, call.args));
+    case "delete_task_checklist_item":
+      return runTool(call, ctx, () => deleteTaskChecklistItemTool(ctx, call.args));
     case "create_reminder":
       return runTool(call, ctx, () => createReminderForResolvedUser(ctx, call.args));
     case "create_crm_demo":

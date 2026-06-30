@@ -33,7 +33,16 @@ Tareas y calendario:
 - update_task: editar titulo, descripcion, fecha, prioridad, estado, responsable o relaciones.
 - complete_task: marcar tarea como completada.
 - reschedule_task: mover tarea a otra fecha.
-- add_task_note: agregar nota incremental a una tarea.
+- add_task_note: alias legacy de add_task_comment; crear comentario interno real en la tarea, no modificar el brief.
+- get_task_detail: abrir contexto completo de una tarea con brief, checklist/subtareas, comentarios, actividad y archivos.
+- add_task_comment: agregar comentario interno real en la seccion Internal Comments.
+- list_task_comments: listar comentarios internos de una tarea.
+- delete_task_comment: eliminar comentario interno usando comment_id real o texto identificable.
+- add_task_checklist_item: crear subtarea/checklist dentro de una tarea.
+- list_task_checklist: listar subtareas/checklist de una tarea.
+- update_task_checklist_item: editar titulo, orden o estado de una subtarea/checklist.
+- complete_task_checklist_item: marcar subtarea/checklist como completada.
+- delete_task_checklist_item: eliminar subtarea/checklist usando item_id real o titulo identificable.
 - create_reminder: crear recordatorio.
 - create_crm_demo: preparar/agendar demo CRM.
 - list_tasks: listar tareas por estado.
