@@ -1,6 +1,24 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const AGENT_URL = (import.meta.env.VITE_AGENT_URL || "https://crm.corevix.agency").replace(/\/$/, "");
+const PRODUCTION_AGENT_URL = "https://crm.corevix.agency";
+
+function resolveAgentUrl() {
+  const configuredUrl = String(import.meta.env.VITE_AGENT_URL || "").trim();
+  const isBrowser = typeof window !== "undefined";
+  const isLocalBrowser =
+    isBrowser && ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
+  const pointsToLocalhost = /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/i.test(
+    configuredUrl,
+  );
+
+  if (configuredUrl && (!pointsToLocalhost || isLocalBrowser)) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  return PRODUCTION_AGENT_URL;
+}
+
+const AGENT_URL = resolveAgentUrl();
 
 export type AgentChatHistoryMessage = { role: "user" | "assistant"; content: string };
 export type AgentToolScope = "general" | "leads" | "clients" | "tasks" | "pipeline" | "reports" | "communication" | "projects" | "finance";
