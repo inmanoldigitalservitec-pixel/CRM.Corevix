@@ -1,3 +1,4 @@
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -69,6 +70,8 @@ export function DetailSheet({
 }: DetailSheetProps) {
   const { t } = useT();
 
+  const hasHeaderContent = Boolean(title || subtitle || status || badges || icon || actions || onEdit || onDelete);
+
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange?.(nextOpen);
     if (!nextOpen) onClose?.();
@@ -79,10 +82,22 @@ export function DetailSheet({
     onClose?.();
   };
 
+  if (!hasHeaderContent && fields.length === 0 && children) {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="w-[calc(100vw-24px)] max-w-[1120px] gap-0 overflow-hidden rounded-3xl border-slate-200 bg-slate-50 p-0 shadow-2xl sm:max-h-[92vh]">
+          <ScrollArea className="max-h-[92vh]">
+            <div className="p-4 sm:p-5">{children}</div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent className={getSheetWidth(size) + " p-0"}>
-        {(title || subtitle || status || badges || icon || actions || onEdit || onDelete) ? (
+        {hasHeaderContent ? (
           <SheetHeader className="relative border-b px-5 py-4 text-left">
             <div
               className={
@@ -157,7 +172,7 @@ export function DetailSheet({
           </SheetHeader>
         ) : null}
 
-        <ScrollArea className={title ? "h-[calc(100vh-118px)]" : "h-screen"}>
+        <ScrollArea className={hasHeaderContent ? "h-[calc(100vh-118px)]" : "h-screen"}>
           <div className="p-4 space-y-3">
             {fields.length > 0 ? (
               <div data-demo={fieldGroupDataDemo} className="grid grid-cols-2 gap-4">
