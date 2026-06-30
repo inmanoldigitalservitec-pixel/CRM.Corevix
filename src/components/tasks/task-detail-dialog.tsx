@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +102,31 @@ type TaskDetailDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children?: ReactNode;
+
+  task?: TaskRow | null;
+  profiles?: QuickProfile[];
+  projectName?: string;
+  clientName?: string;
+  productName?: string;
+
+  driveFiles?: DriveFileRow[];
+  driveFilesLoading?: boolean;
+  driveUrlInput?: string;
+  isUploadingFile?: boolean;
+  uploadProgress?: number;
+  uploadingFileName?: string;
+  canEdit?: boolean;
+  fileInputRef?: RefObject<HTMLInputElement | null>;
+
+  onUpdateTask?: (taskId: string, patch: Partial<TaskRow>) => Promise<void>;
+  onComplete?: () => void | Promise<void>;
+  onSetInProgress?: () => void | Promise<void>;
+  onDriveUrlChange?: (value: string) => void;
+  onAttachDriveUrl?: () => void | Promise<void>;
+  onUploadClick?: () => void;
+  onFilePicked?: (event: React.ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onCopyFileLink?: (file: DriveFileRow) => void | Promise<void>;
+  onDeleteDriveFile?: (file: DriveFileRow) => void | Promise<void>;
 };
 
 const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
@@ -193,7 +218,33 @@ function eventIcon(type: string) {
   return <Flag className="h-4 w-4" />;
 }
 
-export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDialogProps) {
+export function TaskDetailDialog({
+  open,
+  onOpenChange,
+  children,
+  task: propTask,
+  profiles: propProfiles = [],
+  projectName = "—",
+  clientName = "—",
+  productName = "—",
+  driveFiles: propDriveFiles,
+  driveFilesLoading = false,
+  driveUrlInput = "",
+  isUploadingFile = false,
+  uploadProgress = 0,
+  uploadingFileName = "",
+  canEdit = true,
+  fileInputRef,
+  onUpdateTask,
+  onComplete,
+  onSetInProgress,
+  onDriveUrlChange,
+  onAttachDriveUrl,
+  onUploadClick,
+  onFilePicked,
+  onCopyFileLink,
+  onDeleteDriveFile,
+}: TaskDetailDialogProps) {
   const legacyContentRef = useRef<HTMLDivElement | null>(null);
   const [task, setTask] = useState<TaskRow | null>(null);
   const [profiles, setProfiles] = useState<QuickProfile[]>([]);
@@ -334,12 +385,31 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
   };
 
   const resolveTask = async () => {
-    const snapshot = readTaskTextSnapshot(legacyContentRef.current);
-    const taskIdFromUrl = readTaskIdFromUrl();
-
     setLoading(true);
     setMessage(null);
     try {
+      if (propTask) {
+        const loadedTask = propTask as TaskRow;
+        setTask(loadedTask);
+        setProfiles(propProfiles);
+        setRelations({ projectName, clientName, productName });
+        if (propDriveFiles) setDriveFiles(propDriveFiles);
+        setDraft({
+          title: loadedTask.title || "",
+          description: loadedTask.description || "",
+          status: loadedTask.status || "To Do",
+          priority: loadedTask.priority || "Medium",
+          dueDate: loadedTask.due_date || "",
+          assignedTo: loadedTask.assigned_to || UNASSIGNED_VALUE,
+        });
+
+        await loadTaskDetails(loadedTask.id);
+        if (propDriveFiles) setDriveFiles(propDriveFiles);
+        return;
+      }
+
+      const snapshot = readTaskTextSnapshot(legacyContentRef.current);
+      const taskIdFromUrl = readTaskIdFromUrl();
       const { data: profileRows } = await (supabase as any)
         .from("profiles")
         .select("id,user_id,full_name,email,is_active")
@@ -395,17 +465,24 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
     if (!open) return;
     const timer = window.setTimeout(() => void resolveTask(), 50);
     return () => window.clearTimeout(timer);
-  }, [open, children]);
+  }, [open, children, propTask?.id, propDriveFiles?.length, projectName, clientName, productName]);
 
   const updateTask = async (patch: Record<string, string | null>) => {
     if (!task?.id) return;
     setSaving(true);
-    const { error } = await (supabase as any).from("tasks").update(patch).eq("id", task.id);
-    setSaving(false);
-    if (error) {
-      toast.error(error.message || "No se pudo actualizar la tarea.");
+    try {
+      if (onUpdateTask) {
+        await onUpdateTask(task.id, patch as Partial<TaskRow>);
+      } else {
+        const { error } = await (supabase as any).from("tasks").update(patch).eq("id", task.id);
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      setSaving(false);
+      toast.error(error?.message || "No se pudo actualizar la tarea.");
       return;
     }
+    setSaving(false);
     const next = { ...task, ...patch } as TaskRow;
     setTask(next);
     await loadTaskDetails(task.id);
@@ -485,7 +562,15 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
     await loadTaskDetails(task.id);
   };
 
+  useEffect(() => {
+    if (propDriveFiles) setDriveFiles(propDriveFiles);
+  }, [propDriveFiles]);
+
   const copyFileLink = async (file: DriveFileRow) => {
+    if (onCopyFileLink) {
+      await onCopyFileLink(file);
+      return;
+    }
     const url = file.web_view_link || file.web_content_link;
     if (!url) return toast.info("Este archivo no tiene enlace disponible.");
     try {
@@ -565,13 +650,13 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
                     </>
                   ) : (
                     <>
-                      <Button onClick={() => void updateTask({ status: "Completed" })} disabled={!task?.id || task.status === "Completed"}>
+                      <Button onClick={() => void (onComplete ? onComplete() : updateTask({ status: "Completed" }))} disabled={!task?.id || task.status === "Completed" || !canEdit}>
                         <Check className="mr-2 h-4 w-4" /> Marcar completada
                       </Button>
-                      <Button variant="outline" onClick={() => void updateTask({ status: "In Progress" })} disabled={!task?.id || task.status === "In Progress"}>
+                      <Button variant="outline" onClick={() => void (onSetInProgress ? onSetInProgress() : updateTask({ status: "In Progress" }))} disabled={!task?.id || task.status === "In Progress" || !canEdit}>
                         <Circle className="mr-2 h-4 w-4" /> En progreso
                       </Button>
-                      <Button variant="outline" onClick={() => setEditing(true)} disabled={!task?.id}>
+                      <Button variant="outline" onClick={() => setEditing(true)} disabled={!task?.id || !canEdit}>
                         <Pencil className="mr-2 h-4 w-4" /> Editar
                       </Button>
                     </>
@@ -597,10 +682,10 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
               {loading && !task ? (
                 <div className="rounded-2xl border bg-white p-6 text-sm font-semibold text-slate-500">Cargando detalle de tarea...</div>
               ) : (
-                <div className="mx-auto grid max-w-[1120px] grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
-                  <div className="grid content-start gap-4">
+                <div className="mx-auto grid max-w-[1120px] grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.85fr)] lg:items-start">
+                  <div className="grid content-start gap-3">
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
-                      <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-sm font-extrabold text-slate-950">Checklist / Subtasks</h3>
                           <p className="mt-1 text-xs font-semibold text-slate-500">Divide la tarea en pasos accionables.</p>
@@ -610,12 +695,12 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
                           <Progress value={checklistProgress} className="mt-2 h-1.5" />
                         </div>
                       </div>
-                      <div className="mb-3 flex gap-2">
+                      <div className="mb-2 flex gap-2">
                         <Input value={newChecklistTitle} onChange={(e) => setNewChecklistTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void addChecklistItem(); }} placeholder="Add a subtask..." />
                         <Button variant="outline" onClick={() => void addChecklistItem()} disabled={!task?.id || saving || !newChecklistTitle.trim()}><Plus className="mr-2 h-4 w-4" /> Add</Button>
                       </div>
                       {checklist.length === 0 ? (
-                        <div className="rounded-xl border border-dashed p-4 text-sm font-medium text-slate-500">No hay subtareas todavía.</div>
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay subtareas todavía.</div>
                       ) : (
                         <div className="space-y-1">
                           {checklist.map((item) => (
@@ -631,12 +716,12 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
                     </section>
 
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
-                      <div className="mb-4">
+                      <div className="mb-3">
                         <h3 className="text-sm font-extrabold text-slate-950">Activity Timeline</h3>
                         <p className="mt-1 text-xs font-semibold text-slate-500">Historial de cambios, checklist y notas de esta tarea.</p>
                       </div>
                       {activity.length === 0 ? (
-                        <div className="rounded-xl border border-dashed p-4 text-sm font-medium text-slate-500">Todavía no hay actividad registrada.</div>
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">Todavía no hay actividad registrada.</div>
                       ) : (
                         <div className="relative max-h-[360px] space-y-4 overflow-auto pr-2 before:absolute before:bottom-4 before:left-[17px] before:top-4 before:w-px before:bg-slate-200">
                           {activity.map((event, index) => (
@@ -654,18 +739,24 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
                     </section>
                   </div>
 
-                  <aside className="grid content-start gap-4">
+                  <aside className="grid content-start gap-3">
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
                       <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-950"><FolderKanban className="h-4 w-4" /> Context / Relations</h3>
-                      <div className="mt-4 divide-y border-t">
-                        {[['Project', relations.projectName], ['Client', relations.clientName], ['Product', relations.productName]].map(([label, value]) => (
-                          <div key={label} className="grid min-h-[44px] grid-cols-[80px_minmax(0,1fr)_24px] items-center gap-2 text-sm">
-                            <div className="font-semibold text-slate-500">{label}</div>
-                            <div className="truncate font-bold text-slate-900">{value}</div>
-                            <ExternalLink className="h-4 w-4 text-slate-400" />
-                          </div>
-                        ))}
-                      </div>
+                      {relations.projectName === "—" && relations.clientName === "—" && relations.productName === "—" ? (
+                        <div className="mt-3 rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
+                          Sin relaciones vinculadas todavía.
+                        </div>
+                      ) : (
+                        <div className="mt-3 divide-y border-t">
+                          {[['Project', relations.projectName], ['Client', relations.clientName], ['Product', relations.productName]].map(([label, value]) => (
+                            <div key={label} className="grid min-h-[40px] grid-cols-[80px_minmax(0,1fr)_24px] items-center gap-2 text-sm">
+                              <div className="font-semibold text-slate-500">{label}</div>
+                              <div className="truncate font-bold text-slate-900">{value}</div>
+                              <ExternalLink className="h-4 w-4 text-slate-400" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </section>
 
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
@@ -674,24 +765,51 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
                           <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-950"><FileText className="h-4 w-4" /> Drive Files</h3>
                           <p className="mt-1 text-xs font-semibold text-slate-500">Archivos adjuntos de trabajo.</p>
                         </div>
-                        <div className="flex gap-2"><Button size="sm" variant="outline"><Upload className="mr-2 h-4 w-4" />Upload</Button><Button size="sm" variant="outline"><Link2 className="h-4 w-4" /></Button></div>
+                        <div className="flex gap-2">
+                          {fileInputRef ? <input ref={fileInputRef} type="file" className="hidden" onChange={(event) => void onFilePicked?.(event)} /> : null}
+                          <Button size="sm" variant="outline" onClick={onUploadClick} disabled={!canEdit || isUploadingFile}>
+                            <Upload className="mr-2 h-4 w-4" />{isUploadingFile ? `${uploadProgress}%` : "Upload"}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => onDriveUrlChange?.(driveUrlInput)}>
+                            <Link2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      {driveFiles.length === 0 ? (
-                        <div className="rounded-xl border border-dashed p-4 text-sm font-medium text-slate-500">No hay archivos adjuntos todavía.</div>
+                      {uploadingFileName ? (
+                        <div className="mb-3 rounded-xl border bg-slate-50 p-3">
+                          <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+                            <span className="truncate">Subiendo {uploadingFileName}</span>
+                            <span>{uploadProgress}%</span>
+                          </div>
+                          <Progress value={uploadProgress} className="h-2" />
+                        </div>
+                      ) : null}
+                      {onAttachDriveUrl ? (
+                        <div className="mb-3 flex gap-2">
+                          <Input value={driveUrlInput} onChange={(event) => onDriveUrlChange?.(event.target.value)} placeholder="Pega URL de Google Drive" />
+                          <Button type="button" variant="outline" onClick={() => void onAttachDriveUrl()} disabled={!canEdit || !driveUrlInput.trim()}>
+                            Adjuntar
+                          </Button>
+                        </div>
+                      ) : null}
+                      {driveFilesLoading ? (
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">Cargando archivos...</div>
+                      ) : driveFiles.length === 0 ? (
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay archivos adjuntos todavía.</div>
                       ) : (
                         <div className="space-y-2">
                           {driveFiles.map((file) => {
                             const url = file.web_view_link || file.web_content_link;
                             const previewUrl = getGoogleDrivePreviewUrl(url, file.drive_file_id);
                             return (
-                              <div key={file.id} className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-slate-50 p-2.5">
+                              <div key={file.id} className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-slate-50 p-2.5">
                                 <div className="grid h-9 w-9 place-items-center rounded-xl border bg-white text-slate-500">{file.icon_link ? <img src={file.icon_link} alt="" className="h-5 w-5" /> : <Paperclip className="h-4 w-4" />}</div>
                                 <div className="min-w-0"><div className="truncate text-sm font-extrabold text-slate-900">{file.name}</div><div className="text-xs font-semibold text-slate-500">{formatBytes(file.size_bytes)} · {formatDate(file.created_at)}</div></div>
                                 <div className="flex items-center gap-1">
                                   {previewUrl ? <Button size="sm" variant="outline" onClick={() => setPreviewFile({ url: previewUrl, title: file.name })}>Preview</Button> : null}
                                   {url ? <Button size="icon" variant="outline" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a></Button> : null}
                                   <Button size="icon" variant="outline" onClick={() => void copyFileLink(file)}><Copy className="h-4 w-4" /></Button>
-                                  <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4" /></Button>
+                                  {onDeleteDriveFile ? <Button size="icon" variant="ghost" className="text-red-600" onClick={() => void onDeleteDriveFile(file)}><Trash2 className="h-4 w-4" /></Button> : <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4" /></Button>}
                                 </div>
                               </div>
                             );
@@ -702,12 +820,12 @@ export function TaskDetailDialog({ open, onOpenChange, children }: TaskDetailDia
 
                     <section className="rounded-2xl border bg-white p-4 shadow-sm">
                       <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-950"><MessageSquare className="h-4 w-4" /> Internal Comments</h3>
-                      <div className="mt-3 space-y-2">
+                      <div className="mt-2 space-y-2">
                         <Textarea value={newCommentBody} onChange={(e) => setNewCommentBody(e.target.value)} placeholder="Write an internal comment..." className="min-h-[86px]" />
                         <div className="flex justify-end"><Button onClick={() => void addComment()} disabled={!task?.id || saving || !newCommentBody.trim()}>Add comment</Button></div>
                       </div>
-                      <div className="mt-3 space-y-2">
-                        {comments.length === 0 ? <div className="rounded-xl border border-dashed p-4 text-sm font-medium text-slate-500">No hay comentarios todavía.</div> : comments.map((comment) => (
+                      <div className="mt-2 space-y-2">
+                        {comments.length === 0 ? <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay comentarios todavía.</div> : comments.map((comment) => (
                           <div key={comment.id} className="grid grid-cols-[34px_minmax(0,1fr)] gap-3 rounded-xl border bg-slate-50 p-3">
                             <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">IC</div>
                             <div className="min-w-0"><div className="mb-1 text-xs font-bold text-slate-500">{formatDateTime(comment.created_at)}</div><div className="whitespace-pre-wrap text-sm font-medium text-slate-700">{comment.body}</div></div>

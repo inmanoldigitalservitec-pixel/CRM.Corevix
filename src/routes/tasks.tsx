@@ -69,7 +69,7 @@ import { PageHeader } from "@/components/crm/page-header";
 import { SearchFilters } from "@/components/crm/search-filters";
 import { EmptyState } from "@/components/crm/empty-state";
 import { DataCard } from "@/components/crm/data-card";
-import { DetailSheet } from "@/components/crm/detail-sheet";
+import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -1612,216 +1612,41 @@ function TasksPage() {
         </DialogContent>
       </Dialog>
 
-      <DetailSheet open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
-        {selectedTask ? (
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                    Tarea
-                  </div>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-slate-900">
-                    {selectedTask.title}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {selectedTask.description || "Sin descripción."}
-                  </p>
-                </div>
-                <StatusBadge status={selectedTask.status} />
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-xl border bg-slate-50 p-3">
-                  <div className="text-xs font-semibold text-slate-500">Prioridad</div>
-                  <div className="mt-1 font-semibold text-slate-900">{selectedTask.priority}</div>
-                </div>
-                <div className="rounded-xl border bg-slate-50 p-3">
-                  <div className="text-xs font-semibold text-slate-500">Vence</div>
-                  <div className="mt-1 font-semibold text-slate-900">
-                    {formatShortDate(selectedTask.due_date)}
-                  </div>
-                </div>
-                <div className="rounded-xl border bg-slate-50 p-3">
-                  <div className="text-xs font-semibold text-slate-500">Asignado</div>
-                  <div className="mt-1 font-semibold text-slate-900">{selectedAssigneeLabel}</div>
-                </div>
-                <div className="rounded-xl border bg-slate-50 p-3">
-                  <div className="text-xs font-semibold text-slate-500">Creada</div>
-                  <div className="mt-1 font-semibold text-slate-900">{selectedCreated}</div>
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {!isClosedTaskStatusValue(selectedTask.status) ? (
-                  <Button size="sm" onClick={() => void updateSelectedTaskStatus("Completed")}>
-                    Marcar completada
-                  </Button>
-                ) : null}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void updateSelectedTaskStatus("In Progress")}
-                  disabled={isInProgressTaskStatusValue(selectedTask.status)}
-                >
-                  En progreso
-                </Button>
-                {can("tasks.edit") ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditTask(selectedTask);
-                      setPresetProjectId(null);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    Editar
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">Contexto</div>
-                  <div className="text-xs text-slate-500">Cliente, proyecto y producto relacionado.</div>
-                </div>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between gap-3 border-b pb-2">
-                  <span className="text-slate-500">Proyecto</span>
-                  <span className="text-right font-medium text-slate-900">
-                    {selectedProject?.name || "—"}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3 border-b pb-2">
-                  <span className="text-slate-500">Cliente</span>
-                  <span className="text-right font-medium text-slate-900">
-                    {selectedClient
-                      ? selectedClient.contact_person
-                        ? `${selectedClient.company_name} · ${selectedClient.contact_person}`
-                        : selectedClient.company_name
-                      : "—"}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Producto</span>
-                  <span className="text-right font-medium text-slate-900">
-                    {selectedProduct?.name || "—"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">Archivos de Drive</div>
-                  <div className="text-xs text-slate-500">
-                    Adjunta carpetas, documentos o sube archivos al Drive de esta tarea.
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={openDriveAttachmentPicker}>
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Adjuntar enlace
-                  </Button>
-                  <Button size="sm" onClick={handleUploadClick} disabled={isUploadingFile}>
-                    <FileUp className="mr-2 h-4 w-4" />
-                    Subir archivo
-                  </Button>
-                </div>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={handleFilePicked}
-              />
-
-              <div className="mb-3 flex gap-2">
-                <Input
-                  value={driveUrlInput}
-                  onChange={(event) => setDriveUrlInput(event.target.value)}
-                  placeholder="Pega URL de Google Drive"
-                />
-                <Button type="button" variant="outline" onClick={attachDriveUrl}>
-                  Adjuntar
-                </Button>
-              </div>
-
-              {isUploadingFile ? (
-                <div className="mb-3 rounded-xl border bg-slate-50 p-3">
-                  <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
-                    <span className="truncate">Subiendo {uploadingFileName || "archivo"}</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} className="h-2" />
-                </div>
-              ) : null}
-
-              {driveFilesLoading ? (
-                <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">
-                  Cargando archivos...
-                </div>
-              ) : driveFiles.length === 0 ? (
-                <div className="rounded-xl border border-dashed p-4 text-sm text-slate-500">
-                  No hay archivos adjuntos todavía.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {driveFiles.map((file) => {
-                    const url = file.web_view_link || file.web_content_link;
-                    return (
-                      <div
-                        key={file.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border bg-slate-50 p-3"
-                      >
-                        <div className="min-w-0 flex items-center gap-3">
-                          {file.icon_link ? (
-                            <img src={file.icon_link} alt="" className="h-6 w-6 shrink-0" />
-                          ) : (
-                            <FileUp className="h-5 w-5 shrink-0 text-slate-500" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold text-slate-900">
-                              {file.name}
-                            </div>
-                            <div className="text-xs text-slate-500">{formatBytes(file.size_bytes)}</div>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {url ? (
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={url} target="_blank" rel="noreferrer">
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          ) : null}
-                          <Button size="sm" variant="outline" onClick={() => void copyFileLink(file)}>
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          {can("tasks.edit") ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => void deleteDriveFile(file)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </DetailSheet>
+      <TaskDetailDialog
+        open={!!selectedTask}
+        onOpenChange={(open) => !open && setSelectedTask(null)}
+        task={selectedTask}
+        profiles={profiles}
+        projectName={selectedProject?.name || "—"}
+        clientName={
+          selectedClient
+            ? selectedClient.contact_person
+              ? `${selectedClient.company_name} · ${selectedClient.contact_person}`
+              : selectedClient.company_name
+            : "—"
+        }
+        productName={selectedProduct?.name || "—"}
+        driveFiles={driveFiles}
+        driveFilesLoading={driveFilesLoading}
+        driveUrlInput={driveUrlInput}
+        isUploadingFile={isUploadingFile}
+        uploadProgress={uploadProgress}
+        uploadingFileName={uploadingFileName}
+        canEdit={can("tasks.edit")}
+        fileInputRef={fileInputRef}
+        onUpdateTask={async (taskId, patch) => {
+          await update(taskId, patch as Partial<Task>);
+          setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...patch } : prev));
+        }}
+        onComplete={() => updateSelectedTaskStatus("Completed")}
+        onSetInProgress={() => updateSelectedTaskStatus("In Progress")}
+        onDriveUrlChange={setDriveUrlInput}
+        onAttachDriveUrl={attachDriveUrl}
+        onUploadClick={handleUploadClick}
+        onFilePicked={handleFilePicked}
+        onCopyFileLink={copyFileLink}
+        onDeleteDriveFile={deleteDriveFile}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
