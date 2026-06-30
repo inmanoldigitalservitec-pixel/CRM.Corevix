@@ -538,6 +538,74 @@
   color: var(--agent-blue);
 }
 
+.agent-context-primary-action {
+  width: 100%;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  border-radius: 13px;
+  background: var(--agent-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 950;
+  text-decoration: none;
+  box-shadow: 0 10px 22px rgba(29, 98, 249, 0.18);
+}
+
+.agent-context-primary-action.is-orange { background: #ff7b1a; box-shadow: 0 10px 22px rgba(255, 123, 26, 0.18); }
+.agent-context-primary-action.is-purple { background: var(--agent-purple); box-shadow: 0 10px 22px rgba(138, 92, 255, 0.18); }
+.agent-context-primary-action.is-teal { background: var(--agent-teal); box-shadow: 0 10px 22px rgba(32, 200, 182, 0.18); }
+.agent-context-primary-action.is-slate { background: #475569; box-shadow: 0 10px 22px rgba(71, 85, 105, 0.18); }
+
+.agent-context-row.is-clickable,
+.agent-focused-row.is-clickable,
+.agent-context-metric.is-clickable {
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+
+.agent-context-row.is-clickable,
+.agent-focused-row.is-clickable {
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  border-radius: 13px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.agent-context-row.is-clickable:hover,
+.agent-focused-row.is-clickable:hover,
+.agent-context-metric.is-clickable:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+.agent-context-row em,
+.agent-focused-row em,
+.agent-context-metric em {
+  justify-self: end;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(29, 98, 249, 0.1);
+  color: var(--agent-blue);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.agent-context-metric.is-clickable {
+  display: block;
+  border: 1px solid transparent;
+}
+
+.agent-context-metric.is-clickable em {
+  display: inline-flex;
+  margin-top: 8px;
+}
+
 @media (max-width: 980px) {
   .agent-context-panel {
     width: 100%;
