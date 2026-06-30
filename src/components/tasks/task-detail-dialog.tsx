@@ -610,6 +610,25 @@ export function TaskDetailDialog({
     </div>
   );
 
+  const renderMobileMetaSummary = () => (
+    <div className="mt-2 rounded-2xl border bg-white px-3 py-2 shadow-sm lg:hidden">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-extrabold text-slate-900">
+        <span>{task?.priority || "—"}</span>
+        <span className="text-slate-300">•</span>
+        <span>{formatDate(task?.due_date)}</span>
+        <span className="text-slate-300">•</span>
+        <span className="max-w-[155px] truncate">{assigneeLabel}</span>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
+        <span className="max-w-[130px] truncate">Proyecto: {displayProjectName}</span>
+        <span className="text-slate-300">•</span>
+        <span className="max-w-[130px] truncate">Cliente: {displayClientName}</span>
+        <span className="text-slate-300">•</span>
+        <span className="max-w-[130px] truncate">Producto: {displayProductName}</span>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -619,14 +638,14 @@ export function TaskDetailDialog({
           </div>
 
           <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white sm:max-h-[92vh]">
-            <div className="shrink-0 border-b bg-white px-5 py-4 sm:px-6">
+            <div className="shrink-0 border-b bg-white px-4 py-3 sm:px-6 sm:py-4">
               <div className="relative flex flex-col gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2 xl:pr-[560px]">
                     {editing ? (
                       <Input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} className="h-10 max-w-2xl text-lg font-extrabold" />
                     ) : (
-                      <h2 className="truncate text-[22px] font-extrabold tracking-[-0.035em] text-slate-950">
+                      <h2 className="truncate text-[19px] font-extrabold tracking-[-0.035em] text-slate-950 sm:text-[22px]">
                         {task?.title || "Cargando tarea..."}
                       </h2>
                     )}
@@ -670,14 +689,17 @@ export function TaskDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-3 grid w-full max-w-none grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                      {renderMetaChip("Priority", task?.priority || "—", <Flag className="h-4 w-4" />)}
-                      {renderMetaChip("Due date", formatDate(task?.due_date), <CalendarDays className="h-4 w-4" />)}
-                      {renderMetaChip("Assignee", assigneeLabel, <User className="h-4 w-4" />)}
-                      {renderMetaChip("Project", displayProjectName, <FolderKanban className="h-4 w-4" />)}
-                      {renderMetaChip("Client", displayClientName, <User className="h-4 w-4" />)}
-                      {renderMetaChip("Product", displayProductName, <FileText className="h-4 w-4" />)}
-                    </div>
+                    <>
+                      {renderMobileMetaSummary()}
+                      <div className="mt-3 hidden w-full max-w-none grid-cols-3 gap-2 lg:grid xl:grid-cols-6">
+                        {renderMetaChip("Priority", task?.priority || "—", <Flag className="h-4 w-4" />)}
+                        {renderMetaChip("Due date", formatDate(task?.due_date), <CalendarDays className="h-4 w-4" />)}
+                        {renderMetaChip("Assignee", assigneeLabel, <User className="h-4 w-4" />)}
+                        {renderMetaChip("Project", displayProjectName, <FolderKanban className="h-4 w-4" />)}
+                        {renderMetaChip("Client", displayClientName, <User className="h-4 w-4" />)}
+                        {renderMetaChip("Product", displayProductName, <FileText className="h-4 w-4" />)}
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -689,13 +711,13 @@ export function TaskDetailDialog({
                     </>
                   ) : (
                     <>
-                      <Button onClick={() => void (onComplete ? onComplete() : updateTask({ status: "Completed" }))} disabled={!task?.id || task.status === "Completed" || !canEdit}>
+                      <Button className="h-9 px-3 text-sm sm:h-10 sm:px-4" onClick={() => void (onComplete ? onComplete() : updateTask({ status: "Completed" }))} disabled={!task?.id || task.status === "Completed" || !canEdit}>
                         <Check className="mr-2 h-4 w-4" /> Marcar completada
                       </Button>
-                      <Button variant="outline" onClick={() => void (onSetInProgress ? onSetInProgress() : updateTask({ status: "In Progress" }))} disabled={!task?.id || task.status === "In Progress" || !canEdit}>
+                      <Button className="h-9 px-3 text-sm sm:h-10 sm:px-4" variant="outline" onClick={() => void (onSetInProgress ? onSetInProgress() : updateTask({ status: "In Progress" }))} disabled={!task?.id || task.status === "In Progress" || !canEdit}>
                         <Circle className="mr-2 h-4 w-4" /> En progreso
                       </Button>
-                      <Button variant="outline" onClick={() => setEditing(true)} disabled={!task?.id || !canEdit}>
+                      <Button className="h-9 px-3 text-sm sm:h-10 sm:px-4" variant="outline" onClick={() => setEditing(true)} disabled={!task?.id || !canEdit}>
                         <Pencil className="mr-2 h-4 w-4" /> Editar
                       </Button>
                     </>
