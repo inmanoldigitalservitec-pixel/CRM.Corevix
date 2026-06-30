@@ -151,6 +151,11 @@ export function AgentChat({
     }
   };
 
+  const handleTextareaFocus = () => {
+    window.setTimeout(() => scrollToLatestMessage("smooth"), 120);
+    window.setTimeout(() => scrollToLatestMessage("smooth"), 340);
+  };
+
   const scopeControl = (
     <div className="agentic-ai-scope-layer" aria-live="polite">
       {selectedScope ? (
@@ -176,6 +181,31 @@ export function AgentChat({
       ) : null}
     </div>
   );
+
+  useEffect(() => {
+    if (!fullscreen || typeof window === "undefined") return;
+
+    const updateVisualViewportInset = () => {
+      const viewport = window.visualViewport;
+      const bottomInset = viewport
+        ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+        : 0;
+
+      document.documentElement.style.setProperty("--corevix-visual-bottom", `${bottomInset}px`);
+    };
+
+    updateVisualViewportInset();
+    window.addEventListener("resize", updateVisualViewportInset);
+    window.visualViewport?.addEventListener("resize", updateVisualViewportInset);
+    window.visualViewport?.addEventListener("scroll", updateVisualViewportInset);
+
+    return () => {
+      window.removeEventListener("resize", updateVisualViewportInset);
+      window.visualViewport?.removeEventListener("resize", updateVisualViewportInset);
+      window.visualViewport?.removeEventListener("scroll", updateVisualViewportInset);
+      document.documentElement.style.removeProperty("--corevix-visual-bottom");
+    };
+  }, [fullscreen]);
 
   useEffect(() => {
     scrollToLatestMessage();
@@ -286,6 +316,7 @@ export function AgentChat({
                         onChange={(event) => setText(event.target.value)}
                         placeholder="Pregúntale algo a Corevix AI..."
                         rows={1}
+                        onFocus={handleTextareaFocus}
                         onKeyDown={handlePromptKeyDown}
                       />
                       <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
@@ -344,6 +375,7 @@ export function AgentChat({
                     onChange={(event) => setText(event.target.value)}
                     placeholder="Escribe un mensaje para Corevix AI..."
                     rows={1}
+                    onFocus={handleTextareaFocus}
                     onKeyDown={handlePromptKeyDown}
                   />
                   <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
