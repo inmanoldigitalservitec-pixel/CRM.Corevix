@@ -145,6 +145,18 @@
   flex: 0 0 auto;
 }
 
+.agentic-ai-composer-stack {
+  width: min(760px, 100%);
+}
+
+.agentic-ai-composer-stack .agentic-ai-dock-form {
+  width: 100%;
+}
+
+.agentic-ai-action-panel {
+  display: none;
+}
+
 .agentic-ai-empty-inner {
   width: min(700px, 100%);
 }
@@ -211,7 +223,7 @@
   }
 }
 
-/* Mobile agent: the context becomes a compact chat header, not a separate section. */
+/* Mobile agent: context belongs to the composer, not to a separate top widget. */
 @media (max-width: 760px) {
   .agentic-ai-shell {
     --corevix-mobile-composer-height: 78px;
@@ -225,9 +237,14 @@
   .agentic-ai-layout.is-panel-closed {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: auto minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
     height: 100%;
     overflow: hidden;
+  }
+
+  .agentic-ai-panel-slot,
+  .agentic-ai-panel-slot.is-closed {
+    display: none !important;
   }
 
   .agentic-ai-main {
@@ -267,6 +284,11 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  .agentic-ai-composer-stack.is-expanded ~ .agentic-ai-scroll,
+  .agentic-ai-composer-stack.is-expanded {
+    --corevix-mobile-composer-height: 360px;
+  }
+
   .agentic-ai-stream {
     gap: 12px !important;
   }
@@ -292,17 +314,35 @@
     pointer-events: none;
   }
 
+  .agentic-ai-composer-stack {
+    width: min(100%, 760px) !important;
+    overflow: hidden;
+    border: 1px solid rgba(225, 234, 247, 0.98);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(29, 98, 249, 0.08);
+    pointer-events: auto;
+    transition: border-radius 0.22s ease, box-shadow 0.22s ease;
+  }
+
+  .agentic-ai-composer-stack.is-expanded {
+    border-radius: 27px;
+    box-shadow: 0 20px 58px rgba(15, 23, 42, 0.2), 0 6px 18px rgba(29, 98, 249, 0.1);
+  }
+
   .agentic-ai-dock-form,
   .agentic-ai-hero-form {
     min-height: 52px;
-    width: min(100%, 760px) !important;
+    width: 100% !important;
     padding: 7px 8px !important;
-    border-radius: 22px !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
     pointer-events: auto;
   }
 
-  .agentic-ai-dock-form {
-    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(29, 98, 249, 0.08) !important;
+  .agentic-ai-composer-stack:not(.has-action) .agentic-ai-dock-form {
+    border-radius: 22px !important;
   }
 
   .agentic-ai-dock-form textarea,
@@ -313,128 +353,266 @@
     line-height: 1.25 !important;
   }
 
-  .agentic-ai-panel-slot,
-  .agentic-ai-panel-slot.is-closed {
-    position: static !important;
-    display: block !important;
-    inset: auto !important;
-    z-index: auto !important;
-    width: 100% !important;
-    height: 82px !important;
-    max-height: 82px !important;
-    overflow: hidden !important;
-    padding: 6px 8px 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: #fbfdff !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
+  .agentic-ai-action-panel {
+    display: block;
+    border-bottom: 1px solid rgba(225, 234, 247, 0.82);
+    background: linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
+    overflow: hidden;
   }
 
-  .agentic-ai-panel-slot::before {
-    display: none !important;
+  .agentic-ai-action-summary {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 32px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 11px 9px;
+    border: 0;
+    background: transparent;
+    color: #10203f;
+    text-align: left;
+    cursor: pointer;
   }
 
-  .agentic-ai-panel-slot > .agent-context-panel {
-    width: 100% !important;
-    height: 76px !important;
-    display: block !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    overflow: hidden !important;
+  .agentic-ai-action-count {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 950;
   }
 
-  .agentic-ai-panel-slot .agent-context-actions,
-  .agentic-ai-panel-slot .agent-focused-list-card,
-  .agentic-ai-panel-slot .agent-focused-next-step,
-  .agentic-ai-panel-slot .agent-context-card:not(.is-highlighted) {
-    display: none !important;
+  .agentic-ai-action-panel.is-blue .agentic-ai-action-count { background: var(--agent-blue-soft); color: var(--agent-blue); }
+  .agentic-ai-action-panel.is-red .agentic-ai-action-count { background: var(--agent-red-soft); color: #ff3f6e; }
+  .agentic-ai-action-panel.is-orange .agentic-ai-action-count { background: var(--agent-orange-soft); color: #ff7b1a; }
+  .agentic-ai-action-panel.is-purple .agentic-ai-action-count { background: var(--agent-purple-soft); color: var(--agent-purple); }
+  .agentic-ai-action-panel.is-teal .agentic-ai-action-count { background: var(--agent-teal-soft); color: var(--agent-teal); }
+
+  .agentic-ai-action-copy {
+    min-width: 0;
+    display: block;
   }
 
-  .agentic-ai-panel-slot .agent-context-body {
-    height: 76px !important;
-    overflow: hidden !important;
-  }
-
-  .agentic-ai-panel-slot .agent-focused-widget,
-  .agentic-ai-panel-slot .agent-context-stack {
-    height: 76px !important;
-    display: block !important;
-  }
-
-  .agentic-ai-panel-slot .agent-context-empty,
-  .agentic-ai-panel-slot .agent-context-card,
-  .agentic-ai-panel-slot .agent-focused-hero {
-    width: 100% !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    padding: 9px 12px !important;
-    border-radius: 18px !important;
-    box-shadow: 0 6px 16px rgba(22, 45, 90, 0.045) !important;
-  }
-
-  .agentic-ai-panel-slot .agent-context-empty {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 9px !important;
-    text-align: left !important;
-  }
-
-  .agentic-ai-panel-slot .agent-context-empty-icon {
-    width: 32px !important;
-    height: 32px !important;
-    margin: 0 !important;
-    border-radius: 12px !important;
-    flex: 0 0 auto;
-  }
-
-  .agentic-ai-panel-slot .agent-context-empty h3,
-  .agentic-ai-panel-slot .agent-context-card h3,
-  .agentic-ai-panel-slot .agent-focused-hero h3 {
-    font-size: 12.5px !important;
-    margin: 0 !important;
-    white-space: nowrap;
+  .agentic-ai-action-copy strong,
+  .agentic-ai-action-copy small {
+    display: block;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .agentic-ai-panel-slot .agent-context-empty p,
-  .agentic-ai-panel-slot .agent-context-card p,
-  .agentic-ai-panel-slot .agent-focused-hero p {
-    display: -webkit-box !important;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
+  .agentic-ai-action-copy strong {
+    color: #0b1c42;
+    font-size: 13px;
+    font-weight: 950;
+    line-height: 1.1;
+  }
+
+  .agentic-ai-action-copy small {
+    margin-top: 3px;
+    color: #6d7b93;
+    font-size: 11px;
+    font-weight: 720;
+    line-height: 1.2;
+  }
+
+  .agentic-ai-action-expand {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--agent-blue-soft);
+    color: var(--agent-blue);
+    transition: transform 0.22s ease;
+  }
+
+  .agentic-ai-action-panel.is-expanded .agentic-ai-action-expand {
+    transform: rotate(180deg);
+  }
+
+  .agentic-ai-action-details {
+    max-height: 0;
     overflow: hidden;
-    margin-top: 3px !important;
-    font-size: 10px !important;
-    line-height: 1.2 !important;
+    padding: 0 11px;
+    opacity: 0;
+    transition: max-height 0.28s cubic-bezier(0.2, 0.9, 0.2, 1), opacity 0.2s ease, padding 0.22s ease;
   }
 
-  .agentic-ai-panel-slot .agent-focused-hero {
-    grid-template-columns: 32px minmax(0, 1fr) 28px !important;
-    gap: 8px !important;
+  .agentic-ai-action-panel.is-expanded .agentic-ai-action-details {
+    max-height: 390px;
+    opacity: 1;
+    padding: 2px 11px 12px;
+  }
+
+  .agentic-ai-action-tool-pill {
+    width: fit-content;
+    max-width: 100%;
+    display: inline-flex;
     align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: var(--agent-blue-soft);
+    color: #174bc3;
+    font-size: 11.5px;
+    font-weight: 850;
+    margin-bottom: 10px;
   }
 
-  .agentic-ai-panel-slot .agent-focused-icon {
-    width: 32px !important;
-    height: 32px !important;
-    border-radius: 12px !important;
+  .agentic-ai-action-tool-pill b {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 950;
   }
 
-  .agentic-ai-panel-slot .agent-focused-hero span {
-    font-size: 8.5px !important;
-    letter-spacing: 0.06em !important;
+  .agentic-ai-action-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
-  .agentic-ai-panel-slot .agent-focused-hero > strong {
-    min-width: 28px !important;
-    height: 28px !important;
-    font-size: 12.5px !important;
+  .agentic-ai-action-metric,
+  .agentic-ai-action-empty,
+  .agentic-ai-action-next {
+    border: 1px solid rgba(226, 236, 249, 0.9);
+    border-radius: 15px;
+    background: #fbfdff;
+  }
+
+  .agentic-ai-action-metric {
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .agentic-ai-action-metric strong,
+  .agentic-ai-action-metric span {
+    display: block;
+  }
+
+  .agentic-ai-action-metric strong {
+    color: #0b1c42;
+    font-size: 16px;
+    font-weight: 950;
+  }
+
+  .agentic-ai-action-metric span {
+    margin-top: 2px;
+    color: #61708a;
+    font-size: 10.5px;
+    font-weight: 800;
+  }
+
+  .agentic-ai-action-rows {
+    display: grid;
+  }
+
+  .agentic-ai-action-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(226, 236, 249, 0.78);
+  }
+
+  .agentic-ai-action-row:last-child {
+    border-bottom: 0;
+  }
+
+  .agentic-ai-action-row-dot {
+    width: 28px;
+    height: 28px;
+    display: block;
+    border-radius: 999px;
+    background: #eef2f7;
+  }
+
+  .agentic-ai-action-row-dot.is-blue,
+  .agentic-ai-action-metric.is-blue { background: var(--agent-blue-soft); }
+  .agentic-ai-action-row-dot.is-red,
+  .agentic-ai-action-metric.is-red { background: var(--agent-red-soft); }
+  .agentic-ai-action-row-dot.is-orange,
+  .agentic-ai-action-metric.is-orange { background: var(--agent-orange-soft); }
+  .agentic-ai-action-row-dot.is-purple,
+  .agentic-ai-action-metric.is-purple { background: var(--agent-purple-soft); }
+  .agentic-ai-action-row-dot.is-teal,
+  .agentic-ai-action-metric.is-teal { background: var(--agent-teal-soft); }
+
+  .agentic-ai-action-row strong,
+  .agentic-ai-action-row small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .agentic-ai-action-row strong {
+    color: #0b1c42;
+    font-size: 12.5px;
+    font-weight: 900;
+  }
+
+  .agentic-ai-action-row small {
+    margin-top: 2px;
+    color: #66758f;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .agentic-ai-action-row b {
+    color: #0b1c42;
+    font-size: 11.5px;
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .agentic-ai-action-empty {
+    display: grid;
+    gap: 4px;
+    padding: 11px;
+    margin-bottom: 8px;
+  }
+
+  .agentic-ai-action-empty strong {
+    color: #0b1c42;
+    font-size: 12.5px;
+    font-weight: 950;
+  }
+
+  .agentic-ai-action-empty span {
+    color: #66758f;
+    font-size: 11.5px;
+    line-height: 1.35;
+    font-weight: 700;
+  }
+
+  .agentic-ai-action-next {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 11px;
+    color: #52637f;
+    font-size: 11.5px;
+    line-height: 1.35;
+    font-weight: 750;
+    margin-top: 8px;
+  }
+
+  .agentic-ai-action-next svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: var(--agent-blue);
   }
 }
