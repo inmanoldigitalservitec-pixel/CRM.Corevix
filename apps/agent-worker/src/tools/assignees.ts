@@ -43,29 +43,31 @@ async function companyProfiles(ctx: ToolContext) {
   return data || [];
 }
 
-export async function resolveCrmAssignee(ctx: ToolContext, args: any): Promise<ToolResult & { profileId?: string; profile?: any }> {
+export async function resolveCrmAssignee(ctx: ToolContext, args: any): Promise<ToolResult & { assigneeId?: string; profileId?: string; profile?: any }> {
   const input = getInput(args);
   const self = await currentProfile(ctx);
 
   if (isSelf(input)) {
-    if (!self?.id) return { ok: false, error: "No pude identificar tu usuario actual para asignar la tarea." };
-    return { ok: true, profileId: self.id, profile: self };
+    const assigneeId = self?.user_id || self?.id;
+    if (!assigneeId) return { ok: false, error: "No pude identificar tu usuario actual para asignar la tarea." };
+    return { ok: true, assigneeId, profileId: self.id, profile: self };
   }
 
   const raw = String(input ?? "").trim();
   if (!raw) {
-    if (!self?.id) return { ok: false, error: "Toda tarea necesita responsable y no pude identificar tu usuario actual." };
-    return { ok: true, profileId: self.id, profile: self };
+    const assigneeId = self?.user_id || self?.id;
+    if (!assigneeId) return { ok: false, error: "Toda tarea necesita responsable y no pude identificar tu usuario actual." };
+    return { ok: true, assigneeId, profileId: self.id, profile: self };
   }
 
   const profiles = await companyProfiles(ctx);
   const wanted = normalize(raw);
   const selfKeys = [self?.id, self?.user_id, self?.full_name, self?.email].filter(Boolean).map(normalize);
-  if (self?.id && selfKeys.includes(wanted)) return { ok: true, profileId: self.id, profile: self };
+  if (self?.id && selfKeys.includes(wanted)) return { ok: true, assigneeId: self.user_id || self.id, profileId: self.id, profile: self };
 
   if (isUuid(raw)) {
     const direct = profiles.find((profile: any) => profile.id === raw || profile.user_id === raw);
-    if (direct?.id) return { ok: true, profileId: direct.id, profile: direct };
+    if (direct?.id) return { ok: true, assigneeId: direct.user_id || direct.id, profileId: direct.id, profile: direct };
   }
 
   const exact = profiles.filter((profile: any) => normalize(profile.full_name) === wanted || normalize(profile.email) === wanted);
@@ -76,7 +78,7 @@ export async function resolveCrmAssignee(ctx: ToolContext, args: any): Promise<T
   });
 
   const matches = (exact.length ? exact : contains).filter((profile: any) => profile.is_active !== false);
-  if (matches.length === 1) return { ok: true, profileId: matches[0].id, profile: matches[0] };
+  if (matches.length === 1) return { ok: true, assigneeId: matches[0].user_id || matches[0].id, profileId: matches[0].id, profile: matches[0] };
 
   if (matches.length > 1) {
     return {
@@ -106,18 +108,18 @@ function withProfile(result: ToolResult, profile: any): ToolResult {
 
 export async function createTaskForResolvedUser(ctx: ToolContext, args: any): Promise<ToolResult> {
   const resolved = await resolveCrmAssignee(ctx, args);
-  if (!resolved.ok || !resolved.profileId) return resolved;
-  return withProfile(await createTaskTool(ctx, { ...args, assigned_to: resolved.profileId }), resolved.profile);
+  if (!resolved.ok || !resolved.assigneeId) return resolved;
+  return withProfile(await createTaskTool(ctx, { ...args, assigned_to: resolved.assigneeId }), resolved.profile);
 }
 
 export async function createReminderForResolvedUser(ctx: ToolContext, args: any): Promise<ToolResult> {
   const resolved = await resolveCrmAssignee(ctx, args);
-  if (!resolved.ok || !resolved.profileId) return resolved;
-  return withProfile(await createReminderTool(ctx, { ...args, assigned_to: resolved.profileId }), resolved.profile);
+  if (!resolved.ok || !resolved.assigneeId) return resolved;
+  return withProfile(await createReminderTool(ctx, { ...args, assigned_to: resolved.assigneeId }), resolved.profile);
 }
 
 export async function createDemoForResolvedUser(ctx: ToolContext, args: any): Promise<ToolResult> {
   const resolved = await resolveCrmAssignee(ctx, args);
-  if (!resolved.ok || !resolved.profileId) return resolved;
-  return withProfile(await createCrmDemoTool(ctx, { ...args, assigned_to: resolved.profileId }), resolved.profile);
+  if (!resolved.ok || !resolved.assigneeId) return resolved;
+  return withProfile(await createCrmDemoTool(ctx, { ...args, assigned_to: resolved.assigneeId }), resolved.profile);
 }
