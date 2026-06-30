@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const AGENT_URL = (import.meta.env.VITE_AGENT_URL || "http://localhost:8787").replace(/\/$/, "");
+const AGENT_URL = (import.meta.env.VITE_AGENT_URL || "https://crm.corevix.agency").replace(/\/$/, "");
 
 export type AgentChatHistoryMessage = { role: "user" | "assistant"; content: string };
 export type AgentToolScope = "general" | "leads" | "clients" | "tasks" | "pipeline" | "reports" | "communication" | "projects" | "finance";
