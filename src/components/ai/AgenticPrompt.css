@@ -214,7 +214,11 @@
 /* Mobile agent: the context becomes a compact chat header, not a separate section. */
 @media (max-width: 760px) {
   .agentic-ai-shell {
+    --corevix-mobile-composer-height: 78px;
     background: #fbfdff;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
   }
 
   .agentic-ai-layout,
@@ -238,16 +242,29 @@
   }
 
   .agentic-ai-stage {
-    padding: 6px 8px 8px !important;
+    height: 100% !important;
+    padding: 6px 8px 0 !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    overflow: hidden !important;
   }
 
   .agentic-ai-core {
+    height: 100% !important;
     border-radius: 18px !important;
+    padding-bottom: var(--corevix-mobile-composer-height) !important;
+  }
+
+  .agentic-ai-chat {
+    height: 100% !important;
   }
 
   .agentic-ai-scroll {
-    padding: 14px 10px 12px !important;
+    height: 100% !important;
+    padding: 14px 10px calc(var(--corevix-mobile-composer-height) + 42px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
     scrollbar-gutter: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   .agentic-ai-stream {
@@ -264,14 +281,28 @@
   }
 
   .agentic-ai-dock {
-    padding-top: 7px !important;
+    position: fixed !important;
+    left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--corevix-visual-bottom, 0px)) + 10px) !important;
+    z-index: 80 !important;
+    display: flex !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    pointer-events: none;
   }
 
   .agentic-ai-dock-form,
   .agentic-ai-hero-form {
     min-height: 52px;
+    width: min(100%, 760px) !important;
     padding: 7px 8px !important;
     border-radius: 22px !important;
+    pointer-events: auto;
+  }
+
+  .agentic-ai-dock-form {
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(29, 98, 249, 0.08) !important;
   }
 
   .agentic-ai-dock-form textarea,
