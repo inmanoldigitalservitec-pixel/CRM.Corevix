@@ -166,3 +166,8 @@ dist
 !.env.example
 .wrangler/
 .dev.vars
+
+worker.pid
+worker.log
+*.tar.gz
+*.zip
