@@ -601,11 +601,11 @@ export function TaskDetailDialog({
   };
 
   const renderMetaChip = (label: string, value: string, icon: ReactNode) => (
-    <div className="flex min-w-[210px] items-center gap-3 rounded-xl border bg-white px-3 py-2 shadow-sm">
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-700">{icon}</div>
-      <div className="min-w-0 flex-1">
-        <div className="whitespace-nowrap text-[11px] font-bold text-slate-500">{label}</div>
-        <div className="truncate text-sm font-extrabold text-slate-900" title={value || "—"}>{value || "—"}</div>
+    <div className="flex min-w-0 items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 shadow-sm">
+      <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-700">{icon}</div>
+      <div className="min-w-0 flex-1 xl:w-full">
+        <div className="truncate whitespace-nowrap text-[10px] font-bold text-slate-500">{label}</div>
+        <div className="truncate text-sm font-extrabold leading-5 text-slate-900" title={value || "—"}>{value || "—"}</div>
       </div>
     </div>
   );
@@ -613,16 +613,16 @@ export function TaskDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1240px] sm:rounded-[24px] sm:border">
+        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl [&>button.absolute.right-4.top-4]:hidden sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1240px] sm:rounded-[24px] sm:border">
           <div ref={legacyContentRef} className="pointer-events-none absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden opacity-0">
             {children}
           </div>
 
           <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white sm:max-h-[92vh]">
             <div className="shrink-0 border-b bg-white px-5 py-4 sm:px-6">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="relative flex flex-col gap-4">
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 xl:pr-[560px]">
                     {editing ? (
                       <Input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} className="h-10 max-w-2xl text-lg font-extrabold" />
                     ) : (
@@ -670,7 +670,7 @@ export function TaskDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-3 grid max-w-none grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-2 xl:max-w-6xl">
+                    <div className="mt-3 grid w-full max-w-none grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                       {renderMetaChip("Priority", task?.priority || "—", <Flag className="h-4 w-4" />)}
                       {renderMetaChip("Due date", formatDate(task?.due_date), <CalendarDays className="h-4 w-4" />)}
                       {renderMetaChip("Assignee", assigneeLabel, <User className="h-4 w-4" />)}
@@ -681,7 +681,7 @@ export function TaskDetailDialog({
                   )}
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 xl:absolute xl:right-0 xl:top-0">
                   {editing ? (
                     <>
                       <Button variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
