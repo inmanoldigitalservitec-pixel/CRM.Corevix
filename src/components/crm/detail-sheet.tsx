@@ -85,9 +85,11 @@ export function DetailSheet({
   if (!hasHeaderContent && fields.length === 0 && children) {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="w-[calc(100vw-24px)] max-w-[1120px] gap-0 overflow-hidden rounded-3xl border-slate-200 bg-slate-50 p-0 shadow-2xl sm:max-h-[92vh]">
-          <ScrollArea className="max-h-[92vh]">
-            <div className="p-4 sm:p-5">{children}</div>
+        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1180px] sm:rounded-3xl sm:border">
+          <ScrollArea className="h-full max-h-[100dvh] sm:max-h-[92vh]">
+            <div className="p-3 sm:p-5 [&>div]:grid [&>div]:grid-cols-1 [&>div]:gap-5 [&>div]:space-y-0 lg:[&>div]:grid-cols-[minmax(0,1fr)_390px] lg:[&>div>*:first-child]:col-span-2 [&>div>*:first-child]:sticky [&>div>*:first-child]:top-0 [&>div>*:first-child]:z-20 [&>div>*:first-child]:shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+              {children}
+            </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
