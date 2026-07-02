@@ -44,13 +44,11 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
-  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useT } from "@/i18n";
@@ -164,12 +162,8 @@ export function AppSidebar() {
   const isActive = (path?: string) => !!path && (currentPath === path || currentPath.startsWith(path + "/"));
   const itemLabel = (item: SidebarItem) => item.title || t(item.titleKey as any);
 
-  const renderGroup = (labelKey: string, items: SidebarItem[]) => (
-    <SidebarGroup className="px-2 py-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1.5 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-2">
-      <SidebarGroupLabel className="text-slate-500 text-[10px] uppercase tracking-wider font-extrabold group-data-[collapsible=icon]:!hidden group-data-[mobile=true]:!flex">
-        {t(labelKey)}
-      </SidebarGroupLabel>
-      <SidebarSeparator className="mx-auto my-1 hidden w-7 bg-slate-200/80 group-data-[collapsible=icon]:block group-data-[mobile=true]:hidden" />
+  const renderGroup = (_labelKey: string, items: SidebarItem[]) => (
+    <SidebarGroup className="px-2 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-1">
       <SidebarGroupContent>
         <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
           {items.map((item) => {
@@ -223,11 +217,7 @@ export function AppSidebar() {
   );
 
   const renderCollapsibleGroup = ({ label, icon: Icon, open, setOpen, active, items }: { label: string; icon: React.ElementType; open: boolean; setOpen: (updater: (open: boolean) => boolean) => void; active: boolean; items: SidebarItem[] }) => (
-    <SidebarGroup className="px-2 py-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1.5 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-2">
-      <SidebarGroupLabel className="text-slate-500 text-[10px] uppercase tracking-wider font-extrabold group-data-[collapsible=icon]:!hidden group-data-[mobile=true]:!flex">
-        {label}
-      </SidebarGroupLabel>
-      <SidebarSeparator className="mx-auto my-1 hidden w-7 bg-slate-200/80 group-data-[collapsible=icon]:block group-data-[mobile=true]:hidden" />
+    <SidebarGroup className="px-2 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-1">
       <SidebarGroupContent>
         <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
           <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
