@@ -1,26 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
+  BarChart3,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
   CircleDot,
+  ClipboardList,
+  Clock3,
   ExternalLink,
+  FileText,
   FolderOpen,
+  GanttChartSquare,
+  Landmark,
+  MessageSquare,
+  MoreHorizontal,
   Package,
+  Paperclip,
   Plus,
+  ReceiptText,
+  ShieldCheck,
+  Ticket,
   UserRound,
+  X,
+  Zap,
 } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { Button } from "@/components/ui/button";
+import { DataCard } from "@/components/crm/data-card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -32,9 +40,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/crm/empty-state";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
+import { PageHeader } from "@/components/crm/page-header";
+import { Progress } from "@/components/ui/progress";
+import { SearchFilters } from "@/components/crm/search-filters";
 import {
   Select,
   SelectContent,
@@ -42,26 +54,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/crm/page-header";
-import { SearchFilters } from "@/components/crm/search-filters";
-import { EmptyState } from "@/components/crm/empty-state";
-import { DataCard } from "@/components/crm/data-card";
-import { DetailSheet } from "@/components/crm/detail-sheet";
-import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
-import { useCrud } from "@/hooks/use-crud";
 import { useAuth } from "@/hooks/use-auth";
+import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
 import {
   isActiveProjectStatus,
   isClosedTaskStatusValue,
-  isCompletedTaskStatusValue,
   isDoneTaskStatusValue,
+  isInProgressTaskStatusValue,
   normalizeStatus,
 } from "@/lib/crm/status";
 
@@ -73,8 +87,9 @@ export const Route = createFileRoute("/projects")({
 const PROJECT_STATUSES = ["Not Started", "In Progress", "On Hold", "Completed", "Cancelled"];
 const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const NONE = "none";
 
-interface Project {
+type Project = {
   id: string;
   company_id: string;
   name: string;
@@ -89,13 +104,13 @@ interface Project {
   product_id: string | null;
   deal_id: string | null;
   lead_id: string | null;
-  manager: string | null; // profiles.id
-  created_by: string | null; // profiles.id
+  manager: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at?: string;
-}
+};
 
-interface TaskRow {
+type TaskRow = {
   id: string;
   company_id: string;
   title: string;
@@ -103,173 +118,70 @@ interface TaskRow {
   status: string;
   priority: string;
   due_date: string | null;
-  assigned_to: string | null; // auth user id
+  assigned_to: string | null;
   related_project_id: string | null;
   related_client_id: string | null;
   related_lead_id: string | null;
   related_deal_id: string | null;
   updated_at: string;
-}
+};
 
-interface ClientRow {
-  id: string;
-  company_id: string;
-  company_name: string;
-  account_manager: string | null; // profiles.id
-}
+type ClientRow = { id: string; company_id: string; company_name: string; account_manager: string | null };
+type ProductRow = { id: string; company_id: string; name: string; category: string | null; base_price: number | null; is_active: boolean | null };
+type DealRow = { id: string; company_id: string; name: string; stage: string; value: number | null; lead_id: string | null; assigned_to: string | null; probability: number | null; expected_close: string | null; updated_at: string };
+type LeadRow = { id: string; company_id: string; first_name: string | null; last_name: string | null; company_name: string | null; email: string | null };
+type ProfileRow = { id: string; company_id: string | null; full_name: string | null; email: string | null; user_id: string | null; is_active: boolean };
 
-interface ProductRow {
-  id: string;
-  company_id: string;
+type ProjectStats = { total: number; completed: number; open: number; overdue: number; pct: number };
+
+type ProjectForm = {
   name: string;
-  category: string | null;
-  base_price: number | null;
-  is_active: boolean | null;
-}
-
-interface DealRow {
-  id: string;
-  company_id: string;
-  name: string;
-  stage: string;
-  value: number | null;
-  lead_id: string | null;
-  assigned_to: string | null; // auth user id
-  probability: number | null;
-  expected_close: string | null;
-  updated_at: string;
-}
-
-interface LeadRow {
-  id: string;
-  company_id: string;
-  first_name: string | null;
-  last_name: string | null;
-  company_name: string | null;
-  email: string | null;
-}
-
-interface ClientProductRow {
-  id: string;
-  company_id: string;
+  description: string;
+  status: string;
+  progress: string;
+  priority: string;
+  budget: string;
+  start_date: string;
+  due_date: string;
   client_id: string;
   product_id: string;
-}
-
-interface DealProductRow {
-  id: string;
-  company_id: string;
   deal_id: string;
-  product_id: string;
-  created_at: string;
-}
-
-interface ProductWorkflowRow {
-  id: string;
-  company_id: string;
-  product_id: string;
-  is_active: boolean;
-  name: string;
-}
-
-interface ProfileRow {
-  id: string;
-  company_id: string | null;
-  full_name: string | null;
-  email: string | null;
-  user_id: string | null;
-  is_active: boolean;
-}
+  lead_id: string;
+  manager: string;
+};
 
 function isoToday() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatMoney(value: number | null | undefined) {
+  return `$${Number(value || 0).toLocaleString()}`;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "—";
+  try {
+    return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return value;
+  }
 }
 
 function formatLeadLabel(lead: LeadRow) {
   const company = (lead.company_name || "").trim();
   if (company) return company;
   const person = `${lead.first_name || ""} ${lead.last_name || ""}`.trim();
-  if (person) return person;
-  return (lead.email || "").trim() || lead.id;
+  return person || lead.email || lead.id;
 }
 
-function formatMoneyCompact(value: number | null | undefined) {
-  const amount = Number(value || 0);
-  return `$${amount.toLocaleString()}`;
+function initials(value: string | null | undefined) {
+  const text = String(value || "Project").trim();
+  const parts = text.split(/\s+/).filter(Boolean).slice(0, 2);
+  return parts.map((part) => part[0]?.toUpperCase()).join("") || "P";
 }
 
-function formatProjectDate(value: string | null | undefined) {
-  if (!value) return "—";
-  try {
-    return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return value;
-  }
-}
-
-function projectInitials(name: string) {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "P"
-  );
-}
-
-function statusTone(status: string | null | undefined) {
-  const normalized = normalizeStatus(status || "");
-  if (normalized === normalizeStatus("Completed"))
-    return "text-emerald-700 bg-emerald-50 border-emerald-100";
-  if (normalized === normalizeStatus("In Progress"))
-    return "text-blue-700 bg-blue-50 border-blue-100";
-  if (normalized === normalizeStatus("On Hold"))
-    return "text-amber-700 bg-amber-50 border-amber-100";
-  if (normalized === normalizeStatus("Cancelled"))
-    return "text-slate-500 bg-slate-100 border-slate-200";
-  return "text-slate-700 bg-slate-50 border-slate-200";
-}
-
-function ProjectsPage() {
-  const { profile, user, roles } = useAuth();
-  const { can } = usePermissions();
-  const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
-  const isSalesAgent = roles?.includes("sales_agent") ?? false;
-
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [clientFilter, setClientFilter] = useState("all");
-  const [productFilter, setProductFilter] = useState("all");
-  const [managerFilter, setManagerFilter] = useState("all");
-  const [tasksFilter, setTasksFilter] = useState<
-    "all" | "overdue" | "in_progress" | "completed" | "no_tasks"
-  >("all");
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [projectFormAdvancedOpen, setProjectFormAdvancedOpen] = useState(false);
-  const [editItem, setEditItem] = useState<Project | null>(null);
-  const [selected, setSelected] = useState<Project | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  const [form, setForm] = useState<{
-    name: string;
-    description: string;
-    status: string;
-    progress: string;
-    priority: string;
-    budget: string;
-    start_date: string;
-    due_date: string;
-    client_id: string;
-    product_id: string;
-    deal_id: string;
-    lead_id: string;
-    manager: string;
-  }>({
+function defaultProjectForm(): ProjectForm {
+  return {
     name: "",
     description: "",
     status: "Not Started",
@@ -278,569 +190,321 @@ function ProjectsPage() {
     budget: "",
     start_date: "",
     due_date: "",
-    client_id: "none",
-    product_id: "none",
-    deal_id: "none",
-    lead_id: "none",
-    manager: "none",
-  });
+    client_id: NONE,
+    product_id: NONE,
+    deal_id: NONE,
+    lead_id: NONE,
+    manager: NONE,
+  };
+}
 
+function PlaceholderModule({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="rounded-xl border border-dashed bg-slate-50/70 p-5">
+      <div className="flex items-start gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-xl border bg-white text-slate-500">{icon}</div>
+        <div>
+          <div className="font-extrabold text-slate-900">{title}</div>
+          <p className="mt-1 text-sm font-medium leading-6 text-slate-500">{description}</p>
+          <span className="mt-3 inline-flex rounded-full border bg-white px-2.5 py-1 text-xs font-bold text-slate-500">Placeholder preparado</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectsPage() {
+  const { profile, user } = useAuth();
+  const { can } = usePermissions();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [productFilter, setProductFilter] = useState("all");
+  const [managerFilter, setManagerFilter] = useState("all");
+  const [tasksFilter, setTasksFilter] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [editItem, setEditItem] = useState<Project | null>(null);
+  const [selected, setSelected] = useState<Project | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [form, setForm] = useState<ProjectForm>(defaultProjectForm);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskSaving, setTaskSaving] = useState(false);
-  const [taskForm, setTaskForm] = useState({
-    title: "",
-    description: "",
-    due_date: "",
-    priority: "Medium",
-  });
+  const [taskForm, setTaskForm] = useState({ title: "", description: "", due_date: "", priority: "Medium" });
 
-  const {
-    data: projects,
-    loading: projectsLoading,
-    create,
-    update,
-    remove,
-  } = useCrud<Project>({
-    table: "projects",
-    orderBy: "updated_at",
-    ascending: false,
-    limit: 500,
-  });
-
-  const {
-    data: tasks,
-    loading: tasksLoading,
-    fetch: fetchTasks,
-  } = useCrud<TaskRow>({
-    table: "tasks",
-    select:
-      "id,company_id,title,description,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,updated_at",
-    orderBy: "updated_at",
-    ascending: false,
-    limit: 2000,
-  });
-
-  const { data: clients } = useCrud<ClientRow>({
-    table: "clients",
-    select: "id,company_id,company_name,account_manager",
-    orderBy: "company_name",
-    ascending: true,
-    limit: 2000,
-  });
-
-  const { data: products } = useCrud<ProductRow>({
-    table: "products",
-    select: "id,company_id,name,category,base_price,is_active",
-    orderBy: "name",
-    ascending: true,
-    limit: 2000,
-  });
-
-  const { data: deals } = useCrud<DealRow>({
-    table: "deals",
-    select:
-      "id,company_id,name,stage,value,lead_id,assigned_to,probability,expected_close,updated_at",
-    orderBy: "updated_at",
-    ascending: false,
-    limit: 2000,
-  });
-
-  const { data: leads } = useCrud<LeadRow>({
-    table: "leads",
-    select: "id,company_id,first_name,last_name,company_name,email",
-    orderBy: "updated_at",
-    ascending: false,
-    limit: 2000,
-  });
-
-  const { data: clientProducts } = useCrud<ClientProductRow>({
-    table: "client_products",
-    select: "id,company_id,client_id,product_id",
-    orderBy: "updated_at",
-    ascending: false,
-    limit: 5000,
-  });
-
-  const { data: dealProducts } = useCrud<DealProductRow>({
-    table: "deal_products",
-    select: "id,company_id,deal_id,product_id,created_at",
-    orderBy: "created_at",
-    ascending: false,
-    limit: 5000,
-  });
-
-  const { data: productWorkflows } = useCrud<ProductWorkflowRow>({
-    table: "product_workflows",
-    select: "id,company_id,product_id,is_active,name",
-    orderBy: "created_at",
-    ascending: false,
-    limit: 2000,
-  });
-
-  const { data: profiles } = useCrud<ProfileRow>({
-    table: "profiles",
-    select: "id,company_id,full_name,email,user_id,is_active",
-    orderBy: "full_name",
-    ascending: true,
-    limit: 2000,
-  });
+  const { data: projects, loading: projectsLoading, create, update, remove } = useCrud<Project>({ table: "projects", orderBy: "updated_at", ascending: false, limit: 500 });
+  const { data: tasks, loading: tasksLoading, fetch: fetchTasks } = useCrud<TaskRow>({ table: "tasks", select: "id,company_id,title,description,status,priority,due_date,assigned_to,related_project_id,related_client_id,related_lead_id,related_deal_id,updated_at", orderBy: "updated_at", ascending: false, limit: 2000 });
+  const { data: clients } = useCrud<ClientRow>({ table: "clients", select: "id,company_id,company_name,account_manager", orderBy: "company_name", ascending: true, limit: 2000 });
+  const { data: products } = useCrud<ProductRow>({ table: "products", select: "id,company_id,name,category,base_price,is_active", orderBy: "name", ascending: true, limit: 2000 });
+  const { data: deals } = useCrud<DealRow>({ table: "deals", select: "id,company_id,name,stage,value,lead_id,assigned_to,probability,expected_close,updated_at", orderBy: "updated_at", ascending: false, limit: 2000 });
+  const { data: leads } = useCrud<LeadRow>({ table: "leads", select: "id,company_id,first_name,last_name,company_name,email", orderBy: "updated_at", ascending: false, limit: 2000 });
+  const { data: profiles } = useCrud<ProfileRow>({ table: "profiles", select: "id,company_id,full_name,email,user_id,is_active", orderBy: "full_name", ascending: true, limit: 2000 });
 
   const loading = projectsLoading || tasksLoading;
+  const clientById = useMemo(() => new Map(clients.map((item) => [item.id, item])), [clients]);
+  const productById = useMemo(() => new Map(products.map((item) => [item.id, item])), [products]);
+  const dealById = useMemo(() => new Map(deals.map((item) => [item.id, item])), [deals]);
+  const leadById = useMemo(() => new Map(leads.map((item) => [item.id, item])), [leads]);
+  const profileById = useMemo(() => new Map(profiles.map((item) => [item.id, item])), [profiles]);
+  const profileByUserId = useMemo(() => new Map(profiles.filter((item) => item.user_id).map((item) => [String(item.user_id), item])), [profiles]);
 
-  const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
-  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
-  const dealById = useMemo(() => new Map(deals.map((d) => [d.id, d])), [deals]);
-  const profileById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
-  const profileByUserId = useMemo(
-    () => new Map(profiles.filter((p) => p.user_id).map((p) => [String(p.user_id), p])),
-    [profiles],
-  );
-  const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
-  const resolveManagerProfileId = (raw: string | null | undefined) => {
-    const value = String(raw || "").trim();
-    if (!value || value === "none") return null;
-    if (profileById.has(value)) return value;
-    return profileByUserId.get(value)?.id || null;
-  };
+  const managerOptions = useMemo(() => {
+    const companyId = profile?.company_id ? String(profile.company_id) : null;
+    return profiles
+      .filter((item) => item.is_active && item.user_id && (!companyId || String(item.company_id || "") === companyId))
+      .map((item) => ({ label: String(item.full_name || item.email || item.user_id), value: String(item.id) }));
+  }, [profile?.company_id, profiles]);
 
-  const resolveTaskAssigneeUserId = (raw: string | null | undefined) => {
-    const value = String(raw || "").trim();
-    if (!value || value === "none") return profile?.user_id || user?.id || null;
-
-    const byUser = profileByUserId.get(value);
-    if (byUser?.user_id) return byUser.user_id;
-
-    const byProfile = profileById.get(value);
-    if (byProfile?.user_id) return byProfile.user_id;
-
-    if (value === String(profile?.user_id || "") || value === String(user?.id || "")) return value;
-    if (value === String(profile?.id || "")) return profile?.user_id || user?.id || null;
-
-    return profile?.user_id || user?.id || null;
-  };
-
-  const activeWorkflowByProductId = useMemo(() => {
-    const map = new Map<string, ProductWorkflowRow>();
-    for (const wf of productWorkflows) {
-      if (!wf.is_active) continue;
-      if (!map.has(String(wf.product_id))) map.set(String(wf.product_id), wf);
-    }
-    return map;
-  }, [productWorkflows]);
-
-  const purchasedProductIdsByClientId = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const cp of clientProducts) {
-      const cid = String(cp.client_id);
-      const set = map.get(cid) || new Set<string>();
-      set.add(String(cp.product_id));
-      map.set(cid, set);
-    }
-    return map;
-  }, [clientProducts]);
-
-  const dealProductIdsByDealId = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const dp of dealProducts) {
-      const did = String(dp.deal_id);
-      const list = map.get(did) || [];
-      list.push(String(dp.product_id));
-      map.set(did, list);
-    }
-    return map;
-  }, [dealProducts]);
+  const clientOptions = useMemo(() => clients.map((item) => ({ label: item.company_name, value: item.id })), [clients]);
+  const productOptions = useMemo(() => products.filter((item) => item.is_active !== false).map((item) => ({ label: item.category ? `${item.name} · ${item.category}` : item.name, value: item.id })), [products]);
+  const dealOptions = useMemo(() => deals.map((item) => ({ label: `${item.name} · ${item.stage}`, value: item.id })), [deals]);
+  const leadOptions = useMemo(() => leads.map((item) => ({ label: formatLeadLabel(item), value: item.id })), [leads]);
 
   const tasksByProjectId = useMemo(() => {
     const map = new Map<string, TaskRow[]>();
-    for (const t of tasks) {
-      if (!t.related_project_id) continue;
-      const pid = String(t.related_project_id);
-      const bucket = map.get(pid) || [];
-      bucket.push(t);
-      map.set(pid, bucket);
+    for (const task of tasks) {
+      if (!task.related_project_id) continue;
+      const list = map.get(task.related_project_id) || [];
+      list.push(task);
+      map.set(task.related_project_id, list);
     }
     return map;
   }, [tasks]);
 
   const statsByProjectId = useMemo(() => {
     const today = isoToday();
-    const map = new Map<
-      string,
-      { total: number; completed: number; open: number; overdue: number; computedPct: number }
-    >();
-    for (const p of projects) {
-      const list = tasksByProjectId.get(String(p.id)) || [];
+    const map = new Map<string, ProjectStats>();
+    for (const project of projects) {
+      const list = tasksByProjectId.get(project.id) || [];
       const total = list.length;
-      const completed = list.filter((t) => isDoneTaskStatusValue(t.status)).length;
-      const open = list.filter((t) => !isClosedTaskStatusValue(t.status)).length;
-      const overdue = list.filter((t) => {
-        if (!t.due_date) return false;
-        if (isClosedTaskStatusValue(t.status)) return false;
-        return String(t.due_date) < today;
-      }).length;
-      const computedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
-      map.set(String(p.id), { total, completed, open, overdue, computedPct });
+      const completed = list.filter((task) => isDoneTaskStatusValue(task.status)).length;
+      const open = list.filter((task) => !isClosedTaskStatusValue(task.status)).length;
+      const overdue = list.filter((task) => !!task.due_date && String(task.due_date) < today && !isClosedTaskStatusValue(task.status)).length;
+      map.set(project.id, { total, completed, open, overdue, pct: total ? Math.round((completed / total) * 100) : Number(project.progress || 0) });
     }
     return map;
   }, [projects, tasksByProjectId]);
 
-  const filtered = projects.filter((p) => {
-    const matchSearch = `${p.name} ${p.description || ""}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || normalizeStatus(p.status) === normalizeStatus(statusFilter);
-    const matchClient = clientFilter === "all" || String(p.client_id || "") === clientFilter;
-    const matchProduct = productFilter === "all" || String(p.product_id || "") === productFilter;
-    const matchManager =
-      managerFilter === "all" || resolveManagerProfileId(p.manager) === managerFilter;
+  const resolveManagerProfileId = (raw: string | null | undefined) => {
+    const value = String(raw || "").trim();
+    if (!value || value === NONE) return null;
+    if (profileById.has(value)) return value;
+    return profileByUserId.get(value)?.id || null;
+  };
 
-    const stats = statsByProjectId.get(String(p.id)) || {
-      total: 0,
-      completed: 0,
-      open: 0,
-      overdue: 0,
-      computedPct: 0,
-    };
-    const matchTasks =
-      tasksFilter === "all" ||
-      (tasksFilter === "no_tasks" && stats.total === 0) ||
-      (tasksFilter === "overdue" && stats.overdue > 0) ||
-      (tasksFilter === "in_progress" && stats.total > 0 && stats.open > 0) ||
-      (tasksFilter === "completed" && stats.total > 0 && stats.open === 0);
+  const resolveTaskAssigneeUserId = (raw: string | null | undefined) => {
+    const profileId = resolveManagerProfileId(raw);
+    if (profileId) return profileById.get(profileId)?.user_id || user?.id || profile?.user_id || null;
+    return user?.id || profile?.user_id || null;
+  };
 
-    return matchSearch && matchStatus && matchClient && matchProduct && matchManager && matchTasks;
-  });
+  const managerName = (raw: string | null | undefined) => {
+    const managerId = resolveManagerProfileId(raw);
+    if (!managerId) return "Sin asignar";
+    return profileById.get(managerId)?.full_name || profileById.get(managerId)?.email || "Sin asignar";
+  };
 
-  const clientOptions = useMemo(
-    () => clients.map((c) => ({ label: c.company_name, value: c.id })),
-    [clients],
-  );
-  const selectedClientPurchasedProductIds = useMemo(() => {
-    if (!form.client_id || form.client_id === "none") return new Set<string>();
-    return purchasedProductIdsByClientId.get(String(form.client_id)) || new Set<string>();
-  }, [form.client_id, purchasedProductIdsByClientId]);
+  const projectMeta = (project: Project) => {
+    const client = project.client_id ? clientById.get(project.client_id) || null : null;
+    const product = project.product_id ? productById.get(project.product_id) || null : null;
+    const deal = project.deal_id ? dealById.get(project.deal_id) || null : null;
+    const lead = project.lead_id ? leadById.get(project.lead_id) || null : null;
+    const stats = statsByProjectId.get(project.id) || { total: 0, completed: 0, open: 0, overdue: 0, pct: Number(project.progress || 0) };
+    const isOverdue = !!project.due_date && String(project.due_date) < isoToday() && isActiveProjectStatus(project.status);
+    return { client, product, deal, lead, stats, isOverdue, hasRisk: isOverdue || stats.overdue > 0 };
+  };
 
-  const productOptions = useMemo(() => {
-    const base = products.filter((p) => p.is_active !== false);
-    return base.map((p) => {
-      const purchased = selectedClientPurchasedProductIds.has(String(p.id));
-      const labelBase = p.category ? `${p.name} · ${p.category}` : p.name;
-      return { label: purchased ? `✓ ${labelBase}` : labelBase, value: p.id };
+  const filtered = useMemo(() => {
+    return projects.filter((project) => {
+      const meta = projectMeta(project);
+      const haystack = `${project.name} ${project.description || ""} ${meta.client?.company_name || ""} ${meta.product?.name || ""}`.toLowerCase();
+      const matchTasks =
+        tasksFilter === "all" ||
+        (tasksFilter === "overdue" && meta.stats.overdue > 0) ||
+        (tasksFilter === "in_progress" && meta.stats.total > 0 && meta.stats.open > 0) ||
+        (tasksFilter === "completed" && meta.stats.total > 0 && meta.stats.open === 0) ||
+        (tasksFilter === "no_tasks" && meta.stats.total === 0);
+      return (
+        (!search.trim() || haystack.includes(search.trim().toLowerCase())) &&
+        (statusFilter === "all" || normalizeStatus(project.status) === normalizeStatus(statusFilter)) &&
+        (clientFilter === "all" || String(project.client_id || "") === clientFilter) &&
+        (productFilter === "all" || String(project.product_id || "") === productFilter) &&
+        (managerFilter === "all" || resolveManagerProfileId(project.manager) === managerFilter) &&
+        matchTasks
+      );
     });
-  }, [products, selectedClientPurchasedProductIds]);
+  }, [clientFilter, managerFilter, productFilter, projects, search, statusFilter, statsByProjectId, tasksFilter]);
 
-  const activeCompanyProfiles = useMemo(() => {
-    const cid = profile?.company_id ? String(profile.company_id) : null;
-    return profiles.filter((p) => {
-      if (!p?.is_active) return false;
-      if (!p.user_id) return false;
-      if (!cid) return true;
-      return String(p.company_id || "") === cid;
-    });
-  }, [profile?.company_id, profiles]);
-
-  const managerOptions = useMemo(() => {
-    return activeCompanyProfiles.map((p) => ({
-      label: (p.full_name || p.email || p.user_id || "").toString(),
-      value: String(p.id),
-    }));
-  }, [activeCompanyProfiles]);
-
-  const allowedManagerProfileIds = useMemo(
-    () => new Set(managerOptions.map((o) => o.value)),
-    [managerOptions],
-  );
-
-  const leadOptions = useMemo(
-    () => leads.map((l) => ({ label: formatLeadLabel(l), value: l.id })),
-    [leads],
-  );
-
-  const dealOptions = useMemo(() => {
-    const base = deals.slice();
-    return base.map((d) => ({ label: `${d.name} · ${d.stage}`, value: d.id }));
-  }, [deals]);
+  const kpis = useMemo(() => {
+    const active = projects.filter((project) => isActiveProjectStatus(project.status)).length;
+    const completed = projects.filter((project) => normalizeStatus(project.status) === normalizeStatus("Completed")).length;
+    const risky = projects.filter((project) => projectMeta(project).hasRisk).length;
+    const openTasks = tasks.filter((task) => !isClosedTaskStatusValue(task.status)).length;
+    return { total: projects.length, active, completed, risky, openTasks };
+  }, [projects, statsByProjectId, tasks]);
 
   useEffect(() => {
-    if (!dialogOpen) return;
-    if (!form.client_id || form.client_id === "none") return;
-    if (form.manager && form.manager !== "none") return;
-    const c = clientById.get(String(form.client_id));
-    if (c?.account_manager) {
-      setForm((p) => ({
-        ...p,
-        manager: resolveManagerProfileId(c.account_manager) || String(c.account_manager),
-      }));
-    }
+    if (!dialogOpen || !form.client_id || form.client_id === NONE || form.manager !== NONE) return;
+    const client = clientById.get(form.client_id);
+    if (client?.account_manager) setForm((current) => ({ ...current, manager: resolveManagerProfileId(client.account_manager) || NONE }));
   }, [clientById, dialogOpen, form.client_id, form.manager]);
 
-  useEffect(() => {
-    if (!dialogOpen) return;
-    if (!form.deal_id || form.deal_id === "none") return;
-    const d = dealById.get(String(form.deal_id));
-    if (!d) return;
-    setForm((prev) => {
-      const next = { ...prev };
-      if ((!next.lead_id || next.lead_id === "none") && d.lead_id) next.lead_id = String(d.lead_id);
-      if ((!next.budget || Number(next.budget) === 0) && d.value != null && Number(d.value) > 0)
-        next.budget = String(d.value);
+  function openNewProject() {
+    if (!can("projects.create")) return toast.error("No tienes permiso para crear proyectos");
+    setEditItem(null);
+    setForm(defaultProjectForm());
+    setAdvancedOpen(false);
+    setDialogOpen(true);
+  }
 
-      const dp = dealProductIdsByDealId.get(String(d.id)) || [];
-      if ((!next.product_id || next.product_id === "none") && dp.length)
-        next.product_id = String(dp[0]);
-      return next;
+  function openEditProject(project: Project) {
+    if (!can("projects.edit")) return toast.error("No tienes permiso para editar proyectos");
+    setEditItem(project);
+    setForm({
+      name: project.name || "",
+      description: project.description || "",
+      status: project.status || "Not Started",
+      progress: String(project.progress ?? 0),
+      priority: String(project.priority || "Medium"),
+      budget: project.budget == null ? "" : String(project.budget),
+      start_date: project.start_date || "",
+      due_date: project.due_date || "",
+      client_id: project.client_id || NONE,
+      product_id: project.product_id || NONE,
+      deal_id: project.deal_id || NONE,
+      lead_id: project.lead_id || NONE,
+      manager: resolveManagerProfileId(project.manager) || NONE,
     });
-  }, [dealById, dealProductIdsByDealId, dialogOpen, form.deal_id]);
+    setAdvancedOpen(false);
+    setDialogOpen(true);
+  }
 
-  useEffect(() => {
-    if (!dialogOpen) return;
-    if (!form.product_id || form.product_id === "none") return;
-    setForm((prev) => {
-      const next = { ...prev };
-      if (next.budget && Number(next.budget) > 0) return next;
-      const p = productById.get(String(prev.product_id));
-      if (p?.base_price != null && Number(p.base_price) > 0) next.budget = String(p.base_price);
-      return next;
-    });
-  }, [dialogOpen, form.product_id, productById]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!can(editItem ? "projects.edit" : "projects.create")) {
-      toast.error("No tienes permiso para realizar esta acción");
-      return;
-    }
-    if (!profile?.company_id || !profile?.id) return;
-    if (!profile?.id) {
-      toast.error("No se pudo identificar tu perfil de CRM. Inicia sesión nuevamente.");
-      return;
-    }
-
-    const managerProfileId = resolveManagerProfileId(form.manager);
-    if (managerProfileId && !allowedManagerProfileIds.has(managerProfileId)) {
-      toast.error("Selecciona un manager activo de tu compañía.");
-      return;
-    }
-    const record: Record<string, any> = {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!can(editItem ? "projects.edit" : "projects.create")) return toast.error("No tienes permiso para realizar esta acción");
+    if (!profile?.company_id) return toast.error("No se pudo identificar tu compañía.");
+    const record = {
       company_id: profile.company_id,
       name: form.name.trim(),
       description: form.description.trim() || null,
-      status: form.status || "Not Started",
-      priority: form.priority || "Medium",
+      status: form.status,
+      progress: Number(form.progress) || 0,
+      priority: form.priority,
       budget: form.budget.trim() ? Number(form.budget) || 0 : null,
       start_date: form.start_date || null,
       due_date: form.due_date || null,
-      progress: Number(form.progress) || 0,
-      client_id: form.client_id !== "none" ? String(form.client_id) : null,
-      product_id: form.product_id !== "none" ? String(form.product_id) : null,
-      deal_id: form.deal_id !== "none" ? String(form.deal_id) : null,
-      lead_id: form.lead_id !== "none" ? String(form.lead_id) : null,
-      manager: managerProfileId,
+      client_id: form.client_id !== NONE ? form.client_id : null,
+      product_id: form.product_id !== NONE ? form.product_id : null,
+      deal_id: form.deal_id !== NONE ? form.deal_id : null,
+      lead_id: form.lead_id !== NONE ? form.lead_id : null,
+      manager: form.manager !== NONE ? form.manager : null,
     };
     try {
       if (editItem) {
         await update(editItem.id, record);
-        toast.success("Project updated");
         setSelected(null);
+        toast.success("Project updated");
       } else {
         await create(record);
         toast.success("Project created");
       }
       setDialogOpen(false);
       setEditItem(null);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo guardar el proyecto.");
     }
-  };
-
-  async function handleMarkTaskCompleted(task: TaskRow) {
-    if (!can("tasks.edit")) {
-      toast.error("No tienes permiso para actualizar tareas");
-      return;
-    }
-    if (
-      isSalesAgent &&
-      (profile?.user_id || user?.id) &&
-      task.assigned_to &&
-      String(task.assigned_to) !== String(profile?.user_id || user?.id)
-    ) {
-      toast.error("Solo puedes completar tareas asignadas a ti.");
-      return;
-    }
-    const db = supabase as any;
-    const { error } = await db.from("tasks").update({ status: "Completed" }).eq("id", task.id);
-    if (error) {
-      toast.error(error.message || "No se pudo completar la tarea");
-      return;
-    }
-    void logActivityEvent({
-      companyId: profile?.company_id ?? "",
-      userId: profile?.id || null,
-      action: "task_completed",
-      entityType: "tasks",
-      entityId: task.id,
-      detail: `Tarea completada: ${task.title}`,
-      metadata: { related_project_id: task.related_project_id || null },
-    }).catch(() => {});
-    toast.success("Tarea marcada como completada");
   }
 
-  function openNewProject() {
-    if (!can("projects.create")) {
-      toast.error("No tienes permiso para crear proyectos");
-      return;
+  async function handleDeleteProject() {
+    if (!deleteId) return;
+    if (!can("projects.delete")) return toast.error("No tienes permiso para eliminar proyectos");
+    try {
+      const { error } = await supabase.from("tasks").delete().eq("related_project_id", deleteId);
+      if (error) throw error;
+      await remove(deleteId);
+      await fetchTasks();
+      setDeleteId(null);
+      setSelected(null);
+      toast.success("Deleted");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo eliminar el proyecto.");
     }
-    setEditItem(null);
-    setForm({
-      name: "",
-      description: "",
-      status: "Not Started",
-      progress: "0",
-      priority: "Medium",
-      budget: "",
-      start_date: "",
-      due_date: "",
-      client_id: "none",
-      product_id: "none",
-      deal_id: "none",
-      lead_id: "none",
-      manager: "none",
-    });
-    setDialogOpen(true);
-  }
-
-  function openEditProject(item: Project) {
-    if (!can("projects.edit")) {
-      toast.error("No tienes permiso para editar proyectos");
-      return;
-    }
-    setEditItem(item);
-    setForm({
-      name: item.name || "",
-      description: item.description || "",
-      status: item.status || "Not Started",
-      progress: String(item.progress ?? 0),
-      priority: String((item as any).priority || "Medium"),
-      budget: item.budget == null ? "" : String(item.budget),
-      start_date: item.start_date || "",
-      due_date: item.due_date || "",
-      client_id: item.client_id ? String(item.client_id) : "none",
-      product_id: item.product_id ? String(item.product_id) : "none",
-      deal_id: item.deal_id ? String(item.deal_id) : "none",
-      lead_id: item.lead_id ? String(item.lead_id) : "none",
-      manager: resolveManagerProfileId(item.manager) || "none",
-    });
-    setDialogOpen(true);
   }
 
   function openCreateTaskForProject(project: Project) {
-    if (!can("tasks.create")) {
-      toast.error("No tienes permiso para crear tareas");
-      return;
-    }
-    if (
-      isSalesAgent &&
-      profile?.id &&
-      project.manager &&
-      String(project.manager) !== String(profile.id)
-    ) {
-      toast.error("Solo puedes crear tareas en proyectos donde eres el manager.");
-      return;
-    }
-    const today = isoToday();
-    setTaskForm({ title: "", description: "", due_date: today, priority: "Medium" });
+    if (!can("tasks.create")) return toast.error("No tienes permiso para crear tareas");
+    setSelected(project);
+    setTaskForm({ title: "", description: "", due_date: isoToday(), priority: "Medium" });
     setTaskDialogOpen(true);
   }
 
   async function handleCreateTaskForSelectedProject() {
-    if (!selected || !profile?.company_id || !profile?.id) return;
-    if (!can("tasks.create")) {
-      toast.error("No tienes permiso para crear tareas");
-      return;
-    }
-    if (!taskForm.title.trim()) {
-      toast.error("El título es requerido");
-      return;
-    }
-
+    if (!selected || !profile?.company_id) return;
+    if (!taskForm.title.trim()) return toast.error("El título es requerido");
     setTaskSaving(true);
     try {
-      const db = supabase as any;
-      const selectedManagerProfileId = resolveManagerProfileId(selected.manager);
-      const selectedManagerUserId = resolveTaskAssigneeUserId(selectedManagerProfileId);
-      const payload = {
+      const { error } = await (supabase as any).from("tasks").insert({
         company_id: profile.company_id,
         title: taskForm.title.trim(),
         description: taskForm.description.trim() || null,
         status: "To Do",
-        priority: (taskForm.priority as any) || "Medium",
-        assigned_to: selectedManagerUserId,
+        priority: taskForm.priority || "Medium",
         due_date: taskForm.due_date || null,
+        assigned_to: resolveTaskAssigneeUserId(selected.manager),
         related_project_id: selected.id,
         related_client_id: selected.client_id || null,
         related_lead_id: selected.lead_id || null,
         related_deal_id: selected.deal_id || null,
-      };
-      const { error } = await db.from("tasks").insert(payload);
-      if (error) {
-        toast.error(error.message || "No se pudo crear la tarea");
-        return;
-      }
-      void logActivityEvent({
-        companyId: profile?.company_id ?? "",
-        userId: profile.id,
-        action: "task_created",
-        entityType: "tasks",
-        detail: `Tarea creada desde proyecto: ${taskForm.title.trim()}`,
-        metadata: {
-          related_project_id: selected.id,
-          related_client_id: selected.client_id || null,
-          related_deal_id: selected.deal_id || null,
-        },
-      }).catch(() => {});
+      });
+      if (error) throw error;
+      await fetchTasks();
       toast.success("Tarea creada");
       setTaskDialogOpen(false);
+      void logActivityEvent({ companyId: profile.company_id, userId: profile.id || null, action: "task_created", entityType: "tasks", detail: `Tarea creada desde proyecto: ${taskForm.title.trim()}`, metadata: { related_project_id: selected.id } }).catch(() => {});
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo crear la tarea.");
     } finally {
       setTaskSaving(false);
     }
   }
 
-  useEffect(() => {
-    const onDemoOpenProjectDetail = (event: Event) => {
-      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
-
-      if (detail?.open === false) {
-        setSelected(null);
-        return;
-      }
-
-      const firstProject = filtered[0] || projects[0];
-      if (firstProject) {
-        setSelected(firstProject);
-      }
-    };
-
-    window.addEventListener("crm-demo-open-project-detail", onDemoOpenProjectDetail);
-    return () =>
-      window.removeEventListener("crm-demo-open-project-detail", onDemoOpenProjectDetail);
-  }, [filtered, projects]);
+  async function completeTask(task: TaskRow) {
+    if (!can("tasks.edit")) return toast.error("No tienes permiso para actualizar tareas");
+    const { error } = await (supabase as any).from("tasks").update({ status: "Completed" }).eq("id", task.id);
+    if (error) return toast.error(error.message || "No se pudo completar la tarea");
+    await fetchTasks();
+    toast.success("Tarea completada");
+  }
 
   if (loading) return <LoadingState />;
 
-  const selectedProductWorkflow =
-    form.product_id !== "none"
-      ? activeWorkflowByProductId.get(String(form.product_id)) || null
-      : null;
-
   return (
-    <div data-demo="projects-main" className="p-4 sm:p-5 space-y-4">
+    <div data-demo="projects-main" className="space-y-5 p-4 sm:p-6">
       <PageHeader
         title="Projects"
-        subtitle={`${filtered.length} projects`}
+        subtitle="Workspace operativo para clientes, entregas, tareas y futuros módulos."
         actionLabel={can("projects.create") ? "Add Project" : undefined}
         onAction={can("projects.create") ? openNewProject : undefined}
       />
+
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+        {[
+          { label: "Total", value: kpis.total, icon: FolderOpen, tone: "text-slate-600" },
+          { label: "Activos", value: kpis.active, icon: Zap, tone: "text-blue-600" },
+          { label: "En riesgo", value: kpis.risky, icon: AlertTriangle, tone: "text-rose-600" },
+          { label: "Completados", value: kpis.completed, icon: CheckCircle2, tone: "text-emerald-600" },
+          { label: "Tareas abiertas", value: kpis.openTasks, icon: ClipboardList, tone: "text-amber-700" },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="rounded-xl border bg-white p-3 shadow-sm">
+              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground"><Icon className={`h-4 w-4 ${item.tone}`} />{item.label}</div>
+              <div className="mt-1 text-xl font-extrabold text-slate-950">{item.value}</div>
+            </div>
+          );
+        })}
+      </div>
+
       <DataCard>
         <div data-demo="projects-list" className="space-y-4">
           <SearchFilters
@@ -848,258 +512,64 @@ function ProjectsPage() {
             onSearchChange={setSearch}
             searchPlaceholder="Search projects..."
             filters={[
-              {
-                key: "status",
-                placeholder: "Status",
-                value: statusFilter,
-                onChange: setStatusFilter,
-                options: PROJECT_STATUSES.map((s) => ({ label: s, value: s })),
-              },
-              {
-                key: "client",
-                placeholder: "Client",
-                value: clientFilter,
-                onChange: setClientFilter,
-                options: clientOptions,
-                width: "w-56",
-              },
-              {
-                key: "product",
-                placeholder: "Product",
-                value: productFilter,
-                onChange: setProductFilter,
-                options: productOptions,
-                width: "w-56",
-              },
-              {
-                key: "manager",
-                placeholder: "Manager",
-                value: managerFilter,
-                onChange: setManagerFilter,
-                options: managerOptions,
-                width: "w-56",
-              },
-              {
-                key: "tasks",
-                placeholder: "Tasks",
-                value: tasksFilter,
-                onChange: (v) => setTasksFilter((v as any) || "all"),
-                options: [
-                  { label: "Overdue", value: "overdue" },
-                  { label: "In progress", value: "in_progress" },
-                  { label: "Completed", value: "completed" },
-                  { label: "No tasks", value: "no_tasks" },
-                ],
-                width: "w-44",
-              },
+              { key: "status", placeholder: "Status", value: statusFilter, onChange: setStatusFilter, options: PROJECT_STATUSES.map((s) => ({ label: s, value: s })) },
+              { key: "client", placeholder: "Client", value: clientFilter, onChange: setClientFilter, options: clientOptions, width: "w-56" },
+              { key: "product", placeholder: "Product", value: productFilter, onChange: setProductFilter, options: productOptions, width: "w-56" },
+              { key: "manager", placeholder: "Manager", value: managerFilter, onChange: setManagerFilter, options: managerOptions, width: "w-56" },
+              { key: "tasks", placeholder: "Tasks", value: tasksFilter, onChange: setTasksFilter, options: [
+                { label: "Overdue", value: "overdue" },
+                { label: "In progress", value: "in_progress" },
+                { label: "Completed", value: "completed" },
+                { label: "No tasks", value: "no_tasks" },
+              ], width: "w-44" },
             ]}
           />
+
           {filtered.length === 0 ? (
-            <EmptyState
-              icon={<FolderOpen className="h-6 w-6" />}
-              title="No projects"
-              description="Create your first project."
-              actionLabel="Add Project"
-              onAction={() => setDialogOpen(true)}
-            />
+            <EmptyState icon={<FolderOpen className="h-6 w-6" />} title="No projects" description="Create your first project." actionLabel="Add Project" onAction={openNewProject} />
           ) : (
-            <div className="overflow-x-auto -mx-4 sm:-mx-5">
+            <div className="-mx-4 overflow-x-auto sm:-mx-5">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="pl-4 sm:pl-5">Project</TableHead>
-                    <TableHead className="hidden lg:table-cell">Delivery</TableHead>
+                    <TableHead className="hidden lg:table-cell">Client / Product</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="hidden md:table-cell">Progress</TableHead>
                     <TableHead className="hidden xl:table-cell">Owner</TableHead>
                     <TableHead className="hidden lg:table-cell">Timeline</TableHead>
-                    <TableHead className="hidden sm:table-cell text-right pr-4 sm:pr-5">
-                      Budget
-                    </TableHead>
+                    <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">Budget</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((p, index) => (
-                    <TableRow
-                      data-demo={index === 0 ? "projects-first-row" : undefined}
-                      key={p.id}
-                      className="cursor-pointer align-top hover:bg-muted/40 transition-colors"
-                      onClick={() => setSelected(p)}
-                    >
-                      {(() => {
-                        const s = statsByProjectId.get(String(p.id)) || {
-                          total: 0,
-                          completed: 0,
-                          open: 0,
-                          overdue: 0,
-                          computedPct: 0,
-                        };
-                        const pct = s.total > 0 ? s.computedPct : p.progress || 0;
-                        const clientName = p.client_id
-                          ? clientById.get(String(p.client_id))?.company_name || "Sin cliente"
-                          : "Sin cliente";
-                        const productName = p.product_id
-                          ? productById.get(String(p.product_id))?.name || "Sin producto"
-                          : "Sin producto";
-                        const dealName = p.deal_id
-                          ? dealById.get(String(p.deal_id))?.name || "Sin oportunidad"
-                          : "Sin oportunidad";
-                        const managerName = p.manager
-                          ? profileById.get(String(p.manager))?.full_name ||
-                            profileById.get(String(p.manager))?.email ||
-                            "Sin asignar"
-                          : "Sin asignar";
-                        const isOverdue =
-                          Boolean(p.due_date) &&
-                          String(p.due_date) < isoToday() &&
-                          !normalizeStatus(p.status).includes("completed") &&
-                          !normalizeStatus(p.status).includes("cancelled");
-                        const hasRisk = isOverdue || s.overdue > 0;
-
-                        return (
-                          <>
-                            <TableCell className="pl-4 sm:pl-5">
-                              <div className="flex min-w-[320px] items-start gap-3">
-                                <div
-                                  className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border font-bold shadow-[0_8px_18px_rgba(15,23,42,.06)] ${
-                                    hasRisk
-                                      ? "border-rose-100 bg-rose-50 text-rose-700"
-                                      : "border-blue-100 bg-blue-50 text-blue-700"
-                                  }`}
-                                >
-                                  {hasRisk ? (
-                                    <AlertTriangle className="h-5 w-5" />
-                                  ) : (
-                                    <span className="text-xs">{projectInitials(p.name)}</span>
-                                  )}
-                                </div>
-
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <div className="truncate font-semibold">{p.name}</div>
-                                    {hasRisk ? (
-                                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                                        Riesgo
-                                      </span>
-                                    ) : null}
-                                  </div>
-
-                                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                                    {clientName} · {dealName}
-                                  </div>
-
-                                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                                    <span className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-slate-600">
-                                      <Package className="h-3 w-3" />
-                                      {productName}
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-slate-600 md:hidden">
-                                      <UserRound className="h-3 w-3" />
-                                      {managerName}
-                                    </span>
-                                    {s.total ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-slate-600 xl:hidden">
-                                        <CheckCircle2 className="h-3 w-3" />
-                                        {s.completed}/{s.total} tareas
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="hidden lg:table-cell">
-                              <div className="max-w-[240px]">
-                                <div className="truncate text-sm font-medium">{productName}</div>
-                                <div className="mt-1 truncate text-xs text-muted-foreground">
-                                  Cliente: {clientName}
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell data-demo={index === 0 ? "projects-status" : undefined}>
-                              <div className="space-y-1.5">
-                                <StatusBadge status={p.status} />
-                                {(p as any).priority ? (
-                                  <div
-                                    className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusTone(
-                                      String((p as any).priority),
-                                    )}`}
-                                  >
-                                    {(p as any).priority}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </TableCell>
-
-                            <TableCell
-                              data-demo={index === 0 ? "projects-progress" : undefined}
-                              className="hidden md:table-cell"
-                            >
-                              <div className="min-w-[150px]">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="font-semibold">{pct || 0}%</span>
-                                  <span className="text-muted-foreground">
-                                    {s.total ? `${s.completed}/${s.total}` : "Sin tareas"}
-                                  </span>
-                                </div>
-                                <Progress value={pct || 0} className="mt-2 h-2" />
-                                {s.overdue ? (
-                                  <div className="mt-1 text-[11px] font-medium text-rose-700">
-                                    {s.overdue} vencidas
-                                  </div>
-                                ) : s.open ? (
-                                  <div className="mt-1 text-[11px] text-muted-foreground">
-                                    {s.open} pendientes
-                                  </div>
-                                ) : s.total ? (
-                                  <div className="mt-1 text-[11px] font-medium text-emerald-700">
-                                    Completado
-                                  </div>
-                                ) : null}
-                              </div>
-                            </TableCell>
-
-                            <TableCell
-                              data-demo={index === 0 ? "projects-manager" : undefined}
-                              className="hidden xl:table-cell"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-                                  {projectInitials(managerName)}
-                                </div>
-                                <div className="max-w-[160px] truncate text-sm">{managerName}</div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="hidden lg:table-cell">
-                              <div className="space-y-1 text-sm">
-                                <div className="flex items-center gap-1.5 text-muted-foreground">
-                                  <CalendarClock className="h-3.5 w-3.5" />
-                                  <span>Inicio: {formatProjectDate(p.start_date)}</span>
-                                </div>
-                                <div
-                                  className={
-                                    isOverdue
-                                      ? "flex items-center gap-1.5 font-medium text-rose-700"
-                                      : "flex items-center gap-1.5 text-muted-foreground"
-                                  }
-                                >
-                                  <CircleDot className="h-3.5 w-3.5" />
-                                  <span>Entrega: {formatProjectDate(p.due_date)}</span>
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5">
-                              <div className="font-semibold">{formatMoneyCompact(p.budget)}</div>
-                              <div className="text-[11px] text-muted-foreground">presupuesto</div>
-                            </TableCell>
-                          </>
-                        );
-                      })()}
-                    </TableRow>
-                  ))}
+                  {filtered.map((project, index) => {
+                    const meta = projectMeta(project);
+                    const clientName = meta.client?.company_name || "Sin cliente";
+                    const productName = meta.product?.name || "Sin producto";
+                    const owner = managerName(project.manager);
+                    return (
+                      <TableRow key={project.id} data-demo={index === 0 ? "projects-first-row" : undefined} className="cursor-pointer align-top hover:bg-muted/40" onClick={() => setSelected(project)}>
+                        <TableCell className="pl-4 sm:pl-5">
+                          <div className="flex min-w-[320px] items-start gap-3">
+                            <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border font-bold ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}>
+                              {meta.hasRisk ? <AlertTriangle className="h-5 w-5" /> : <span className="text-xs">{initials(project.name)}</span>}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2"><div className="truncate font-semibold">{project.name}</div>{meta.hasRisk ? <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">Riesgo</span> : null}</div>
+                              <div className="mt-0.5 truncate text-xs text-muted-foreground">{clientName} · {meta.deal?.name || "Sin oportunidad"}</div>
+                              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]"><span className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-slate-600"><Package className="h-3 w-3" />{productName}</span><span className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-slate-600 md:hidden"><UserRound className="h-3 w-3" />{owner}</span></div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell"><div className="max-w-[240px]"><div className="truncate text-sm font-medium">{clientName}</div><div className="mt-1 truncate text-xs text-muted-foreground">{productName}</div></div></TableCell>
+                        <TableCell data-demo={index === 0 ? "projects-status" : undefined}><StatusBadge status={project.status} /></TableCell>
+                        <TableCell data-demo={index === 0 ? "projects-progress" : undefined} className="hidden md:table-cell"><div className="min-w-[150px]"><div className="flex items-center justify-between text-xs"><span className="font-semibold">{meta.stats.pct}%</span><span className="text-muted-foreground">{meta.stats.total ? `${meta.stats.completed}/${meta.stats.total}` : "Sin tareas"}</span></div><Progress value={meta.stats.pct} className="mt-2 h-2" />{meta.stats.overdue ? <div className="mt-1 text-[11px] font-medium text-rose-700">{meta.stats.overdue} vencidas</div> : null}</div></TableCell>
+                        <TableCell className="hidden xl:table-cell"><div className="flex items-center gap-2"><div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">{initials(owner)}</div><div className="max-w-[160px] truncate text-sm">{owner}</div></div></TableCell>
+                        <TableCell className="hidden lg:table-cell"><div className="space-y-1 text-sm"><div className="flex items-center gap-1.5 text-muted-foreground"><CalendarClock className="h-3.5 w-3.5" />Inicio: {formatDate(project.start_date)}</div><div className={meta.isOverdue ? "flex items-center gap-1.5 font-medium text-rose-700" : "flex items-center gap-1.5 text-muted-foreground"}><CircleDot className="h-3.5 w-3.5" />Entrega: {formatDate(project.due_date)}</div></div></TableCell>
+                        <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5"><div className="font-semibold">{formatMoney(project.budget)}</div><div className="text-[11px] text-muted-foreground">presupuesto</div></TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -1107,824 +577,138 @@ function ProjectsPage() {
         </div>
       </DataCard>
 
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(o) => {
-          setDialogOpen(o);
-          if (!o) {
-            setEditItem(null);
-            setProjectFormAdvancedOpen(false);
-          }
-        }}
-      >
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditItem(null); setAdvancedOpen(false); } }}>
         <DialogContent className="max-w-3xl overflow-hidden p-0">
-          <DialogHeader className="border-b bg-white px-6 py-5">
-            <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">
-              {editItem ? "Editar proyecto" : "Nuevo proyecto"}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Crea un trabajo claro para ejecutar con cliente, responsable, entrega y alcance.
-            </p>
-          </DialogHeader>
-
+          <DialogHeader className="border-b bg-white px-6 py-5"><DialogTitle className="text-xl font-semibold tracking-[-0.02em]">{editItem ? "Editar proyecto" : "Nuevo proyecto"}</DialogTitle><p className="text-sm text-muted-foreground">Crea un trabajo claro para ejecutar con cliente, responsable, entrega y alcance.</p></DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="max-h-[72vh] space-y-5 overflow-y-auto px-6 py-5">
               <div className="rounded-3xl border bg-gradient-to-br from-blue-50/80 via-white to-white p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Información principal
-                </div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">Información principal</div>
                 <div className="mt-4 space-y-4">
-                  <div className="space-y-1.5">
-                    <Label>Nombre del proyecto</Label>
-                    <Input
-                      value={form.name}
-                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                      placeholder="Ej: Manejo de redes para Empanadas Ramon"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Usa un nombre fácil de reconocer en la lista y en las tareas.
-                    </p>
-                  </div>
-
+                  <div className="space-y-1.5"><Label>Nombre del proyecto</Label><Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required /></div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>Cliente</Label>
-                      <Select
-                        value={form.client_id}
-                        onValueChange={(v) => setForm((p) => ({ ...p, client_id: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona cliente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin cliente</SelectItem>
-                          {clientOptions.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label>Producto o servicio</Label>
-                      <Select
-                        value={form.product_id}
-                        onValueChange={(v) => setForm((p) => ({ ...p, product_id: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona producto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin producto</SelectItem>
-                          {productOptions.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedProductWorkflow ? (
-                        <p className="text-xs text-muted-foreground">
-                          Workflow disponible:{" "}
-                          <span className="font-medium">{selectedProductWorkflow.name}</span>
-                        </p>
-                      ) : null}
-                    </div>
+                    <ProjectSelect label="Cliente" value={form.client_id} onChange={(value) => setForm((current) => ({ ...current, client_id: value }))} options={clientOptions} noneLabel="Sin cliente" />
+                    <ProjectSelect label="Producto o servicio" value={form.product_id} onChange={(value) => setForm((current) => ({ ...current, product_id: value }))} options={productOptions} noneLabel="Sin producto" />
+                    <ProjectSelect label="Responsable" value={form.manager} onChange={(value) => setForm((current) => ({ ...current, manager: value }))} options={managerOptions} noneLabel="Sin asignar" />
+                    <div className="space-y-1.5"><Label>Fecha de entrega</Label><Input type="date" value={form.due_date} onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))} /></div>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>Responsable</Label>
-                      <Select
-                        value={form.manager}
-                        onValueChange={(v) => setForm((p) => ({ ...p, manager: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona responsable" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin asignar</SelectItem>
-                          {managerOptions.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {form.client_id !== "none" &&
-                      clientById.get(String(form.client_id))?.account_manager ? (
-                        <p className="text-xs text-muted-foreground">
-                          Sugerencia: este cliente tiene account manager.
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label>Fecha de entrega</Label>
-                      <Input
-                        type="date"
-                        value={form.due_date}
-                        onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Alcance / descripción</Label>
-                    <Textarea
-                      value={form.description}
-                      onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                      rows={3}
-                      placeholder="Describe brevemente qué se va a entregar, notas importantes o acuerdos del proyecto."
-                    />
-                  </div>
+                  <div className="space-y-1.5"><Label>Alcance / descripción</Label><Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={3} /></div>
                 </div>
               </div>
 
               <div className="rounded-3xl border bg-white">
-                <button
-                  type="button"
-                  onClick={() => setProjectFormAdvancedOpen((v) => !v)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left"
-                >
-                  <div>
-                    <div className="text-sm font-semibold">Opciones avanzadas</div>
-                    <div className="text-xs text-muted-foreground">
-                      Oportunidad, lead, estado, progreso, presupuesto y fecha de inicio.
-                    </div>
-                  </div>
-                  <ChevronDown
-                    className={
-                      "h-4 w-4 text-muted-foreground transition-transform " +
-                      (projectFormAdvancedOpen ? "rotate-180" : "")
-                    }
-                  />
-                </button>
-
-                {projectFormAdvancedOpen ? (
+                <button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between px-4 py-3 text-left"><div><div className="text-sm font-semibold">Opciones avanzadas</div><div className="text-xs text-muted-foreground">Oportunidad, lead, estado, progreso, presupuesto y fecha de inicio.</div></div><ChevronDown className={"h-4 w-4 text-muted-foreground transition-transform " + (advancedOpen ? "rotate-180" : "")} /></button>
+                {advancedOpen ? (
                   <div className="space-y-4 border-t px-4 py-4">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label>Oportunidad relacionada</Label>
-                        <Select
-                          value={form.deal_id}
-                          onValueChange={(v) => setForm((p) => ({ ...p, deal_id: v }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona oportunidad" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin oportunidad</SelectItem>
-                            {dealOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {form.client_id !== "none" ? (
-                          <p className="text-xs text-muted-foreground">
-                            Las oportunidades del cliente aparecen primero.
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>Lead relacionado</Label>
-                        <Select
-                          value={form.lead_id}
-                          onValueChange={(v) => setForm((p) => ({ ...p, lead_id: v }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona lead" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin lead</SelectItem>
-                            {leadOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label>Prioridad</Label>
-                        <Select
-                          value={form.priority}
-                          onValueChange={(v) => setForm((p) => ({ ...p, priority: v }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PRIORITIES.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>Presupuesto ($)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={form.budget}
-                          onChange={(e) => setForm((p) => ({ ...p, budget: e.target.value }))}
-                          placeholder="0"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>Fecha inicio</Label>
-                        <Input
-                          type="date"
-                          value={form.start_date}
-                          onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label>Estado</Label>
-                        <Select
-                          value={form.status}
-                          onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PROJECT_STATUSES.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>Progreso manual (%)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={form.progress}
-                          onChange={(e) => setForm((p) => ({ ...p, progress: e.target.value }))}
-                          placeholder="0"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Si hay tareas, el sistema calculará el progreso real automáticamente.
-                        </p>
-                      </div>
-                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2"><ProjectSelect label="Oportunidad relacionada" value={form.deal_id} onChange={(value) => setForm((current) => ({ ...current, deal_id: value }))} options={dealOptions} noneLabel="Sin oportunidad" /><ProjectSelect label="Lead relacionado" value={form.lead_id} onChange={(value) => setForm((current) => ({ ...current, lead_id: value }))} options={leadOptions} noneLabel="Sin lead" /></div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3"><ProjectSelect label="Prioridad" value={form.priority} onChange={(value) => setForm((current) => ({ ...current, priority: value }))} options={PRIORITIES.map((item) => ({ label: item, value: item }))} noneLabel="Medium" hideNone /><div className="space-y-1.5"><Label>Presupuesto ($)</Label><Input type="number" min="0" value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} /></div><div className="space-y-1.5"><Label>Fecha inicio</Label><Input type="date" value={form.start_date} onChange={(event) => setForm((current) => ({ ...current, start_date: event.target.value }))} /></div></div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2"><ProjectSelect label="Estado" value={form.status} onChange={(value) => setForm((current) => ({ ...current, status: value }))} options={PROJECT_STATUSES.map((item) => ({ label: item, value: item }))} noneLabel="Not Started" hideNone /><div className="space-y-1.5"><Label>Progreso manual (%)</Label><Input type="number" min="0" max="100" value={form.progress} onChange={(event) => setForm((current) => ({ ...current, progress: event.target.value }))} /></div></div>
                   </div>
                 ) : null}
               </div>
             </div>
-
-            <div className="flex items-center justify-between border-t bg-white px-6 py-4">
-              <p className="text-xs text-muted-foreground">
-                Estado inicial: Not Started · Progreso inicial: 0%
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setDialogOpen(false);
-                    setProjectFormAdvancedOpen(false);
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit">{editItem ? "Guardar cambios" : "Crear proyecto"}</Button>
-              </div>
-            </div>
+            <div className="flex items-center justify-between border-t bg-white px-6 py-4"><p className="text-xs text-muted-foreground">Los módulos avanzados quedan preparados como placeholders dentro del workspace.</p><div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button type="submit">{editItem ? "Guardar cambios" : "Crear proyecto"}</Button></div></div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={!!deleteId}
-        onOpenChange={(o) => {
-          if (!o) setDeleteId(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project</AlertDialogTitle>
-            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                const projectId = deleteId;
-                if (!projectId) return;
-                try {
-                  const { error: tasksDeleteError } = await supabase
-                    .from("tasks")
-                    .delete()
-                    .eq("related_project_id", projectId);
-                  if (tasksDeleteError) throw tasksDeleteError;
-                  await remove(projectId);
-                  await fetchTasks();
-                  toast.success("Deleted");
-                  setDeleteId(null);
-                  setSelected(null);
-                } catch (err: any) {
-                  toast.error(err.message);
-                }
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+      {selected ? (
+        <ProjectWorkspaceDialog
+          project={selected}
+          meta={projectMeta(selected)}
+          tasks={(tasksByProjectId.get(selected.id) || []).slice().sort((a, b) => (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31"))}
+          clientName={projectMeta(selected).client?.company_name || "—"}
+          productName={projectMeta(selected).product?.name || "—"}
+          dealName={projectMeta(selected).deal?.name || "—"}
+          leadName={projectMeta(selected).lead ? formatLeadLabel(projectMeta(selected).lead!) : "—"}
+          managerName={managerName(selected.manager)}
+          canEdit={can("projects.edit")}
+          canDelete={can("projects.delete")}
+          canCreateTask={can("tasks.create")}
+          canEditTasks={can("tasks.edit")}
+          onClose={() => setSelected(null)}
+          onEdit={() => openEditProject(selected)}
+          onDelete={() => setDeleteId(selected.id)}
+          onCreateTask={() => openCreateTaskForProject(selected)}
+          onCompleteTask={completeTask}
+        />
+      ) : null}
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Project</AlertDialogTitle><AlertDialogDescription>Esto eliminará el proyecto y sus tareas relacionadas. No se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => void handleDeleteProject()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
 
-      {selected && (
-        <DetailSheet
-          open={!!selected}
-          onClose={() => setSelected(null)}
-          title={selected.name}
-          icon={<FolderOpen className="h-5 w-5 text-orange-600" />}
-          status={selected.status}
-          onEdit={can("projects.edit") ? () => openEditProject(selected) : undefined}
-          onDelete={can("projects.delete") ? () => setDeleteId(selected.id) : undefined}
-          fields={[
-            { label: "Status", value: selected.status, type: "badge" },
-            { label: "Priority", value: (selected as any).priority || "—", type: "badge" },
-            { label: "Budget", value: selected.budget, type: "currency" },
-            { label: "Due Date", value: selected.due_date },
-            {
-              label: "Manager",
-              value: (() => {
-                const managerId = resolveManagerProfileId(selected.manager);
-                if (!managerId) return "—";
-                return (
-                  profileById.get(managerId)?.full_name ||
-                  profileById.get(managerId)?.email ||
-                  managerId
-                );
-              })(),
-            },
-            { label: "Progress", value: `${selected.progress || 0}%` },
-          ]}
-        >
-          {(() => {
-            const projectTasks = tasksByProjectId.get(String(selected.id)) || [];
-            const sortedTasks = [...projectTasks].sort((a, b) => {
-              const ad = a.due_date || "9999-12-31";
-              const bd = b.due_date || "9999-12-31";
-              return ad.localeCompare(bd);
-            });
-            const s = statsByProjectId.get(String(selected.id)) || {
-              total: 0,
-              completed: 0,
-              open: 0,
-              overdue: 0,
-              computedPct: 0,
-            };
-            const pct = s.total > 0 ? s.computedPct : selected.progress || 0;
-            const clientName = selected.client_id
-              ? clientById.get(String(selected.client_id))?.company_name || "—"
-              : "—";
-            const productName = selected.product_id
-              ? productById.get(String(selected.product_id))?.name || "—"
-              : "—";
-            const deal = selected.deal_id ? dealById.get(String(selected.deal_id)) : null;
-            const dealName = deal?.name || "—";
-            const lead = selected.lead_id ? leadById.get(String(selected.lead_id)) : null;
-            const leadName = lead ? formatLeadLabel(lead) : "—";
-            const managerId = resolveManagerProfileId(selected.manager);
-            const managerName = managerId
-              ? profileById.get(managerId)?.full_name ||
-                profileById.get(managerId)?.email ||
-                managerId
-              : "—";
-            const isOverdue =
-              Boolean(selected.due_date) &&
-              String(selected.due_date) < isoToday() &&
-              isActiveProjectStatus(selected.status);
-
-            return (
-              <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="overview">Resumen</TabsTrigger>
-                  <TabsTrigger value="tasks">Tareas</TabsTrigger>
-                  <TabsTrigger value="delivery">Entrega</TabsTrigger>
-                  <TabsTrigger value="finance">Finanzas</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Progreso real</div>
-                      <div className="mt-1 text-2xl font-bold">{pct || 0}%</div>
-                      <Progress value={pct || 0} className="mt-2 h-2" />
-                    </div>
-
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Tareas</div>
-                      <div className="mt-1 text-2xl font-bold">
-                        {s.completed}/{s.total}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {s.open} pendientes
-                        {s.overdue ? ` · ${s.overdue} vencidas` : ""}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Manager</div>
-                      <div className="mt-1 truncate text-sm font-semibold">{managerName}</div>
-                    </div>
-
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Riesgo</div>
-                      <div
-                        className={
-                          isOverdue || s.overdue
-                            ? "mt-1 text-sm font-semibold text-rose-700"
-                            : "mt-1 text-sm font-semibold text-emerald-700"
-                        }
-                      >
-                        {isOverdue || s.overdue ? "Requiere atención" : "Normal"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div data-demo="projects-relations" className="rounded-2xl border p-4">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Relaciones del proyecto
-                    </div>
-
-                    <div className="mt-3 space-y-3 text-sm">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-muted-foreground">Cliente</div>
-                          <div className="font-medium">{clientName}</div>
-                        </div>
-                        {selected.client_id ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 text-xs"
-                            onClick={() => (window.location.href = "/clients")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" /> Ver cliente
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-muted-foreground">Producto</div>
-                          <div className="font-medium">{productName}</div>
-                        </div>
-                        {selected.product_id ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 text-xs"
-                            onClick={() => (window.location.href = "/products")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" /> Ver producto
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-muted-foreground">Oportunidad</div>
-                          <div className="font-medium">{dealName}</div>
-                          {deal ? (
-                            <div className="text-xs text-muted-foreground">
-                              Etapa: {deal.stage || "—"} · Valor: {formatMoneyCompact(deal.value)}
-                            </div>
-                          ) : null}
-                        </div>
-                        {selected.deal_id ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 text-xs"
-                            onClick={() => (window.location.href = "/pipeline")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" /> Ver pipeline
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-muted-foreground">Lead</div>
-                          <div className="font-medium">{leadName}</div>
-                        </div>
-                        {selected.lead_id ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 text-xs"
-                            onClick={() => (window.location.href = "/leads")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" /> Ver leads
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="tasks" className="space-y-4">
-                  <div data-demo="projects-progress-detail" className="rounded-2xl border p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Ejecución
-                        </div>
-                        <div className="mt-1 text-sm text-muted-foreground">
-                          {s.completed}/{s.total} completadas · {s.open} pendientes
-                          {s.overdue ? (
-                            <span className="ml-2 font-medium text-rose-700">
-                              {s.overdue} vencidas
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold">{pct || 0}%</div>
-                    </div>
-                    <Progress value={pct || 0} className="mt-3 h-2" />
-                  </div>
-
-                  <div data-demo="projects-tasks" className="rounded-2xl border p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Tareas del proyecto
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        disabled={!selected || !can("tasks.create")}
-                        onClick={() => openCreateTaskForProject(selected)}
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Crear tarea
-                      </Button>
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-                      {sortedTasks.length ? (
-                        sortedTasks.map((t) => {
-                          const taskOverdue =
-                            Boolean(t.due_date) &&
-                            String(t.due_date) < isoToday() &&
-                            !isClosedTaskStatusValue(t.status);
-
-                          return (
-                            <div key={t.id} className="rounded-xl border bg-background/40 p-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="truncate font-medium">{t.title}</div>
-                                  <div className="mt-1 text-xs text-muted-foreground">
-                                    {t.status} · {t.priority} · {t.due_date || "Sin fecha"}
-                                  </div>
-                                  {t.description ? (
-                                    <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                      {t.description}
-                                    </div>
-                                  ) : null}
-                                  {taskOverdue ? (
-                                    <div className="mt-1 text-xs font-medium text-rose-700">
-                                      Tarea vencida
-                                    </div>
-                                  ) : null}
-                                </div>
-
-                                {!isClosedTaskStatusValue(t.status) && can("tasks.edit") ? (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="shrink-0 gap-1.5 text-xs"
-                                    onClick={async () => {
-                                      const db = supabase as any;
-                                      const { error } = await db
-                                        .from("tasks")
-                                        .update({ status: "Completed" })
-                                        .eq("id", t.id);
-                                      if (error) {
-                                        toast.error(
-                                          error.message || "No se pudo completar la tarea",
-                                        );
-                                        return;
-                                      }
-                                      await fetchTasks();
-                                      toast.success("Tarea completada");
-                                      if (profile?.company_id) {
-                                        void logActivityEvent({
-                                          companyId: profile.company_id,
-                                          entityType: "tasks",
-                                          entityId: t.id,
-                                          action: "task_completed",
-                                          detail: `Tarea completada: ${t.title}`,
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <CheckCircle2 className="h-3.5 w-3.5" /> Completar
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                          Este proyecto todavía no tiene tareas.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="delivery" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Inicio</div>
-                      <div className="mt-1 font-semibold">
-                        {formatProjectDate(selected.start_date)}
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Entrega</div>
-                      <div
-                        className={
-                          isOverdue ? "mt-1 font-semibold text-rose-700" : "mt-1 font-semibold"
-                        }
-                      >
-                        {formatProjectDate(selected.due_date)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border p-4">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Descripción / alcance
-                    </div>
-                    <div className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                      {selected.description || "No hay descripción registrada para este proyecto."}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border p-4">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Producto / servicio base
-                    </div>
-                    <div className="mt-2 text-sm font-medium">{productName}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">Cliente: {clientName}</div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="finance" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Presupuesto proyecto</div>
-                      <div className="mt-1 text-2xl font-bold">
-                        {formatMoneyCompact(selected.budget)}
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border bg-muted/20 p-3">
-                      <div className="text-xs text-muted-foreground">Valor oportunidad</div>
-                      <div className="mt-1 text-2xl font-bold">
-                        {formatMoneyCompact(deal?.value)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border p-4 text-sm">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Resumen financiero
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Proyecto</span>
-                        <span className="font-medium">{formatMoneyCompact(selected.budget)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Producto</span>
-                        <span className="font-medium">{productName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Oportunidad</span>
-                        <span className="font-medium">{dealName}</span>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            );
-          })()}
-        </DetailSheet>
-      )}
-
-      <Dialog
-        open={taskDialogOpen}
-        onOpenChange={(o) => {
-          setTaskDialogOpen(o);
-          if (!o) setTaskForm({ title: "", description: "", due_date: "", priority: "Medium" });
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nueva tarea</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleCreateTaskForSelectedProject();
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label>Título</Label>
-              <Input
-                value={taskForm.title}
-                onChange={(e) => setTaskForm((p) => ({ ...p, title: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Descripción</Label>
-              <Textarea
-                value={taskForm.description}
-                onChange={(e) => setTaskForm((p) => ({ ...p, description: e.target.value }))}
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={taskForm.due_date}
-                  onChange={(e) => setTaskForm((p) => ({ ...p, due_date: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Prioridad</Label>
-                <Select
-                  value={taskForm.priority}
-                  onValueChange={(v) => setTaskForm((p) => ({ ...p, priority: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTaskDialogOpen(false)}
-                disabled={taskSaving}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={taskSaving || !can("tasks.create")}>
-                {taskSaving ? "Creando..." : "Crear"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
+      <Dialog open={taskDialogOpen} onOpenChange={(open) => { setTaskDialogOpen(open); if (!open) setTaskForm({ title: "", description: "", due_date: "", priority: "Medium" }); }}>
+        <DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Nueva tarea</DialogTitle></DialogHeader><form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void handleCreateTaskForSelectedProject(); }}><div className="space-y-1.5"><Label>Título</Label><Input value={taskForm.title} onChange={(event) => setTaskForm((current) => ({ ...current, title: event.target.value }))} required /></div><div className="space-y-1.5"><Label>Descripción</Label><Textarea value={taskForm.description} onChange={(event) => setTaskForm((current) => ({ ...current, description: event.target.value }))} rows={3} /></div><div className="grid grid-cols-2 gap-4"><div className="space-y-1.5"><Label>Fecha</Label><Input type="date" value={taskForm.due_date} onChange={(event) => setTaskForm((current) => ({ ...current, due_date: event.target.value }))} /></div><ProjectSelect label="Prioridad" value={taskForm.priority} onChange={(value) => setTaskForm((current) => ({ ...current, priority: value }))} options={PRIORITIES.map((item) => ({ label: item, value: item }))} noneLabel="Medium" hideNone /></div><div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={() => setTaskDialogOpen(false)} disabled={taskSaving}>Cancelar</Button><Button type="submit" disabled={taskSaving || !can("tasks.create")}>{taskSaving ? "Creando..." : "Crear"}</Button></div></form></DialogContent>
       </Dialog>
     </div>
   );
+}
+
+function ProjectSelect({ label, value, onChange, options, noneLabel, hideNone = false }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ label: string; value: string }>; noneLabel: string; hideNone?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>{hideNone ? null : <SelectItem value={NONE}>{noneLabel}</SelectItem>}{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function ProjectWorkspaceDialog({ project, meta, tasks, clientName, productName, dealName, leadName, managerName, canEdit, canDelete, canCreateTask, canEditTasks, onClose, onEdit, onDelete, onCreateTask, onCompleteTask }: { project: Project; meta: { stats: ProjectStats; isOverdue: boolean; hasRisk: boolean }; tasks: TaskRow[]; clientName: string; productName: string; dealName: string; leadName: string; managerName: string; canEdit: boolean; canDelete: boolean; canCreateTask: boolean; canEditTasks: boolean; onClose: () => void; onEdit: () => void; onDelete: () => void; onCreateTask: () => void; onCompleteTask: (task: TaskRow) => void }) {
+  const tabs = [
+    { value: "overview", label: "Overview", icon: BarChart3 },
+    { value: "tasks", label: "Tasks", icon: CheckCircle2 },
+    { value: "timesheets", label: "Timesheets", icon: Clock3 },
+    { value: "milestones", label: "Milestones", icon: ShieldCheck },
+    { value: "files", label: "Files", icon: Paperclip },
+    { value: "discussions", label: "Discussions", icon: MessageSquare },
+    { value: "gantt", label: "Gantt", icon: GanttChartSquare },
+    { value: "tickets", label: "Tickets", icon: Ticket },
+    { value: "contracts", label: "Contracts", icon: Landmark },
+    { value: "sales", label: "Sales", icon: ReceiptText },
+    { value: "notes", label: "Notes", icon: FileText },
+    { value: "activity", label: "Activity", icon: Activity },
+  ];
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="h-[92vh] w-[calc(100vw-24px)] max-w-[1100px] gap-0 overflow-hidden rounded-2xl border bg-white p-0 shadow-2xl">
+        <DialogTitle className="sr-only">Project workspace</DialogTitle>
+        <header className="shrink-0 border-b bg-white px-5 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-xl font-extrabold tracking-[-0.025em] text-slate-900">{project.name}</h2><StatusBadge status={project.status} />{meta.hasRisk ? <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700">Riesgo</span> : null}</div><div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-500"><span>{clientName}</span><span>·</span><span>{productName}</span><span>·</span><span>{managerName}</span></div></div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">{canCreateTask ? <Button onClick={onCreateTask}><Plus className="mr-2 h-4 w-4" />New Task</Button> : null}{canEdit ? <Button variant="outline" onClick={onEdit}>Edit</Button> : null}{canDelete ? <Button variant="outline" className="text-red-600" onClick={onDelete}>Delete</Button> : null}<Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar"><X className="h-5 w-5" /></Button></div>
+          </div>
+          <div className="mt-4 flex items-center gap-3"><div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(Math.max(meta.stats.pct, 0), 100)}%` }} /></div><span className="text-sm font-bold text-slate-700">{meta.stats.pct}%</span></div>
+        </header>
+        <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 overflow-x-auto border-b bg-slate-50 px-4 py-2"><TabsList className="inline-flex h-11 w-max justify-start gap-1 bg-transparent p-0">{tabs.map((tab) => { const Icon = tab.icon; return <TabsTrigger key={tab.value} value={tab.value} className="h-9 gap-2 rounded-lg px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Icon className="h-4 w-4" />{tab.label}</TabsTrigger>; })}</TabsList></div>
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-5">
+            <TabsContent value="overview" className="mt-0 space-y-5"><div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"><section className="rounded-xl border p-5"><h3 className="font-extrabold text-slate-900">Overview</h3><div className="mt-4 grid grid-cols-2 gap-3"><Metric label="Open Tasks" value={`${meta.stats.open}/${meta.stats.total}`} detail={`${meta.stats.completed} completed`} /><Metric label="Days Left" value={project.due_date ? formatDate(project.due_date) : "—"} detail={meta.isOverdue ? "Overdue" : "Deadline"} danger={meta.isOverdue} /><Metric label="Budget" value={formatMoney(project.budget)} detail="Project budget" /><Metric label="Owner" value={managerName} detail="Project manager" /></div><div className="mt-5 border-t pt-4"><h4 className="text-sm font-bold text-slate-900">Description</h4><p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-6 text-slate-600">{project.description || "No hay descripción registrada para este proyecto."}</p></div></section><aside className="space-y-4"><InfoPanel title="Relations" rows={[['Customer', clientName], ['Product', productName], ['Deal', dealName], ['Lead', leadName]]} /><InfoPanel title="Timeline" rows={[['Start Date', formatDate(project.start_date)], ['Deadline', formatDate(project.due_date)], ['Created', formatDate(project.created_at?.slice(0, 10))]]} /></aside></div></TabsContent>
+            <TabsContent value="tasks" className="mt-0 space-y-4"><div className="flex items-center justify-between"><div><h3 className="font-extrabold text-slate-900">Project Tasks</h3><p className="text-sm font-medium text-slate-500">{meta.stats.completed}/{meta.stats.total} completed · {meta.stats.open} open</p></div>{canCreateTask ? <Button onClick={onCreateTask}><Plus className="mr-2 h-4 w-4" />Create Task</Button> : null}</div><div className="overflow-hidden rounded-xl border"><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Status</TableHead><TableHead>Due Date</TableHead><TableHead>Priority</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>{tasks.length ? tasks.map((task) => <TableRow key={task.id}><TableCell><div className="font-semibold text-slate-900">{task.title}</div><div className="line-clamp-1 text-xs text-slate-500">{task.description || "Sin descripción"}</div></TableCell><TableCell><StatusBadge status={task.status} /></TableCell><TableCell>{formatDate(task.due_date)}</TableCell><TableCell>{task.priority}</TableCell><TableCell className="text-right">{!isClosedTaskStatusValue(task.status) && canEditTasks ? <Button size="sm" variant="outline" onClick={() => onCompleteTask(task)}>Complete</Button> : null}</TableCell></TableRow>) : <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-slate-500">Este proyecto todavía no tiene tareas.</TableCell></TableRow>}</TableBody></Table></div></TabsContent>
+            <TabsContent value="timesheets" className="mt-0"><PlaceholderModule icon={<Clock3 className="h-5 w-5" />} title="Timesheets" description="Aquí vivirá el registro de horas trabajadas, horas facturables, horas no facturables y resumen semanal del proyecto." /></TabsContent>
+            <TabsContent value="milestones" className="mt-0"><PlaceholderModule icon={<ShieldCheck className="h-5 w-5" />} title="Milestones" description="Sección preparada para hitos de entrega, fechas clave, dependencias y checkpoints de aprobación." /></TabsContent>
+            <TabsContent value="files" className="mt-0"><PlaceholderModule icon={<Paperclip className="h-5 w-5" />} title="Files" description="Aquí conectaremos los archivos de Drive del proyecto, documentos entregables, links y adjuntos internos." /></TabsContent>
+            <TabsContent value="discussions" className="mt-0"><PlaceholderModule icon={<MessageSquare className="h-5 w-5" />} title="Discussions" description="Espacio para conversaciones internas del proyecto, decisiones y seguimiento por equipo." /></TabsContent>
+            <TabsContent value="gantt" className="mt-0"><PlaceholderModule icon={<GanttChartSquare className="h-5 w-5" />} title="Gantt" description="Vista futura de calendario y dependencias para visualizar tareas, milestones y fechas de entrega." /></TabsContent>
+            <TabsContent value="tickets" className="mt-0"><PlaceholderModule icon={<Ticket className="h-5 w-5" />} title="Tickets" description="Módulo futuro para soporte, solicitudes del cliente, incidencias y seguimiento de casos relacionados al proyecto." /></TabsContent>
+            <TabsContent value="contracts" className="mt-0"><PlaceholderModule icon={<Landmark className="h-5 w-5" />} title="Contracts" description="Aquí se conectarán contratos, acuerdos de servicio, firmas, renovaciones y documentos legales del proyecto." /></TabsContent>
+            <TabsContent value="sales" className="mt-0"><PlaceholderModule icon={<ReceiptText className="h-5 w-5" />} title="Sales" description="Resumen futuro de facturas, propuestas, pagos, gastos, horas billables y rentabilidad del proyecto." /></TabsContent>
+            <TabsContent value="notes" className="mt-0"><PlaceholderModule icon={<FileText className="h-5 w-5" />} title="Notes" description="Notas internas del proyecto, contexto del cliente, decisiones importantes y próximos pasos." /></TabsContent>
+            <TabsContent value="activity" className="mt-0"><PlaceholderModule icon={<Activity className="h-5 w-5" />} title="Activity" description="Timeline futuro con eventos del proyecto: tareas creadas, cambios de estado, archivos, comentarios y actividad del agente." /></TabsContent>
+          </div>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Metric({ label, value, detail, danger = false }: { label: string; value: string; detail: string; danger?: boolean }) {
+  return <div className="rounded-xl border bg-slate-50 p-3"><div className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div><div className={"mt-1 truncate text-lg font-extrabold " + (danger ? "text-rose-700" : "text-slate-950")}>{value}</div><div className="mt-1 text-xs font-semibold text-slate-500">{detail}</div></div>;
+}
+
+function InfoPanel({ title, rows }: { title: string; rows: Array<[string, string]> }) {
+  return <section className="rounded-xl border p-4"><h3 className="font-extrabold text-slate-900">{title}</h3><div className="mt-3 divide-y">{rows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3 py-2 text-sm"><span className="font-semibold text-slate-500">{label}</span><span className="max-w-[170px] text-right font-bold text-slate-900">{value}</span></div>)}</div><Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => toast.info("Deep links específicos se conectarán en la siguiente fase.")}><ExternalLink className="mr-2 h-4 w-4" />Open related module</Button></section>;
 }
