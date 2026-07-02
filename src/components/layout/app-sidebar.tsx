@@ -106,8 +106,13 @@ const utilitiesItems: SidebarItem[] = [
   { title: "Database Backup", icon: Database, iconClassName: "text-slate-700", placeholder: true },
 ];
 
-const managementItems: SidebarItem[] = [
-  { titleKey: "nav.reports", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
+const reportsItems: SidebarItem[] = [
+  { title: "Sales", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
+  { title: "Expenses", icon: BadgeDollarSign, iconClassName: "text-red-600", placeholder: true },
+  { title: "Expenses vs Income", icon: BarChart3, iconClassName: "text-emerald-700", placeholder: true },
+  { title: "Leads", icon: Users, iconClassName: "text-violet-600", placeholder: true },
+  { title: "Timesheets overview", icon: Activity, iconClassName: "text-slate-700", placeholder: true },
+  { title: "KB Articles", icon: FileText, iconClassName: "text-amber-700", placeholder: true },
 ];
 
 const setupItems: SidebarItem[] = [
@@ -149,9 +154,11 @@ export function AppSidebar() {
   const visibleSetupItems = setupItems.filter((item) => !item.permission || can(item.permission as any));
   const isSalesPath = salesItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const isUtilitiesPath = utilitiesItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
+  const isReportsPath = reportsItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const isSetupPath = visibleSetupItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const [salesOpen, setSalesOpen] = useState(isSalesPath || isMobile);
   const [utilitiesOpen, setUtilitiesOpen] = useState(isUtilitiesPath || isMobile);
+  const [reportsOpen, setReportsOpen] = useState(isReportsPath || isMobile);
   const [setupOpen, setSetupOpen] = useState(isSetupPath || isMobile);
 
   const isActive = (path?: string) => !!path && (currentPath === path || currentPath.startsWith(path + "/"));
@@ -244,7 +251,6 @@ export function AppSidebar() {
     </SidebarGroup>
   );
 
-  const gatedManagementItems = managementItems;
   const aiLabel = t("nav.aiAssistant");
 
   return (
@@ -283,7 +289,7 @@ export function AppSidebar() {
         {renderGroup("nav.communication", communicationItems)}
         {renderGroup("nav.operations", operationsItems)}
         {renderCollapsibleGroup({ label: "Utilities", icon: CircleDot, open: utilitiesOpen, setOpen: setUtilitiesOpen, active: isUtilitiesPath, items: utilitiesItems })}
-        {renderGroup("nav.management", gatedManagementItems)}
+        {renderCollapsibleGroup({ label: "Reports", icon: BarChart3, open: reportsOpen, setOpen: setReportsOpen, active: isReportsPath, items: reportsItems })}
         {renderCollapsibleGroup({ label: "Setup", icon: Settings, open: setupOpen, setOpen: setSetupOpen, active: isSetupPath, items: visibleSetupItems })}
       </SidebarContent>
       <SidebarFooter className="border-t border-[#e6eaf0] p-2 group-data-[collapsible=icon]:px-2">
