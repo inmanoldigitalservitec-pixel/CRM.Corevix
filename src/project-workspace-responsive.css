@@ -1,6 +1,6 @@
 /* Responsive guardrails for the project workspace overview.
-   These rules fix the Perfex-style overview when the modal is narrower than the
-   original two-column design expected. */
+   Keep the Perfex-style two-column overview when width allows, while preventing
+   fixed minimums from clipping the right panel. */
 
 [role="dialog"].max-w-\[1100px\],
 [role="dialog"].max-w-\[1100px\] * {
@@ -16,9 +16,15 @@
   max-width: 100%;
 }
 
-/* The new overview used xl:grid-cols-[minmax(0,0.98fr)_minmax(420px,1.02fr)].
-   That 420px minimum is the main reason the right panel gets clipped. */
-@media (max-width: 1439px), (max-height: 820px) {
+/* The component's original right panel minimum was 420px. That is too rigid
+   inside an 1100px modal, so keep two columns but lower the minimum. */
+@media (min-width: 1024px) {
+  [role="dialog"].max-w-\[1100px\] .xl\:grid-cols-\[minmax\(0\,0\.98fr\)_minmax\(420px\,1\.02fr\)\] {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr) !important;
+  }
+}
+
+@media (max-width: 1023px) {
   [role="dialog"].max-w-\[1100px\] .xl\:grid-cols-\[minmax\(0\,0\.98fr\)_minmax\(420px\,1\.02fr\)\] {
     grid-template-columns: minmax(0, 1fr) !important;
   }
@@ -32,23 +38,32 @@
   }
 }
 
-@media (min-width: 1440px) and (min-height: 821px) {
-  [role="dialog"].max-w-\[1100px\] .xl\:grid-cols-\[minmax\(0\,0\.98fr\)_minmax\(420px\,1\.02fr\)\] {
-    grid-template-columns: minmax(0, 1fr) minmax(340px, 0.9fr) !important;
+/* Internal overview grids: keep Perfex density on desktop, collapse only when
+   the modal is actually narrow. */
+@media (min-width: 1024px) {
+  [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] .sm\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] .sm\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
 
-/* Internal grids should react to the modal panel width, not just viewport width. */
-@media (max-width: 1180px), (max-height: 820px) {
+@media (min-width: 761px) and (max-width: 1023px) {
+  [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] .sm\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] .sm\:grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
   [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] .sm\:grid-cols-2,
   [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] .sm\:grid-cols-4 {
     grid-template-columns: minmax(0, 1fr) !important;
-  }
-}
-
-@media (min-width: 1181px) and (max-width: 1439px) and (min-height: 821px) {
-  [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] .sm\:grid-cols-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
