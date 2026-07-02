@@ -104,6 +104,7 @@ function AppShell() {
   const isPublicInvoiceRoute = currentPath.startsWith("/invoice/public/");
   const isPublicRoute = isLoginPage || isPublicProposalRoute || isPublicInvoiceRoute;
   const isAiRoute = currentPath === "/ai-assistant";
+  const isProposalBuilderRoute = currentPath.startsWith("/proposal-builder/");
 
   if (loading) {
     return (
@@ -113,7 +114,7 @@ function AppShell() {
     );
   }
 
-  if (isPublicRoute) {
+  if (isPublicRoute || isProposalBuilderRoute) {
     return <Outlet />;
   }
 

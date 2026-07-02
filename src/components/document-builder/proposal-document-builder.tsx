@@ -308,14 +308,22 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
   if (loading) return <div className="p-6 text-sm text-muted-foreground">Cargando documento...</div>;
 
   return (
-    <div className="min-h-[calc(100vh-56px)] bg-slate-100 text-slate-950">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-950">
       <style>{`
         .corevix-field-chip{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:0 8px;font-weight:700;white-space:nowrap}
         .proposal-tinymce-shell .tox-editor-header{display:block!important;position:relative!important;z-index:20!important;background:#fff!important;border-bottom:1px solid #e2e8f0!important}
         .proposal-tinymce-shell .tox-menubar,.proposal-tinymce-shell .tox-toolbar-overlord,.proposal-tinymce-shell .tox-toolbar__primary{display:flex!important;background:#fff!important}
+        .proposal-tinymce-shell{height:100%!important;min-height:0!important}
+        .proposal-tinymce-shell .tox{height:100%!important;min-height:0!important;border:0!important;border-radius:0!important;background:#e8edf3!important}
+        .proposal-tinymce-shell .tox-editor-container{height:100%!important;min-height:0!important}
+        .proposal-tinymce-shell .tox-sidebar-wrap{min-height:0!important}
+        .proposal-tinymce-shell .tox-edit-area{background:#e8edf3!important}
+        .proposal-tinymce-shell .tox-edit-area__iframe{background:#e8edf3!important}
+        .proposal-tinymce-shell .tox-editor-header{border-radius:0!important}
+        .proposal-tinymce-shell .tox-statusbar{border-radius:0!important}
       `}</style>
 
-      <div className="sticky top-14 z-40 border-b bg-white/95 p-3 backdrop-blur">
+      <div className="shrink-0 border-b bg-white/95 p-3 backdrop-blur">
         <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-7">
           <label className="text-xs font-bold text-slate-600">Plantilla<select value={templateId} onChange={(e) => applyTemplate(e.target.value)} className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900">{PROPOSAL_TEMPLATES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label className="text-xs font-bold text-slate-600">Cliente<select value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900"><option value="">Seleccionar</option>{clients.map((client) => <option key={client.id} value={client.id}>{clientName(client)}</option>)}</select></label>
@@ -328,8 +336,8 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
         <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-3 max-w-xl font-bold" />
       </div>
 
-      <main className="overflow-auto px-4 py-8">
-        <div className="proposal-tinymce-shell mx-auto max-w-[1060px] rounded-2xl border bg-white shadow-xl">
+      <div className="min-h-0 flex-1 overflow-hidden bg-slate-100">
+        <div className="proposal-tinymce-shell flex h-full min-h-0 flex-col">
           <Editor
             value={content}
             onInit={(_, editor) => {
@@ -339,7 +347,7 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
             onEditorChange={(value) => setContent(value)}
             init={{
               license_key: "gpl",
-              height: "calc(100vh - 250px)",
+              height: "100%",
               skin: false,
               content_css: false,
               menubar: "file edit view insert format tools table help",
@@ -353,12 +361,48 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
               promotion: false,
               extended_valid_elements: "span[class|data-corevix-field|data-label|data-type|data-required|contenteditable]",
               noneditable_class: "corevix-field-chip",
-              content_style: "body{font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.7;color:#0f172a;padding:32px;max-width:816px;margin:0 auto}.corevix-field-chip,[data-corevix-field]{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:0 8px;font-weight:700;white-space:nowrap}",
+              content_style: `
+                html{
+                  background:#e8edf3;
+                  min-height:100%;
+                }
+                body{
+                  box-sizing:border-box;
+                  width:816px;
+                  min-height:1056px;
+                  margin:32px auto;
+                  padding:72px;
+                  background:#ffffff;
+                  border:1px solid #d8dee8;
+                  box-shadow:0 18px 45px rgba(15,23,42,.16);
+                  font-family:Inter,Arial,sans-serif;
+                  font-size:15px;
+                  line-height:1.7;
+                  color:#0f172a;
+                }
+                h1{font-size:30px;line-height:1.15;margin:0 0 22px;font-weight:800;color:#0f172a}
+                h2{font-size:18px;line-height:1.25;margin:28px 0 10px;font-weight:800;color:#0f172a}
+                p{margin:0 0 14px}
+                ul{margin:0 0 16px 20px;padding:0}
+                li{margin:6px 0}
+                .corevix-field-chip,
+                [data-corevix-field]{
+                  display:inline-flex;
+                  align-items:center;
+                  border:1px solid #bfdbfe;
+                  background:#eff6ff;
+                  color:#1d4ed8;
+                  border-radius:999px;
+                  padding:0 8px;
+                  font-weight:700;
+                  white-space:nowrap;
+                }
+              `,
             }}
           />
         </div>
         <div className="mx-auto mt-3 max-w-[1060px] text-xs text-slate-500">Campos CRM protegidos detectados: {fields.map((f: any) => f.label).join(", ") || "ninguno"}</div>
-      </main>
+      </div>
     </div>
   );
 }
