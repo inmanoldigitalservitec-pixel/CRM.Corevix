@@ -46,6 +46,7 @@ export const Route = createFileRoute("/tickets")({
 const STATUSES = ["Open", "In Progress", "Answered", "On Hold", "Closed"];
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 const NONE = "none";
+const ALL = "all";
 
 type TicketRow = {
   id: string;
@@ -117,6 +118,11 @@ function defaultForm(): TicketForm {
   };
 }
 
+function readProjectFilterFromUrl() {
+  if (typeof window === "undefined") return ALL;
+  return new URLSearchParams(window.location.search).get("projectId") || ALL;
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "—";
   try {
@@ -152,8 +158,9 @@ function TicketsPage() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(ALL);
+  const [priorityFilter, setPriorityFilter] = useState(ALL);
+  const [projectFilter, setProjectFilter] = useState(readProjectFilterFromUrl);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
   const [editTicket, setEditTicket] = useState<TicketRow | null>(null);
@@ -168,6 +175,7 @@ function TicketsPage() {
   const contactById = useMemo(() => new Map(contacts.map((item) => [item.id, item])), [contacts]);
   const projectById = useMemo(() => new Map(projects.map((item) => [item.id, item])), [projects]);
   const profileById = useMemo(() => new Map(profiles.map((item) => [item.id, item])), [profiles]);
+  const activeProject = projectFilter !== ALL ? projectById.get(projectFilter) || null : null;
 
   const fetchTickets = useCallback(async () => {
     if (!profile?.company_id) return;
@@ -217,15 +225,24 @@ function TicketsPage() {
     void fetchMessages(selectedTicket.id);
   }, [fetchMessages, selectedTicket?.id]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (projectFilter === ALL) url.searchParams.delete("projectId");
+    else url.searchParams.set("projectId", projectFilter);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [projectFilter]);
+
   const kpis = useMemo(() => {
+    const scoped = projectFilter === ALL ? tickets : tickets.filter((ticket) => ticket.project_id === projectFilter);
     return {
-      open: tickets.filter((ticket) => ticket.status === "Open").length,
-      progress: tickets.filter((ticket) => ticket.status === "In Progress").length,
-      answered: tickets.filter((ticket) => ticket.status === "Answered").length,
-      hold: tickets.filter((ticket) => ticket.status === "On Hold").length,
-      closed: tickets.filter((ticket) => ticket.status === "Closed").length,
+      open: scoped.filter((ticket) => ticket.status === "Open").length,
+      progress: scoped.filter((ticket) => ticket.status === "In Progress").length,
+      answered: scoped.filter((ticket) => ticket.status === "Answered").length,
+      hold: scoped.filter((ticket) => ticket.status === "On Hold").length,
+      closed: scoped.filter((ticket) => ticket.status === "Closed").length,
     };
-  }, [tickets]);
+  }, [projectFilter, tickets]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -235,14 +252,20 @@ function TicketsPage() {
       const contact = ticket.contact_id ? contactById.get(ticket.contact_id) : null;
       const haystack = `${ticket.ticket_number || ""} ${ticket.subject} ${ticket.description || ""} ${ticket.department || ""} ${ticket.service || ""} ${client?.company_name || ""} ${project?.name || ""} ${contactName(contact)}`.toLowerCase();
       return (!q || haystack.includes(q)) &&
-        (statusFilter === "all" || ticket.status === statusFilter) &&
-        (priorityFilter === "all" || ticket.priority === priorityFilter);
+        (statusFilter === ALL || ticket.status === statusFilter) &&
+        (priorityFilter === ALL || ticket.priority === priorityFilter) &&
+        (projectFilter === ALL || ticket.project_id === projectFilter);
     });
-  }, [clientById, contactById, priorityFilter, projectById, search, statusFilter, tickets]);
+  }, [clientById, contactById, priorityFilter, projectById, projectFilter, search, statusFilter, tickets]);
 
   const openNewTicket = () => {
+    const project = projectFilter !== ALL ? projectById.get(projectFilter) : null;
     setEditTicket(null);
-    setForm(defaultForm());
+    setForm({
+      ...defaultForm(),
+      project_id: project?.id || NONE,
+      client_id: project?.client_id || NONE,
+    });
     setDialogOpen(true);
   };
 
@@ -326,7 +349,7 @@ function TicketsPage() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <PageHeader
-        title="Support Tickets"
+        title={activeProject ? `Support Tickets · ${activeProject.name}` : "Support Tickets"}
         subtitle="Panel central para incidencias, solicitudes de clientes y casos relacionados a proyectos."
         actionLabel={canCreateTickets ? "New Ticket" : undefined}
         onAction={canCreateTickets ? openNewTicket : undefined}
@@ -343,7 +366,7 @@ function TicketsPage() {
           <button
             key={label}
             type="button"
-            onClick={() => setStatusFilter(statusFilter === label ? "all" : label)}
+            onClick={() => setStatusFilter(statusFilter === label ? ALL : label)}
             className={"inline-flex h-9 items-center gap-2 rounded-lg border bg-white px-3 text-sm font-semibold shadow-sm transition hover:border-slate-300 " + (statusFilter === label ? "border-blue-200 bg-blue-50" : "")}
           >
             <Icon className={`h-4 w-4 ${tone}`} />
@@ -364,8 +387,9 @@ function TicketsPage() {
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input className="w-full pl-9 sm:w-72" placeholder="Search tickets..." value={search} onChange={(event) => setSearch(event.target.value)} />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem>{STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="all">All Priority</SelectItem>{PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select>
+            <Select value={projectFilter} onValueChange={setProjectFilter}><SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Project" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Projects</SelectItem>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent></Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Status</SelectItem>{STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Priority</SelectItem>{PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select>
           </div>
         </div>
 
