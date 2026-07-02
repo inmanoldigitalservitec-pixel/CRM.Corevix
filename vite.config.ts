@@ -10,6 +10,17 @@ export default defineConfig({
   vite: {
     build: {
       chunkSizeWarningLimit: 2000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("@tiptap")) return "proposal-builder-tiptap";
+            if (id.includes("prosemirror")) return "proposal-builder-prosemirror";
+            if (id.includes("src/components/document-builder/proposal-document-builder")) {
+              return "proposal-builder";
+            }
+          },
+        },
+      },
     },
   },
 });
