@@ -27,6 +27,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProjectTicketsPanel } from "@/components/projects/project-tickets-panel";
 import { DataCard } from "@/components/crm/data-card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -702,7 +703,7 @@ function ProjectWorkspaceDialog({ project, meta, tasks, clientName, productName,
             <TabsContent value="files" className="mt-0"><PlaceholderModule icon={<Paperclip className="h-5 w-5" />} title="Files" description="Aquí conectaremos los archivos de Drive del proyecto, documentos entregables, links y adjuntos internos." /></TabsContent>
             <TabsContent value="discussions" className="mt-0"><PlaceholderModule icon={<MessageSquare className="h-5 w-5" />} title="Discussions" description="Espacio para conversaciones internas del proyecto, decisiones y seguimiento por equipo." /></TabsContent>
             <TabsContent value="gantt" className="mt-0"><PlaceholderModule icon={<GanttChartSquare className="h-5 w-5" />} title="Gantt" description="Vista futura de calendario y dependencias para visualizar tareas, milestones y fechas de entrega." /></TabsContent>
-            <TabsContent value="tickets" className="mt-0"><PlaceholderModule icon={<Ticket className="h-5 w-5" />} title="Tickets" description="Módulo futuro para soporte, solicitudes del cliente, incidencias y seguimiento de casos relacionados al proyecto." /></TabsContent>
+            <TabsContent value="tickets" className="mt-0"><ProjectTicketsPanel projectId={project.id} /></TabsContent>
             <TabsContent value="contracts" className="mt-0"><PlaceholderModule icon={<Landmark className="h-5 w-5" />} title="Contracts" description="Aquí se conectarán contratos, acuerdos de servicio, firmas, renovaciones y documentos legales del proyecto." /></TabsContent>
             <TabsContent value="sales" className="mt-0"><PlaceholderModule icon={<ReceiptText className="h-5 w-5" />} title="Sales" description="Resumen futuro de facturas, propuestas, pagos, gastos, horas billables y rentabilidad del proyecto." /></TabsContent>
             <TabsContent value="notes" className="mt-0"><PlaceholderModule icon={<FileText className="h-5 w-5" />} title="Notes" description="Notas internas del proyecto, contexto del cliente, decisiones importantes y próximos pasos." /></TabsContent>
