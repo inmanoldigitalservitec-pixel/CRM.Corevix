@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
+  Eye,
   FileText,
   Pencil,
   Plus,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/crm/page-header";
 import { LoadingTable } from "@/components/crm/loading-state";
+import { ContractDetailDialog, type ContractDetailRow } from "@/components/contracts/contract-detail-dialog";
 import { ContractEditorDialog, type ContractEditorRow } from "@/components/contracts/contract-editor-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -92,6 +94,11 @@ function isExpired(contract: ContractRow) {
   return contract.end_date < new Date().toISOString().slice(0, 10);
 }
 
+function signatureStatus(contract: ContractRow) {
+  if (contract.signed_at || contract.signature_status === "Signed") return "Signed";
+  return contract.signature_status || "Not Signed";
+}
+
 function ContractsPage() {
   const { profile } = useAuth();
   const { can } = usePermissions();
@@ -109,10 +116,16 @@ function ContractsPage() {
   const [typeFilter, setTypeFilter] = useState(ALL);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<ContractEditorRow | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<ContractDetailRow | null>(null);
 
   const clientById = useMemo(() => new Map(clients.map((item) => [item.id, item])), [clients]);
   const projectById = useMemo(() => new Map(projects.map((item) => [item.id, item])), [projects]);
   const profileById = useMemo(() => new Map(profiles.map((item) => [item.id, item])), [profiles]);
+
+  const clientOptions = useMemo(() => clients.map((client) => ({ id: client.id, label: client.company_name })), [clients]);
+  const projectOptions = useMemo(() => projects.map((project) => ({ id: project.id, label: project.name })), [projects]);
+  const profileOptions = useMemo(() => profiles.map((staff) => ({ id: staff.id, label: staff.full_name || staff.email || "Staff" })), [profiles]);
 
   const fetchContracts = async () => {
     if (!profile?.company_id) return;
@@ -144,31 +157,45 @@ function ContractsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.company_id]);
 
-  const contractTypes = useMemo(() => {
-    return Array.from(new Set(contracts.map((item) => item.contract_type).filter(Boolean))).sort();
-  }, [contracts]);
+  const contractTypes = useMemo(() => Array.from(new Set(contracts.map((item) => item.contract_type).filter(Boolean))).sort(), [contracts]);
 
   const kpis = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const in30Days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-
     return {
       total: contracts.length,
       active: contracts.filter((contract) => contract.status === "Active").length,
       expired: contracts.filter((contract) => isExpired(contract)).length,
       pending: contracts.filter((contract) => contract.status === "Pending Signature").length,
       draft: contracts.filter((contract) => contract.status === "Draft").length,
-      signed: contracts.filter((contract) => contract.signed_at || contract.signature_status === "Signed").length,
-      expiringSoon: contracts.filter((contract) =>
-        contract.end_date &&
-        contract.end_date >= today &&
-        contract.end_date <= in30Days &&
-        contract.status !== "Cancelled"
-      ).length,
+      signed: contracts.filter((contract) => signatureStatus(contract) === "Signed").length,
+      expiringSoon: contracts.filter((contract) => contract.end_date && contract.end_date >= today && contract.end_date <= in30Days && contract.status !== "Cancelled").length,
       totalValue: contracts.reduce((sum, contract) => sum + Number(contract.contract_value || 0), 0),
       invoiced: contracts.filter((contract) => !!contract.invoice_id).length,
     };
   }, [contracts]);
+
+  const valueByClient = useMemo(() => {
+    return Array.from(contracts.reduce((map, contract) => {
+      const key = contract.client_id || "No client";
+      map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
+      return map;
+    }, new Map<string, number>()))
+      .map(([clientId, value]) => ({ label: clientById.get(clientId)?.company_name || "No client", value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [contracts, clientById]);
+
+  const valueByProject = useMemo(() => {
+    return Array.from(contracts.reduce((map, contract) => {
+      const key = contract.project_id || "No project";
+      map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
+      return map;
+    }, new Map<string, number>()))
+      .map(([projectId, value]) => ({ label: projectById.get(projectId)?.name || "No project", value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [contracts, projectById]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -195,37 +222,10 @@ function ContractsPage() {
     setDialogOpen(true);
   };
 
-  const valueByClient = useMemo(() => {
-    return Array.from(
-      contracts.reduce((map, contract) => {
-        const key = contract.client_id || "No client";
-        map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
-        return map;
-      }, new Map<string, number>())
-    )
-      .map(([clientId, value]) => ({
-        label: clientById.get(clientId)?.company_name || "No client",
-        value,
-      }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-  }, [contracts, clientById]);
-
-  const valueByProject = useMemo(() => {
-    return Array.from(
-      contracts.reduce((map, contract) => {
-        const key = contract.project_id || "No project";
-        map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
-        return map;
-      }, new Map<string, number>())
-    )
-      .map(([projectId, value]) => ({
-        label: projectById.get(projectId)?.name || "No project",
-        value,
-      }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-  }, [contracts, projectById]);
+  const openContractDetail = (contract: ContractRow) => {
+    setSelectedContract(contract);
+    setDetailOpen(true);
+  };
 
   if (loading) return <LoadingTable />;
 
@@ -260,35 +260,9 @@ function ContractsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="text-xs font-bold uppercase text-slate-500">Total Contracted Value</div>
-          <div className="mt-2 text-2xl font-extrabold text-slate-950">{formatMoney(kpis.totalValue)}</div>
-          <p className="mt-1 text-sm font-medium text-slate-500">Valor total de contratos registrados.</p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="mb-3 text-xs font-bold uppercase text-slate-500">Top Clients by Contract Value</div>
-          <div className="space-y-2">
-            {valueByClient.length ? valueByClient.map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <span className="truncate font-semibold text-slate-700">{item.label}</span>
-                <span className="font-extrabold text-slate-950">{formatMoney(item.value)}</span>
-              </div>
-            )) : <div className="text-sm font-medium text-slate-500">Sin datos todavía.</div>}
-          </div>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="mb-3 text-xs font-bold uppercase text-slate-500">Top Projects by Contract Value</div>
-          <div className="space-y-2">
-            {valueByProject.length ? valueByProject.map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <span className="truncate font-semibold text-slate-700">{item.label}</span>
-                <span className="font-extrabold text-slate-950">{formatMoney(item.value)}</span>
-              </div>
-            )) : <div className="text-sm font-medium text-slate-500">Sin datos todavía.</div>}
-          </div>
-        </div>
+        <div className="rounded-xl border bg-white p-4 shadow-sm"><div className="text-xs font-bold uppercase text-slate-500">Total Contracted Value</div><div className="mt-2 text-2xl font-extrabold text-slate-950">{formatMoney(kpis.totalValue)}</div><p className="mt-1 text-sm font-medium text-slate-500">Valor total de contratos registrados.</p></div>
+        <ReportList title="Top Clients by Contract Value" items={valueByClient} />
+        <ReportList title="Top Projects by Contract Value" items={valueByProject} />
       </div>
 
       <div className="rounded-xl border bg-white p-4 shadow-sm">
@@ -298,10 +272,7 @@ function ContractsPage() {
             {can("contracts.create") && <Button onClick={openNewContract}><Plus className="mr-2 h-4 w-4" />New Contract</Button>}
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="relative sm:col-span-2 lg:col-span-1">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input className="w-full pl-9" placeholder="Search contracts..." value={search} onChange={(event) => setSearch(event.target.value)} />
-            </div>
+            <div className="relative sm:col-span-2 lg:col-span-1"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><Input className="w-full pl-9" placeholder="Search contracts..." value={search} onChange={(event) => setSearch(event.target.value)} /></div>
             <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Status</SelectItem>{STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>
             <Select value={clientFilter} onValueChange={setClientFilter}><SelectTrigger><SelectValue placeholder="Client" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Clients</SelectItem>{clients.map((client) => <SelectItem key={client.id} value={client.id}>{client.company_name}</SelectItem>)}</SelectContent></Select>
             <Select value={projectFilter} onValueChange={setProjectFilter}><SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Projects</SelectItem>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent></Select>
@@ -309,77 +280,35 @@ function ContractsPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="w-20">#</TableHead>
-                  <TableHead className="min-w-[280px]">Subject</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>End Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Signature</TableHead>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Assigned</TableHead>
-                  <TableHead className="w-24 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length ? filtered.map((contract) => {
-                  const client = contract.client_id ? clientById.get(contract.client_id) : null;
-                  const project = contract.project_id ? projectById.get(contract.project_id) : null;
-                  const assigned = contract.assigned_to ? profileById.get(contract.assigned_to) : null;
-                  return (
-                    <TableRow key={contract.id} className="align-top hover:bg-slate-50">
-                      <TableCell className="font-semibold text-slate-500">{contract.contract_number || "—"}</TableCell>
-                      <TableCell>
-                        <div className="font-semibold text-slate-900">{contract.subject}</div>
-                        <div className="mt-1 line-clamp-1 text-xs text-slate-500">{contract.description || "Sin descripción"}</div>
-                      </TableCell>
-                      <TableCell>{client?.company_name || "—"}</TableCell>
-                      <TableCell>{project?.name || "—"}</TableCell>
-                      <TableCell>{contract.contract_type || "—"}</TableCell>
-                      <TableCell className="font-semibold">{formatMoney(contract.contract_value)}</TableCell>
-                      <TableCell>{formatDate(contract.start_date)}</TableCell>
-                      <TableCell className={isExpired(contract) ? "font-semibold text-rose-700" : undefined}>{formatDate(contract.end_date)}</TableCell>
-                      <TableCell><StatusBadge status={contract.status} /></TableCell>
-                      <TableCell>
-                        <StatusBadge status={contract.signed_at || contract.signature_status === "Signed" ? "Signed" : (contract.signature_status || "Not Signed")} />
-                      </TableCell>
-                      <TableCell>{contract.invoice_id ? "Linked" : "—"}</TableCell>
-                      <TableCell>{assigned?.full_name || assigned?.email || "—"}</TableCell>
-                      <TableCell className="text-right">
-                        {can("contracts.edit") && (
-                          <Button variant="outline" size="sm" onClick={() => openEditContract(contract)}>
-                            <Pencil className="mr-2 h-3.5 w-3.5" />Edit
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                }) : (
-                  <TableRow><TableCell colSpan={11} className="py-10 text-center text-sm text-slate-500">No hay contratos con estos filtros.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <div className="overflow-hidden rounded-xl border"><div className="overflow-x-auto"><Table>
+          <TableHeader className="bg-slate-50"><TableRow><TableHead className="w-20">#</TableHead><TableHead className="min-w-[280px]">Subject</TableHead><TableHead>Customer</TableHead><TableHead>Project</TableHead><TableHead>Type</TableHead><TableHead>Value</TableHead><TableHead>Start Date</TableHead><TableHead>End Date</TableHead><TableHead>Status</TableHead><TableHead>Signature</TableHead><TableHead>Invoice</TableHead><TableHead>Assigned</TableHead><TableHead className="w-40 text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableBody>{filtered.length ? filtered.map((contract) => {
+            const client = contract.client_id ? clientById.get(contract.client_id) : null;
+            const project = contract.project_id ? projectById.get(contract.project_id) : null;
+            const assigned = contract.assigned_to ? profileById.get(contract.assigned_to) : null;
+            return (
+              <TableRow key={contract.id} className="align-top hover:bg-slate-50">
+                <TableCell className="font-semibold text-slate-500">{contract.contract_number || "—"}</TableCell>
+                <TableCell><button type="button" onClick={() => openContractDetail(contract)} className="text-left font-semibold text-slate-900 hover:text-blue-700">{contract.subject}</button><div className="mt-1 line-clamp-1 text-xs text-slate-500">{contract.description || "Sin descripción"}</div></TableCell>
+                <TableCell>{client?.company_name || "—"}</TableCell><TableCell>{project?.name || "—"}</TableCell><TableCell>{contract.contract_type || "—"}</TableCell><TableCell className="font-semibold">{formatMoney(contract.contract_value)}</TableCell><TableCell>{formatDate(contract.start_date)}</TableCell><TableCell className={isExpired(contract) ? "font-semibold text-rose-700" : undefined}>{formatDate(contract.end_date)}</TableCell><TableCell><StatusBadge status={contract.status} /></TableCell><TableCell><StatusBadge status={signatureStatus(contract)} /></TableCell><TableCell>{contract.invoice_id ? "Linked" : "—"}</TableCell><TableCell>{assigned?.full_name || assigned?.email || "—"}</TableCell>
+                <TableCell className="text-right"><div className="flex justify-end gap-2"><Button variant="outline" size="sm" onClick={() => openContractDetail(contract)}><Eye className="mr-2 h-3.5 w-3.5" />View</Button>{can("contracts.edit") && <Button variant="outline" size="sm" onClick={() => openEditContract(contract)}><Pencil className="mr-2 h-3.5 w-3.5" />Edit</Button>}</div></TableCell>
+              </TableRow>
+            );
+          }) : <TableRow><TableCell colSpan={13} className="py-10 text-center text-sm text-slate-500">No hay contratos con estos filtros.</TableCell></TableRow>}</TableBody>
+        </Table></div></div>
       </div>
 
-      <ContractEditorDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        contract={editingContract}
-        clients={clients}
-        projects={projects}
-        profiles={profiles}
-        onSaved={fetchContracts}
-      />
+      <ContractEditorDialog open={dialogOpen} onOpenChange={setDialogOpen} contract={editingContract} clients={clients} projects={projects} profiles={profiles} onSaved={fetchContracts} />
+      <ContractDetailDialog open={detailOpen} onOpenChange={setDetailOpen} contract={selectedContract} clients={clientOptions} projects={projectOptions} profiles={profileOptions} />
+    </div>
+  );
+}
+
+function ReportList({ title, items }: { title: string; items: { label: string; value: number }[] }) {
+  return (
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="mb-3 text-xs font-bold uppercase text-slate-500">{title}</div>
+      <div className="space-y-2">{items.length ? items.map((item) => <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm"><span className="truncate font-semibold text-slate-700">{item.label}</span><span className="font-extrabold text-slate-950">{formatMoney(item.value)}</span></div>) : <div className="text-sm font-medium text-slate-500">Sin datos todavía.</div>}</div>
     </div>
   );
 }
