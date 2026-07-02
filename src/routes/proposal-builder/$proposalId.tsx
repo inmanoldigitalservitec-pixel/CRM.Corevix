@@ -16,8 +16,14 @@ function ProposalBuilderRoute() {
   const { proposalId } = Route.useParams();
 
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando editor...</div>}>
-      <ProposalDocumentBuilder proposalId={proposalId} />
-    </Suspense>
+    <div className="proposal-builder-route -mt-14">
+      <style>{`
+        .proposal-builder-route [class*="top-14"]{top:0!important}
+        .proposal-builder-route main{padding-top:12px!important}
+      `}</style>
+      <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando editor...</div>}>
+        <ProposalDocumentBuilder proposalId={proposalId} />
+      </Suspense>
+    </div>
   );
 }
