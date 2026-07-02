@@ -10,7 +10,6 @@ import {
   CircleDot,
   ClipboardList,
   Clock3,
-  ExternalLink,
   FileText,
   FolderOpen,
   GanttChartSquare,
@@ -686,7 +685,17 @@ function ProjectWorkspaceDialog({ project, meta, tasks, clientName, productName,
         <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 overflow-x-auto border-b bg-slate-50 px-4 py-2"><TabsList className="inline-flex h-11 w-max justify-start gap-1 bg-transparent p-0">{tabs.map((tab) => { const Icon = tab.icon; return <TabsTrigger key={tab.value} value={tab.value} className="h-9 gap-2 rounded-lg px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Icon className="h-4 w-4" />{tab.label}</TabsTrigger>; })}</TabsList></div>
           <div className="min-h-0 flex-1 overflow-y-auto bg-white p-5">
-            <TabsContent value="overview" className="mt-0 space-y-5"><div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"><section className="rounded-xl border p-5"><h3 className="font-extrabold text-slate-900">Overview</h3><div className="mt-4 grid grid-cols-2 gap-3"><Metric label="Open Tasks" value={`${meta.stats.open}/${meta.stats.total}`} detail={`${meta.stats.completed} completed`} /><Metric label="Days Left" value={project.due_date ? formatDate(project.due_date) : "—"} detail={meta.isOverdue ? "Overdue" : "Deadline"} danger={meta.isOverdue} /><Metric label="Budget" value={formatMoney(project.budget)} detail="Project budget" /><Metric label="Owner" value={managerName} detail="Project manager" /></div><div className="mt-5 border-t pt-4"><h4 className="text-sm font-bold text-slate-900">Description</h4><p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-6 text-slate-600">{project.description || "No hay descripción registrada para este proyecto."}</p></div></section><aside className="space-y-4"><InfoPanel title="Relations" rows={[['Customer', clientName], ['Product', productName], ['Deal', dealName], ['Lead', leadName]]} /><InfoPanel title="Timeline" rows={[['Start Date', formatDate(project.start_date)], ['Deadline', formatDate(project.due_date)], ['Created', formatDate(project.created_at?.slice(0, 10))]]} /></aside></div></TabsContent>
+            <TabsContent value="overview" className="mt-0">
+              <ProjectOverviewPanel
+                project={project}
+                meta={meta}
+                clientName={clientName}
+                productName={productName}
+                dealName={dealName}
+                leadName={leadName}
+                managerName={managerName}
+              />
+            </TabsContent>
             <TabsContent value="tasks" className="mt-0 space-y-4"><div className="flex items-center justify-between"><div><h3 className="font-extrabold text-slate-900">Project Tasks</h3><p className="text-sm font-medium text-slate-500">{meta.stats.completed}/{meta.stats.total} completed · {meta.stats.open} open</p></div>{canCreateTask ? <Button onClick={onCreateTask}><Plus className="mr-2 h-4 w-4" />Create Task</Button> : null}</div><div className="overflow-hidden rounded-xl border"><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Status</TableHead><TableHead>Due Date</TableHead><TableHead>Priority</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>{tasks.length ? tasks.map((task) => <TableRow key={task.id}><TableCell><div className="font-semibold text-slate-900">{task.title}</div><div className="line-clamp-1 text-xs text-slate-500">{task.description || "Sin descripción"}</div></TableCell><TableCell><StatusBadge status={task.status} /></TableCell><TableCell>{formatDate(task.due_date)}</TableCell><TableCell>{task.priority}</TableCell><TableCell className="text-right">{!isClosedTaskStatusValue(task.status) && canEditTasks ? <Button size="sm" variant="outline" onClick={() => onCompleteTask(task)}>Complete</Button> : null}</TableCell></TableRow>) : <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-slate-500">Este proyecto todavía no tiene tareas.</TableCell></TableRow>}</TableBody></Table></div></TabsContent>
             <TabsContent value="timesheets" className="mt-0"><PlaceholderModule icon={<Clock3 className="h-5 w-5" />} title="Timesheets" description="Aquí vivirá el registro de horas trabajadas, horas facturables, horas no facturables y resumen semanal del proyecto." /></TabsContent>
             <TabsContent value="milestones" className="mt-0"><PlaceholderModule icon={<ShieldCheck className="h-5 w-5" />} title="Milestones" description="Sección preparada para hitos de entrega, fechas clave, dependencias y checkpoints de aprobación." /></TabsContent>
@@ -705,10 +714,193 @@ function ProjectWorkspaceDialog({ project, meta, tasks, clientName, productName,
   );
 }
 
-function Metric({ label, value, detail, danger = false }: { label: string; value: string; detail: string; danger?: boolean }) {
-  return <div className="rounded-xl border bg-slate-50 p-3"><div className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div><div className={"mt-1 truncate text-lg font-extrabold " + (danger ? "text-rose-700" : "text-slate-950")}>{value}</div><div className="mt-1 text-xs font-semibold text-slate-500">{detail}</div></div>;
+function getProjectNumber(project: Project) {
+  const match = project.name.match(/INV-\d+/i);
+  if (match) return match[0].toUpperCase();
+  return project.id.slice(0, 8);
 }
 
-function InfoPanel({ title, rows }: { title: string; rows: Array<[string, string]> }) {
-  return <section className="rounded-xl border p-4"><h3 className="font-extrabold text-slate-900">{title}</h3><div className="mt-3 divide-y">{rows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3 py-2 text-sm"><span className="font-semibold text-slate-500">{label}</span><span className="max-w-[170px] text-right font-bold text-slate-900">{value}</span></div>)}</div><Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => toast.info("Deep links específicos se conectarán en la siguiente fase.")}><ExternalLink className="mr-2 h-4 w-4" />Open related module</Button></section>;
+function getDaysLeft(dueDate: string | null | undefined) {
+  if (!dueDate) return null;
+  const today = new Date(`${isoToday()}T00:00:00`);
+  const due = new Date(`${dueDate}T00:00:00`);
+  return Math.ceil((due.getTime() - today.getTime()) / 86400000);
+}
+
+function getDateProgress(startDate: string | null | undefined, dueDate: string | null | undefined) {
+  if (!startDate || !dueDate) return 0;
+  const start = new Date(`${startDate}T00:00:00`).getTime();
+  const due = new Date(`${dueDate}T00:00:00`).getTime();
+  const today = new Date(`${isoToday()}T00:00:00`).getTime();
+  if (due <= start) return 100;
+  return Math.min(100, Math.max(0, Math.round(((today - start) / (due - start)) * 100)));
+}
+
+function ProjectOverviewPanel({
+  project,
+  meta,
+  clientName,
+  productName,
+  dealName,
+  leadName,
+  managerName,
+}: {
+  project: Project;
+  meta: { stats: ProjectStats; isOverdue: boolean; hasRisk: boolean };
+  clientName: string;
+  productName: string;
+  dealName: string;
+  leadName: string;
+  managerName: string;
+}) {
+  const daysLeft = getDaysLeft(project.due_date);
+  const dateProgress = getDateProgress(project.start_date, project.due_date);
+  const taskProgress = meta.stats.total ? Math.round((meta.stats.completed / meta.stats.total) * 100) : 0;
+  const dueLabel = daysLeft == null ? "No deadline" : daysLeft < 0 ? `${Math.abs(daysLeft)} days overdue` : `${daysLeft} days left`;
+
+  return (
+    <div className="grid grid-cols-1 overflow-hidden rounded-xl border bg-white xl:grid-cols-[minmax(0,0.98fr)_minmax(420px,1.02fr)]">
+      <section className="border-b p-5 xl:border-b-0 xl:border-r">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-base font-extrabold text-slate-900">Overview</h3>
+          <button type="button" className="text-xs font-bold text-blue-600 hover:text-blue-700">
+            Export Project Data
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+          <OverviewField label="Project #" value={getProjectNumber(project)} />
+          <OverviewField label="Customer" value={clientName} strong />
+          <OverviewField label="Billing Type" value="Task Hours" />
+          <OverviewField label="Status" value={project.status} />
+          <OverviewField label="Date Created" value={formatDate(project.created_at?.slice(0, 10))} />
+          <OverviewField label="Start Date" value={formatDate(project.start_date)} />
+          <OverviewField label="Deadline" value={formatDate(project.due_date)} danger={meta.isOverdue} />
+          <OverviewField label="Project Manager" value={managerName} />
+          <OverviewField label="Product" value={productName} />
+          <OverviewField label="Deal" value={dealName} />
+          <OverviewField label="Lead" value={leadName} />
+          <OverviewField label="Budget" value={formatMoney(project.budget)} strong />
+        </div>
+
+        <div className="mt-5 border-t pt-4">
+          <h4 className="text-sm font-bold text-slate-900">Description</h4>
+          <p className="mt-2 max-w-3xl whitespace-pre-wrap text-sm leading-6 text-slate-600">
+            {project.description || "No hay descripción registrada para este proyecto."}
+          </p>
+        </div>
+      </section>
+
+      <section className="space-y-5 bg-slate-50/45 p-5">
+        <div>
+          <h3 className="text-base font-extrabold text-slate-900">{project.name}</h3>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Project Progress <span className="font-extrabold text-slate-700">{meta.stats.pct}%</span>
+          </p>
+          <Progress value={meta.stats.pct} className="mt-2 h-2" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <PerformanceCard
+            title={`${meta.stats.open} / ${meta.stats.total} Open Tasks`}
+            value={`${taskProgress}%`}
+            progress={taskProgress}
+          />
+          <PerformanceCard
+            title={dueLabel}
+            value={project.due_date ? formatDate(project.due_date) : "—"}
+            progress={dateProgress}
+            danger={meta.isOverdue}
+          />
+        </div>
+
+        <FinanceSection
+          icon={<Clock3 className="h-4 w-4" />}
+          title="Total Logged Hours"
+          rows={[
+            ["Logged Hours", "00:00", "$0.00", "text-slate-700"],
+            ["Billable Hours", "00:00", "$0.00", "text-blue-600"],
+            ["Billed Hours", "00:00", "$0.00", "text-emerald-600"],
+            ["Unbilled Hours", "00:00", "$0.00", "text-rose-600"],
+          ]}
+        />
+
+        <FinanceSection
+          icon={<ReceiptText className="h-4 w-4" />}
+          title="Expenses"
+          rows={[
+            ["Total Expenses", "", "$0.00", "text-slate-700"],
+            ["Billable Expenses", "", "$0.00", "text-blue-600"],
+            ["Billed Expenses", "", "$0.00", "text-emerald-600"],
+            ["Unbilled Expenses", "", "$0.00", "text-rose-600"],
+          ]}
+        />
+
+        <div className="rounded-xl border bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-bold text-slate-700">Weekly Logged Hours</div>
+            <div className="text-xs font-semibold text-slate-500">This Week</div>
+          </div>
+          <div className="mt-4 grid h-24 grid-cols-7 items-end gap-2 border-b border-l px-2 pb-2">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+              <div key={day} className="flex h-full flex-col justify-end gap-1">
+                <div className="h-1 rounded-sm bg-blue-400" />
+                <div className="h-1 rounded-sm bg-rose-400" />
+                <span className="mt-1 rotate-[-35deg] text-[10px] font-semibold text-slate-400">{day}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function OverviewField({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-semibold text-slate-500">{label}</div>
+      <div className={"mt-1 truncate text-sm " + (strong ? "font-extrabold " : "font-semibold ") + (danger ? "text-rose-700" : "text-slate-900")}>
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+function PerformanceCard({ title, value, progress, danger = false }: { title: string; value: string; progress: number; danger?: boolean }) {
+  return (
+    <div className="rounded-xl border bg-white p-4">
+      <div className="text-sm font-extrabold text-slate-800">{title}</div>
+      <div className={"mt-1 text-xs font-bold " + (danger ? "text-rose-600" : "text-slate-500")}>{value}</div>
+      <Progress value={Math.min(100, Math.max(0, progress))} className="mt-3 h-2" />
+    </div>
+  );
+}
+
+function FinanceSection({
+  icon,
+  title,
+  rows,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  rows: Array<[string, string, string, string]>;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
+        {icon}
+        {title}
+      </div>
+      <div className="grid grid-cols-2 gap-2 rounded-xl border bg-white p-3 sm:grid-cols-4">
+        {rows.map(([label, time, amount, tone]) => (
+          <div key={label} className="min-w-0">
+            <div className={`text-xs font-bold ${tone}`}>{label}</div>
+            {time ? <div className="mt-1 text-sm font-semibold text-slate-700">{time}</div> : null}
+            <div className="text-sm font-extrabold text-slate-950">{amount}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
