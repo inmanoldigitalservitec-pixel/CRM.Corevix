@@ -144,6 +144,7 @@ const childButtonClass =
 export function AppSidebar() {
   const { state, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
+  const isCollapsedDesktop = collapsed && !isMobile;
   const showLabels = isMobile || !collapsed;
   const { t } = useT();
   const { can } = usePermissions();
@@ -216,6 +217,32 @@ export function AppSidebar() {
     </div>
   );
 
+  const renderCollapsedFlyout = (label: string, items: SidebarItem[]) => (
+    <div className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-0 z-50 hidden min-w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/15 group-hover/menu-item:pointer-events-auto group-hover/menu-item:block group-focus-within/menu-item:pointer-events-auto group-focus-within/menu-item:block">
+      <div className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="max-h-[min(70vh,460px)] space-y-1 overflow-auto">
+        {items.map((item) => {
+          const childLabel = itemLabel(item);
+          const Icon = item.icon;
+          const childClass = "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-[#f1f5ff] hover:text-slate-950";
+
+          return item.placeholder ? (
+            <button key={item.titleKey || item.title} type="button" disabled className={childClass + " cursor-default opacity-60 hover:bg-transparent"}>
+              <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
+              <span className="min-w-0 flex-1 truncate text-left">{childLabel}</span>
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Soon</span>
+            </button>
+          ) : (
+            <Link key={item.titleKey || item.title} to={item.url || "/dashboard"} className={childClass}>
+              <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
+              <span className="min-w-0 flex-1 truncate">{childLabel}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const renderCollapsibleGroup = ({ label, icon: Icon, open, setOpen, active, items }: { label: string; icon: React.ElementType; open: boolean; setOpen: (updater: (open: boolean) => boolean) => void; active: boolean; items: SidebarItem[] }) => (
     <SidebarGroup className="px-2 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-1">
       <SidebarGroupContent>
@@ -224,7 +251,7 @@ export function AppSidebar() {
             <SidebarMenuButton
               type="button"
               isActive={active}
-              tooltip={isMobile ? undefined : label}
+              tooltip={isMobile || isCollapsedDesktop ? undefined : label}
               className={menuButtonClass}
               onClick={() => setOpen((current) => !current)}
             >
@@ -234,8 +261,9 @@ export function AppSidebar() {
                 {showLabels && <ChevronDown className={"ml-auto h-4 w-4 shrink-0 text-slate-500 transition-transform " + (open ? "rotate-180" : "")} />}
               </span>
             </SidebarMenuButton>
+            {isCollapsedDesktop && renderCollapsedFlyout(label, items)}
           </SidebarMenuItem>
-          {(open || collapsed) && renderChildItems(items)}
+          {!isCollapsedDesktop && open && renderChildItems(items)}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -273,7 +301,7 @@ export function AppSidebar() {
           )}
         </Link>
       </SidebarHeader>
-      <SidebarContent className="px-2 group-data-[collapsible=icon]:px-2">
+      <SidebarContent className="px-2 group-data-[collapsible=icon]:overflow-visible group-data-[collapsible=icon]:px-2">
         {renderGroup("nav.main", mainItems)}
         {renderCollapsibleGroup({ label: "Sales", icon: Zap, open: salesOpen, setOpen: setSalesOpen, active: isSalesPath, items: salesItems })}
         {renderGroup("nav.communication", communicationItems)}
