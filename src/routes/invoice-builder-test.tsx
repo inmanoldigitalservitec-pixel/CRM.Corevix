@@ -1,28 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
-
-const InvoiceBuilderTest = lazy(() =>
-  import.meta.env.SSR
-    ? Promise.resolve({
-        default: () => (
-          <div className="p-6 text-sm text-muted-foreground">
-            Cargando editor de facturas...
-          </div>
-        ),
-      })
-    : import("@/components/invoice-builder/invoice-builder-test").then((mod) => ({
-        default: mod.InvoiceBuilderTest,
-      }))
-);
 
 export const Route = createFileRoute("/invoice-builder-test")({
-  component: InvoiceBuilderTestRoute,
+  component: InvoiceBuilderDisabledRoute,
 });
 
-function InvoiceBuilderTestRoute() {
+function InvoiceBuilderDisabledRoute() {
   return (
-    <Suspense fallback={<div className="p-6">Cargando editor de facturas...</div>}>
-      <InvoiceBuilderTest />
-    </Suspense>
+    <div className="p-6">
+      <h1 className="text-xl font-bold">Invoice Builder test desactivado</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Esta ruta de laboratorio está desactivada en este branch para evitar chunks pesados durante la prueba de Cloudflare.
+      </p>
+    </div>
   );
 }
