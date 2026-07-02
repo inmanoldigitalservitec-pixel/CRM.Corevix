@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 
+type BuilderProps = { proposalId: string };
+
 const ProposalDocumentBuilder = lazy(() =>
-  import("@/components/document-builder/proposal-document-builder").then((mod) => ({
-    default: mod.ProposalDocumentBuilder,
-  })),
+  import.meta.env.SSR
+    ? Promise.resolve({
+        default: ({ proposalId }: BuilderProps) => (
+          <div className="p-6 text-sm text-muted-foreground">
+            Cargando editor de propuesta {proposalId}...
+          </div>
+        ),
+      })
+    : import("@/components/document-builder/proposal-document-builder").then((mod) => ({
+        default: mod.ProposalDocumentBuilder,
+      })),
 );
 
 export const Route = createFileRoute("/proposal-builder/$proposalId")({
