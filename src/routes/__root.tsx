@@ -20,6 +20,7 @@ import { WhatsAppInternalWorkPanel } from "@/components/whatsapp/WhatsAppInterna
 import { WhatsAppPanelPhase2Safe } from "@/components/whatsapp/WhatsAppPanelPhase2Safe";
 import { WhatsAppResponsiveCompact } from "@/components/whatsapp/WhatsAppResponsiveCompact";
 import appCss from "../styles.css?url";
+import projectWorkspaceResponsiveCss from "../project-workspace-responsive.css?url";
 
 function NotFoundComponent() {
   const { t } = useT();
@@ -56,6 +57,7 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: projectWorkspaceResponsiveCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
