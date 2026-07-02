@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -6,24 +6,16 @@ import {
   CalendarDays,
   CheckCircle2,
   CheckSquare,
-  Copy,
   Download,
-  ExternalLink,
-  FileUp,
   ListFilter,
   Minus,
   MoreHorizontal,
-  MessageCirclePlus,
+  Paperclip,
   Plus,
+  RefreshCw,
   Trash2,
   User,
 } from "lucide-react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -63,7 +55,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/crm/page-header";
 import { SearchFilters } from "@/components/crm/search-filters";
@@ -78,7 +69,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   isActiveProjectStatus,
   isClosedTaskStatusValue,
-  isCompletedTaskStatusValue,
   isDoneTaskStatusValue,
   isInProgressTaskStatusValue,
 } from "@/lib/crm/status";
@@ -145,14 +135,9 @@ type DriveFileRow = {
 
 function parseDate(value: string | null | undefined) {
   if (!value) return null;
-  // `YYYY-MM-DD` should be treated as a local date (not UTC) to avoid off-by-one
-  // in timezones with negative offsets.
   const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) {
-    const year = Number(m[1]);
-    const month = Number(m[2]);
-    const day = Number(m[3]);
-    const d = new Date(year, month - 1, day);
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     return Number.isNaN(d.getTime()) ? null : d;
   }
   const d = new Date(value);
@@ -190,21 +175,7 @@ function addDaysKeyLocal(days: number) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function formatBytes(size: number | null | undefined) {
-  if (!size || size <= 0) return "—";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = size;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
-}
-
-function extractGoogleDriveId(
-  rawUrl: string,
-): { id: string; type: "file" | "folder" | "unknown" } | null {
+function extractGoogleDriveId(rawUrl: string): { id: string; type: "file" | "folder" | "unknown" } | null {
   const value = String(rawUrl || "").trim();
   if (!value) return null;
   let url: URL;
@@ -217,16 +188,12 @@ function extractGoogleDriveId(
   const pathname = url.pathname || "";
   const fileMatch = pathname.match(/\/file\/d\/([^/]+)/);
   if (fileMatch?.[1]) return { id: fileMatch[1], type: "file" };
-
   const folderMatch = pathname.match(/\/folders\/([^/]+)/);
   if (folderMatch?.[1]) return { id: folderMatch[1], type: "folder" };
-
   const docsMatch = pathname.match(/\/(document|spreadsheets|presentation)\/d\/([^/]+)/);
   if (docsMatch?.[2]) return { id: docsMatch[2], type: "file" };
-
   const queryId = url.searchParams.get("id");
   if (queryId) return { id: queryId, type: "unknown" };
-
   return null;
 }
 
@@ -240,13 +207,10 @@ function uploadFileWithProgress(args: {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", args.url);
     xhr.setRequestHeader("Authorization", `Bearer ${args.token}`);
-
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
-      const percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
-      args.onProgress(percent);
+      args.onProgress(Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))));
     };
-
     xhr.onerror = () => reject(new Error("No se pudo subir el archivo a Google Drive"));
     xhr.onload = () => {
       let payload: any = null;
@@ -256,15 +220,11 @@ function uploadFileWithProgress(args: {
         payload = null;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        const message = payload?.detail
-          ? `${payload.error || "No se pudo subir el archivo a Google Drive"}: ${payload.detail}`
-          : payload?.error || "No se pudo subir el archivo a Google Drive";
-        reject(new Error(message));
+        reject(new Error(payload?.error || "No se pudo subir el archivo a Google Drive"));
         return;
       }
       resolve(payload);
     };
-
     xhr.send(args.formData);
   });
 }
@@ -279,21 +239,29 @@ function sortTaskRows(a: Task, b: Task) {
     if (s === "cancelled" || s === "canceled") return 9;
     return 5;
   };
-
   const sA = rank(a.status);
   const sB = rank(b.status);
   if (sA !== sB) return sA - sB;
-  const oA = typeof a.order_index === "number" ? a.order_index : null;
-  const oB = typeof b.order_index === "number" ? b.order_index : null;
-  if (oA != null && oB != null && oA !== oB) return oA - oB;
-  if (oA != null && oB == null) return -1;
-  if (oA == null && oB != null) return 1;
   const dA = parseDate(a.due_date);
   const dB = parseDate(b.due_date);
   if (dA && dB) return dA.getTime() - dB.getTime();
   if (dA && !dB) return -1;
   if (!dA && dB) return 1;
   return a.title.localeCompare(b.title);
+}
+
+function getInitials(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  return (parts[0]?.[0] || "U") + (parts[1]?.[0] || "");
+}
+
+function priorityClass(priority: string | null | undefined) {
+  const p = String(priority || "").toLowerCase();
+  if (p === "urgent") return "text-rose-600";
+  if (p === "high") return "text-orange-600";
+  if (p === "medium") return "text-blue-600";
+  if (p === "low") return "text-slate-500";
+  return "text-slate-600";
 }
 
 function TasksPage() {
@@ -313,10 +281,7 @@ function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
-  const [quickFilter, setQuickFilter] = useState<
-    "all" | "today" | "overdue" | "week" | "unassigned" | "mine"
-  >("all");
-  const [expandedProjectId, setExpandedProjectId] = useState<string>("");
+  const [quickFilter, setQuickFilter] = useState<"all" | "today" | "overdue" | "week" | "unassigned" | "mine">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [presetProjectId, setPresetProjectId] = useState<string | null>(null);
@@ -331,7 +296,7 @@ function TasksPage() {
   const [driveUrlInput, setDriveUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { data: tasks, loading, create, update, remove } = useCrud<Task>({ table: "tasks" });
+  const { data: tasks, loading, create, update, remove, fetch: fetchTasks } = useCrud<Task>({ table: "tasks" });
   const { data: projects } = useCrud<ProjectRow>({
     table: "projects",
     select: "id, name, status, due_date, progress, client_id, product_id",
@@ -360,12 +325,7 @@ function TasksPage() {
     ascending: true,
     limit: 500,
   });
-  const { data: taskDriveFilesIndex } = useCrud<
-    Pick<DriveFileRow, "id" | "linked_id" | "linked_type"> & {
-      linked_type: "task";
-      linked_id: string;
-    }
-  >({
+  const { data: taskDriveFilesIndex } = useCrud<Pick<DriveFileRow, "id" | "linked_id" | "linked_type"> & { linked_type: "task"; linked_id: string }>({
     table: "drive_files",
     select: "id,linked_id,linked_type",
     orderBy: "created_at",
@@ -374,14 +334,9 @@ function TasksPage() {
     enabled: tasks.length > 0,
     filters: [{ column: "linked_type", op: "eq", value: "task" }],
   });
-  const {
-    data: driveFiles,
-    loading: driveFilesLoading,
-    fetch: fetchDriveFiles,
-  } = useCrud<DriveFileRow>({
+  const { data: driveFiles, loading: driveFilesLoading, fetch: fetchDriveFiles } = useCrud<DriveFileRow>({
     table: "drive_files",
-    select:
-      "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at",
+    select: "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at",
     orderBy: "created_at",
     ascending: false,
     limit: 200,
@@ -392,136 +347,61 @@ function TasksPage() {
     ],
   });
 
-  useEffect(() => {
-    if (handledDeepLinkTaskRef.current) return;
-    if (!deepLinkTaskId) return;
-    if (loading) return;
-
-    handledDeepLinkTaskRef.current = true;
-    const found = tasks.find((task) => String(task.id) === String(deepLinkTaskId));
-
-    if (!found) {
-      toast.error("No encontré esa tarea.");
-      return;
-    }
-
-    setSelectedTask(found);
-    if (found.related_project_id) {
-      setExpandedProjectId(found.related_project_id);
-    }
-  }, [deepLinkTaskId, loading, tasks]);
-
-  useEffect(() => {
-    setDriveUrlInput("");
-  }, [selectedTask?.id]);
-
-  const projectsById = useMemo(() => {
-    const m = new Map<string, ProjectRow>();
-    for (const p of projects) m.set(p.id, p);
-    return m;
-  }, [projects]);
-
-  const clientsById = useMemo(() => {
-    const m = new Map<string, ClientRow>();
-    for (const c of clients) m.set(c.id, c);
-    return m;
-  }, [clients]);
-
-  const productsById = useMemo(() => {
-    const m = new Map<string, ProductRow>();
-    for (const p of products) m.set(p.id, p);
-    return m;
-  }, [products]);
-
+  const projectsById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+  const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+  const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const assigneesByAnyId = useMemo(() => {
-    const m = new Map<string, ProfileRow>();
+    const map = new Map<string, ProfileRow>();
     for (const pr of profiles) {
-      if (pr.id) m.set(pr.id, pr);
-      if (pr.user_id) m.set(pr.user_id, pr);
+      if (pr.id) map.set(pr.id, pr);
+      if (pr.user_id) map.set(pr.user_id, pr);
     }
-    return m;
+    return map;
   }, [profiles]);
 
   const projectOptions = useMemo(() => {
-    const opts = projects
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((p) => ({ label: p.name, value: p.id }));
-    return [
-      { label: "Todos", value: "all" },
-      ...opts,
-      { label: "Sin proyecto", value: NO_PROJECT },
-    ];
+    const opts = projects.slice().sort((a, b) => a.name.localeCompare(b.name)).map((p) => ({ label: p.name, value: p.id }));
+    return [{ label: "Todos", value: "all" }, ...opts, { label: "Sin proyecto", value: NO_PROJECT }];
   }, [projects]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const todayKey = isoTodayLocal();
     const weekKey = addDaysKeyLocal(7);
-    const myAnyId = new Set<string>(
-      [String(user?.id || ""), String(profile?.user_id || ""), String(profile?.id || "")].filter(
-        Boolean,
-      ),
-    );
+    const myAnyId = new Set<string>([String(user?.id || ""), String(profile?.user_id || ""), String(profile?.id || "")].filter(Boolean));
 
-    return tasks.filter((t) => {
-      const projectId = t.related_project_id || NO_PROJECT;
-      const p = t.related_project_id ? projectsById.get(t.related_project_id) : null;
-      const projectName = p?.name || "";
-      const matchSearch =
-        !q || `${t.title} ${t.description || ""} ${projectName}`.toLowerCase().includes(q);
-      const matchStatus =
-        statusFilter === "all" ||
-        String(t.status || "")
-          .trim()
-          .toLowerCase() ===
-          String(statusFilter || "")
-            .trim()
-            .toLowerCase();
-      const matchPriority = priorityFilter === "all" || t.priority === priorityFilter;
-      const matchProject =
-        projectFilter === "all" ||
-        (projectFilter === NO_PROJECT
-          ? projectId === NO_PROJECT
-          : t.related_project_id === projectFilter);
+    return tasks.filter((task) => {
+      const project = task.related_project_id ? projectsById.get(task.related_project_id) : null;
+      const clientId = task.related_client_id || project?.client_id || null;
+      const client = clientId ? clientsById.get(clientId) : null;
+      const projectId = task.related_project_id || NO_PROJECT;
+      const haystack = `${task.title} ${task.description || ""} ${project?.name || ""} ${client?.company_name || ""}`.toLowerCase();
+      const dueKey = toDateKeyLocal(task.due_date);
+      const isActive = !isClosedTaskStatusValue(task.status);
 
-      const dueKey = toDateKeyLocal(t.due_date);
-      const isActive = !isClosedTaskStatusValue(t.status);
       const matchQuick =
         quickFilter === "all" ||
         (quickFilter === "today" && isActive && !!dueKey && dueKey === todayKey) ||
         (quickFilter === "overdue" && isActive && !!dueKey && dueKey < todayKey) ||
-        (quickFilter === "week" &&
-          isActive &&
-          !!dueKey &&
-          dueKey >= todayKey &&
-          dueKey <= weekKey) ||
-        (quickFilter === "unassigned" && isActive && !t.assigned_to) ||
-        (quickFilter === "mine" &&
-          isActive &&
-          !!t.assigned_to &&
-          myAnyId.has(String(t.assigned_to)));
+        (quickFilter === "week" && isActive && !!dueKey && dueKey >= todayKey && dueKey <= weekKey) ||
+        (quickFilter === "unassigned" && isActive && !task.assigned_to) ||
+        (quickFilter === "mine" && isActive && !!task.assigned_to && myAnyId.has(String(task.assigned_to)));
 
-      return matchSearch && matchStatus && matchPriority && matchProject && matchQuick;
+      return (
+        (!q || haystack.includes(q)) &&
+        (statusFilter === "all" || String(task.status || "").trim().toLowerCase() === String(statusFilter).trim().toLowerCase()) &&
+        (priorityFilter === "all" || task.priority === priorityFilter) &&
+        (projectFilter === "all" || (projectFilter === NO_PROJECT ? projectId === NO_PROJECT : task.related_project_id === projectFilter)) &&
+        matchQuick
+      );
     });
-  }, [
-    tasks,
-    search,
-    statusFilter,
-    priorityFilter,
-    projectFilter,
-    projectsById,
-    profile?.id,
-    profile?.user_id,
-    quickFilter,
-    user?.id,
-  ]);
+  }, [clientsById, priorityFilter, profile?.id, profile?.user_id, projectFilter, projectsById, quickFilter, search, statusFilter, tasks, user?.id]);
 
+  const sortedTasks = useMemo(() => filtered.slice().sort(sortTaskRows), [filtered]);
   const filteredTaskIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
   const filteredTaskIdSet = useMemo(() => new Set(filteredTaskIds), [filteredTaskIds]);
   const selectedTaskIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const allVisibleSelected =
-    filteredTaskIds.length > 0 && filteredTaskIds.every((id) => selectedTaskIdSet.has(id));
+  const allVisibleSelected = filteredTaskIds.length > 0 && filteredTaskIds.every((id) => selectedTaskIdSet.has(id));
   const someVisibleSelected = filteredTaskIds.some((id) => selectedTaskIdSet.has(id));
   const selectedVisibleCount = filteredTaskIds.filter((id) => selectedTaskIdSet.has(id)).length;
   const canDeleteTasks = can("tasks.delete");
@@ -529,54 +409,83 @@ function TasksPage() {
   const kpis = useMemo(() => {
     const todayKey = isoTodayLocal();
     const activeProjects = projects.filter((p) => isActiveProjectStatus(p.status)).length;
-
     const completed = tasks.filter((t) => isDoneTaskStatusValue(t.status)).length;
     const inProgress = tasks.filter((t) => isInProgressTaskStatusValue(t.status)).length;
     const active = tasks.filter((t) => !isClosedTaskStatusValue(t.status));
-    const unassigned = active.filter((t) => !t.assigned_to).length;
-    const dueToday = active.filter((t) => {
-      const key = toDateKeyLocal(t.due_date);
-      return !!key && key === todayKey;
-    }).length;
-    const overdue = active.filter((t) => {
-      const key = toDateKeyLocal(t.due_date);
-      return !!key && key < todayKey;
-    }).length;
-
     return {
       total: tasks.length,
-      overdue,
-      dueToday,
+      overdue: active.filter((t) => {
+        const key = toDateKeyLocal(t.due_date);
+        return !!key && key < todayKey;
+      }).length,
+      dueToday: active.filter((t) => {
+        const key = toDateKeyLocal(t.due_date);
+        return !!key && key === todayKey;
+      }).length,
       inProgress,
-      unassigned,
+      unassigned: active.filter((t) => !t.assigned_to).length,
       completed,
       activeProjects,
     };
-  }, [profile?.id, profile?.user_id, projects, tasks, user?.id]);
+  }, [projects, tasks]);
 
   const driveFileCountByTaskId = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const f of taskDriveFilesIndex) {
-      if (!f?.linked_id) continue;
-      const id = String(f.linked_id);
-      m.set(id, (m.get(id) || 0) + 1);
+    const map = new Map<string, number>();
+    for (const file of taskDriveFilesIndex) {
+      if (!file.linked_id) continue;
+      map.set(file.linked_id, (map.get(file.linked_id) || 0) + 1);
     }
-    return m;
+    return map;
   }, [taskDriveFilesIndex]);
 
-  const statusOrder = (status: string) => {
-    const s = String(status || "").toLowerCase();
-    if (s === "to do" || s === "todo") return 1;
-    if (s === "in progress" || s === "in_progress") return 2;
-    if (s === "waiting") return 3;
-    if (s === "completed") return 8;
-    if (s === "cancelled" || s === "canceled") return 9;
-    return 5;
+  useEffect(() => {
+    if (handledDeepLinkTaskRef.current || !deepLinkTaskId || loading) return;
+    handledDeepLinkTaskRef.current = true;
+    const found = tasks.find((task) => String(task.id) === String(deepLinkTaskId));
+    if (!found) {
+      toast.error("No encontré esa tarea.");
+      return;
+    }
+    setSelectedTask(found);
+  }, [deepLinkTaskId, loading, tasks]);
+
+  useEffect(() => {
+    setDriveUrlInput("");
+  }, [selectedTask?.id]);
+
+  const taskMeta = (task: Task) => {
+    const project = task.related_project_id ? projectsById.get(task.related_project_id) || null : null;
+    const clientId = task.related_client_id || project?.client_id || null;
+    const client = clientId ? clientsById.get(clientId) || null : null;
+    const product = project?.product_id ? productsById.get(project.product_id) || null : null;
+    const assignee = task.assigned_to ? assigneesByAnyId.get(task.assigned_to) || null : null;
+    const assigneeLabel = assignee ? String(assignee.full_name || assignee.email || "").trim() || "Sin asignar" : "Sin asignar";
+    const dueKey = toDateKeyLocal(task.due_date);
+    const todayKey = isoTodayLocal();
+    const isActive = !isClosedTaskStatusValue(task.status);
+    return {
+      project,
+      client,
+      product,
+      assigneeLabel,
+      filesCount: driveFileCountByTaskId.get(task.id) || 0,
+      isOverdue: isActive && !!dueKey && dueKey < todayKey,
+      isDueToday: isActive && !!dueKey && dueKey === todayKey,
+    };
   };
 
-  const setQuick = (next: typeof quickFilter) => {
-    setQuickFilter(next);
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedIds((current) => (current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]));
   };
+
+  const toggleSelectVisibleTasks = () => {
+    setSelectedIds((current) => {
+      if (allVisibleSelected) return current.filter((id) => !filteredTaskIdSet.has(id));
+      return Array.from(new Set([...current, ...filteredTaskIds]));
+    });
+  };
+
+  const clearTaskSelection = () => setSelectedIds([]);
 
   const updateTaskStatusInline = async (task: Task, nextStatus: string) => {
     if (!can("tasks.edit")) {
@@ -585,31 +494,11 @@ function TasksPage() {
     }
     try {
       await update(task.id, { status: nextStatus } as Partial<Task>);
-      if (selectedTask?.id === task.id)
-        setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      if (selectedTask?.id === task.id) setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
       toast.success("Estado actualizado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar la tarea.");
     }
-  };
-
-  const toggleTaskSelection = (taskId: string) => {
-    setSelectedIds((current) =>
-      current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId],
-    );
-  };
-
-  const toggleSelectVisibleTasks = () => {
-    setSelectedIds((current) => {
-      if (allVisibleSelected) {
-        return current.filter((id) => !filteredTaskIdSet.has(id));
-      }
-      return Array.from(new Set([...current, ...filteredTaskIds]));
-    });
-  };
-
-  const clearTaskSelection = () => {
-    setSelectedIds([]);
   };
 
   const handleBulkDelete = async () => {
@@ -617,156 +506,25 @@ function TasksPage() {
       toast.error("No tienes permiso para eliminar tareas.");
       return;
     }
-    const idsToDelete = tasks
-      .filter((task) => selectedTaskIdSet.has(task.id))
-      .map((task) => task.id);
-    if (!idsToDelete.length) {
-      toast.info("No hay tareas seleccionadas.");
-      return;
-    }
+    const idsToDelete = tasks.filter((task) => selectedTaskIdSet.has(task.id)).map((task) => task.id);
+    if (!idsToDelete.length) return toast.info("No hay tareas seleccionadas.");
 
     setBulkDeleteSaving(true);
     try {
-      const results = await Promise.allSettled(
-        idsToDelete.map(async (id) => {
-          await remove(id);
-          return id;
-        }),
-      );
-      const deletedIds = results.flatMap((result, index) =>
-        result.status === "fulfilled" ? [idsToDelete[index]] : [],
-      );
-      const failedCount = results.length - deletedIds.length;
-
-      if (deletedIds.length) {
-        setSelectedIds((current) => current.filter((id) => !deletedIds.includes(id)));
-        if (selectedTask && deletedIds.includes(selectedTask.id)) {
-          setSelectedTask(null);
-        }
-      }
-
+      const results = await Promise.allSettled(idsToDelete.map((id) => remove(id)));
+      const deletedIds = idsToDelete.filter((_, index) => results[index].status === "fulfilled");
+      setSelectedIds((current) => current.filter((id) => !deletedIds.includes(id)));
+      if (selectedTask && deletedIds.includes(selectedTask.id)) setSelectedTask(null);
       setBulkDeleteOpen(false);
-      if (failedCount > 0) {
-        toast.error(
-          `Se eliminaron ${deletedIds.length} tareas, pero ${failedCount} no se pudieron borrar.`,
-        );
-      } else {
-        toast.success(`Se eliminaron ${deletedIds.length} tareas.`);
-      }
+      const failed = idsToDelete.length - deletedIds.length;
+      if (failed) toast.error(`Se eliminaron ${deletedIds.length} tareas, pero ${failed} no se pudieron borrar.`);
+      else toast.success(`Se eliminaron ${deletedIds.length} tareas.`);
     } catch (error: any) {
       toast.error(error?.message || "No se pudieron eliminar las tareas seleccionadas.");
     } finally {
       setBulkDeleteSaving(false);
     }
   };
-
-  const standaloneTasks = useMemo(() => {
-    return filtered
-      .filter((t) => !t.related_project_id)
-      .slice()
-      .sort(sortTaskRows);
-  }, [filtered]);
-
-  const projectGroups = useMemo(() => {
-    const todayKey = isoTodayLocal();
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowKey = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-
-    const groups = new Map<string, Task[]>();
-    for (const t of filtered) {
-      if (!t.related_project_id) continue;
-      const key = t.related_project_id;
-      const list = groups.get(key) || [];
-      list.push(t);
-      groups.set(key, list);
-    }
-
-    const result = Array.from(groups.entries()).map(([projectId, groupTasks]) => {
-      const project = projectsById.get(projectId) || null;
-      const client = project?.client_id ? clientsById.get(project.client_id) : null;
-      const product = project?.product_id ? productsById.get(project.product_id) : null;
-
-      const total = groupTasks.length;
-      const todo = groupTasks.filter((t) => statusOrder(t.status) === 1).length;
-      const inProgress = groupTasks.filter((t) => statusOrder(t.status) === 2).length;
-      const completed = groupTasks.filter((t) => isCompletedTaskStatusValue(t.status)).length;
-      const active = groupTasks.filter((t) => statusOrder(t.status) < 8).length;
-
-      const overdue = groupTasks.filter((t) => {
-        if (statusOrder(t.status) >= 8) return false;
-        const key = toDateKeyLocal(t.due_date);
-        return !!key && key < todayKey;
-      }).length;
-      const dueToday = groupTasks.filter((t) => {
-        if (statusOrder(t.status) >= 8) return false;
-        const key = toDateKeyLocal(t.due_date);
-        return !!key && key === todayKey;
-      }).length;
-
-      const nextDue = groupTasks
-        .filter((t) => statusOrder(t.status) < 8)
-        .map((t) => parseDate(t.due_date))
-        .filter(Boolean)
-        .sort((a, b) => a!.getTime() - b!.getTime())[0] as Date | undefined;
-
-      const progress = total ? Math.round((completed / total) * 100) : 0;
-
-      const nextDueKey = nextDue
-        ? `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, "0")}-${String(nextDue.getDate()).padStart(2, "0")}`
-        : "";
-      const dueBucket = (() => {
-        if (!active) return 9; // completed/cancelled only
-        if (!nextDueKey) return 8; // active but no due date
-        if (nextDueKey < todayKey) return 0; // overdue
-        if (nextDueKey === todayKey) return 1; // due today
-        if (nextDueKey === tomorrowKey) return 2; // due tomorrow
-        return 3; // future
-      })();
-
-      const sortedTasks = groupTasks.slice().sort(sortTaskRows);
-
-      return {
-        projectId,
-        projectName: project ? project.name : "",
-        projectStatus: project?.status || "",
-        projectProgress: typeof project?.progress === "number" ? project.progress : null,
-        projectDueDate: project?.due_date || "",
-        clientLabel: client
-          ? client.contact_person
-            ? `${client.company_name} · ${client.contact_person}`
-            : client.company_name
-          : "",
-        productLabel: product?.name || "",
-        total,
-        todo,
-        inProgress,
-        completed,
-        active,
-        overdue,
-        dueToday,
-        nextDue: nextDueKey,
-        dueBucket,
-        isDueToday: !!nextDueKey && nextDueKey === todayKey,
-        isOverdue: !!nextDueKey && nextDueKey < todayKey,
-        progress,
-        tasks: sortedTasks,
-      };
-    });
-
-    result.sort((a, b) => {
-      const aActive = a.active > 0 ? 0 : 1;
-      const bActive = b.active > 0 ? 0 : 1;
-      if (aActive !== bActive) return aActive - bActive;
-      if (a.dueBucket !== b.dueBucket) return a.dueBucket - b.dueBucket;
-      const aDue = a.nextDue ? a.nextDue : "9999-12-31";
-      const bDue = b.nextDue ? b.nextDue : "9999-12-31";
-      if (aDue !== bDue) return aDue.localeCompare(bDue);
-      return a.projectName.localeCompare(b.projectName);
-    });
-
-    return result;
-  }, [filtered, projectsById, clientsById, productsById]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -781,10 +539,7 @@ function TasksPage() {
       status: (fd.get("status") as string) || "To Do",
       priority: (fd.get("priority") as string) || "Medium",
       due_date: (fd.get("due_date") as string) || null,
-      related_project_id:
-        (fd.get("related_project_id") as string) === "no-project"
-          ? null
-          : (fd.get("related_project_id") as string) || null,
+      related_project_id: (fd.get("related_project_id") as string) === "no-project" ? null : (fd.get("related_project_id") as string) || null,
     };
     try {
       if (editTask) {
@@ -822,77 +577,7 @@ function TasksPage() {
 
   const updateSelectedTaskStatus = async (nextStatus: string) => {
     if (!selectedTask) return;
-    if (!can("tasks.edit")) {
-      toast.error("No tienes permiso para editar tareas.");
-      return;
-    }
-    try {
-      await update(selectedTask.id, { status: nextStatus } as Partial<Task>);
-      setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
-      toast.success("Estado actualizado.");
-    } catch (error: any) {
-      toast.error(error?.message || "No se pudo actualizar el estado.");
-    }
-  };
-
-  const openDriveAttachmentPicker = () => {
-    if (!selectedTask?.id || !selectedTask.company_id) {
-      toast.error("Selecciona una tarea primero.");
-      return;
-    }
-
-    const tryAttach = async (rawUrl: string) => {
-      const parsed = extractGoogleDriveId(rawUrl);
-      if (!parsed) {
-        toast.error("URL de Google Drive no valida.");
-        return;
-      }
-      const isFolder = parsed.type === "folder";
-      const name = isFolder ? "Carpeta de Google Drive" : "Archivo de Google Drive";
-      const mimeType = isFolder ? "application/vnd.google-apps.folder" : null;
-      const { data: sessionData } = await supabase.auth.getSession();
-      const authUserId = sessionData.session?.user?.id || profile?.user_id || null;
-
-      const { error } = await (supabase as any).from("drive_files").insert({
-        company_id: selectedTask.company_id,
-        drive_file_id: parsed.id,
-        name,
-        mime_type: mimeType,
-        web_view_link: rawUrl,
-        web_content_link: null,
-        thumbnail_link: null,
-        icon_link: null,
-        size_bytes: null,
-        linked_type: "task",
-        linked_id: selectedTask.id,
-        created_by: authUserId,
-      });
-
-      if (error) {
-        toast.error(error.message || "No se pudo adjuntar el enlace de Drive.");
-        return;
-      }
-      await fetchDriveFiles();
-      toast.success("Archivo de Drive adjuntado.");
-    };
-
-    const run = async () => {
-      try {
-        const clip = await navigator.clipboard.readText();
-        const maybe = extractGoogleDriveId(clip);
-        if (maybe) {
-          await tryAttach(clip);
-          return;
-        }
-      } catch {
-        // Clipboard can fail due to browser permissions; fallback to manual input.
-      }
-      const manual = window.prompt("Pega aqui la URL de Google Drive:");
-      if (!manual) return;
-      await tryAttach(manual);
-    };
-
-    void run();
+    await updateTaskStatusInline(selectedTask, nextStatus);
   };
 
   const handleUploadClick = () => {
@@ -922,31 +607,21 @@ function TasksPage() {
         toast.error("No estás autenticado.");
         return;
       }
-
       const body = new FormData();
       body.append("task_id", selectedTask.id);
       body.append("file", file);
-
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
       const result = await uploadFileWithProgress({
         url: `${supabaseUrl}/functions/v1/drive-upload-file`,
         token: accessToken,
         formData: body,
-        onProgress: (percent) => setUploadProgress(percent),
+        onProgress: setUploadProgress,
       });
-      if (result?.error) {
-        throw new Error(
-          result.detail
-            ? `${String(result.error)}: ${String(result.detail)}`
-            : String(result.error),
-        );
-      }
-
+      if (result?.error) throw new Error(String(result.error));
       setUploadProgress(100);
       await fetchDriveFiles();
       toast.success("Archivo subido a Google Drive.");
     } catch (error: any) {
-      console.error("drive-upload-file error:", error);
       toast.error(error?.message || "No se pudo subir el archivo a Google Drive");
     } finally {
       setTimeout(() => {
@@ -959,10 +634,7 @@ function TasksPage() {
 
   const copyFileLink = async (file: DriveFileRow) => {
     const url = file.web_view_link || file.web_content_link;
-    if (!url) {
-      toast.info("Este archivo aún no tiene enlace de Google Drive.");
-      return;
-    }
+    if (!url) return toast.info("Este archivo aún no tiene enlace de Google Drive.");
     try {
       await navigator.clipboard.writeText(url);
       toast.success("Enlace copiado");
@@ -972,34 +644,19 @@ function TasksPage() {
   };
 
   const attachDriveUrl = async () => {
-    if (!selectedTask?.id || !selectedTask.company_id) {
-      toast.error("Selecciona una tarea primero.");
-      return;
-    }
-
+    if (!selectedTask?.id || !selectedTask.company_id) return toast.error("Selecciona una tarea primero.");
     const rawUrl = driveUrlInput.trim();
-    if (!rawUrl) {
-      toast.error("Pega una URL de Google Drive.");
-      return;
-    }
-
+    if (!rawUrl) return toast.error("Pega una URL de Google Drive.");
     const parsed = extractGoogleDriveId(rawUrl);
-    if (!parsed) {
-      toast.error("La URL de Google Drive no es válida.");
-      return;
-    }
-
+    if (!parsed) return toast.error("La URL de Google Drive no es válida.");
     const isFolder = parsed.type === "folder";
-    const name = isFolder ? "Carpeta de Google Drive" : "Archivo de Google Drive";
-    const mimeType = isFolder ? "application/vnd.google-apps.folder" : null;
     const { data: sessionData } = await supabase.auth.getSession();
     const authUserId = sessionData.session?.user?.id || profile?.user_id || null;
-
     const { error } = await (supabase as any).from("drive_files").insert({
       company_id: selectedTask.company_id,
       drive_file_id: parsed.id,
-      name,
-      mime_type: mimeType,
+      name: isFolder ? "Carpeta de Google Drive" : "Archivo de Google Drive",
+      mime_type: isFolder ? "application/vnd.google-apps.folder" : null,
       web_view_link: rawUrl,
       web_content_link: null,
       thumbnail_link: null,
@@ -1009,122 +666,81 @@ function TasksPage() {
       linked_id: selectedTask.id,
       created_by: authUserId,
     });
-
-    if (error) {
-      toast.error(error.message || "No se pudo adjuntar el enlace de Drive.");
-      return;
-    }
-
+    if (error) return toast.error(error.message || "No se pudo adjuntar el enlace de Drive.");
     setDriveUrlInput("");
     await fetchDriveFiles();
     toast.success("Enlace de Drive adjuntado.");
   };
 
   const deleteDriveFile = async (file: DriveFileRow) => {
-    if (!can("tasks.edit")) {
-      toast.error("No tienes permiso para borrar adjuntos.");
-      return;
-    }
-    const ok = window.confirm(`¿Eliminar el adjunto "${file.name}" de esta tarea?`);
-    if (!ok) return;
-
+    if (!can("tasks.edit")) return toast.error("No tienes permiso para borrar adjuntos.");
+    if (!window.confirm(`¿Eliminar el adjunto "${file.name}" de esta tarea?`)) return;
     const { error } = await (supabase as any).from("drive_files").delete().eq("id", file.id);
-    if (error) {
-      toast.error(error.message || "No se pudo borrar el adjunto.");
-      return;
-    }
-
+    if (error) return toast.error(error.message || "No se pudo borrar el adjunto.");
     await fetchDriveFiles();
     toast.success("Adjunto eliminado.");
   };
 
+  const exportTasksCsv = () => {
+    const rows = sortedTasks.map((task) => {
+      const meta = taskMeta(task);
+      return [task.id, task.title, task.status, task.priority, task.created_at, task.due_date || "", meta.assigneeLabel, meta.project?.name || "", meta.client?.company_name || ""];
+    });
+    const csv = [["ID", "Name", "Status", "Priority", "Created", "Due Date", "Assigned To", "Project", "Client"], ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "corevix-tasks.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setPriorityFilter("all");
+    setProjectFilter("all");
+    setQuickFilter("all");
+  };
+
   if (loading) return <LoadingState />;
 
-  const selectedProject = selectedTask?.related_project_id
-    ? projectsById.get(selectedTask.related_project_id) || null
-    : null;
+  const selectedProject = selectedTask?.related_project_id ? projectsById.get(selectedTask.related_project_id) || null : null;
   const selectedClientId = selectedTask?.related_client_id || selectedProject?.client_id || null;
   const selectedClient = selectedClientId ? clientsById.get(selectedClientId) || null : null;
-  const selectedProduct = selectedProject?.product_id
-    ? productsById.get(selectedProject.product_id) || null
-    : null;
-  const selectedAssignee = selectedTask?.assigned_to
-    ? assigneesByAnyId.get(selectedTask.assigned_to) || null
-    : null;
-  const selectedAssigneeLabel = selectedAssignee
-    ? String(selectedAssignee.full_name || selectedAssignee.email || "").trim() || "Sin asignar"
-    : "Sin asignar";
-  const selectedCreated = selectedTask?.created_at
-    ? new Date(selectedTask.created_at).toLocaleDateString()
-    : "—";
+  const selectedProduct = selectedProject?.product_id ? productsById.get(selectedProject.product_id) || null : null;
 
-  const renderTaskActions = (t: Task) => (
-    <div className="flex justify-end gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 px-2"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setSelectedTask(t);
-        }}
-      >
+  const renderTaskActions = (task: Task) => (
+    <div className="flex justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
+      <Button type="button" variant="outline" size="sm" className="h-8 px-2" onClick={() => setSelectedTask(task)}>
         Abrir
       </Button>
-      {!isClosedTaskStatusValue(t.status) ? (
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 px-2"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            void updateTaskStatusInline(t, "Completed");
-          }}
-        >
+      {!isClosedTaskStatusValue(task.status) ? (
+        <Button type="button" size="sm" className="h-8 px-2" onClick={() => void updateTaskStatusInline(task, "Completed")}>
           Completar
         </Button>
       ) : null}
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 px-2"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            aria-label="Más acciones"
-          >
+          <Button type="button" variant="outline" size="sm" className="h-8 w-8 px-0" aria-label="Más acciones">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onSelect={() => void updateTaskStatusInline(t, "In Progress")}
-            disabled={isInProgressTaskStatusValue(t.status)}
-          >
+          <DropdownMenuItem onSelect={() => void updateTaskStatusInline(task, "In Progress")} disabled={isInProgressTaskStatusValue(task.status)}>
             Marcar en progreso
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {can("tasks.edit") ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                setEditTask(t);
-                setPresetProjectId(null);
-                setDialogOpen(true);
-              }}
-            >
+            <DropdownMenuItem onSelect={() => { setEditTask(task); setPresetProjectId(null); setDialogOpen(true); }}>
               Editar
             </DropdownMenuItem>
           ) : null}
           {can("tasks.delete") ? (
-            <DropdownMenuItem className="text-destructive" onSelect={() => setDeleteId(t.id)}>
+            <DropdownMenuItem className="text-destructive" onSelect={() => setDeleteId(task.id)}>
               Eliminar
             </DropdownMenuItem>
           ) : null}
@@ -1133,88 +749,12 @@ function TasksPage() {
     </div>
   );
 
-  const renderStandaloneTaskCard = (t: Task) => {
-    const assignee = t.assigned_to ? assigneesByAnyId.get(t.assigned_to) : null;
-    const assigneeLabel = assignee
-      ? String(assignee.full_name || assignee.email || "").trim() || "—"
-      : "—";
-    const dueKey = toDateKeyLocal(t.due_date);
-    const todayKey = isoTodayLocal();
-    const isActive = !isClosedTaskStatusValue(t.status);
-    const isOverdue = isActive && !!dueKey && dueKey < todayKey;
-    const isDueToday = isActive && !!dueKey && dueKey === todayKey;
-    const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;
-
-    return (
-      <div
-        key={t.id}
-        className={
-          "group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)] cursor-pointer " +
-          (isOverdue
-            ? "ring-1 ring-[#fecaca] bg-[#fffafa]"
-            : isDueToday
-              ? "ring-1 ring-amber-200 bg-amber-50/30"
-              : "") +
-          (selectedTaskIdSet.has(t.id) ? " ring-1 ring-[#1d62f9] bg-[#f4f8ff]" : "")
-        }
-        onClick={() => setSelectedTask(t)}
-      >
-        <div className="flex items-start gap-3 lg:gap-4">
-          {canDeleteTasks ? (
-            <div className="mt-1 shrink-0" onClick={(event) => event.stopPropagation()}>
-              <Checkbox
-                type="button"
-                checked={selectedTaskIdSet.has(t.id)}
-                onCheckedChange={() => toggleTaskSelection(t.id)}
-                aria-label={
-                  selectedTaskIdSet.has(t.id) ? "Deseleccionar tarea" : "Seleccionar tarea"
-                }
-              />
-            </div>
-          ) : null}
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="min-w-0 text-base font-semibold tracking-[-0.01em] text-slate-900">
-                {t.title}
-              </div>
-              {isOverdue ? (
-                <span className="inline-flex rounded-full border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 text-[10px] font-bold text-[#b91c1c]">
-                  Atrasada
-                </span>
-              ) : isDueToday ? (
-                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                  Hoy
-                </span>
-              ) : null}
-              <StatusBadge status={t.priority} />
-              <StatusBadge status={t.status} />
-            </div>
-            <div className="mt-1 text-sm text-slate-600">{t.description || "Sin descripción."}</div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium">
-                {t.assigned_to ? assigneeLabel : "Sin asignar"}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium">
-                Vence: {formatShortDate(t.due_date)}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium">
-                Archivos: {filesCount || "—"}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col items-start gap-3 lg:items-end">{renderTaskActions(t)}</div>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div className="space-y-5 p-4 sm:p-6">
       <PageHeader
         title="Tasks"
-        subtitle="Organiza la producción por proyecto y prioridad."
-        actionLabel={can("tasks.create") ? "Add Task" : undefined}
+        subtitle="Vista operativa compacta para revisar, filtrar y abrir tareas rápido."
+        actionLabel={can("tasks.create") ? "New Task" : undefined}
         onAction={() => {
           setEditTask(null);
           setPresetProjectId(null);
@@ -1225,298 +765,155 @@ function TasksPage() {
           {kpis.total} tareas
         </span>
       </PageHeader>
+
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          { key: "overdue", label: "Atrasadas", value: kpis.overdue, icon: AlertTriangle, tone: "text-rose-600", active: quickFilter === "overdue", onClick: () => { setQuickFilter("overdue"); setStatusFilter("all"); } },
+          { key: "today", label: "Para hoy", value: kpis.dueToday, icon: CalendarClock, tone: "text-amber-700", active: quickFilter === "today", onClick: () => { setQuickFilter("today"); setStatusFilter("all"); } },
+          { key: "progress", label: "In Progress", value: kpis.inProgress, icon: CalendarDays, tone: "text-blue-600", active: statusFilter === "In Progress", onClick: () => { setStatusFilter("In Progress"); setQuickFilter("all"); } },
+          { key: "completed", label: "Complete", value: kpis.completed, icon: CheckCircle2, tone: "text-emerald-600", active: statusFilter === "Completed", onClick: () => { setStatusFilter("Completed"); setQuickFilter("all"); } },
+          { key: "unassigned", label: "Sin asignar", value: kpis.unassigned, icon: User, tone: "text-slate-600", active: quickFilter === "unassigned", onClick: () => { setQuickFilter("unassigned"); setStatusFilter("all"); } },
+          { key: "projects", label: "Proyectos activos", value: kpis.activeProjects, icon: ListFilter, tone: "text-slate-600", active: false, onClick: () => {} },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={item.onClick}
+              className={"rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md " + (item.active ? "border-blue-200 bg-blue-50/60" : "border-slate-200")}
+            >
+              <div className="flex items-center gap-2">
+                <Icon className={`h-4 w-4 ${item.value ? item.tone : "text-muted-foreground"}`} />
+                <span className="text-[12px] font-bold text-muted-foreground">{item.label}</span>
+              </div>
+              <div className="mt-1 text-[18px] font-semibold text-slate-950">{item.value}</div>
+            </button>
+          );
+        })}
+      </div>
+
       <DataCard>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-            <div
-              className={
-                "rounded-xl border p-3 text-left transition-colors cursor-default " +
-                (quickFilter === "overdue" ? "border-[#fecaca] bg-[#fef2f2]" : "bg-background")
-              }
-            >
-              <div className="flex items-center gap-2">
-                <AlertTriangle
-                  className={
-                    "h-4 w-4 " + (kpis.overdue ? "text-[#e11d48]" : "text-muted-foreground")
-                  }
-                />
-                <span className="text-[12px] font-bold text-muted-foreground">Atrasadas</span>
-              </div>
-              <div className="mt-1 text-[18px] font-semibold">{kpis.overdue}</div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              {can("tasks.create") ? (
+                <Button type="button" className="h-9" onClick={() => { setEditTask(null); setPresetProjectId(null); setDialogOpen(true); }}>
+                  <Plus className="mr-2 h-4 w-4" /> New Task
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" className="h-9" onClick={exportTasksCsv} disabled={!sortedTasks.length}>
+                <Download className="mr-2 h-4 w-4" /> Export
+              </Button>
+              <Button type="button" variant="outline" className="h-9" onClick={() => void fetchTasks()}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+              </Button>
+              <Button type="button" variant="ghost" className="h-9" onClick={resetFilters}>
+                Clear filters
+              </Button>
             </div>
-            <div
-              className={
-                "rounded-xl border p-3 text-left transition-colors cursor-default " +
-                (quickFilter === "today" ? "border-amber-200 bg-amber-50" : "bg-background")
-              }
-            >
-              <div className="flex items-center gap-2">
-                <CalendarClock
-                  className={
-                    "h-4 w-4 " + (kpis.dueToday ? "text-amber-700" : "text-muted-foreground")
-                  }
-                />
-                <span className="text-[12px] font-bold text-muted-foreground">Para hoy</span>
-              </div>
-              <div className="mt-1 text-[18px] font-semibold">{kpis.dueToday}</div>
-            </div>
-            <div
-              className={
-                "rounded-xl border p-3 text-left transition-colors cursor-default " +
-                (statusFilter === "In Progress" ? "border-blue-200 bg-blue-50" : "bg-background")
-              }
-            >
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[12px] font-bold text-muted-foreground">En progreso</span>
-              </div>
-              <div className="mt-1 text-[18px] font-semibold">{kpis.inProgress}</div>
-            </div>
-            <div
-              className={
-                "rounded-xl border p-3 text-left transition-colors cursor-default " +
-                (statusFilter === "Completed"
-                  ? "border-emerald-200 bg-emerald-50"
-                  : "bg-background")
-              }
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[12px] font-bold text-muted-foreground">Completadas</span>
-              </div>
-              <div className="mt-1 text-[18px] font-semibold">{kpis.completed}</div>
-            </div>
-            <div
-              className={
-                "rounded-xl border p-3 text-left transition-colors cursor-default " +
-                (quickFilter === "unassigned" ? "border-slate-200 bg-slate-50" : "bg-background")
-              }
-            >
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[12px] font-bold text-muted-foreground">Sin asignar</span>
-              </div>
-              <div className="mt-1 text-[18px] font-semibold">{kpis.unassigned}</div>
-            </div>
-            <div className="rounded-xl border p-3">
-              <div className="flex items-center gap-2">
-                <ListFilter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[12px] font-bold text-muted-foreground">
-                  Proyectos activos
-                </span>
-              </div>
-              <div className="mt-1 text-[18px] font-semibold">{kpis.activeProjects}</div>
+            <div className="text-sm font-semibold text-slate-500">
+              {sortedTasks.length} visibles · {selectedIds.length} seleccionadas
             </div>
           </div>
 
           <SearchFilters
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Search tasks..."
+            searchPlaceholder="Search tasks, projects or clients..."
             filters={[
-              {
-                key: "status",
-                placeholder: "Status",
-                value: statusFilter,
-                onChange: setStatusFilter,
-                options: TASK_STATUSES.map((s) => ({ label: s, value: s })),
-              },
-              {
-                key: "priority",
-                placeholder: "Priority",
-                value: priorityFilter,
-                onChange: setPriorityFilter,
-                options: PRIORITIES.map((s) => ({ label: s, value: s })),
-              },
-              {
-                key: "project",
-                placeholder: "Project",
-                value: projectFilter,
-                onChange: setProjectFilter,
-                options: projectOptions.filter((o) => o.value !== "all"),
-              },
+              { key: "status", placeholder: "All Status", value: statusFilter, onChange: setStatusFilter, options: TASK_STATUSES.map((s) => ({ label: s, value: s })) },
+              { key: "priority", placeholder: "All Priority", value: priorityFilter, onChange: setPriorityFilter, options: PRIORITIES.map((s) => ({ label: s, value: s })) },
+              { key: "project", placeholder: "All Project", value: projectFilter, onChange: setProjectFilter, options: projectOptions.filter((o) => o.value !== "all") },
             ]}
           />
 
-          {canDeleteTasks ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-semibold text-slate-700 transition-colors hover:bg-white hover:text-slate-900"
-                onClick={toggleSelectVisibleTasks}
-              >
-                <span className="grid h-5 w-5 place-items-center rounded-[6px] border border-slate-300 bg-white text-slate-600">
-                  {allVisibleSelected ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : someVisibleSelected ? (
-                    <Minus className="h-4 w-4" />
-                  ) : (
-                    <CheckSquare className="h-4 w-4 opacity-40" />
-                  )}
+          {canDeleteTasks && (someVisibleSelected || selectedIds.length > 0) ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <button type="button" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700" onClick={toggleSelectVisibleTasks}>
+                <span className="grid h-5 w-5 place-items-center rounded border bg-white">
+                  {allVisibleSelected ? <CheckCircle2 className="h-4 w-4" /> : someVisibleSelected ? <Minus className="h-4 w-4" /> : <CheckSquare className="h-4 w-4 opacity-40" />}
                 </span>
                 {allVisibleSelected ? "Limpiar visibles" : "Seleccionar visibles"}
               </button>
-
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">
-                  {selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length}{" "}
-                  seleccionadas
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-slate-200"
-                  onClick={clearTaskSelection}
-                  disabled={!selectedIds.length}
-                >
-                  Limpiar
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 bg-red-600 text-white hover:bg-red-700"
-                  onClick={() => setBulkDeleteOpen(true)}
-                  disabled={!selectedIds.length}
-                >
-                  Eliminar seleccionadas
-                </Button>
+                <span className="text-xs font-semibold text-slate-500">{selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length} seleccionadas</span>
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={clearTaskSelection} disabled={!selectedIds.length}>Limpiar</Button>
+                <Button type="button" size="sm" className="h-8 bg-red-600 text-white hover:bg-red-700" onClick={() => setBulkDeleteOpen(true)} disabled={!selectedIds.length}>Eliminar seleccionadas</Button>
               </div>
             </div>
           ) : null}
 
           {tasks.length === 0 ? (
-            <EmptyState
-              icon={<CheckSquare className="h-6 w-6" />}
-              title="No hay tareas todavía."
-              description="Cuando una factura se marque como pagada, el workflow del producto creará tareas automáticamente."
-              actionLabel={can("tasks.create") ? "Add Task" : undefined}
-              onAction={() => setDialogOpen(true)}
-            />
-          ) : filtered.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-              No hay tareas con este filtro.
-            </div>
+            <EmptyState icon={<CheckSquare className="h-6 w-6" />} title="No hay tareas todavía." description="Cuando una factura se marque como pagada, el workflow del producto creará tareas automáticamente." actionLabel={can("tasks.create") ? "New Task" : undefined} onAction={() => setDialogOpen(true)} />
+          ) : sortedTasks.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">No hay tareas con este filtro.</div>
           ) : (
-            <div className="space-y-5">
-              {standaloneTasks.length > 0 ? (
-                <div className="space-y-3">
-                  {standaloneTasks.map((t) => renderStandaloneTaskCard(t))}
-                </div>
-              ) : null}
-
-              {projectGroups.length > 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                  <Accordion
-                    type="single"
-                    collapsible
-                    value={expandedProjectId}
-                    onValueChange={(v) => setExpandedProjectId(v)}
-                  >
-                    {projectGroups.map((g) => (
-                      <AccordionItem
-                        key={g.projectId}
-                        value={g.projectId}
-                        className="border-b border-slate-100 last:border-b-0"
-                      >
-                        <AccordionTrigger className="group w-full items-start gap-3 rounded-none border-0 bg-white px-4 py-4 text-left no-underline hover:bg-slate-50 hover:no-underline data-[state=open]:bg-slate-50">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="font-semibold text-[14px] truncate text-slate-900">
-                                    {g.projectName}
-                                  </div>
-                                  {g.isOverdue ? (
-                                    <span className="shrink-0 inline-flex items-center rounded-full border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 text-[10px] font-bold text-[#b91c1c]">
-                                      Atrasado
-                                    </span>
-                                  ) : g.isDueToday ? (
-                                    <span className="shrink-0 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                                      Hoy
-                                    </span>
-                                  ) : null}
-                                  {g.projectStatus ? <StatusBadge status={g.projectStatus} /> : null}
-                                </div>
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
-                                  {g.clientLabel ? <span>{g.clientLabel}</span> : null}
-                                  {g.productLabel ? <span>· {g.productLabel}</span> : null}
-                                  <span>· Vence: {formatShortDate(g.projectDueDate)}</span>
-                                </div>
-                              </div>
-                              <div className="hidden min-w-[160px] sm:block">
-                                <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500">
-                                  <span>Progreso</span>
-                                  <span>{g.progress}%</span>
-                                </div>
-                                <Progress value={g.progress} className="h-2" />
-                              </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow className="hover:bg-slate-50">
+                      {canDeleteTasks ? (
+                        <TableHead className="w-10">
+                          <Checkbox checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false} onCheckedChange={toggleSelectVisibleTasks} aria-label="Seleccionar tareas visibles" />
+                        </TableHead>
+                      ) : null}
+                      <TableHead className="w-14">#</TableHead>
+                      <TableHead className="min-w-[320px]">Name</TableHead>
+                      <TableHead className="min-w-[140px]">Status</TableHead>
+                      <TableHead className="min-w-[115px]">Start Date</TableHead>
+                      <TableHead className="min-w-[115px]">Due Date</TableHead>
+                      <TableHead className="min-w-[120px]">Assigned to</TableHead>
+                      <TableHead className="min-w-[170px]">Project / Client</TableHead>
+                      <TableHead className="min-w-[90px]">Files</TableHead>
+                      <TableHead className="min-w-[100px]">Priority</TableHead>
+                      <TableHead className="w-[190px] text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedTasks.map((task, index) => {
+                      const meta = taskMeta(task);
+                      return (
+                        <TableRow key={task.id} className="cursor-pointer align-top hover:bg-slate-50" onClick={() => setSelectedTask(task)}>
+                          {canDeleteTasks ? (
+                            <TableCell onClick={(event) => event.stopPropagation()}>
+                              <Checkbox checked={selectedTaskIdSet.has(task.id)} onCheckedChange={() => toggleTaskSelection(task.id)} aria-label="Seleccionar tarea" />
+                            </TableCell>
+                          ) : null}
+                          <TableCell className="font-medium text-slate-500">{index + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-slate-900">{task.title}</span>
+                              {meta.isOverdue ? <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">Atrasada</span> : null}
+                              {meta.isDueToday ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">Hoy</span> : null}
                             </div>
-
-                            <div className="mt-3 grid grid-cols-4 gap-2 text-[11px] text-slate-600 sm:max-w-lg">
-                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
-                                <strong className="block text-slate-900">{g.total}</strong>
-                                total
-                              </div>
-                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
-                                <strong className="block text-slate-900">{g.active}</strong>
-                                activas
-                              </div>
-                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
-                                <strong className="block text-slate-900">{g.dueToday}</strong>
-                                hoy
-                              </div>
-                              <div className="rounded-lg border bg-slate-50 px-2 py-1">
-                                <strong className="block text-slate-900">{g.overdue}</strong>
-                                atrasadas
-                              </div>
+                            <div className="mt-1 line-clamp-2 max-w-[520px] text-sm text-slate-500">{task.description || "Sin descripción."}</div>
+                          </TableCell>
+                          <TableCell><StatusBadge status={task.status} /></TableCell>
+                          <TableCell className="text-sm text-slate-600">{formatShortDate(task.created_at?.slice(0, 10))}</TableCell>
+                          <TableCell className="text-sm font-semibold text-slate-700">{formatShortDate(task.due_date)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">{getInitials(meta.assigneeLabel)}</span>
+                              <span className="max-w-[120px] truncate text-sm font-medium text-slate-700">{meta.assigneeLabel}</span>
                             </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="bg-white px-4 pb-4">
-                          <div className="space-y-2 pt-2">
-                            {g.tasks.map((t) => {
-                              const assignee = t.assigned_to
-                                ? assigneesByAnyId.get(t.assigned_to)
-                                : null;
-                              const assigneeLabel = assignee
-                                ? String(assignee.full_name || assignee.email || "").trim() || "—"
-                                : "—";
-                              const filesCount = driveFileCountByTaskId.get(String(t.id)) || 0;
-                              return (
-                                <div
-                                  key={t.id}
-                                  className="flex cursor-pointer flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 transition-colors hover:border-slate-300 hover:bg-white lg:flex-row lg:items-center"
-                                  onClick={() => setSelectedTask(t)}
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <div className="truncate font-semibold text-slate-900">
-                                        {t.title}
-                                      </div>
-                                      <StatusBadge status={t.priority} />
-                                      <StatusBadge status={t.status} />
-                                    </div>
-                                    <div className="mt-1 text-sm text-slate-600">
-                                      {t.description || "Sin descripción."}
-                                    </div>
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
-                                      <span>Asignado: {t.assigned_to ? assigneeLabel : "—"}</span>
-                                      <span>· Vence: {formatShortDate(t.due_date)}</span>
-                                      <span>· Archivos: {filesCount || "—"}</span>
-                                    </div>
-                                  </div>
-                                  <div onClick={(e) => e.stopPropagation()}>{renderTaskActions(t)}</div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
-              ) : null}
+                          </TableCell>
+                          <TableCell>
+                            <div className="max-w-[180px] truncate text-sm font-semibold text-slate-800">{meta.project?.name || "—"}</div>
+                            <div className="max-w-[180px] truncate text-xs font-medium text-slate-500">{meta.client?.company_name || "Sin cliente"}</div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"><Paperclip className="h-3.5 w-3.5" />{meta.filesCount || "—"}</span>
+                          </TableCell>
+                          <TableCell><span className={`text-sm font-bold ${priorityClass(task.priority)}`}>{task.priority || "—"}</span></TableCell>
+                          <TableCell className="text-right">{renderTaskActions(task)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </div>
@@ -1524,90 +921,19 @@ function TasksPage() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editTask ? "Edit Task" : "Add Task"}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editTask ? "Edit Task" : "Add Task"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input id="title" name="title" defaultValue={editTask?.title || ""} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                name="description"
-                defaultValue={editTask?.description || ""}
-              />
+            <div className="space-y-2"><Label htmlFor="title">Title</Label><Input id="title" name="title" defaultValue={editTask?.title || ""} required /></div>
+            <div className="space-y-2"><Label htmlFor="description">Description</Label><Textarea id="description" name="description" defaultValue={editTask?.description || ""} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>Status</Label><Select name="status" defaultValue={editTask?.status || "To Do"}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2"><Label>Priority</Label><Select name="priority" defaultValue={editTask?.priority || "Medium"}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select name="status" defaultValue={editTask?.status || "To Do"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TASK_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select name="priority" defaultValue={editTask?.priority || "Medium"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-2"><Label htmlFor="due_date">Due Date</Label><Input id="due_date" name="due_date" type="date" defaultValue={editTask?.due_date || ""} /></div>
+              <div className="space-y-2"><Label>Project</Label><Select name="related_project_id" defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}><SelectTrigger><SelectValue placeholder="Sin proyecto" /></SelectTrigger><SelectContent><SelectItem value="no-project">Sin proyecto</SelectItem>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="due_date">Due Date</Label>
-                <Input
-                  id="due_date"
-                  name="due_date"
-                  type="date"
-                  defaultValue={editTask?.due_date || ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Project</Label>
-                <Select
-                  name="related_project_id"
-                  defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin proyecto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no-project">Sin proyecto</SelectItem>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">{editTask ? "Update" : "Create"}</Button>
-            </div>
+            <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit">{editTask ? "Update" : "Create"}</Button></div>
           </form>
         </DialogContent>
       </Dialog>
@@ -1618,13 +944,7 @@ function TasksPage() {
         task={selectedTask}
         profiles={profiles}
         projectName={selectedProject?.name || "—"}
-        clientName={
-          selectedClient
-            ? selectedClient.contact_person
-              ? `${selectedClient.company_name} · ${selectedClient.contact_person}`
-              : selectedClient.company_name
-            : "—"
-        }
+        clientName={selectedClient ? selectedClient.contact_person ? `${selectedClient.company_name} · ${selectedClient.contact_person}` : selectedClient.company_name : "—"}
         productName={selectedProduct?.name || "—"}
         driveFiles={driveFiles}
         driveFilesLoading={driveFilesLoading}
@@ -1634,10 +954,7 @@ function TasksPage() {
         uploadingFileName={uploadingFileName}
         canEdit={can("tasks.edit")}
         fileInputRef={fileInputRef}
-        onUpdateTask={async (taskId, patch) => {
-          await update(taskId, patch as Partial<Task>);
-          setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...patch } : prev));
-        }}
+        onUpdateTask={async (taskId, patch) => { await update(taskId, patch as Partial<Task>); setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...patch } : prev)); }}
         onComplete={() => updateSelectedTaskStatus("Completed")}
         onSetInProgress={() => updateSelectedTaskStatus("In Progress")}
         onDriveUrlChange={setDriveUrlInput}
@@ -1650,40 +967,15 @@ function TasksPage() {
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar tarea</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. La tarea será eliminada permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()} className="bg-red-600 text-white">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>Eliminar tarea</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer. La tarea será eliminada permanentemente.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => void handleDelete()} className="bg-red-600 text-white">Eliminar</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción eliminará {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}.
-              No se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkDeleteSaving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void handleBulkDelete()}
-              disabled={bulkDeleteSaving}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              {bulkDeleteSaving ? "Eliminando..." : "Eliminar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle><AlertDialogDescription>Esta acción eliminará {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}. No se puede deshacer.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel disabled={bulkDeleteSaving}>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => void handleBulkDelete()} disabled={bulkDeleteSaving} className="bg-red-600 text-white hover:bg-red-700">{bulkDeleteSaving ? "Eliminando..." : "Eliminar"}</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
