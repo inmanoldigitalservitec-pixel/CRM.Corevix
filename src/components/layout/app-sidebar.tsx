@@ -90,6 +90,7 @@ const communicationItems: SidebarItem[] = [
 const operationsItems: SidebarItem[] = [
   { titleKey: "nav.tasks", url: "/tasks", icon: CheckSquare, iconClassName: "text-rose-600" },
   { titleKey: "nav.projects", url: "/projects", icon: FolderOpen, iconClassName: "text-indigo-600" },
+  { title: "Contracts", url: "/contracts", icon: FileText, iconClassName: "text-slate-700" },
   { title: "Support", url: "/tickets", icon: LifeBuoy, iconClassName: "text-cyan-600" },
 ];
 
@@ -120,7 +121,7 @@ const setupItems: SidebarItem[] = [
   { title: "Support", icon: LifeBuoy, iconClassName: "text-cyan-600", placeholder: true },
   { title: "Leads", icon: Users, iconClassName: "text-violet-600", placeholder: true },
   { title: "Finance", icon: BadgeDollarSign, iconClassName: "text-emerald-700", placeholder: true },
-  { title: "Contracts", icon: FileText, iconClassName: "text-slate-700", placeholder: true },
+  { title: "Contract Types", icon: FileText, iconClassName: "text-slate-700", placeholder: true },
   { title: "Estimate Request", icon: FileCheck2, iconClassName: "text-sky-600", placeholder: true },
   { title: "Modules", icon: Layers, iconClassName: "text-indigo-600", placeholder: true },
   { title: "Email Templates", icon: Mail, iconClassName: "text-sky-600", placeholder: true },
