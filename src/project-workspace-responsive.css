@@ -7,6 +7,42 @@
   min-width: 0;
 }
 
+/* The project workspace must behave as a vertical app shell.
+   DialogContent is grid by default in the shared UI component, and mixing that
+   grid shell with flex tabs can create random blank vertical space when tabs
+   change. Force this specific workspace dialog into a stable flex column. */
+[role="dialog"].max-w-\[1100px\] {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+[role="dialog"].max-w-\[1100px\] > header {
+  flex: 0 0 auto !important;
+}
+
+[role="dialog"].max-w-\[1100px\] > [data-orientation="horizontal"] {
+  display: flex !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+}
+
+[role="dialog"].max-w-\[1100px\] > [data-orientation="horizontal"] > div:first-child {
+  flex: 0 0 auto !important;
+}
+
+[role="dialog"].max-w-\[1100px\] > [data-orientation="horizontal"] > div:last-child {
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+}
+
+/* Hide the generic DialogContent close button only in this workspace because
+   the project header already renders its own close button. */
+[role="dialog"].max-w-\[1100px\] > button.absolute.right-4.top-4 {
+  display: none !important;
+}
+
 [role="dialog"].max-w-\[1100px\] [data-state="active"][role="tabpanel"] {
   max-width: 100%;
   overflow-x: hidden;
