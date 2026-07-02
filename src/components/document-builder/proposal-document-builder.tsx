@@ -204,7 +204,6 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
         <main className="overflow-auto px-4 py-8">
           <div className="mx-auto max-w-[980px] rounded-2xl border bg-white shadow-xl">
             <Editor
-              tinymceScriptSrc="/tinymce/tinymce.min.js"
               value={content}
               onInit={(_, editor) => {
                 editorRef.current = editor;
