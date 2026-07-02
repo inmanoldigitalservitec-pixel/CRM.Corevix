@@ -213,63 +213,58 @@ export function AppSidebar() {
           const Icon = item.icon;
           const rowClass = "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-[#f1f5ff] hover:text-slate-950";
           if (item.placeholder) {
-            return <button key={item.titleKey || item.title} type="button" disabled className={rowClass + " cursor-default opacity-60"}><Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} /><span className="flex-1 truncate text-left">{childLabel}</span><span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Soon</span></button>;
+            return <button key={item.titleKey || item.title} type="button" disabled className={rowClass + " cursor-default opacity-60 hover:bg-transparent"}><Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} /><span className="min-w-0 flex-1 truncate text-left">{childLabel}</span><span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Soon</span></button>;
           }
-          return <Link key={item.titleKey || item.title} to={item.url || "/dashboard"} className={rowClass + (isActive(item.url) ? " bg-[#eef4ff] font-semibold text-slate-950" : "")}><Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} /><span className="truncate">{childLabel}</span></Link>;
+          return <Link key={item.titleKey || item.title} to={item.url || "/dashboard"} className={rowClass}><Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} /><span className="min-w-0 flex-1 truncate">{childLabel}</span></Link>;
         })}
       </div>
     </div>
   );
 
-  const renderCollapsibleGroup = (label: string, icon: React.ElementType, items: SidebarItem[], open: boolean, setOpen: (value: boolean) => void) => {
-    const Icon = icon;
-    if (isCollapsedDesktop) {
-      return (
-        <SidebarGroup className="relative px-2 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem className="group/menu-item relative">
-                <SidebarMenuButton className={menuButtonClass} tooltip={label}>
-                  <span className={linkClass} aria-label={label}><Icon className="h-[18px] w-[18px] shrink-0 text-slate-700" /></span>
-                </SidebarMenuButton>
-                {renderCollapsedFlyout(label, items)}
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      );
-    }
-    return (
-      <SidebarGroup className="px-2 py-1">
-        <SidebarGroupContent>
-          <SidebarMenu className="gap-1.5">
-            <SidebarMenuItem>
-              <button type="button" onClick={() => setOpen(!open)} className={menuButtonClass + " flex w-full items-center gap-3"}>
-                <Icon className="h-[18px] w-[18px] shrink-0 text-slate-700" />
-                {showLabels && <span className="flex-1 truncate text-left text-sm font-semibold">{label}</span>}
-                {showLabels && <ChevronDown className={"h-4 w-4 transition-transform " + (open ? "rotate-180" : "")} />}
-              </button>
-            </SidebarMenuItem>
-          </SidebarMenu>
-          {open && showLabels ? <div className="mt-1">{renderChildItems(items)}</div> : null}
-        </SidebarGroupContent>
-      </SidebarGroup>
-    );
-  };
+  const renderCollapsibleGroup = ({ label, icon: Icon, open, setOpen, active, items }: { label: string; icon: React.ElementType; open: boolean; setOpen: (updater: (open: boolean) => boolean) => void; active: boolean; items: SidebarItem[] }) => (
+    <SidebarGroup className="px-2 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-1">
+      <SidebarGroupContent>
+        <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
+          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
+            <SidebarMenuButton type="button" isActive={active} tooltip={isMobile || isCollapsedDesktop ? undefined : label} className={menuButtonClass} onClick={() => setOpen((current) => !current)}>
+              <span className={linkClass} aria-label={label} title={collapsed && !isMobile ? label : undefined}>
+                <Icon className="h-[18px] w-[18px] shrink-0 text-slate-900" />
+                {showLabels && <span className="truncate text-sm font-semibold">{label}</span>}
+                {showLabels && <ChevronDown className={"ml-auto h-4 w-4 shrink-0 text-slate-500 transition-transform " + (open ? "rotate-180" : "")} />}
+              </span>
+            </SidebarMenuButton>
+            {isCollapsedDesktop && renderCollapsedFlyout(label, items)}
+          </SidebarMenuItem>
+          {!isCollapsedDesktop && open && renderChildItems(items)}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+
+  const aiLabel = t("nav.aiAssistant");
 
   return (
-    <Sidebar className="border-r bg-white/95 backdrop-blur-xl" collapsible="icon">
-      <SidebarHeader className="border-b px-3 py-3"><div className="flex items-center gap-2"><div className="grid h-9 w-9 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/20"><Bot className="h-4 w-4" /></div>{showLabels && <div><div className="text-sm font-extrabold tracking-tight text-slate-950">Corevix</div><div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Agentic CRM</div></div>}</div></SidebarHeader>
-      <SidebarContent className="gap-1 py-2">
+    <Sidebar collapsible="icon" className="border-r border-[#e6eaf0]" style={{ "--sidebar": "#ffffff", "--sidebar-foreground": "#111827", "--sidebar-accent": "#eaf1ff", "--sidebar-accent-foreground": "#111827", "--sidebar-border": "#e6eaf0", "--sidebar-ring": "#1d62f9" } as React.CSSProperties}>
+      <SidebarHeader className="p-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3 group-data-[mobile=true]:p-4">
+        <Link to="/dashboard" className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:justify-start" aria-label="Corevix Dashboard" title={collapsed && !isMobile ? "Corevix" : undefined}>
+          {showLabels && <img src="/corevix-logo.svg" alt="Corevix" className="h-7 w-auto max-w-[160px] object-contain" />}
+          {!showLabels && <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#eef4ff] shadow-[inset_0_0_0_1px_rgba(29,98,249,0.14)]"><img src="/imagotipo_corevix.svg" alt="Corevix" className="h-5 w-5 object-contain" /></span>}
+        </Link>
+      </SidebarHeader>
+      <SidebarContent className="px-2 group-data-[collapsible=icon]:overflow-visible group-data-[collapsible=icon]:px-2">
         {renderGroup(mainItems)}
-        {renderCollapsibleGroup("Sales", CircleDot, salesItems, salesOpen, setSalesOpen)}
+        {renderCollapsibleGroup({ label: "Sales", icon: Zap, open: salesOpen, setOpen: setSalesOpen, active: isSalesPath, items: salesItems })}
         {renderGroup(communicationItems)}
         {renderGroup(operationsItems)}
-        {renderCollapsibleGroup("Utilities", Zap, utilitiesItems, utilitiesOpen, setUtilitiesOpen)}
-        {renderCollapsibleGroup("Reports", BarChart3, reportsItems, reportsOpen, setReportsOpen)}
-        {renderCollapsibleGroup("Setup", Settings, visibleSetupItems, setupOpen, setSetupOpen)}
+        {renderCollapsibleGroup({ label: "Utilities", icon: CircleDot, open: utilitiesOpen, setOpen: setUtilitiesOpen, active: isUtilitiesPath, items: utilitiesItems })}
+        {renderCollapsibleGroup({ label: "Reports", icon: BarChart3, open: reportsOpen, setOpen: setReportsOpen, active: isReportsPath, items: reportsItems })}
+        {renderCollapsibleGroup({ label: "Setup", icon: Settings, open: setupOpen, setOpen: setSetupOpen, active: isSetupPath, items: visibleSetupItems })}
       </SidebarContent>
-      <SidebarFooter className="border-t p-2">{showLabels ? <div className="rounded-2xl bg-slate-50 p-3 text-xs font-medium text-slate-500">Agent connected to Corevix workspace</div> : null}</SidebarFooter>
+      <SidebarFooter className="border-t border-[#e6eaf0] p-2 group-data-[collapsible=icon]:px-2">
+        <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
+          {renderMenuItem({ titleKey: "nav.aiAssistant", url: "/ai-assistant", icon: Bot, iconClassName: "text-indigo-600" })}
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
