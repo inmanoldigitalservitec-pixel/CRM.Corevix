@@ -89,7 +89,6 @@ const operationsItems: SidebarItem[] = [
 ];
 
 const managementItems: SidebarItem[] = [
-  { titleKey: "nav.automations", url: "/automations", icon: Zap, iconClassName: "text-yellow-600" },
   { titleKey: "nav.reports", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
 ];
 
