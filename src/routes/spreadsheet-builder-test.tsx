@@ -1,28 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
-
-const SpreadsheetBuilderTest = lazy(() =>
-  import.meta.env.SSR
-    ? Promise.resolve({
-        default: () => (
-          <div className="p-6 text-sm text-muted-foreground">
-            Cargando editor de hojas...
-          </div>
-        ),
-      })
-    : import("@/components/spreadsheet-builder/spreadsheet-builder-test").then((mod) => ({
-        default: mod.SpreadsheetBuilderTest,
-      }))
-);
 
 export const Route = createFileRoute("/spreadsheet-builder-test")({
-  component: SpreadsheetBuilderTestRoute,
+  component: SpreadsheetBuilderDisabledRoute,
 });
 
-function SpreadsheetBuilderTestRoute() {
+function SpreadsheetBuilderDisabledRoute() {
   return (
-    <Suspense fallback={<div className="p-6">Cargando editor de hojas...</div>}>
-      <SpreadsheetBuilderTest />
-    </Suspense>
+    <div className="p-6">
+      <h1 className="text-xl font-bold">Spreadsheet Builder desactivado</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Esta ruta de laboratorio está desactivada en este branch para mantener el build liviano en Cloudflare.
+      </p>
+    </div>
   );
 }
