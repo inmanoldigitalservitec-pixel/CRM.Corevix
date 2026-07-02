@@ -24,32 +24,10 @@ export function useRole() {
   return { role, isAtLeast };
 }
 
+type CrudPermissionModule = "leads" | "clients" | "deals" | "tasks" | "projects" | "tickets";
+type CrudPermissionAction = "view_all" | "view_assigned" | "create" | "edit" | "delete";
 type PermissionKey =
-  | "leads.view_all"
-  | "leads.view_assigned"
-  | "leads.create"
-  | "leads.edit"
-  | "leads.delete"
-  | "clients.view_all"
-  | "clients.view_assigned"
-  | "clients.create"
-  | "clients.edit"
-  | "clients.delete"
-  | "deals.view_all"
-  | "deals.view_assigned"
-  | "deals.create"
-  | "deals.edit"
-  | "deals.delete"
-  | "tasks.view_all"
-  | "tasks.view_assigned"
-  | "tasks.create"
-  | "tasks.edit"
-  | "tasks.delete"
-  | "projects.view_all"
-  | "projects.view_assigned"
-  | "projects.create"
-  | "projects.edit"
-  | "projects.delete"
+  | `${CrudPermissionModule}.${CrudPermissionAction}`
   | "settings.view"
   | "settings.manage"
   | "team.view"
