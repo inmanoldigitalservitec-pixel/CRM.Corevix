@@ -29,12 +29,14 @@ function ProposalBuilderRoute() {
     <div className="proposal-builder-route -mt-14">
       <style>{`
         .proposal-builder-route [class*="top-14"]{top:0!important}
-        .proposal-builder-route main{padding-top:12px!important}
-        .proposal-builder-route .proposal-tinymce-shell{max-width:1120px!important;background:#eef2f7!important;border-color:#dbe3ee!important}
-        .proposal-builder-route .proposal-tinymce-shell .tox{border:0!important;background:#eef2f7!important}
-        .proposal-builder-route .proposal-tinymce-shell .tox-edit-area{background:#e8edf3!important;padding:28px 0!important;overflow:auto!important}
-        .proposal-builder-route .proposal-tinymce-shell .tox-edit-area iframe{display:block!important;width:816px!important;max-width:calc(100vw - 170px)!important;height:1056px!important;min-height:1056px!important;margin:0 auto!important;background:#fff!important;border:1px solid #d8dee8!important;box-shadow:0 18px 45px rgba(15,23,42,.16)!important}
-        .proposal-builder-route .proposal-tinymce-shell .tox-statusbar{background:#fff!important;border-top:1px solid #e2e8f0!important}
+        .proposal-builder-route main{padding:12px 0 28px!important;background:#eef2f7!important;overflow:auto!important}
+        .proposal-builder-route main>.proposal-tinymce-shell{width:816px!important;max-width:calc(100vw - 190px)!important;margin:0 auto!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+        .proposal-builder-route .proposal-tinymce-shell .tox{width:816px!important;max-width:100%!important;margin:0 auto!important;border:0!important;background:transparent!important;box-shadow:none!important}
+        .proposal-builder-route .proposal-tinymce-shell .tox-editor-container{width:816px!important;max-width:100%!important;margin:0 auto!important;background:transparent!important}
+        .proposal-builder-route .proposal-tinymce-shell .tox-editor-header{width:816px!important;max-width:100%!important;margin:0 auto!important;border:1px solid #d8dee8!important;border-bottom:0!important;border-radius:12px 12px 0 0!important;box-shadow:0 8px 24px rgba(15,23,42,.08)!important;overflow:hidden!important}
+        .proposal-builder-route .proposal-tinymce-shell .tox-edit-area{width:816px!important;max-width:100%!important;margin:0 auto!important;background:#fff!important;border:1px solid #d8dee8!important;border-top:0!important;box-shadow:0 18px 45px rgba(15,23,42,.16)!important;overflow:hidden!important}
+        .proposal-builder-route .proposal-tinymce-shell .tox-edit-area iframe{display:block!important;width:100%!important;max-width:100%!important;height:1056px!important;min-height:1056px!important;margin:0!important;background:#fff!important;border:0!important;box-shadow:none!important}
+        .proposal-builder-route .proposal-tinymce-shell .tox-statusbar{width:816px!important;max-width:100%!important;margin:0 auto!important;background:#fff!important;border:1px solid #d8dee8!important;border-top:0!important;border-radius:0 0 12px 12px!important}
       `}</style>
       <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando editor...</div>}>
         <ProposalDocumentBuilder proposalId={proposalId} />
