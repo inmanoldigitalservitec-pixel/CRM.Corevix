@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   Clock3,
   FileText,
+  Pencil,
+  Plus,
   RefreshCw,
   Search,
   Signature,
@@ -29,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/crm/page-header";
 import { LoadingTable } from "@/components/crm/loading-state";
+import { ContractEditorDialog, type ContractEditorRow } from "@/components/contracts/contract-editor-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,6 +63,8 @@ type ContractRow = {
   assigned_to: string | null;
   created_by: string | null;
   signed_at: string | null;
+  signature_status?: string | null;
+  invoice_id?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -102,6 +107,8 @@ function ContractsPage() {
   const [clientFilter, setClientFilter] = useState(ALL);
   const [projectFilter, setProjectFilter] = useState(ALL);
   const [typeFilter, setTypeFilter] = useState(ALL);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<ContractEditorRow | null>(null);
 
   const clientById = useMemo(() => new Map(clients.map((item) => [item.id, item])), [clients]);
   const projectById = useMemo(() => new Map(projects.map((item) => [item.id, item])), [projects]);
@@ -142,12 +149,24 @@ function ContractsPage() {
   }, [contracts]);
 
   const kpis = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const in30Days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
     return {
       total: contracts.length,
       active: contracts.filter((contract) => contract.status === "Active").length,
       expired: contracts.filter((contract) => isExpired(contract)).length,
       pending: contracts.filter((contract) => contract.status === "Pending Signature").length,
       draft: contracts.filter((contract) => contract.status === "Draft").length,
+      signed: contracts.filter((contract) => contract.signed_at || contract.signature_status === "Signed").length,
+      expiringSoon: contracts.filter((contract) =>
+        contract.end_date &&
+        contract.end_date >= today &&
+        contract.end_date <= in30Days &&
+        contract.status !== "Cancelled"
+      ).length,
+      totalValue: contracts.reduce((sum, contract) => sum + Number(contract.contract_value || 0), 0),
+      invoiced: contracts.filter((contract) => !!contract.invoice_id).length,
     };
   }, [contracts]);
 
@@ -166,6 +185,48 @@ function ContractsPage() {
     });
   }, [clientById, clientFilter, contracts, profileById, projectById, projectFilter, search, statusFilter, typeFilter]);
 
+  const openNewContract = () => {
+    setEditingContract(null);
+    setDialogOpen(true);
+  };
+
+  const openEditContract = (contract: ContractRow) => {
+    setEditingContract(contract);
+    setDialogOpen(true);
+  };
+
+  const valueByClient = useMemo(() => {
+    return Array.from(
+      contracts.reduce((map, contract) => {
+        const key = contract.client_id || "No client";
+        map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
+        return map;
+      }, new Map<string, number>())
+    )
+      .map(([clientId, value]) => ({
+        label: clientById.get(clientId)?.company_name || "No client",
+        value,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [contracts, clientById]);
+
+  const valueByProject = useMemo(() => {
+    return Array.from(
+      contracts.reduce((map, contract) => {
+        const key = contract.project_id || "No project";
+        map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
+        return map;
+      }, new Map<string, number>())
+    )
+      .map(([projectId, value]) => ({
+        label: projectById.get(projectId)?.name || "No project",
+        value,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [contracts, projectById]);
+
   if (loading) return <LoadingTable />;
 
   return (
@@ -174,16 +235,19 @@ function ContractsPage() {
         title="Contracts"
         subtitle="Control central de acuerdos, renovaciones, fechas de vencimiento y contratos relacionados a clientes o proyectos."
         actionLabel={can("contracts.create") ? "New Contract" : undefined}
-        onAction={can("contracts.create") ? () => toast.info("El editor de contratos entra en el paso 3.") : undefined}
+        onAction={can("contracts.create") ? openNewContract : undefined}
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
         {[
           { label: "Total", value: kpis.total, icon: FileText, tone: "text-slate-600" },
           { label: "Active", value: kpis.active, icon: CheckCircle2, tone: "text-emerald-600" },
           { label: "Expired", value: kpis.expired, icon: AlertTriangle, tone: "text-rose-600" },
           { label: "Pending", value: kpis.pending, icon: Signature, tone: "text-blue-600" },
           { label: "Draft", value: kpis.draft, icon: Clock3, tone: "text-amber-700" },
+          { label: "Signed", value: kpis.signed, icon: Signature, tone: "text-emerald-700" },
+          { label: "Expiring", value: kpis.expiringSoon, icon: AlertTriangle, tone: "text-orange-600" },
+          { label: "Invoiced", value: kpis.invoiced, icon: FileText, tone: "text-indigo-600" },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -195,10 +259,43 @@ function ContractsPage() {
         })}
       </div>
 
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <div className="text-xs font-bold uppercase text-slate-500">Total Contracted Value</div>
+          <div className="mt-2 text-2xl font-extrabold text-slate-950">{formatMoney(kpis.totalValue)}</div>
+          <p className="mt-1 text-sm font-medium text-slate-500">Valor total de contratos registrados.</p>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <div className="mb-3 text-xs font-bold uppercase text-slate-500">Top Clients by Contract Value</div>
+          <div className="space-y-2">
+            {valueByClient.length ? valueByClient.map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <span className="truncate font-semibold text-slate-700">{item.label}</span>
+                <span className="font-extrabold text-slate-950">{formatMoney(item.value)}</span>
+              </div>
+            )) : <div className="text-sm font-medium text-slate-500">Sin datos todavía.</div>}
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <div className="mb-3 text-xs font-bold uppercase text-slate-500">Top Projects by Contract Value</div>
+          <div className="space-y-2">
+            {valueByProject.length ? valueByProject.map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <span className="truncate font-semibold text-slate-700">{item.label}</span>
+                <span className="font-extrabold text-slate-950">{formatMoney(item.value)}</span>
+              </div>
+            )) : <div className="text-sm font-medium text-slate-500">Sin datos todavía.</div>}
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => void fetchContracts()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
+            {can("contracts.create") && <Button onClick={openNewContract}><Plus className="mr-2 h-4 w-4" />New Contract</Button>}
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <div className="relative sm:col-span-2 lg:col-span-1">
@@ -226,7 +323,10 @@ function ContractsPage() {
                   <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Signature</TableHead>
+                  <TableHead>Invoice</TableHead>
                   <TableHead>Assigned</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -248,17 +348,38 @@ function ContractsPage() {
                       <TableCell>{formatDate(contract.start_date)}</TableCell>
                       <TableCell className={isExpired(contract) ? "font-semibold text-rose-700" : undefined}>{formatDate(contract.end_date)}</TableCell>
                       <TableCell><StatusBadge status={contract.status} /></TableCell>
+                      <TableCell>
+                        <StatusBadge status={contract.signed_at || contract.signature_status === "Signed" ? "Signed" : (contract.signature_status || "Not Signed")} />
+                      </TableCell>
+                      <TableCell>{contract.invoice_id ? "Linked" : "—"}</TableCell>
                       <TableCell>{assigned?.full_name || assigned?.email || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {can("contracts.edit") && (
+                          <Button variant="outline" size="sm" onClick={() => openEditContract(contract)}>
+                            <Pencil className="mr-2 h-3.5 w-3.5" />Edit
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 }) : (
-                  <TableRow><TableCell colSpan={10} className="py-10 text-center text-sm text-slate-500">No hay contratos con estos filtros.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={11} className="py-10 text-center text-sm text-slate-500">No hay contratos con estos filtros.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
         </div>
       </div>
+
+      <ContractEditorDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        contract={editingContract}
+        clients={clients}
+        projects={projects}
+        profiles={profiles}
+        onSaved={fetchContracts}
+      />
     </div>
   );
 }
