@@ -35,6 +35,8 @@ type Client = { id: string; company_name: string };
 type Project = { id: string; name: string; client_id: string | null };
 type Staff = { id: string; full_name: string | null; email: string | null };
 
+type ContractForm = ReturnType<typeof emptyForm>;
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,6 +44,7 @@ type Props = {
   clients: Client[];
   projects: Project[];
   profiles: Staff[];
+  initialValues?: Partial<ContractForm>;
   onSaved: () => Promise<void> | void;
 };
 
@@ -61,7 +64,18 @@ function emptyForm() {
   };
 }
 
-export function ContractEditorDialog({ open, onOpenChange, contract, clients, projects, profiles, onSaved }: Props) {
+function normalizeInitialValues(initialValues?: Partial<ContractForm>) {
+  if (!initialValues) return emptyForm();
+  return {
+    ...emptyForm(),
+    ...initialValues,
+    client_id: initialValues.client_id || NONE,
+    project_id: initialValues.project_id || NONE,
+    assigned_to: initialValues.assigned_to || NONE,
+  };
+}
+
+export function ContractEditorDialog({ open, onOpenChange, contract, clients, projects, profiles, initialValues, onSaved }: Props) {
   const { profile } = useAuth();
   const { can } = usePermissions();
   const [form, setForm] = useState(emptyForm());
@@ -80,10 +94,10 @@ export function ContractEditorDialog({ open, onOpenChange, contract, clients, pr
       project_id: contract.project_id || NONE,
       assigned_to: contract.assigned_to || NONE,
       signature_status: contract.signed_at ? "Signed" : contract.signature_status || "Not Signed",
-    } : emptyForm());
-  }, [contract, open]);
+    } : normalizeInitialValues(initialValues));
+  }, [contract, initialValues, open]);
 
-  const setField = (key: keyof ReturnType<typeof emptyForm>, value: string) => {
+  const setField = (key: keyof ContractForm, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
