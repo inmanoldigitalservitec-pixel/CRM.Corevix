@@ -24,7 +24,19 @@ export function useRole() {
   return { role, isAtLeast };
 }
 
-type CrudPermissionModule = "leads" | "clients" | "deals" | "tasks" | "projects" | "tickets" | "contracts";
+type CrudPermissionModule =
+  | "leads"
+  | "clients"
+  | "deals"
+  | "tasks"
+  | "projects"
+  | "tickets"
+  | "contracts"
+  | "estimates"
+  | "payments"
+  | "credit_notes"
+  | "subscriptions"
+  | "expenses";
 type CrudPermissionAction = "view_all" | "view_assigned" | "create" | "edit" | "delete";
 type PermissionKey =
   | `${CrudPermissionModule}.${CrudPermissionAction}`
