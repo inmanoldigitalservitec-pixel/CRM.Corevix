@@ -41,6 +41,7 @@ create index if not exists contracts_status_idx on public.contracts(status);
 create index if not exists contracts_assigned_to_idx on public.contracts(assigned_to);
 create index if not exists contracts_end_date_idx on public.contracts(end_date);
 
+drop trigger if exists contracts_set_updated_at on public.contracts;
 create trigger contracts_set_updated_at
 before update on public.contracts
 for each row execute function public.set_updated_at();
@@ -150,13 +151,13 @@ with check (
 );
 
 insert into public.permissions (company_id, module, role, can_view, can_create, can_edit, can_delete, can_assign)
-select c.id, 'contracts', v.role, v.can_view, v.can_create, v.can_edit, v.can_delete, v.can_assign
+select c.id, 'contracts', v.role::public.app_role, v.can_view, v.can_create, v.can_edit, v.can_delete, v.can_assign
 from public.companies c
 cross join (
   values
-    ('admin'::text, true, true, true, true, true),
-    ('manager'::text, true, true, true, true, true),
-    ('sales_agent'::text, true, true, true, false, false),
-    ('viewer'::text, true, false, false, false, false)
+    ('admin', true, true, true, true, true),
+    ('manager', true, true, true, true, true),
+    ('sales_agent', true, true, true, false, false),
+    ('viewer', true, false, false, false, false)
 ) as v(role, can_view, can_create, can_edit, can_delete, can_assign)
 on conflict do nothing;
