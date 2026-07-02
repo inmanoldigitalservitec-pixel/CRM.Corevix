@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Check,
   Circle,
+  Clock3,
   Copy,
   ExternalLink,
   FileText,
@@ -23,9 +24,11 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  Star,
   Trash2,
   Upload,
   User,
+  Users,
   X,
 } from "lucide-react";
 
@@ -226,6 +229,14 @@ function eventIcon(type: string) {
   if (type.includes("checklist")) return <Check className="h-4 w-4" />;
   if (type.includes("status")) return <Circle className="h-4 w-4" />;
   return <Flag className="h-4 w-4" />;
+}
+
+function priorityTone(priority: string | null | undefined) {
+  const value = String(priority || "").toLowerCase();
+  if (value === "urgent") return "text-red-600";
+  if (value === "high") return "text-orange-600";
+  if (value === "medium") return "text-blue-600";
+  return "text-slate-700";
 }
 
 export function TaskDetailDialog({
@@ -600,228 +611,214 @@ export function TaskDetailDialog({
     }
   };
 
-  const renderMetaChip = (label: string, value: string, icon: ReactNode) => (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 shadow-sm">
-      <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-700">{icon}</div>
-      <div className="min-w-0 flex-1 xl:w-full">
-        <div className="truncate whitespace-nowrap text-[10px] font-bold text-slate-500">{label}</div>
-        <div className="truncate text-sm font-extrabold leading-5 text-slate-900" title={value || "—"}>{value || "—"}</div>
-      </div>
+  const renderInfoRow = (label: string, value: ReactNode, icon: ReactNode) => (
+    <div className="grid grid-cols-[22px_108px_minmax(0,1fr)] items-start gap-2 border-b border-slate-200/70 py-2.5 last:border-b-0">
+      <span className="mt-0.5 text-slate-400">{icon}</span>
+      <span className="text-[13px] font-semibold text-slate-500">{label}</span>
+      <span className="min-w-0 text-[13px] font-semibold text-slate-900">{value || "—"}</span>
     </div>
   );
 
-  const renderMobileMetaSummary = () => (
-    <div className="mt-2 rounded-2xl border bg-white px-3 py-2 shadow-sm lg:hidden">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-extrabold text-slate-900">
-        <span>{task?.priority || "—"}</span>
-        <span className="text-slate-300">•</span>
-        <span>{formatDate(task?.due_date)}</span>
-        <span className="text-slate-300">•</span>
-        <span className="max-w-[155px] truncate">{assigneeLabel}</span>
-      </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
-        <span className="max-w-[130px] truncate">Proyecto: {displayProjectName}</span>
-        <span className="text-slate-300">•</span>
-        <span className="max-w-[130px] truncate">Cliente: {displayClientName}</span>
-        <span className="text-slate-300">•</span>
-        <span className="max-w-[130px] truncate">Producto: {displayProductName}</span>
-      </div>
-    </div>
+  const renderEditField = (label: string, control: ReactNode) => (
+    <label className="grid gap-1.5">
+      <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">{label}</span>
+      {control}
+    </label>
   );
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl [&>button.absolute.right-4.top-4]:hidden sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[1240px] sm:rounded-[24px] sm:border">
+        <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-2xl [&>button.absolute.right-4.top-4]:hidden sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[980px] sm:rounded-[18px] sm:border">
+          <DialogTitle className="sr-only">Detalle de tarea</DialogTitle>
           <div ref={legacyContentRef} className="pointer-events-none absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden opacity-0">
             {children}
           </div>
 
           <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white sm:max-h-[92vh]">
-            <div className="shrink-0 border-b bg-white px-4 py-3 sm:px-6 sm:py-4">
-              <div className="relative flex flex-col gap-4">
+            <header className="shrink-0 border-b bg-white px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 xl:pr-[560px]">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     {editing ? (
                       <Input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} className="h-10 max-w-2xl text-lg font-extrabold" />
                     ) : (
-                      <h2 className="truncate text-[19px] font-extrabold tracking-[-0.035em] text-slate-950 sm:text-[22px]">
+                      <h2 className="min-w-0 text-[19px] font-extrabold leading-tight tracking-[-0.025em] text-slate-900 sm:text-[20px]">
                         {task?.title || "Cargando tarea..."}
                       </h2>
                     )}
                     {task ? <StatusBadge status={task.status} /> : null}
                   </div>
-
-                  {editing ? (
-                    <div className="mt-3 grid max-w-5xl grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-                      <Select value={draft.status} onValueChange={(value) => setDraft((d) => ({ ...d, status: value }))}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Estado" /></SelectTrigger>
-                        <SelectContent>{TASK_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <Select value={draft.priority} onValueChange={(value) => setDraft((d) => ({ ...d, priority: value }))}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Prioridad" /></SelectTrigger>
-                        <SelectContent>{TASK_PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <Input type="date" value={draft.dueDate} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} className="h-10" />
-                      <Select value={draft.assignedTo} onValueChange={(value) => setDraft((d) => ({ ...d, assignedTo: value }))}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Responsable" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={UNASSIGNED_VALUE}>Sin asignar</SelectItem>
-                          {profiles.map((p) => <SelectItem key={p.id} value={String(p.user_id || p.id)}>{String(p.full_name || p.email || "Usuario")}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={draft.projectId} onValueChange={(value) => setDraft((d) => ({ ...d, projectId: value }))}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Proyecto" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>
-                          {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={draft.clientId} onValueChange={(value) => setDraft((d) => ({ ...d, clientId: value }))}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Cliente" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NO_CLIENT_VALUE}>Sin cliente directo</SelectItem>
-                          {clients.map((client) => <SelectItem key={client.id} value={client.id}>{clientLabel(client)}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <div className="rounded-xl border bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 sm:col-span-2 lg:col-span-4 xl:col-span-6">
-                        Producto automático desde proyecto: <span className="font-extrabold text-slate-900">{draftProductName}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {renderMobileMetaSummary()}
-                      <div className="mt-3 hidden w-full max-w-none grid-cols-3 gap-2 lg:grid xl:grid-cols-6">
-                        {renderMetaChip("Priority", task?.priority || "—", <Flag className="h-4 w-4" />)}
-                        {renderMetaChip("Due date", formatDate(task?.due_date), <CalendarDays className="h-4 w-4" />)}
-                        {renderMetaChip("Assignee", assigneeLabel, <User className="h-4 w-4" />)}
-                        {renderMetaChip("Project", displayProjectName, <FolderKanban className="h-4 w-4" />)}
-                        {renderMetaChip("Client", displayClientName, <User className="h-4 w-4" />)}
-                        {renderMetaChip("Product", displayProductName, <FileText className="h-4 w-4" />)}
-                      </div>
-                    </>
-                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-semibold text-slate-600">
+                    <span>Task ID: {task?.id ? task.id.slice(0, 8) : "—"}</span>
+                    <span className="text-slate-300">•</span>
+                    <span>Creada {formatDate(task?.created_at)}</span>
+                    <span className="text-slate-300">•</span>
+                    <span>{displayClientName}</span>
+                  </div>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2 xl:absolute xl:right-0 xl:top-0">
+                <div className="flex shrink-0 items-center gap-2">
                   {editing ? (
                     <>
                       <Button variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
-                      <Button onClick={() => void saveInlineEdit()} disabled={saving || !canEdit}>Guardar cambios</Button>
+                      <Button onClick={() => void saveInlineEdit()} disabled={saving || !canEdit}>Guardar</Button>
                     </>
                   ) : (
                     <>
-                      <Button className="h-9 px-3 text-sm sm:h-10 sm:px-4" onClick={() => void (onComplete ? onComplete() : updateTask({ status: "Completed" }))} disabled={!task?.id || task.status === "Completed" || !canEdit}>
-                        <Check className="mr-2 h-4 w-4" /> Marcar completada
+                      <Button className="hidden h-9 px-3 text-sm sm:inline-flex" onClick={() => void (onComplete ? onComplete() : updateTask({ status: "Completed" }))} disabled={!task?.id || task.status === "Completed" || !canEdit}>
+                        <Check className="mr-2 h-4 w-4" /> Completar
                       </Button>
-                      <Button className="h-9 px-3 text-sm sm:h-10 sm:px-4" variant="outline" onClick={() => void (onSetInProgress ? onSetInProgress() : updateTask({ status: "In Progress" }))} disabled={!task?.id || task.status === "In Progress" || !canEdit}>
+                      <Button className="h-9 px-3 text-sm" variant="outline" onClick={() => void (onSetInProgress ? onSetInProgress() : updateTask({ status: "In Progress" }))} disabled={!task?.id || task.status === "In Progress" || !canEdit}>
                         <Circle className="mr-2 h-4 w-4" /> En progreso
                       </Button>
-                      <Button className="h-9 px-3 text-sm sm:h-10 sm:px-4" variant="outline" onClick={() => setEditing(true)} disabled={!task?.id || !canEdit}>
+                      <Button className="h-9 px-3 text-sm" variant="outline" onClick={() => setEditing(true)} disabled={!task?.id || !canEdit}>
                         <Pencil className="mr-2 h-4 w-4" /> Editar
                       </Button>
                     </>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}><X className="h-5 w-5" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Cerrar detalle de tarea"><X className="h-5 w-5" /></Button>
                 </div>
               </div>
-            </div>
+            </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-4">
+            <main className="min-h-0 flex-1 overflow-y-auto bg-white">
               {loading && !task ? (
-                <div className="rounded-2xl border bg-white p-6 text-sm font-semibold text-slate-500">Cargando detalle de tarea...</div>
+                <div className="m-5 rounded-xl border bg-white p-6 text-sm font-semibold text-slate-500">Cargando detalle de tarea...</div>
               ) : (
-                <div className="mx-auto grid max-w-[1160px] grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.85fr)] lg:items-start">
-                  <section className="rounded-2xl border bg-white p-4 shadow-sm lg:col-span-2">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-sm font-extrabold text-slate-950">Task Brief / Instrucciones</h3>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">Script, indicaciones, copy y detalles completos de la tarea.</p>
+                <div className="grid min-h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_302px]">
+                  <section className="min-w-0 space-y-6 px-5 py-5 lg:border-r">
+                    <section>
+                      <div className="mb-3 flex items-center justify-between gap-3 border-b pb-2">
+                        <h3 className="text-[15px] font-extrabold text-slate-900">Description</h3>
+                        {!editing ? <Button size="sm" variant="ghost" className="h-8 gap-1 text-slate-500" onClick={() => setEditing(true)}><Pencil className="h-3.5 w-3.5" /> Editar</Button> : null}
                       </div>
-                    </div>
-                    {editing ? (
-                      <Textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} className="min-h-[220px] text-sm leading-6" placeholder="Escribe aquí el script completo, instrucciones, copy, detalles del video, notas del cliente..." />
-                    ) : (
-                      <div className="max-h-[240px] overflow-auto whitespace-pre-wrap rounded-xl border bg-slate-50 px-4 py-3 text-sm font-medium leading-6 text-slate-800">
-                        {task?.description || "Sin descripción."}
-                      </div>
-                    )}
-                    <p className="mt-3 text-xs font-semibold text-slate-500">Task ID: {task?.id ? task.id.slice(0, 8) : "—"} · Creada {formatDate(task?.created_at)}</p>
-                    {message ? <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">{message}</div> : null}
-                  </section>
+                      {editing ? (
+                        <Textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} className="min-h-[230px] text-sm leading-6" placeholder="Escribe aquí el brief, instrucciones, copy y detalles de la tarea..." />
+                      ) : (
+                        <div className="whitespace-pre-wrap text-[14px] font-medium leading-7 text-slate-800">
+                          {task?.description || "Sin descripción."}
+                        </div>
+                      )}
+                      {message ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">{message}</div> : null}
+                    </section>
 
-                  <div className="grid content-start gap-3">
-                    <section className="rounded-2xl border bg-white p-4 shadow-sm">
-                      <div className="mb-3 flex items-start justify-between gap-3">
+                    <section>
+                      <div className="mb-3 flex items-end justify-between gap-3 border-b pb-2">
                         <div>
-                          <h3 className="text-sm font-extrabold text-slate-950">Checklist / Subtasks</h3>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">Divide la tarea en pasos accionables.</p>
+                          <h3 className="text-[15px] font-extrabold text-slate-900">Checklist Items</h3>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">{completedChecklist} de {checklist.length} completadas</p>
                         </div>
-                        <div className="min-w-[130px] text-right">
-                          <div className="text-xs font-extrabold text-slate-900">{completedChecklist} / {checklist.length} complete</div>
-                          <Progress value={checklistProgress} className="mt-2 h-1.5" />
-                        </div>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => document.getElementById("task-new-checklist-item")?.focus()} aria-label="Agregar subtarea"><Plus className="h-4 w-4" /></Button>
                       </div>
-                      <div className="mb-2 flex gap-2">
-                        <Input value={newChecklistTitle} onChange={(e) => setNewChecklistTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void addChecklistItem(); }} placeholder="Add a subtask..." />
-                        <Button variant="outline" onClick={() => void addChecklistItem()} disabled={!task?.id || saving || !newChecklistTitle.trim()}><Plus className="mr-2 h-4 w-4" /> Add</Button>
+                      <Progress value={checklistProgress} className="mb-4 h-2" />
+                      <div className="mb-3 flex gap-2">
+                        <Input id="task-new-checklist-item" value={newChecklistTitle} onChange={(e) => setNewChecklistTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void addChecklistItem(); }} placeholder="Add a checklist item..." />
+                        <Button variant="outline" onClick={() => void addChecklistItem()} disabled={!task?.id || saving || !newChecklistTitle.trim()}>Add</Button>
                       </div>
                       {checklist.length === 0 ? (
                         <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay subtareas todavía.</div>
                       ) : (
-                        <div className="space-y-1">
+                        <div className="divide-y rounded-xl border bg-white">
                           {checklist.map((item) => (
-                            <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl px-1 py-2 hover:bg-slate-50">
-                              <button type="button" onClick={() => void toggleChecklistItem(item)} className={"grid h-4 w-4 place-items-center rounded border text-[10px] " + (item.is_completed ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 text-transparent")}><Check className="h-3 w-3" /></button>
-                              <div className={"truncate text-sm font-semibold " + (item.is_completed ? "text-slate-400 line-through" : "text-slate-800")}>{item.title}</div>
-                              <div className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">IC</div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => void deleteChecklistItem(item)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            <div key={item.id} className="grid grid-cols-[26px_minmax(0,1fr)_auto] items-start gap-3 px-3 py-3 hover:bg-slate-50">
+                              <button type="button" onClick={() => void toggleChecklistItem(item)} className={"mt-0.5 grid h-5 w-5 place-items-center rounded-full border text-[10px] " + (item.is_completed ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 text-transparent")}><Check className="h-3.5 w-3.5" /></button>
+                              <div>
+                                <div className={"text-sm font-medium " + (item.is_completed ? "text-slate-400 line-through" : "text-slate-800")}>{item.title}</div>
+                                <div className="mt-1 text-xs font-medium text-slate-500">Creada {formatDate(item.created_at)}</div>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600" onClick={() => void deleteChecklistItem(item)}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                           ))}
                         </div>
                       )}
                     </section>
 
-                    <section className="rounded-2xl border bg-white p-4 shadow-sm">
-                      <div className="mb-3">
-                        <h3 className="text-sm font-extrabold text-slate-950">Activity Timeline</h3>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">Historial de cambios, checklist y notas de esta tarea.</p>
+                    <section>
+                      <div className="mb-3 border-b pb-2">
+                        <h3 className="text-[15px] font-extrabold text-slate-900">Comments</h3>
+                      </div>
+                      <div className="space-y-3">
+                        <Textarea value={newCommentBody} onChange={(e) => setNewCommentBody(e.target.value)} placeholder="Write an internal comment..." className="min-h-[96px]" />
+                        <div className="flex justify-end"><Button onClick={() => void addComment()} disabled={!task?.id || saving || !newCommentBody.trim()}>Add comment</Button></div>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {comments.length === 0 ? <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay comentarios todavía.</div> : comments.map((comment) => (
+                          <div key={comment.id} className="grid grid-cols-[34px_minmax(0,1fr)] gap-3 border-b pb-3 last:border-b-0">
+                            <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">IC</div>
+                            <div className="min-w-0"><div className="mb-1 text-xs font-bold text-slate-500">{formatDateTime(comment.created_at)}</div><div className="whitespace-pre-wrap text-sm font-medium leading-6 text-slate-700">{comment.body}</div></div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </section>
+
+                  <aside className="min-w-0 bg-slate-50/70 px-5 py-5">
+                    <section className="rounded-xl border bg-white p-4 shadow-sm">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900"><Star className="h-4 w-4 text-slate-400" /> Task Info</h3>
+                        <span className="text-slate-400">•••</span>
+                      </div>
+
+                      {editing ? (
+                        <div className="space-y-3">
+                          {renderEditField("Status", <Select value={draft.status} onValueChange={(value) => setDraft((d) => ({ ...d, status: value }))}><SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent>{TASK_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>)}
+                          {renderEditField("Priority", <Select value={draft.priority} onValueChange={(value) => setDraft((d) => ({ ...d, priority: value }))}><SelectTrigger><SelectValue placeholder="Prioridad" /></SelectTrigger><SelectContent>{TASK_PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select>)}
+                          {renderEditField("Due date", <Input type="date" value={draft.dueDate} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} />)}
+                          {renderEditField("Assignee", <Select value={draft.assignedTo} onValueChange={(value) => setDraft((d) => ({ ...d, assignedTo: value }))}><SelectTrigger><SelectValue placeholder="Responsable" /></SelectTrigger><SelectContent><SelectItem value={UNASSIGNED_VALUE}>Sin asignar</SelectItem>{profiles.map((p) => <SelectItem key={p.id} value={String(p.user_id || p.id)}>{String(p.full_name || p.email || "Usuario")}</SelectItem>)}</SelectContent></Select>)}
+                          {renderEditField("Project", <Select value={draft.projectId} onValueChange={(value) => setDraft((d) => ({ ...d, projectId: value }))}><SelectTrigger><SelectValue placeholder="Proyecto" /></SelectTrigger><SelectContent><SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent></Select>)}
+                          {renderEditField("Client", <Select value={draft.clientId} onValueChange={(value) => setDraft((d) => ({ ...d, clientId: value }))}><SelectTrigger><SelectValue placeholder="Cliente" /></SelectTrigger><SelectContent><SelectItem value={NO_CLIENT_VALUE}>Sin cliente directo</SelectItem>{clients.map((client) => <SelectItem key={client.id} value={client.id}>{clientLabel(client)}</SelectItem>)}</SelectContent></Select>)}
+                          <div className="rounded-lg border bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">Producto automático: <span className="font-extrabold text-slate-900">{draftProductName}</span></div>
+                        </div>
+                      ) : (
+                        <div>
+                          {renderInfoRow("Status", <StatusBadge status={task?.status || "—"} />, <Star className="h-4 w-4" />)}
+                          {renderInfoRow("Created", formatDate(task?.created_at), <CalendarDays className="h-4 w-4" />)}
+                          {renderInfoRow("Due Date", formatDate(task?.due_date), <CalendarDays className="h-4 w-4" />)}
+                          {renderInfoRow("Priority", <span className={priorityTone(task?.priority)}>{task?.priority || "—"}</span>, <Flag className="h-4 w-4" />)}
+                          {renderInfoRow("Assignee", assigneeLabel, <User className="h-4 w-4" />)}
+                          {renderInfoRow("Project", <span className="break-words">{displayProjectName}</span>, <FolderKanban className="h-4 w-4" />)}
+                          {renderInfoRow("Client", <span className="break-words">{displayClientName}</span>, <Users className="h-4 w-4" />)}
+                          {renderInfoRow("Product", <span className="break-words">{displayProductName}</span>, <FileText className="h-4 w-4" />)}
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="mt-4 rounded-xl border bg-white p-4 shadow-sm">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900"><Clock3 className="h-4 w-4 text-slate-400" /> Activity</h3>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">Cambios recientes de la tarea.</p>
+                        </div>
                       </div>
                       {activity.length === 0 ? (
-                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">Todavía no hay actividad registrada.</div>
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">Sin actividad registrada.</div>
                       ) : (
-                        <div className="relative max-h-[360px] space-y-4 overflow-auto pr-2 before:absolute before:bottom-4 before:left-[17px] before:top-4 before:w-px before:bg-slate-200">
+                        <div className="relative max-h-[260px] space-y-4 overflow-auto pr-2 before:absolute before:bottom-4 before:left-[15px] before:top-4 before:w-px before:bg-slate-200">
                           {activity.map((event, index) => (
-                            <div key={event.id} className="relative grid grid-cols-[36px_minmax(0,1fr)_auto] gap-3">
-                              <div className={"relative z-10 grid h-9 w-9 place-items-center rounded-full border " + (index === 0 ? "border-blue-200 bg-blue-50 text-blue-600" : "border-slate-200 bg-slate-50 text-slate-500")}>{eventIcon(event.event_type)}</div>
+                            <div key={event.id} className="relative grid grid-cols-[32px_minmax(0,1fr)] gap-3">
+                              <div className={"relative z-10 grid h-8 w-8 place-items-center rounded-full border " + (index === 0 ? "border-blue-200 bg-blue-50 text-blue-600" : "border-slate-200 bg-white text-slate-500")}>{eventIcon(event.event_type)}</div>
                               <div className="min-w-0">
                                 <div className="text-sm font-extrabold text-slate-900">{event.title}</div>
                                 {event.description ? <div className="mt-1 text-xs font-semibold text-slate-500">{event.description}</div> : null}
+                                <div className="mt-1 text-[11px] font-semibold text-slate-400">{formatDateTime(event.created_at)}</div>
                               </div>
-                              <div className="text-right text-xs font-semibold text-slate-500">{formatDateTime(event.created_at)}</div>
                             </div>
                           ))}
                         </div>
                       )}
                     </section>
-                  </div>
 
-                  <aside className="grid content-start gap-3">
-                    <section className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <section className="mt-4 rounded-xl border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-950"><FileText className="h-4 w-4" /> Drive Files</h3>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">Archivos adjuntos de trabajo.</p>
+                          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900"><Paperclip className="h-4 w-4 text-slate-400" /> Attachments</h3>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">Archivos de trabajo.</p>
                         </div>
-                        <div className="flex gap-2">
-                          {fileInputRef ? <input ref={fileInputRef} type="file" className="hidden" onChange={(event) => void onFilePicked?.(event)} /> : null}
-                          <Button size="sm" variant="outline" onClick={onUploadClick} disabled={!canEdit || isUploadingFile}>
-                            <Upload className="mr-2 h-4 w-4" />{isUploadingFile ? `${uploadProgress}%` : "Upload"}
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => onDriveUrlChange?.(driveUrlInput)}>
-                            <Link2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {fileInputRef ? <input ref={fileInputRef} type="file" className="hidden" onChange={(event) => void onFilePicked?.(event)} /> : null}
+                        <Button size="sm" variant="outline" onClick={onUploadClick} disabled={!canEdit || isUploadingFile}>
+                          <Upload className="mr-2 h-4 w-4" />{isUploadingFile ? `${uploadProgress}%` : "Upload"}
+                        </Button>
                       </div>
                       {uploadingFileName ? (
                         <div className="mb-3 rounded-xl border bg-slate-50 p-3">
@@ -835,29 +832,31 @@ export function TaskDetailDialog({
                       {onAttachDriveUrl ? (
                         <div className="mb-3 flex gap-2">
                           <Input value={driveUrlInput} onChange={(event) => onDriveUrlChange?.(event.target.value)} placeholder="Pega URL de Google Drive" />
-                          <Button type="button" variant="outline" onClick={() => void onAttachDriveUrl()} disabled={!canEdit || !driveUrlInput.trim()}>
-                            Adjuntar
+                          <Button type="button" variant="outline" size="icon" onClick={() => void onAttachDriveUrl()} disabled={!canEdit || !driveUrlInput.trim()}>
+                            <Link2 className="h-4 w-4" />
                           </Button>
                         </div>
                       ) : null}
                       {driveFilesLoading ? (
                         <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">Cargando archivos...</div>
                       ) : driveFiles.length === 0 ? (
-                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay archivos adjuntos todavía.</div>
+                        <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm font-semibold text-slate-500">Drop files here to upload</div>
                       ) : (
                         <div className="space-y-2">
                           {driveFiles.map((file) => {
                             const url = file.web_view_link || file.web_content_link;
                             const previewUrl = getGoogleDrivePreviewUrl(url, file.drive_file_id);
                             return (
-                              <div key={file.id} className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-slate-50 p-2.5">
-                                <div className="grid h-9 w-9 place-items-center rounded-xl border bg-white text-slate-500">{file.icon_link ? <img src={file.icon_link} alt="" className="h-5 w-5" /> : <Paperclip className="h-4 w-4" />}</div>
-                                <div className="min-w-0"><div className="truncate text-sm font-extrabold text-slate-900">{file.name}</div><div className="text-xs font-semibold text-slate-500">{formatBytes(file.size_bytes)} · {formatDate(file.created_at)}</div></div>
-                                <div className="flex items-center gap-1">
+                              <div key={file.id} className="rounded-xl border bg-slate-50 p-2.5">
+                                <div className="grid grid-cols-[32px_minmax(0,1fr)] items-center gap-2">
+                                  <div className="grid h-8 w-8 place-items-center rounded-lg border bg-white text-slate-500">{file.icon_link ? <img src={file.icon_link} alt="" className="h-5 w-5" /> : <Paperclip className="h-4 w-4" />}</div>
+                                  <div className="min-w-0"><div className="truncate text-sm font-extrabold text-slate-900">{file.name}</div><div className="text-xs font-semibold text-slate-500">{formatBytes(file.size_bytes)} · {formatDate(file.created_at)}</div></div>
+                                </div>
+                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                   {previewUrl ? <Button size="sm" variant="outline" onClick={() => setPreviewFile({ url: previewUrl, title: file.name })}>Preview</Button> : null}
-                                  {url ? <Button size="icon" variant="outline" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a></Button> : null}
-                                  <Button size="icon" variant="outline" onClick={() => void copyFileLink(file)}><Copy className="h-4 w-4" /></Button>
-                                  {onDeleteDriveFile ? <Button size="icon" variant="ghost" className="text-red-600" onClick={() => void onDeleteDriveFile(file)}><Trash2 className="h-4 w-4" /></Button> : <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4" /></Button>}
+                                  {url ? <Button size="sm" variant="outline" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1.5 h-3.5 w-3.5" />Open</a></Button> : null}
+                                  <Button size="sm" variant="outline" onClick={() => void copyFileLink(file)}><Copy className="mr-1.5 h-3.5 w-3.5" />Copy</Button>
+                                  {onDeleteDriveFile ? <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => void onDeleteDriveFile(file)}><Trash2 className="h-4 w-4" /></Button> : <Button size="icon" variant="ghost" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>}
                                 </div>
                               </div>
                             );
@@ -865,32 +864,17 @@ export function TaskDetailDialog({
                         </div>
                       )}
                     </section>
-
-                    <section className="rounded-2xl border bg-white p-4 shadow-sm">
-                      <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-950"><MessageSquare className="h-4 w-4" /> Internal Comments</h3>
-                      <div className="mt-2 space-y-2">
-                        <Textarea value={newCommentBody} onChange={(e) => setNewCommentBody(e.target.value)} placeholder="Write an internal comment..." className="min-h-[100px]" />
-                        <div className="flex justify-end"><Button onClick={() => void addComment()} disabled={!task?.id || saving || !newCommentBody.trim()}>Add comment</Button></div>
-                      </div>
-                      <div className="mt-2 space-y-2">
-                        {comments.length === 0 ? <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay comentarios todavía.</div> : comments.map((comment) => (
-                          <div key={comment.id} className="grid grid-cols-[34px_minmax(0,1fr)] gap-3 rounded-xl border bg-slate-50 p-3">
-                            <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">IC</div>
-                            <div className="min-w-0"><div className="mb-1 text-xs font-bold text-slate-500">{formatDateTime(comment.created_at)}</div><div className="whitespace-pre-wrap text-sm font-medium text-slate-700">{comment.body}</div></div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
                   </aside>
                 </div>
               )}
-            </div>
+            </main>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!previewFile} onOpenChange={(nextOpen) => !nextOpen && setPreviewFile(null)}>
         <DialogContent className="h-[92dvh] w-[calc(100vw-20px)] max-w-[1040px] gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-2xl">
+          <DialogTitle className="sr-only">Preview de archivo</DialogTitle>
           <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
             <div className="min-w-0"><div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Preview de Drive</div><div className="truncate text-sm font-semibold text-slate-900">{previewFile?.title || "Archivo"}</div></div>
             <Button type="button" variant="outline" size="sm" onClick={() => setPreviewFile(null)}>Cerrar</Button>
