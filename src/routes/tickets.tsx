@@ -162,6 +162,8 @@ function TicketsPage() {
   const [replyInternal, setReplyInternal] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const canCreateTickets = can("tickets.create");
+
   const clientById = useMemo(() => new Map(clients.map((item) => [item.id, item])), [clients]);
   const contactById = useMemo(() => new Map(contacts.map((item) => [item.id, item])), [contacts]);
   const projectById = useMemo(() => new Map(projects.map((item) => [item.id, item])), [projects]);
@@ -326,8 +328,8 @@ function TicketsPage() {
       <PageHeader
         title="Support Tickets"
         subtitle="Panel central para incidencias, solicitudes de clientes y casos relacionados a proyectos."
-        actionLabel={can("tickets.create" as any) ? "New Ticket" : undefined}
-        onAction={can("tickets.create" as any) ? openNewTicket : undefined}
+        actionLabel={canCreateTickets ? "New Ticket" : undefined}
+        onAction={canCreateTickets ? openNewTicket : undefined}
       />
 
       <div className="flex flex-wrap gap-2">
@@ -354,7 +356,7 @@ function TicketsPage() {
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {can("tickets.create" as any) ? <Button onClick={openNewTicket}><Plus className="mr-2 h-4 w-4" />New Ticket</Button> : null}
+            {canCreateTickets ? <Button onClick={openNewTicket}><Plus className="mr-2 h-4 w-4" />New Ticket</Button> : null}
             <Button variant="outline" onClick={() => void fetchTickets()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
