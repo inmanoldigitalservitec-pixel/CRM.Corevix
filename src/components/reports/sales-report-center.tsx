@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Download, RefreshCw, Search } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,6 +28,8 @@ const PERIODS = [
   { value: "this_year", label: "This Year" },
   { value: "all", label: "All Time" },
 ];
+
+const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
 type ReportId = typeof REPORTS[number]["id"];
 type Row = Record<string, any>;
@@ -99,6 +102,14 @@ function columnsFor(reportId: ReportId) {
   ];
 }
 
+function chartGroupKey(reportId: ReportId, row: Row) {
+  if (reportId === "payments") return row.method || "Manual";
+  if (reportId === "subscriptions") return row.billing_cycle || "No cycle";
+  if (reportId === "customers") return row.status || "No status";
+  if (reportId === "expenses") return row.category || row.status || "General";
+  return row.finance_status || row.status || "No status";
+}
+
 export function SalesReportCenter() {
   const { profile } = useAuth();
   const [activeReport, setActiveReport] = useState<ReportId>("invoices");
@@ -136,12 +147,7 @@ export function SalesReportCenter() {
     const hydrated = (dataRes.data || []).map((row: any) => {
       const invoice = row.invoice_id ? invoices.get(row.invoice_id) : row.invoice_id === undefined && row.number ? invoiceByNumber.get(row.number) : null;
       const client = row.client_id ? clients.get(row.client_id) : invoice?.client_id ? clients.get(invoice.client_id) : null;
-      return {
-        ...row,
-        client_name: client?.company_name || "—",
-        invoice_number: invoice?.number || row.number || "—",
-        date: row.date_issued || row.created_at || row.payment_date || row.expense_date || row.start_date,
-      };
+      return { ...row, client_name: client?.company_name || "—", invoice_number: invoice?.number || row.number || "—", date: row.date_issued || row.created_at || row.payment_date || row.expense_date || row.start_date };
     });
 
     setRows(hydrated);
@@ -164,6 +170,20 @@ export function SalesReportCenter() {
 
   const totalAmount = filtered.reduce((sum, row) => sum + Number(row[config.amountKey] || 0), 0);
   const paidOrClosed = filtered.filter((row) => ["Paid", "Completed", "Accepted", "Converted", "Applied", "Issued", "Active"].includes(row.finance_status || row.status)).length;
+
+  const chartData = useMemo(() => {
+    const map = new Map<string, { name: string; amount: number; count: number; paid: number; balance: number }>();
+    filtered.forEach((row) => {
+      const name = chartGroupKey(activeReport, row);
+      const current = map.get(name) || { name, amount: 0, count: 0, paid: 0, balance: 0 };
+      current.amount += Number(row[config.amountKey] || 0);
+      current.paid += Number(row.paid_amount || 0);
+      current.balance += Number(row.balance_due || 0);
+      current.count += 1;
+      map.set(name, current);
+    });
+    return Array.from(map.values()).sort((a, b) => b.amount - a.amount).slice(0, 8);
+  }, [activeReport, config.amountKey, filtered]);
 
   return (
     <div className="rounded-2xl border bg-white shadow-sm">
@@ -190,6 +210,17 @@ export function SalesReportCenter() {
             <Summary label="Rows" value={String(filtered.length)} />
             <Summary label="Total" value={config.amountKey ? money(totalAmount) : "—"} />
             <Summary label="Closed/Paid" value={String(paidOrClosed)} />
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-[1.4fr_0.8fr]">
+            <div className="rounded-xl border bg-white p-4">
+              <div className="mb-3 text-sm font-extrabold text-slate-900">Chart Based Report</div>
+              {chartData.length ? <ResponsiveContainer width="100%" height={260}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} /><YAxis fontSize={11} tickLine={false} axisLine={false} /><Tooltip formatter={(value: number, name: string) => name === "count" ? value : money(value)} /><Bar dataKey={config.amountKey ? "amount" : "count"} radius={[6, 6, 0, 0]} fill="#2563eb" /></BarChart></ResponsiveContainer> : <div className="grid h-[260px] place-items-center text-sm font-medium text-slate-500">No chart data yet.</div>}
+            </div>
+            <div className="rounded-xl border bg-white p-4">
+              <div className="mb-3 text-sm font-extrabold text-slate-900">Distribution</div>
+              {chartData.length ? <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={chartData} dataKey={config.amountKey ? "amount" : "count"} nameKey="name" outerRadius={88} label={({ name }) => name}>{chartData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={(value: number) => config.amountKey ? money(value) : value} /></PieChart></ResponsiveContainer> : <div className="grid h-[260px] place-items-center text-sm font-medium text-slate-500">No distribution data yet.</div>}
+            </div>
           </div>
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
