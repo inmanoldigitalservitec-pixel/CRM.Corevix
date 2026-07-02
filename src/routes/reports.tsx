@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/crm/metric-card";
 import { LoadingMetrics } from "@/components/crm/loading-state";
@@ -50,7 +50,6 @@ function ReportsPage() {
 
     const leads = leadsRes.data || [];
     const deals = dealsRes.data || [];
-    const invoices = invoicesRes.data || [];
     const tasks = tasksRes.data || [];
     const payments = paymentsRes.data || [];
     const credits = creditsRes.data || [];
@@ -87,7 +86,6 @@ function ReportsPage() {
       completedTasks: tasks.filter((t: any) => t.status === "Completed").length,
       conversionRate: deals.length > 0 ? Math.round((wonDeals.length / deals.length) * 100) : 0,
       paidInvoices: paidInvoices.length,
-      unpaidInvoices: unpaidInvoices.length,
       unpaidAmount: unpaidInvoices.reduce((sum: number, i: any) => sum + Number(i.balance_due || 0), 0),
       expenseTotal,
       netIncome: revenue - expenseTotal - creditTotal,
@@ -122,46 +120,14 @@ function ReportsPage() {
   return (
     <div className="p-6 space-y-6">
       <div><h1 className="text-2xl font-bold tracking-tight">Reports</h1><p className="text-sm text-muted-foreground">Business analytics and sales finance flow</p></div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <MetricCard label="Total Leads" value={metrics.totalLeads || 0} icon={Users} />
-        <MetricCard label="Total Deals" value={metrics.totalDeals || 0} icon={DollarSign} />
-        <MetricCard label="Revenue" value={money(metrics.revenue || 0)} icon={TrendingUp} />
-        <MetricCard label="Tasks Done" value={metrics.completedTasks || 0} icon={CheckSquare} />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <MetricCard label="Paid Invoices" value={metrics.paidInvoices || 0} icon={Receipt} />
-        <MetricCard label="Unpaid" value={money(metrics.unpaidAmount || 0)} icon={CreditCard} />
-        <MetricCard label="Expenses" value={money(metrics.expenseTotal || 0)} icon={BadgeDollarSign} />
-        <MetricCard label="MRR" value={money(metrics.mrr || 0)} icon={RotateCcw} />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <MiniCard label="Net Income" value={money(metrics.netIncome || 0)} />
-        <MiniCard label="Credit Notes" value={money(metrics.creditTotal || 0)} />
-        <MiniCard label="Estimate Conversion" value={`${metrics.estimateConversion || 0}%`} />
-        <MiniCard label="Proposal Conversion" value={`${metrics.proposalConversion || 0}%`} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Deal Value by Stage" empty="No deals data yet">{dealsByStage.length > 0 && <ResponsiveContainer width="100%" height={250}><BarChart data={dealsByStage}><XAxis dataKey="stage" fontSize={11} /><YAxis fontSize={11} /><Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} /><Bar dataKey="value" fill="oklch(0.546 0.245 262.881)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>}</ChartCard>
-        <ChartCard title="Payments by Method" empty="No payments data yet">{paymentsByMethod.length > 0 && <ResponsiveContainer width="100%" height={250}><BarChart data={paymentsByMethod}><XAxis dataKey="method" fontSize={11} /><YAxis fontSize={11} /><Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} /><Bar dataKey="value" fill="oklch(0.6 0.2 160)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>}</ChartCard>
-        <PieCard title="Invoice Finance Status" data={invoiceFinance} empty="No invoice finance data yet" />
-        <PieCard title="Leads by Status" data={leadsByStatus} empty="No leads data yet" />
-      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"><MetricCard label="Total Leads" value={metrics.totalLeads || 0} icon={Users} /><MetricCard label="Total Deals" value={metrics.totalDeals || 0} icon={DollarSign} /><MetricCard label="Revenue" value={money(metrics.revenue || 0)} icon={TrendingUp} /><MetricCard label="Tasks Done" value={metrics.completedTasks || 0} icon={CheckSquare} /></div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"><MetricCard label="Paid Invoices" value={metrics.paidInvoices || 0} icon={Receipt} /><MetricCard label="Unpaid" value={money(metrics.unpaidAmount || 0)} icon={CreditCard} /><MetricCard label="Expenses" value={money(metrics.expenseTotal || 0)} icon={BadgeDollarSign} /><MetricCard label="MRR" value={money(metrics.mrr || 0)} icon={RotateCcw} /></div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"><MiniCard label="Net Income" value={money(metrics.netIncome || 0)} /><MiniCard label="Credit Notes" value={money(metrics.creditTotal || 0)} /><MiniCard label="Estimate Conversion" value={`${metrics.estimateConversion || 0}%`} /><MiniCard label="Proposal Conversion" value={`${metrics.proposalConversion || 0}%`} /></div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><ChartCard title="Deal Value by Stage" empty="No deals data yet">{dealsByStage.length > 0 && <ResponsiveContainer width="100%" height={250}><BarChart data={dealsByStage}><XAxis dataKey="stage" fontSize={11} /><YAxis fontSize={11} /><Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} /><Bar dataKey="value" fill="oklch(0.546 0.245 262.881)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>}</ChartCard><ChartCard title="Payments by Method" empty="No payments data yet">{paymentsByMethod.length > 0 && <ResponsiveContainer width="100%" height={250}><BarChart data={paymentsByMethod}><XAxis dataKey="method" fontSize={11} /><YAxis fontSize={11} /><Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} /><Bar dataKey="value" fill="oklch(0.6 0.2 160)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>}</ChartCard><PieCard title="Invoice Finance Status" data={invoiceFinance} empty="No invoice finance data yet" /><PieCard title="Leads by Status" data={leadsByStatus} empty="No leads data yet" /></div>
     </div>
   );
 }
 
-function MiniCard({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border bg-white p-4 shadow-sm"><div className="text-xs font-bold uppercase text-slate-500">{label}</div><div className="mt-1 text-2xl font-extrabold text-slate-950">{value}</div></div>;
-}
-
-function ChartCard({ title, empty, children }: { title: string; empty: string; children: React.ReactNode }) {
-  return <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader><CardContent>{children || <p className="text-sm text-muted-foreground text-center py-12">{empty}</p>}</CardContent></Card>;
-}
-
-function PieCard({ title, data, empty }: { title: string; data: any[]; empty: string }) {
-  return <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader><CardContent>{data.length > 0 ? <ResponsiveContainer width="100%" height={250}><PieChart><Pie data={data} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`} fontSize={11}>{data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer> : <p className="text-sm text-muted-foreground text-center py-12">{empty}</p>}</CardContent></Card>;
-}
+function MiniCard({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border bg-white p-4 shadow-sm"><div className="text-xs font-bold uppercase text-slate-500">{label}</div><div className="mt-1 text-2xl font-extrabold text-slate-950">{value}</div></div>; }
+function ChartCard({ title, empty, children }: { title: string; empty: string; children: ReactNode }) { return <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader><CardContent>{children || <p className="text-sm text-muted-foreground text-center py-12">{empty}</p>}</CardContent></Card>; }
+function PieCard({ title, data, empty }: { title: string; data: any[]; empty: string }) { return <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader><CardContent>{data.length > 0 ? <ResponsiveContainer width="100%" height={250}><PieChart><Pie data={data} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`} fontSize={11}>{data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer> : <p className="text-sm text-muted-foreground text-center py-12">{empty}</p>}</CardContent></Card>; }
