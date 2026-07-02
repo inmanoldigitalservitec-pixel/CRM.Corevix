@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  Activity,
   BadgeDollarSign,
   BarChart3,
   Bot,
@@ -8,16 +9,21 @@ import {
   Calendar,
   CheckSquare,
   ChevronDown,
+  CircleDot,
   CreditCard,
+  Database,
+  Download,
   FileCheck2,
   FileText,
   FolderOpen,
   GitBranch,
   HelpCircle,
+  Image,
   LayoutDashboard,
   Layers,
   LifeBuoy,
   Mail,
+  Megaphone,
   Menu,
   MessageCircle,
   Package,
@@ -28,6 +34,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Target,
   UserCog,
   Users,
   Zap,
@@ -85,7 +92,18 @@ const communicationItems: SidebarItem[] = [
 const operationsItems: SidebarItem[] = [
   { titleKey: "nav.tasks", url: "/tasks", icon: CheckSquare, iconClassName: "text-rose-600" },
   { titleKey: "nav.projects", url: "/projects", icon: FolderOpen, iconClassName: "text-indigo-600" },
+];
+
+const utilitiesItems: SidebarItem[] = [
+  { title: "Media", icon: Image, iconClassName: "text-sky-600", placeholder: true },
+  { title: "Bulk PDF Export", icon: Download, iconClassName: "text-slate-700", placeholder: true },
+  { title: "e-Invoice Export", icon: ReceiptText, iconClassName: "text-orange-600", placeholder: true },
+  { title: "CSV Export", icon: FileText, iconClassName: "text-emerald-600", placeholder: true },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-slate-600" },
+  { title: "Announcements", icon: Megaphone, iconClassName: "text-amber-600", placeholder: true },
+  { title: "Goals", icon: Target, iconClassName: "text-violet-600", placeholder: true },
+  { title: "Activity Log", icon: Activity, iconClassName: "text-blue-700", placeholder: true },
+  { title: "Database Backup", icon: Database, iconClassName: "text-slate-700", placeholder: true },
 ];
 
 const managementItems: SidebarItem[] = [
@@ -130,8 +148,10 @@ export function AppSidebar() {
 
   const visibleSetupItems = setupItems.filter((item) => !item.permission || can(item.permission as any));
   const isSalesPath = salesItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
+  const isUtilitiesPath = utilitiesItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const isSetupPath = visibleSetupItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const [salesOpen, setSalesOpen] = useState(isSalesPath || isMobile);
+  const [utilitiesOpen, setUtilitiesOpen] = useState(isUtilitiesPath || isMobile);
   const [setupOpen, setSetupOpen] = useState(isSetupPath || isMobile);
 
   const isActive = (path?: string) => !!path && (currentPath === path || currentPath.startsWith(path + "/"));
@@ -262,6 +282,7 @@ export function AppSidebar() {
         {renderCollapsibleGroup({ label: "Sales", icon: Zap, open: salesOpen, setOpen: setSalesOpen, active: isSalesPath, items: salesItems })}
         {renderGroup("nav.communication", communicationItems)}
         {renderGroup("nav.operations", operationsItems)}
+        {renderCollapsibleGroup({ label: "Utilities", icon: CircleDot, open: utilitiesOpen, setOpen: setUtilitiesOpen, active: isUtilitiesPath, items: utilitiesItems })}
         {renderGroup("nav.management", gatedManagementItems)}
         {renderCollapsibleGroup({ label: "Setup", icon: Settings, open: setupOpen, setOpen: setSetupOpen, active: isSetupPath, items: visibleSetupItems })}
       </SidebarContent>
