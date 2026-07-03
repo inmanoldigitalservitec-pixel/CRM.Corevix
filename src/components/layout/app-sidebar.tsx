@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
@@ -64,6 +64,12 @@ type SidebarItem = {
   iconClassName?: string;
   placeholder?: boolean;
   permission?: string;
+};
+
+type CollapsedFlyoutProps = {
+  label: string;
+  items: SidebarItem[];
+  itemLabel: (item: SidebarItem) => string;
 };
 
 const mainItems: SidebarItem[] = [
@@ -148,6 +154,74 @@ function initials(value: string) {
   return (parts.map((part) => part[0]).join("") || "U").toUpperCase();
 }
 
+function CollapsedFlyout({ label, items, itemLabel }: CollapsedFlyoutProps) {
+  const flyoutRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState({ top: 12, left: 72, maxHeight: 460 });
+
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      const flyout = flyoutRef.current;
+      const trigger = flyout?.closest<HTMLElement>("[data-sidebar-flyout-trigger]");
+      if (!flyout || !trigger || typeof window === "undefined") return;
+
+      const padding = 12;
+      const triggerRect = trigger.getBoundingClientRect();
+      const panelHeight = flyout.offsetHeight || 320;
+      const availableHeight = Math.max(220, window.innerHeight - padding * 2);
+      const usablePanelHeight = Math.min(panelHeight, availableHeight);
+      const maxTop = window.innerHeight - usablePanelHeight - padding;
+      const top = Math.min(Math.max(triggerRect.top, padding), Math.max(padding, maxTop));
+      const left = Math.min(triggerRect.right + 8, window.innerWidth - 256 - padding);
+
+      setPosition({
+        top,
+        left: Math.max(triggerRect.right + 8, left),
+        maxHeight: availableHeight,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [items.length]);
+
+  return (
+    <div
+      ref={flyoutRef}
+      className="pointer-events-none invisible fixed z-50 min-w-60 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-2xl shadow-slate-900/15 transition-[opacity,visibility] duration-150 group-hover/menu-item:pointer-events-auto group-hover/menu-item:visible group-hover/menu-item:opacity-100 group-focus-within/menu-item:pointer-events-auto group-focus-within/menu-item:visible group-focus-within/menu-item:opacity-100"
+      style={{ top: position.top, left: position.left, maxHeight: position.maxHeight }}
+    >
+      <div className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="space-y-1 overflow-auto pr-1" style={{ maxHeight: Math.max(160, position.maxHeight - 44) }}>
+        {items.map((item) => {
+          const childLabel = itemLabel(item);
+          const Icon = item.icon;
+          const rowClass = "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-[#f1f5ff] hover:text-slate-950";
+          if (item.placeholder) {
+            return (
+              <button key={item.titleKey || item.title} type="button" disabled className={rowClass + " cursor-default opacity-60 hover:bg-transparent"}>
+                <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
+                <span className="min-w-0 flex-1 truncate text-left">{childLabel}</span>
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Soon</span>
+              </button>
+            );
+          }
+          return (
+            <Link key={item.titleKey || item.title} to={item.url || "/dashboard"} className={rowClass}>
+              <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
+              <span className="min-w-0 flex-1 truncate">{childLabel}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function AppSidebar() {
   const { state, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
@@ -220,28 +294,11 @@ export function AppSidebar() {
 
   const renderChildItems = (items: SidebarItem[]) => <div className="space-y-1">{items.map((item) => renderMenuItem(item, true))}</div>;
 
-  const renderCollapsedFlyout = (label: string, items: SidebarItem[]) => (
-    <div className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-0 z-50 hidden min-w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/15 group-hover/menu-item:pointer-events-auto group-hover/menu-item:block group-focus-within/menu-item:pointer-events-auto group-focus-within/menu-item:block">
-      <div className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="max-h-[min(70vh,460px)] space-y-1 overflow-auto">
-        {items.map((item) => {
-          const childLabel = itemLabel(item);
-          const Icon = item.icon;
-          const rowClass = "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-[#f1f5ff] hover:text-slate-950";
-          if (item.placeholder) {
-            return <button key={item.titleKey || item.title} type="button" disabled className={rowClass + " cursor-default opacity-60 hover:bg-transparent"}><Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} /><span className="min-w-0 flex-1 truncate text-left">{childLabel}</span><span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Soon</span></button>;
-          }
-          return <Link key={item.titleKey || item.title} to={item.url || "/dashboard"} className={rowClass}><Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} /><span className="min-w-0 flex-1 truncate">{childLabel}</span></Link>;
-        })}
-      </div>
-    </div>
-  );
-
   const renderCollapsibleGroup = ({ label, icon: Icon, open, setOpen, active, items }: { label: string; icon: React.ElementType; open: boolean; setOpen: (updater: (open: boolean) => boolean) => void; active: boolean; items: SidebarItem[] }) => (
     <SidebarGroup className="px-2 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-1">
       <SidebarGroupContent>
         <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
-          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full group/menu-item relative">
+          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full group/menu-item relative" data-sidebar-flyout-trigger="true">
             <SidebarMenuButton type="button" isActive={active} tooltip={isMobile || isCollapsedDesktop ? undefined : label} className={menuButtonClass} onClick={() => setOpen((current) => !current)}>
               <span className={linkClass} aria-label={label} title={collapsed && !isMobile ? label : undefined}>
                 <Icon className="h-[18px] w-[18px] shrink-0 text-slate-900" />
@@ -249,7 +306,7 @@ export function AppSidebar() {
                 {showLabels && <ChevronDown className={"ml-auto h-4 w-4 shrink-0 text-slate-500 transition-transform " + (open ? "rotate-180" : "")} />}
               </span>
             </SidebarMenuButton>
-            {isCollapsedDesktop && renderCollapsedFlyout(label, items)}
+            {isCollapsedDesktop && <CollapsedFlyout label={label} items={items} itemLabel={itemLabel} />}
           </SidebarMenuItem>
           {!isCollapsedDesktop && open && renderChildItems(items)}
         </SidebarMenu>
