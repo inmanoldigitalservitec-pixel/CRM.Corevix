@@ -240,7 +240,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
     useDashboardLayout();
   const { containerRef, mounted, width } = useContainerWidth({
     initialWidth: 1280,
-    measureBeforeMount: true,
+    measureBeforeMount: false,
   });
   const [editing, setEditing] = useState(false);
   const widgetById = useMemo(
@@ -259,6 +259,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
     () => toGridLayouts(normalizedPreferences, renderableIds),
     [normalizedPreferences, renderableIds],
   );
+  const gridWidth = mounted && width > 0 ? width : 1280;
 
   const handleLayoutChange = (
     _currentLayout: Layout,
@@ -348,9 +349,29 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
         </div>
       ) : null}
 
-      {mounted ? (
+      {visiblePreferences.length === 0 ? (
+        <div className="m-3 grid min-h-[360px] place-items-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
+          <div className="max-w-sm">
+            <h2 className="text-base font-semibold text-slate-950">No hay widgets visibles</h2>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              Activa widgets desde Opciones o restaura el layout por defecto.
+            </p>
+            <Button
+              type="button"
+              className="mt-4"
+              onClick={() => {
+                void resetPreferences();
+              }}
+              disabled={saving}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Restaurar widgets
+            </Button>
+          </div>
+        </div>
+      ) : (
         <ResponsiveGridLayout
-          width={width}
+          width={gridWidth}
           className={cn("dashboard-builder-grid p-3", editing && "dashboard-builder-grid-editing")}
           layouts={layouts}
           breakpoints={breakpoints}
@@ -387,7 +408,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
             );
           })}
         </ResponsiveGridLayout>
-      ) : null}
+      )}
     </div>
   );
 }
