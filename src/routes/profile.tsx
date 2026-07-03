@@ -6,9 +6,13 @@ import {
   CalendarDays,
   CheckCircle2,
   Edit3,
+  Languages,
+  LayoutDashboard,
   Mail,
+  MonitorCog,
   Phone,
   ShieldCheck,
+  SlidersHorizontal,
   UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +34,33 @@ type ProfileForm = {
   department: string;
   avatar_url: string;
 };
+
+type ProfilePreferences = {
+  language: "system" | "en" | "es";
+  timezone: string;
+  theme: "system" | "light" | "dark";
+  density: "comfortable" | "compact";
+  default_dashboard: "dashboard" | "tasks" | "projects" | "leads" | "pipeline" | "calendar";
+};
+
+const DEFAULT_PREFERENCES: ProfilePreferences = {
+  language: "system",
+  timezone: "America/Santo_Domingo",
+  theme: "system",
+  density: "comfortable",
+  default_dashboard: "dashboard",
+};
+
+const timezones = [
+  "America/Santo_Domingo",
+  "America/New_York",
+  "America/Puerto_Rico",
+  "America/Bogota",
+  "America/Mexico_City",
+  "America/Los_Angeles",
+  "Europe/Madrid",
+  "UTC",
+];
 
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
@@ -59,6 +90,10 @@ function roleLabel(role: string) {
   return role.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function labelFromValue(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function InfoRow({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
   return (
     <div className="flex items-start gap-3 rounded-xl border bg-white px-3 py-3">
@@ -73,17 +108,55 @@ function InfoRow({ icon: Icon, label, value }: { icon: ElementType; label: strin
   );
 }
 
+function FieldSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function ProfilePage() {
   const { user, profile, roles, loading } = useAuth();
   const db = supabase as any;
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [form, setForm] = useState<ProfileForm>({
     full_name: "",
     phone: "",
     department: "",
     avatar_url: "",
   });
+  const [preferences, setPreferences] = useState<ProfilePreferences>(DEFAULT_PREFERENCES);
 
   useEffect(() => {
     setForm({
@@ -93,6 +166,40 @@ function ProfilePage() {
       avatar_url: profile?.avatar_url || "",
     });
   }, [profile, user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPreferences = async () => {
+      if (!profile?.id) return;
+      setPreferencesLoading(true);
+      const { data, error } = await db
+        .from("profile_preferences")
+        .select("language,timezone,theme,density,default_dashboard")
+        .eq("profile_id", profile.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setPreferencesLoading(false);
+      if (error) {
+        toast.error(error.message || "Could not load profile preferences.");
+        return;
+      }
+      if (data) {
+        setPreferences({
+          language: data.language || DEFAULT_PREFERENCES.language,
+          timezone: data.timezone || DEFAULT_PREFERENCES.timezone,
+          theme: data.theme || DEFAULT_PREFERENCES.theme,
+          density: data.density || DEFAULT_PREFERENCES.density,
+          default_dashboard: data.default_dashboard || DEFAULT_PREFERENCES.default_dashboard,
+        });
+      } else {
+        setPreferences(DEFAULT_PREFERENCES);
+      }
+    };
+    void loadPreferences();
+    return () => {
+      cancelled = true;
+    };
+  }, [db, profile?.id]);
 
   const displayName = form.full_name || profile?.full_name || user?.email || "Corevix User";
   const email = user?.email || "No email";
@@ -127,6 +234,31 @@ function ProfilePage() {
 
     toast.success("Profile updated.");
     setEditOpen(false);
+  };
+
+  const savePreferences = async () => {
+    if (!profile?.id) {
+      toast.error("No profile record found for this user.");
+      return;
+    }
+
+    setPreferencesSaving(true);
+    const { error } = await db.from("profile_preferences").upsert(
+      {
+        profile_id: profile.id,
+        ...preferences,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "profile_id" },
+    );
+    setPreferencesSaving(false);
+
+    if (error) {
+      toast.error(error.message || "Could not save preferences.");
+      return;
+    }
+
+    toast.success("Preferences saved.");
   };
 
   if (loading) {
@@ -236,9 +368,10 @@ function ProfilePage() {
           </div>
 
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3 md:w-auto md:inline-grid">
+            <TabsList className="grid w-full grid-cols-4 md:w-auto md:inline-grid">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="access">Access</TabsTrigger>
+              <TabsTrigger value="preferences">Preferences</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
             </TabsList>
 
@@ -282,6 +415,92 @@ function ProfilePage() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="preferences" className="space-y-4">
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Personal Preferences</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Store the basic settings that will drive each user's CRM experience.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FieldSelect
+                      id="profile-language"
+                      label="Language"
+                      value={preferences.language}
+                      disabled={preferencesLoading || preferencesSaving}
+                      onChange={(value) => setPreferences((prev) => ({ ...prev, language: value as ProfilePreferences["language"] }))}
+                      options={[
+                        { value: "system", label: "System default" },
+                        { value: "en", label: "English" },
+                        { value: "es", label: "Spanish" },
+                      ]}
+                    />
+                    <FieldSelect
+                      id="profile-timezone"
+                      label="Timezone"
+                      value={preferences.timezone}
+                      disabled={preferencesLoading || preferencesSaving}
+                      onChange={(value) => setPreferences((prev) => ({ ...prev, timezone: value }))}
+                      options={timezones.map((timezone) => ({ value: timezone, label: timezone }))}
+                    />
+                    <FieldSelect
+                      id="profile-theme"
+                      label="Theme"
+                      value={preferences.theme}
+                      disabled={preferencesLoading || preferencesSaving}
+                      onChange={(value) => setPreferences((prev) => ({ ...prev, theme: value as ProfilePreferences["theme"] }))}
+                      options={[
+                        { value: "system", label: "System" },
+                        { value: "light", label: "Light" },
+                        { value: "dark", label: "Dark" },
+                      ]}
+                    />
+                    <FieldSelect
+                      id="profile-density"
+                      label="Interface density"
+                      value={preferences.density}
+                      disabled={preferencesLoading || preferencesSaving}
+                      onChange={(value) => setPreferences((prev) => ({ ...prev, density: value as ProfilePreferences["density"] }))}
+                      options={[
+                        { value: "comfortable", label: "Comfortable" },
+                        { value: "compact", label: "Compact" },
+                      ]}
+                    />
+                    <FieldSelect
+                      id="profile-default-dashboard"
+                      label="Default landing page"
+                      value={preferences.default_dashboard}
+                      disabled={preferencesLoading || preferencesSaving}
+                      onChange={(value) => setPreferences((prev) => ({ ...prev, default_dashboard: value as ProfilePreferences["default_dashboard"] }))}
+                      options={[
+                        { value: "dashboard", label: "Dashboard" },
+                        { value: "tasks", label: "Tasks" },
+                        { value: "projects", label: "Projects" },
+                        { value: "leads", label: "Leads" },
+                        { value: "pipeline", label: "Pipeline" },
+                        { value: "calendar", label: "Calendar" },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <InfoRow icon={Languages} label="Language" value={labelFromValue(preferences.language)} />
+                    <InfoRow icon={MonitorCog} label="Theme" value={labelFromValue(preferences.theme)} />
+                    <InfoRow icon={SlidersHorizontal} label="Density" value={labelFromValue(preferences.density)} />
+                    <InfoRow icon={LayoutDashboard} label="Start page" value={labelFromValue(preferences.default_dashboard)} />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={savePreferences} disabled={preferencesLoading || preferencesSaving}>
+                      {preferencesSaving ? "Saving..." : "Save Preferences"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="activity" className="space-y-4">
               <Card className="border-0 shadow-sm">
                 <CardHeader>
@@ -289,7 +508,7 @@ function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-2xl border border-dashed bg-slate-50 p-6 text-sm text-muted-foreground">
-                    This first version only connects identity and editable profile details. Work metrics, timesheets, notifications, and security events will be connected in the next steps.
+                    This first version connects identity, editable profile details, and personal preferences. Work metrics, timesheets, notifications, and security events will be connected in the next steps.
                   </div>
                 </CardContent>
               </Card>
