@@ -11,28 +11,38 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatsappWebRouteImport } from './routes/whatsapp-web'
 import { Route as WhatsappRouteImport } from './routes/whatsapp'
+import { Route as TicketsRouteImport } from './routes/tickets'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as SpreadsheetBuilderTestRouteImport } from './routes/spreadsheet-builder-test'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProposalsRouteImport } from './routes/proposals'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as PipelineRouteImport } from './routes/pipeline'
+import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as InvoiceBuilderTestRouteImport } from './routes/invoice-builder-test'
 import { Route as GoogleDriveCallbackRouteImport } from './routes/google-drive-callback'
+import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as EstimatesRouteImport } from './routes/estimates'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DocumentBuilderTestRouteImport } from './routes/document-builder-test'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CreditNotesRouteImport } from './routes/credit-notes'
+import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as AiAssistantRouteImport } from './routes/ai-assistant'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProposalBuilderProposalIdRouteImport } from './routes/proposal-builder/$proposalId'
+import { Route as ProposalsProposalIdBuilderRouteImport } from './routes/proposals/$proposalId/builder'
 import { Route as ProposalPublicPublicTokenRouteImport } from './routes/proposal/public/$publicToken'
 import { Route as InvoicePublicPublicTokenRouteImport } from './routes/invoice/public/$publicToken'
 
@@ -46,6 +56,11 @@ const WhatsappRoute = WhatsappRouteImport.update({
   path: '/whatsapp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TicketsRoute = TicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeamRoute = TeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -54,6 +69,11 @@ const TeamRoute = TeamRouteImport.update({
 const TasksRoute = TasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubscriptionsRoute = SubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SpreadsheetBuilderTestRoute = SpreadsheetBuilderTestRouteImport.update({
@@ -81,6 +101,11 @@ const ProjectsRoute = ProjectsRouteImport.update({
   path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductsRoute = ProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -89,6 +114,11 @@ const ProductsRoute = ProductsRouteImport.update({
 const PipelineRoute = PipelineRouteImport.update({
   id: '/pipeline',
   path: '/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentsRoute = PaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -116,6 +146,16 @@ const GoogleDriveCallbackRoute = GoogleDriveCallbackRouteImport.update({
   path: '/google-drive-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpensesRoute = ExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EstimatesRoute = EstimatesRouteImport.update({
+  id: '/estimates',
+  path: '/estimates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmailRoute = EmailRouteImport.update({
   id: '/email',
   path: '/email',
@@ -129,6 +169,16 @@ const DocumentBuilderTestRoute = DocumentBuilderTestRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreditNotesRoute = CreditNotesRouteImport.update({
+  id: '/credit-notes',
+  path: '/credit-notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContractsRoute = ContractsRouteImport.update({
+  id: '/contracts',
+  path: '/contracts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsRoute = ClientsRouteImport.update({
@@ -156,6 +206,18 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProposalBuilderProposalIdRoute =
+  ProposalBuilderProposalIdRouteImport.update({
+    id: '/proposal-builder/$proposalId',
+    path: '/proposal-builder/$proposalId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ProposalsProposalIdBuilderRoute =
+  ProposalsProposalIdBuilderRouteImport.update({
+    id: '/$proposalId/builder',
+    path: '/$proposalId/builder',
+    getParentRoute: () => ProposalsRoute,
+  } as any)
 const ProposalPublicPublicTokenRoute =
   ProposalPublicPublicTokenRouteImport.update({
     id: '/proposal/public/$publicToken',
@@ -175,27 +237,37 @@ export interface FileRoutesByFullPath {
   '/automations': typeof AutomationsRoute
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
+  '/contracts': typeof ContractsRoute
+  '/credit-notes': typeof CreditNotesRoute
   '/dashboard': typeof DashboardRoute
   '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
+  '/estimates': typeof EstimatesRoute
+  '/expenses': typeof ExpensesRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
   '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
+  '/payments': typeof PaymentsRoute
   '/pipeline': typeof PipelineRoute
   '/products': typeof ProductsRoute
+  '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
-  '/proposals': typeof ProposalsRoute
+  '/proposals': typeof ProposalsRouteWithChildren
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/spreadsheet-builder-test': typeof SpreadsheetBuilderTestRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
+  '/tickets': typeof TicketsRoute
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
+  '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
+  '/proposals/$proposalId/builder': typeof ProposalsProposalIdBuilderRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -203,27 +275,37 @@ export interface FileRoutesByTo {
   '/automations': typeof AutomationsRoute
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
+  '/contracts': typeof ContractsRoute
+  '/credit-notes': typeof CreditNotesRoute
   '/dashboard': typeof DashboardRoute
   '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
+  '/estimates': typeof EstimatesRoute
+  '/expenses': typeof ExpensesRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
   '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
+  '/payments': typeof PaymentsRoute
   '/pipeline': typeof PipelineRoute
   '/products': typeof ProductsRoute
+  '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
-  '/proposals': typeof ProposalsRoute
+  '/proposals': typeof ProposalsRouteWithChildren
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/spreadsheet-builder-test': typeof SpreadsheetBuilderTestRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
+  '/tickets': typeof TicketsRoute
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
+  '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
+  '/proposals/$proposalId/builder': typeof ProposalsProposalIdBuilderRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -232,27 +314,37 @@ export interface FileRoutesById {
   '/automations': typeof AutomationsRoute
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
+  '/contracts': typeof ContractsRoute
+  '/credit-notes': typeof CreditNotesRoute
   '/dashboard': typeof DashboardRoute
   '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
+  '/estimates': typeof EstimatesRoute
+  '/expenses': typeof ExpensesRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
   '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
+  '/payments': typeof PaymentsRoute
   '/pipeline': typeof PipelineRoute
   '/products': typeof ProductsRoute
+  '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
-  '/proposals': typeof ProposalsRoute
+  '/proposals': typeof ProposalsRouteWithChildren
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/spreadsheet-builder-test': typeof SpreadsheetBuilderTestRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
+  '/tickets': typeof TicketsRoute
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
+  '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
+  '/proposals/$proposalId/builder': typeof ProposalsProposalIdBuilderRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -262,27 +354,37 @@ export interface FileRouteTypes {
     | '/automations'
     | '/calendar'
     | '/clients'
+    | '/contracts'
+    | '/credit-notes'
     | '/dashboard'
     | '/document-builder-test'
     | '/email'
+    | '/estimates'
+    | '/expenses'
     | '/google-drive-callback'
     | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
     | '/login'
+    | '/payments'
     | '/pipeline'
     | '/products'
+    | '/profile'
     | '/projects'
     | '/proposals'
     | '/reports'
     | '/settings'
     | '/spreadsheet-builder-test'
+    | '/subscriptions'
     | '/tasks'
     | '/team'
+    | '/tickets'
     | '/whatsapp'
     | '/whatsapp-web'
+    | '/proposal-builder/$proposalId'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
+    | '/proposals/$proposalId/builder'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -290,27 +392,37 @@ export interface FileRouteTypes {
     | '/automations'
     | '/calendar'
     | '/clients'
+    | '/contracts'
+    | '/credit-notes'
     | '/dashboard'
     | '/document-builder-test'
     | '/email'
+    | '/estimates'
+    | '/expenses'
     | '/google-drive-callback'
     | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
     | '/login'
+    | '/payments'
     | '/pipeline'
     | '/products'
+    | '/profile'
     | '/projects'
     | '/proposals'
     | '/reports'
     | '/settings'
     | '/spreadsheet-builder-test'
+    | '/subscriptions'
     | '/tasks'
     | '/team'
+    | '/tickets'
     | '/whatsapp'
     | '/whatsapp-web'
+    | '/proposal-builder/$proposalId'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
+    | '/proposals/$proposalId/builder'
   id:
     | '__root__'
     | '/'
@@ -318,27 +430,37 @@ export interface FileRouteTypes {
     | '/automations'
     | '/calendar'
     | '/clients'
+    | '/contracts'
+    | '/credit-notes'
     | '/dashboard'
     | '/document-builder-test'
     | '/email'
+    | '/estimates'
+    | '/expenses'
     | '/google-drive-callback'
     | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
     | '/login'
+    | '/payments'
     | '/pipeline'
     | '/products'
+    | '/profile'
     | '/projects'
     | '/proposals'
     | '/reports'
     | '/settings'
     | '/spreadsheet-builder-test'
+    | '/subscriptions'
     | '/tasks'
     | '/team'
+    | '/tickets'
     | '/whatsapp'
     | '/whatsapp-web'
+    | '/proposal-builder/$proposalId'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
+    | '/proposals/$proposalId/builder'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -347,25 +469,34 @@ export interface RootRouteChildren {
   AutomationsRoute: typeof AutomationsRoute
   CalendarRoute: typeof CalendarRoute
   ClientsRoute: typeof ClientsRoute
+  ContractsRoute: typeof ContractsRoute
+  CreditNotesRoute: typeof CreditNotesRoute
   DashboardRoute: typeof DashboardRoute
   DocumentBuilderTestRoute: typeof DocumentBuilderTestRoute
   EmailRoute: typeof EmailRoute
+  EstimatesRoute: typeof EstimatesRoute
+  ExpensesRoute: typeof ExpensesRoute
   GoogleDriveCallbackRoute: typeof GoogleDriveCallbackRoute
   InvoiceBuilderTestRoute: typeof InvoiceBuilderTestRoute
   InvoicesRoute: typeof InvoicesRoute
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
+  PaymentsRoute: typeof PaymentsRoute
   PipelineRoute: typeof PipelineRoute
   ProductsRoute: typeof ProductsRoute
+  ProfileRoute: typeof ProfileRoute
   ProjectsRoute: typeof ProjectsRoute
-  ProposalsRoute: typeof ProposalsRoute
+  ProposalsRoute: typeof ProposalsRouteWithChildren
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   SpreadsheetBuilderTestRoute: typeof SpreadsheetBuilderTestRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
+  TicketsRoute: typeof TicketsRoute
   WhatsappRoute: typeof WhatsappRoute
   WhatsappWebRoute: typeof WhatsappWebRoute
+  ProposalBuilderProposalIdRoute: typeof ProposalBuilderProposalIdRoute
   InvoicePublicPublicTokenRoute: typeof InvoicePublicPublicTokenRoute
   ProposalPublicPublicTokenRoute: typeof ProposalPublicPublicTokenRoute
 }
@@ -386,6 +517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WhatsappRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tickets': {
+      id: '/tickets'
+      path: '/tickets'
+      fullPath: '/tickets'
+      preLoaderRoute: typeof TicketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/team': {
       id: '/team'
       path: '/team'
@@ -398,6 +536,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/spreadsheet-builder-test': {
@@ -435,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/products': {
       id: '/products'
       path: '/products'
@@ -447,6 +599,13 @@ declare module '@tanstack/react-router' {
       path: '/pipeline'
       fullPath: '/pipeline'
       preLoaderRoute: typeof PipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payments': {
+      id: '/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof PaymentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -484,6 +643,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GoogleDriveCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expenses': {
+      id: '/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/estimates': {
+      id: '/estimates'
+      path: '/estimates'
+      fullPath: '/estimates'
+      preLoaderRoute: typeof EstimatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/email': {
       id: '/email'
       path: '/email'
@@ -503,6 +676,20 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/credit-notes': {
+      id: '/credit-notes'
+      path: '/credit-notes'
+      fullPath: '/credit-notes'
+      preLoaderRoute: typeof CreditNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contracts': {
+      id: '/contracts'
+      path: '/contracts'
+      fullPath: '/contracts'
+      preLoaderRoute: typeof ContractsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients': {
@@ -540,6 +727,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/proposal-builder/$proposalId': {
+      id: '/proposal-builder/$proposalId'
+      path: '/proposal-builder/$proposalId'
+      fullPath: '/proposal-builder/$proposalId'
+      preLoaderRoute: typeof ProposalBuilderProposalIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proposals/$proposalId/builder': {
+      id: '/proposals/$proposalId/builder'
+      path: '/$proposalId/builder'
+      fullPath: '/proposals/$proposalId/builder'
+      preLoaderRoute: typeof ProposalsProposalIdBuilderRouteImport
+      parentRoute: typeof ProposalsRoute
+    }
     '/proposal/public/$publicToken': {
       id: '/proposal/public/$publicToken'
       path: '/proposal/public/$publicToken'
@@ -557,31 +758,52 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ProposalsRouteChildren {
+  ProposalsProposalIdBuilderRoute: typeof ProposalsProposalIdBuilderRoute
+}
+
+const ProposalsRouteChildren: ProposalsRouteChildren = {
+  ProposalsProposalIdBuilderRoute: ProposalsProposalIdBuilderRoute,
+}
+
+const ProposalsRouteWithChildren = ProposalsRoute._addFileChildren(
+  ProposalsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiAssistantRoute: AiAssistantRoute,
   AutomationsRoute: AutomationsRoute,
   CalendarRoute: CalendarRoute,
   ClientsRoute: ClientsRoute,
+  ContractsRoute: ContractsRoute,
+  CreditNotesRoute: CreditNotesRoute,
   DashboardRoute: DashboardRoute,
   DocumentBuilderTestRoute: DocumentBuilderTestRoute,
   EmailRoute: EmailRoute,
+  EstimatesRoute: EstimatesRoute,
+  ExpensesRoute: ExpensesRoute,
   GoogleDriveCallbackRoute: GoogleDriveCallbackRoute,
   InvoiceBuilderTestRoute: InvoiceBuilderTestRoute,
   InvoicesRoute: InvoicesRoute,
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
+  PaymentsRoute: PaymentsRoute,
   PipelineRoute: PipelineRoute,
   ProductsRoute: ProductsRoute,
+  ProfileRoute: ProfileRoute,
   ProjectsRoute: ProjectsRoute,
-  ProposalsRoute: ProposalsRoute,
+  ProposalsRoute: ProposalsRouteWithChildren,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   SpreadsheetBuilderTestRoute: SpreadsheetBuilderTestRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
+  TicketsRoute: TicketsRoute,
   WhatsappRoute: WhatsappRoute,
   WhatsappWebRoute: WhatsappWebRoute,
+  ProposalBuilderProposalIdRoute: ProposalBuilderProposalIdRoute,
   InvoicePublicPublicTokenRoute: InvoicePublicPublicTokenRoute,
   ProposalPublicPublicTokenRoute: ProposalPublicPublicTokenRoute,
 }
