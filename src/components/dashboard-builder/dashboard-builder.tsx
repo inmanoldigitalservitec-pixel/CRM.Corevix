@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Check, GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import type { Layout, LayoutItem, ResponsiveLayouts } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
@@ -8,6 +8,12 @@ import "react-resizable/css/styles.css";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -44,6 +50,12 @@ const breakpoints: Record<DashboardBreakpoint, number> = {
   md: 900,
   sm: 640,
   xs: 0,
+};
+
+const modeLabels: Record<DashboardWidgetMode, string> = {
+  mini: "Mini",
+  standard: "Standard",
+  advanced: "Avanzado",
 };
 
 function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: Set<string>) {
@@ -285,6 +297,20 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
     void savePreferences(nextPreferences, { silent: true });
   };
 
+  const updateWidgetMode = (widgetId: string, mode: DashboardWidgetMode) => {
+    const nextPreferences = normalizedPreferences.map((preference) => {
+      if (preference.widgetId !== widgetId) return preference;
+
+      return {
+        ...preference,
+        mode,
+        layout: resizeLayoutForMode(preference, mode),
+      };
+    });
+
+    void savePreferences(nextPreferences, { silent: true });
+  };
+
   if (loading) {
     return (
       <div className="grid min-h-[420px] place-items-center p-6 text-sm font-medium text-slate-500">
@@ -389,16 +415,40 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
             const widget = widgetById.get(preference.widgetId);
             const definition = getDashboardWidgetDefinition(preference.widgetId);
             if (!widget) return null;
+            const supportedModes = definition?.supportedModes || ["mini", "standard", "advanced"];
 
             return (
               <div key={preference.widgetId} className="relative min-h-0 pl-6">
-                <button
-                  type="button"
-                  className="dashboard-widget-drag-grip absolute left-0 top-4 z-10 hidden cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:grid"
-                  aria-label={`Mover ${definition?.title || preference.widgetId}`}
-                >
-                  <GripVertical className="h-4 w-4" />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="dashboard-widget-drag-grip absolute left-0 top-4 z-10 hidden cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:grid"
+                      aria-label={`Mover o cambiar tamaño de ${
+                        definition?.title || preference.widgetId
+                      }`}
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="right" className="w-40">
+                    {supportedModes.map((mode) => (
+                      <DropdownMenuItem
+                        key={mode}
+                        onSelect={() => updateWidgetMode(preference.widgetId, mode)}
+                        className="gap-2"
+                      >
+                        <Check
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            preference.mode === mode ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        {modeLabels[mode]}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 <DashboardGridItemShell>
                   {widget.render
