@@ -36,7 +36,6 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Target,
-  UserCircle,
   UserCog,
   Users,
   Zap,
@@ -165,10 +164,14 @@ export function AppSidebar() {
 
   const visibleSetupItems = setupItems.filter((item) => !item.permission || can(item.permission as any));
   const isSalesPath = salesItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
+  const isCommunicationPath = communicationItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
+  const isOperationsPath = operationsItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const isUtilitiesPath = utilitiesItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const isReportsPath = reportsItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const isSetupPath = visibleSetupItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
   const [salesOpen, setSalesOpen] = useState(isSalesPath || isMobile);
+  const [communicationOpen, setCommunicationOpen] = useState(isCommunicationPath || isMobile);
+  const [operationsOpen, setOperationsOpen] = useState(isOperationsPath || isMobile);
   const [utilitiesOpen, setUtilitiesOpen] = useState(isUtilitiesPath || isMobile);
   const [reportsOpen, setReportsOpen] = useState(isReportsPath || isMobile);
   const [setupOpen, setSetupOpen] = useState(isSetupPath || isMobile);
@@ -238,7 +241,7 @@ export function AppSidebar() {
     <SidebarGroup className="px-2 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1 group-data-[mobile=true]:px-2 group-data-[mobile=true]:py-1">
       <SidebarGroupContent>
         <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
-          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
+          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full group/menu-item relative">
             <SidebarMenuButton type="button" isActive={active} tooltip={isMobile || isCollapsedDesktop ? undefined : label} className={menuButtonClass} onClick={() => setOpen((current) => !current)}>
               <span className={linkClass} aria-label={label} title={collapsed && !isMobile ? label : undefined}>
                 <Icon className="h-[18px] w-[18px] shrink-0 text-slate-900" />
@@ -254,8 +257,6 @@ export function AppSidebar() {
     </SidebarGroup>
   );
 
-  const aiLabel = t("nav.aiAssistant");
-
   return (
     <Sidebar collapsible="icon" className="border-r border-[#e6eaf0]" style={{ "--sidebar": "#ffffff", "--sidebar-foreground": "#111827", "--sidebar-accent": "#eaf1ff", "--sidebar-accent-foreground": "#111827", "--sidebar-border": "#e6eaf0", "--sidebar-ring": "#1d62f9" } as React.CSSProperties}>
       <SidebarHeader className="p-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3 group-data-[mobile=true]:p-4">
@@ -267,8 +268,12 @@ export function AppSidebar() {
       <SidebarContent className="px-2 group-data-[collapsible=icon]:overflow-visible group-data-[collapsible=icon]:px-2">
         {renderGroup(mainItems)}
         {renderCollapsibleGroup({ label: "Sales", icon: Zap, open: salesOpen, setOpen: setSalesOpen, active: isSalesPath, items: salesItems })}
-        {renderGroup(communicationItems)}
-        {renderGroup(operationsItems)}
+        {isCollapsedDesktop
+          ? renderCollapsibleGroup({ label: "Communication", icon: MessageCircle, open: communicationOpen, setOpen: setCommunicationOpen, active: isCommunicationPath, items: communicationItems })
+          : renderGroup(communicationItems)}
+        {isCollapsedDesktop
+          ? renderCollapsibleGroup({ label: "Operations", icon: FolderOpen, open: operationsOpen, setOpen: setOperationsOpen, active: isOperationsPath, items: operationsItems })
+          : renderGroup(operationsItems)}
         {renderCollapsibleGroup({ label: "Utilities", icon: CircleDot, open: utilitiesOpen, setOpen: setUtilitiesOpen, active: isUtilitiesPath, items: utilitiesItems })}
         {renderCollapsibleGroup({ label: "Reports", icon: BarChart3, open: reportsOpen, setOpen: setReportsOpen, active: isReportsPath, items: reportsItems })}
         {renderCollapsibleGroup({ label: "Setup", icon: Settings, open: setupOpen, setOpen: setSetupOpen, active: isSetupPath, items: visibleSetupItems })}
