@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ElementType } from "react";
 import {
   Activity,
   Building2,
@@ -10,7 +10,6 @@ import {
   Phone,
   ShieldCheck,
   UserCircle,
-  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +35,7 @@ export const Route = createFileRoute("/profile")({
   component: ProfilePage,
   head: () => ({
     meta: [
-      { title: "My Profile — Corevix CRM" },
+      { title: "My Profile - Corevix CRM" },
       { name: "description", content: "Manage your Corevix CRM profile and account details." },
     ],
   }),
@@ -60,7 +59,7 @@ function roleLabel(role: string) {
   return role.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function InfoRow({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
   return (
     <div className="flex items-start gap-3 rounded-xl border bg-white px-3 py-3">
       <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
@@ -68,7 +67,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
       </span>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="mt-1 truncate text-sm font-semibold text-slate-950">{value || "—"}</p>
+        <p className="mt-1 truncate text-sm font-semibold text-slate-950">{value || "-"}</p>
       </div>
     </div>
   );
@@ -133,7 +132,7 @@ function ProfilePage() {
   if (loading) {
     return (
       <div className="space-y-6 p-4 md:p-6">
-        <PageHeader title="My Profile" description="Loading your profile..." />
+        <PageHeader title="My Profile" subtitle="Loading your profile..." />
         <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
       </div>
     );
@@ -143,14 +142,13 @@ function ProfilePage() {
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="My Profile"
-        description="Manage your identity, contact details, role context, and account overview."
-        action={
-          <Button onClick={() => setEditOpen(true)}>
-            <Edit3 className="mr-2 h-4 w-4" />
-            Edit Profile
-          </Button>
-        }
-      />
+        subtitle="Manage your identity, contact details, role context, and account overview."
+      >
+        <Button size="sm" onClick={() => setEditOpen(true)}>
+          <Edit3 className="mr-2 h-4 w-4" />
+          Edit Profile
+        </Button>
+      </PageHeader>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="overflow-hidden border-0 shadow-sm">
@@ -273,7 +271,11 @@ function ProfilePage() {
                   <div>
                     <p className="text-sm font-semibold text-slate-950">Assigned roles</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {roleBadges.length ? roleBadges.map((role) => <Badge key={role}>{role}</Badge>) : <Badge variant="outline">No roles assigned</Badge>}
+                      {roleBadges.length ? (
+                        roleBadges.map((role) => <Badge key={role}>{role}</Badge>)
+                      ) : (
+                        <Badge variant="outline">No roles assigned</Badge>
+                      )}
                     </div>
                   </div>
                 </CardContent>
