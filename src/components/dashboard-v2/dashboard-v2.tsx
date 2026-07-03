@@ -1,11 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
+  BarChart3,
   CheckCircle2,
   Clock3,
   DollarSign,
   FileText,
+  Flag,
+  Goal,
   Instagram,
+  LifeBuoy,
   Mail,
   MessageCircle,
   MessageSquare,
@@ -48,6 +52,8 @@ type ClientReviewItem = [string, string, string, string, string];
 type CollectionItem = [string, string, string, string];
 type ActivityItem = [string, string, string, LucideIcon];
 type CommunicationItem = [string, string, string, string, string, string];
+type ListWidgetItem = [string, string, string, string, string];
+type SnapshotMetricItem = [string, string, string, DashboardV2Tone];
 
 export type DashboardV2Props = {
   kpis?: DashboardV2Kpi[];
@@ -58,6 +64,11 @@ export type DashboardV2Props = {
   clients?: ClientReviewItem[];
   activities?: ActivityItem[];
   communications?: CommunicationItem[];
+  leadsAttention?: ListWidgetItem[];
+  projectRisks?: ListWidgetItem[];
+  invoiceRows?: ListWidgetItem[];
+  proposalRows?: ListWidgetItem[];
+  reportSnapshot?: SnapshotMetricItem[];
   todayLabel?: string;
   collectionPeriodLabel?: string;
   pipelinePeriodLabel?: string;
@@ -244,6 +255,16 @@ const mockCollectionRows: CollectionItem[] = [
   ["Cobrado", "$112,800", "75%", "bg-emerald-500"],
 ];
 
+const mockListItems: ListWidgetItem[] = [
+  ["Sin datos", "Conecta datos para ver este widget.", "Pendiente", "neutral", "/dashboard"],
+];
+
+const mockReportSnapshot: SnapshotMetricItem[] = [
+  ["Ingresos cobrados", "$0", "Sin ingresos registrados", "neutral"],
+  ["Por cobrar", "$0", "Sin facturas abiertas", "neutral"],
+  ["Pipeline", "$0", "Sin oportunidades abiertas", "neutral"],
+];
+
 function MiniWidgetCard({
   title,
   value,
@@ -327,6 +348,181 @@ function DashboardMoreButton({ children, href }: { children: string; href?: stri
     >
       {children}⌄
     </button>
+  );
+}
+
+function toneBadgeClass(tone: string) {
+  if (tone === "red") return "bg-rose-50 text-rose-600";
+  if (tone === "orange") return "bg-orange-50 text-orange-600";
+  if (tone === "green") return "bg-emerald-50 text-emerald-600";
+  if (tone === "purple") return "bg-violet-50 text-violet-600";
+  if (tone === "teal") return "bg-teal-50 text-teal-600";
+  return "bg-blue-50 text-blue-600";
+}
+
+function DashboardListWidget({
+  title,
+  emptyLabel,
+  href,
+  icon: Icon,
+  items,
+  mode = "standard",
+  tone = "blue",
+}: {
+  title: string;
+  emptyLabel: string;
+  href: string;
+  icon: LucideIcon;
+  items: ListWidgetItem[];
+  mode?: DashboardWidgetMode;
+  tone?: DashboardV2Tone;
+}) {
+  if (mode === "mini") {
+    const alertCount = items.filter(
+      ([, , , itemTone]) => itemTone === "red" || itemTone === "orange",
+    ).length;
+    return (
+      <MiniWidgetCard
+        title={title}
+        value={String(items.length)}
+        helper={alertCount ? `${alertCount} requieren atención` : emptyLabel}
+        icon={Icon}
+        tone={alertCount ? "orange" : tone}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? 8 : 5;
+
+  return (
+    <DashboardCard
+      title={title}
+      action={<DashboardTextButton href={href}>Abrir →</DashboardTextButton>}
+      bodyClassName="h-full p-3"
+    >
+      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+        <div className="min-h-0 space-y-1.5 overflow-hidden">
+          {items.length === 0 ? (
+            <div className="grid h-full place-items-center rounded-xl bg-slate-50 px-4 text-center">
+              <span className="text-[12px] font-semibold text-slate-500">{emptyLabel}</span>
+            </div>
+          ) : (
+            items.slice(0, visibleLimit).map(([primary, secondary, badge, itemTone, itemHref]) => (
+              <button
+                key={`${title}-${primary}-${secondary}`}
+                type="button"
+                onClick={() => {
+                  window.location.href = itemHref || href;
+                }}
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border-b border-slate-200 px-1 py-1.5 text-left last:border-0 hover:bg-slate-50"
+              >
+                <span className="min-w-0">
+                  <strong className="block truncate text-[11.7px] font-semibold text-slate-900">
+                    {primary}
+                  </strong>
+                  <small className="block truncate text-[10.5px] font-medium text-slate-500">
+                    {secondary}
+                  </small>
+                </span>
+                <span
+                  className={`max-w-[96px] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${toneBadgeClass(
+                    itemTone,
+                  )}`}
+                >
+                  {badge}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+
+        {items.length > visibleLimit ? (
+          <DashboardMoreButton
+            href={href}
+          >{`Ver ${items.length - visibleLimit} más`}</DashboardMoreButton>
+        ) : null}
+      </div>
+    </DashboardCard>
+  );
+}
+
+function DashboardReportSnapshotWidget({
+  metrics,
+  mode = "standard",
+}: {
+  metrics: SnapshotMetricItem[];
+  mode?: DashboardWidgetMode;
+}) {
+  const primary = metrics[0];
+
+  if (mode === "mini") {
+    return (
+      <MiniWidgetCard
+        title="Revenue"
+        value={primary?.[1] || "$0"}
+        helper={primary?.[2] || "Sin datos"}
+        icon={BarChart3}
+        tone={primary?.[3] || "blue"}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? metrics.length : 4;
+
+  return (
+    <DashboardCard
+      title="Revenue snapshot"
+      action={<DashboardTextButton href="/reports">Ver reportes →</DashboardTextButton>}
+      bodyClassName="h-full p-3"
+    >
+      <div className="grid h-full min-h-0 gap-2 md:grid-cols-2">
+        {metrics.slice(0, visibleLimit).map(([label, value, helper, tone]) => (
+          <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <span className="block truncate text-[10.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+              {label}
+            </span>
+            <strong className="mt-1 block truncate text-[20px] font-semibold tracking-[-0.04em] text-slate-950">
+              {value}
+            </strong>
+            <small
+              className={`mt-1 block truncate text-[10.5px] font-semibold ${toneBadgeClass(tone)}`}
+            >
+              {helper}
+            </small>
+          </div>
+        ))}
+      </div>
+    </DashboardCard>
+  );
+}
+
+function DashboardPlaceholderWidget({
+  title,
+  helper,
+  icon: Icon,
+  mode = "standard",
+}: {
+  title: string;
+  helper: string;
+  icon: LucideIcon;
+  mode?: DashboardWidgetMode;
+}) {
+  if (mode === "mini") {
+    return <MiniWidgetCard title={title} value="Soon" helper={helper} icon={Icon} tone="neutral" />;
+  }
+
+  return (
+    <DashboardCard title={title} bodyClassName="h-full p-4">
+      <div className="grid h-full place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
+        <div>
+          <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500">
+            <Icon className="h-4 w-4" />
+          </span>
+          <strong className="mt-3 block text-sm font-semibold text-slate-900">{title}</strong>
+          <p className="mt-1 text-xs font-medium text-slate-500">{helper}</p>
+        </div>
+      </div>
+    </DashboardCard>
   );
 }
 
@@ -858,6 +1054,11 @@ export function DashboardV2({
   clients = mockClients,
   activities = mockActivities,
   communications = mockCommunications,
+  leadsAttention = mockListItems,
+  projectRisks = mockListItems,
+  invoiceRows = mockListItems,
+  proposalRows = mockListItems,
+  reportSnapshot = mockReportSnapshot,
   todayLabel = "Vie. 23 mayo",
   collectionPeriodLabel = "Este mes⌄",
   pipelinePeriodLabel = "Este mes⌄",
@@ -872,6 +1073,20 @@ export function DashboardV2({
         {
           id: "tasks.my-work",
           render: ({ mode }) => <DashboardActionPrioritiesWidget actions={actions} mode={mode} />,
+        },
+        {
+          id: "leads.attention",
+          render: ({ mode }) => (
+            <DashboardListWidget
+              title="Leads needing attention"
+              emptyLabel="No hay leads urgentes."
+              href="/leads"
+              icon={Users}
+              items={leadsAttention}
+              mode={mode}
+              tone="blue"
+            />
+          ),
         },
         {
           id: "calendar.agenda",
@@ -896,6 +1111,48 @@ export function DashboardV2({
           render: ({ mode }) => <DashboardClientsReviewWidget clients={clients} mode={mode} />,
         },
         {
+          id: "projects.risk",
+          render: ({ mode }) => (
+            <DashboardListWidget
+              title="Project risk"
+              emptyLabel="No hay proyectos en riesgo."
+              href="/projects"
+              icon={Flag}
+              items={projectRisks}
+              mode={mode}
+              tone="teal"
+            />
+          ),
+        },
+        {
+          id: "invoices.collections",
+          render: ({ mode }) => (
+            <DashboardListWidget
+              title="Awaiting payment"
+              emptyLabel="No hay facturas por cobrar."
+              href="/invoices"
+              icon={DollarSign}
+              items={invoiceRows}
+              mode={mode}
+              tone="orange"
+            />
+          ),
+        },
+        {
+          id: "proposals.pending",
+          render: ({ mode }) => (
+            <DashboardListWidget
+              title="Pending proposals"
+              emptyLabel="No hay propuestas pendientes."
+              href="/proposals"
+              icon={FileText}
+              items={proposalRows}
+              mode={mode}
+              tone="purple"
+            />
+          ),
+        },
+        {
           id: "inbox.pending",
           render: ({ mode }) => (
             <DashboardCommunicationsWidget communications={communications} mode={mode} />
@@ -904,6 +1161,34 @@ export function DashboardV2({
         {
           id: "activity.recent",
           render: ({ mode }) => <DashboardActivityWidget activities={activities} mode={mode} />,
+        },
+        {
+          id: "reports.revenue-snapshot",
+          render: ({ mode }) => (
+            <DashboardReportSnapshotWidget metrics={reportSnapshot} mode={mode} />
+          ),
+        },
+        {
+          id: "tickets.status",
+          render: ({ mode }) => (
+            <DashboardPlaceholderWidget
+              title="Tickets by status"
+              helper="Listo para conectar cuando soporte tenga métricas activas."
+              icon={LifeBuoy}
+              mode={mode}
+            />
+          ),
+        },
+        {
+          id: "goals.progress",
+          render: ({ mode }) => (
+            <DashboardPlaceholderWidget
+              title="Goals progress"
+              helper="Preparado para metas comerciales y operativas."
+              icon={Goal}
+              mode={mode}
+            />
+          ),
         },
       ]}
     />
