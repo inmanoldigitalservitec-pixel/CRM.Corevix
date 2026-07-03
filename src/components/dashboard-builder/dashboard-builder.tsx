@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { Check, GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import type { Layout, LayoutItem, ResponsiveLayouts } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
@@ -8,12 +8,6 @@ import "react-resizable/css/styles.css";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -52,10 +46,9 @@ const breakpoints: Record<DashboardBreakpoint, number> = {
   xs: 0,
 };
 
-const modeLabels: Record<DashboardWidgetMode, string> = {
-  mini: "Mini",
-  standard: "Standard",
-  advanced: "Avanzado",
+const miniModeThreshold = {
+  w: 3,
+  h: 2,
 };
 
 function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: Set<string>) {
@@ -64,13 +57,13 @@ function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: 
   (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
     layouts[breakpoint] = preferences
       .filter((preference) => preference.enabled && renderableIds.has(preference.widgetId))
-      .map((preference) =>
-        preference.mode === "mini"
-          ? resizeLayoutForMode(preference, preference.mode)[breakpoint]
-          : preference.layout[breakpoint],
-      )
-      .filter(Boolean)
-      .map((item) => ({ ...item })) as LayoutItem[];
+      .map((preference) => preference.layout[breakpoint])
+      .filter((item): item is DashboardGridLayoutItem => Boolean(item))
+      .map((item) => ({
+        ...item,
+        minW: Math.min(item.minW || 1, miniModeThreshold.w),
+        minH: Math.min(item.minH || 1, 1),
+      })) as LayoutItem[];
   });
 
   return layouts;
@@ -78,10 +71,12 @@ function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: 
 
 function mergeLayoutsIntoPreferences(
   preferences: DashboardWidgetPreference[],
+  currentLayout: Layout,
   layouts: ResponsiveLayouts<DashboardBreakpoint>,
 ) {
   return preferences.map((preference) => {
     const nextLayout = { ...preference.layout };
+    const currentItem = currentLayout.find((layoutItem) => layoutItem.i === preference.widgetId);
 
     (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
       const item = layouts[breakpoint]?.find((layoutItem) => layoutItem.i === preference.widgetId);
@@ -103,63 +98,14 @@ function mergeLayoutsIntoPreferences(
 
     return {
       ...preference,
+      mode: currentItem ? inferWidgetMode(currentItem) : preference.mode,
       layout: nextLayout,
     };
   });
 }
 
-function resizeLayoutForMode(
-  preference: DashboardWidgetPreference,
-  mode: DashboardWidgetMode,
-): DashboardWidgetPreference["layout"] {
-  const definition = getDashboardWidgetDefinition(preference.widgetId);
-  const nextLayout = { ...preference.layout };
-
-  (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
-    const current = nextLayout[breakpoint] || definition?.defaultLayout[breakpoint];
-    if (!current) return;
-
-    const breakpointCols = cols[breakpoint];
-    const standard = definition?.defaultLayout[breakpoint] || current;
-    const size =
-      mode === "mini"
-        ? {
-            w: breakpoint === "xs" ? 1 : Math.min(3, breakpointCols),
-            h: 1,
-            minW: breakpoint === "xs" ? 1 : Math.min(2, breakpointCols),
-            minH: 1,
-          }
-        : mode === "advanced"
-          ? {
-              w: breakpoint === "xs" ? 1 : Math.min(breakpoint === "lg" ? 8 : 6, breakpointCols),
-              h: preference.widgetId === "sales.quick-kpis" ? 2 : 6,
-              minW: breakpoint === "xs" ? 1 : Math.min(4, breakpointCols),
-              minH: 3,
-            }
-          : {
-              w: Math.min(standard.w, breakpointCols),
-              h: standard.h,
-              minW: standard.minW,
-              minH: standard.minH,
-            };
-
-    const w = Math.max(1, Math.min(size.w, breakpointCols));
-    const x = Math.min(current.x, Math.max(0, breakpointCols - w));
-
-    nextLayout[breakpoint] = {
-      ...current,
-      x,
-      w,
-      h: size.h,
-      minW: size.minW,
-      minH: size.minH,
-      maxW: current.maxW,
-      maxH: current.maxH,
-      static: current.static,
-    };
-  });
-
-  return nextLayout;
+function inferWidgetMode(item: LayoutItem): DashboardWidgetMode {
+  return item.w <= miniModeThreshold.w && item.h <= miniModeThreshold.h ? "mini" : "standard";
 }
 
 function DashboardGridItemShell({ children }: { children: ReactNode }) {
@@ -281,9 +227,12 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
       return;
     }
 
-    void savePreferences(mergeLayoutsIntoPreferences(normalizedPreferences, allLayouts), {
-      silent: true,
-    });
+    void savePreferences(
+      mergeLayoutsIntoPreferences(normalizedPreferences, _currentLayout, allLayouts),
+      {
+        silent: true,
+      },
+    );
   };
 
   const updateWidgetPreference = (
@@ -293,20 +242,6 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
     const nextPreferences = normalizedPreferences.map((preference) =>
       preference.widgetId === widgetId ? { ...preference, ...patch } : preference,
     );
-
-    void savePreferences(nextPreferences, { silent: true });
-  };
-
-  const updateWidgetMode = (widgetId: string, mode: DashboardWidgetMode) => {
-    const nextPreferences = normalizedPreferences.map((preference) => {
-      if (preference.widgetId !== widgetId) return preference;
-
-      return {
-        ...preference,
-        mode,
-        layout: resizeLayoutForMode(preference, mode),
-      };
-    });
 
     void savePreferences(nextPreferences, { silent: true });
   };
@@ -415,40 +350,16 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
             const widget = widgetById.get(preference.widgetId);
             const definition = getDashboardWidgetDefinition(preference.widgetId);
             if (!widget) return null;
-            const supportedModes = definition?.supportedModes || ["mini", "standard", "advanced"];
 
             return (
               <div key={preference.widgetId} className="relative min-h-0 pl-6">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="dashboard-widget-drag-grip absolute left-0 top-4 z-10 hidden cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:grid"
-                      aria-label={`Mover o cambiar tamaño de ${
-                        definition?.title || preference.widgetId
-                      }`}
-                    >
-                      <GripVertical className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="right" className="w-40">
-                    {supportedModes.map((mode) => (
-                      <DropdownMenuItem
-                        key={mode}
-                        onSelect={() => updateWidgetMode(preference.widgetId, mode)}
-                        className="gap-2"
-                      >
-                        <Check
-                          className={cn(
-                            "h-3.5 w-3.5",
-                            preference.mode === mode ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        {modeLabels[mode]}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <button
+                  type="button"
+                  className="dashboard-widget-drag-grip absolute left-0 top-4 z-10 hidden cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:grid"
+                  aria-label={`Mover ${definition?.title || preference.widgetId}`}
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
 
                 <DashboardGridItemShell>
                   {widget.render
