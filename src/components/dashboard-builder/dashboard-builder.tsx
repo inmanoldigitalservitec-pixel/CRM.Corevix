@@ -366,7 +366,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
       ) : (
         <ResponsiveGridLayout
           width={gridWidth}
-          className="dashboard-builder-grid py-3 pl-7 pr-3"
+          className="dashboard-builder-grid p-3"
           layouts={layouts}
           breakpoints={breakpoints}
           cols={cols}
@@ -391,10 +391,10 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
             if (!widget) return null;
 
             return (
-              <div key={preference.widgetId} className="relative min-h-0">
+              <div key={preference.widgetId} className="relative min-h-0 pl-6">
                 <button
                   type="button"
-                  className="dashboard-widget-drag-grip absolute -left-5 top-4 z-10 hidden cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:grid"
+                  className="dashboard-widget-drag-grip absolute left-0 top-4 z-10 hidden cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:grid"
                   aria-label={`Mover ${definition?.title || preference.widgetId}`}
                 >
                   <GripVertical className="h-4 w-4" />
