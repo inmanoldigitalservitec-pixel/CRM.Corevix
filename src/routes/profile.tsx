@@ -6,13 +6,16 @@ import {
   CalendarDays,
   CheckCircle2,
   Edit3,
+  KeyRound,
   Languages,
   LayoutDashboard,
+  LockKeyhole,
   Mail,
   MonitorCog,
   Phone,
   ShieldCheck,
   SlidersHorizontal,
+  Smartphone,
   UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +36,12 @@ type ProfileForm = {
   phone: string;
   department: string;
   avatar_url: string;
+};
+
+type PasswordForm = {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
 };
 
 type ProfilePreferences = {
@@ -150,11 +159,17 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [preferencesLoading, setPreferencesLoading] = useState(false);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [securitySaving, setSecuritySaving] = useState(false);
   const [form, setForm] = useState<ProfileForm>({
     full_name: "",
     phone: "",
     department: "",
     avatar_url: "",
+  });
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
   });
   const [preferences, setPreferences] = useState<ProfilePreferences>(DEFAULT_PREFERENCES);
 
@@ -207,6 +222,7 @@ function ProfilePage() {
   const joinedAt = formatDate(user?.created_at || null);
   const lastSignIn = formatDate(user?.last_sign_in_at || null);
   const accountStatus = profile?.is_active === false ? "Inactive" : "Active";
+  const authProvider = user?.app_metadata?.provider ? String(user.app_metadata.provider) : "email";
 
   const roleBadges = useMemo(() => roles.map((role) => roleLabel(role)), [roles]);
 
@@ -259,6 +275,53 @@ function ProfilePage() {
     }
 
     toast.success("Preferences saved.");
+  };
+
+  const updatePassword = async () => {
+    if (!email || email === "No email") {
+      toast.error("This account does not have an email login available.");
+      return;
+    }
+
+    if (!passwordForm.current_password || !passwordForm.new_password || !passwordForm.confirm_password) {
+      toast.error("Complete all password fields.");
+      return;
+    }
+
+    if (passwordForm.new_password.length < 8) {
+      toast.error("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      toast.error("New password and confirmation do not match.");
+      return;
+    }
+
+    setSecuritySaving(true);
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email,
+      password: passwordForm.current_password,
+    });
+
+    if (reauthError) {
+      setSecuritySaving(false);
+      toast.error("Current password is not valid.");
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: passwordForm.new_password,
+    });
+    setSecuritySaving(false);
+
+    if (updateError) {
+      toast.error(updateError.message || "Could not update password.");
+      return;
+    }
+
+    setPasswordForm({ current_password: "", new_password: "", confirm_password: "" });
+    toast.success("Password updated.");
   };
 
   if (loading) {
@@ -368,9 +431,10 @@ function ProfilePage() {
           </div>
 
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4 md:w-auto md:inline-grid">
+            <TabsList className="grid w-full grid-cols-5 md:w-auto md:inline-grid">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="access">Access</TabsTrigger>
+              <TabsTrigger value="security">Security</TabsTrigger>
               <TabsTrigger value="preferences">Preferences</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
             </TabsList>
@@ -409,6 +473,106 @@ function ProfilePage() {
                       ) : (
                         <Badge variant="outline">No roles assigned</Badge>
                       )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="security" className="space-y-4">
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Security & Login</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Manage account access and sensitive login controls for your user.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <InfoRow icon={Mail} label="Login email" value={email} />
+                    <InfoRow icon={LockKeyhole} label="Auth provider" value={labelFromValue(authProvider)} />
+                    <InfoRow icon={Activity} label="Last sign in" value={lastSignIn} />
+                    <InfoRow icon={CheckCircle2} label="Account status" value={accountStatus} />
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="rounded-2xl border bg-white p-4">
+                      <div className="mb-4 flex items-center gap-2">
+                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-700">
+                          <KeyRound className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">Change password</p>
+                          <p className="text-xs text-muted-foreground">
+                            Current password is required before applying the new password.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="grid gap-2">
+                          <Label htmlFor="current-password">Current password</Label>
+                          <Input
+                            id="current-password"
+                            type="password"
+                            autoComplete="current-password"
+                            value={passwordForm.current_password}
+                            onChange={(event) => setPasswordForm((prev) => ({ ...prev, current_password: event.target.value }))}
+                            disabled={securitySaving}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="new-password">New password</Label>
+                          <Input
+                            id="new-password"
+                            type="password"
+                            autoComplete="new-password"
+                            value={passwordForm.new_password}
+                            onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))}
+                            disabled={securitySaving}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="confirm-password">Confirm password</Label>
+                          <Input
+                            id="confirm-password"
+                            type="password"
+                            autoComplete="new-password"
+                            value={passwordForm.confirm_password}
+                            onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))}
+                            disabled={securitySaving}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Use at least 8 characters. The session may refresh after the password change.
+                        </p>
+                        <Button onClick={updatePassword} disabled={securitySaving}>
+                          {securitySaving ? "Updating..." : "Update Password"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-dashed bg-slate-50 p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-700">
+                          <Smartphone className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">MFA / 2FA</p>
+                          <p className="text-xs text-muted-foreground">Planned security upgrade</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        This area is reserved for TOTP or phone-based multi-factor authentication. It is intentionally disabled until the MFA enrollment flow is connected.
+                      </p>
+                      <Button className="mt-4 w-full" variant="outline" disabled>
+                        Enable MFA Soon
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -508,7 +672,7 @@ function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-2xl border border-dashed bg-slate-50 p-6 text-sm text-muted-foreground">
-                    This first version connects identity, editable profile details, and personal preferences. Work metrics, timesheets, notifications, and security events will be connected in the next steps.
+                    This profile area now connects identity, editable profile details, preferences, and basic security controls. Work metrics, timesheets, notifications, and security events will be connected in the next steps.
                   </div>
                 </CardContent>
               </Card>
