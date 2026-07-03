@@ -19,6 +19,7 @@ import {
 import { DashboardCard, DashboardTextButton } from "./dashboard-card";
 import { DashboardKpiCard } from "./dashboard-kpi-card";
 import { DashboardBuilder } from "@/components/dashboard-builder";
+import type { DashboardWidgetMode } from "@/components/dashboard-builder";
 
 type DashboardV2Tone = "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral";
 
@@ -243,9 +244,69 @@ const mockCollectionRows: CollectionItem[] = [
   ["Cobrado", "$112,800", "75%", "bg-emerald-500"],
 ];
 
-export function DashboardKpiStripWidget({ kpis }: { kpis: DashboardV2Kpi[] }) {
+function MiniWidgetCard({
+  title,
+  value,
+  helper,
+  icon: Icon,
+  tone = "blue",
+}: {
+  title: string;
+  value: string;
+  helper: string;
+  icon: LucideIcon;
+  tone?: DashboardV2Tone;
+}) {
   return (
-    <section className="grid min-h-0 gap-2.5 md:grid-cols-2 xl:grid-cols-6">
+    <DashboardCard bodyClassName="p-3">
+      <div className="flex h-full min-h-0 items-center gap-3">
+        <span
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${softIcon(tone)}`}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+            {title}
+          </span>
+          <strong className="block truncate text-2xl font-semibold tracking-[-0.05em] text-slate-950">
+            {value}
+          </strong>
+          <small className="block truncate text-[11px] font-medium text-slate-500">{helper}</small>
+        </span>
+      </div>
+    </DashboardCard>
+  );
+}
+
+export function DashboardKpiStripWidget({
+  kpis,
+  mode = "standard",
+}: {
+  kpis: DashboardV2Kpi[];
+  mode?: DashboardWidgetMode;
+}) {
+  if (mode === "mini") {
+    const primary = kpis[0];
+    return (
+      <MiniWidgetCard
+        title={primary?.label || "Indicador"}
+        value={primary?.value || "0"}
+        helper={primary?.helper || "Sin datos"}
+        icon={primary?.icon || DollarSign}
+        tone={primary?.tone || "blue"}
+      />
+    );
+  }
+
+  return (
+    <section
+      className={
+        mode === "advanced"
+          ? "grid min-h-0 gap-2.5 md:grid-cols-2 xl:grid-cols-3"
+          : "grid min-h-0 gap-2.5 md:grid-cols-2 xl:grid-cols-6"
+      }
+    >
       {kpis.map((item) => (
         <DashboardKpiCard key={item.label} item={item} />
       ))}
@@ -269,7 +330,28 @@ function DashboardMoreButton({ children, href }: { children: string; href?: stri
   );
 }
 
-export function DashboardActionPrioritiesWidget({ actions }: { actions: DashboardV2Action[] }) {
+export function DashboardActionPrioritiesWidget({
+  actions,
+  mode = "standard",
+}: {
+  actions: DashboardV2Action[];
+  mode?: DashboardWidgetMode;
+}) {
+  if (mode === "mini") {
+    const urgentCount = actions.filter((action) => action.priority === "Alta").length;
+    return (
+      <MiniWidgetCard
+        title="Prioridades"
+        value={String(actions.length)}
+        helper={urgentCount ? `${urgentCount} alta prioridad` : "Sin urgencias altas"}
+        icon={AlertTriangle}
+        tone={urgentCount ? "red" : "green"}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? 8 : ACTION_VISIBLE_LIMIT;
+
   return (
     <DashboardCard
       title="Qué hacer ahora"
@@ -289,7 +371,7 @@ export function DashboardActionPrioritiesWidget({ actions }: { actions: Dashboar
             <span>Acción</span>
           </div>
 
-          {actions.slice(0, ACTION_VISIBLE_LIMIT).map((item) => {
+          {actions.slice(0, visibleLimit).map((item) => {
             const Icon = item.icon;
 
             return (
@@ -341,8 +423,8 @@ export function DashboardActionPrioritiesWidget({ actions }: { actions: Dashboar
           })}
         </div>
 
-        {actions.length > ACTION_VISIBLE_LIMIT ? (
-          <DashboardMoreButton href="/tasks">{`Ver ${actions.length - ACTION_VISIBLE_LIMIT} más`}</DashboardMoreButton>
+        {actions.length > visibleLimit ? (
+          <DashboardMoreButton href="/tasks">{`Ver ${actions.length - visibleLimit} más`}</DashboardMoreButton>
         ) : null}
       </div>
     </DashboardCard>
@@ -352,10 +434,27 @@ export function DashboardActionPrioritiesWidget({ actions }: { actions: Dashboar
 export function DashboardScheduleWidget({
   schedule,
   todayLabel,
+  mode = "standard",
 }: {
   schedule: ScheduleItem[];
   todayLabel: string;
+  mode?: DashboardWidgetMode;
 }) {
+  if (mode === "mini") {
+    const next = schedule[0];
+    return (
+      <MiniWidgetCard
+        title="Agenda"
+        value={String(schedule.length)}
+        helper={next ? `${next[0]} · ${next[1]}` : "Sin pendientes"}
+        icon={Clock3}
+        tone={schedule.length ? "blue" : "green"}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? 12 : SCHEDULE_VISIBLE_LIMIT;
+
   return (
     <DashboardCard
       title="Agenda de hoy"
@@ -368,7 +467,7 @@ export function DashboardScheduleWidget({
             {todayLabel} · Vencimientos y tareas programadas
           </p>
 
-          {schedule.slice(0, SCHEDULE_VISIBLE_LIMIT).map(([time, title, subtitle, tone]) => (
+          {schedule.slice(0, visibleLimit).map(([time, title, subtitle, tone]) => (
             <div
               key={`${time}-${title}`}
               className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 border-t border-slate-200 py-1.5"
@@ -404,8 +503,8 @@ export function DashboardScheduleWidget({
           ))}
         </div>
 
-        {schedule.length > SCHEDULE_VISIBLE_LIMIT ? (
-          <DashboardMoreButton href="/calendar">{`Ver ${schedule.length - SCHEDULE_VISIBLE_LIMIT} más`}</DashboardMoreButton>
+        {schedule.length > visibleLimit ? (
+          <DashboardMoreButton href="/calendar">{`Ver ${schedule.length - visibleLimit} más`}</DashboardMoreButton>
         ) : null}
       </div>
     </DashboardCard>
@@ -417,12 +516,29 @@ export function DashboardSalesCollectionsWidget({
   collectionRows,
   collectionPeriodLabel,
   pipelinePeriodLabel,
+  mode = "standard",
 }: {
   pipeline: PipelineItem[];
   collectionRows: CollectionItem[];
   collectionPeriodLabel: string;
   pipelinePeriodLabel: string;
+  mode?: DashboardWidgetMode;
 }) {
+  if (mode === "mini") {
+    const pipelineTotal = pipeline.reduce((sum, [, count]) => sum + count, 0);
+    return (
+      <MiniWidgetCard
+        title="Pipeline"
+        value={String(pipelineTotal)}
+        helper={collectionRows[0] ? `${collectionRows[0][1]} por cobrar` : "Sin cobros"}
+        icon={TrendingUp}
+        tone="blue"
+      />
+    );
+  }
+
+  const pipelineLimit = mode === "advanced" ? pipeline.length : PIPELINE_VISIBLE_LIMIT;
+
   return (
     <DashboardCard
       title="Ventas y cobros"
@@ -440,21 +556,19 @@ export function DashboardSalesCollectionsWidget({
             </div>
 
             <div className="space-y-1.5">
-              {pipeline
-                .slice(0, PIPELINE_VISIBLE_LIMIT)
-                .map(([label, count, value, percent, color]) => (
-                  <div
-                    key={String(label)}
-                    className="grid grid-cols-[72px_1fr_20px_52px] items-center gap-2 text-[10.8px]"
-                  >
-                    <span className="truncate font-medium text-blue-600">{label}</span>
-                    <span className="h-4 overflow-hidden rounded bg-slate-100">
-                      <i className={`block h-full ${color}`} style={{ width: `${percent}%` }} />
-                    </span>
-                    <span>{count}</span>
-                    <strong className="text-right font-semibold">{value}</strong>
-                  </div>
-                ))}
+              {pipeline.slice(0, pipelineLimit).map(([label, count, value, percent, color]) => (
+                <div
+                  key={String(label)}
+                  className="grid grid-cols-[72px_1fr_20px_52px] items-center gap-2 text-[10.8px]"
+                >
+                  <span className="truncate font-medium text-blue-600">{label}</span>
+                  <span className="h-4 overflow-hidden rounded bg-slate-100">
+                    <i className={`block h-full ${color}`} style={{ width: `${percent}%` }} />
+                  </span>
+                  <span>{count}</span>
+                  <strong className="text-right font-semibold">{value}</strong>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -488,9 +602,9 @@ export function DashboardSalesCollectionsWidget({
           </div>
         </div>
 
-        {pipeline.length > PIPELINE_VISIBLE_LIMIT ? (
+        {pipeline.length > pipelineLimit ? (
           <DashboardMoreButton href="/pipeline">{`Ver ${
-            pipeline.length - PIPELINE_VISIBLE_LIMIT
+            pipeline.length - pipelineLimit
           } más`}</DashboardMoreButton>
         ) : null}
       </div>
@@ -498,7 +612,30 @@ export function DashboardSalesCollectionsWidget({
   );
 }
 
-export function DashboardClientsReviewWidget({ clients }: { clients: ClientReviewItem[] }) {
+export function DashboardClientsReviewWidget({
+  clients,
+  mode = "standard",
+}: {
+  clients: ClientReviewItem[];
+  mode?: DashboardWidgetMode;
+}) {
+  if (mode === "mini") {
+    const riskyCount = clients.filter(
+      ([, , , , tone]) => tone === "red" || tone === "orange",
+    ).length;
+    return (
+      <MiniWidgetCard
+        title="Clientes"
+        value={String(clients.length)}
+        helper={riskyCount ? `${riskyCount} requieren revisión` : "Sin alertas"}
+        icon={Users}
+        tone={riskyCount ? "orange" : "green"}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? 8 : CLIENT_VISIBLE_LIMIT;
+
   return (
     <DashboardCard
       title="Clientes a revisar"
@@ -507,7 +644,7 @@ export function DashboardClientsReviewWidget({ clients }: { clients: ClientRevie
     >
       <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
         <div className="min-h-0 space-y-1.5 overflow-hidden">
-          {clients.slice(0, CLIENT_VISIBLE_LIMIT).map(([initials, name, note, status, tone]) => (
+          {clients.slice(0, visibleLimit).map(([initials, name, note, status, tone]) => (
             <div
               key={String(name)}
               className="grid grid-cols-[26px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-200 py-1 last:border-0"
@@ -540,8 +677,8 @@ export function DashboardClientsReviewWidget({ clients }: { clients: ClientRevie
           ))}
         </div>
 
-        {clients.length > CLIENT_VISIBLE_LIMIT ? (
-          <DashboardMoreButton href="/clients">{`Ver ${clients.length - CLIENT_VISIBLE_LIMIT} más`}</DashboardMoreButton>
+        {clients.length > visibleLimit ? (
+          <DashboardMoreButton href="/clients">{`Ver ${clients.length - visibleLimit} más`}</DashboardMoreButton>
         ) : null}
       </div>
     </DashboardCard>
@@ -550,9 +687,26 @@ export function DashboardClientsReviewWidget({ clients }: { clients: ClientRevie
 
 export function DashboardCommunicationsWidget({
   communications,
+  mode = "standard",
 }: {
   communications: CommunicationItem[];
+  mode?: DashboardWidgetMode;
 }) {
+  if (mode === "mini") {
+    const unreadCount = communications.reduce((sum, [, , , count]) => sum + Number(count || 0), 0);
+    return (
+      <MiniWidgetCard
+        title="Inbox"
+        value={String(unreadCount)}
+        helper={communications[0] ? `${communications[0][0]} más reciente` : "Sin mensajes"}
+        icon={MessageCircle}
+        tone={unreadCount ? "red" : "green"}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? 8 : 5;
+
   return (
     <DashboardCard
       title="Comunicaciones"
@@ -573,54 +727,58 @@ export function DashboardCommunicationsWidget({
               </div>
             </div>
           ) : (
-            communications.slice(0, 5).map(([channel, name, preview, count, tone, href]) => {
-              const ChannelIcon = communicationIcon(channel);
+            communications
+              .slice(0, visibleLimit)
+              .map(([channel, name, preview, count, tone, href]) => {
+                const ChannelIcon = communicationIcon(channel);
 
-              return (
-                <button
-                  key={`${channel}-${name}-${preview}`}
-                  type="button"
-                  onClick={() => {
-                    if (href) window.location.href = href;
-                  }}
-                  className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-200 py-1.5 text-left last:border-0 hover:bg-slate-50"
-                >
-                  <span
-                    className={`grid h-8 w-8 place-items-center rounded-full border ${
-                      tone === "green"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-                        : tone === "purple"
-                          ? "border-violet-200 bg-violet-50 text-violet-600"
-                          : tone === "red"
-                            ? "border-rose-200 bg-rose-50 text-rose-600"
-                            : tone === "blue"
-                              ? "border-blue-200 bg-blue-50 text-blue-600"
-                              : "border-slate-200 bg-slate-50 text-slate-600"
-                    }`}
+                return (
+                  <button
+                    key={`${channel}-${name}-${preview}`}
+                    type="button"
+                    onClick={() => {
+                      if (href) window.location.href = href;
+                    }}
+                    className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-200 py-1.5 text-left last:border-0 hover:bg-slate-50"
                   >
-                    <ChannelIcon className="h-3.5 w-3.5" />
-                  </span>
+                    <span
+                      className={`grid h-8 w-8 place-items-center rounded-full border ${
+                        tone === "green"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                          : tone === "purple"
+                            ? "border-violet-200 bg-violet-50 text-violet-600"
+                            : tone === "red"
+                              ? "border-rose-200 bg-rose-50 text-rose-600"
+                              : tone === "blue"
+                                ? "border-blue-200 bg-blue-50 text-blue-600"
+                                : "border-slate-200 bg-slate-50 text-slate-600"
+                      }`}
+                    >
+                      <ChannelIcon className="h-3.5 w-3.5" />
+                    </span>
 
-                  <span className="min-w-0">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <strong className="truncate text-[11.7px] font-semibold text-slate-900">
-                        {name}
-                      </strong>
-                      <small className="shrink-0 text-[9.8px] font-medium text-slate-400">
-                        {channel}
+                    <span className="min-w-0">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <strong className="truncate text-[11.7px] font-semibold text-slate-900">
+                          {name}
+                        </strong>
+                        <small className="shrink-0 text-[9.8px] font-medium text-slate-400">
+                          {channel}
+                        </small>
+                      </span>
+                      <small className="block truncate text-[10.5px] text-slate-500">
+                        {preview}
                       </small>
                     </span>
-                    <small className="block truncate text-[10.5px] text-slate-500">{preview}</small>
-                  </span>
 
-                  {Number(count) > 0 ? (
-                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10.5px] font-semibold text-rose-600">
-                      {count}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })
+                    {Number(count) > 0 ? (
+                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10.5px] font-semibold text-rose-600">
+                        {count}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })
           )}
         </div>
 
@@ -638,7 +796,28 @@ export function DashboardCommunicationsWidget({
   );
 }
 
-export function DashboardActivityWidget({ activities }: { activities: ActivityItem[] }) {
+export function DashboardActivityWidget({
+  activities,
+  mode = "standard",
+}: {
+  activities: ActivityItem[];
+  mode?: DashboardWidgetMode;
+}) {
+  if (mode === "mini") {
+    const latest = activities[0];
+    return (
+      <MiniWidgetCard
+        title="Actividad"
+        value={String(activities.length)}
+        helper={latest?.[0] || "Sin actividad reciente"}
+        icon={CheckCircle2}
+        tone={activities.length ? "teal" : "neutral"}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? 8 : ACTIVITY_VISIBLE_LIMIT;
+
   return (
     <DashboardCard
       title="Actividad reciente"
@@ -646,7 +825,7 @@ export function DashboardActivityWidget({ activities }: { activities: ActivityIt
       bodyClassName="h-full p-3"
     >
       <div className="min-h-0 space-y-1.5 overflow-hidden">
-        {activities.slice(0, ACTIVITY_VISIBLE_LIMIT).map(([title, subtitle, amount, Icon]) => (
+        {activities.slice(0, visibleLimit).map(([title, subtitle, amount, Icon]) => (
           <div
             key={`${title}-${subtitle}`}
             className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-200 py-1.5 last:border-0"
@@ -688,38 +867,43 @@ export function DashboardV2({
       widgets={[
         {
           id: "sales.quick-kpis",
-          content: <DashboardKpiStripWidget kpis={kpis} />,
+          render: ({ mode }) => <DashboardKpiStripWidget kpis={kpis} mode={mode} />,
         },
         {
           id: "tasks.my-work",
-          content: <DashboardActionPrioritiesWidget actions={actions} />,
+          render: ({ mode }) => <DashboardActionPrioritiesWidget actions={actions} mode={mode} />,
         },
         {
           id: "calendar.agenda",
-          content: <DashboardScheduleWidget schedule={schedule} todayLabel={todayLabel} />,
+          render: ({ mode }) => (
+            <DashboardScheduleWidget schedule={schedule} todayLabel={todayLabel} mode={mode} />
+          ),
         },
         {
           id: "sales.pipeline-summary",
-          content: (
+          render: ({ mode }) => (
             <DashboardSalesCollectionsWidget
               pipeline={pipeline}
               collectionRows={collectionRows}
               collectionPeriodLabel={collectionPeriodLabel}
               pipelinePeriodLabel={pipelinePeriodLabel}
+              mode={mode}
             />
           ),
         },
         {
           id: "clients.review",
-          content: <DashboardClientsReviewWidget clients={clients} />,
+          render: ({ mode }) => <DashboardClientsReviewWidget clients={clients} mode={mode} />,
         },
         {
           id: "inbox.pending",
-          content: <DashboardCommunicationsWidget communications={communications} />,
+          render: ({ mode }) => (
+            <DashboardCommunicationsWidget communications={communications} mode={mode} />
+          ),
         },
         {
           id: "activity.recent",
-          content: <DashboardActivityWidget activities={activities} />,
+          render: ({ mode }) => <DashboardActivityWidget activities={activities} mode={mode} />,
         },
       ]}
     />

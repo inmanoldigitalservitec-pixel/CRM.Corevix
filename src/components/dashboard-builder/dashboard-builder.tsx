@@ -402,7 +402,9 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
                   editing={editing}
                   title={definition?.title || preference.widgetId}
                 >
-                  {widget.content}
+                  {widget.render
+                    ? widget.render({ mode: preference.mode, settings: preference.settings })
+                    : widget.content}
                 </DashboardGridItemShell>
               </div>
             );

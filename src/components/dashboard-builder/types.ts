@@ -35,7 +35,8 @@ export type DashboardWidgetRenderProps = {
 
 export type DashboardWidgetRenderItem = {
   id: string;
-  content: ReactNode;
+  content?: ReactNode;
+  render?: (props: DashboardWidgetRenderProps) => ReactNode;
 };
 
 export type DashboardWidgetDefinition = {
