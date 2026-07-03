@@ -206,7 +206,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
     size: "compact",
     supportedModes: ["mini", "standard"],
     defaultMode: "mini",
-    defaultLayout: layout("sales.quick-kpis", { x: 0, y: 0, w: 12, h: 1, minW: 6, minH: 1 }),
+    defaultLayout: layout("sales.quick-kpis", { x: 0, y: 0, w: 3, h: 1, minW: 2, minH: 1 }),
   },
 ];
 
