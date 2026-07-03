@@ -65,7 +65,11 @@ function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: 
   (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
     layouts[breakpoint] = preferences
       .filter((preference) => preference.enabled && renderableIds.has(preference.widgetId))
-      .map((preference) => preference.layout[breakpoint])
+      .map((preference) =>
+        preference.mode === "mini"
+          ? resizeLayoutForMode(preference, preference.mode)[breakpoint]
+          : preference.layout[breakpoint],
+      )
       .filter(Boolean)
       .map((item) => ({ ...item })) as LayoutItem[];
   });
@@ -103,6 +107,60 @@ function mergeLayoutsIntoPreferences(
       layout: nextLayout,
     };
   });
+}
+
+function resizeLayoutForMode(
+  preference: DashboardWidgetPreference,
+  mode: DashboardWidgetMode,
+): DashboardWidgetPreference["layout"] {
+  const definition = getDashboardWidgetDefinition(preference.widgetId);
+  const nextLayout = { ...preference.layout };
+
+  (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
+    const current = nextLayout[breakpoint] || definition?.defaultLayout[breakpoint];
+    if (!current) return;
+
+    const breakpointCols = cols[breakpoint];
+    const standard = definition?.defaultLayout[breakpoint] || current;
+    const size =
+      mode === "mini"
+        ? {
+            w: breakpoint === "xs" ? 1 : Math.min(3, breakpointCols),
+            h: 1,
+            minW: breakpoint === "xs" ? 1 : Math.min(2, breakpointCols),
+            minH: 1,
+          }
+        : mode === "advanced"
+          ? {
+              w: breakpoint === "xs" ? 1 : Math.min(breakpoint === "lg" ? 8 : 6, breakpointCols),
+              h: preference.widgetId === "sales.quick-kpis" ? 2 : 6,
+              minW: breakpoint === "xs" ? 1 : Math.min(4, breakpointCols),
+              minH: 3,
+            }
+          : {
+              w: Math.min(standard.w, breakpointCols),
+              h: standard.h,
+              minW: standard.minW,
+              minH: standard.minH,
+            };
+
+    const w = Math.max(1, Math.min(size.w, breakpointCols));
+    const x = Math.min(current.x, Math.max(0, breakpointCols - w));
+
+    nextLayout[breakpoint] = {
+      ...current,
+      x,
+      w,
+      h: size.h,
+      minW: size.minW,
+      minH: size.minH,
+      maxW: current.maxW,
+      maxH: current.maxH,
+      static: current.static,
+    };
+  });
+
+  return nextLayout;
 }
 
 function DashboardGridItemShell({
@@ -282,6 +340,16 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
     void savePreferences(nextPreferences, { silent: true });
   };
 
+  const updateWidgetMode = (widgetId: string, mode: DashboardWidgetMode) => {
+    const nextPreferences = normalizedPreferences.map((preference) =>
+      preference.widgetId === widgetId
+        ? { ...preference, mode, layout: resizeLayoutForMode(preference, mode) }
+        : preference,
+    );
+
+    void savePreferences(nextPreferences, { silent: true });
+  };
+
   if (loading) {
     return (
       <div className="grid min-h-[420px] place-items-center p-6 text-sm font-medium text-slate-500">
@@ -317,7 +385,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
               renderableIds={renderableIds}
               saving={saving}
               onEnabledChange={(widgetId, enabled) => updateWidgetPreference(widgetId, { enabled })}
-              onModeChange={(widgetId, mode) => updateWidgetPreference(widgetId, { mode })}
+              onModeChange={updateWidgetMode}
             />
           </Sheet>
 
