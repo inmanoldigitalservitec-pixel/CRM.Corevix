@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronDown, GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import type { Layout, LayoutItem, ResponsiveLayouts } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
@@ -9,12 +9,11 @@ import "react-resizable/css/styles.css";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -166,10 +165,16 @@ function resizeLayoutForMode(
 function DashboardGridItemShell({
   children,
   editing,
+  mode,
+  onModeChange,
+  supportedModes,
   title,
 }: {
   children: ReactNode;
   editing: boolean;
+  mode: DashboardWidgetMode;
+  onModeChange: (mode: DashboardWidgetMode) => void;
+  supportedModes: DashboardWidgetMode[];
   title: string;
 }) {
   return (
@@ -180,10 +185,45 @@ function DashboardGridItemShell({
       )}
     >
       {editing ? (
-        <div className="dashboard-widget-drag-handle absolute right-3 top-3 z-10 inline-flex h-7 items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2 text-[11px] font-semibold text-slate-500 shadow-sm backdrop-blur">
-          <GripVertical className="h-3.5 w-3.5" />
-          {title}
-        </div>
+        <DropdownMenu>
+          <div className="absolute right-3 top-3 z-10 inline-flex h-8 max-w-[calc(100%-1.5rem)] items-center overflow-hidden rounded-full border border-slate-200 bg-white/95 text-[11px] font-semibold text-slate-500 shadow-sm backdrop-blur">
+            <button
+              type="button"
+              className="dashboard-widget-drag-grip grid h-full w-8 shrink-0 cursor-grab place-items-center border-r border-slate-100 text-slate-400 active:cursor-grabbing"
+              aria-label={`Mover ${title}`}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
+
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-full min-w-0 items-center gap-1.5 px-2.5 text-left transition hover:bg-slate-50"
+                onPointerDown={(event) => event.stopPropagation()}
+                aria-label={`Cambiar modo de ${title}`}
+              >
+                <span className="max-w-[140px] truncate">{title}</span>
+                <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-blue-600">
+                  {modeLabels[mode]}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              </button>
+            </DropdownMenuTrigger>
+          </div>
+
+          <DropdownMenuContent align="end" className="w-44">
+            {supportedModes.map((option) => (
+              <DropdownMenuItem
+                key={option}
+                className="justify-between text-sm"
+                onClick={() => onModeChange(option)}
+              >
+                <span>{modeLabels[option]}</span>
+                {mode === option ? <Check className="h-4 w-4 text-blue-600" /> : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : null}
       {children}
     </div>
@@ -195,13 +235,11 @@ function DashboardOptionsPanel({
   renderableIds,
   saving,
   onEnabledChange,
-  onModeChange,
 }: {
   preferences: DashboardWidgetPreference[];
   renderableIds: Set<string>;
   saving: boolean;
   onEnabledChange: (widgetId: string, enabled: boolean) => void;
-  onModeChange: (widgetId: string, mode: DashboardWidgetMode) => void;
 }) {
   const options = preferences.filter((preference) => renderableIds.has(preference.widgetId));
   const enabledCount = options.filter((preference) => preference.enabled).length;
@@ -211,7 +249,8 @@ function DashboardOptionsPanel({
       <SheetHeader className="border-b border-slate-200 px-5 py-4">
         <SheetTitle>Dashboard Options</SheetTitle>
         <SheetDescription>
-          Activa widgets y define el modo que cada bloque debe usar en tu dashboard.
+          Activa los widgets que quieres ver. Cambia el modo desde cada bloque al editar el
+          dashboard.
         </SheetDescription>
       </SheetHeader>
 
@@ -263,25 +302,9 @@ function DashboardOptionsPanel({
                     <Badge variant="secondary" className="capitalize text-slate-600">
                       {definition?.module || "dashboard"}
                     </Badge>
-
-                    <Select
-                      value={preference.mode}
-                      disabled={!preference.enabled || saving}
-                      onValueChange={(value) =>
-                        onModeChange(preference.widgetId, value as DashboardWidgetMode)
-                      }
-                    >
-                      <SelectTrigger className="ml-auto h-8 w-[132px] bg-white text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(definition?.supportedModes || ["standard"]).map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {modeLabels[mode]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Badge variant="outline" className="ml-auto bg-white text-slate-500">
+                      {modeLabels[preference.mode]}
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -385,7 +408,6 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
               renderableIds={renderableIds}
               saving={saving}
               onEnabledChange={(widgetId, enabled) => updateWidgetPreference(widgetId, { enabled })}
-              onModeChange={updateWidgetMode}
             />
           </Sheet>
 
@@ -449,7 +471,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
           containerPadding={[0, 0]}
           dragConfig={{
             enabled: editing,
-            handle: ".dashboard-widget-drag-handle",
+            handle: ".dashboard-widget-drag-grip",
             threshold: 3,
             bounded: false,
           }}
@@ -468,6 +490,9 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
               <div key={preference.widgetId} className="relative min-h-0">
                 <DashboardGridItemShell
                   editing={editing}
+                  mode={preference.mode}
+                  onModeChange={(mode) => updateWidgetMode(preference.widgetId, mode)}
+                  supportedModes={definition?.supportedModes || ["standard"]}
                   title={definition?.title || preference.widgetId}
                 >
                   {widget.render
