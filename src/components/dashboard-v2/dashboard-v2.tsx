@@ -226,6 +226,15 @@ function priorityClass(priority: string) {
   return "bg-slate-50 text-slate-600";
 }
 
+function actionTone(tone: string) {
+  if (tone === "red") return "text-rose-600";
+  if (tone === "orange") return "text-orange-600";
+  if (tone === "green") return "text-emerald-600";
+  if (tone === "purple") return "text-violet-600";
+  if (tone === "teal") return "text-teal-600";
+  return "text-blue-600";
+}
+
 function communicationIcon(channel: string) {
   const normalized = channel.toLowerCase();
 
@@ -271,29 +280,45 @@ function MiniWidgetCard({
   helper,
   icon: Icon,
   tone = "blue",
+  status,
 }: {
   title: string;
   value: string;
   helper: string;
   icon: LucideIcon;
   tone?: DashboardV2Tone;
+  status?: string;
 }) {
   return (
     <DashboardCard bodyClassName="p-3">
       <div className="flex h-full min-h-0 items-center gap-3">
         <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${softIcon(tone)}`}
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border ${softIcon(tone)}`}
         >
           <Icon className="h-4 w-4" />
         </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-            {title}
+
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center justify-between gap-2">
+            <span className="block truncate text-[10.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+              {title}
+            </span>
+            {status ? (
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold ${toneBadgeClass(
+                  tone,
+                )}`}
+              >
+                {status}
+              </span>
+            ) : null}
           </span>
-          <strong className="block truncate text-2xl font-semibold tracking-[-0.05em] text-slate-950">
+          <strong className="mt-0.5 block truncate text-2xl font-semibold tracking-[-0.045em] text-slate-950">
             {value}
           </strong>
-          <small className="block truncate text-[11px] font-medium text-slate-500">{helper}</small>
+          <small className={`block truncate text-[11px] font-semibold ${actionTone(tone)}`}>
+            {helper}
+          </small>
         </span>
       </div>
     </DashboardCard>
@@ -360,8 +385,20 @@ function toneBadgeClass(tone: string) {
   return "bg-blue-50 text-blue-600";
 }
 
+function listToneSummary(items: ListWidgetItem[]) {
+  const attentionCount = items.filter(([, , , tone]) => tone === "red" || tone === "orange").length;
+  const okCount = items.filter(([, , , tone]) => tone === "green").length;
+
+  return {
+    attentionCount,
+    okCount,
+    neutralCount: Math.max(items.length - attentionCount - okCount, 0),
+  };
+}
+
 function DashboardListWidget({
   title,
+  question,
   emptyLabel,
   href,
   icon: Icon,
@@ -370,6 +407,7 @@ function DashboardListWidget({
   tone = "blue",
 }: {
   title: string;
+  question: string;
   emptyLabel: string;
   href: string;
   icon: LucideIcon;
@@ -377,17 +415,19 @@ function DashboardListWidget({
   mode?: DashboardWidgetMode;
   tone?: DashboardV2Tone;
 }) {
+  const summary = listToneSummary(items);
+
   if (mode === "mini") {
-    const alertCount = items.filter(
-      ([, , , itemTone]) => itemTone === "red" || itemTone === "orange",
-    ).length;
+    const hasAttention = summary.attentionCount > 0;
+
     return (
       <MiniWidgetCard
         title={title}
         value={String(items.length)}
-        helper={alertCount ? `${alertCount} requieren atención` : emptyLabel}
+        helper={hasAttention ? `${summary.attentionCount} requieren acción` : emptyLabel}
         icon={Icon}
-        tone={alertCount ? "orange" : tone}
+        tone={hasAttention ? "orange" : tone}
+        status={hasAttention ? "Atención" : "OK"}
       />
     );
   }
@@ -397,10 +437,43 @@ function DashboardListWidget({
   return (
     <DashboardCard
       title={title}
-      action={<DashboardTextButton href={href}>Abrir →</DashboardTextButton>}
+      action={<DashboardTextButton href={href}>Abrir lista →</DashboardTextButton>}
       bodyClassName="h-full p-3"
     >
-      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]">
+        <div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <span className="min-w-0">
+            <strong className="block truncate text-[12px] font-semibold text-slate-900">
+              {question}
+            </strong>
+            <small className="block truncate text-[10.5px] font-medium text-slate-500">
+              {summary.attentionCount
+                ? `${summary.attentionCount} necesitan seguimiento ahora`
+                : emptyLabel}
+            </small>
+          </span>
+          <span className="grid grid-cols-3 gap-1 text-center">
+            <span className="rounded-md bg-rose-50 px-2 py-1">
+              <strong className="block text-[12px] leading-none text-rose-600">
+                {summary.attentionCount}
+              </strong>
+              <small className="text-[9px] font-semibold text-rose-500">alerta</small>
+            </span>
+            <span className="rounded-md bg-blue-50 px-2 py-1">
+              <strong className="block text-[12px] leading-none text-blue-600">
+                {summary.neutralCount}
+              </strong>
+              <small className="text-[9px] font-semibold text-blue-500">abierto</small>
+            </span>
+            <span className="rounded-md bg-emerald-50 px-2 py-1">
+              <strong className="block text-[12px] leading-none text-emerald-600">
+                {summary.okCount}
+              </strong>
+              <small className="text-[9px] font-semibold text-emerald-500">ok</small>
+            </span>
+          </span>
+        </div>
+
         <div className="min-h-0 space-y-1.5 overflow-hidden">
           {items.length === 0 ? (
             <div className="grid h-full place-items-center rounded-xl bg-slate-50 px-4 text-center">
@@ -414,15 +487,18 @@ function DashboardListWidget({
                 onClick={() => {
                   window.location.href = itemHref || href;
                 }}
-                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border-b border-slate-200 px-1 py-1.5 text-left last:border-0 hover:bg-slate-50"
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-transparent px-2 py-1.5 text-left hover:border-slate-200 hover:bg-white"
               >
-                <span className="min-w-0">
-                  <strong className="block truncate text-[11.7px] font-semibold text-slate-900">
-                    {primary}
-                  </strong>
-                  <small className="block truncate text-[10.5px] font-medium text-slate-500">
-                    {secondary}
-                  </small>
+                <span className="flex min-w-0 items-center gap-2">
+                  <i className={`h-2 w-2 shrink-0 rounded-full ${toneDot(itemTone)}`} />
+                  <span className="min-w-0">
+                    <strong className="block truncate text-[11.7px] font-semibold text-slate-900">
+                      {primary}
+                    </strong>
+                    <small className="block truncate text-[10.5px] font-medium text-slate-500">
+                      {secondary}
+                    </small>
+                  </span>
                 </span>
                 <span
                   className={`max-w-[96px] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${toneBadgeClass(
@@ -482,6 +558,7 @@ function DashboardReportSnapshotWidget({
         helper={primary?.[2] || "Sin datos"}
         icon={BarChart3}
         tone={primary?.[3] || "blue"}
+        status="Finanzas"
       />
     );
   }
@@ -490,7 +567,7 @@ function DashboardReportSnapshotWidget({
 
   return (
     <DashboardCard
-      title="Revenue snapshot"
+      title="Resumen financiero"
       action={<DashboardTextButton href="/reports">Ver reportes →</DashboardTextButton>}
       bodyClassName="h-full p-3"
     >
@@ -561,6 +638,7 @@ export function DashboardActionPrioritiesWidget({
         helper={urgentCount ? `${urgentCount} alta prioridad` : "Sin urgencias altas"}
         icon={AlertTriangle}
         tone={urgentCount ? "red" : "green"}
+        status={urgentCount ? "Urgente" : "OK"}
       />
     );
   }
@@ -664,6 +742,7 @@ export function DashboardScheduleWidget({
         helper={next ? `${next[0]} · ${next[1]}` : "Sin pendientes"}
         icon={Clock3}
         tone={schedule.length ? "blue" : "green"}
+        status="Hoy"
       />
     );
   }
@@ -748,6 +827,7 @@ export function DashboardSalesCollectionsWidget({
         helper={collectionRows[0] ? `${collectionRows[0][1]} por cobrar` : "Sin cobros"}
         icon={TrendingUp}
         tone="blue"
+        status="Ventas"
       />
     );
   }
@@ -845,6 +925,7 @@ export function DashboardClientsReviewWidget({
         helper={riskyCount ? `${riskyCount} requieren revisión` : "Sin alertas"}
         icon={Users}
         tone={riskyCount ? "orange" : "green"}
+        status={riskyCount ? "Riesgo" : "OK"}
       />
     );
   }
@@ -916,6 +997,7 @@ export function DashboardCommunicationsWidget({
         helper={communications[0] ? `${communications[0][0]} más reciente` : "Sin mensajes"}
         icon={MessageCircle}
         tone={unreadCount ? "red" : "green"}
+        status={unreadCount ? "Pendiente" : "OK"}
       />
     );
   }
@@ -1027,6 +1109,7 @@ export function DashboardActivityWidget({
         helper={latest?.[0] || "Sin actividad reciente"}
         icon={CheckCircle2}
         tone={activities.length ? "teal" : "neutral"}
+        status="CRM"
       />
     );
   }
@@ -1147,7 +1230,8 @@ export function DashboardV2({
           id: "leads.attention",
           render: ({ mode }) => (
             <DashboardListWidget
-              title="Leads needing attention"
+              title="Leads por atender"
+              question="¿Qué prospectos necesitan seguimiento?"
               emptyLabel="No hay leads urgentes."
               href="/leads"
               icon={Users}
@@ -1183,7 +1267,8 @@ export function DashboardV2({
           id: "projects.risk",
           render: ({ mode }) => (
             <DashboardListWidget
-              title="Project risk"
+              title="Proyectos en riesgo"
+              question="¿Qué entregas pueden atrasarse?"
               emptyLabel="No hay proyectos en riesgo."
               href="/projects"
               icon={Flag}
@@ -1197,7 +1282,8 @@ export function DashboardV2({
           id: "invoices.collections",
           render: ({ mode }) => (
             <DashboardListWidget
-              title="Awaiting payment"
+              title="Cobros pendientes"
+              question="¿Qué facturas requieren acción?"
               emptyLabel="No hay facturas por cobrar."
               href="/invoices"
               icon={DollarSign}
@@ -1211,7 +1297,8 @@ export function DashboardV2({
           id: "proposals.pending",
           render: ({ mode }) => (
             <DashboardListWidget
-              title="Pending proposals"
+              title="Propuestas pendientes"
+              question="¿Qué propuestas esperan respuesta?"
               emptyLabel="No hay propuestas pendientes."
               href="/proposals"
               icon={FileText}
