@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { ProfileWorkMonitor } from "@/components/profile/profile-work-monitor";
 import { PageHeader } from "@/components/crm/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -198,17 +199,17 @@ function ProfilePage() {
         toast.error(error.message || "Could not load profile preferences.");
         return;
       }
-      if (data) {
-        setPreferences({
-          language: data.language || DEFAULT_PREFERENCES.language,
-          timezone: data.timezone || DEFAULT_PREFERENCES.timezone,
-          theme: data.theme || DEFAULT_PREFERENCES.theme,
-          density: data.density || DEFAULT_PREFERENCES.density,
-          default_dashboard: data.default_dashboard || DEFAULT_PREFERENCES.default_dashboard,
-        });
-      } else {
-        setPreferences(DEFAULT_PREFERENCES);
-      }
+      setPreferences(
+        data
+          ? {
+              language: data.language || DEFAULT_PREFERENCES.language,
+              timezone: data.timezone || DEFAULT_PREFERENCES.timezone,
+              theme: data.theme || DEFAULT_PREFERENCES.theme,
+              density: data.density || DEFAULT_PREFERENCES.density,
+              default_dashboard: data.default_dashboard || DEFAULT_PREFERENCES.default_dashboard,
+            }
+          : DEFAULT_PREFERENCES,
+      );
     };
     void loadPreferences();
     return () => {
@@ -223,7 +224,6 @@ function ProfilePage() {
   const lastSignIn = formatDate(user?.last_sign_in_at || null);
   const accountStatus = profile?.is_active === false ? "Inactive" : "Active";
   const authProvider = user?.app_metadata?.provider ? String(user.app_metadata.provider) : "email";
-
   const roleBadges = useMemo(() => roles.map((role) => roleLabel(role)), [roles]);
 
   const saveProfile = async () => {
@@ -231,23 +231,21 @@ function ProfilePage() {
       toast.error("No profile record found for this user.");
       return;
     }
-
     setSaving(true);
-    const payload = {
-      full_name: form.full_name.trim() || null,
-      phone: form.phone.trim() || null,
-      department: form.department.trim() || null,
-      avatar_url: form.avatar_url.trim() || null,
-    };
-
-    const { error } = await db.from("profiles").update(payload).eq("id", profile.id);
+    const { error } = await db
+      .from("profiles")
+      .update({
+        full_name: form.full_name.trim() || null,
+        phone: form.phone.trim() || null,
+        department: form.department.trim() || null,
+        avatar_url: form.avatar_url.trim() || null,
+      })
+      .eq("id", profile.id);
     setSaving(false);
-
     if (error) {
       toast.error(error.message || "Could not update profile.");
       return;
     }
-
     toast.success("Profile updated.");
     setEditOpen(false);
   };
@@ -257,7 +255,6 @@ function ProfilePage() {
       toast.error("No profile record found for this user.");
       return;
     }
-
     setPreferencesSaving(true);
     const { error } = await db.from("profile_preferences").upsert(
       {
@@ -268,12 +265,10 @@ function ProfilePage() {
       { onConflict: "profile_id" },
     );
     setPreferencesSaving(false);
-
     if (error) {
       toast.error(error.message || "Could not save preferences.");
       return;
     }
-
     toast.success("Preferences saved.");
   };
 
@@ -282,17 +277,14 @@ function ProfilePage() {
       toast.error("This account does not have an email login available.");
       return;
     }
-
     if (!passwordForm.current_password || !passwordForm.new_password || !passwordForm.confirm_password) {
       toast.error("Complete all password fields.");
       return;
     }
-
     if (passwordForm.new_password.length < 8) {
       toast.error("New password must be at least 8 characters.");
       return;
     }
-
     if (passwordForm.new_password !== passwordForm.confirm_password) {
       toast.error("New password and confirmation do not match.");
       return;
@@ -303,18 +295,14 @@ function ProfilePage() {
       email,
       password: passwordForm.current_password,
     });
-
     if (reauthError) {
       setSecuritySaving(false);
       toast.error("Current password is not valid.");
       return;
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: passwordForm.new_password,
-    });
+    const { error: updateError } = await supabase.auth.updateUser({ password: passwordForm.new_password });
     setSecuritySaving(false);
-
     if (updateError) {
       toast.error(updateError.message || "Could not update password.");
       return;
@@ -335,10 +323,7 @@ function ProfilePage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <PageHeader
-        title="My Profile"
-        subtitle="Manage your identity, contact details, role context, and account overview."
-      >
+      <PageHeader title="My Profile" subtitle="Manage your identity, work, security, and preferences.">
         <Button size="sm" onClick={() => setEditOpen(true)}>
           <Edit3 className="mr-2 h-4 w-4" />
           Edit Profile
@@ -351,11 +336,7 @@ function ProfilePage() {
           <CardContent className="-mt-12 space-y-5 p-6">
             <div className="flex items-end justify-between gap-4">
               {form.avatar_url ? (
-                <img
-                  src={form.avatar_url}
-                  alt={displayName}
-                  className="h-24 w-24 rounded-3xl border-4 border-white object-cover shadow-sm"
-                />
+                <img src={form.avatar_url} alt={displayName} className="h-24 w-24 rounded-3xl border-4 border-white object-cover shadow-sm" />
               ) : (
                 <div className="grid h-24 w-24 place-items-center rounded-3xl border-4 border-white bg-slate-950 text-2xl font-black text-white shadow-sm">
                   {initials(displayName, email)}
@@ -372,15 +353,7 @@ function ProfilePage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {roleBadges.length ? (
-                roleBadges.map((role) => (
-                  <Badge key={role} variant="secondary" className="rounded-full">
-                    {role}
-                  </Badge>
-                ))
-              ) : (
-                <Badge variant="outline">No roles</Badge>
-              )}
+              {roleBadges.length ? roleBadges.map((role) => <Badge key={role} variant="secondary" className="rounded-full">{role}</Badge>) : <Badge variant="outline">No roles</Badge>}
             </div>
 
             <Separator />
@@ -397,35 +370,20 @@ function ProfilePage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Card className="border-0 shadow-sm">
               <CardContent className="flex items-center gap-3 p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
-                  <CheckCircle2 className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account</p>
-                  <p className="text-lg font-black text-slate-950">{accountStatus}</p>
-                </div>
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><CheckCircle2 className="h-5 w-5" /></span>
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account</p><p className="text-lg font-black text-slate-950">{accountStatus}</p></div>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="flex items-center gap-3 p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-700">
-                  <ShieldCheck className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Access</p>
-                  <p className="text-lg font-black text-slate-950">{roles.length || 0} roles</p>
-                </div>
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-700"><ShieldCheck className="h-5 w-5" /></span>
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Access</p><p className="text-lg font-black text-slate-950">{roles.length || 0} roles</p></div>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="flex items-center gap-3 p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-50 text-violet-700">
-                  <CalendarDays className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Joined</p>
-                  <p className="text-sm font-black text-slate-950">{joinedAt}</p>
-                </div>
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-50 text-violet-700"><CalendarDays className="h-5 w-5" /></span>
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Joined</p><p className="text-sm font-black text-slate-950">{joinedAt}</p></div>
               </CardContent>
             </Card>
           </div>
@@ -441,9 +399,7 @@ function ProfilePage() {
 
             <TabsContent value="overview" className="space-y-4">
               <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Profile Details</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="text-base">Profile Details</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <InfoRow icon={UserCircle} label="Full name" value={displayName} />
                   <InfoRow icon={Mail} label="Login email" value={email} />
@@ -455,9 +411,7 @@ function ProfilePage() {
 
             <TabsContent value="access" className="space-y-4">
               <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Role & Access</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="text-base">Role & Access</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <InfoRow icon={ShieldCheck} label="Primary role" value={primaryRole} />
@@ -468,11 +422,7 @@ function ProfilePage() {
                   <div>
                     <p className="text-sm font-semibold text-slate-950">Assigned roles</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {roleBadges.length ? (
-                        roleBadges.map((role) => <Badge key={role}>{role}</Badge>)
-                      ) : (
-                        <Badge variant="outline">No roles assigned</Badge>
-                      )}
+                      {roleBadges.length ? roleBadges.map((role) => <Badge key={role}>{role}</Badge>) : <Badge variant="outline">No roles assigned</Badge>}
                     </div>
                   </div>
                 </CardContent>
@@ -483,9 +433,7 @@ function ProfilePage() {
               <Card className="border-0 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">Security & Login</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Manage account access and sensitive login controls for your user.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Manage account access and sensitive login controls for your user.</p>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -494,85 +442,27 @@ function ProfilePage() {
                     <InfoRow icon={Activity} label="Last sign in" value={lastSignIn} />
                     <InfoRow icon={CheckCircle2} label="Account status" value={accountStatus} />
                   </div>
-
                   <Separator />
-
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
                     <div className="rounded-2xl border bg-white p-4">
                       <div className="mb-4 flex items-center gap-2">
-                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-700">
-                          <KeyRound className="h-4 w-4" />
-                        </span>
-                        <div>
-                          <p className="text-sm font-bold text-slate-950">Change password</p>
-                          <p className="text-xs text-muted-foreground">
-                            Current password is required before applying the new password.
-                          </p>
-                        </div>
+                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-700"><KeyRound className="h-4 w-4" /></span>
+                        <div><p className="text-sm font-bold text-slate-950">Change password</p><p className="text-xs text-muted-foreground">Current password is required before applying the new password.</p></div>
                       </div>
-
                       <div className="grid gap-4 md:grid-cols-3">
-                        <div className="grid gap-2">
-                          <Label htmlFor="current-password">Current password</Label>
-                          <Input
-                            id="current-password"
-                            type="password"
-                            autoComplete="current-password"
-                            value={passwordForm.current_password}
-                            onChange={(event) => setPasswordForm((prev) => ({ ...prev, current_password: event.target.value }))}
-                            disabled={securitySaving}
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="new-password">New password</Label>
-                          <Input
-                            id="new-password"
-                            type="password"
-                            autoComplete="new-password"
-                            value={passwordForm.new_password}
-                            onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))}
-                            disabled={securitySaving}
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="confirm-password">Confirm password</Label>
-                          <Input
-                            id="confirm-password"
-                            type="password"
-                            autoComplete="new-password"
-                            value={passwordForm.confirm_password}
-                            onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))}
-                            disabled={securitySaving}
-                          />
-                        </div>
+                        <div className="grid gap-2"><Label htmlFor="current-password">Current password</Label><Input id="current-password" type="password" autoComplete="current-password" value={passwordForm.current_password} onChange={(event) => setPasswordForm((prev) => ({ ...prev, current_password: event.target.value }))} disabled={securitySaving} /></div>
+                        <div className="grid gap-2"><Label htmlFor="new-password">New password</Label><Input id="new-password" type="password" autoComplete="new-password" value={passwordForm.new_password} onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))} disabled={securitySaving} /></div>
+                        <div className="grid gap-2"><Label htmlFor="confirm-password">Confirm password</Label><Input id="confirm-password" type="password" autoComplete="new-password" value={passwordForm.confirm_password} onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))} disabled={securitySaving} /></div>
                       </div>
-
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs text-muted-foreground">
-                          Use at least 8 characters. The session may refresh after the password change.
-                        </p>
-                        <Button onClick={updatePassword} disabled={securitySaving}>
-                          {securitySaving ? "Updating..." : "Update Password"}
-                        </Button>
+                        <p className="text-xs text-muted-foreground">Use at least 8 characters. The session may refresh after the password change.</p>
+                        <Button onClick={updatePassword} disabled={securitySaving}>{securitySaving ? "Updating..." : "Update Password"}</Button>
                       </div>
                     </div>
-
                     <div className="rounded-2xl border border-dashed bg-slate-50 p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-700">
-                          <Smartphone className="h-4 w-4" />
-                        </span>
-                        <div>
-                          <p className="text-sm font-bold text-slate-950">MFA / 2FA</p>
-                          <p className="text-xs text-muted-foreground">Planned security upgrade</p>
-                        </div>
-                      </div>
-                      <p className="mt-3 text-sm text-muted-foreground">
-                        This area is reserved for TOTP or phone-based multi-factor authentication. It is intentionally disabled until the MFA enrollment flow is connected.
-                      </p>
-                      <Button className="mt-4 w-full" variant="outline" disabled>
-                        Enable MFA Soon
-                      </Button>
+                      <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-700"><Smartphone className="h-4 w-4" /></span><div><p className="text-sm font-bold text-slate-950">MFA / 2FA</p><p className="text-xs text-muted-foreground">Planned security upgrade</p></div></div>
+                      <p className="mt-3 text-sm text-muted-foreground">This area is reserved for TOTP or phone-based multi-factor authentication.</p>
+                      <Button className="mt-4 w-full" variant="outline" disabled>Enable MFA Soon</Button>
                     </div>
                   </div>
                 </CardContent>
@@ -583,99 +473,29 @@ function ProfilePage() {
               <Card className="border-0 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">Personal Preferences</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Store the basic settings that will drive each user's CRM experience.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Store the basic settings that will drive each user's CRM experience.</p>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FieldSelect
-                      id="profile-language"
-                      label="Language"
-                      value={preferences.language}
-                      disabled={preferencesLoading || preferencesSaving}
-                      onChange={(value) => setPreferences((prev) => ({ ...prev, language: value as ProfilePreferences["language"] }))}
-                      options={[
-                        { value: "system", label: "System default" },
-                        { value: "en", label: "English" },
-                        { value: "es", label: "Spanish" },
-                      ]}
-                    />
-                    <FieldSelect
-                      id="profile-timezone"
-                      label="Timezone"
-                      value={preferences.timezone}
-                      disabled={preferencesLoading || preferencesSaving}
-                      onChange={(value) => setPreferences((prev) => ({ ...prev, timezone: value }))}
-                      options={timezones.map((timezone) => ({ value: timezone, label: timezone }))}
-                    />
-                    <FieldSelect
-                      id="profile-theme"
-                      label="Theme"
-                      value={preferences.theme}
-                      disabled={preferencesLoading || preferencesSaving}
-                      onChange={(value) => setPreferences((prev) => ({ ...prev, theme: value as ProfilePreferences["theme"] }))}
-                      options={[
-                        { value: "system", label: "System" },
-                        { value: "light", label: "Light" },
-                        { value: "dark", label: "Dark" },
-                      ]}
-                    />
-                    <FieldSelect
-                      id="profile-density"
-                      label="Interface density"
-                      value={preferences.density}
-                      disabled={preferencesLoading || preferencesSaving}
-                      onChange={(value) => setPreferences((prev) => ({ ...prev, density: value as ProfilePreferences["density"] }))}
-                      options={[
-                        { value: "comfortable", label: "Comfortable" },
-                        { value: "compact", label: "Compact" },
-                      ]}
-                    />
-                    <FieldSelect
-                      id="profile-default-dashboard"
-                      label="Default landing page"
-                      value={preferences.default_dashboard}
-                      disabled={preferencesLoading || preferencesSaving}
-                      onChange={(value) => setPreferences((prev) => ({ ...prev, default_dashboard: value as ProfilePreferences["default_dashboard"] }))}
-                      options={[
-                        { value: "dashboard", label: "Dashboard" },
-                        { value: "tasks", label: "Tasks" },
-                        { value: "projects", label: "Projects" },
-                        { value: "leads", label: "Leads" },
-                        { value: "pipeline", label: "Pipeline" },
-                        { value: "calendar", label: "Calendar" },
-                      ]}
-                    />
+                    <FieldSelect id="profile-language" label="Language" value={preferences.language} disabled={preferencesLoading || preferencesSaving} onChange={(value) => setPreferences((prev) => ({ ...prev, language: value as ProfilePreferences["language"] }))} options={[{ value: "system", label: "System default" }, { value: "en", label: "English" }, { value: "es", label: "Spanish" }]} />
+                    <FieldSelect id="profile-timezone" label="Timezone" value={preferences.timezone} disabled={preferencesLoading || preferencesSaving} onChange={(value) => setPreferences((prev) => ({ ...prev, timezone: value }))} options={timezones.map((timezone) => ({ value: timezone, label: timezone }))} />
+                    <FieldSelect id="profile-theme" label="Theme" value={preferences.theme} disabled={preferencesLoading || preferencesSaving} onChange={(value) => setPreferences((prev) => ({ ...prev, theme: value as ProfilePreferences["theme"] }))} options={[{ value: "system", label: "System" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]} />
+                    <FieldSelect id="profile-density" label="Interface density" value={preferences.density} disabled={preferencesLoading || preferencesSaving} onChange={(value) => setPreferences((prev) => ({ ...prev, density: value as ProfilePreferences["density"] }))} options={[{ value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" }]} />
+                    <FieldSelect id="profile-default-dashboard" label="Default landing page" value={preferences.default_dashboard} disabled={preferencesLoading || preferencesSaving} onChange={(value) => setPreferences((prev) => ({ ...prev, default_dashboard: value as ProfilePreferences["default_dashboard"] }))} options={[{ value: "dashboard", label: "Dashboard" }, { value: "tasks", label: "Tasks" }, { value: "projects", label: "Projects" }, { value: "leads", label: "Leads" }, { value: "pipeline", label: "Pipeline" }, { value: "calendar", label: "Calendar" }]} />
                   </div>
-
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <InfoRow icon={Languages} label="Language" value={labelFromValue(preferences.language)} />
                     <InfoRow icon={MonitorCog} label="Theme" value={labelFromValue(preferences.theme)} />
                     <InfoRow icon={SlidersHorizontal} label="Density" value={labelFromValue(preferences.density)} />
                     <InfoRow icon={LayoutDashboard} label="Start page" value={labelFromValue(preferences.default_dashboard)} />
                   </div>
-
-                  <div className="flex justify-end">
-                    <Button onClick={savePreferences} disabled={preferencesLoading || preferencesSaving}>
-                      {preferencesSaving ? "Saving..." : "Save Preferences"}
-                    </Button>
-                  </div>
+                  <div className="flex justify-end"><Button onClick={savePreferences} disabled={preferencesLoading || preferencesSaving}>{preferencesSaving ? "Saving..." : "Save Preferences"}</Button></div>
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="activity" className="space-y-4">
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Work Monitor</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-2xl border border-dashed bg-slate-50 p-6 text-sm text-muted-foreground">
-                    This profile area now connects identity, editable profile details, preferences, and basic security controls. Work metrics, timesheets, notifications, and security events will be connected in the next steps.
-                  </div>
-                </CardContent>
-              </Card>
+              <ProfileWorkMonitor profileId={profile?.id || null} userId={user?.id || null} />
             </TabsContent>
           </Tabs>
         </div>
@@ -683,54 +503,13 @@ function ProfilePage() {
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Edit Profile</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="profile-full-name">Full name</Label>
-              <Input
-                id="profile-full-name"
-                value={form.full_name}
-                onChange={(event) => setForm((prev) => ({ ...prev, full_name: event.target.value }))}
-                placeholder="Your full name"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="profile-phone">Phone</Label>
-              <Input
-                id="profile-phone"
-                value={form.phone}
-                onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
-                placeholder="Phone number"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="profile-department">Department</Label>
-              <Input
-                id="profile-department"
-                value={form.department}
-                onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
-                placeholder="Sales, Support, Operations..."
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="profile-avatar">Avatar URL</Label>
-              <Input
-                id="profile-avatar"
-                value={form.avatar_url}
-                onChange={(event) => setForm((prev) => ({ ...prev, avatar_url: event.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
-                Cancel
-              </Button>
-              <Button onClick={saveProfile} disabled={saving}>
-                {saving ? "Saving..." : "Save Profile"}
-              </Button>
-            </div>
+            <div className="grid gap-2"><Label htmlFor="profile-full-name">Full name</Label><Input id="profile-full-name" value={form.full_name} onChange={(event) => setForm((prev) => ({ ...prev, full_name: event.target.value }))} placeholder="Your full name" /></div>
+            <div className="grid gap-2"><Label htmlFor="profile-phone">Phone</Label><Input id="profile-phone" value={form.phone} onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone number" /></div>
+            <div className="grid gap-2"><Label htmlFor="profile-department">Department</Label><Input id="profile-department" value={form.department} onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))} placeholder="Sales, Support, Operations..." /></div>
+            <div className="grid gap-2"><Label htmlFor="profile-avatar">Avatar URL</Label><Input id="profile-avatar" value={form.avatar_url} onChange={(event) => setForm((prev) => ({ ...prev, avatar_url: event.target.value }))} placeholder="https://..." /></div>
+            <div className="flex justify-end gap-2 pt-2"><Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancel</Button><Button onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Button></div>
           </div>
         </DialogContent>
       </Dialog>
