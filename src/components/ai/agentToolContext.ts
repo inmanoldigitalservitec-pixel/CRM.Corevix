@@ -625,6 +625,6 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
   };
 }
 
-export function getLatestAgentToolContext(messages: Array<{ toolContext?: AgentToolContext }>) {
+export function getLatestAgentToolContext(messages: Array<{ toolContext?: AgentToolContext | null }>) {
   return [...messages].reverse().find((message) => message.toolContext)?.toolContext || null;
 }
