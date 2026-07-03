@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -54,6 +55,26 @@ type ActivityItem = [string, string, string, LucideIcon];
 type CommunicationItem = [string, string, string, string, string, string];
 type ListWidgetItem = [string, string, string, string, string];
 type SnapshotMetricItem = [string, string, string, DashboardV2Tone];
+type DocumentStatusItem = [string, number, number, DashboardV2Tone];
+type SalesDocumentsOverview = {
+  invoices: DocumentStatusItem[];
+  estimates: DocumentStatusItem[];
+  proposals: DocumentStatusItem[];
+  totals: [string, string, DashboardV2Tone][];
+};
+type WorkCenterItem = [string, string, string, DashboardV2Tone, string];
+type WorkCenterData = {
+  tasks: WorkCenterItem[];
+  projects: WorkCenterItem[];
+  tickets: WorkCenterItem[];
+  inbox: WorkCenterItem[];
+  calendar: WorkCenterItem[];
+};
+type TodoItem = [string, string, DashboardV2Tone, string];
+type TodoWidgetData = {
+  pending: TodoItem[];
+  completed: TodoItem[];
+};
 
 export type DashboardV2Props = {
   kpis?: DashboardV2Kpi[];
@@ -69,6 +90,9 @@ export type DashboardV2Props = {
   invoiceRows?: ListWidgetItem[];
   proposalRows?: ListWidgetItem[];
   reportSnapshot?: SnapshotMetricItem[];
+  salesDocumentsOverview?: SalesDocumentsOverview;
+  workCenter?: WorkCenterData;
+  todoItems?: TodoWidgetData;
   todayLabel?: string;
   collectionPeriodLabel?: string;
   pipelinePeriodLabel?: string;
@@ -587,6 +611,352 @@ function DashboardReportSnapshotWidget({
             </small>
           </div>
         ))}
+      </div>
+    </DashboardCard>
+  );
+}
+
+function progressColor(tone: DashboardV2Tone) {
+  if (tone === "red") return "bg-rose-500";
+  if (tone === "orange") return "bg-orange-500";
+  if (tone === "green") return "bg-emerald-500";
+  if (tone === "purple") return "bg-violet-500";
+  if (tone === "teal") return "bg-teal-500";
+  return "bg-blue-500";
+}
+
+function DashboardDocumentColumn({
+  title,
+  icon: Icon,
+  rows,
+}: {
+  title: string;
+  icon: LucideIcon;
+  rows: DocumentStatusItem[];
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="mb-3 flex min-w-0 items-center gap-2">
+        <Icon className="h-4 w-4 shrink-0 text-slate-500" />
+        <strong className="truncate text-[13px] font-semibold text-slate-900">{title}</strong>
+      </div>
+      <div className="space-y-2">
+        {rows.map(([label, count, percent, tone]) => (
+          <div key={`${title}-${label}`}>
+            <div className="mb-1 flex items-center justify-between gap-3 text-[11.5px]">
+              <span className={`truncate font-semibold ${actionTone(tone)}`}>
+                {count} {label}
+              </span>
+              <span className="shrink-0 font-medium text-slate-400">{percent}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <span
+                className={`block h-full rounded-full ${progressColor(tone)}`}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardSalesDocumentsOverviewWidget({
+  overview,
+  mode = "standard",
+}: {
+  overview: SalesDocumentsOverview;
+  mode?: DashboardWidgetMode;
+}) {
+  const openInvoices =
+    overview.invoices.find(([label]) => label.toLowerCase().includes("unpaid"))?.[1] || 0;
+  const totalDocuments = [
+    ...overview.invoices,
+    ...overview.estimates,
+    ...overview.proposals,
+  ].reduce((sum, [, count]) => sum + count, 0);
+
+  if (mode === "mini") {
+    return (
+      <MiniWidgetCard
+        title="Documentos"
+        value={String(totalDocuments)}
+        helper={overview.totals[0]?.[1] ? `${overview.totals[0][1]} outstanding` : "Sin documentos"}
+        icon={FileText}
+        tone={openInvoices ? "orange" : "blue"}
+        status="Ventas"
+      />
+    );
+  }
+
+  return (
+    <DashboardCard
+      title="Sales documents overview"
+      action={<DashboardTextButton href="/invoices">Ver documentos →</DashboardTextButton>}
+      bodyClassName="h-full p-4"
+    >
+      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-4">
+        <div className="grid min-h-0 gap-5 overflow-hidden md:grid-cols-3">
+          <DashboardDocumentColumn
+            title="Invoice overview"
+            icon={FileText}
+            rows={overview.invoices}
+          />
+          <DashboardDocumentColumn
+            title="Estimate overview"
+            icon={FileText}
+            rows={overview.estimates}
+          />
+          <DashboardDocumentColumn
+            title="Proposal overview"
+            icon={FileText}
+            rows={overview.proposals}
+          />
+        </div>
+
+        <div className="grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-3">
+          {overview.totals.map(([label, value, tone]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                window.location.href = "/invoices";
+              }}
+              className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
+            >
+              <span className={`block truncate text-[11px] font-semibold ${actionTone(tone)}`}>
+                {label}
+              </span>
+              <strong className="mt-1 block truncate text-[13px] font-semibold text-slate-800">
+                {value}
+              </strong>
+            </button>
+          ))}
+        </div>
+      </div>
+    </DashboardCard>
+  );
+}
+
+function DashboardWorkCenterWidget({
+  workCenter,
+  mode = "standard",
+}: {
+  workCenter: WorkCenterData;
+  mode?: DashboardWidgetMode;
+}) {
+  const tabs = [
+    ["tasks", "My Tasks", CheckCircle2, "/tasks"],
+    ["projects", "My Projects", Workflow, "/projects"],
+    ["tickets", "Tickets", LifeBuoy, "/tickets"],
+    ["inbox", "Inbox", MessageCircle, "/whatsapp"],
+    ["calendar", "Agenda", Clock3, "/calendar"],
+  ] as const;
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>("tasks");
+  const active = tabs.find(([key]) => key === activeTab) || tabs[0];
+  const items = workCenter[active[0]];
+  const totalItems = tabs.reduce((sum, [key]) => sum + workCenter[key].length, 0);
+  const attentionCount = tabs.reduce(
+    (sum, [key]) =>
+      sum + workCenter[key].filter(([, , , tone]) => tone === "red" || tone === "orange").length,
+    0,
+  );
+
+  if (mode === "mini") {
+    return (
+      <MiniWidgetCard
+        title="Trabajo"
+        value={String(totalItems)}
+        helper={attentionCount ? `${attentionCount} requieren atención` : "Sin urgencias"}
+        icon={CheckCircle2}
+        tone={attentionCount ? "orange" : "green"}
+        status="Hoy"
+      />
+    );
+  }
+
+  return (
+    <DashboardCard bodyClassName="h-full p-0">
+      <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-slate-200 px-3 py-2">
+          {tabs.map(([key, label, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`flex h-8 shrink-0 items-center gap-1.5 border-b-2 px-2 text-[12px] font-semibold ${
+                activeTab === key
+                  ? "border-blue-600 text-slate-950"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-4 py-2">
+          <DashboardTextButton href={active[3]}>View All</DashboardTextButton>
+          <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10.5px] font-semibold text-slate-500">
+            {items.length} items
+          </span>
+        </div>
+
+        <div className="min-h-0 overflow-hidden px-4 pb-3">
+          {items.length === 0 ? (
+            <div className="grid h-full place-items-center rounded-xl bg-slate-50 text-center">
+              <span className="text-[12px] font-semibold text-slate-500">
+                No hay elementos en {active[1]}.
+              </span>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <div className="grid grid-cols-[36px_minmax(0,1fr)_92px_84px] bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-500">
+                <span>#</span>
+                <span>Subject</span>
+                <span>Status</span>
+                <span>Priority</span>
+              </div>
+              {items.slice(0, 6).map(([title, subtitle, badge, tone, href], index) => (
+                <button
+                  key={`${activeTab}-${title}-${subtitle}`}
+                  type="button"
+                  onClick={() => {
+                    window.location.href = href;
+                  }}
+                  className="grid w-full grid-cols-[36px_minmax(0,1fr)_92px_84px] items-center gap-2 border-t border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
+                >
+                  <span className="text-[12px] text-slate-600">{index + 1}</span>
+                  <span className="min-w-0">
+                    <strong className="block truncate text-[12px] font-semibold text-slate-900">
+                      {title}
+                    </strong>
+                    <small className="block truncate text-[10.5px] text-slate-500">
+                      {subtitle}
+                    </small>
+                  </span>
+                  <span
+                    className={`w-fit max-w-[86px] truncate rounded-md px-2 py-0.5 text-[10.5px] font-semibold ${toneBadgeClass(
+                      tone,
+                    )}`}
+                  >
+                    {badge}
+                  </span>
+                  <span className={`truncate text-[11px] font-semibold ${actionTone(tone)}`}>
+                    {tone === "red" ? "High" : tone === "orange" ? "Medium" : "Low"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </DashboardCard>
+  );
+}
+
+function DashboardTodoItemsWidget({
+  todos,
+  mode = "standard",
+}: {
+  todos: TodoWidgetData;
+  mode?: DashboardWidgetMode;
+}) {
+  if (mode === "mini") {
+    return (
+      <MiniWidgetCard
+        title="To do"
+        value={String(todos.pending.length)}
+        helper={
+          todos.completed.length ? `${todos.completed.length} completadas` : "Pendientes personales"
+        }
+        icon={CheckCircle2}
+        tone={todos.pending.length ? "orange" : "green"}
+        status="Personal"
+      />
+    );
+  }
+
+  return (
+    <DashboardCard
+      title="My To Do Items"
+      action={<DashboardTextButton href="/tasks">View All</DashboardTextButton>}
+      bodyClassName="h-full p-4"
+    >
+      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+        <section className="min-h-0 overflow-hidden">
+          <h4 className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-orange-600">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Latest to do's
+          </h4>
+          <div className="space-y-1.5">
+            {todos.pending.length === 0 ? (
+              <p className="rounded-lg bg-slate-50 px-3 py-3 text-[12px] font-medium text-slate-400">
+                No pending todos found
+              </p>
+            ) : (
+              todos.pending.slice(0, 4).map(([title, subtitle, tone, href]) => (
+                <button
+                  key={`pending-${title}-${subtitle}`}
+                  type="button"
+                  onClick={() => {
+                    window.location.href = href;
+                  }}
+                  className="grid w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50"
+                >
+                  <span className="h-3.5 w-3.5 rounded border border-slate-300" />
+                  <span className="min-w-0">
+                    <strong className="block truncate text-[11.8px] font-semibold text-slate-800">
+                      {title}
+                    </strong>
+                    <small className="block truncate text-[10.5px] text-slate-500">
+                      {subtitle}
+                    </small>
+                  </span>
+                  <span className={`h-2 w-2 rounded-full ${toneDot(tone)}`} />
+                </button>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="min-h-0 overflow-hidden">
+          <h4 className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Latest finished to do's
+          </h4>
+          <div className="space-y-1.5">
+            {todos.completed.length === 0 ? (
+              <p className="rounded-lg bg-slate-50 px-3 py-3 text-[12px] font-medium text-slate-400">
+                No finished todos found
+              </p>
+            ) : (
+              todos.completed.slice(0, 3).map(([title, subtitle, tone, href]) => (
+                <button
+                  key={`done-${title}-${subtitle}`}
+                  type="button"
+                  onClick={() => {
+                    window.location.href = href;
+                  }}
+                  className="grid w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="min-w-0">
+                    <strong className="block truncate text-[11.8px] font-semibold text-slate-800">
+                      {title}
+                    </strong>
+                    <small className="block truncate text-[10.5px] text-slate-500">
+                      {subtitle}
+                    </small>
+                  </span>
+                  <span className={`h-2 w-2 rounded-full ${toneDot(tone)}`} />
+                </button>
+              ))
+            )}
+          </div>
+        </section>
       </div>
     </DashboardCard>
   );
@@ -1161,6 +1531,9 @@ export function DashboardV2({
   invoiceRows,
   proposalRows,
   reportSnapshot,
+  salesDocumentsOverview,
+  workCenter,
+  todoItems,
   todayLabel = "Vie. 23 mayo",
   collectionPeriodLabel = "Este mes⌄",
   pipelinePeriodLabel = "Este mes⌄",
@@ -1214,6 +1587,106 @@ export function DashboardV2({
         activities.length ? "teal" : "neutral",
       ],
     ] satisfies SnapshotMetricItem[]);
+  const resolvedSalesDocumentsOverview =
+    salesDocumentsOverview ??
+    ({
+      invoices: [
+        ["Draft", 0, 0, "neutral"],
+        ["Not Sent", 0, 0, "neutral"],
+        ["Unpaid", resolvedInvoiceRows.length, resolvedInvoiceRows.length ? 100 : 0, "orange"],
+        ["Partially Paid", 0, 0, "orange"],
+        [
+          "Overdue",
+          resolvedInvoiceRows.filter(([, , badge]) => badge.includes("Venc")).length,
+          0,
+          "red",
+        ],
+        ["Paid", 0, 0, "green"],
+      ],
+      estimates: [
+        ["Draft", 0, 0, "neutral"],
+        ["Sent", 0, 0, "blue"],
+        ["Expired", 0, 0, "orange"],
+        ["Declined", 0, 0, "red"],
+        ["Accepted", 0, 0, "green"],
+      ],
+      proposals: [
+        ["Draft", 0, 0, "neutral"],
+        ["Sent", resolvedProposalRows.length, resolvedProposalRows.length ? 100 : 0, "blue"],
+        ["Open", 0, 0, "neutral"],
+        ["Declined", 0, 0, "red"],
+        ["Accepted", 0, 0, "green"],
+      ],
+      totals: collectionRows.map(
+        ([label, value, , color]) =>
+          [
+            label === "Por cobrar"
+              ? "Outstanding Invoices"
+              : label === "Vencido"
+                ? "Past Due Invoices"
+                : "Paid Invoices",
+            value,
+            color.includes("rose") ? "red" : color.includes("emerald") ? "green" : "orange",
+          ] as [string, string, DashboardV2Tone],
+      ),
+    } satisfies SalesDocumentsOverview);
+  const resolvedWorkCenter =
+    workCenter ??
+    ({
+      tasks: actions
+        .filter((action) => action.href === "/tasks")
+        .map(
+          (action) =>
+            [
+              action.title,
+              action.relatedTo || action.due,
+              action.priority,
+              action.tone,
+              "/tasks",
+            ] as WorkCenterItem,
+        ),
+      projects: resolvedProjectRisks.map(
+        ([title, subtitle, badge, tone, href]) =>
+          [title, subtitle, badge, tone as DashboardV2Tone, href] as WorkCenterItem,
+      ),
+      tickets: [],
+      inbox: communications.map(
+        ([channel, name, preview, count, tone, href]) =>
+          [
+            `${channel}: ${name}`,
+            preview,
+            Number(count) > 0 ? `${count} nuevo` : "Abierto",
+            tone as DashboardV2Tone,
+            href,
+          ] as WorkCenterItem,
+      ),
+      calendar: schedule.map(
+        ([when, title, subtitle, tone]) =>
+          [
+            title,
+            `${when} · ${subtitle}`,
+            when,
+            tone as DashboardV2Tone,
+            "/calendar",
+          ] as WorkCenterItem,
+      ),
+    } satisfies WorkCenterData);
+  const resolvedTodoItems =
+    todoItems ??
+    ({
+      pending: actions
+        .filter((action) => action.href === "/tasks")
+        .map(
+          (action) =>
+            [
+              action.title,
+              `${action.relatedTo} · ${action.due}`,
+              action.tone,
+              "/tasks",
+            ] as TodoItem,
+        ),
+      completed: [],
+    } satisfies TodoWidgetData);
 
   return (
     <DashboardBuilder
@@ -1258,6 +1731,25 @@ export function DashboardV2({
               mode={mode}
             />
           ),
+        },
+        {
+          id: "finance.documents-overview",
+          render: ({ mode }) => (
+            <DashboardSalesDocumentsOverviewWidget
+              overview={resolvedSalesDocumentsOverview}
+              mode={mode}
+            />
+          ),
+        },
+        {
+          id: "work.center",
+          render: ({ mode }) => (
+            <DashboardWorkCenterWidget workCenter={resolvedWorkCenter} mode={mode} />
+          ),
+        },
+        {
+          id: "personal.todo-items",
+          render: ({ mode }) => <DashboardTodoItemsWidget todos={resolvedTodoItems} mode={mode} />,
         },
         {
           id: "clients.review",

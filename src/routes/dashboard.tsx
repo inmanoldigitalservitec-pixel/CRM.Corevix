@@ -126,6 +126,26 @@ type ProposalRow = {
   updated_at?: string;
 };
 
+type EstimateRow = {
+  id: string;
+  status: string;
+  total?: number | string | null;
+  title?: string | null;
+  number?: string | null;
+  expiry_date?: string | null;
+  updated_at?: string;
+};
+
+type TicketRow = {
+  id: string;
+  ticket_number?: string | null;
+  subject?: string | null;
+  status: string;
+  priority?: string | null;
+  updated_at?: string | null;
+  resolution_due_at?: string | null;
+};
+
 type ClientSummaryRow = {
   id: string;
   company_name: string | null;
@@ -339,6 +359,41 @@ function toDateKey(value: string | null | undefined) {
   return dateKeyFromISO(value);
 }
 
+function normalizeDashboardStatus(status: string | null | undefined) {
+  return String(status || "")
+    .toLowerCase()
+    .replace(/[_-]/g, " ")
+    .trim();
+}
+
+function statusTone(
+  status: string,
+): "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral" {
+  const normalized = normalizeDashboardStatus(status);
+  if (
+    normalized.includes("paid") ||
+    normalized.includes("accepted") ||
+    normalized.includes("closed")
+  )
+    return "green";
+  if (
+    normalized.includes("declined") ||
+    normalized.includes("overdue") ||
+    normalized.includes("urgent")
+  )
+    return "red";
+  if (
+    normalized.includes("partial") ||
+    normalized.includes("expired") ||
+    normalized.includes("hold")
+  )
+    return "orange";
+  if (normalized.includes("proposal") || normalized.includes("revised")) return "purple";
+  if (normalized.includes("progress") || normalized.includes("answered")) return "teal";
+  if (normalized.includes("draft")) return "neutral";
+  return "blue";
+}
+
 function DashboardPage() {
   const { profile } = useAuth();
   const { t } = useT();
@@ -353,6 +408,8 @@ function DashboardPage() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
+  const [estimates, setEstimates] = useState<EstimateRow[]>([]);
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [waConversations, setWaConversations] = useState<WhatsAppConversationRow[]>([]);
   const [emailConversations, setEmailConversations] = useState<EmailConversationRow[]>([]);
   const [metaConversations, setMetaConversations] = useState<MetaConversationRow[]>([]);
@@ -363,7 +420,9 @@ function DashboardPage() {
   useEffect(() => {
     if (!profile?.company_id) {
       setLoading(false);
-      setError("No hay una empresa asociada a este usuario. Revisa el perfil o la configuración de la compañía.");
+      setError(
+        "No hay una empresa asociada a este usuario. Revisa el perfil o la configuración de la compañía.",
+      );
       return;
     }
 
@@ -454,6 +513,22 @@ function DashboardPage() {
           .limit(80);
       };
 
+      const loadEstimates = async () =>
+        db
+          .from("estimates")
+          .select("id,status,total,title,number,expiry_date,updated_at")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(80);
+
+      const loadTickets = async () =>
+        db
+          .from("tickets")
+          .select("id,ticket_number,subject,status,priority,updated_at,resolution_due_at")
+          .eq("company_id", cid)
+          .order("updated_at", { ascending: false })
+          .limit(80);
+
       const results = await Promise.allSettled([
         loadLeads(),
         db
@@ -468,6 +543,8 @@ function DashboardPage() {
         loadProjects(),
         loadInvoices(),
         loadProposals(),
+        loadEstimates(),
+        loadTickets(),
         db
           .from("whatsapp_conversations")
           .select(
@@ -528,11 +605,13 @@ function DashboardPage() {
       setProjects(getData<ProjectRow>(5));
       setInvoices(getData<InvoiceRow>(6));
       setProposals(getData<ProposalRow>(7));
-      setWaConversations(getData<WhatsAppConversationRow>(8));
-      setEmailConversations(getData<EmailConversationRow>(9));
-      setMetaConversations(getData<MetaConversationRow>(10));
+      setEstimates(getData<EstimateRow>(8));
+      setTickets(getData<TicketRow>(9));
+      setWaConversations(getData<WhatsAppConversationRow>(10));
+      setEmailConversations(getData<EmailConversationRow>(11));
+      setMetaConversations(getData<MetaConversationRow>(12));
 
-      const actRows = getData<ActivityLogRow>(11);
+      const actRows = getData<ActivityLogRow>(13);
       setActivities(
         actRows.map((a) => ({
           id: a.id,
@@ -1309,6 +1388,254 @@ function DashboardPage() {
     }),
   ].slice(0, 8);
 
+  const dashboardV2LeadAttention: [string, string, string, string, string][] = leadAttentionItems
+    .map(
+      (item) =>
+        [
+          leadLabel(item.lead),
+          item.reasons.join(" · ") || "Necesita seguimiento",
+          item.lead.status || "Revisar",
+          item.reasons.length > 1 ? "red" : "orange",
+          "/leads",
+        ] as [string, string, string, string, string],
+    )
+    .slice(0, 8);
+
+  const dashboardV2ProjectRisks: [string, string, string, string, string][] = [
+    ...projectsAtRisk.map(
+      (project) =>
+        [
+          project.name || "Proyecto sin nombre",
+          project.due_date ? `Venció ${formatShortDate(project.due_date)}` : "Fecha vencida",
+          project.status || "Activo",
+          "red",
+          "/projects",
+        ] as [string, string, string, string, string],
+    ),
+    ...projects
+      .filter((project) => {
+        if (!isActiveProjectStatus(project.status)) return false;
+        const dueKey = toDateKey(project.due_date);
+        return Boolean(dueKey && dueKey >= today && isDateKeyInNextDays(dueKey, 7));
+      })
+      .map(
+        (project) =>
+          [
+            project.name || "Proyecto sin nombre",
+            project.due_date ? `Vence ${formatShortDate(project.due_date)}` : "Próximo a vencer",
+            project.status || "Activo",
+            "orange",
+            "/projects",
+          ] as [string, string, string, string, string],
+      ),
+  ].slice(0, 8);
+
+  const dashboardV2InvoiceRows: [string, string, string, string, string][] = pendingInvoiceItems
+    .map(
+      (invoice) =>
+        [
+          invoice.number ? `Factura ${invoice.number}` : "Factura pendiente",
+          `${invoice.clientName || "Sin cliente vinculado"} · ${formatMoney(toNumber(invoice.total))}`,
+          invoice.isOverdue ? "Vencida" : invoice.status || "Pendiente",
+          invoice.isOverdue ? "red" : "orange",
+          "/invoices",
+        ] as [string, string, string, string, string],
+    )
+    .slice(0, 8);
+
+  const dashboardV2ProposalRows: [string, string, string, string, string][] = pendingProposalItems
+    .map(
+      (proposal) =>
+        [
+          proposal.title || proposal.number || "Propuesta pendiente",
+          `${proposal.clientName || "Sin cliente vinculado"} · ${
+            proposal.amount != null ? formatMoney(toNumber(proposal.amount)) : "Sin monto"
+          }`,
+          proposal.valid_until
+            ? `Vence ${formatShortDate(proposal.valid_until)}`
+            : proposal.status || "Pendiente",
+          proposal.valid_until && String(toDateKey(proposal.valid_until)) < today
+            ? "red"
+            : "purple",
+          "/proposals",
+        ] as [string, string, string, string, string],
+    )
+    .slice(0, 8);
+
+  const dashboardStatusRows = (
+    labels: string[],
+    rows: { status: string }[],
+    toneForLabel?: (
+      label: string,
+    ) => "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+  ): [
+    string,
+    number,
+    number,
+    "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+  ][] => {
+    const total = Math.max(rows.length, 1);
+
+    return labels.map((label) => {
+      const labelKey = normalizeDashboardStatus(label);
+      const count = rows.filter((row) => {
+        const status = normalizeDashboardStatus(row.status);
+        if (labelKey === "not sent")
+          return status.includes("not sent") || status.includes("not sent");
+        if (labelKey === "open") return status.includes("open") || status.includes("view");
+        return status.includes(labelKey);
+      }).length;
+
+      return [
+        label,
+        count,
+        Math.round((count / total) * 100),
+        toneForLabel?.(label) || statusTone(label),
+      ];
+    });
+  };
+
+  const invoiceDocumentRows = [
+    {
+      status: "Draft",
+      count: invoices.filter((invoice) =>
+        normalizeDashboardStatus(invoice.status).includes("draft"),
+      ).length,
+    },
+    {
+      status: "Not Sent",
+      count: invoices.filter((invoice) =>
+        normalizeDashboardStatus(invoice.status).includes("not sent"),
+      ).length,
+    },
+    {
+      status: "Unpaid",
+      count: invoices.filter(
+        (invoice) =>
+          isOpenInvoiceStatus(invoice.status) &&
+          !isOverdueInvoiceStatus(invoice.status) &&
+          !normalizeDashboardStatus(invoice.status).includes("partial"),
+      ).length,
+    },
+    {
+      status: "Partially Paid",
+      count: invoices.filter((invoice) =>
+        normalizeDashboardStatus(invoice.status).includes("partial"),
+      ).length,
+    },
+    { status: "Overdue", count: invoicesOverdue.length },
+    {
+      status: "Paid",
+      count: invoices.filter((invoice) => isPaidInvoiceStatus(invoice.status)).length,
+    },
+  ];
+  const invoiceDocumentTotal = Math.max(
+    invoiceDocumentRows.reduce((sum, row) => sum + row.count, 0),
+    1,
+  );
+  const dashboardV2SalesDocumentsOverview = {
+    invoices: invoiceDocumentRows.map((row) => [
+      row.status,
+      row.count,
+      Math.round((row.count / invoiceDocumentTotal) * 100),
+      statusTone(row.status),
+    ]) as [
+      string,
+      number,
+      number,
+      "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+    ][],
+    estimates: dashboardStatusRows(["Draft", "Sent", "Expired", "Declined", "Accepted"], estimates),
+    proposals: dashboardStatusRows(
+      ["Draft", "Sent", "Open", "Revised", "Declined", "Accepted"],
+      proposals,
+    ),
+    totals: [
+      [
+        "Outstanding Invoices",
+        formatMoney(receivableTotal),
+        receivableTotal ? "orange" : "neutral",
+      ],
+      [
+        "Past Due Invoices",
+        formatMoney(invoicesOverdue.reduce((sum, invoice) => sum + toNumber(invoice.total), 0)),
+        invoicesOverdue.length ? "red" : "neutral",
+      ],
+      ["Paid Invoices", formatMoney(paidRevenue), paidRevenue ? "green" : "neutral"],
+    ] as [string, string, "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral"][],
+  };
+
+  const openTasks = tasks.filter((task) => !isCompletedTaskStatus(task.status));
+  const completedTasks = tasks.filter((task) => isCompletedTaskStatus(task.status));
+  const dashboardV2TodoItems = {
+    pending: openTasks
+      .slice(0, 8)
+      .map(
+        (task) =>
+          [
+            task.title || "Tarea sin título",
+            task.due_date ? formatShortDate(task.due_date) : "Sin fecha",
+            toDateKey(task.due_date) && String(toDateKey(task.due_date)) < today ? "red" : "orange",
+            "/tasks",
+          ] as [
+            string,
+            string,
+            "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+            string,
+          ],
+      ),
+    completed: completedTasks
+      .slice(0, 5)
+      .map(
+        (task) =>
+          [
+            task.title || "Tarea completada",
+            task.due_date ? formatShortDate(task.due_date) : task.status || "Completada",
+            "green",
+            "/tasks",
+          ] as [
+            string,
+            string,
+            "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+            string,
+          ],
+      ),
+  };
+
+  const dashboardV2ReportSnapshot: [
+    string,
+    string,
+    string,
+    "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+  ][] = [
+    [
+      "Ingresos cobrados",
+      formatMoney(paidRevenue),
+      paidRevenue > 0 ? "Facturas pagadas" : "Sin pagos registrados",
+      paidRevenue > 0 ? "green" : "neutral",
+    ],
+    [
+      "Por cobrar",
+      formatMoney(receivableTotal),
+      invoicesOverdue.length ? `${invoicesOverdue.length} vencidas` : "Sin vencidas",
+      invoicesOverdue.length ? "orange" : "blue",
+    ],
+    [
+      "Pipeline abierto",
+      formatMoney(pipelineValue),
+      `${openDeals.length} oportunidades`,
+      openDeals.length ? "blue" : "neutral",
+    ],
+    [
+      "Propuestas pendientes",
+      String(pendingProposals.length),
+      approvedProposalsNoPaymentCount
+        ? `${approvedProposalsNoPaymentCount} aprobadas`
+        : "Esperando respuesta",
+      pendingProposals.length ? "purple" : "neutral",
+    ],
+  ];
+
   const dashboardFallbackActivities: [string, string, string, typeof DollarSign][] = [
     ...pendingInvoiceItems
       .slice(0, 3)
@@ -1444,6 +1771,127 @@ function DashboardPage() {
       conversation.href,
     ]);
 
+  const workCenterTaskItems: [
+    string,
+    string,
+    string,
+    "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+    string,
+  ][] = openTasks
+    .map((task) => {
+      const dueKey = toDateKey(task.due_date);
+      const overdue = Boolean(dueKey && dueKey < today);
+      return [
+        task.title || "Tarea sin título",
+        `${buildRelationLabel({ task, leadById, clientById, projectById })} · ${
+          task.due_date ? formatShortDate(task.due_date) : "Sin fecha"
+        }`,
+        task.status || "Pendiente",
+        overdue
+          ? "red"
+          : normalizeDashboardStatus(task.priority).includes("high")
+            ? "orange"
+            : "blue",
+        "/tasks",
+      ] as [
+        string,
+        string,
+        string,
+        "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+        string,
+      ];
+    })
+    .slice(0, 8);
+  const workCenterProjectItems: [
+    string,
+    string,
+    string,
+    "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+    string,
+  ][] = projects
+    .filter((project) => isActiveProjectStatus(project.status))
+    .map((project) => {
+      const dueKey = toDateKey(project.due_date);
+      return [
+        project.name || "Proyecto sin nombre",
+        project.due_date ? `Entrega ${formatShortDate(project.due_date)}` : "Sin fecha de entrega",
+        project.status || "Activo",
+        dueKey && dueKey < today ? "red" : "teal",
+        "/projects",
+      ] as [
+        string,
+        string,
+        string,
+        "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+        string,
+      ];
+    })
+    .slice(0, 8);
+  const workCenterTicketItems: [
+    string,
+    string,
+    string,
+    "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+    string,
+  ][] = tickets
+    .filter((ticket) => !normalizeDashboardStatus(ticket.status).includes("closed"))
+    .map(
+      (ticket) =>
+        [
+          ticket.subject || ticket.ticket_number || "Ticket sin asunto",
+          ticket.resolution_due_at
+            ? `Vence ${formatShortDate(ticket.resolution_due_at)}`
+            : ticket.ticket_number || "Sin SLA",
+          ticket.status || "Open",
+          statusTone(ticket.priority || ticket.status),
+          "/tickets",
+        ] as [
+          string,
+          string,
+          string,
+          "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+          string,
+        ],
+    )
+    .slice(0, 8);
+  const dashboardV2WorkCenter = {
+    tasks: workCenterTaskItems,
+    projects: workCenterProjectItems,
+    tickets: workCenterTicketItems,
+    inbox: dashboardV2Communications.map(
+      ([channel, name, preview, count, tone, href]) =>
+        [
+          `${channel}: ${name}`,
+          preview,
+          Number(count) > 0 ? `${count} nuevo` : "Abierto",
+          tone as "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+          href,
+        ] as [
+          string,
+          string,
+          string,
+          "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+          string,
+        ],
+    ),
+    calendar: dashboardV2Schedule.map(
+      ([when, title, subtitle, tone]) =>
+        [
+          title,
+          `${when} · ${subtitle}`,
+          when,
+          tone as "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+          "/calendar",
+        ] as [
+          string,
+          string,
+          string,
+          "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral",
+          string,
+        ],
+    ),
+  };
+
   return (
     <DashboardV2
       kpis={dashboardV2Kpis}
@@ -1454,6 +1902,14 @@ function DashboardPage() {
       clients={dashboardV2Clients}
       activities={dashboardV2Activities}
       communications={dashboardV2Communications}
+      leadsAttention={dashboardV2LeadAttention}
+      projectRisks={dashboardV2ProjectRisks}
+      invoiceRows={dashboardV2InvoiceRows}
+      proposalRows={dashboardV2ProposalRows}
+      reportSnapshot={dashboardV2ReportSnapshot}
+      salesDocumentsOverview={dashboardV2SalesDocumentsOverview}
+      workCenter={dashboardV2WorkCenter}
+      todoItems={dashboardV2TodoItems}
       todayLabel={dashboardTodayLabel}
       collectionPeriodLabel="Este mes⌄"
       pipelinePeriodLabel="Pipeline⌄"
