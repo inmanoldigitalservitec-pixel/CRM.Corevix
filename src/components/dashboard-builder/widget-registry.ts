@@ -210,18 +210,113 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   },
 ];
 
+const dashboardDefaultPreset: DashboardWidgetPreference[] = [
+  {
+    widgetId: "sales.quick-kpis",
+    enabled: true,
+    mode: "mini",
+    layout: layout("sales.quick-kpis", { x: 0, y: 0, w: 3, h: 1, minW: 2, minH: 1 }),
+    settings: {},
+  },
+  {
+    widgetId: "leads.attention",
+    enabled: true,
+    mode: "mini",
+    layout: layout("leads.attention", { x: 3, y: 0, w: 3, h: 1, minW: 2, minH: 1 }),
+    settings: {},
+  },
+  {
+    widgetId: "invoices.collections",
+    enabled: true,
+    mode: "mini",
+    layout: layout("invoices.collections", { x: 6, y: 0, w: 3, h: 1, minW: 2, minH: 1 }),
+    settings: {},
+  },
+  {
+    widgetId: "proposals.pending",
+    enabled: true,
+    mode: "mini",
+    layout: layout("proposals.pending", { x: 9, y: 0, w: 3, h: 1, minW: 2, minH: 1 }),
+    settings: {},
+  },
+  {
+    widgetId: "tasks.my-work",
+    enabled: true,
+    mode: "standard",
+    layout: layout("tasks.my-work", { x: 0, y: 1, w: 8, h: 5, minW: 4, minH: 3 }),
+    settings: {},
+  },
+  {
+    widgetId: "calendar.agenda",
+    enabled: true,
+    mode: "standard",
+    layout: layout("calendar.agenda", { x: 8, y: 1, w: 4, h: 5, minW: 3, minH: 3 }),
+    settings: {},
+  },
+  {
+    widgetId: "sales.pipeline-summary",
+    enabled: true,
+    mode: "standard",
+    layout: layout("sales.pipeline-summary", { x: 0, y: 6, w: 4, h: 4, minW: 3, minH: 3 }),
+    settings: {},
+  },
+  {
+    widgetId: "inbox.pending",
+    enabled: true,
+    mode: "standard",
+    layout: layout("inbox.pending", { x: 4, y: 6, w: 4, h: 4, minW: 3, minH: 3 }),
+    settings: {},
+  },
+  {
+    widgetId: "clients.review",
+    enabled: true,
+    mode: "standard",
+    layout: layout("clients.review", { x: 8, y: 6, w: 4, h: 4, minW: 3, minH: 3 }),
+    settings: {},
+  },
+  {
+    widgetId: "activity.recent",
+    enabled: true,
+    mode: "standard",
+    layout: layout("activity.recent", { x: 0, y: 10, w: 4, h: 4, minW: 3, minH: 3 }),
+    settings: {},
+  },
+  {
+    widgetId: "reports.revenue-snapshot",
+    enabled: true,
+    mode: "standard",
+    layout: layout("reports.revenue-snapshot", { x: 4, y: 10, w: 4, h: 4, minW: 3, minH: 3 }),
+    settings: {},
+  },
+  {
+    widgetId: "projects.risk",
+    enabled: true,
+    mode: "standard",
+    layout: layout("projects.risk", { x: 8, y: 10, w: 4, h: 4, minW: 3, minH: 3 }),
+    settings: {},
+  },
+];
+
+const dashboardDefaultPresetById = new Map(
+  dashboardDefaultPreset.map((preference) => [preference.widgetId, preference]),
+);
+
 export function getDashboardWidgetDefinition(widgetId: string) {
   return dashboardWidgetRegistry.find((widget) => widget.id === widgetId) || null;
 }
 
 export function getDefaultDashboardWidgetPreferences(): DashboardWidgetPreference[] {
-  return dashboardWidgetRegistry.map((widget) => ({
-    widgetId: widget.id,
-    enabled: true,
-    mode: widget.defaultMode,
-    layout: widget.defaultLayout,
-    settings: {},
-  }));
+  return dashboardWidgetRegistry.map((widget) => {
+    const preset = dashboardDefaultPresetById.get(widget.id);
+
+    return {
+      widgetId: widget.id,
+      enabled: preset?.enabled ?? false,
+      mode: preset?.mode ?? widget.defaultMode,
+      layout: preset?.layout ?? widget.defaultLayout,
+      settings: preset?.settings ?? {},
+    };
+  });
 }
 
 export function getDefaultDashboardLayouts() {
@@ -244,17 +339,21 @@ export function normalizeDashboardWidgetPreferences(
 
   return dashboardWidgetRegistry.map((widget) => {
     const stored = byId.get(widget.id);
-    const nextMode = (stored?.mode || widget.defaultMode) as DashboardWidgetMode;
+    const preset = dashboardDefaultPresetById.get(widget.id);
+    const nextMode = (stored?.mode || preset?.mode || widget.defaultMode) as DashboardWidgetMode;
 
     return {
       widgetId: widget.id,
-      enabled: stored?.enabled ?? true,
+      enabled: stored?.enabled ?? preset?.enabled ?? false,
       mode: widget.supportedModes.includes(nextMode) ? nextMode : widget.defaultMode,
       layout: {
-        ...widget.defaultLayout,
+        ...(preset?.layout || widget.defaultLayout),
         ...(stored?.layout || {}),
       },
-      settings: stored?.settings || {},
+      settings: {
+        ...(preset?.settings || {}),
+        ...(stored?.settings || {}),
+      },
     } satisfies DashboardWidgetPreference;
   });
 }
