@@ -446,6 +446,25 @@ function DashboardListWidget({
   );
 }
 
+function actionListItems(
+  actions: DashboardV2Action[],
+  href: string,
+  fallbackTone: DashboardV2Tone,
+) {
+  return actions
+    .filter((action) => action.href === href)
+    .map(
+      (action) =>
+        [
+          action.title,
+          action.relatedTo || action.due,
+          action.priority,
+          action.tone || fallbackTone,
+          href,
+        ] as ListWidgetItem,
+    );
+}
+
 function DashboardReportSnapshotWidget({
   metrics,
   mode = "standard",
@@ -1054,15 +1073,65 @@ export function DashboardV2({
   clients = mockClients,
   activities = mockActivities,
   communications = mockCommunications,
-  leadsAttention = mockListItems,
-  projectRisks = mockListItems,
-  invoiceRows = mockListItems,
-  proposalRows = mockListItems,
-  reportSnapshot = mockReportSnapshot,
+  leadsAttention,
+  projectRisks,
+  invoiceRows,
+  proposalRows,
+  reportSnapshot,
   todayLabel = "Vie. 23 mayo",
   collectionPeriodLabel = "Este mes⌄",
   pipelinePeriodLabel = "Este mes⌄",
 }: DashboardV2Props = {}) {
+  const resolvedLeadAttention = leadsAttention ?? actionListItems(actions, "/leads", "blue");
+  const resolvedProjectRisks = projectRisks ?? actionListItems(actions, "/projects", "orange");
+  const resolvedInvoiceRows =
+    invoiceRows ??
+    actionListItems(actions, "/invoices", "orange").concat(
+      collectionRows
+        .slice(0, 3)
+        .map(
+          ([label, value, percent, color]) =>
+            [
+              label,
+              `${value} · ${percent}`,
+              label.toLowerCase().includes("venc") ? "Vencido" : "Cobros",
+              color.includes("rose") ? "red" : color.includes("emerald") ? "green" : "blue",
+              "/invoices",
+            ] as ListWidgetItem,
+        ),
+    );
+  const resolvedProposalRows = proposalRows ?? actionListItems(actions, "/proposals", "purple");
+  const resolvedReportSnapshot =
+    reportSnapshot ??
+    ([
+      [
+        "Dinero por cobrar",
+        kpis.find((kpi) => kpi.label.toLowerCase().includes("cobrar"))?.value ||
+          collectionRows[0]?.[1] ||
+          "$0",
+        collectionRows[1] ? `${collectionRows[1][1]} vencido` : "Sin vencidas",
+        collectionRows[1]?.[1] && collectionRows[1][1] !== "$0" ? "orange" : "blue",
+      ],
+      [
+        "Pipeline abierto",
+        kpis.find((kpi) => kpi.label.toLowerCase().includes("oportun"))?.helper || "$0",
+        `${pipeline.reduce((sum, [, count]) => sum + count, 0)} oportunidades`,
+        "blue",
+      ],
+      [
+        "Propuestas",
+        kpis.find((kpi) => kpi.label.toLowerCase().includes("propuesta"))?.value || "0",
+        "Esperando respuesta",
+        "purple",
+      ],
+      [
+        "Actividad",
+        String(activities.length),
+        activities[0]?.[0] || "Sin actividad reciente",
+        activities.length ? "teal" : "neutral",
+      ],
+    ] satisfies SnapshotMetricItem[]);
+
   return (
     <DashboardBuilder
       widgets={[
@@ -1082,7 +1151,7 @@ export function DashboardV2({
               emptyLabel="No hay leads urgentes."
               href="/leads"
               icon={Users}
-              items={leadsAttention}
+              items={resolvedLeadAttention}
               mode={mode}
               tone="blue"
             />
@@ -1118,7 +1187,7 @@ export function DashboardV2({
               emptyLabel="No hay proyectos en riesgo."
               href="/projects"
               icon={Flag}
-              items={projectRisks}
+              items={resolvedProjectRisks}
               mode={mode}
               tone="teal"
             />
@@ -1132,7 +1201,7 @@ export function DashboardV2({
               emptyLabel="No hay facturas por cobrar."
               href="/invoices"
               icon={DollarSign}
-              items={invoiceRows}
+              items={resolvedInvoiceRows}
               mode={mode}
               tone="orange"
             />
@@ -1146,7 +1215,7 @@ export function DashboardV2({
               emptyLabel="No hay propuestas pendientes."
               href="/proposals"
               icon={FileText}
-              items={proposalRows}
+              items={resolvedProposalRows}
               mode={mode}
               tone="purple"
             />
@@ -1165,7 +1234,7 @@ export function DashboardV2({
         {
           id: "reports.revenue-snapshot",
           render: ({ mode }) => (
-            <DashboardReportSnapshotWidget metrics={reportSnapshot} mode={mode} />
+            <DashboardReportSnapshotWidget metrics={resolvedReportSnapshot} mode={mode} />
           ),
         },
         {
