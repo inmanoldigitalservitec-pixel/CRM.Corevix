@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ElementType } from "react";
 import {
   Activity,
   BriefcaseBusiness,
@@ -26,6 +26,8 @@ type ExtraCounts = {
   tickets: number;
 };
 
+type WorkRoute = "/tasks" | "/leads" | "/pipeline" | "/projects" | "/tickets";
+
 function formatDateTime(value?: string | null) {
   if (!value) return "No activity yet";
   const date = new Date(value);
@@ -40,10 +42,10 @@ function WorkMetric({
   href,
   tone = "slate",
 }: {
-  icon: React.ElementType;
+  icon: ElementType;
   label: string;
   value: number;
-  href: string;
+  href: WorkRoute;
   tone?: "blue" | "emerald" | "violet" | "amber" | "rose" | "slate";
 }) {
   const toneClass = {
