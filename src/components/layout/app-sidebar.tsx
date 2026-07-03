@@ -22,6 +22,7 @@ import {
   LayoutDashboard,
   Layers,
   LifeBuoy,
+  LogOut,
   Mail,
   Megaphone,
   Menu,
@@ -35,6 +36,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Target,
+  UserCircle,
   UserCog,
   Users,
   Zap,
@@ -52,6 +54,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useT } from "@/i18n";
+import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 
 type SidebarItem = {
@@ -141,14 +144,24 @@ const linkClass =
 const childButtonClass =
   "h-8 rounded-xl px-3 text-slate-700 transition-colors hover:bg-[#f7f9ff] data-[active=true]:bg-[#eef4ff] data-[active=true]:font-semibold data-[active=true]:text-slate-950 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:mx-0 group-data-[mobile=true]:!h-9 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-3";
 
+function initials(value: string) {
+  const parts = value.split(/\s+/).filter(Boolean).slice(0, 2);
+  return (parts.map((part) => part[0]).join("") || "U").toUpperCase();
+}
+
 export function AppSidebar() {
   const { state, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const isCollapsedDesktop = collapsed && !isMobile;
   const showLabels = isMobile || !collapsed;
   const { t } = useT();
+  const { profile, user, signOut } = useAuth();
   const { can } = usePermissions();
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
+
+  const profileName = profile?.full_name || user?.email || "My Profile";
+  const profileEmail = user?.email || "Open profile";
+  const profileInitials = initials(profileName || profileEmail);
 
   const visibleSetupItems = setupItems.filter((item) => !item.permission || can(item.permission as any));
   const isSalesPath = salesItems.some((item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")));
@@ -261,8 +274,33 @@ export function AppSidebar() {
         {renderCollapsibleGroup({ label: "Setup", icon: Settings, open: setupOpen, setOpen: setSetupOpen, active: isSetupPath, items: visibleSetupItems })}
       </SidebarContent>
       <SidebarFooter className="border-t border-[#e6eaf0] p-2 group-data-[collapsible=icon]:px-2">
-        <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
+        <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
+          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
+            <SidebarMenuButton asChild isActive={isActive("/profile")} tooltip={isMobile ? undefined : "My Profile"} className="h-12 rounded-2xl px-2 text-slate-900 transition-all hover:bg-[#f1f5ff] data-[active=true]:bg-[#eaf1ff] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:!h-12 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-2">
+              <Link to="/profile" className="flex w-full min-w-0 items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:justify-start" aria-label="My Profile" title={collapsed && !isMobile ? "My Profile" : undefined}>
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-950 text-xs font-black text-white">
+                  {profileInitials}
+                </span>
+                {showLabels && (
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block truncate text-sm font-semibold leading-4">{profileName}</span>
+                    <span className="block truncate text-xs text-slate-500">{profileEmail}</span>
+                  </span>
+                )}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           {renderMenuItem({ titleKey: "nav.aiAssistant", url: "/ai-assistant", icon: Bot, iconClassName: "text-indigo-600" })}
+          {showLabels && (
+            <SidebarMenuItem>
+              <SidebarMenuButton type="button" className="h-9 rounded-xl px-3 text-slate-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => void signOut()}>
+                <span className="flex w-full items-center gap-3">
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  <span className="truncate text-sm font-medium">Logout</span>
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
