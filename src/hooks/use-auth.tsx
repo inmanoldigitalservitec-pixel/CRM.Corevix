@@ -49,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const inactiveSignOutOnce = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
+  const profileLoadIdRef = useRef(0);
 
   const fetchProfile = useCallback(async (userId: string) => {
     const [{ data: prof, error: profErr }, { data: userRoles, error: rolesErr }] =
@@ -69,6 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (nextProfile && nextProfile.is_active === false && !inactiveSignOutOnce.current) {
       inactiveSignOutOnce.current = true;
       await supabase.auth.signOut();
+      currentUserIdRef.current = null;
+      profileLoadIdRef.current += 1;
       setUser(null);
       setSession(null);
       setProfile(null);
@@ -76,31 +80,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadProfile = useCallback(
+    async (userId: string, options: { blockUi?: boolean } = {}) => {
+      const loadId = ++profileLoadIdRef.current;
+
+      if (options.blockUi) {
+        setLoading(true);
+      }
+
+      try {
+        await fetchProfile(userId);
+      } finally {
+        if (options.blockUi && profileLoadIdRef.current === loadId) {
+          setLoading(false);
+        }
+      }
+    },
+    [fetchProfile],
+  );
+
+  const clearAuthState = useCallback(() => {
+    currentUserIdRef.current = null;
+    profileLoadIdRef.current += 1;
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    setRoles([]);
+    inactiveSignOutOnce.current = false;
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const nextUser = session?.user ?? null;
+      const previousUserId = currentUserIdRef.current;
+      const isSameUser = Boolean(nextUser?.id && previousUserId === nextUser.id);
+      const isTokenRefresh = event === "TOKEN_REFRESHED";
 
-      if (session?.user) {
-        setLoading(true);
+      setSession(session);
+      setUser(nextUser);
+
+      if (nextUser) {
+        currentUserIdRef.current = nextUser.id;
 
         // Use setTimeout to avoid Supabase deadlock on initial auth,
-        // but only finish loading after profile and roles are loaded.
+        // but do not remount the whole CRM on token refresh events.
         setTimeout(() => {
-          void fetchProfile(session.user.id).finally(() => {
-            setLoading(false);
-          });
+          void loadProfile(nextUser.id, { blockUi: !isTokenRefresh && !isSameUser });
         }, 0);
 
         return;
       }
 
-      setProfile(null);
-      setRoles([]);
-      inactiveSignOutOnce.current = false;
-      setLoading(false);
+      clearAuthState();
     });
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -108,14 +142,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        currentUserIdRef.current = session.user.id;
+        await loadProfile(session.user.id, { blockUi: true });
+      } else {
+        clearAuthState();
       }
 
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  }, [clearAuthState, loadProfile]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -145,10 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setRoles([]);
+    clearAuthState();
   };
 
   const hasRole = (role: string) => roles.includes(role);
