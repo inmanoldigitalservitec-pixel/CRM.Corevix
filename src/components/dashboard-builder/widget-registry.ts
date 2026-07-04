@@ -43,8 +43,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "sales.pipeline-summary",
     module: "sales",
-    title: "Pipeline summary",
-    description: "Valor abierto, etapas y oportunidades recientes.",
+    title: "Resumen del pipeline",
+    description: "Muestra el valor abierto, las etapas activas y las oportunidades recientes.",
     icon: GitBranch,
     size: "expanded",
     supportedModes: ["mini", "standard"],
@@ -61,8 +61,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "finance.documents-overview",
     module: "finance",
-    title: "Sales documents overview",
-    description: "Facturas, estimates y propuestas con estados y montos clave.",
+    title: "Documentos de venta",
+    description: "Resume facturas, cotizaciones y propuestas para entender qué está pendiente.",
     icon: Receipt,
     size: "expanded",
     supportedModes: ["mini", "standard"],
@@ -79,8 +79,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "work.center",
     module: "work",
-    title: "My work center",
-    description: "Tareas, proyectos, tickets, inbox y agenda en una sola vista.",
+    title: "Centro de trabajo",
+    description: "Reúne tareas, proyectos, tickets, bandeja y agenda en una sola vista.",
     icon: CheckSquare,
     size: "expanded",
     supportedModes: ["mini", "standard"],
@@ -90,8 +90,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "personal.todo-items",
     module: "tasks",
-    title: "My To Do Items",
-    description: "Pendientes personales y últimas tareas completadas.",
+    title: "Mis pendientes",
+    description: "Muestra tus tareas abiertas y las últimas actividades completadas.",
     icon: CheckSquare,
     size: "standard",
     supportedModes: ["mini", "standard"],
@@ -101,8 +101,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "leads.attention",
     module: "leads",
-    title: "Leads needing attention",
-    description: "Prospectos sin próxima acción o sin interacción reciente.",
+    title: "Prospectos por atender",
+    description: "Detecta prospectos sin próxima acción o sin interacción reciente.",
     icon: Users,
     size: "standard",
     supportedModes: ["mini", "standard"],
@@ -112,8 +112,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "tasks.my-work",
     module: "tasks",
-    title: "My tasks",
-    description: "Tareas vencidas, de hoy, próximas y sin asignar.",
+    title: "Mis tareas",
+    description: "Organiza tareas vencidas, de hoy, próximas y sin asignar.",
     icon: CheckSquare,
     size: "standard",
     supportedModes: ["mini", "standard"],
@@ -123,7 +123,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "projects.risk",
     module: "projects",
-    title: "Project risk",
+    title: "Riesgo de proyectos",
     description: "Proyectos activos, próximos a vencer o atrasados.",
     icon: Flag,
     size: "standard",
@@ -134,8 +134,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "invoices.collections",
     module: "invoices",
-    title: "Awaiting payment",
-    description: "Facturas pendientes, vencidas y dinero cobrado.",
+    title: "Cobros pendientes",
+    description: "Da seguimiento a facturas pendientes, vencidas y dinero cobrado.",
     icon: Receipt,
     size: "standard",
     supportedModes: ["mini", "standard"],
@@ -145,7 +145,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "proposals.pending",
     module: "proposals",
-    title: "Pending proposals",
+    title: "Propuestas pendientes",
     description: "Propuestas enviadas, vistas o esperando respuesta.",
     icon: FileText,
     size: "standard",
@@ -156,7 +156,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "inbox.pending",
     module: "inbox",
-    title: "Inbox pending",
+    title: "Bandeja pendiente",
     description: "WhatsApp, Messenger, Instagram y Email por atender.",
     icon: Inbox,
     size: "standard",
@@ -178,7 +178,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "clients.review",
     module: "clients",
-    title: "Clients to review",
+    title: "Clientes por revisar",
     description: "Clientes con cobros, propuestas o seguimiento pendiente.",
     icon: Users,
     size: "standard",
@@ -189,7 +189,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "tickets.status",
     module: "tickets",
-    title: "Tickets by status",
+    title: "Tickets por estado",
     description: "Placeholder para soporte cuando el módulo esté activo.",
     icon: MessageCircle,
     size: "compact",
@@ -200,8 +200,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "activity.recent",
     module: "activity",
-    title: "Recent CRM activity",
-    description: "Últimos movimientos relevantes dentro del CRM.",
+    title: "Actividad reciente",
+    description: "Muestra los últimos movimientos relevantes dentro del CRM.",
     icon: Activity,
     size: "standard",
     supportedModes: ["mini", "standard"],
@@ -211,8 +211,8 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "reports.revenue-snapshot",
     module: "reports",
-    title: "Revenue snapshot",
-    description: "Resumen de ingresos, cuentas por cobrar y tendencia.",
+    title: "Resumen financiero",
+    description: "Resume ingresos, cuentas por cobrar y señales financieras clave.",
     icon: BarChart3,
     size: "expanded",
     supportedModes: ["mini", "standard"],
@@ -229,7 +229,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "goals.progress",
     module: "goals",
-    title: "Goals progress",
+    title: "Avance de metas",
     description: "Placeholder para metas comerciales y operativas.",
     icon: Goal,
     size: "standard",
@@ -240,7 +240,7 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
   {
     id: "sales.quick-kpis",
     module: "sales",
-    title: "Sales quick KPIs",
+    title: "Indicadores rápidos de ventas",
     description: "Indicadores compactos para leads, pipeline y cierre.",
     icon: TrendingUp,
     size: "compact",

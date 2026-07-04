@@ -43,7 +43,7 @@ function getMessages(lang: Lang): Messages {
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("en");
+  const [lang, setLangState] = useState<Lang>("es");
 
   useEffect(() => {
     const stored = getBrowserStoredLang();
