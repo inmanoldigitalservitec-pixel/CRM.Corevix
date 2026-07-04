@@ -80,6 +80,46 @@ export const Route = createFileRoute("/tasks")({
 
 const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+
+const DISPLAY_LABELS: Record<string, string> = {
+  "Not Started": "No iniciado",
+  "In Progress": "En progreso",
+  "On Hold": "En pausa",
+  Completed: "Completado",
+  Cancelled: "Cancelado",
+  "To Do": "Por hacer",
+  Low: "Baja",
+  Medium: "Media",
+  High: "Alta",
+  Urgent: "Urgente",
+  Draft: "Borrador",
+  Sent: "Enviado",
+  Accepted: "Aceptado",
+  Declined: "Rechazado",
+  Expired: "Expirado",
+  Converted: "Convertido",
+  Pending: "Pendiente",
+  Failed: "Fallido",
+  Refunded: "Reembolsado",
+  Issued: "Emitida",
+  Applied: "Aplicada",
+  Active: "Activo",
+  Signed: "Firmado",
+  "Not Signed": "Sin firmar",
+  "Pending Signature": "Pendiente de firma",
+  Linked: "Vinculada",
+  Manual: "Manual",
+  Cash: "Efectivo",
+  Card: "Tarjeta",
+  "Bank Transfer": "Transferencia bancaria",
+  Check: "Cheque",
+  Other: "Otro",
+};
+
+function displayLabel(value: string) {
+  return DISPLAY_LABELS[value] ?? value;
+}
+
 const NO_PROJECT = "__no_project__";
 
 interface Task {
@@ -175,7 +215,9 @@ function addDaysKeyLocal(days: number) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function extractGoogleDriveId(rawUrl: string): { id: string; type: "file" | "folder" | "unknown" } | null {
+function extractGoogleDriveId(
+  rawUrl: string,
+): { id: string; type: "file" | "folder" | "unknown" } | null {
   const value = String(rawUrl || "").trim();
   if (!value) return null;
   let url: URL;
@@ -281,7 +323,9 @@ function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
-  const [quickFilter, setQuickFilter] = useState<"all" | "today" | "overdue" | "week" | "unassigned" | "mine">("all");
+  const [quickFilter, setQuickFilter] = useState<
+    "all" | "today" | "overdue" | "week" | "unassigned" | "mine"
+  >("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [presetProjectId, setPresetProjectId] = useState<string | null>(null);
@@ -296,7 +340,14 @@ function TasksPage() {
   const [driveUrlInput, setDriveUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { data: tasks, loading, create, update, remove, fetch: fetchTasks } = useCrud<Task>({ table: "tasks" });
+  const {
+    data: tasks,
+    loading,
+    create,
+    update,
+    remove,
+    fetch: fetchTasks,
+  } = useCrud<Task>({ table: "tasks" });
   const { data: projects } = useCrud<ProjectRow>({
     table: "projects",
     select: "id, name, status, due_date, progress, client_id, product_id",
@@ -325,7 +376,12 @@ function TasksPage() {
     ascending: true,
     limit: 500,
   });
-  const { data: taskDriveFilesIndex } = useCrud<Pick<DriveFileRow, "id" | "linked_id" | "linked_type"> & { linked_type: "task"; linked_id: string }>({
+  const { data: taskDriveFilesIndex } = useCrud<
+    Pick<DriveFileRow, "id" | "linked_id" | "linked_type"> & {
+      linked_type: "task";
+      linked_id: string;
+    }
+  >({
     table: "drive_files",
     select: "id,linked_id,linked_type",
     orderBy: "created_at",
@@ -334,9 +390,14 @@ function TasksPage() {
     enabled: tasks.length > 0,
     filters: [{ column: "linked_type", op: "eq", value: "task" }],
   });
-  const { data: driveFiles, loading: driveFilesLoading, fetch: fetchDriveFiles } = useCrud<DriveFileRow>({
+  const {
+    data: driveFiles,
+    loading: driveFilesLoading,
+    fetch: fetchDriveFiles,
+  } = useCrud<DriveFileRow>({
     table: "drive_files",
-    select: "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at",
+    select:
+      "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at",
     orderBy: "created_at",
     ascending: false,
     limit: 200,
@@ -360,22 +421,34 @@ function TasksPage() {
   }, [profiles]);
 
   const projectOptions = useMemo(() => {
-    const opts = projects.slice().sort((a, b) => a.name.localeCompare(b.name)).map((p) => ({ label: p.name, value: p.id }));
-    return [{ label: "Todos", value: "all" }, ...opts, { label: "Sin proyecto", value: NO_PROJECT }];
+    const opts = projects
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((p) => ({ label: p.name, value: p.id }));
+    return [
+      { label: "Todos", value: "all" },
+      ...opts,
+      { label: "Sin proyecto", value: NO_PROJECT },
+    ];
   }, [projects]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const todayKey = isoTodayLocal();
     const weekKey = addDaysKeyLocal(7);
-    const myAnyId = new Set<string>([String(user?.id || ""), String(profile?.user_id || ""), String(profile?.id || "")].filter(Boolean));
+    const myAnyId = new Set<string>(
+      [String(user?.id || ""), String(profile?.user_id || ""), String(profile?.id || "")].filter(
+        Boolean,
+      ),
+    );
 
     return tasks.filter((task) => {
       const project = task.related_project_id ? projectsById.get(task.related_project_id) : null;
       const clientId = task.related_client_id || project?.client_id || null;
       const client = clientId ? clientsById.get(clientId) : null;
       const projectId = task.related_project_id || NO_PROJECT;
-      const haystack = `${task.title} ${task.description || ""} ${project?.name || ""} ${client?.company_name || ""}`.toLowerCase();
+      const haystack =
+        `${task.title} ${task.description || ""} ${project?.name || ""} ${client?.company_name || ""}`.toLowerCase();
       const dueKey = toDateKeyLocal(task.due_date);
       const isActive = !isClosedTaskStatusValue(task.status);
 
@@ -383,25 +456,51 @@ function TasksPage() {
         quickFilter === "all" ||
         (quickFilter === "today" && isActive && !!dueKey && dueKey === todayKey) ||
         (quickFilter === "overdue" && isActive && !!dueKey && dueKey < todayKey) ||
-        (quickFilter === "week" && isActive && !!dueKey && dueKey >= todayKey && dueKey <= weekKey) ||
+        (quickFilter === "week" &&
+          isActive &&
+          !!dueKey &&
+          dueKey >= todayKey &&
+          dueKey <= weekKey) ||
         (quickFilter === "unassigned" && isActive && !task.assigned_to) ||
-        (quickFilter === "mine" && isActive && !!task.assigned_to && myAnyId.has(String(task.assigned_to)));
+        (quickFilter === "mine" &&
+          isActive &&
+          !!task.assigned_to &&
+          myAnyId.has(String(task.assigned_to)));
 
       return (
         (!q || haystack.includes(q)) &&
-        (statusFilter === "all" || String(task.status || "").trim().toLowerCase() === String(statusFilter).trim().toLowerCase()) &&
+        (statusFilter === "all" ||
+          String(task.status || "")
+            .trim()
+            .toLowerCase() === String(statusFilter).trim().toLowerCase()) &&
         (priorityFilter === "all" || task.priority === priorityFilter) &&
-        (projectFilter === "all" || (projectFilter === NO_PROJECT ? projectId === NO_PROJECT : task.related_project_id === projectFilter)) &&
+        (projectFilter === "all" ||
+          (projectFilter === NO_PROJECT
+            ? projectId === NO_PROJECT
+            : task.related_project_id === projectFilter)) &&
         matchQuick
       );
     });
-  }, [clientsById, priorityFilter, profile?.id, profile?.user_id, projectFilter, projectsById, quickFilter, search, statusFilter, tasks, user?.id]);
+  }, [
+    clientsById,
+    priorityFilter,
+    profile?.id,
+    profile?.user_id,
+    projectFilter,
+    projectsById,
+    quickFilter,
+    search,
+    statusFilter,
+    tasks,
+    user?.id,
+  ]);
 
   const sortedTasks = useMemo(() => filtered.slice().sort(sortTaskRows), [filtered]);
   const filteredTaskIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
   const filteredTaskIdSet = useMemo(() => new Set(filteredTaskIds), [filteredTaskIds]);
   const selectedTaskIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const allVisibleSelected = filteredTaskIds.length > 0 && filteredTaskIds.every((id) => selectedTaskIdSet.has(id));
+  const allVisibleSelected =
+    filteredTaskIds.length > 0 && filteredTaskIds.every((id) => selectedTaskIdSet.has(id));
   const someVisibleSelected = filteredTaskIds.some((id) => selectedTaskIdSet.has(id));
   const selectedVisibleCount = filteredTaskIds.filter((id) => selectedTaskIdSet.has(id)).length;
   const canDeleteTasks = can("tasks.delete");
@@ -454,12 +553,16 @@ function TasksPage() {
   }, [selectedTask?.id]);
 
   const taskMeta = (task: Task) => {
-    const project = task.related_project_id ? projectsById.get(task.related_project_id) || null : null;
+    const project = task.related_project_id
+      ? projectsById.get(task.related_project_id) || null
+      : null;
     const clientId = task.related_client_id || project?.client_id || null;
     const client = clientId ? clientsById.get(clientId) || null : null;
     const product = project?.product_id ? productsById.get(project.product_id) || null : null;
     const assignee = task.assigned_to ? assigneesByAnyId.get(task.assigned_to) || null : null;
-    const assigneeLabel = assignee ? String(assignee.full_name || assignee.email || "").trim() || "Sin asignar" : "Sin asignar";
+    const assigneeLabel = assignee
+      ? String(assignee.full_name || assignee.email || "").trim() || "Sin asignar"
+      : "Sin asignar";
     const dueKey = toDateKeyLocal(task.due_date);
     const todayKey = isoTodayLocal();
     const isActive = !isClosedTaskStatusValue(task.status);
@@ -475,7 +578,9 @@ function TasksPage() {
   };
 
   const toggleTaskSelection = (taskId: string) => {
-    setSelectedIds((current) => (current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]));
+    setSelectedIds((current) =>
+      current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId],
+    );
   };
 
   const toggleSelectVisibleTasks = () => {
@@ -494,7 +599,8 @@ function TasksPage() {
     }
     try {
       await update(task.id, { status: nextStatus } as Partial<Task>);
-      if (selectedTask?.id === task.id) setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      if (selectedTask?.id === task.id)
+        setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
       toast.success("Estado actualizado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar la tarea.");
@@ -506,7 +612,9 @@ function TasksPage() {
       toast.error("No tienes permiso para eliminar tareas.");
       return;
     }
-    const idsToDelete = tasks.filter((task) => selectedTaskIdSet.has(task.id)).map((task) => task.id);
+    const idsToDelete = tasks
+      .filter((task) => selectedTaskIdSet.has(task.id))
+      .map((task) => task.id);
     if (!idsToDelete.length) return toast.info("No hay tareas seleccionadas.");
 
     setBulkDeleteSaving(true);
@@ -517,7 +625,10 @@ function TasksPage() {
       if (selectedTask && deletedIds.includes(selectedTask.id)) setSelectedTask(null);
       setBulkDeleteOpen(false);
       const failed = idsToDelete.length - deletedIds.length;
-      if (failed) toast.error(`Se eliminaron ${deletedIds.length} tareas, pero ${failed} no se pudieron borrar.`);
+      if (failed)
+        toast.error(
+          `Se eliminaron ${deletedIds.length} tareas, pero ${failed} no se pudieron borrar.`,
+        );
       else toast.success(`Se eliminaron ${deletedIds.length} tareas.`);
     } catch (error: any) {
       toast.error(error?.message || "No se pudieron eliminar las tareas seleccionadas.");
@@ -539,16 +650,19 @@ function TasksPage() {
       status: (fd.get("status") as string) || "To Do",
       priority: (fd.get("priority") as string) || "Medium",
       due_date: (fd.get("due_date") as string) || null,
-      related_project_id: (fd.get("related_project_id") as string) === "no-project" ? null : (fd.get("related_project_id") as string) || null,
+      related_project_id:
+        (fd.get("related_project_id") as string) === "no-project"
+          ? null
+          : (fd.get("related_project_id") as string) || null,
     };
     try {
       if (editTask) {
         await update(editTask.id, data);
-        toast.success("Task updated");
+        toast.success("Tarea actualizada.");
         setSelectedTask(null);
       } else {
         await create(data);
-        toast.success("Task created");
+        toast.success("Tarea creada.");
       }
       setDialogOpen(false);
       setEditTask(null);
@@ -566,7 +680,7 @@ function TasksPage() {
     }
     try {
       await remove(deleteId);
-      toast.success("Task deleted");
+      toast.success("Tarea eliminada.");
       setDeleteId(null);
       setSelectedTask(null);
       setSelectedIds((current) => current.filter((id) => id !== deleteId));
@@ -644,7 +758,8 @@ function TasksPage() {
   };
 
   const attachDriveUrl = async () => {
-    if (!selectedTask?.id || !selectedTask.company_id) return toast.error("Selecciona una tarea primero.");
+    if (!selectedTask?.id || !selectedTask.company_id)
+      return toast.error("Selecciona una tarea primero.");
     const rawUrl = driveUrlInput.trim();
     if (!rawUrl) return toast.error("Pega una URL de Google Drive.");
     const parsed = extractGoogleDriveId(rawUrl);
@@ -684,9 +799,32 @@ function TasksPage() {
   const exportTasksCsv = () => {
     const rows = sortedTasks.map((task) => {
       const meta = taskMeta(task);
-      return [task.id, task.title, task.status, task.priority, task.created_at, task.due_date || "", meta.assigneeLabel, meta.project?.name || "", meta.client?.company_name || ""];
+      return [
+        task.id,
+        task.title,
+        task.status,
+        task.priority,
+        task.created_at,
+        task.due_date || "",
+        meta.assigneeLabel,
+        meta.project?.name || "",
+        meta.client?.company_name || "",
+      ];
     });
-    const csv = [["ID", "Name", "Status", "Priority", "Created", "Due Date", "Assigned To", "Project", "Client"], ...rows]
+    const csv = [
+      [
+        "ID",
+        "Nombre",
+        "Estado",
+        "Prioridad",
+        "Creada",
+        "Vencimiento",
+        "Asignada a",
+        "Proyecto",
+        "Cliente",
+      ],
+      ...rows,
+    ]
       .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -708,34 +846,64 @@ function TasksPage() {
 
   if (loading) return <LoadingState />;
 
-  const selectedProject = selectedTask?.related_project_id ? projectsById.get(selectedTask.related_project_id) || null : null;
+  const selectedProject = selectedTask?.related_project_id
+    ? projectsById.get(selectedTask.related_project_id) || null
+    : null;
   const selectedClientId = selectedTask?.related_client_id || selectedProject?.client_id || null;
   const selectedClient = selectedClientId ? clientsById.get(selectedClientId) || null : null;
-  const selectedProduct = selectedProject?.product_id ? productsById.get(selectedProject.product_id) || null : null;
+  const selectedProduct = selectedProject?.product_id
+    ? productsById.get(selectedProject.product_id) || null
+    : null;
 
   const renderTaskActions = (task: Task) => (
     <div className="flex justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
-      <Button type="button" variant="outline" size="sm" className="h-8 px-2" onClick={() => setSelectedTask(task)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 px-2"
+        onClick={() => setSelectedTask(task)}
+      >
         Abrir
       </Button>
       {!isClosedTaskStatusValue(task.status) ? (
-        <Button type="button" size="sm" className="h-8 px-2" onClick={() => void updateTaskStatusInline(task, "Completed")}>
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 px-2"
+          onClick={() => void updateTaskStatusInline(task, "Completed")}
+        >
           Completar
         </Button>
       ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="h-8 w-8 px-0" aria-label="Más acciones">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 px-0"
+            aria-label="Más acciones"
+          >
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => void updateTaskStatusInline(task, "In Progress")} disabled={isInProgressTaskStatusValue(task.status)}>
+          <DropdownMenuItem
+            onSelect={() => void updateTaskStatusInline(task, "In Progress")}
+            disabled={isInProgressTaskStatusValue(task.status)}
+          >
             Marcar en progreso
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {can("tasks.edit") ? (
-            <DropdownMenuItem onSelect={() => { setEditTask(task); setPresetProjectId(null); setDialogOpen(true); }}>
+            <DropdownMenuItem
+              onSelect={() => {
+                setEditTask(task);
+                setPresetProjectId(null);
+                setDialogOpen(true);
+              }}
+            >
               Editar
             </DropdownMenuItem>
           ) : null}
@@ -752,9 +920,9 @@ function TasksPage() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <PageHeader
-        title="Tasks"
+        title="Tareas"
         subtitle="Vista operativa compacta para revisar, filtrar y abrir tareas rápido."
-        actionLabel={can("tasks.create") ? "New Task" : undefined}
+        actionLabel={can("tasks.create") ? "Nueva tarea" : undefined}
         onAction={() => {
           setEditTask(null);
           setPresetProjectId(null);
@@ -768,12 +936,75 @@ function TasksPage() {
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {[
-          { key: "overdue", label: "Atrasadas", value: kpis.overdue, icon: AlertTriangle, tone: "text-rose-600", active: quickFilter === "overdue", onClick: () => { setQuickFilter("overdue"); setStatusFilter("all"); } },
-          { key: "today", label: "Para hoy", value: kpis.dueToday, icon: CalendarClock, tone: "text-amber-700", active: quickFilter === "today", onClick: () => { setQuickFilter("today"); setStatusFilter("all"); } },
-          { key: "progress", label: "In Progress", value: kpis.inProgress, icon: CalendarDays, tone: "text-blue-600", active: statusFilter === "In Progress", onClick: () => { setStatusFilter("In Progress"); setQuickFilter("all"); } },
-          { key: "completed", label: "Complete", value: kpis.completed, icon: CheckCircle2, tone: "text-emerald-600", active: statusFilter === "Completed", onClick: () => { setStatusFilter("Completed"); setQuickFilter("all"); } },
-          { key: "unassigned", label: "Sin asignar", value: kpis.unassigned, icon: User, tone: "text-slate-600", active: quickFilter === "unassigned", onClick: () => { setQuickFilter("unassigned"); setStatusFilter("all"); } },
-          { key: "projects", label: "Proyectos activos", value: kpis.activeProjects, icon: ListFilter, tone: "text-slate-600", active: false, onClick: () => {} },
+          {
+            key: "overdue",
+            label: "Atrasadas",
+            value: kpis.overdue,
+            icon: AlertTriangle,
+            tone: "text-rose-600",
+            active: quickFilter === "overdue",
+            onClick: () => {
+              setQuickFilter("overdue");
+              setStatusFilter("all");
+            },
+          },
+          {
+            key: "today",
+            label: "Para hoy",
+            value: kpis.dueToday,
+            icon: CalendarClock,
+            tone: "text-amber-700",
+            active: quickFilter === "today",
+            onClick: () => {
+              setQuickFilter("today");
+              setStatusFilter("all");
+            },
+          },
+          {
+            key: "progress",
+            label: "En progreso",
+            value: kpis.inProgress,
+            icon: CalendarDays,
+            tone: "text-blue-600",
+            active: statusFilter === "In Progress",
+            onClick: () => {
+              setStatusFilter("In Progress");
+              setQuickFilter("all");
+            },
+          },
+          {
+            key: "completed",
+            label: "Completadas",
+            value: kpis.completed,
+            icon: CheckCircle2,
+            tone: "text-emerald-600",
+            active: statusFilter === "Completed",
+            onClick: () => {
+              setStatusFilter("Completed");
+              setQuickFilter("all");
+            },
+          },
+          {
+            key: "unassigned",
+            label: "Sin asignar",
+            value: kpis.unassigned,
+            icon: User,
+            tone: "text-slate-600",
+            active: quickFilter === "unassigned",
+            onClick: () => {
+              setQuickFilter("unassigned");
+              setStatusFilter("all");
+            },
+          },
+          {
+            key: "projects",
+            label: "Proyectos activos",
+            value: kpis.activeProjects,
+            icon: ListFilter,
+            tone: "text-slate-600",
+            active: false,
+            onClick: () => {},
+          },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -781,7 +1012,10 @@ function TasksPage() {
               key={item.key}
               type="button"
               onClick={item.onClick}
-              className={"rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md " + (item.active ? "border-blue-200 bg-blue-50/60" : "border-slate-200")}
+              className={
+                "rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md " +
+                (item.active ? "border-blue-200 bg-blue-50/60" : "border-slate-200")
+              }
             >
               <div className="flex items-center gap-2">
                 <Icon className={`h-4 w-4 ${item.value ? item.tone : "text-muted-foreground"}`} />
@@ -798,14 +1032,33 @@ function TasksPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               {can("tasks.create") ? (
-                <Button type="button" className="h-9" onClick={() => { setEditTask(null); setPresetProjectId(null); setDialogOpen(true); }}>
+                <Button
+                  type="button"
+                  className="h-9"
+                  onClick={() => {
+                    setEditTask(null);
+                    setPresetProjectId(null);
+                    setDialogOpen(true);
+                  }}
+                >
                   <Plus className="mr-2 h-4 w-4" /> New Task
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" className="h-9" onClick={exportTasksCsv} disabled={!sortedTasks.length}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                onClick={exportTasksCsv}
+                disabled={!sortedTasks.length}
+              >
                 <Download className="mr-2 h-4 w-4" /> Export
               </Button>
-              <Button type="button" variant="outline" className="h-9" onClick={() => void fetchTasks()}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                onClick={() => void fetchTasks()}
+              >
                 <RefreshCw className="mr-2 h-4 w-4" /> Refresh
               </Button>
               <Button type="button" variant="ghost" className="h-9" onClick={resetFilters}>
@@ -822,32 +1075,88 @@ function TasksPage() {
             onSearchChange={setSearch}
             searchPlaceholder="Search tasks, projects or clients..."
             filters={[
-              { key: "status", placeholder: "All Status", value: statusFilter, onChange: setStatusFilter, options: TASK_STATUSES.map((s) => ({ label: s, value: s })) },
-              { key: "priority", placeholder: "All Priority", value: priorityFilter, onChange: setPriorityFilter, options: PRIORITIES.map((s) => ({ label: s, value: s })) },
-              { key: "project", placeholder: "All Project", value: projectFilter, onChange: setProjectFilter, options: projectOptions.filter((o) => o.value !== "all") },
+              {
+                key: "status",
+                placeholder: "All Status",
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: TASK_STATUSES.map((s) => ({ label: s, value: s })),
+              },
+              {
+                key: "priority",
+                placeholder: "All Priority",
+                value: priorityFilter,
+                onChange: setPriorityFilter,
+                options: PRIORITIES.map((s) => ({ label: s, value: s })),
+              },
+              {
+                key: "project",
+                placeholder: "Todos los proyectos",
+                value: projectFilter,
+                onChange: setProjectFilter,
+                options: projectOptions.filter((o) => o.value !== "all"),
+              },
             ]}
           />
 
           {canDeleteTasks && (someVisibleSelected || selectedIds.length > 0) ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <button type="button" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700" onClick={toggleSelectVisibleTasks}>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
+                onClick={toggleSelectVisibleTasks}
+              >
                 <span className="grid h-5 w-5 place-items-center rounded border bg-white">
-                  {allVisibleSelected ? <CheckCircle2 className="h-4 w-4" /> : someVisibleSelected ? <Minus className="h-4 w-4" /> : <CheckSquare className="h-4 w-4 opacity-40" />}
+                  {allVisibleSelected ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : someVisibleSelected ? (
+                    <Minus className="h-4 w-4" />
+                  ) : (
+                    <CheckSquare className="h-4 w-4 opacity-40" />
+                  )}
                 </span>
                 {allVisibleSelected ? "Limpiar visibles" : "Seleccionar visibles"}
               </button>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">{selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length} seleccionadas</span>
-                <Button type="button" variant="outline" size="sm" className="h-8" onClick={clearTaskSelection} disabled={!selectedIds.length}>Limpiar</Button>
-                <Button type="button" size="sm" className="h-8 bg-red-600 text-white hover:bg-red-700" onClick={() => setBulkDeleteOpen(true)} disabled={!selectedIds.length}>Eliminar seleccionadas</Button>
+                <span className="text-xs font-semibold text-slate-500">
+                  {selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length}{" "}
+                  seleccionadas
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={clearTaskSelection}
+                  disabled={!selectedIds.length}
+                >
+                  Limpiar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  disabled={!selectedIds.length}
+                >
+                  Eliminar seleccionadas
+                </Button>
               </div>
             </div>
           ) : null}
 
           {tasks.length === 0 ? (
-            <EmptyState icon={<CheckSquare className="h-6 w-6" />} title="No hay tareas todavía." description="Cuando una factura se marque como pagada, el workflow del producto creará tareas automáticamente." actionLabel={can("tasks.create") ? "New Task" : undefined} onAction={() => setDialogOpen(true)} />
+            <EmptyState
+              icon={<CheckSquare className="h-6 w-6" />}
+              title="No hay tareas todavía."
+              description="Cuando una factura se marque como pagada, el workflow del producto creará tareas automáticamente."
+              actionLabel={can("tasks.create") ? "Nueva tarea" : undefined}
+              onAction={() => setDialogOpen(true)}
+            />
           ) : sortedTasks.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">No hay tareas con este filtro.</div>
+            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+              No hay tareas con este filtro.
+            </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               <div className="overflow-x-auto">
@@ -856,18 +1165,28 @@ function TasksPage() {
                     <TableRow className="hover:bg-slate-50">
                       {canDeleteTasks ? (
                         <TableHead className="w-10">
-                          <Checkbox checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false} onCheckedChange={toggleSelectVisibleTasks} aria-label="Seleccionar tareas visibles" />
+                          <Checkbox
+                            checked={
+                              allVisibleSelected
+                                ? true
+                                : someVisibleSelected
+                                  ? "indeterminate"
+                                  : false
+                            }
+                            onCheckedChange={toggleSelectVisibleTasks}
+                            aria-label="Seleccionar tareas visibles"
+                          />
                         </TableHead>
                       ) : null}
                       <TableHead className="w-14">#</TableHead>
-                      <TableHead className="min-w-[320px]">Name</TableHead>
-                      <TableHead className="min-w-[140px]">Status</TableHead>
+                      <TableHead className="min-w-[320px]">Nombre</TableHead>
+                      <TableHead className="min-w-[140px]">Estado</TableHead>
                       <TableHead className="min-w-[115px]">Start Date</TableHead>
-                      <TableHead className="min-w-[115px]">Due Date</TableHead>
+                      <TableHead className="min-w-[115px]">Vencimiento</TableHead>
                       <TableHead className="min-w-[120px]">Assigned to</TableHead>
                       <TableHead className="min-w-[170px]">Project / Client</TableHead>
                       <TableHead className="min-w-[90px]">Files</TableHead>
-                      <TableHead className="min-w-[100px]">Priority</TableHead>
+                      <TableHead className="min-w-[100px]">Prioridad</TableHead>
                       <TableHead className="w-[190px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -875,38 +1194,77 @@ function TasksPage() {
                     {sortedTasks.map((task, index) => {
                       const meta = taskMeta(task);
                       return (
-                        <TableRow key={task.id} className="cursor-pointer align-top hover:bg-slate-50" onClick={() => setSelectedTask(task)}>
+                        <TableRow
+                          key={task.id}
+                          className="cursor-pointer align-top hover:bg-slate-50"
+                          onClick={() => setSelectedTask(task)}
+                        >
                           {canDeleteTasks ? (
                             <TableCell onClick={(event) => event.stopPropagation()}>
-                              <Checkbox checked={selectedTaskIdSet.has(task.id)} onCheckedChange={() => toggleTaskSelection(task.id)} aria-label="Seleccionar tarea" />
+                              <Checkbox
+                                checked={selectedTaskIdSet.has(task.id)}
+                                onCheckedChange={() => toggleTaskSelection(task.id)}
+                                aria-label="Seleccionar tarea"
+                              />
                             </TableCell>
                           ) : null}
                           <TableCell className="font-medium text-slate-500">{index + 1}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-semibold text-slate-900">{task.title}</span>
-                              {meta.isOverdue ? <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">Atrasada</span> : null}
-                              {meta.isDueToday ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">Hoy</span> : null}
+                              {meta.isOverdue ? (
+                                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                                  Atrasada
+                                </span>
+                              ) : null}
+                              {meta.isDueToday ? (
+                                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                  Hoy
+                                </span>
+                              ) : null}
                             </div>
-                            <div className="mt-1 line-clamp-2 max-w-[520px] text-sm text-slate-500">{task.description || "Sin descripción."}</div>
+                            <div className="mt-1 line-clamp-2 max-w-[520px] text-sm text-slate-500">
+                              {task.description || "Sin descripción."}
+                            </div>
                           </TableCell>
-                          <TableCell><StatusBadge status={task.status} /></TableCell>
-                          <TableCell className="text-sm text-slate-600">{formatShortDate(task.created_at?.slice(0, 10))}</TableCell>
-                          <TableCell className="text-sm font-semibold text-slate-700">{formatShortDate(task.due_date)}</TableCell>
+                          <TableCell>
+                            <StatusBadge status={task.status} />
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600">
+                            {formatShortDate(task.created_at?.slice(0, 10))}
+                          </TableCell>
+                          <TableCell className="text-sm font-semibold text-slate-700">
+                            {formatShortDate(task.due_date)}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">{getInitials(meta.assigneeLabel)}</span>
-                              <span className="max-w-[120px] truncate text-sm font-medium text-slate-700">{meta.assigneeLabel}</span>
+                              <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">
+                                {getInitials(meta.assigneeLabel)}
+                              </span>
+                              <span className="max-w-[120px] truncate text-sm font-medium text-slate-700">
+                                {meta.assigneeLabel}
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="max-w-[180px] truncate text-sm font-semibold text-slate-800">{meta.project?.name || "—"}</div>
-                            <div className="max-w-[180px] truncate text-xs font-medium text-slate-500">{meta.client?.company_name || "Sin cliente"}</div>
+                            <div className="max-w-[180px] truncate text-sm font-semibold text-slate-800">
+                              {meta.project?.name || "—"}
+                            </div>
+                            <div className="max-w-[180px] truncate text-xs font-medium text-slate-500">
+                              {meta.client?.company_name || "Sin cliente"}
+                            </div>
                           </TableCell>
                           <TableCell>
-                            <span className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"><Paperclip className="h-3.5 w-3.5" />{meta.filesCount || "—"}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
+                              <Paperclip className="h-3.5 w-3.5" />
+                              {meta.filesCount || "—"}
+                            </span>
                           </TableCell>
-                          <TableCell><span className={`text-sm font-bold ${priorityClass(task.priority)}`}>{task.priority || "—"}</span></TableCell>
+                          <TableCell>
+                            <span className={`text-sm font-bold ${priorityClass(task.priority)}`}>
+                              {task.priority || "—"}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-right">{renderTaskActions(task)}</TableCell>
                         </TableRow>
                       );
@@ -921,19 +1279,90 @@ function TasksPage() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editTask ? "Edit Task" : "Add Task"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editTask ? "Edit Task" : "Add Task"}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2"><Label htmlFor="title">Title</Label><Input id="title" name="title" defaultValue={editTask?.title || ""} required /></div>
-            <div className="space-y-2"><Label htmlFor="description">Description</Label><Textarea id="description" name="description" defaultValue={editTask?.description || ""} /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Status</Label><Select name="status" defaultValue={editTask?.status || "To Do"}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-2"><Label>Priority</Label><Select name="priority" defaultValue={editTask?.priority || "Medium"}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" name="title" defaultValue={editTask?.title || ""} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                defaultValue={editTask?.description || ""}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label htmlFor="due_date">Due Date</Label><Input id="due_date" name="due_date" type="date" defaultValue={editTask?.due_date || ""} /></div>
-              <div className="space-y-2"><Label>Project</Label><Select name="related_project_id" defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}><SelectTrigger><SelectValue placeholder="Sin proyecto" /></SelectTrigger><SelectContent><SelectItem value="no-project">Sin proyecto</SelectItem>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select name="status" defaultValue={editTask?.status || "To Do"}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {displayLabel(s)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Prioridad</Label>
+                <Select name="priority" defaultValue={editTask?.priority || "Medium"}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {displayLabel(p)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit">{editTask ? "Update" : "Create"}</Button></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="due_date">Fecha de vencimiento</Label>
+                <Input
+                  id="due_date"
+                  name="due_date"
+                  type="date"
+                  defaultValue={editTask?.due_date || ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Proyecto</Label>
+                <Select
+                  name="related_project_id"
+                  defaultValue={editTask?.related_project_id || presetProjectId || "no-project"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin proyecto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no-project">Sin proyecto</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">{editTask ? "Actualizar" : "Crear"}</Button>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
@@ -944,7 +1373,13 @@ function TasksPage() {
         task={selectedTask}
         profiles={profiles}
         projectName={selectedProject?.name || "—"}
-        clientName={selectedClient ? selectedClient.contact_person ? `${selectedClient.company_name} · ${selectedClient.contact_person}` : selectedClient.company_name : "—"}
+        clientName={
+          selectedClient
+            ? selectedClient.contact_person
+              ? `${selectedClient.company_name} · ${selectedClient.contact_person}`
+              : selectedClient.company_name
+            : "—"
+        }
         productName={selectedProduct?.name || "—"}
         driveFiles={driveFiles}
         driveFilesLoading={driveFilesLoading}
@@ -954,7 +1389,10 @@ function TasksPage() {
         uploadingFileName={uploadingFileName}
         canEdit={can("tasks.edit")}
         fileInputRef={fileInputRef}
-        onUpdateTask={async (taskId, patch) => { await update(taskId, patch as Partial<Task>); setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...patch } : prev)); }}
+        onUpdateTask={async (taskId, patch) => {
+          await update(taskId, patch as Partial<Task>);
+          setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...patch } : prev));
+        }}
         onComplete={() => updateSelectedTaskStatus("Completed")}
         onSetInProgress={() => updateSelectedTaskStatus("In Progress")}
         onDriveUrlChange={setDriveUrlInput}
@@ -967,15 +1405,43 @@ function TasksPage() {
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Eliminar tarea</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer. La tarea será eliminada permanentemente.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => void handleDelete()} className="bg-red-600 text-white">Eliminar</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar tarea</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. La tarea será eliminada permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDelete()}
+              className="bg-red-600 text-white"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle><AlertDialogDescription>Esta acción eliminará {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}. No se puede deshacer.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel disabled={bulkDeleteSaving}>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => void handleBulkDelete()} disabled={bulkDeleteSaving} className="bg-red-600 text-white hover:bg-red-700">{bulkDeleteSaving ? "Eliminando..." : "Eliminar"}</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar tareas seleccionadas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará {selectedIds.length} tarea{selectedIds.length === 1 ? "" : "s"}.
+              No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleteSaving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleBulkDelete()}
+              disabled={bulkDeleteSaving}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {bulkDeleteSaving ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

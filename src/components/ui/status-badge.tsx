@@ -2,6 +2,61 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { statusKey, useT } from "@/i18n";
 
+const statusLabelsEs: Record<string, string> = {
+  New: "Nuevo",
+  Contacted: "Contactado",
+  Qualified: "Calificado",
+  "Proposal Needed": "Requiere propuesta",
+  "Proposal Sent": "Propuesta enviada",
+  Negotiation: "Negociación",
+  Won: "Ganado",
+  Lost: "Perdido",
+  "Not Interested": "Sin interés",
+  Active: "Activo",
+  Inactive: "Inactivo",
+  Pending: "Pendiente",
+  VIP: "VIP",
+  "Past Client": "Cliente anterior",
+  "To Do": "Por hacer",
+  "In Progress": "En progreso",
+  Waiting: "En espera",
+  Completed: "Completado",
+  Cancelled: "Cancelado",
+  Low: "Baja",
+  Medium: "Media",
+  High: "Alta",
+  Urgent: "Urgente",
+  "Not Started": "No iniciado",
+  "Waiting on Client": "Esperando al cliente",
+  "On Hold": "En pausa",
+  Draft: "Borrador",
+  Sent: "Enviado",
+  Viewed: "Visto",
+  Accepted: "Aceptado",
+  Rejected: "Rechazado",
+  Declined: "Rechazado",
+  Expired: "Expirado",
+  Converted: "Convertido",
+  Paid: "Pagado",
+  "Partially Paid": "Parcialmente pagado",
+  Unpaid: "Sin pagar",
+  Overdue: "Vencido",
+  "Not Sent": "No enviada",
+  Open: "Abierto",
+  Closed: "Cerrado",
+  Resolved: "Resuelto",
+  Archived: "Archivado",
+  Read: "Leído",
+  Unread: "No leído",
+  Failed: "Fallido",
+  Refunded: "Reembolsado",
+  Issued: "Emitida",
+  Applied: "Aplicada",
+  Signed: "Firmado",
+  "Not Signed": "Sin firmar",
+  "Pending Signature": "Pendiente de firma",
+};
+
 const statusColors: Record<string, string> = {
   // Leads
   New: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -58,7 +113,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
   const { t } = useT();
   const key = statusKey(status);
   const label = t(key);
-  const display = label === key ? status : label;
+  const display = label === key ? (statusLabelsEs[status] ?? status) : label;
   return (
     <Badge
       variant="secondary"
