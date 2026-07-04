@@ -1,0 +1,86 @@
+diff --git a/src/routes/email.tsx b/src/routes/email.tsx
+index b55fa09..680f8bd 100644
+--- a/src/routes/email.tsx
++++ b/src/routes/email.tsx
+@@ -233,6 +233,7 @@ function EmailPage() {
+   const [composerTo, setComposerTo] = useState("");
+   const [composerSubject, setComposerSubject] = useState("");
+   const [composerBody, setComposerBody] = useState("");
++  const [composerSending, setComposerSending] = useState(false);
+   const [emailAccount, setEmailAccount] = useState<EmailAccount | null>(null);
+   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+   const [syncError, setSyncError] = useState<string | null>(null);
+@@ -696,8 +697,56 @@ function EmailPage() {
+     setComposerExpanded(false);
+   };
+ 
+-  const sendComposer = () => {
+-    toast.message("Send email is not implemented yet.");
++  const sendComposer = async () => {
++    if (composerSending) return;
++    if (provider !== "gmail") {
++      toast.message("Outlook pendiente de integración.");
++      return;
++    }
++
++    const to = composerTo.trim();
++    const body = composerBody.trim();
++    if (!to) {
++      toast.error("Agrega al menos un destinatario.");
++      return;
++    }
++    if (!body) {
++      toast.error("El mensaje no puede estar vacío.");
++      return;
++    }
++
++    let account = emailAccount;
++    if (!account?.id) account = await loadEmailAccount();
++    if (!account?.id) {
++      toast.error("Conecta Gmail antes de enviar.");
++      return;
++    }
++
++    setComposerSending(true);
++    const { data, error } = await supabase.functions.invoke("gmail-send-message", {
++      body: {
++        to,
++        subject: composerSubject.trim(),
++        body,
++        conversation_id: selectedConvo?.id || null,
++      },
++    });
++    setComposerSending(false);
++
++    if (error || (data as any)?.error) {
++      const message = await getEdgeFunctionErrorMessage(error, data, "No se pudo enviar el email");
++      toast.error(message);
++      return;
++    }
++
++    toast.success("Email enviado.");
++    setComposerOpen(false);
++    setComposerExpanded(false);
++    setComposerTo("");
++    setComposerSubject("");
++    setComposerBody("");
++    await fetchConversations();
++    if (selectedConvo?.id) await loadMessagesForSelected();
+   };
+ 
+   return (
+@@ -1329,9 +1378,12 @@ function EmailPage() {
+                     <button
+                       type="button"
+                       onClick={sendComposer}
+-                      className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0]"
++                      disabled={composerSending}
++                      className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0] disabled:cursor-not-allowed disabled:opacity-70"
+                     >
+-                      <span className="flex items-center px-5">Send</span>
++                      <span className="flex items-center px-5">
++                        {composerSending ? "Sending..." : "Send"}
++                      </span>
+                       <span className="grid w-8 place-items-center border-l border-white/25">
+                         ▾
+                       </span>
