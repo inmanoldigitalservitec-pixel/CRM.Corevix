@@ -81,13 +81,13 @@ const salesItems: SidebarItem[] = [
   { titleKey: "nav.leads", url: "/leads", icon: Users, iconClassName: "text-violet-600" },
   { titleKey: "nav.pipeline", url: "/pipeline", icon: GitBranch, iconClassName: "text-amber-600" },
   { titleKey: "nav.proposals", url: "/proposals", icon: FileText, iconClassName: "text-purple-600" },
-  { title: "Estimates", url: "/estimates", icon: FileCheck2, iconClassName: "text-sky-600" },
+  { title: "Cotizaciones", url: "/estimates", icon: FileCheck2, iconClassName: "text-sky-600" },
   { titleKey: "nav.invoices", url: "/invoices", icon: Receipt, iconClassName: "text-orange-600" },
-  { title: "Payments", url: "/payments", icon: CreditCard, iconClassName: "text-emerald-600" },
-  { title: "Credit Notes", url: "/credit-notes", icon: ReceiptText, iconClassName: "text-rose-600" },
+  { title: "Pagos", url: "/payments", icon: CreditCard, iconClassName: "text-emerald-600" },
+  { title: "Notas de crédito", url: "/credit-notes", icon: ReceiptText, iconClassName: "text-rose-600" },
   { titleKey: "nav.products", url: "/products", icon: Package, iconClassName: "text-slate-700" },
-  { title: "Subscriptions", url: "/subscriptions", icon: RotateCcw, iconClassName: "text-indigo-600" },
-  { title: "Expenses", url: "/expenses", icon: BadgeDollarSign, iconClassName: "text-red-600" },
+  { title: "Suscripciones", url: "/subscriptions", icon: RotateCcw, iconClassName: "text-indigo-600" },
+  { title: "Gastos", url: "/expenses", icon: BadgeDollarSign, iconClassName: "text-red-600" },
 ];
 
 const communicationItems: SidebarItem[] = [
@@ -98,48 +98,48 @@ const communicationItems: SidebarItem[] = [
 const operationsItems: SidebarItem[] = [
   { titleKey: "nav.tasks", url: "/tasks", icon: CheckSquare, iconClassName: "text-rose-600" },
   { titleKey: "nav.projects", url: "/projects", icon: FolderOpen, iconClassName: "text-indigo-600" },
-  { title: "Contracts", url: "/contracts", icon: FileText, iconClassName: "text-slate-700" },
-  { title: "Support", url: "/tickets", icon: LifeBuoy, iconClassName: "text-cyan-600" },
+  { title: "Contratos", url: "/contracts", icon: FileText, iconClassName: "text-slate-700" },
+  { title: "Soporte", url: "/tickets", icon: LifeBuoy, iconClassName: "text-cyan-600" },
 ];
 
 const utilitiesItems: SidebarItem[] = [
-  { title: "Media", icon: Image, iconClassName: "text-sky-600", placeholder: true },
-  { title: "Bulk PDF Export", icon: Download, iconClassName: "text-slate-700", placeholder: true },
-  { title: "e-Invoice Export", icon: ReceiptText, iconClassName: "text-orange-600", placeholder: true },
-  { title: "CSV Export", icon: FileText, iconClassName: "text-emerald-600", placeholder: true },
+  { title: "Biblioteca multimedia", icon: Image, iconClassName: "text-sky-600", placeholder: true },
+  { title: "Exportar PDFs", icon: Download, iconClassName: "text-slate-700", placeholder: true },
+  { title: "Exportar e-facturas", icon: ReceiptText, iconClassName: "text-orange-600", placeholder: true },
+  { title: "Exportar CSV", icon: FileText, iconClassName: "text-emerald-600", placeholder: true },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-slate-600" },
-  { title: "Announcements", icon: Megaphone, iconClassName: "text-amber-600", placeholder: true },
-  { title: "Goals", icon: Target, iconClassName: "text-violet-600", placeholder: true },
-  { title: "Activity Log", icon: Activity, iconClassName: "text-blue-700", placeholder: true },
-  { title: "Database Backup", icon: Database, iconClassName: "text-slate-700", placeholder: true },
+  { title: "Anuncios", icon: Megaphone, iconClassName: "text-amber-600", placeholder: true },
+  { title: "Metas", icon: Target, iconClassName: "text-violet-600", placeholder: true },
+  { title: "Registro de actividad", icon: Activity, iconClassName: "text-blue-700", placeholder: true },
+  { title: "Respaldo de datos", icon: Database, iconClassName: "text-slate-700", placeholder: true },
 ];
 
 const reportsItems: SidebarItem[] = [
-  { title: "Sales", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
-  { title: "Expenses", icon: BadgeDollarSign, iconClassName: "text-red-600", placeholder: true },
-  { title: "Expenses vs Income", icon: BarChart3, iconClassName: "text-emerald-700", placeholder: true },
+  { title: "Ventas", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
+  { title: "Gastos", icon: BadgeDollarSign, iconClassName: "text-red-600", placeholder: true },
+  { title: "Gastos vs ingresos", icon: BarChart3, iconClassName: "text-emerald-700", placeholder: true },
   { title: "Leads", icon: Users, iconClassName: "text-violet-600", placeholder: true },
-  { title: "Timesheets overview", icon: Activity, iconClassName: "text-slate-700", placeholder: true },
-  { title: "KB Articles", icon: FileText, iconClassName: "text-amber-700", placeholder: true },
+  { title: "Resumen de tiempos", icon: Activity, iconClassName: "text-slate-700", placeholder: true },
+  { title: "Artículos de ayuda", icon: FileText, iconClassName: "text-amber-700", placeholder: true },
 ];
 
 const setupItems: SidebarItem[] = [
-  { title: "Staff", url: "/team", icon: UserCog, iconClassName: "text-fuchsia-600", permission: "team.view" },
-  { title: "Customers", icon: Building2, iconClassName: "text-emerald-600", placeholder: true },
-  { title: "Support", icon: LifeBuoy, iconClassName: "text-cyan-600", placeholder: true },
+  { title: "Equipo", url: "/team", icon: UserCog, iconClassName: "text-fuchsia-600", permission: "team.view" },
+  { title: "Clientes", icon: Building2, iconClassName: "text-emerald-600", placeholder: true },
+  { title: "Soporte", icon: LifeBuoy, iconClassName: "text-cyan-600", placeholder: true },
   { title: "Leads", icon: Users, iconClassName: "text-violet-600", placeholder: true },
-  { title: "Finance", icon: BadgeDollarSign, iconClassName: "text-emerald-700", placeholder: true },
-  { title: "Contract Types", icon: FileText, iconClassName: "text-slate-700", placeholder: true },
-  { title: "Estimate Request", icon: FileCheck2, iconClassName: "text-sky-600", placeholder: true },
-  { title: "Modules", icon: Layers, iconClassName: "text-indigo-600", placeholder: true },
-  { title: "Email Templates", icon: Mail, iconClassName: "text-sky-600", placeholder: true },
-  { title: "Custom Fields", icon: SlidersHorizontal, iconClassName: "text-amber-600", placeholder: true },
+  { title: "Finanzas", icon: BadgeDollarSign, iconClassName: "text-emerald-700", placeholder: true },
+  { title: "Tipos de contrato", icon: FileText, iconClassName: "text-slate-700", placeholder: true },
+  { title: "Solicitudes de cotización", icon: FileCheck2, iconClassName: "text-sky-600", placeholder: true },
+  { title: "Módulos", icon: Layers, iconClassName: "text-indigo-600", placeholder: true },
+  { title: "Plantillas de email", icon: Mail, iconClassName: "text-sky-600", placeholder: true },
+  { title: "Campos personalizados", icon: SlidersHorizontal, iconClassName: "text-amber-600", placeholder: true },
   { title: "GDPR", icon: ShieldCheck, iconClassName: "text-blue-700", placeholder: true },
-  { title: "Roles", icon: UserCog, iconClassName: "text-purple-600", placeholder: true },
-  { title: "Menu Setup", icon: Menu, iconClassName: "text-slate-700", placeholder: true },
-  { title: "Theme Style", icon: Palette, iconClassName: "text-pink-600", placeholder: true },
+  { title: "Roles y permisos", icon: UserCog, iconClassName: "text-purple-600", placeholder: true },
+  { title: "Menú", icon: Menu, iconClassName: "text-slate-700", placeholder: true },
+  { title: "Apariencia", icon: Palette, iconClassName: "text-pink-600", placeholder: true },
   { titleKey: "nav.settings", url: "/settings", icon: Settings, iconClassName: "text-slate-700", permission: "settings.view" },
-  { title: "Help", icon: HelpCircle, iconClassName: "text-slate-600", placeholder: true },
+  { title: "Ayuda", icon: HelpCircle, iconClassName: "text-slate-600", placeholder: true },
 ];
 
 const menuButtonClass =
@@ -206,7 +206,7 @@ function CollapsedFlyout({ label, items, itemLabel }: CollapsedFlyoutProps) {
               <button key={item.titleKey || item.title} type="button" disabled className={rowClass + " cursor-default opacity-60 hover:bg-transparent"}>
                 <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
                 <span className="min-w-0 flex-1 truncate text-left">{childLabel}</span>
-                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Soon</span>
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Pronto</span>
               </button>
             );
           }
@@ -232,8 +232,8 @@ export function AppSidebar() {
   const { can } = usePermissions();
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
 
-  const profileName = profile?.full_name || user?.email || "My Profile";
-  const profileEmail = user?.email || "Open profile";
+  const profileName = profile?.full_name || user?.email || "Mi perfil";
+  const profileEmail = user?.email || "Abrir perfil";
   const profileInitials = initials(profileName || profileEmail);
 
   const visibleSetupItems = setupItems.filter((item) => !item.permission || can(item.permission as any));
@@ -264,7 +264,7 @@ export function AppSidebar() {
             <span className={linkClass} aria-label={`${label} placeholder`}>
               <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
               {showLabels && <span className="truncate text-sm font-medium">{label}</span>}
-              {showLabels && <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Soon</span>}
+              {showLabels && <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">Pronto</span>}
             </span>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -324,22 +324,22 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="px-2 group-data-[collapsible=icon]:overflow-visible group-data-[collapsible=icon]:px-2">
         {renderGroup(mainItems)}
-        {renderCollapsibleGroup({ label: "Sales", icon: Zap, open: salesOpen, setOpen: setSalesOpen, active: isSalesPath, items: salesItems })}
+        {renderCollapsibleGroup({ label: "Ventas", icon: Zap, open: salesOpen, setOpen: setSalesOpen, active: isSalesPath, items: salesItems })}
         {isCollapsedDesktop
-          ? renderCollapsibleGroup({ label: "Communication", icon: MessageCircle, open: communicationOpen, setOpen: setCommunicationOpen, active: isCommunicationPath, items: communicationItems })
+          ? renderCollapsibleGroup({ label: "Comunicación", icon: MessageCircle, open: communicationOpen, setOpen: setCommunicationOpen, active: isCommunicationPath, items: communicationItems })
           : renderGroup(communicationItems)}
         {isCollapsedDesktop
-          ? renderCollapsibleGroup({ label: "Operations", icon: FolderOpen, open: operationsOpen, setOpen: setOperationsOpen, active: isOperationsPath, items: operationsItems })
+          ? renderCollapsibleGroup({ label: "Operaciones", icon: FolderOpen, open: operationsOpen, setOpen: setOperationsOpen, active: isOperationsPath, items: operationsItems })
           : renderGroup(operationsItems)}
-        {renderCollapsibleGroup({ label: "Utilities", icon: CircleDot, open: utilitiesOpen, setOpen: setUtilitiesOpen, active: isUtilitiesPath, items: utilitiesItems })}
-        {renderCollapsibleGroup({ label: "Reports", icon: BarChart3, open: reportsOpen, setOpen: setReportsOpen, active: isReportsPath, items: reportsItems })}
-        {renderCollapsibleGroup({ label: "Setup", icon: Settings, open: setupOpen, setOpen: setSetupOpen, active: isSetupPath, items: visibleSetupItems })}
+        {renderCollapsibleGroup({ label: "Herramientas", icon: CircleDot, open: utilitiesOpen, setOpen: setUtilitiesOpen, active: isUtilitiesPath, items: utilitiesItems })}
+        {renderCollapsibleGroup({ label: "Reportes", icon: BarChart3, open: reportsOpen, setOpen: setReportsOpen, active: isReportsPath, items: reportsItems })}
+        {renderCollapsibleGroup({ label: "Configuración", icon: Settings, open: setupOpen, setOpen: setSetupOpen, active: isSetupPath, items: visibleSetupItems })}
       </SidebarContent>
       <SidebarFooter className="border-t border-[#e6eaf0] p-2 group-data-[collapsible=icon]:px-2">
         <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
           <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
-            <SidebarMenuButton asChild isActive={isActive("/profile")} tooltip={isMobile ? undefined : "My Profile"} className="h-12 rounded-2xl px-2 text-slate-900 transition-all hover:bg-[#f1f5ff] data-[active=true]:bg-[#eaf1ff] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:!h-12 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-2">
-              <Link to="/profile" className="flex w-full min-w-0 items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:justify-start" aria-label="My Profile" title={collapsed && !isMobile ? "My Profile" : undefined}>
+            <SidebarMenuButton asChild isActive={isActive("/profile")} tooltip={isMobile ? undefined : "Mi perfil"} className="h-12 rounded-2xl px-2 text-slate-900 transition-all hover:bg-[#f1f5ff] data-[active=true]:bg-[#eaf1ff] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:!h-12 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-2">
+              <Link to="/profile" className="flex w-full min-w-0 items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:justify-start" aria-label="Mi perfil" title={collapsed && !isMobile ? "Mi perfil" : undefined}>
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-950 text-xs font-black text-white">
                   {profileInitials}
                 </span>
@@ -358,7 +358,7 @@ export function AppSidebar() {
               <SidebarMenuButton type="button" className="h-9 rounded-xl px-3 text-slate-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => void signOut()}>
                 <span className="flex w-full items-center gap-3">
                   <LogOut className="h-4 w-4 shrink-0" />
-                  <span className="truncate text-sm font-medium">Logout</span>
+                  <span className="truncate text-sm font-medium">Cerrar sesión</span>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>

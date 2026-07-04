@@ -106,11 +106,11 @@ export function TopBar() {
           size="sm"
           className="h-9 px-3 text-xs gap-2"
           onClick={openDemo}
-          aria-label="Demo tour"
-          title="Demo"
+          aria-label="Tour guiado"
+          title="Tour guiado"
         >
           <PlayCircle className="h-4 w-4" />
-          Demo
+          Tour
         </Button>
         <Button
           variant="outline"
