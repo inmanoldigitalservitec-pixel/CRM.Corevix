@@ -1,6 +1,8 @@
+diff --git a/src/routes/email.tsx b/src/routes/email.tsx
+index dc6941e..d4a0fd1 100644
 --- a/src/routes/email.tsx
 +++ b/src/routes/email.tsx
-@@ -21,6 +21,14 @@
+@@ -21,6 +21,14 @@ import {
    ShoppingBag,
    Plus,
    Menu,
@@ -15,7 +17,7 @@
  } from "lucide-react";
  import { Button } from "@/components/ui/button";
  import { Input } from "@/components/ui/input";
-@@ -272,7 +280,11 @@
+@@ -272,7 +280,11 @@ function EmailPage() {
    const [composerSending, setComposerSending] = useState(false);
    const [composerAttachments, setComposerAttachments] = useState<ComposerAttachment[]>([]);
    const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -27,7 +29,7 @@
    const [emailAccount, setEmailAccount] = useState<EmailAccount | null>(null);
    const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
    const [syncError, setSyncError] = useState<string | null>(null);
-@@ -721,6 +733,7 @@
+@@ -721,6 +733,7 @@ function EmailPage() {
      setComposerBody("");
      setComposerAttachments([]);
      setEmojiPickerOpen(false);
@@ -35,7 +37,7 @@
      setComposerOpen(true);
      setComposerExpanded(false);
    };
-@@ -731,6 +744,7 @@
+@@ -731,6 +744,7 @@ function EmailPage() {
      setComposerBody("");
      setComposerAttachments([]);
      setEmojiPickerOpen(false);
@@ -43,7 +45,7 @@
      setComposerOpen(true);
      setComposerExpanded(false);
    };
-@@ -774,6 +788,61 @@
+@@ -774,6 +788,61 @@ function EmailPage() {
      setComposerBody((body) => `${body}${emoji.emoji}`);
    };
  
@@ -105,7 +107,7 @@
    const sendComposer = async () => {
      if (composerSending) return;
      if (provider !== "gmail") {
-@@ -829,6 +898,7 @@
+@@ -829,6 +898,7 @@ function EmailPage() {
      setComposerBody("");
      setComposerAttachments([]);
      setEmojiPickerOpen(false);
@@ -113,7 +115,7 @@
      await fetchConversations();
      if (selectedConvo?.id) await loadMessagesForSelected();
    };
-@@ -1489,6 +1559,21 @@
+@@ -1489,6 +1559,21 @@ function EmailPage() {
                        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
                        onChange={(event) => void addComposerFiles(event.target.files)}
                      />
@@ -135,7 +137,7 @@
                      <button
                        type="button"
                        onClick={sendComposer}
-@@ -1496,7 +1581,7 @@
+@@ -1496,7 +1581,7 @@ function EmailPage() {
                        className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0] disabled:cursor-not-allowed disabled:opacity-70"
                      >
                        <span className="flex items-center px-5">
@@ -144,7 +146,7 @@
                        </span>
                        <span className="grid w-8 place-items-center border-l border-white/25">
                          ▾
-@@ -1505,32 +1590,40 @@
+@@ -1505,32 +1590,40 @@ function EmailPage() {
  
                      <button
                        type="button"
@@ -192,7 +194,7 @@
                        </button>
                        {emojiPickerOpen && (
                          <div
-@@ -1548,21 +1641,62 @@
+@@ -1548,21 +1641,62 @@ function EmailPage() {
                      </div>
                      <button
                        type="button"
@@ -260,3 +262,4 @@
 +                      <MoreVertical className="h-5 w-5" />
                      </button>
                    </div>
+ 
