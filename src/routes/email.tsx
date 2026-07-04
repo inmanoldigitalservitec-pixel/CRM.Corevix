@@ -21,6 +21,14 @@ import {
   ShoppingBag,
   Plus,
   Menu,
+  Paperclip,
+  Link2,
+  Smile,
+  Image,
+  LockKeyhole,
+  PenLine,
+  MoreVertical,
+  Triangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +39,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { EmailHtmlViewer } from "@/components/email/email-html-viewer";
 import { toast } from "sonner";
+import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 
 export const Route = createFileRoute("/email")({
   component: EmailPage,
@@ -88,6 +97,17 @@ type GmailCategory = "primary" | "promotions" | "social" | "updates" | "forums";
 type ConversationCategoryMap = Record<string, GmailCategory>;
 type ConversationLabelMap = Record<string, string[]>;
 type MailboxView = "inbox" | "starred" | "snoozed" | "sent" | "drafts" | "purchases";
+
+type ComposerAttachment = {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  data: string;
+};
+
+const MAX_COMPOSER_ATTACHMENTS = 10;
+const MAX_COMPOSER_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 async function getEdgeFunctionErrorMessage(error: unknown, data: unknown, fallback: string) {
   let message = String(
@@ -210,6 +230,30 @@ function syncStatusCopy(status: SyncStatus, account: EmailAccount | null, provid
   return "Revisando conexión…";
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function readFileAsAttachment(file: File): Promise<ComposerAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`No se pudo leer ${file.name}`));
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve({
+        id: crypto.randomUUID(),
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        data: result.includes(",") ? result.split(",").pop() || "" : result,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function EmailPage() {
   const { profile } = useAuth();
   const [conversations, setConversations] = useState<EmailConversation[]>([]);
@@ -233,6 +277,14 @@ function EmailPage() {
   const [composerTo, setComposerTo] = useState("");
   const [composerSubject, setComposerSubject] = useState("");
   const [composerBody, setComposerBody] = useState("");
+  const [composerSending, setComposerSending] = useState(false);
+  const [composerAttachments, setComposerAttachments] = useState<ComposerAttachment[]>([]);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [composerConfidential, setComposerConfidential] = useState(false);
+  const [driveUploading, setDriveUploading] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const driveInputRef = useRef<HTMLInputElement | null>(null);
   const [emailAccount, setEmailAccount] = useState<EmailAccount | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -679,6 +731,9 @@ function EmailPage() {
     setComposerTo(from);
     setComposerSubject(`Re: ${selectedConvo.subject || ""}`.trim());
     setComposerBody("");
+    setComposerAttachments([]);
+    setEmojiPickerOpen(false);
+    setComposerConfidential(false);
     setComposerOpen(true);
     setComposerExpanded(false);
   };
@@ -687,6 +742,9 @@ function EmailPage() {
     setComposerTo("");
     setComposerSubject("");
     setComposerBody("");
+    setComposerAttachments([]);
+    setEmojiPickerOpen(false);
+    setComposerConfidential(false);
     setComposerOpen(true);
     setComposerExpanded(false);
   };
@@ -694,10 +752,155 @@ function EmailPage() {
   const closeComposer = () => {
     setComposerOpen(false);
     setComposerExpanded(false);
+    setEmojiPickerOpen(false);
   };
 
-  const sendComposer = () => {
-    toast.message("Send email is not implemented yet.");
+  const addComposerFiles = async (fileList: FileList | null) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    const currentBytes = composerAttachments.reduce((total, file) => total + file.size, 0);
+    const nextBytes = files.reduce((total, file) => total + file.size, currentBytes);
+    if (composerAttachments.length + files.length > MAX_COMPOSER_ATTACHMENTS) {
+      toast.error(`Máximo ${MAX_COMPOSER_ATTACHMENTS} adjuntos por email.`);
+      return;
+    }
+    if (nextBytes > MAX_COMPOSER_ATTACHMENT_BYTES) {
+      toast.error("Los adjuntos no pueden superar 20 MB en total.");
+      return;
+    }
+
+    try {
+      const attachments = await Promise.all(files.map(readFileAsAttachment));
+      setComposerAttachments((current) => [...current, ...attachments]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudieron cargar los archivos.");
+    } finally {
+      if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+    }
+  };
+
+  const removeComposerAttachment = (id: string) => {
+    setComposerAttachments((current) => current.filter((file) => file.id !== id));
+  };
+
+  const insertEmoji = (emoji: EmojiClickData) => {
+    setComposerBody((body) => `${body}${emoji.emoji}`);
+  };
+
+  const insertIntoComposerBody = (text: string) => {
+    setComposerBody((body) => {
+      const prefix = body && !body.endsWith("\n") ? "\n" : "";
+      return `${body}${prefix}${text}`;
+    });
+  };
+
+  const insertLink = () => {
+    const url = window.prompt("Pega el enlace");
+    if (!url?.trim()) return;
+    insertIntoComposerBody(url.trim());
+  };
+
+  const insertSignature = () => {
+    const signatureName = (profile as any)?.full_name || (profile as any)?.email || "Corevix CRM";
+    insertIntoComposerBody(`--\n${signatureName}`);
+  };
+
+  const uploadDriveFiles = async (fileList: FileList | null) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    setDriveUploading(true);
+    try {
+      const links: string[] = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const { data, error } = await supabase.functions.invoke("gmail-drive-upload", {
+          body: formData,
+        });
+        if (error || (data as any)?.error) {
+          const message = await getEdgeFunctionErrorMessage(
+            error,
+            data,
+            "No se pudo subir el archivo a Google Drive",
+          );
+          throw new Error(message);
+        }
+        const link = String((data as any)?.file?.web_view_link || "").trim();
+        if (link) links.push(`${file.name}: ${link}`);
+      }
+
+      if (links.length) {
+        insertIntoComposerBody(`Google Drive:\n${links.join("\n")}`);
+        toast.success("Archivo de Drive insertado en el mensaje.");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo subir a Google Drive.");
+    } finally {
+      setDriveUploading(false);
+      if (driveInputRef.current) driveInputRef.current.value = "";
+    }
+  };
+
+  const sendComposer = async () => {
+    if (composerSending) return;
+    if (provider !== "gmail") {
+      toast.message("Outlook pendiente de integración.");
+      return;
+    }
+
+    const to = composerTo.trim();
+    const body = composerBody.trim();
+    if (!to) {
+      toast.error("Agrega al menos un destinatario.");
+      return;
+    }
+    if (!body) {
+      toast.error("El mensaje no puede estar vacío.");
+      return;
+    }
+
+    let account = emailAccount;
+    if (!account?.id) account = await loadEmailAccount();
+    if (!account?.id) {
+      toast.error("Conecta Gmail antes de enviar.");
+      return;
+    }
+
+    setComposerSending(true);
+    const { data, error } = await supabase.functions.invoke("gmail-send-message", {
+      body: {
+        to,
+        subject: composerSubject.trim(),
+        body,
+        attachments: composerAttachments.map((attachment) => ({
+          filename: attachment.filename,
+          mimeType: attachment.mimeType,
+          data: attachment.data,
+        })),
+        conversation_id: selectedConvo?.id || null,
+      },
+    });
+    setComposerSending(false);
+
+    if (error || (data as any)?.error) {
+      const message = await getEdgeFunctionErrorMessage(error, data, "No se pudo enviar el email");
+      toast.error(message);
+      return;
+    }
+
+    toast.success("Email enviado.");
+    setComposerOpen(false);
+    setComposerExpanded(false);
+    setComposerTo("");
+    setComposerSubject("");
+    setComposerBody("");
+    setComposerAttachments([]);
+    setEmojiPickerOpen(false);
+    setComposerConfidential(false);
+    await fetchConversations();
+    if (selectedConvo?.id) await loadMessagesForSelected();
   };
 
   return (
@@ -715,13 +918,7 @@ function EmailPage() {
       <aside className="hidden lg:flex absolute left-0 top-0 bottom-0 w-[248px] flex-col bg-[#f6f8fc] px-2 py-3 text-[#202124]">
         <button
           type="button"
-          onClick={() => {
-            setComposerTo("");
-            setComposerSubject("");
-            setComposerBody("");
-            setComposerExpanded(false);
-            setComposerOpen(true);
-          }}
+          onClick={openNewComposer}
           className="mb-3 ml-1 flex h-14 w-[142px] items-center gap-4 rounded-[18px] bg-[#c2e7ff] px-5 text-[14px] font-medium text-[#001d35] shadow-sm transition hover:shadow-md"
         >
           <PencilLine className="h-5 w-5" />
@@ -1323,15 +1520,69 @@ function EmailPage() {
                 placeholder=""
               />
 
+              {composerAttachments.length > 0 && (
+                <div className="border-t border-[#e8eaed] px-4 py-2">
+                  <div className="flex flex-wrap gap-2">
+                    {composerAttachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex max-w-full items-center gap-2 rounded-full border border-[#dadce0] bg-[#f8fafc] px-3 py-1 text-[12px] text-[#3c4043]"
+                      >
+                        <span className="max-w-[220px] truncate font-medium">
+                          {attachment.filename}
+                        </span>
+                        <span className="shrink-0 text-[#5f6368]">
+                          {formatFileSize(attachment.size)}
+                        </span>
+                        <button
+                          type="button"
+                          className="grid h-5 w-5 shrink-0 place-items-center rounded-full hover:bg-[#e8eaed]"
+                          onClick={() => removeComposerAttachment(attachment.id)}
+                          aria-label={`Remove ${attachment.filename}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="border-t border-[#e8eaed] bg-white px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
+                    <input
+                      ref={attachmentInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                      onChange={(event) => void addComposerFiles(event.target.files)}
+                    />
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(event) => void addComposerFiles(event.target.files)}
+                    />
+                    <input
+                      ref={driveInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => void uploadDriveFiles(event.target.files)}
+                    />
                     <button
                       type="button"
                       onClick={sendComposer}
-                      className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0]"
+                      disabled={composerSending}
+                      className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      <span className="flex items-center px-5">Send</span>
+                      <span className="flex items-center px-5">
+                        {composerSending ? "Enviando..." : "Enviar"}
+                      </span>
                       <span className="grid w-8 place-items-center border-l border-white/25">
                         ▾
                       </span>
@@ -1339,45 +1590,113 @@ function EmailPage() {
 
                     <button
                       type="button"
-                      className="grid h-8 w-8 place-items-center rounded text-[15px] font-semibold text-[#5f6368] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-full text-[24px] font-medium leading-none text-[#444746] hover:bg-[#f1f3f4]"
+                      onClick={() => toast.message("Formato de texto enriquecido pendiente para el editor de email.")}
+                      aria-label="Formatting options"
+                      title="Formato"
                     >
                       Aa
                     </button>
                     <button
                       type="button"
-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      onClick={() => attachmentInputRef.current?.click()}
+                      aria-label="Attach files"
+                      title="Adjuntar archivo"
                     >
-                      📎
+                      <Paperclip className="h-5 w-5" />
                     </button>
                     <button
                       type="button"
-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      onClick={insertLink}
+                      aria-label="Insert link"
+                      title="Insertar enlace"
                     >
-                      🔗
+                      <Link2 className="h-5 w-5" />
+                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                        onClick={() => setEmojiPickerOpen((open) => !open)}
+                        aria-label="Insert emoji"
+                        title="Insertar emoji"
+                      >
+                        <Smile className="h-5 w-5" />
+                      </button>
+                      {emojiPickerOpen && (
+                        <div
+                          className="absolute bottom-10 left-0 z-[60] overflow-hidden rounded-xl border bg-white shadow-xl"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <EmojiPicker
+                            height={360}
+                            width={320}
+                            previewConfig={{ showPreview: false }}
+                            onEmojiClick={insertEmoji}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4] disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => driveInputRef.current?.click()}
+                      disabled={driveUploading}
+                      aria-label="Insert from Google Drive"
+                      title="Subir a Google Drive e insertar enlace"
+                    >
+                      {driveUploading ? (
+                        <RefreshCw className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Triangle className="h-5 w-5" />
+                      )}
                     </button>
                     <button
                       type="button"
-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      onClick={() => imageInputRef.current?.click()}
+                      aria-label="Insert image"
+                      title="Adjuntar imagen"
                     >
-                      🙂
+                      <Image className="h-5 w-5" />
                     </button>
                     <button
                       type="button"
-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                      className={`grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4] ${
+                        composerConfidential ? "bg-[#e8f0fe] text-[#0b57d0]" : ""
+                      }`}
+                      onClick={() => {
+                        setComposerConfidential((value) => !value);
+                        toast.message(
+                          composerConfidential
+                            ? "Modo confidencial desactivado."
+                            : "Modo confidencial marcado visualmente. Gmail API no permite aplicar expiración desde este composer todavía.",
+                        );
+                      }}
+                      aria-label="Confidential mode"
+                      title="Modo confidencial"
                     >
-                      🖼
+                      <LockKeyhole className="h-5 w-5" />
                     </button>
                     <button
                       type="button"
-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      onClick={insertSignature}
+                      aria-label="Insert signature"
+                      title="Insertar firma"
                     >
-                      🔒
+                      <PenLine className="h-5 w-5" />
                     </button>
                     <button
                       type="button"
-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      onClick={() => toast.message("Más opciones del composer en preparación.")}
+                      aria-label="More options"
+                      title="Más opciones"
                     >
-                      ⋮
+                      <MoreVertical className="h-5 w-5" />
                     </button>
                   </div>
 
