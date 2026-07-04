@@ -1,0 +1,262 @@
+--- a/src/routes/email.tsx
++++ b/src/routes/email.tsx
+@@ -21,6 +21,14 @@
+   ShoppingBag,
+   Plus,
+   Menu,
++  Paperclip,
++  Link2,
++  Smile,
++  Image,
++  LockKeyhole,
++  PenLine,
++  MoreVertical,
++  Triangle,
+ } from "lucide-react";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+@@ -272,7 +280,11 @@
+   const [composerSending, setComposerSending] = useState(false);
+   const [composerAttachments, setComposerAttachments] = useState<ComposerAttachment[]>([]);
+   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
++  const [composerConfidential, setComposerConfidential] = useState(false);
++  const [driveUploading, setDriveUploading] = useState(false);
+   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
++  const imageInputRef = useRef<HTMLInputElement | null>(null);
++  const driveInputRef = useRef<HTMLInputElement | null>(null);
+   const [emailAccount, setEmailAccount] = useState<EmailAccount | null>(null);
+   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+   const [syncError, setSyncError] = useState<string | null>(null);
+@@ -721,6 +733,7 @@
+     setComposerBody("");
+     setComposerAttachments([]);
+     setEmojiPickerOpen(false);
++    setComposerConfidential(false);
+     setComposerOpen(true);
+     setComposerExpanded(false);
+   };
+@@ -731,6 +744,7 @@
+     setComposerBody("");
+     setComposerAttachments([]);
+     setEmojiPickerOpen(false);
++    setComposerConfidential(false);
+     setComposerOpen(true);
+     setComposerExpanded(false);
+   };
+@@ -774,6 +788,61 @@
+     setComposerBody((body) => `${body}${emoji.emoji}`);
+   };
+ 
++  const insertIntoComposerBody = (text: string) => {
++    setComposerBody((body) => {
++      const prefix = body && !body.endsWith("\n") ? "\n" : "";
++      return `${body}${prefix}${text}`;
++    });
++  };
++
++  const insertLink = () => {
++    const url = window.prompt("Pega el enlace");
++    if (!url?.trim()) return;
++    insertIntoComposerBody(url.trim());
++  };
++
++  const insertSignature = () => {
++    const signatureName = (profile as any)?.full_name || (profile as any)?.email || "Corevix CRM";
++    insertIntoComposerBody(`--\n${signatureName}`);
++  };
++
++  const uploadDriveFiles = async (fileList: FileList | null) => {
++    const files = Array.from(fileList || []);
++    if (!files.length) return;
++
++    setDriveUploading(true);
++    try {
++      const links: string[] = [];
++      for (const file of files) {
++        const formData = new FormData();
++        formData.append("file", file);
++        const { data, error } = await supabase.functions.invoke("gmail-drive-upload", {
++          body: formData,
++        });
++        if (error || (data as any)?.error) {
++          const message = await getEdgeFunctionErrorMessage(
++            error,
++            data,
++            "No se pudo subir el archivo a Google Drive",
++          );
++          throw new Error(message);
++        }
++        const link = String((data as any)?.file?.web_view_link || "").trim();
++        if (link) links.push(`${file.name}: ${link}`);
++      }
++
++      if (links.length) {
++        insertIntoComposerBody(`Google Drive:\n${links.join("\n")}`);
++        toast.success("Archivo de Drive insertado en el mensaje.");
++      }
++    } catch (error) {
++      toast.error(error instanceof Error ? error.message : "No se pudo subir a Google Drive.");
++    } finally {
++      setDriveUploading(false);
++      if (driveInputRef.current) driveInputRef.current.value = "";
++    }
++  };
++
+   const sendComposer = async () => {
+     if (composerSending) return;
+     if (provider !== "gmail") {
+@@ -829,6 +898,7 @@
+     setComposerBody("");
+     setComposerAttachments([]);
+     setEmojiPickerOpen(false);
++    setComposerConfidential(false);
+     await fetchConversations();
+     if (selectedConvo?.id) await loadMessagesForSelected();
+   };
+@@ -1489,6 +1559,21 @@
+                       accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                       onChange={(event) => void addComposerFiles(event.target.files)}
+                     />
++                    <input
++                      ref={imageInputRef}
++                      type="file"
++                      multiple
++                      className="hidden"
++                      accept="image/*"
++                      onChange={(event) => void addComposerFiles(event.target.files)}
++                    />
++                    <input
++                      ref={driveInputRef}
++                      type="file"
++                      multiple
++                      className="hidden"
++                      onChange={(event) => void uploadDriveFiles(event.target.files)}
++                    />
+                     <button
+                       type="button"
+                       onClick={sendComposer}
+@@ -1496,7 +1581,7 @@
+                       className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0] disabled:cursor-not-allowed disabled:opacity-70"
+                     >
+                       <span className="flex items-center px-5">
+-                        {composerSending ? "Sending..." : "Send"}
++                        {composerSending ? "Enviando..." : "Enviar"}
+                       </span>
+                       <span className="grid w-8 place-items-center border-l border-white/25">
+                         ▾
+@@ -1505,32 +1590,40 @@
+ 
+                     <button
+                       type="button"
+-                      className="grid h-8 w-8 place-items-center rounded text-[15px] font-semibold text-[#5f6368] hover:bg-[#f1f3f4]"
++                      className="grid h-9 w-9 place-items-center rounded-full text-[24px] font-medium leading-none text-[#444746] hover:bg-[#f1f3f4]"
++                      onClick={() => toast.message("Formato de texto enriquecido pendiente para el editor de email.")}
++                      aria-label="Formatting options"
++                      title="Formato"
+                     >
+                       Aa
+                     </button>
+                     <button
+                       type="button"
+-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
++                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                       onClick={() => attachmentInputRef.current?.click()}
+                       aria-label="Attach files"
++                      title="Adjuntar archivo"
+                     >
+-                      📎
++                      <Paperclip className="h-5 w-5" />
+                     </button>
+                     <button
+                       type="button"
+-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
++                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
++                      onClick={insertLink}
++                      aria-label="Insert link"
++                      title="Insertar enlace"
+                     >
+-                      🔗
++                      <Link2 className="h-5 w-5" />
+                     </button>
+                     <div className="relative">
+                       <button
+                         type="button"
+-                        className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
++                        className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                         onClick={() => setEmojiPickerOpen((open) => !open)}
+                         aria-label="Insert emoji"
++                        title="Insertar emoji"
+                       >
+-                        🙂
++                        <Smile className="h-5 w-5" />
+                       </button>
+                       {emojiPickerOpen && (
+                         <div
+@@ -1548,21 +1641,62 @@
+                     </div>
+                     <button
+                       type="button"
+-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
++                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4] disabled:cursor-not-allowed disabled:opacity-50"
++                      onClick={() => driveInputRef.current?.click()}
++                      disabled={driveUploading}
++                      aria-label="Insert from Google Drive"
++                      title="Subir a Google Drive e insertar enlace"
++                    >
++                      {driveUploading ? (
++                        <RefreshCw className="h-5 w-5 animate-spin" />
++                      ) : (
++                        <Triangle className="h-5 w-5" />
++                      )}
++                    </button>
++                    <button
++                      type="button"
++                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
++                      onClick={() => imageInputRef.current?.click()}
++                      aria-label="Insert image"
++                      title="Adjuntar imagen"
++                    >
++                      <Image className="h-5 w-5" />
++                    </button>
++                    <button
++                      type="button"
++                      className={`grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4] ${
++                        composerConfidential ? "bg-[#e8f0fe] text-[#0b57d0]" : ""
++                      }`}
++                      onClick={() => {
++                        setComposerConfidential((value) => !value);
++                        toast.message(
++                          composerConfidential
++                            ? "Modo confidencial desactivado."
++                            : "Modo confidencial marcado visualmente. Gmail API no permite aplicar expiración desde este composer todavía.",
++                        );
++                      }}
++                      aria-label="Confidential mode"
++                      title="Modo confidencial"
+                     >
+-                      🖼
++                      <LockKeyhole className="h-5 w-5" />
+                     </button>
+                     <button
+                       type="button"
+-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
++                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
++                      onClick={insertSignature}
++                      aria-label="Insert signature"
++                      title="Insertar firma"
+                     >
+-                      🔒
++                      <PenLine className="h-5 w-5" />
+                     </button>
+                     <button
+                       type="button"
+-                      className="grid h-8 w-8 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
++                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
++                      onClick={() => toast.message("Más opciones del composer en preparación.")}
++                      aria-label="More options"
++                      title="Más opciones"
+                     >
+-                      ⋮
++                      <MoreVertical className="h-5 w-5" />
+                     </button>
+                   </div>
