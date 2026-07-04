@@ -1,0 +1,470 @@
+From 83c9ba40dbd6318dcefa3a275c95c36a96e4c6f4 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 4 Jul 2026 08:28:39 -0400
+Subject: [PATCH 1/2] Harden auth profile loading
+
+---
+ src/hooks/use-auth.tsx | 54 ++++++++++++++++++++++++++++++------------
+ 1 file changed, 39 insertions(+), 15 deletions(-)
+
+diff --git a/src/hooks/use-auth.tsx b/src/hooks/use-auth.tsx
+index 3ab1118..bbfc20f 100644
+--- a/src/hooks/use-auth.tsx
++++ b/src/hooks/use-auth.tsx
+@@ -41,6 +41,18 @@ interface AuthState {
+ }
+ 
+ const AuthContext = createContext<AuthState | null>(null);
++const PROFILE_LOAD_TIMEOUT_MS = 8000;
++
++function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
++  let timeoutId: ReturnType<typeof setTimeout> | undefined;
++  const timeout = new Promise<T>((_, reject) => {
++    timeoutId = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
++  });
++
++  return Promise.race([promise, timeout]).finally(() => {
++    if (timeoutId) clearTimeout(timeoutId);
++  });
++}
+ 
+ export function AuthProvider({ children }: { children: ReactNode }) {
+   const [user, setUser] = useState<User | null>(null);
+@@ -89,7 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+       }
+ 
+       try {
+-        await fetchProfile(userId);
++        await withTimeout(fetchProfile(userId), PROFILE_LOAD_TIMEOUT_MS, "Profile load");
++      } catch (error) {
++        console.error("[Auth] Failed to finish profile load:", error);
+       } finally {
+         if (options.blockUi && profileLoadIdRef.current === loadId) {
+           setLoading(false);
+@@ -118,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+       const previousUserId = currentUserIdRef.current;
+       const isSameUser = Boolean(nextUser?.id && previousUserId === nextUser.id);
+       const isTokenRefresh = event === "TOKEN_REFRESHED";
++      const isInitialSession = event === "INITIAL_SESSION";
+ 
+       setSession(session);
+       setUser(nextUser);
+@@ -128,7 +143,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+         // Use setTimeout to avoid Supabase deadlock on initial auth,
+         // but do not remount the whole CRM on token refresh events.
+         setTimeout(() => {
+-          void loadProfile(nextUser.id, { blockUi: !isTokenRefresh && !isSameUser });
++          void loadProfile(nextUser.id, {
++            blockUi: !isInitialSession && !isTokenRefresh && !isSameUser,
++          });
+         }, 0);
+ 
+         return;
+@@ -137,19 +154,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+       clearAuthState();
+     });
+ 
+-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+-      setSession(session);
+-      setUser(session?.user ?? null);
+-
+-      if (session?.user) {
+-        currentUserIdRef.current = session.user.id;
+-        await loadProfile(session.user.id, { blockUi: true });
+-      } else {
++    supabase.auth
++      .getSession()
++      .then(async ({ data: { session } }) => {
++        setSession(session);
++        setUser(session?.user ?? null);
++
++        if (session?.user) {
++          currentUserIdRef.current = session.user.id;
++          await loadProfile(session.user.id, { blockUi: true });
++        } else {
++          clearAuthState();
++        }
++      })
++      .catch((error) => {
++        console.error("[Auth] Failed to read initial session:", error);
+         clearAuthState();
+-      }
+-
+-      setLoading(false);
+-    });
++      })
++      .finally(() => {
++        setLoading(false);
++      });
+ 
+     return () => subscription.unsubscribe();
+   }, [clearAuthState, loadProfile]);
+@@ -212,4 +236,4 @@ export function useAuth() {
+   const ctx = useContext(AuthContext);
+   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+   return ctx;
+-}
+\ No newline at end of file
++}
+-- 
+2.53.0
+
+
+From c4ba495b4f3290c07594e40298cfc75fd2707b66 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 4 Jul 2026 08:30:44 -0400
+Subject: [PATCH 2/2] Make WhatsApp Web the primary inbox
+
+---
+ src/components/ai/agentToolContext.ts        |  4 ++--
+ src/components/dashboard-v2/dashboard-v2.tsx | 12 +++++-----
+ src/components/demo/demo-tour.tsx            | 24 ++++++++++----------
+ src/components/layout/app-sidebar.tsx        |  2 +-
+ src/routes/dashboard.tsx                     | 12 +++++-----
+ src/routes/leads.tsx                         |  2 +-
+ src/routes/pipeline.tsx                      |  8 +++----
+ src/routes/whatsapp-web.tsx                  | 23 +++++++++++++++++--
+ 8 files changed, 53 insertions(+), 34 deletions(-)
+
+diff --git a/src/components/ai/agentToolContext.ts b/src/components/ai/agentToolContext.ts
+index 66044a1..e072b4a 100644
+--- a/src/components/ai/agentToolContext.ts
++++ b/src/components/ai/agentToolContext.ts
+@@ -151,7 +151,7 @@ const KIND_LIST_ACTION: Partial<Record<AgentWidgetKind, AgentWidgetAction>> = {
+   tasks: { id: "open-tasks", label: "Ver tareas", href: "/tasks", intent: "filter", tone: "purple" },
+   calendar: { id: "open-calendar", label: "Ver agenda", href: "/calendar", intent: "filter", tone: "blue" },
+   deals: { id: "open-deals", label: "Ver pipeline", href: "/pipeline", intent: "filter", tone: "blue" },
+-  communication: { id: "open-inbox", label: "Ver bandeja", href: "/whatsapp", intent: "filter", tone: "blue" },
++  communication: { id: "open-inbox", label: "Ver bandeja", href: "/whatsapp-web", intent: "filter", tone: "blue" },
+   invoices: { id: "open-invoices", label: "Ver facturas", href: "/invoices", intent: "filter", tone: "orange" },
+   projects: { id: "open-projects", label: "Ver proyectos", href: "/projects", intent: "filter", tone: "teal" },
+   proposals: { id: "open-proposals", label: "Ver propuestas", href: "/proposals", intent: "filter", tone: "teal" },
+@@ -279,7 +279,7 @@ function entityHref(kind: AgentWidgetKind, id: string) {
+     tasks: `/tasks?taskId=${encoded}`,
+     calendar: `/calendar?eventId=${encoded}`,
+     deals: `/pipeline?dealId=${encoded}`,
+-    communication: `/whatsapp?conversationId=${encoded}`,
++    communication: `/whatsapp-web?conversationId=${encoded}`,
+     invoices: `/invoices?invoiceId=${encoded}`,
+     projects: `/projects?projectId=${encoded}`,
+     proposals: `/proposals?proposalId=${encoded}`,
+diff --git a/src/components/dashboard-v2/dashboard-v2.tsx b/src/components/dashboard-v2/dashboard-v2.tsx
+index 82f4993..241c0a6 100644
+--- a/src/components/dashboard-v2/dashboard-v2.tsx
++++ b/src/components/dashboard-v2/dashboard-v2.tsx
+@@ -277,9 +277,9 @@ const CLIENT_VISIBLE_LIMIT = 4;
+ const ACTIVITY_VISIBLE_LIMIT = 4;
+ 
+ const mockCommunications: CommunicationItem[] = [
+-  ["Messenger", "Usuario de Messenger", "Mensaje reciente pendiente.", "2", "blue", "/whatsapp"],
+-  ["WhatsApp", "Contacto de WhatsApp", "Hola, quiero información.", "1", "green", "/whatsapp"],
+-  ["Instagram", "Usuario de Instagram", "Mensaje recibido.", "1", "purple", "/whatsapp"],
++  ["Messenger", "Usuario de Messenger", "Mensaje reciente pendiente.", "2", "blue", "/whatsapp-web"],
++  ["WhatsApp", "Contacto de WhatsApp", "Hola, quiero información.", "1", "green", "/whatsapp-web"],
++  ["Instagram", "Usuario de Instagram", "Mensaje recibido.", "1", "purple", "/whatsapp-web"],
+ ];
+ 
+ const mockCollectionRows: CollectionItem[] = [
+@@ -750,7 +750,7 @@ function DashboardWorkCenterWidget({
+     ["tasks", "My Tasks", CheckCircle2, "/tasks"],
+     ["projects", "My Projects", Workflow, "/projects"],
+     ["tickets", "Tickets", LifeBuoy, "/tickets"],
+-    ["inbox", "Inbox", MessageCircle, "/whatsapp"],
++    ["inbox", "Inbox", MessageCircle, "/whatsapp-web"],
+     ["calendar", "Agenda", Clock3, "/calendar"],
+   ] as const;
+   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>("tasks");
+@@ -1377,7 +1377,7 @@ export function DashboardCommunicationsWidget({
+   return (
+     <DashboardCard
+       title="Comunicaciones"
+-      action={<DashboardTextButton href="/whatsapp">Ver bandeja</DashboardTextButton>}
++      action={<DashboardTextButton href="/whatsapp-web">Ver bandeja</DashboardTextButton>}
+       bodyClassName="h-full p-3"
+     >
+       <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+@@ -1452,7 +1452,7 @@ export function DashboardCommunicationsWidget({
+         <button
+           type="button"
+           onClick={() => {
+-            window.location.href = "/whatsapp";
++            window.location.href = "/whatsapp-web";
+           }}
+           className="mt-1 grid h-7 w-full place-items-center rounded-lg text-[11px] font-medium text-blue-600 hover:bg-blue-50"
+         >
+diff --git a/src/components/demo/demo-tour.tsx b/src/components/demo/demo-tour.tsx
+index 480ad47..92d1caa 100644
+--- a/src/components/demo/demo-tour.tsx
++++ b/src/components/demo/demo-tour.tsx
+@@ -80,7 +80,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Entrada del lead por WhatsApp",
+         description:
+           "El flujo empieza cuando un prospecto escribe por WhatsApp. Aquí el equipo ve todas las conversaciones entrantes.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-conversation-list"]',
+       },
+       {
+@@ -90,7 +90,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Selecciona la conversación demo",
+         description:
+           "Haz clic en la conversación demo para abrir el historial del prospecto y ver el contexto antes de tomar acción.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-conversation-list"]',
+         mode: "action",
+         actionLabel: "Haz clic en la conversación demo y luego presiona Siguiente",
+@@ -102,7 +102,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Conversación activa",
+         description:
+           "En el centro se atiende al prospecto. Aquí puedes leer mensajes, entender la necesidad y responder si la ventana está disponible.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-active-thread"]',
+       },
+       {
+@@ -112,7 +112,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Panel CRM conectado",
+         description:
+           "A la derecha aparece el panel CRM. Desde aquí puedes convertir una conversación en lead, oportunidad, propuesta, tarea o cliente.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-crm-panel"]',
+       },
+       {
+@@ -122,7 +122,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Crea el prospecto desde WhatsApp",
+         description:
+           "Haz clic en Crear prospecto desde WhatsApp. Esta acción conecta la conversación con el módulo de Prospectos.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-create-lead"]',
+         mode: "action",
+         actionLabel: "Haz clic en Crear prospecto desde WhatsApp y luego presiona Siguiente",
+@@ -134,7 +134,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Acciones rápidas",
+         description:
+           "Después de crear o detectar un prospecto, el panel permite avanzar el proceso comercial sin salir de WhatsApp.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-quick-actions"]',
+       },
+       {
+@@ -144,7 +144,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Crea una oportunidad",
+         description:
+           "Haz clic en Crear oportunidad para pasar de una simple conversación a una oportunidad dentro del pipeline comercial.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-create-deal"]',
+         mode: "action",
+         actionLabel: "Haz clic en Crear oportunidad y luego presiona Siguiente",
+@@ -156,7 +156,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Datos detectados",
+         description:
+           "El CRM puede mostrar datos útiles detectados en la conversación, como nombre, teléfono, intención, servicio o información comercial.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-detected-data"]',
+       },
+       {
+@@ -166,7 +166,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Producto sugerido",
+         description:
+           "El sistema relaciona la conversación con un producto de interés. Esto ayuda a conectar el lead con una oportunidad y una propuesta.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-suggested-product"]',
+       },
+       {
+@@ -176,7 +176,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Seguimiento conectado a tareas",
+         description:
+           "Los seguimientos comerciales se convierten en tareas. Así el equipo sabe qué hacer, cuándo hacerlo y con quién.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-followup"]',
+       },
+       {
+@@ -186,7 +186,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+         title: "Propuestas desde WhatsApp",
+         description:
+           "El agente puede seleccionar una propuesta y continuar el proceso comercial desde el mismo panel de WhatsApp.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+         selector: '[data-demo="whatsapp-proposals"]',
+       },
+ 
+@@ -1032,7 +1032,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
+     if (stepIndex < 1) return;
+ 
+     const step = steps[stepIndex];
+-    if (!step || step.to !== "/whatsapp") return;
++    if (!step || step.to !== "/whatsapp-web") return;
+ 
+     try {
+       localStorage.setItem(DEMO_CONVERSATION_STORAGE_KEY, DEMO_CONVERSATION_ID);
+diff --git a/src/components/layout/app-sidebar.tsx b/src/components/layout/app-sidebar.tsx
+index d5136b2..a5cba33 100644
+--- a/src/components/layout/app-sidebar.tsx
++++ b/src/components/layout/app-sidebar.tsx
+@@ -91,7 +91,7 @@ const salesItems: SidebarItem[] = [
+ ];
+ 
+ const communicationItems: SidebarItem[] = [
+-  { titleKey: "nav.whatsappInbox", url: "/whatsapp", icon: MessageCircle, iconClassName: "text-green-600" },
++  { titleKey: "nav.whatsappInbox", url: "/whatsapp-web", icon: MessageCircle, iconClassName: "text-green-600" },
+   { titleKey: "nav.emailInbox", url: "/email", icon: Mail, iconClassName: "text-sky-600" },
+ ];
+ 
+diff --git a/src/routes/dashboard.tsx b/src/routes/dashboard.tsx
+index f3531e2..3e4d9fb 100644
+--- a/src/routes/dashboard.tsx
++++ b/src/routes/dashboard.tsx
+@@ -838,7 +838,7 @@ function DashboardPage() {
+       count: inboxPendingTotal,
+       variant: priorityVariantFromKey("wa_open"),
+       ctaLabel: "Abrir inbox",
+-      to: "/whatsapp",
++      to: "/whatsapp-web",
+     });
+   }
+   if (projectsAtRisk.length > 0) {
+@@ -983,7 +983,7 @@ function DashboardPage() {
+         name: c.whatsapp_contacts?.name || "Contacto",
+         channel: "WhatsApp",
+         preview: c.last_message_body || "Sin mensaje reciente.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+       })),
+     ...metaConversations
+       .filter((c) => isOpenConversationStatus(c.status))
+@@ -997,7 +997,7 @@ function DashboardPage() {
+             : "Usuario de Messenger"),
+         channel: String(c.platform).toLowerCase() === "instagram" ? "Instagram" : "Messenger",
+         preview: c.last_message_text || "Sin mensaje reciente.",
+-        to: "/whatsapp",
++        to: "/whatsapp-web",
+       })),
+     ...emailConversations
+       .filter((c) => isOpenConversationStatus(c.status))
+@@ -1718,7 +1718,7 @@ function DashboardPage() {
+       preview: conversation.last_message_body || "Sin mensaje reciente.",
+       count: String(Number(conversation.unread_count ?? 0)),
+       tone: Number(conversation.unread_count ?? 0) > 0 ? "green" : "neutral",
+-      href: "/whatsapp",
++      href: "/whatsapp-web",
+       at: conversation.last_message_at || "",
+     })),
+     ...metaConversations.map((conversation) => {
+@@ -1738,7 +1738,7 @@ function DashboardPage() {
+               ? "purple"
+               : "blue"
+             : "neutral",
+-        href: "/whatsapp",
++        href: "/whatsapp-web",
+         at: conversation.last_message_at || conversation.created_at || "",
+       };
+     }),
+@@ -2316,7 +2316,7 @@ function DashboardPage() {
+                   </div>
+                 </div>
+                 <Link
+-                  to={"/whatsapp" as any}
++                  to={"/whatsapp-web" as any}
+                   className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
+                 >
+                   Abrir inbox
+diff --git a/src/routes/leads.tsx b/src/routes/leads.tsx
+index a136eef..fae8456 100644
+--- a/src/routes/leads.tsx
++++ b/src/routes/leads.tsx
+@@ -889,7 +889,7 @@ function LeadsPage() {
+ 
+       const conversationId = data?.conversation_id ? String(data.conversation_id) : null;
+       if (conversationId) {
+-        window.location.href = `/whatsapp?conversationId=${encodeURIComponent(conversationId)}`;
++        window.location.href = `/whatsapp-web?conversationId=${encodeURIComponent(conversationId)}`;
+         return;
+       }
+ 
+diff --git a/src/routes/pipeline.tsx b/src/routes/pipeline.tsx
+index bd45fad..c811fd8 100644
+--- a/src/routes/pipeline.tsx
++++ b/src/routes/pipeline.tsx
+@@ -458,16 +458,16 @@ function PipelinePage() {
+           .maybeSingle();
+         if (error) throw error;
+         if (data?.conversation_id) {
+-          window.location.href = `/whatsapp?conversationId=${encodeURIComponent(String(data.conversation_id))}`;
++          window.location.href = `/whatsapp-web?conversationId=${encodeURIComponent(String(data.conversation_id))}`;
+           return;
+         }
+       }
+ 
+       toast.info("No encontré una conversación de WhatsApp para este deal.");
+-      window.location.href = "/whatsapp";
++      window.location.href = "/whatsapp-web";
+     } catch (e: any) {
+       toast.error(e?.message || "No se pudo abrir WhatsApp.");
+-      window.location.href = "/whatsapp";
++      window.location.href = "/whatsapp-web";
+     }
+   };
+   const [dealProductsByProductId, setDealProductsByProductId] = useState<
+@@ -1850,7 +1850,7 @@ function PipelinePage() {
+ 
+       const conversationId = data?.conversation_id ? String(data.conversation_id) : null;
+       if (conversationId) {
+-        window.location.href = `/whatsapp?conversationId=${encodeURIComponent(conversationId)}`;
++        window.location.href = `/whatsapp-web?conversationId=${encodeURIComponent(conversationId)}`;
+         return;
+       }
+ 
+diff --git a/src/routes/whatsapp-web.tsx b/src/routes/whatsapp-web.tsx
+index 870488d..4e98327 100644
+--- a/src/routes/whatsapp-web.tsx
++++ b/src/routes/whatsapp-web.tsx
+@@ -100,7 +100,16 @@ function WhatsAppWebPage() {
+   const { profile, roles } = useAuth();
+   const [selectedChannel, setSelectedChannel] = useState<InboxChannel>("all");
+   const [selectedConversation, setSelectedConversation] = useState<SelectedConversation>(null);
+-  const [search, setSearch] = useState("");
++  const [initialConversationId] = useState(() => {
++    if (typeof window === "undefined") return "";
++    return new URLSearchParams(window.location.search).get("conversationId") || "";
++  });
++  const [search, setSearch] = useState(() => {
++    if (typeof window === "undefined") return "";
++    const params = new URLSearchParams(window.location.search);
++    return params.get("clientSearch") || params.get("phone") || "";
++  });
++  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
+   const [composerValue, setComposerValue] = useState("");
+   const [sendError, setSendError] = useState<string | null>(null);
+   const [sending, setSending] = useState(false);
+@@ -478,11 +487,21 @@ function WhatsAppWebPage() {
+   }, [profile?.company_id]);
+ 
+   useEffect(() => {
++    if (!deepLinkHandled && initialConversationId) {
++      const desiredConversation = unifiedConversations.find((conversation) => conversation.id === initialConversationId);
++      if (desiredConversation) {
++        setSelectedChannel(desiredConversation.channel);
++        setSelectedConversation({ channel: desiredConversation.channel, id: desiredConversation.id });
++        setDeepLinkHandled(true);
++        return;
++      }
++    }
++
+     if (selectedConversation) return;
+     if (visibleConversations.length === 0) return;
+     const first = visibleConversations[0];
+     setSelectedConversation({ channel: first.channel, id: first.id });
+-  }, [selectedConversation, visibleConversations]);
++  }, [deepLinkHandled, initialConversationId, selectedConversation, unifiedConversations, visibleConversations]);
+ 
+   useEffect(() => {
+     setSendError(null);
+-- 
+2.53.0
