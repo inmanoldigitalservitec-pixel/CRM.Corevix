@@ -72,27 +72,44 @@ const timezones = [
   "UTC",
 ];
 
+const VALUE_LABELS: Record<string, string> = {
+  system: "Sistema",
+  en: "Inglés",
+  es: "Español",
+  light: "Claro",
+  dark: "Oscuro",
+  comfortable: "Cómoda",
+  compact: "Compacta",
+  dashboard: "Panel",
+  tasks: "Tareas",
+  projects: "Proyectos",
+  leads: "Prospectos",
+  pipeline: "Pipeline",
+  calendar: "Calendario",
+  email: "Email",
+};
+
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
   head: () => ({
     meta: [
       { title: "Mi perfil - Corevix CRM" },
-      { name: "description", content: "Manage your Corevix CRM profile and account details." },
+      { name: "description", content: "Administra tu perfil y los datos de tu cuenta en Corevix CRM." },
     ],
   }),
 });
 
 function initials(name?: string | null, email?: string | null) {
-  const source = String(name || email || "User").trim();
+  const source = String(name || email || "Usuario").trim();
   const parts = source.split(/\s+/).filter(Boolean);
   if (!parts.length) return "U";
   return `${parts[0]?.[0] || "U"}${parts[1]?.[0] || ""}`.toUpperCase();
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return "Not available";
+  if (!value) return "No disponible";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not available";
+  if (Number.isNaN(date.getTime())) return "No disponible";
   return date.toLocaleString();
 }
 
@@ -101,7 +118,7 @@ function roleLabel(role: string) {
 }
 
 function labelFromValue(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  return VALUE_LABELS[value] ?? value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function InfoRow({
@@ -206,7 +223,7 @@ function ProfilePage() {
       if (cancelled) return;
       setPreferencesLoading(false);
       if (error) {
-        toast.error(error.message || "Could not load profile preferences.");
+        toast.error(error.message || "No se pudieron cargar las preferencias del perfil.");
         return;
       }
       setPreferences(
@@ -227,7 +244,7 @@ function ProfilePage() {
     };
   }, [db, profile?.id]);
 
-  const displayName = form.full_name || profile?.full_name || user?.email || "Corevix User";
+  const displayName = form.full_name || profile?.full_name || user?.email || "Usuario Corevix";
   const email = user?.email || "Sin email";
   const primaryRole = roles[0] ? roleLabel(roles[0]) : "Sin rol asignado";
   const joinedAt = formatDate(user?.created_at || null);
@@ -253,7 +270,7 @@ function ProfilePage() {
       .eq("id", profile.id);
     setSaving(false);
     if (error) {
-      toast.error(error.message || "Could not update profile.");
+      toast.error(error.message || "No se pudo actualizar el perfil.");
       return;
     }
     toast.success("Perfil actualizado.");
@@ -276,15 +293,15 @@ function ProfilePage() {
     );
     setPreferencesSaving(false);
     if (error) {
-      toast.error(error.message || "Could not save preferences.");
+      toast.error(error.message || "No se pudieron guardar las preferencias.");
       return;
     }
-    toast.success("Preferences saved.");
+    toast.success("Preferencias guardadas.");
   };
 
   const updatePassword = async () => {
     if (!email || email === "Sin email") {
-      toast.error("This account does not have an email login available.");
+      toast.error("Esta cuenta no tiene un email de acceso disponible.");
       return;
     }
     if (
@@ -292,7 +309,7 @@ function ProfilePage() {
       !passwordForm.new_password ||
       !passwordForm.confirm_password
     ) {
-      toast.error("Complete all password fields.");
+      toast.error("Completa todos los campos de contraseña.");
       return;
     }
     if (passwordForm.new_password.length < 8) {
@@ -311,7 +328,7 @@ function ProfilePage() {
     });
     if (reauthError) {
       setSecuritySaving(false);
-      toast.error("Current password is not valid.");
+      toast.error("La contraseña actual no es válida.");
       return;
     }
 
@@ -320,12 +337,12 @@ function ProfilePage() {
     });
     setSecuritySaving(false);
     if (updateError) {
-      toast.error(updateError.message || "Could not update password.");
+      toast.error(updateError.message || "No se pudo actualizar la contraseña.");
       return;
     }
 
     setPasswordForm({ current_password: "", new_password: "", confirm_password: "" });
-    toast.success("Password updated.");
+    toast.success("Contraseña actualizada.");
   };
 
   if (loading) {
@@ -345,7 +362,7 @@ function ProfilePage() {
       >
         <Button size="sm" onClick={() => setEditOpen(true)}>
           <Edit3 className="mr-2 h-4 w-4" />
-          Edit Profile
+          Editar perfil
         </Button>
       </PageHeader>
 
@@ -397,7 +414,7 @@ function ProfilePage() {
               <InfoRow icon={Phone} label="Teléfono" value={form.phone || "Sin definir"} />
               <InfoRow
                 icon={Building2}
-                label="Department"
+                label="Departamento"
                 value={form.department || "Sin definir"}
               />
             </div>
@@ -449,25 +466,25 @@ function ProfilePage() {
 
           <Tabs defaultValue="overview" className="space-y-4">
             <TabsList className="grid w-full grid-cols-5 md:w-auto md:inline-grid">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="overview">Resumen</TabsTrigger>
               <TabsTrigger value="access">Acceso</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
-              <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsTrigger value="security">Seguridad</TabsTrigger>
+              <TabsTrigger value="preferences">Preferencias</TabsTrigger>
+              <TabsTrigger value="activity">Actividad</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
               <Card className="border-0 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-base">Profile Details</CardTitle>
+                  <CardTitle className="text-base">Detalles del perfil</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <InfoRow icon={UserCircle} label="Full name" value={displayName} />
+                  <InfoRow icon={UserCircle} label="Nombre completo" value={displayName} />
                   <InfoRow icon={Mail} label="Email de acceso" value={email} />
                   <InfoRow icon={Phone} label="Teléfono" value={form.phone || "Sin definir"} />
                   <InfoRow
                     icon={Building2}
-                    label="Department"
+                    label="Departamento"
                     value={form.department || "Sin definir"}
                   />
                 </CardContent>
@@ -477,22 +494,22 @@ function ProfilePage() {
             <TabsContent value="access" className="space-y-4">
               <Card className="border-0 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-base">Role & Access</CardTitle>
+                  <CardTitle className="text-base">Rol y acceso</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <InfoRow icon={ShieldCheck} label="Primary role" value={primaryRole} />
-                    <InfoRow icon={CheckCircle2} label="Account status" value={accountStatus} />
-                    <InfoRow icon={CalendarDays} label="Joined" value={joinedAt} />
+                    <InfoRow icon={ShieldCheck} label="Rol principal" value={primaryRole} />
+                    <InfoRow icon={CheckCircle2} label="Estado de cuenta" value={accountStatus} />
+                    <InfoRow icon={CalendarDays} label="Ingreso" value={joinedAt} />
                     <InfoRow icon={Activity} label="Último acceso" value={lastSignIn} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">Assigned roles</p>
+                    <p className="text-sm font-semibold text-slate-950">Roles asignados</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {roleBadges.length ? (
                         roleBadges.map((role) => <Badge key={role}>{role}</Badge>)
                       ) : (
-                        <Badge variant="outline">No roles assigned</Badge>
+                        <Badge variant="outline">Sin roles asignados</Badge>
                       )}
                     </div>
                   </div>
@@ -503,9 +520,9 @@ function ProfilePage() {
             <TabsContent value="security" className="space-y-4">
               <Card className="border-0 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-base">Security & Login</CardTitle>
+                  <CardTitle className="text-base">Seguridad e inicio de sesión</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Manage account access and sensitive login controls for your user.
+                    Administra el acceso de la cuenta y los controles sensibles de inicio de sesión.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -513,11 +530,11 @@ function ProfilePage() {
                     <InfoRow icon={Mail} label="Email de acceso" value={email} />
                     <InfoRow
                       icon={LockKeyhole}
-                      label="Auth provider"
+                      label="Proveedor de autenticación"
                       value={labelFromValue(authProvider)}
                     />
                     <InfoRow icon={Activity} label="Último acceso" value={lastSignIn} />
-                    <InfoRow icon={CheckCircle2} label="Account status" value={accountStatus} />
+                    <InfoRow icon={CheckCircle2} label="Estado de cuenta" value={accountStatus} />
                   </div>
                   <Separator />
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -535,7 +552,7 @@ function ProfilePage() {
                       </div>
                       <div className="grid gap-4 md:grid-cols-3">
                         <div className="grid gap-2">
-                          <Label htmlFor="current-password">Current password</Label>
+                          <Label htmlFor="current-password">Contraseña actual</Label>
                           <Input
                             id="current-password"
                             type="password"
@@ -567,7 +584,7 @@ function ProfilePage() {
                           />
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="confirm-password">Confirm password</Label>
+                          <Label htmlFor="confirm-password">Confirmar contraseña</Label>
                           <Input
                             id="confirm-password"
                             type="password"
@@ -585,8 +602,7 @@ function ProfilePage() {
                       </div>
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-xs text-muted-foreground">
-                          Use at least 8 characters. The session may refresh after the password
-                          change.
+                          Usa al menos 8 caracteres. La sesión puede refrescarse después del cambio.
                         </p>
                         <Button onClick={updatePassword} disabled={securitySaving}>
                           {securitySaving ? "Actualizando..." : "Actualizar contraseña"}
@@ -606,10 +622,10 @@ function ProfilePage() {
                         </div>
                       </div>
                       <p className="mt-3 text-sm text-muted-foreground">
-                        This area is reserved for TOTP or phone-based multi-factor authentication.
+                        Este espacio queda reservado para autenticación multifactor por TOTP o teléfono.
                       </p>
                       <Button className="mt-4 w-full" variant="outline" disabled>
-                        Enable MFA Soon
+                        MFA próximamente
                       </Button>
                     </div>
                   </div>
@@ -620,9 +636,9 @@ function ProfilePage() {
             <TabsContent value="preferences" className="space-y-4">
               <Card className="border-0 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-base">Personal Preferences</CardTitle>
+                  <CardTitle className="text-base">Preferencias personales</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Store the basic settings that will drive each user's CRM experience.
+                    Guarda los ajustes básicos que definen tu experiencia dentro del CRM.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -646,7 +662,7 @@ function ProfilePage() {
                     />
                     <FieldSelect
                       id="profile-timezone"
-                      label="Timezone"
+                      label="Zona horaria"
                       value={preferences.timezone}
                       disabled={preferencesLoading || preferencesSaving}
                       onChange={(value) => setPreferences((prev) => ({ ...prev, timezone: value }))}
@@ -697,12 +713,12 @@ function ProfilePage() {
                         }))
                       }
                       options={[
-                        { value: "dashboard", label: "Dashboard" },
-                        { value: "tasks", label: "Tasks" },
-                        { value: "projects", label: "Projects" },
-                        { value: "leads", label: "Leads" },
+                        { value: "dashboard", label: "Panel" },
+                        { value: "tasks", label: "Tareas" },
+                        { value: "projects", label: "Proyectos" },
+                        { value: "leads", label: "Prospectos" },
                         { value: "pipeline", label: "Pipeline" },
-                        { value: "calendar", label: "Calendar" },
+                        { value: "calendar", label: "Calendario" },
                       ]}
                     />
                   </div>
@@ -719,12 +735,12 @@ function ProfilePage() {
                     />
                     <InfoRow
                       icon={SlidersHorizontal}
-                      label="Density"
+                      label="Densidad"
                       value={labelFromValue(preferences.density)}
                     />
                     <InfoRow
                       icon={LayoutDashboard}
-                      label="Start page"
+                      label="Página inicial"
                       value={labelFromValue(preferences.default_dashboard)}
                     />
                   </div>
@@ -750,22 +766,22 @@ function ProfilePage() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogTitle>Editar perfil</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="profile-full-name">Full name</Label>
+              <Label htmlFor="profile-full-name">Nombre completo</Label>
               <Input
                 id="profile-full-name"
                 value={form.full_name}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, full_name: event.target.value }))
                 }
-                placeholder="Your full name"
+                placeholder="Tu nombre completo"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="profile-phone">Phone</Label>
+              <Label htmlFor="profile-phone">Teléfono</Label>
               <Input
                 id="profile-phone"
                 value={form.phone}
@@ -774,18 +790,18 @@ function ProfilePage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="profile-department">Department</Label>
+              <Label htmlFor="profile-department">Departamento</Label>
               <Input
                 id="profile-department"
                 value={form.department}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, department: event.target.value }))
                 }
-                placeholder="Sales, Support, Operations..."
+                placeholder="Ventas, soporte, operaciones..."
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="profile-avatar">Avatar URL</Label>
+              <Label htmlFor="profile-avatar">URL del avatar</Label>
               <Input
                 id="profile-avatar"
                 value={form.avatar_url}
