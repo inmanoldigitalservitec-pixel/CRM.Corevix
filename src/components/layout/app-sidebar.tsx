@@ -91,7 +91,7 @@ const salesItems: SidebarItem[] = [
 ];
 
 const communicationItems: SidebarItem[] = [
-  { titleKey: "nav.whatsappInbox", url: "/whatsapp", icon: MessageCircle, iconClassName: "text-green-600" },
+  { titleKey: "nav.whatsappInbox", url: "/whatsapp-web", icon: MessageCircle, iconClassName: "text-green-600" },
   { titleKey: "nav.emailInbox", url: "/email", icon: Mail, iconClassName: "text-sky-600" },
 ];
 
