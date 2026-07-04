@@ -40,7 +40,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/tickets")({
   component: TicketsPage,
-  head: () => ({ meta: [{ title: "Support Tickets — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Tickets de soporte — Corevix CRM" }] }),
 });
 
 const STATUSES = ["Open", "In Progress", "Answered", "On Hold", "Closed"];
@@ -86,9 +86,21 @@ type TicketMessage = {
 };
 
 type ClientRow = { id: string; company_name: string; contact_person: string | null };
-type ContactRow = { id: string; client_id: string | null; first_name: string; last_name: string; email: string | null };
+type ContactRow = {
+  id: string;
+  client_id: string | null;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+};
 type ProjectRow = { id: string; name: string; client_id: string | null };
-type ProfileRow = { id: string; user_id: string | null; full_name: string | null; email: string | null; is_active: boolean | null };
+type ProfileRow = {
+  id: string;
+  user_id: string | null;
+  full_name: string | null;
+  email: string | null;
+  is_active: boolean | null;
+};
 
 type TicketForm = {
   subject: string;
@@ -126,7 +138,12 @@ function readProjectFilterFromUrl() {
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return new Date(value).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   } catch {
     return value;
   }
@@ -182,14 +199,44 @@ function TicketsPage() {
     setLoading(true);
     const cid = profile.company_id;
     const [ticketRes, clientRes, contactRes, projectRes, profileRes] = await Promise.all([
-      db.from("tickets").select("*").eq("company_id", cid).order("updated_at", { ascending: false }).limit(500),
-      db.from("clients").select("id,company_name,contact_person").eq("company_id", cid).order("company_name", { ascending: true }).limit(1000),
-      db.from("contacts").select("id,client_id,first_name,last_name,email").eq("company_id", cid).order("first_name", { ascending: true }).limit(1000),
-      db.from("projects").select("id,name,client_id").eq("company_id", cid).order("updated_at", { ascending: false }).limit(1000),
-      db.from("profiles").select("id,user_id,full_name,email,is_active").eq("company_id", cid).order("full_name", { ascending: true }).limit(1000),
+      db
+        .from("tickets")
+        .select("*")
+        .eq("company_id", cid)
+        .order("updated_at", { ascending: false })
+        .limit(500),
+      db
+        .from("clients")
+        .select("id,company_name,contact_person")
+        .eq("company_id", cid)
+        .order("company_name", { ascending: true })
+        .limit(1000),
+      db
+        .from("contacts")
+        .select("id,client_id,first_name,last_name,email")
+        .eq("company_id", cid)
+        .order("first_name", { ascending: true })
+        .limit(1000),
+      db
+        .from("projects")
+        .select("id,name,client_id")
+        .eq("company_id", cid)
+        .order("updated_at", { ascending: false })
+        .limit(1000),
+      db
+        .from("profiles")
+        .select("id,user_id,full_name,email,is_active")
+        .eq("company_id", cid)
+        .order("full_name", { ascending: true })
+        .limit(1000),
     ]);
 
-    const firstError = ticketRes.error || clientRes.error || contactRes.error || projectRes.error || profileRes.error;
+    const firstError =
+      ticketRes.error ||
+      clientRes.error ||
+      contactRes.error ||
+      projectRes.error ||
+      profileRes.error;
     if (firstError) {
       toast.error(firstError.message || "No se pudieron cargar los tickets.");
       setLoading(false);
@@ -204,14 +251,21 @@ function TicketsPage() {
     setLoading(false);
   }, [db, profile?.company_id]);
 
-  const fetchMessages = useCallback(async (ticketId: string) => {
-    const { data, error } = await db.from("ticket_messages").select("*").eq("ticket_id", ticketId).order("created_at", { ascending: true });
-    if (error) {
-      toast.error(error.message || "No se pudieron cargar los mensajes.");
-      return;
-    }
-    setMessages(data || []);
-  }, [db]);
+  const fetchMessages = useCallback(
+    async (ticketId: string) => {
+      const { data, error } = await db
+        .from("ticket_messages")
+        .select("*")
+        .eq("ticket_id", ticketId)
+        .order("created_at", { ascending: true });
+      if (error) {
+        toast.error(error.message || "No se pudieron cargar los mensajes.");
+        return;
+      }
+      setMessages(data || []);
+    },
+    [db],
+  );
 
   useEffect(() => {
     void fetchTickets();
@@ -234,7 +288,10 @@ function TicketsPage() {
   }, [projectFilter]);
 
   const kpis = useMemo(() => {
-    const scoped = projectFilter === ALL ? tickets : tickets.filter((ticket) => ticket.project_id === projectFilter);
+    const scoped =
+      projectFilter === ALL
+        ? tickets
+        : tickets.filter((ticket) => ticket.project_id === projectFilter);
     return {
       open: scoped.filter((ticket) => ticket.status === "Open").length,
       progress: scoped.filter((ticket) => ticket.status === "In Progress").length,
@@ -250,13 +307,25 @@ function TicketsPage() {
       const client = ticket.client_id ? clientById.get(ticket.client_id) : null;
       const project = ticket.project_id ? projectById.get(ticket.project_id) : null;
       const contact = ticket.contact_id ? contactById.get(ticket.contact_id) : null;
-      const haystack = `${ticket.ticket_number || ""} ${ticket.subject} ${ticket.description || ""} ${ticket.department || ""} ${ticket.service || ""} ${client?.company_name || ""} ${project?.name || ""} ${contactName(contact)}`.toLowerCase();
-      return (!q || haystack.includes(q)) &&
+      const haystack =
+        `${ticket.ticket_number || ""} ${ticket.subject} ${ticket.description || ""} ${ticket.department || ""} ${ticket.service || ""} ${client?.company_name || ""} ${project?.name || ""} ${contactName(contact)}`.toLowerCase();
+      return (
+        (!q || haystack.includes(q)) &&
         (statusFilter === ALL || ticket.status === statusFilter) &&
         (priorityFilter === ALL || ticket.priority === priorityFilter) &&
-        (projectFilter === ALL || ticket.project_id === projectFilter);
+        (projectFilter === ALL || ticket.project_id === projectFilter)
+      );
     });
-  }, [clientById, contactById, priorityFilter, projectById, projectFilter, search, statusFilter, tickets]);
+  }, [
+    clientById,
+    contactById,
+    priorityFilter,
+    projectById,
+    projectFilter,
+    search,
+    statusFilter,
+    tickets,
+  ]);
 
   const openNewTicket = () => {
     const project = projectFilter !== ALL ? projectById.get(projectFilter) : null;
@@ -320,7 +389,12 @@ function TicketsPage() {
   };
 
   const updateTicketStatus = async (ticket: TicketRow, status: string) => {
-    const { error, data } = await db.from("tickets").update({ status }).eq("id", ticket.id).select("*").single();
+    const { error, data } = await db
+      .from("tickets")
+      .update({ status })
+      .eq("id", ticket.id)
+      .select("*")
+      .single();
     if (error) return toast.error(error.message || "No se pudo actualizar el estado.");
     setTickets((current) => current.map((item) => (item.id === ticket.id ? data : item)));
     setSelectedTicket((current) => (current?.id === ticket.id ? data : current));
@@ -349,9 +423,9 @@ function TicketsPage() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <PageHeader
-        title={activeProject ? `Support Tickets · ${activeProject.name}` : "Support Tickets"}
+        title={activeProject ? `Tickets de soporte · ${activeProject.name}` : "Tickets de soporte"}
         subtitle="Panel central para incidencias, solicitudes de clientes y casos relacionados a proyectos."
-        actionLabel={canCreateTickets ? "New Ticket" : undefined}
+        actionLabel={canCreateTickets ? "Nuevo ticket" : undefined}
         onAction={canCreateTickets ? openNewTicket : undefined}
       />
 
@@ -367,7 +441,10 @@ function TicketsPage() {
             key={label}
             type="button"
             onClick={() => setStatusFilter(statusFilter === label ? ALL : label)}
-            className={"inline-flex h-9 items-center gap-2 rounded-lg border bg-white px-3 text-sm font-semibold shadow-sm transition hover:border-slate-300 " + (statusFilter === label ? "border-blue-200 bg-blue-50" : "")}
+            className={
+              "inline-flex h-9 items-center gap-2 rounded-lg border bg-white px-3 text-sm font-semibold shadow-sm transition hover:border-slate-300 " +
+              (statusFilter === label ? "border-blue-200 bg-blue-50" : "")
+            }
           >
             <Icon className={`h-4 w-4 ${tone}`} />
             <span>{value}</span>
@@ -379,17 +456,66 @@ function TicketsPage() {
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {canCreateTickets ? <Button onClick={openNewTicket}><Plus className="mr-2 h-4 w-4" />New Ticket</Button> : null}
-            <Button variant="outline" onClick={() => void fetchTickets()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
+            {canCreateTickets ? (
+              <Button onClick={openNewTicket}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Ticket
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={() => void fetchTickets()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Actualizar
+            </Button>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input className="w-full pl-9 sm:w-72" placeholder="Search tickets..." value={search} onChange={(event) => setSearch(event.target.value)} />
+              <Input
+                className="w-full pl-9 sm:w-72"
+                placeholder="Buscar tickets..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
             </div>
-            <Select value={projectFilter} onValueChange={setProjectFilter}><SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Project" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Projects</SelectItem>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent></Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Status</SelectItem>{STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value={ALL}>All Priority</SelectItem>{PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-full sm:w-52">
+                <SelectValue placeholder="Proyecto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos los proyectos</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos los estados</SelectItem>
+                {STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Prioridad" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todas las prioridades</SelectItem>
+                {PRIORITIES.map((priority) => (
+                  <SelectItem key={priority} value={priority}>
+                    {priority}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -410,30 +536,62 @@ function TicketsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length ? filtered.map((ticket) => {
-                  const client = ticket.client_id ? clientById.get(ticket.client_id) : null;
-                  const contact = ticket.contact_id ? contactById.get(ticket.contact_id) : null;
-                  const project = ticket.project_id ? projectById.get(ticket.project_id) : null;
-                  return (
-                    <TableRow key={ticket.id} className="cursor-pointer align-top hover:bg-slate-50" onClick={() => setSelectedTicket(ticket)}>
-                      <TableCell className="font-semibold text-slate-500">{ticket.ticket_number || "—"}</TableCell>
-                      <TableCell>
-                        <div className="font-semibold text-slate-900">{ticket.subject}</div>
-                        <div className="mt-1 line-clamp-1 text-xs text-slate-500">{client?.company_name || "Sin cliente"}{project ? ` · ${project.name}` : ""}</div>
-                      </TableCell>
-                      <TableCell>{ticket.department || "—"}</TableCell>
-                      <TableCell>{ticket.service || "—"}</TableCell>
-                      <TableCell>{contactName(contact)}</TableCell>
-                      <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                      <TableCell><span className={`font-bold ${priorityClass(ticket.priority)}`}>{ticket.priority}</span></TableCell>
-                      <TableCell>{formatDateTime(ticket.last_reply_at || ticket.created_at)}</TableCell>
-                      <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedTicket(ticket)}>View</Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                }) : (
-                  <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-slate-500">No hay tickets con estos filtros.</TableCell></TableRow>
+                {filtered.length ? (
+                  filtered.map((ticket) => {
+                    const client = ticket.client_id ? clientById.get(ticket.client_id) : null;
+                    const contact = ticket.contact_id ? contactById.get(ticket.contact_id) : null;
+                    const project = ticket.project_id ? projectById.get(ticket.project_id) : null;
+                    return (
+                      <TableRow
+                        key={ticket.id}
+                        className="cursor-pointer align-top hover:bg-slate-50"
+                        onClick={() => setSelectedTicket(ticket)}
+                      >
+                        <TableCell className="font-semibold text-slate-500">
+                          {ticket.ticket_number || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-slate-900">{ticket.subject}</div>
+                          <div className="mt-1 line-clamp-1 text-xs text-slate-500">
+                            {client?.company_name || "Sin cliente"}
+                            {project ? ` · ${project.name}` : ""}
+                          </div>
+                        </TableCell>
+                        <TableCell>{ticket.department || "—"}</TableCell>
+                        <TableCell>{ticket.service || "—"}</TableCell>
+                        <TableCell>{contactName(contact)}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={ticket.status} />
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-bold ${priorityClass(ticket.priority)}`}>
+                            {ticket.priority}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {formatDateTime(ticket.last_reply_at || ticket.created_at)}
+                        </TableCell>
+                        <TableCell
+                          className="text-right"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedTicket(ticket)}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-10 text-center text-sm text-slate-500">
+                      No hay tickets con estos filtros.
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
@@ -443,21 +601,109 @@ function TicketsPage() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>{editTicket ? "Edit Ticket" : "New Ticket"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editTicket ? "Editar ticket" : "Nuevo ticket"}</DialogTitle>
+          </DialogHeader>
           <form className="space-y-4" onSubmit={saveTicket}>
-            <div className="space-y-1.5"><Label>Subject</Label><Input value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} required /></div>
-            <div className="space-y-1.5"><Label>Description</Label><Textarea rows={4} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <TicketSelect label="Status" value={form.status} onChange={(value) => setForm((current) => ({ ...current, status: value }))} options={STATUSES.map((value) => ({ label: value, value }))} hideNone />
-              <TicketSelect label="Priority" value={form.priority} onChange={(value) => setForm((current) => ({ ...current, priority: value }))} options={PRIORITIES.map((value) => ({ label: value, value }))} hideNone />
-              <div className="space-y-1.5"><Label>Department</Label><Input value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>Service</Label><Input value={form.service} onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))} /></div>
-              <TicketSelect label="Client" value={form.client_id} onChange={(value) => setForm((current) => ({ ...current, client_id: value, contact_id: NONE }))} options={clients.map((item) => ({ label: item.company_name, value: item.id }))} noneLabel="Sin cliente" />
-              <TicketSelect label="Contact" value={form.contact_id} onChange={(value) => setForm((current) => ({ ...current, contact_id: value }))} options={contacts.filter((item) => form.client_id === NONE || item.client_id === form.client_id).map((item) => ({ label: contactName(item), value: item.id }))} noneLabel="Sin contacto" />
-              <TicketSelect label="Project" value={form.project_id} onChange={(value) => setForm((current) => ({ ...current, project_id: value }))} options={projects.map((item) => ({ label: item.name, value: item.id }))} noneLabel="Sin proyecto" />
-              <TicketSelect label="Assigned to" value={form.assigned_to} onChange={(value) => setForm((current) => ({ ...current, assigned_to: value }))} options={profiles.filter((item) => item.is_active !== false).map((item) => ({ label: item.full_name || item.email || item.id, value: item.id }))} noneLabel="Sin asignar" />
+            <div className="space-y-1.5">
+              <Label>Subject</Label>
+              <Input
+                value={form.subject}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, subject: event.target.value }))
+                }
+                required
+              />
             </div>
-            <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Ticket"}</Button></div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea
+                rows={4}
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <TicketSelect
+                label="Estado"
+                value={form.status}
+                onChange={(value) => setForm((current) => ({ ...current, status: value }))}
+                options={STATUSES.map((value) => ({ label: value, value }))}
+                hideNone
+              />
+              <TicketSelect
+                label="Prioridad"
+                value={form.priority}
+                onChange={(value) => setForm((current) => ({ ...current, priority: value }))}
+                options={PRIORITIES.map((value) => ({ label: value, value }))}
+                hideNone
+              />
+              <div className="space-y-1.5">
+                <Label>Department</Label>
+                <Input
+                  value={form.department}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, department: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Service</Label>
+                <Input
+                  value={form.service}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, service: event.target.value }))
+                  }
+                />
+              </div>
+              <TicketSelect
+                label="Cliente"
+                value={form.client_id}
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, client_id: value, contact_id: NONE }))
+                }
+                options={clients.map((item) => ({ label: item.company_name, value: item.id }))}
+                noneLabel="Sin cliente"
+              />
+              <TicketSelect
+                label="Contacto"
+                value={form.contact_id}
+                onChange={(value) => setForm((current) => ({ ...current, contact_id: value }))}
+                options={contacts
+                  .filter((item) => form.client_id === NONE || item.client_id === form.client_id)
+                  .map((item) => ({ label: contactName(item), value: item.id }))}
+                noneLabel="Sin contacto"
+              />
+              <TicketSelect
+                label="Proyecto"
+                value={form.project_id}
+                onChange={(value) => setForm((current) => ({ ...current, project_id: value }))}
+                options={projects.map((item) => ({ label: item.name, value: item.id }))}
+                noneLabel="Sin proyecto"
+              />
+              <TicketSelect
+                label="Asignado a"
+                value={form.assigned_to}
+                onChange={(value) => setForm((current) => ({ ...current, assigned_to: value }))}
+                options={profiles
+                  .filter((item) => item.is_active !== false)
+                  .map((item) => ({
+                    label: item.full_name || item.email || item.id,
+                    value: item.id,
+                  }))}
+                noneLabel="Sin asignar"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Guardando..." : "Guardar ticket"}
+              </Button>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
@@ -469,46 +715,126 @@ function TicketsPage() {
               <header className="border-b p-5">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <div className="flex flex-wrap items-center gap-2"><Ticket className="h-5 w-5 text-blue-600" /><h2 className="text-xl font-extrabold text-slate-950">#{selectedTicket.ticket_number || "—"} · {selectedTicket.subject}</h2><StatusBadge status={selectedTicket.status} /></div>
-                    <p className="mt-1 text-sm font-medium text-slate-500">{clientById.get(selectedTicket.client_id || "")?.company_name || "Sin cliente"} · {projectById.get(selectedTicket.project_id || "")?.name || "Sin proyecto"}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Ticket className="h-5 w-5 text-blue-600" />
+                      <h2 className="text-xl font-extrabold text-slate-950">
+                        #{selectedTicket.ticket_number || "—"} · {selectedTicket.subject}
+                      </h2>
+                      <StatusBadge status={selectedTicket.status} />
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                      {clientById.get(selectedTicket.client_id || "")?.company_name ||
+                        "Sin cliente"}{" "}
+                      · {projectById.get(selectedTicket.project_id || "")?.name || "Sin proyecto"}
+                    </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {STATUSES.map((status) => <Button key={status} size="sm" variant={selectedTicket.status === status ? "default" : "outline"} onClick={() => void updateTicketStatus(selectedTicket, status)}>{status}</Button>)}
-                    <Button size="sm" variant="outline" onClick={() => openEditTicket(selectedTicket)}>Edit</Button>
+                    {STATUSES.map((status) => (
+                      <Button
+                        key={status}
+                        size="sm"
+                        variant={selectedTicket.status === status ? "default" : "outline"}
+                        onClick={() => void updateTicketStatus(selectedTicket, status)}
+                      >
+                        {status}
+                      </Button>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditTicket(selectedTicket)}
+                    >
+                      Edit
+                    </Button>
                   </div>
                 </div>
               </header>
 
               <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <main className="min-h-0 overflow-y-auto p-5">
-                  <div className="mb-5 rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700">{selectedTicket.description || "Sin descripción."}</div>
+                  <div className="mb-5 rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                    {selectedTicket.description || "Sin descripción."}
+                  </div>
                   <div className="space-y-3">
-                    {messages.length ? messages.map((message) => {
-                      const author = message.author_profile_id ? profileById.get(message.author_profile_id) : null;
-                      return (
-                        <div key={message.id} className={"rounded-xl border p-4 " + (message.is_internal ? "border-amber-200 bg-amber-50" : "bg-white")}>
-                          <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-500"><span>{message.is_internal ? "Internal note" : message.author_type === "customer" ? "Customer reply" : "Staff reply"} · {author?.full_name || author?.email || "System"}</span><span>{formatDateTime(message.created_at)}</span></div>
-                          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-800">{message.body}</p>
-                        </div>
-                      );
-                    }) : <div className="rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">Este ticket todavía no tiene mensajes.</div>}
+                    {messages.length ? (
+                      messages.map((message) => {
+                        const author = message.author_profile_id
+                          ? profileById.get(message.author_profile_id)
+                          : null;
+                        return (
+                          <div
+                            key={message.id}
+                            className={
+                              "rounded-xl border p-4 " +
+                              (message.is_internal ? "border-amber-200 bg-amber-50" : "bg-white")
+                            }
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-500">
+                              <span>
+                                {message.is_internal
+                                  ? "Nota interna"
+                                  : message.author_type === "customer"
+                                    ? "Respuesta del cliente"
+                                    : "Respuesta del equipo"}{" "}
+                                · {author?.full_name || author?.email || "Sistema"}
+                              </span>
+                              <span>{formatDateTime(message.created_at)}</span>
+                            </div>
+                            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
+                              {message.body}
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">
+                        Este ticket todavía no tiene mensajes.
+                      </div>
+                    )}
                   </div>
                 </main>
 
                 <aside className="border-t bg-slate-50 p-4 lg:border-l lg:border-t-0">
                   <div className="space-y-3 text-sm">
-                    <Info label="Priority" value={selectedTicket.priority} />
+                    <Info label="Prioridad" value={selectedTicket.priority} />
                     <Info label="Department" value={selectedTicket.department} />
-                    <Info label="Service" value={selectedTicket.service || "—"} />
-                    <Info label="Assigned" value={profileById.get(selectedTicket.assigned_to || "")?.full_name || "Sin asignar"} />
-                    <Info label="Created" value={formatDateTime(selectedTicket.created_at)} />
-                    <Info label="Last reply" value={formatDateTime(selectedTicket.last_reply_at)} />
+                    <Info label="Servicio" value={selectedTicket.service || "—"} />
+                    <Info
+                      label="Asignado"
+                      value={
+                        profileById.get(selectedTicket.assigned_to || "")?.full_name ||
+                        "Sin asignar"
+                      }
+                    />
+                    <Info label="Creado" value={formatDateTime(selectedTicket.created_at)} />
+                    <Info
+                      label="Última respuesta"
+                      value={formatDateTime(selectedTicket.last_reply_at)}
+                    />
                   </div>
                   <div className="mt-5 space-y-2">
                     <Label>Reply / internal note</Label>
-                    <Textarea rows={5} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Write a reply..." />
-                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" checked={replyInternal} onChange={(event) => setReplyInternal(event.target.checked)} />Internal note</label>
-                    <Button className="w-full" onClick={() => void addMessage()} disabled={!reply.trim()}>{replyInternal ? "Add internal note" : "Send reply"}</Button>
+                    <Textarea
+                      rows={5}
+                      value={reply}
+                      onChange={(event) => setReply(event.target.value)}
+                      placeholder="Write a reply..."
+                    />
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={replyInternal}
+                        onChange={(event) => setReplyInternal(event.target.checked)}
+                      />
+                      Internal note
+                    </label>
+                    <Button
+                      className="w-full"
+                      onClick={() => void addMessage()}
+                      disabled={!reply.trim()}
+                    >
+                      {replyInternal ? "Agregar nota interna" : "Enviar respuesta"}
+                    </Button>
                   </div>
                 </aside>
               </div>
@@ -520,15 +846,35 @@ function TicketsPage() {
   );
 }
 
-function TicketSelect({ label, value, onChange, options, noneLabel = "None", hideNone = false }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ label: string; value: string }>; noneLabel?: string; hideNone?: boolean }) {
+function TicketSelect({
+  label,
+  value,
+  onChange,
+  options,
+  noneLabel = "None",
+  hideNone = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  noneLabel?: string;
+  hideNone?: boolean;
+}) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
         <SelectContent>
           {hideNone ? null : <SelectItem value={NONE}>{noneLabel}</SelectItem>}
-          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
@@ -536,5 +882,10 @@ function TicketSelect({ label, value, onChange, options, noneLabel = "None", hid
 }
 
 function Info({ label, value }: { label: string; value: string }) {
-  return <div><div className="text-xs font-bold text-slate-500">{label}</div><div className="mt-0.5 font-semibold text-slate-900">{value}</div></div>;
+  return (
+    <div>
+      <div className="text-xs font-bold text-slate-500">{label}</div>
+      <div className="mt-0.5 font-semibold text-slate-900">{value}</div>
+    </div>
+  );
 }

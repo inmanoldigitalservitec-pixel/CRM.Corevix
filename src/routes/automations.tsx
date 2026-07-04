@@ -87,22 +87,22 @@ function AutomationsPage() {
       <PageHeader
         title="Automations"
         subtitle="Automate repetitive workflows"
-        actionLabel="New Automation"
+        actionLabel="Nueva automatización"
         onAction={() => setDialogOpen(true)}
       />
 
       <SearchFilters
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search automations..."
+        searchPlaceholder="Buscar automatizaciones..."
       />
 
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Zap className="h-6 w-6" />}
-          title="No automations found"
-          description="Create automations to streamline your workflows."
-          actionLabel="New Automation"
+          title="No se encontraron automatizaciones"
+          description="Crea automatizaciones para simplificar tus flujos de trabajo."
+          actionLabel="Nueva automatización"
           onAction={() => setDialogOpen(true)}
         />
       ) : (
