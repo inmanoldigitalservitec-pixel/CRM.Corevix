@@ -18,6 +18,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { PageHeader } from "@/components/crm/page-header";
+import { LoadingTable } from "@/components/crm/loading-state";
+import { useAuth } from "@/hooks/use-auth";
+import { useCrud } from "@/hooks/use-crud";
+import { usePermissions } from "@/hooks/use-permissions";
+import { toast } from "sonner";
 
 const DISPLAY_LABELS: Record<string, string> = {
   "Not Started": "No iniciado",
@@ -57,25 +72,10 @@ const DISPLAY_LABELS: Record<string, string> = {
 function displayLabel(value: string) {
   return DISPLAY_LABELS[value] ?? value;
 }
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { PageHeader } from "@/components/crm/page-header";
-import { LoadingTable } from "@/components/crm/loading-state";
-import { useAuth } from "@/hooks/use-auth";
-import { useCrud } from "@/hooks/use-crud";
-import { usePermissions } from "@/hooks/use-permissions";
-import { toast } from "sonner";
 
 const NONE = "none";
 
-type Option = { label: string; value: string };
+type Option = { label: string; value: string; displayLabel?: string };
 type FieldType = "text" | "number" | "date" | "textarea" | "select";
 
 type SalesField = {
@@ -259,15 +259,15 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
     const requiredMissing = config.fields.find(
       (field) => field.required && !form[field.key]?.trim(),
     );
-    if (requiredMissing) return toast.error(`${requiredMissing.label} is required.`);
+    if (requiredMissing) return toast.error(`${requiredMissing.label} es obligatorio.`);
     setSaving(true);
     try {
       await create(normalizePayload(form));
-      toast.success(`${config.primaryLabel} created.`);
+      toast.success(`${config.primaryLabel} creado correctamente.`);
       setDialogOpen(false);
       await fetch();
     } catch (e: any) {
-      toast.error(e.message || `Could not create ${config.primaryLabel.toLowerCase()}.`);
+      toast.error(e.message || `No se pudo crear ${config.primaryLabel.toLowerCase()}.`);
     } finally {
       setSaving(false);
     }
@@ -281,7 +281,9 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
         title={config.routeTitle}
         subtitle={config.subtitle}
         actionLabel={
-          can(`${config.module}.create` as any) ? `New ${config.primaryLabel}` : undefined
+          can(`${config.module}.create` as any)
+            ? (config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`)
+            : undefined
         }
         onAction={can(`${config.module}.create` as any) ? openCreate : undefined}
       />
@@ -292,7 +294,7 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-4">
-        <Kpi label="Records" value={String(kpis.total)} />
+        <Kpi label="Registros" value={String(kpis.total)} />
         <Kpi label="Monto total" value={formatMoney(kpis.totalAmount)} />
         <Kpi label="Activos/cerrados" value={String(kpis.active)} />
         <Kpi label="Pendientes" value={String(kpis.pending)} />
