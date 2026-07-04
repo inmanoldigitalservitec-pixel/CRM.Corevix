@@ -47,6 +47,31 @@ function normalizeEmailList(value: unknown): string[] {
     .filter(Boolean);
 }
 
+type EmailAttachment = {
+  filename: string;
+  mimeType: string;
+  data: string;
+};
+
+function normalizeAttachments(value: unknown): EmailAttachment[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const row = item as Record<string, unknown>;
+      const filename = cleanOptionalString(row.filename || row.name);
+      const mimeType = cleanOptionalString(row.mimeType || row.type) || "application/octet-stream";
+      const rawData = cleanOptionalString(row.data || row.base64);
+      if (!filename || !rawData) return null;
+      const data = rawData.includes(",") ? rawData.split(",").pop() || "" : rawData;
+      return {
+        filename,
+        mimeType,
+        data: data.replace(/\s/g, ""),
+      };
+    })
+    .filter(Boolean) as EmailAttachment[];
+}
+
 function decodeMimeWords(value: string) {
   return value.replace(/=\?utf-8\?b\?([^?]+)\?=/gi, (_match, encoded) => {
     try {
@@ -92,6 +117,14 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
+function chunkBase64(value: string) {
+  return value.replace(/(.{1,76})/g, "$1\r\n").trim();
+}
+
+function attachmentSizeBytes(attachment: EmailAttachment) {
+  return Math.ceil((attachment.data.length * 3) / 4);
+}
+
 async function refreshAccessToken(args: {
   refreshToken: string;
   clientId: string;
@@ -135,8 +168,10 @@ async function sendGmailMessage(args: {
   subject: string;
   body: string;
   threadId: string | null;
+  attachments: EmailAttachment[];
 }) {
   const html = `<div>${escapeHtml(args.body).replaceAll("\n", "<br>")}</div>`;
+  const boundary = `corevix-${crypto.randomUUID()}`;
   const headers = [
     `From: ${args.from}`,
     `To: ${args.to.join(", ")}`,
@@ -144,11 +179,33 @@ async function sendGmailMessage(args: {
     args.bcc.length ? `Bcc: ${args.bcc.join(", ")}` : null,
     `Subject: ${encodeHeader(args.subject || "(No Subject)")}`,
     "MIME-Version: 1.0",
-    'Content-Type: text/html; charset="UTF-8"',
-    "Content-Transfer-Encoding: 8bit",
+    args.attachments.length
+      ? `Content-Type: multipart/mixed; boundary="${boundary}"`
+      : 'Content-Type: text/html; charset="UTF-8"',
+    args.attachments.length ? null : "Content-Transfer-Encoding: 8bit",
   ].filter(Boolean);
 
-  const raw = base64Url(`${headers.join("\r\n")}\r\n\r\n${html}`);
+  const body = args.attachments.length
+    ? [
+        `--${boundary}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        "Content-Transfer-Encoding: 8bit",
+        "",
+        html,
+        ...args.attachments.flatMap((attachment) => [
+          `--${boundary}`,
+          `Content-Type: ${attachment.mimeType}; name="${encodeHeader(attachment.filename)}"`,
+          "Content-Transfer-Encoding: base64",
+          `Content-Disposition: attachment; filename="${encodeHeader(attachment.filename)}"`,
+          "",
+          chunkBase64(attachment.data),
+        ]),
+        `--${boundary}--`,
+        "",
+      ].join("\r\n")
+    : html;
+
+  const raw = base64Url(`${headers.join("\r\n")}\r\n\r\n${body}`);
   const payload: Record<string, unknown> = { raw };
   if (args.threadId) payload.threadId = args.threadId;
 
@@ -217,9 +274,15 @@ Deno.serve(async (req) => {
     const subject = cleanOptionalString((body as any).subject) || "(No Subject)";
     const messageBody = cleanOptionalString((body as any).body);
     const conversationId = cleanOptionalString((body as any).conversation_id);
+    const attachments = normalizeAttachments((body as any).attachments);
 
     if (!to.length) return jsonResponse({ error: "Agrega al menos un destinatario." }, 400);
     if (!messageBody) return jsonResponse({ error: "El mensaje no puede estar vacío." }, 400);
+    const totalAttachmentBytes = attachments.reduce((total, item) => total + attachmentSizeBytes(item), 0);
+    if (attachments.length > 10) return jsonResponse({ error: "Máximo 10 adjuntos por email." }, 400);
+    if (totalAttachmentBytes > 20 * 1024 * 1024) {
+      return jsonResponse({ error: "Los adjuntos no pueden superar 20 MB en total." }, 400);
+    }
 
     const accountQueryIds = [profile.id, authData.user.id].filter(Boolean);
     const { data: accountsRows, error: accountError } = await serviceClient
@@ -298,6 +361,7 @@ Deno.serve(async (req) => {
       subject,
       body: messageBody,
       threadId: providerThreadId,
+      attachments,
     });
 
     const now = new Date().toISOString();
@@ -405,6 +469,19 @@ Deno.serve(async (req) => {
       .single();
 
     if (messageError) return jsonResponse({ error: messageError.message }, 500);
+
+    if (attachments.length && savedMessage?.id) {
+      const { error: attachmentsError } = await serviceClient.from("email_attachments").insert(
+        attachments.map((attachment) => ({
+          company_id: profile.company_id,
+          message_id: savedMessage.id,
+          filename: attachment.filename,
+          content_type: attachment.mimeType,
+          size_bytes: attachmentSizeBytes(attachment),
+        })),
+      );
+      if (attachmentsError) return jsonResponse({ error: attachmentsError.message }, 500);
+    }
 
     return jsonResponse({
       ok: true,
