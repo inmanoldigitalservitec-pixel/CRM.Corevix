@@ -27,6 +27,7 @@ import {
 } from "@/hooks/use-team-users";
 import { useUserActivity } from "@/hooks/use-user-activity";
 import { useInviteUser, useToggleUserStatus, useUpdateUserRole } from "@/hooks/use-team-actions";
+import { statusKey, useT } from "@/i18n";
 
 import { DataCard } from "@/components/crm/data-card";
 import { EmptyState } from "@/components/crm/empty-state";
@@ -125,15 +126,15 @@ function fmtRelative(input?: string | null) {
   return `${Math.round(hrs / 24)}d`;
 }
 
-function daysUntil(input?: string | null) {
+function daysUntil(input: string | null | undefined, t: (key: string, params?: Record<string, string | number>) => string) {
   if (!input) return "—";
   const d = new Date(input);
   if (Number.isNaN(d.getTime())) return "—";
   const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
-  if (days < 0) return "Expired";
-  if (days === 0) return "Hoy";
-  if (days === 1) return "1 day";
-  return `${days} days`;
+  if (days < 0) return t("status.expired");
+  if (days === 0) return t("team.today");
+  if (days === 1) return t("team.oneDay");
+  return t("team.days", { count: days });
 }
 
 function buildInvitationLink(inv: InvitationRow) {
@@ -150,20 +151,33 @@ async function copyText(text: string, message = "Enlace copiado") {
   }
 }
 
+function roleLabel(role: AppRole, t: (key: string) => string) {
+  const key = `team.role.${role}`;
+  const label = t(key);
+  return label === key ? role : label;
+}
+
+function displayStatus(value: string, t: (key: string) => string) {
+  const key = statusKey(value);
+  const label = t(key);
+  return label === key ? value : label;
+}
+
 function PermissionPreview({ role }: { role: AppRole }) {
+  const { t } = useT();
   const items = [
-    { label: "Ver todos los registros", on: role !== "sales_agent" && role !== "viewer" },
-    { label: "Ver registros asignados", on: role === "sales_agent" },
-    { label: "Crear registros", on: role !== "viewer" },
-    { label: "Editar registros", on: role !== "viewer" },
+    { label: t("team.permission.viewAllRecords"), on: role !== "sales_agent" && role !== "viewer" },
+    { label: t("team.permission.viewAssignedRecords"), on: role === "sales_agent" },
+    { label: t("team.permission.createRecords"), on: role !== "viewer" },
+    { label: t("team.permission.editRecords"), on: role !== "viewer" },
     {
-      label: "Eliminar registros",
+      label: t("team.permission.deleteRecords"),
       on: role === "super_admin" || role === "admin" || role === "manager",
     },
-    { label: "Assign users", on: role === "super_admin" || role === "admin" || role === "manager" },
-    { label: "Manage users", on: role === "super_admin" || role === "admin" },
-    { label: "Manage settings", on: role === "super_admin" || role === "admin" },
-    { label: "Exportar datos", on: role !== "viewer" },
+    { label: t("team.permission.assignUsers"), on: role === "super_admin" || role === "admin" || role === "manager" },
+    { label: t("team.permission.manageUsers"), on: role === "super_admin" || role === "admin" },
+    { label: t("team.permission.manageSettings"), on: role === "super_admin" || role === "admin" },
+    { label: t("team.permission.exportData"), on: role !== "viewer" },
   ];
 
   return (
@@ -175,7 +189,7 @@ function PermissionPreview({ role }: { role: AppRole }) {
         >
           <div>
             <p className="text-sm font-semibold">{it.label}</p>
-            <p className="text-xs text-muted-foreground">Derived from the user role</p>
+            <p className="text-xs text-muted-foreground">{t("team.permission.derived")}</p>
           </div>
           <input type="checkbox" checked={it.on} readOnly />
         </div>
@@ -187,6 +201,7 @@ function PermissionPreview({ role }: { role: AppRole }) {
 function TeamUsersPage() {
   const { user } = useAuth();
   const { can } = usePermissions();
+  const { t } = useT();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<AppRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<TeamUserStatusFilter>("all");
@@ -379,13 +394,13 @@ function TeamUsersPage() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <PageHeader
-        title="Team & Users"
-        subtitle="Manage users, roles and invitations from one place."
+        title={t("team.title")}
+        subtitle={t("team.subtitle")}
       >
         {can("team.manage") && (
           <Button onClick={() => setInviteOpen(true)} size="sm">
             <Send className="mr-2 h-4 w-4" />
-            Invitar usuario
+            {t("team.inviteUser")}
           </Button>
         )}
       </PageHeader>
@@ -393,37 +408,37 @@ function TeamUsersPage() {
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         {[
           [
-            "Total usuarios",
+            t("team.stats.total"),
             stats.total,
-            "Todos los miembros del equipo",
+            t("team.stats.totalHelper"),
             Users,
             "bg-blue-50 text-blue-700",
           ],
           [
-            "Usuarios activos",
+            t("team.stats.active"),
             stats.active,
-            "Activos actualmente",
+            t("team.stats.activeHelper"),
             UserCheck,
             "bg-emerald-50 text-emerald-700",
           ],
           [
-            "Invitaciones pendientes",
+            t("team.stats.pendingInvitations"),
             stats.pendingInv,
-            "Esperando aceptación",
+            t("team.stats.pendingInvitationsHelper"),
             Mail,
             "bg-amber-50 text-amber-700",
           ],
           [
-            "Admins & Managers",
+            t("team.stats.adminsManagers"),
             stats.adminsManagers,
-            "Elevated access",
+            t("team.stats.adminsManagersHelper"),
             Shield,
             "bg-violet-50 text-violet-700",
           ],
           [
-            "Usuarios inactivos",
+            t("team.stats.inactive"),
             stats.inactive,
-            "Usuarios desactivados",
+            t("team.stats.inactiveHelper"),
             UserX,
             "bg-rose-50 text-rose-700",
           ],
@@ -449,9 +464,9 @@ function TeamUsersPage() {
         <DataCard className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
             <div>
-              <p className="text-sm font-extrabold tracking-tight">Pending invitations</p>
+              <p className="text-sm font-extrabold tracking-tight">{t("team.pendingInvitations")}</p>
               <p className="text-xs text-muted-foreground">
-                Copy links, resend emails or revoke access before acceptance.
+                {t("team.pendingInvitationsSubtitle")}
               </p>
             </div>
             <div className="flex gap-2">
@@ -462,11 +477,11 @@ function TeamUsersPage() {
                 disabled={invitesLoading}
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh
+                {t("profile.workMonitor.refresh")}
               </Button>
               <Button size="sm" onClick={() => setInviteOpen(true)}>
                 <Send className="mr-2 h-4 w-4" />
-                Invitar
+                {t("team.invite")}
               </Button>
             </div>
           </div>
@@ -495,13 +510,13 @@ function TeamUsersPage() {
                             variant="secondary"
                             className={`rounded-full border ${roleTone(inv.role)}`}
                           >
-                            {inv.role}
+                            {roleLabel(inv.role, t)}
                           </Badge>
                           <Badge
                             variant="secondary"
                             className={`rounded-full border ${invitationTone(inv.status)}`}
                           >
-                            {inv.status}
+                            {displayStatus(inv.status, t)}
                           </Badge>
                         </div>
                       </div>
@@ -512,8 +527,8 @@ function TeamUsersPage() {
                       )}
                     </div>
                     <p className="mt-3 text-xs font-semibold text-muted-foreground">
-                      Expires: {daysUntil(inv.expires_at)} · Created {fmtRelative(inv.created_at)}{" "}
-                      ago
+                      {t("team.expires")}: {daysUntil(inv.expires_at, t)} · {t("team.created")}{" "}
+                      {fmtRelative(inv.created_at)} {t("team.ago")}
                     </p>
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       <Button
@@ -530,7 +545,7 @@ function TeamUsersPage() {
                         disabled={!pending || busyInviteId === inv.id}
                         onClick={() => void doResendInvite(inv)}
                       >
-                        Resend
+                        {t("team.resend")}
                       </Button>
                       <Button
                         size="sm"
@@ -538,7 +553,7 @@ function TeamUsersPage() {
                         disabled={!pending || busyInviteId === inv.id}
                         onClick={() => void doRevokeInvite(inv)}
                       >
-                        Revoke
+                        {t("team.revoke")}
                       </Button>
                     </div>
                   </div>
@@ -559,13 +574,13 @@ function TeamUsersPage() {
           />
           <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as any)}>
             <SelectTrigger className="h-9 w-full sm:w-[180px]">
-              <SelectValue placeholder="Role" />
+              <SelectValue placeholder={t("team.role")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Role: All</SelectItem>
+              <SelectItem value="all">{t("team.roleAll")}</SelectItem>
               {ROLE_OPTIONS.map((r) => (
                 <SelectItem key={r} value={r}>
-                  {r}
+                  {roleLabel(r, t)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -585,10 +600,10 @@ function TeamUsersPage() {
           </Select>
           <Select value={departmentFilter} onValueChange={(v) => setDepartmentFilter(v as any)}>
             <SelectTrigger className="h-9 w-full sm:w-[220px]">
-              <SelectValue placeholder="Department" />
+              <SelectValue placeholder={t("team.department")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Department: All</SelectItem>
+              <SelectItem value="all">{t("team.departmentAll")}</SelectItem>
               {departments.map((d) => (
                 <SelectItem key={d} value={d}>
                   {d}
@@ -598,7 +613,7 @@ function TeamUsersPage() {
           </Select>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => void refetch()}>
-              Refresh
+              {t("profile.workMonitor.refresh")}
             </Button>
           </div>
         </div>
@@ -622,7 +637,7 @@ function TeamUsersPage() {
                 <TableRow>
                   <TableHead className="pl-5">Usuario</TableHead>
                   <TableHead>Departamento</TableHead>
-                  <TableHead>Rol</TableHead>
+                  <TableHead>{t("team.role")}</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Asignado</TableHead>
                   <TableHead>Última actividad</TableHead>
@@ -659,7 +674,7 @@ function TeamUsersPage() {
                         variant="secondary"
                         className={`rounded-full border ${roleTone(u.role)}`}
                       >
-                        {u.role}
+                        {roleLabel(u.role, t)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -667,19 +682,19 @@ function TeamUsersPage() {
                         variant="secondary"
                         className={`rounded-full border ${statusTone(u.is_active)}`}
                       >
-                        {u.is_active ? "Active" : "Inactive"}
+                        {u.is_active ? t("status.active") : t("status.inactive")}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex min-w-[180px] flex-wrap gap-1">
                         <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                          Leads {u.leads_assigned}
+                          {t("profile.workMonitor.leads")} {u.leads_assigned}
                         </span>
                         <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                          Tasks {u.tasks_assigned}
+                          {t("profile.workMonitor.tasks")} {u.tasks_assigned}
                         </span>
                         <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                          Deals {u.deals_assigned}
+                          {t("profile.workMonitor.deals")} {u.deals_assigned}
                         </span>
                       </div>
                     </TableCell>
@@ -722,7 +737,7 @@ function TeamUsersPage() {
       >
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>{inviteResult ? "Invitation ready" : "Invite teammate"}</DialogTitle>
+            <DialogTitle>{inviteResult ? t("team.invitationReady") : t("team.inviteTeammate")}</DialogTitle>
           </DialogHeader>
           {inviteResult ? (
             <div className="space-y-4">
@@ -732,8 +747,8 @@ function TeamUsersPage() {
                 </p>
                 <p className="mt-1 text-sm text-emerald-800/80">
                   {inviteResult.emailSent
-                    ? `We sent the invite to ${inviteResult.email}.`
-                    : `Copy this link and send it to ${inviteResult.email}.`}
+                    ? t("team.inviteSentTo", { email: inviteResult.email })
+                    : t("team.copyInviteFor", { email: inviteResult.email })}
                 </p>
               </div>
               <div className="space-y-2 rounded-2xl border bg-muted/20 p-3">
@@ -752,9 +767,9 @@ function TeamUsersPage() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => resetInviteForm()}>
-                  Invite another
+                  {t("team.inviteAnother")}
                 </Button>
-                <Button onClick={() => setInviteOpen(false)}>Done</Button>
+                <Button onClick={() => setInviteOpen(false)}>{t("team.done")}</Button>
               </div>
             </div>
           ) : (
@@ -777,7 +792,7 @@ function TeamUsersPage() {
                   <Input
                     value={inviteFullName}
                     onChange={(e) => setInviteFullName(e.target.value)}
-                    placeholder="Jane Doe"
+                    placeholder={t("team.namePlaceholder")}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -787,7 +802,7 @@ function TeamUsersPage() {
                   <Input
                     value={inviteDepartment}
                     onChange={(e) => setInviteDepartment(e.target.value)}
-                    placeholder="Sales"
+                    placeholder={t("team.departmentPlaceholder")}
                   />
                 </div>
               </div>
@@ -800,7 +815,7 @@ function TeamUsersPage() {
                   <SelectContent>
                     {ROLE_OPTIONS.map((r) => (
                       <SelectItem key={r} value={r}>
-                        {r}
+                        {roleLabel(r, t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -815,7 +830,7 @@ function TeamUsersPage() {
                   onClick={() => setInviteOpen(false)}
                   disabled={inviteSending}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button
                   onClick={() => void doInvite()}
@@ -845,7 +860,7 @@ function TeamUsersPage() {
                     variant="secondary"
                     className={`rounded-full border ${roleTone(selected.role)}`}
                   >
-                    {selected.role}
+                    {roleLabel(selected.role, t)}
                   </Badge>
                 )}
                 {selected && (
@@ -853,7 +868,7 @@ function TeamUsersPage() {
                     variant="secondary"
                     className={`rounded-full border ${statusTone(selected.is_active)}`}
                   >
-                    {selected.is_active ? "Active" : "Inactive"}
+                    {selected.is_active ? t("status.active") : t("status.inactive")}
                   </Badge>
                 )}
               </div>
@@ -952,7 +967,7 @@ function TeamUsersPage() {
                     <SelectContent>
                       {ROLE_OPTIONS.map((r) => (
                         <SelectItem key={r} value={r}>
-                          {r}
+                          {roleLabel(r, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
