@@ -1,0 +1,10 @@
+./src/components/dashboard-v2/dashboard-v2.tsx:1552:      // agent_widget_contracts = output created by the agent for the widget.
+./src/components/dashboard-v2/dashboard-v2.tsx:1556:        source: widgetContractResult.payload ? "agent_widget_contracts" : "fallback_pending",
+./src/components/dashboard-v2/dashboard-v2.tsx:1572:        source: "agent_operating_context",
+./src/lib/agentClient.ts:303:    .from("agent_operating_context")
+./src/lib/agentClient.ts:380:    .from("agent_widget_contracts")
+./apps/agent-worker/src/agent-operating-context.ts:52:	return 'agent_operating_context_v1';
+./apps/agent-worker/src/agent-operating-context.ts:60:		.from('agent_operating_context')
+./apps/agent-worker/src/agent-operating-context.ts:510:		.from('agent_operating_context')
+./apps/agent-worker/src/index.ts:360:				error: 'agent_operating_context_refresh_error',
+./apps/agent-worker/src/index.ts:393:				error: 'agent_operating_context_load_error',

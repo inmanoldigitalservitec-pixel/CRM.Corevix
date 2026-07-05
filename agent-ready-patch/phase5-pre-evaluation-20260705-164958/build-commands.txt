@@ -1,0 +1,18 @@
+Root package scripts:
+{
+  "dev": "vite dev",
+  "build": "NODE_OPTIONS=--max-old-space-size=4096 WRANGLER_LOG_PATH=/private/tmp/wrangler-logs vite build",
+  "build:dev": "vite build --mode development",
+  "preview": "vite preview",
+  "lint": "eslint .",
+  "format": "prettier --write ."
+}
+
+Agent-worker package scripts:
+{
+  "deploy": "wrangler deploy",
+  "dev": "wrangler dev",
+  "start": "wrangler dev",
+  "test": "vitest",
+  "cf-typegen": "wrangler types"
+}

@@ -57,6 +57,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
+import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
 
 export const Route = createFileRoute("/leads")({
@@ -427,6 +428,14 @@ function LeadsPage() {
   const [signalsLoading, setSignalsLoading] = useState(false);
   const [signalsError, setSignalsError] = useState<string | null>(null);
   const [signalsByLeadId, setSignalsByLeadId] = useState<Record<string, LeadSignals>>({});
+  const sendLeadNotification = async (title: string, message: string, link = "/leads") => {
+    if (!profile?.company_id || !user?.id) return;
+    await createAttentionNotification(
+      supabase,
+      { companyId: profile.company_id, userId: user.id },
+      { title, message, type: "attention:leads", link },
+    ).catch(() => {});
+  };
 
   const selectedLead = useMemo(() => {
     return leads.find((lead) => lead.id === selectedLeadId) || null;
@@ -1084,6 +1093,11 @@ function LeadsPage() {
         toast.error(error.message || "No se pudo crear el seguimiento");
         return;
       }
+      void sendLeadNotification(
+        "Seguimiento creado",
+        `${followUpValues.title.trim()} quedó programado para ${followUpValues.due_date}.`,
+        "/tasks",
+      );
       void logActivityEvent({
         companyId: profile.company_id,
         userId: profile.id,
@@ -1266,9 +1280,17 @@ function LeadsPage() {
     try {
       if (editLead) {
         await update(editLead.id, data);
+        void sendLeadNotification(
+          "Prospecto actualizado",
+          `${data.first_name || "Prospecto"} ${data.last_name || ""}`.trim() || "Prospecto",
+        );
         toast.success("Prospecto actualizado");
       } else {
         await create(data);
+        void sendLeadNotification(
+          "Prospecto creado",
+          `${data.first_name || "Prospecto"} ${data.last_name || ""}`.trim() || "Prospecto",
+        );
         toast.success("Prospecto creado");
       }
       setDialogOpen(false);
@@ -2243,6 +2265,10 @@ function LeadsPage() {
                                 await update(selectedLead.id, {
                                   assigned_to: value === "unassigned" ? null : value,
                                 });
+                                void sendLeadNotification(
+                                  "Responsable actualizado",
+                                  `${getLeadPrimaryLabel(selectedLead)} quedó asignado.`,
+                                );
                                 toast.success("Responsable actualizado");
                               } catch (err: unknown) {
                                 const message =
@@ -2346,6 +2372,11 @@ function LeadsPage() {
         onCreated={async () => {
           if (selectedLead && can("leads.edit")) {
             await update(selectedLead.id, { status: "Proposal Sent" } as any);
+            void sendLeadNotification(
+              "Propuesta vinculada",
+              `${getLeadPrimaryLabel(selectedLead)} pasó a Proposal Sent.`,
+              "/proposals",
+            );
           }
           void fetchLeads();
           toast.success("Propuesta vinculada al prospecto.");

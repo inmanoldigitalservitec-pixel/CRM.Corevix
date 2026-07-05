@@ -1,0 +1,111 @@
+export const AGENT_WIDGET_CONTRACT_VERSION = "agent_widget_contract_v1" as const;
+
+export type AgentWidgetContractStatus =
+  | "idle"
+  | "analyzing"
+  | "ready"
+  | "executing"
+  | "done"
+  | "error";
+
+export type AgentWidgetSeverity = "critical" | "high" | "medium" | "low";
+
+export type AgentWidgetContractSummary = {
+  total_cases: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+};
+
+export type AgentWidgetRecommendedStep = {
+  title: string;
+  description: string;
+};
+
+export type AgentWidgetRiskLevel = "read" | "low_write" | "medium_write" | "sensitive";
+
+export type AgentWidgetSourceRecord = {
+  type: string;
+  id?: string | null;
+  label?: string | null;
+  href?: string | null;
+  status?: string | null;
+  due_at?: string | null;
+  amount?: string | number | null;
+  module?: string | null;
+};
+
+export type AgentWidgetActionTarget = {
+  type?: string | null;
+  id?: string | null;
+  label?: string | null;
+  href?: string | null;
+  status?: string | null;
+};
+
+export type AgentWidgetContextRefs = {
+  source_event_ids: string[];
+  source_memory_keys: string[];
+  source_modules: string[];
+  full_record_ref?: {
+    table?: string | null;
+    id?: string | null;
+  } | null;
+};
+
+export type AgentWidgetSuggestedAction = {
+  action_id: string;
+  type: string;
+  label: string;
+  reason?: string | null;
+  module?: string | null;
+  priority?: AgentWidgetSeverity | null;
+  requires_confirmation: boolean;
+  risk_level?: AgentWidgetRiskLevel;
+  required_fields?: string[];
+  tool_hint?: string | null;
+  target?: AgentWidgetActionTarget | null;
+  payload?: Record<string, string | number | boolean | null>;
+};
+
+
+
+export type AgentWidgetRecoveryPlan = {
+  case_key: string;
+  case_type?: string;
+  plan_title: string;
+  severity: AgentWidgetSeverity;
+  message?: string;
+  diagnosis: string;
+  source_context_excerpt?: string;
+  source_records?: AgentWidgetSourceRecord[];
+  context_refs?: AgentWidgetContextRefs;
+  recommended_steps: AgentWidgetRecommendedStep[];
+  plan_steps?: AgentWidgetRecommendedStep[];
+  suggested_actions: AgentWidgetSuggestedAction[];
+  actions?: AgentWidgetSuggestedAction[];
+  requires_confirmation: boolean;
+  success_criteria: string;
+};
+
+
+
+export type AgentWidgetContractV1 = {
+  schema_version: typeof AGENT_WIDGET_CONTRACT_VERSION;
+  status: AgentWidgetContractStatus;
+  generated_at: string;
+  summary: AgentWidgetContractSummary;
+  recovery_plans: AgentWidgetRecoveryPlan[];
+};
+
+export function isAgentWidgetContractV1(value: unknown): value is AgentWidgetContractV1 {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+  const contract = value as Record<string, unknown>;
+
+  return (
+    contract.schema_version === AGENT_WIDGET_CONTRACT_VERSION &&
+    Array.isArray(contract.recovery_plans)
+  );
+}

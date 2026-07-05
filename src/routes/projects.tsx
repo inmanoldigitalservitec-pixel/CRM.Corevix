@@ -72,6 +72,7 @@ import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
+import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import {
   isActiveProjectStatus,
   isClosedTaskStatusValue,
@@ -404,6 +405,14 @@ function ProjectsPage() {
       new Map(profiles.filter((item) => item.user_id).map((item) => [String(item.user_id), item])),
     [profiles],
   );
+  const sendProjectNotification = async (title: string, message: string) => {
+    if (!profile?.company_id || !user?.id) return;
+    await createAttentionNotification(
+      supabase,
+      { companyId: profile.company_id, userId: user.id },
+      { title, message, type: "attention:projects", link: "/projects" },
+    ).catch(() => {});
+  };
 
   const managerOptions = useMemo(() => {
     const companyId = profile?.company_id ? String(profile.company_id) : null;
@@ -633,9 +642,17 @@ function ProjectsPage() {
       if (editItem) {
         await update(editItem.id, record);
         setSelected(null);
+        void sendProjectNotification(
+          "Proyecto actualizado",
+          `${record.name || "Proyecto sin nombre"} fue actualizado.`,
+        );
         toast.success("Proyecto actualizado");
       } else {
         await create(record);
+        void sendProjectNotification(
+          "Proyecto creado",
+          `${record.name || "Proyecto sin nombre"} fue creado.`,
+        );
         toast.success("Proyecto creado");
       }
       setDialogOpen(false);
@@ -688,6 +705,10 @@ function ProjectsPage() {
       });
       if (error) throw error;
       await fetchTasks();
+      void sendProjectNotification(
+        "Tarea de proyecto creada",
+        `${taskForm.title.trim()} fue creada desde ${selected.name || "el proyecto"}.`,
+      );
       toast.success("Tarea creada");
       setTaskDialogOpen(false);
       void logActivityEvent({
@@ -713,6 +734,10 @@ function ProjectsPage() {
       .eq("id", task.id);
     if (error) return toast.error(error.message || "No se pudo completar la tarea");
     await fetchTasks();
+    void sendProjectNotification(
+      "Tarea de proyecto completada",
+      `${task.title || "Tarea"} quedó completada.`,
+    );
     toast.success("Tarea completada");
   }
 

@@ -100,7 +100,7 @@ export const Route = createFileRoute("/clients")({
   component: ClientsPage,
   head: () => ({
     meta: [
-      { title: "Clients — Corevix CRM" },
+      { title: "Clientes — Corevix CRM" },
       {
         name: "description",
         content: "Gestiona clientes activos, contactos, proyectos y finanzas",
@@ -518,12 +518,12 @@ function buildClientCsv(clients: ClientSnapshot[]) {
     "Contacto principal",
     "Estado",
     "Salud",
-    "Account manager",
+    "Responsable",
     "Industria",
     "Proyectos activos",
     "Facturas pendientes",
     "Tareas atrasadas",
-    "Valor pipeline",
+    "Valor de embudo",
     "Notas",
   ];
 
@@ -2083,7 +2083,7 @@ function ClientsPage() {
                             <strong className="text-emerald-600">
                               {money(selectedClient.openPipelineValue)}
                             </strong>{" "}
-                            pipeline
+                            embudo
                           </span>
                         </div>
                       </div>
@@ -2120,7 +2120,7 @@ function ClientsPage() {
                               ["Responsable", selectedClient.accountManagerName],
                               ["Contacto rápido", selectedClient.contact_person || "—"],
                               ["Web", selectedClient.website || "—"],
-                              ["Tax ID", selectedClient.tax_id || "—"],
+                              ["ID fiscal", selectedClient.tax_id || "—"],
                               ["Ciudad", selectedClient.city || "—"],
                               ["País", selectedClient.country || "—"],
                             ].map(([label, value]) => (
@@ -2428,7 +2428,7 @@ function ClientsPage() {
                                 <div className="space-y-1 rounded-[14px] border border-slate-100 bg-slate-50 p-3">
                                   <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     <Mail className="h-3.5 w-3.5" />
-                                    Email
+                                    Correo electrónico
                                   </p>
                                   <p className="text-sm font-medium text-slate-900">
                                     {contact.email || "—"}
@@ -2563,7 +2563,7 @@ function ClientsPage() {
                           meta="Enviado / visto"
                         />
                         <MetricCard
-                          label="Pipeline"
+                          label="Embudo"
                           value={selectedClient.openDeals.length}
                           icon={BriefcaseBusiness}
                           tone="bg-[#ecfdf3] text-[#16a34a]"
@@ -2610,9 +2610,7 @@ function ClientsPage() {
                         </div>
 
                         <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-                          <h3 className="text-sm font-bold text-slate-900">
-                            Propuestas y pipeline
-                          </h3>
+                          <h3 className="text-sm font-bold text-slate-900">Propuestas y embudo</h3>
                           <div className="mt-4 space-y-3">
                             {selectedClient.pendingProposals.length === 0 &&
                             selectedClient.openDeals.length === 0 ? (
@@ -2850,7 +2848,7 @@ function ClientsPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Email</Label>
+                  <Label>Correo electrónico</Label>
                   <Input name="email" type="email" defaultValue={editClient?.email || ""} />
                 </div>
                 <div className="space-y-1.5">
@@ -2866,7 +2864,7 @@ function ClientsPage() {
                   <Input name="industry" defaultValue={editClient?.industry || ""} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Account manager</Label>
+                  <Label>Responsable</Label>
                   <Select
                     name="account_manager"
                     defaultValue={editClient?.account_manager || undefined}
@@ -2900,11 +2898,11 @@ function ClientsPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Website</Label>
+                  <Label>Sitio web</Label>
                   <Input name="website" defaultValue={editClient?.website || ""} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Tax ID</Label>
+                  <Label>ID fiscal</Label>
                   <Input name="tax_id" defaultValue={editClient?.tax_id || ""} />
                 </div>
                 <div className="space-y-1.5">
@@ -2985,7 +2983,7 @@ function ClientsPage() {
                 <Input name="department" defaultValue={editContact?.department || ""} />
               </div>
               <div className="space-y-1.5">
-                <Label>Email</Label>
+                <Label>Correo electrónico</Label>
                 <Input name="email" type="email" defaultValue={editContact?.email || ""} />
               </div>
               <div className="space-y-1.5">

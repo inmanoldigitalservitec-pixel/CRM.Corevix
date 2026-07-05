@@ -63,7 +63,14 @@ export function useTeamUsers(params?: {
       setLoading(false);
       return;
     }
-    setData((rows || []) as TeamUserRow[]);
+    const seen = new Set<string>();
+    const deduped = ((rows || []) as TeamUserRow[]).filter((row) => {
+      const key = `${row.profile_id}::${row.user_id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    setData(deduped);
     setLoading(false);
   }, [enabled, rpcArgs]);
 

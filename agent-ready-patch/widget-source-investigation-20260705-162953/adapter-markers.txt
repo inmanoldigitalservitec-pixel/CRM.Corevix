@@ -1,0 +1,16 @@
+3:  isAgentWidgetContractV1,
+103:  widget_contract?: AgentWidgetContractV1;
+104:  agent_widget_contract?: AgentWidgetContractV1;
+117:  detected_cases?: AgentPromptDetectedCase[];
+119:  recovery_plans?: AgentPromptRecoveryPlan[];
+200:function normalizeWidgetContractRecoveryPlan(plan: AgentWidgetRecoveryPlan): AgentRecoveryPlan {
+334:      message: "Este plan fue generado localmente desde detected_cases hasta conectar el agente real.",
+340:export function agentPromptPayloadToRecoveryPlans(payload?: AgentPromptPayload | null): AgentRecoveryPlan[] {
+343:  if (isAgentWidgetContractV1(payload)) {
+344:    return payload.recovery_plans.map(normalizeWidgetContractRecoveryPlan);
+347:  if (isAgentWidgetContractV1(payload.widget_contract)) {
+348:    return payload.widget_contract.recovery_plans.map(normalizeWidgetContractRecoveryPlan);
+351:  if (isAgentWidgetContractV1(payload.agent_widget_contract)) {
+352:    return payload.agent_widget_contract.recovery_plans.map(normalizeWidgetContractRecoveryPlan);
+355:  const realRecoveryPlans = payload.recovery_plans || [];
+361:  return (payload.detected_cases || []).map((detectedCase) =>

@@ -1,0 +1,25 @@
+## 02-agent-widget-files
+```
+src/components/agent/AgentCommandWidget.tsx.bak-phase-a-20260705181335
+src/components/agent/agentPromptPayloadAdapter.ts.bak-phase-a-20260705181335
+src/components/agent/AgentCommandWidgetConnected.tsx
+src/components/agent/agentWidgetContract.ts
+src/components/agent/agentPromptPayloadAdapter.ts
+src/components/agent/AgentCommandWidget.css
+src/components/agent/AgentCommandWidget.tsx.bak-single-card-20260705182545
+src/components/agent/AgentCommandWidget.tsx
+src/components/agent/index.ts
+src/components/agent/AgentCommandWidget.css.bak-single-card-20260705182545
+src/components/agent/agentWidgetContract.ts.bak-phase-a-20260705181335
+src/components/dashboard-v2/dashboard-kpi-card.tsx
+src/components/dashboard-v2/dashboard-schedule-card.tsx
+src/components/dashboard-v2/dashboard-activity-card.tsx
+src/components/dashboard-v2/dashboard-v2.tsx.bak_language_real_fix
+src/components/dashboard-v2/dashboard-v2.tsx
+src/components/dashboard-v2/types.ts
+src/components/dashboard-v2/dashboard-collections-card.tsx
+src/components/dashboard-v2/dashboard-action-list.tsx
+src/components/dashboard-v2/dashboard-pipeline-card.tsx
+src/components/dashboard-v2/dashboard-card.tsx
+src/components/dashboard-v2/dashboard-clients-card.tsx
+```

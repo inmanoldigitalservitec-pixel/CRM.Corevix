@@ -6,9 +6,7 @@ const ProposalDocumentBuilder = lazy(() =>
   import.meta.env.SSR
     ? Promise.resolve({
         default: () => (
-          <div className="p-6 text-sm text-muted-foreground">
-            Cargando editor de propuesta...
-          </div>
+          <div className="p-6 text-sm text-muted-foreground">Cargando editor de propuesta...</div>
         ),
       })
     : import("@/components/document-builder/proposal-document-builder").then((mod) => ({
@@ -32,11 +30,26 @@ function ProposalBuilderRoute() {
           <div className="text-xs font-medium text-slate-500">Editor visual client-only</div>
         </div>
         <Button variant="outline" size="sm" asChild>
-          <Link to="/proposals">Volver a propuestas</Link>
+          <Link
+            to="/proposals"
+            search={{
+              leadId: undefined,
+              dealId: undefined,
+              conversationId: undefined,
+              productId: undefined,
+              clientId: undefined,
+            }}
+          >
+            Volver a propuestas
+          </Link>
         </Button>
       </div>
 
-      <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando editor de propuesta...</div>}>
+      <Suspense
+        fallback={
+          <div className="p-6 text-sm text-muted-foreground">Cargando editor de propuesta...</div>
+        }
+      >
         <ProposalDocumentBuilder proposalId={proposalId} />
       </Suspense>
     </div>

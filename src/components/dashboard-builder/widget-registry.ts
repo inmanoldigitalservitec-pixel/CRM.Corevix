@@ -9,6 +9,7 @@ import {
   Goal,
   Inbox,
   MessageCircle,
+  Sparkles,
   Receipt,
   TrendingUp,
   Users,
@@ -40,6 +41,24 @@ function layout(
 }
 
 export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
+  {
+    id: "agent.autopilot",
+    module: "agent",
+    title: "Autopilot del agente",
+    description: "Sirve los planes diarios del agente con prioridades, contexto y próximos pasos.",
+    icon: Sparkles,
+    size: "expanded",
+    supportedModes: ["mini", "standard"],
+    defaultMode: "standard",
+    defaultLayout: layout("agent.autopilot", {
+      x: 0,
+      y: 24,
+      w: 6,
+      h: 6,
+      minW: 3,
+      minH: 3,
+    }),
+  },
   {
     id: "sales.pipeline-summary",
     module: "sales",
@@ -251,6 +270,13 @@ export const dashboardWidgetRegistry: DashboardWidgetDefinition[] = [
 ];
 
 const dashboardDefaultPreset: DashboardWidgetPreference[] = [
+  {
+    widgetId: "agent.autopilot",
+    enabled: true,
+    mode: "standard",
+    layout: layout("agent.autopilot", { x: 0, y: 24, w: 6, h: 6, minW: 3, minH: 3 }),
+    settings: {},
+  },
   {
     widgetId: "sales.quick-kpis",
     enabled: true,

@@ -105,6 +105,15 @@ const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
 
 type ReportId = (typeof REPORTS)[number]["id"];
 type Row = Record<string, any>;
+type ReportClientRow = {
+  id: string;
+  company_name?: string | null;
+};
+type ReportInvoiceRow = {
+  id: string;
+  number?: string | null;
+  client_id?: string | null;
+};
 
 function money(value: number | string | null | undefined) {
   return `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -272,9 +281,17 @@ export function SalesReportCenter() {
       return;
     }
 
-    const clients = new Map((clientsRes.data || []).map((c: any) => [c.id, c]));
-    const invoices = new Map((invoicesRes.data || []).map((i: any) => [i.id, i]));
-    const invoiceByNumber = new Map((invoicesRes.data || []).map((i: any) => [i.number, i]));
+    const clients = new Map<string, ReportClientRow>(
+      (clientsRes.data || []).map((c: ReportClientRow) => [c.id, c]),
+    );
+    const invoices = new Map<string, ReportInvoiceRow>(
+      (invoicesRes.data || []).map((i: ReportInvoiceRow) => [i.id, i]),
+    );
+    const invoiceByNumber = new Map<string, ReportInvoiceRow>(
+      (invoicesRes.data || [])
+        .filter((i: ReportInvoiceRow) => Boolean(i.number))
+        .map((i: ReportInvoiceRow) => [String(i.number), i]),
+    );
 
     const hydrated = (dataRes.data || []).map((row: any) => {
       const invoice = row.invoice_id

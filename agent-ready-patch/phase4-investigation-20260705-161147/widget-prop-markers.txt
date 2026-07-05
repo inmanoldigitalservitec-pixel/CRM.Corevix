@@ -1,0 +1,5 @@
+4:export type AgentWidgetMode = "compact" | "review" | "executing" | "result";
+6:export type AgentSeverity = "critical" | "high" | "medium" | "low";
+8:export type AgentRecoveryPlan = {
+30:type AgentCommandWidgetProps = {
+237:export function AgentCommandWidget({

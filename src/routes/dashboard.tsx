@@ -22,6 +22,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useT } from "@/i18n";
 import { DashboardV2 } from "@/components/dashboard-v2/dashboard-v2";
+import { type AttentionModule } from "@/lib/crm/attention-engine";
+import { buildAttentionFeed } from "@/lib/crm/attention-feed";
+import {
+  applyAttentionMemory,
+  loadAttentionMemoryFromSupabase,
+  markAttentionNotifiedRemote,
+  reconcileAttentionMemoryRemote,
+} from "@/lib/crm/attention-memory";
+import { syncAttentionNotifications } from "@/lib/crm/attention-notifications";
 import {
   isActiveProjectStatus,
   isApprovedProposalStatus,
@@ -40,6 +49,7 @@ import {
   isSentOrOverdueInvoiceStatus,
   isSentOrViewedProposalStatus,
 } from "@/lib/crm/status";
+import { ATTENTION_PRIORITY_ORDER } from "@/lib/crm/attention-rules";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -76,7 +86,6 @@ type LeadRow = {
   created_at: string;
   updated_at: string;
   last_interaction_at?: string | null;
-  next_follow_up?: string | null;
 };
 
 type DealRow = {
@@ -94,6 +103,7 @@ type TaskRow = {
   status: string;
   priority?: string | null;
   due_date: string | null;
+  updated_at?: string | null;
   related_lead_id?: string | null;
   related_client_id?: string | null;
   related_project_id?: string | null;
@@ -123,6 +133,7 @@ type ProposalRow = {
   number?: string | null;
   amount?: number | string | null;
   client_id?: string | null;
+  sent_at?: string | null;
   updated_at?: string;
 };
 
@@ -140,6 +151,8 @@ type TicketRow = {
   id: string;
   ticket_number?: string | null;
   subject?: string | null;
+  department?: string | null;
+  service?: string | null;
   status: string;
   priority?: string | null;
   updated_at?: string | null;
@@ -150,12 +163,27 @@ type ClientSummaryRow = {
   id: string;
   company_name: string | null;
   contact_person: string | null;
+  status?: string | null;
+  updated_at?: string | null;
+  account_manager?: string | null;
+};
+
+type ClientProductRow = {
+  id: string;
+  client_id: string;
+  product_id?: string | null;
+  status?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  price?: number | string | null;
+  billing_type?: string | null;
+  updated_at?: string | null;
 };
 
 type WhatsAppConversationRow = {
   id: string;
   status: string | null;
-  last_message_body?: string | null;
+  last_message?: string | null;
   last_message_at?: string | null;
   unread_count?: number | null;
   whatsapp_contacts?: { id: string; name: string | null; phone: string | null } | null;
@@ -164,9 +192,9 @@ type WhatsAppConversationRow = {
 type EmailConversationRow = {
   id: string;
   status: string | null;
+  is_read?: boolean | null;
   last_message_at?: string | null;
   subject?: string | null;
-  unread_count?: number | null;
 };
 
 type MetaConversationRow = {
@@ -188,6 +216,19 @@ type ActivityLogRow = {
   created_at: string;
 };
 
+type CalendarEventRow = {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  location?: string | null;
+  type?: string | null;
+  status?: string | null;
+  start_at: string;
+  end_at?: string | null;
+  all_day?: boolean | null;
+  created_at?: string | null;
+};
+
 function formatMoney(value: number) {
   return `$${value.toLocaleString()}`;
 }
@@ -203,7 +244,7 @@ function priorityVariantFromKey(key: string): PriorityVariant {
   if (key === "pending_invoices") return "warning";
   if (key === "pending_proposals") return "purple";
   if (key === "wa_open") return "green";
-  if (key === "projects_risk") return "warning";
+  if (key === "projects_risk" || key === "calendar_overdue") return "warning";
   return "purple";
 }
 
@@ -395,13 +436,15 @@ function statusTone(
 }
 
 function DashboardPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { t } = useT();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attentionMemoryReady, setAttentionMemoryReady] = useState(false);
 
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [clientSummaries, setClientSummaries] = useState<ClientSummaryRow[]>([]);
+  const [clientProducts, setClientProducts] = useState<ClientProductRow[]>([]);
   const [clientsCount, setClientsCount] = useState(0);
   const [deals, setDeals] = useState<DealRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
@@ -410,13 +453,13 @@ function DashboardPage() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [estimates, setEstimates] = useState<EstimateRow[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEventRow[]>([]);
   const [waConversations, setWaConversations] = useState<WhatsAppConversationRow[]>([]);
   const [emailConversations, setEmailConversations] = useState<EmailConversationRow[]>([]);
   const [metaConversations, setMetaConversations] = useState<MetaConversationRow[]>([]);
   const [activities, setActivities] = useState<
     { id: string; action: string; detail: string; time: string }[]
   >([]);
-
   useEffect(() => {
     if (!profile?.company_id) {
       setLoading(false);
@@ -434,8 +477,7 @@ function DashboardPage() {
 
     const load = async () => {
       const loadLeads = async () => {
-        const base =
-          "id,first_name,last_name,company_name,status,source,created_at,updated_at,next_follow_up";
+        const base = "id,first_name,last_name,company_name,status,source,created_at,updated_at";
         const withInteraction = `${base},last_interaction_at`;
         const res = await db
           .from("leads")
@@ -456,7 +498,7 @@ function DashboardPage() {
 
       const loadTasks = async () => {
         const richSelect =
-          "id,title,status,priority,due_date,related_lead_id,related_client_id,related_project_id";
+          "id,title,status,priority,due_date,updated_at,related_lead_id,related_client_id,related_project_id";
         const res = await db
           .from("tasks")
           .select(richSelect)
@@ -466,7 +508,7 @@ function DashboardPage() {
         if (!res.error) return res;
         return db
           .from("tasks")
-          .select("id,title,status,priority,due_date")
+          .select("id,title,status,priority,due_date,updated_at")
           .eq("company_id", cid)
           .order("due_date", { ascending: true })
           .limit(120);
@@ -497,7 +539,7 @@ function DashboardPage() {
           .limit(80);
 
       const loadProposals = async () => {
-        const richSelect = "id,status,valid_until,title,number,amount,client_id,updated_at";
+        const richSelect = "id,status,valid_until,title,number,amount,client_id,sent_at,updated_at";
         const res = await db
           .from("proposals")
           .select(richSelect)
@@ -507,7 +549,7 @@ function DashboardPage() {
         if (!res.error) return res;
         return db
           .from("proposals")
-          .select("id,status,valid_until,title,number,updated_at")
+          .select("id,status,valid_until,title,number,sent_at,updated_at")
           .eq("company_id", cid)
           .order("updated_at", { ascending: false })
           .limit(80);
@@ -533,7 +575,7 @@ function DashboardPage() {
         loadLeads(),
         db
           .from("clients")
-          .select("id,company_name,contact_person")
+          .select("id,company_name,contact_person,status,updated_at,account_manager")
           .eq("company_id", cid)
           .order("updated_at", { ascending: false })
           .limit(250),
@@ -548,14 +590,14 @@ function DashboardPage() {
         db
           .from("whatsapp_conversations")
           .select(
-            "id, status, last_message_body, last_message_at, unread_count, whatsapp_contacts(id, name, phone)",
+            "id, status, last_message, last_message_at, unread_count, whatsapp_contacts(id, name, phone)",
           )
           .eq("company_id", cid)
           .order("last_message_at", { ascending: false })
           .limit(50),
         db
           .from("email_conversations")
-          .select("id, status, subject, last_message_at, unread_count")
+          .select("id, status, subject, last_message_at, is_read")
           .eq("company_id", cid)
           .order("last_message_at", { ascending: false })
           .limit(50),
@@ -575,6 +617,20 @@ function DashboardPage() {
           .eq("company_id", cid)
           .order("created_at", { ascending: false })
           .limit(10),
+        db
+          .from("calendar_events")
+          .select("id,title,description,location,type,status,start_at,end_at,all_day,created_at")
+          .eq("company_id", cid)
+          .order("start_at", { ascending: true })
+          .limit(120),
+        db
+          .from("client_products")
+          .select(
+            "id,client_id,product_id,status,start_date,end_date,price,billing_type,updated_at",
+          )
+          .eq("company_id", cid)
+          .order("end_date", { ascending: true, nullsFirst: false })
+          .limit(120),
       ]);
 
       const getData = <T,>(index: number): T[] => {
@@ -610,6 +666,8 @@ function DashboardPage() {
       setWaConversations(getData<WhatsAppConversationRow>(10));
       setEmailConversations(getData<EmailConversationRow>(11));
       setMetaConversations(getData<MetaConversationRow>(12));
+      setCalendarEvents(getData<CalendarEventRow>(14));
+      setClientProducts(getData<ClientProductRow>(15));
 
       const actRows = getData<ActivityLogRow>(13);
       setActivities(
@@ -630,12 +688,32 @@ function DashboardPage() {
     load();
   }, [profile?.company_id]);
 
-  if (loading)
-    return (
-      <div className="p-6">
-        <LoadingMetrics count={12} />
-      </div>
-    );
+  useEffect(() => {
+    const companyId = profile?.company_id;
+    const userId = user?.id;
+    if (!companyId || !userId) {
+      setAttentionMemoryReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    const db = supabase as any;
+
+    const run = async () => {
+      const result = await loadAttentionMemoryFromSupabase(db, { companyId, userId });
+      if (cancelled) return;
+      if (result.error) {
+        console.warn("No se pudo cargar la memoria de atención desde Supabase", result.error);
+      }
+      setAttentionMemoryReady(true);
+    };
+
+    setAttentionMemoryReady(false);
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.company_id, user?.id]);
 
   const today = localTodayKey();
   const leadById = new Map(leads.map((lead) => [String(lead.id), lead]));
@@ -701,9 +779,7 @@ function DashboardPage() {
   const leadsNeedingFollowUp = leads.filter((l) => {
     if (isClosedLeadStatus(l.status)) return false;
     const stale = hoursSince(l.updated_at) > 24;
-    const hasNextFollowUpField = Object.prototype.hasOwnProperty.call(l, "next_follow_up");
-    const missingFollowUp = hasNextFollowUpField ? !l.next_follow_up : false;
-    return stale || missingFollowUp;
+    return stale;
   });
 
   const leadsActiveCount = leads.filter((l) => !isClosedLeadStatus(l.status)).length;
@@ -774,6 +850,157 @@ function DashboardPage() {
         String(a.due_date || "").localeCompare(String(b.due_date || "")),
     )
     .slice(0, 8);
+  const overdueCalendarEvents = calendarEvents
+    .filter((event) => {
+      const status = normalizeDashboardStatus(event.status);
+      if (status.includes("complete") || status.includes("done") || status.includes("cancel"))
+        return false;
+      const startAt = event.start_at ? Date.parse(event.start_at) : Number.NaN;
+      if (!Number.isFinite(startAt)) return false;
+      return startAt < Date.now();
+    })
+    .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))
+    .slice(0, 8);
+  const upcomingCalendarEvents = calendarEvents
+    .filter((event) => {
+      const status = normalizeDashboardStatus(event.status);
+      if (status.includes("complete") || status.includes("done") || status.includes("cancel"))
+        return false;
+      const startAt = event.start_at ? Date.parse(event.start_at) : Number.NaN;
+      if (!Number.isFinite(startAt)) return false;
+      return startAt >= Date.now();
+    })
+    .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))
+    .slice(0, 8);
+
+  const rawAttentionEvents = buildAttentionFeed({
+    leads,
+    tasks,
+    projects,
+    invoices,
+    proposals,
+    tickets,
+    calendarEvents,
+    clients: clientSummaries,
+    clientProducts,
+    clientsById: clientById,
+    leadsById: leadById,
+    projectsById: projectById,
+    conversations: {
+      whatsappOpen: waOpen,
+      messengerOpen,
+      instagramOpen,
+      emailOpen,
+    },
+  });
+  const attentionMemoryScope =
+    profile?.company_id && user?.id ? { companyId: profile.company_id, userId: user.id } : null;
+  const attentionEvents = applyAttentionMemory(rawAttentionEvents, attentionMemoryScope);
+  const attentionNotificationKey = attentionEvents
+    .slice(0, 5)
+    .map((event) =>
+      [
+        event.id,
+        event.ruleId,
+        event.module,
+        event.score,
+        event.severity,
+        event.title,
+        event.summary,
+      ].join("::"),
+    )
+    .join("|");
+
+  useEffect(() => {
+    if (!attentionMemoryScope || !attentionMemoryReady || !rawAttentionEvents.length) return;
+    const db = supabase as any;
+    void reconcileAttentionMemoryRemote(db, attentionMemoryScope, rawAttentionEvents).then(
+      (result) => {
+        if (result.error) {
+          console.warn("No se pudo guardar la memoria de atención en Supabase", result.error);
+        }
+      },
+    );
+  }, [
+    profile?.company_id,
+    user?.id,
+    attentionMemoryReady,
+    rawAttentionEvents.length,
+    attentionNotificationKey,
+  ]);
+
+  useEffect(() => {
+    const companyId = profile?.company_id;
+    const userId = user?.id;
+    if (!companyId || !userId || !attentionMemoryReady || !attentionEvents.length) return;
+
+    let cancelled = false;
+    const db = supabase as any;
+
+    const run = async () => {
+      const result = await syncAttentionNotifications(
+        db,
+        attentionEvents,
+        { companyId, userId },
+        5,
+      );
+      if (cancelled) return;
+      if (!result.error) {
+        const memoryResult = await markAttentionNotifiedRemote(
+          db,
+          { companyId, userId },
+          attentionEvents.slice(0, 5),
+        );
+        if (memoryResult.error) {
+          console.warn(
+            "No se pudo guardar la marca de notificación de atención",
+            memoryResult.error,
+          );
+        }
+        return;
+      }
+      console.error("No se pudieron sincronizar las notificaciones de atención", result.error);
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.company_id, user?.id, attentionMemoryReady, attentionNotificationKey]);
+
+  if (loading)
+    return (
+      <div className="p-6">
+        <LoadingMetrics count={12} />
+      </div>
+    );
+
+  const attentionModuleScores = attentionEvents.reduce<Record<AttentionModule, number>>(
+    (acc, event) => {
+      acc[event.module] = Math.max(acc[event.module] || 0, event.score);
+      return acc;
+    },
+    {} as Record<AttentionModule, number>,
+  );
+  const moduleScore = (module: AttentionModule) => attentionModuleScores[module] || 0;
+  const priorityModuleByKey: Record<string, AttentionModule> = {
+    leads_followup: "leads",
+    overdue_tasks: "tasks",
+    pending_invoices: "invoices",
+    pending_proposals: "proposals",
+    wa_open: "inbox",
+    projects_risk: "projects",
+    calendar_overdue: "calendar",
+  };
+  const priorityRuleByKey: Record<string, string> = {
+    leads_followup: "leads_needs_follow_up",
+    overdue_tasks: "tasks_overdue",
+    pending_invoices: "pending_invoices",
+    pending_proposals: "proposals_pending_response",
+    wa_open: "wa_open",
+    projects_risk: "projects_risk",
+    calendar_overdue: "calendar_overdue",
+  };
 
   const priorities: PriorityItem[] = [];
   if (leadsNeedingFollowUp.length > 0) {
@@ -854,17 +1081,26 @@ function DashboardPage() {
       to: "/projects",
     });
   }
+  if (overdueCalendarEvents.length > 0) {
+    priorities.push({
+      key: "calendar_overdue",
+      icon: Clock,
+      title: "Eventos vencidos",
+      description: "Hay recordatorios o citas que ya pasaron y siguen pendientes.",
+      urgency: "media",
+      count: overdueCalendarEvents.length,
+      variant: priorityVariantFromKey("calendar_overdue"),
+      ctaLabel: "Abrir calendario",
+      to: "/calendar",
+    });
+  }
 
-  const priorityOrder = [
-    "leads_followup",
-    "overdue_tasks",
-    "pending_invoices",
-    "pending_proposals",
-    "wa_open",
-    "projects_risk",
-  ];
   const prioritiesSorted = [...priorities].sort(
-    (a, b) => priorityOrder.indexOf(a.key) - priorityOrder.indexOf(b.key),
+    (a, b) =>
+      moduleScore(priorityModuleByKey[b.key] || "tasks") -
+        moduleScore(priorityModuleByKey[a.key] || "tasks") ||
+      ATTENTION_PRIORITY_ORDER.indexOf(priorityRuleByKey[a.key] || a.key) -
+        ATTENTION_PRIORITY_ORDER.indexOf(priorityRuleByKey[b.key] || b.key),
   );
   const totalActions = prioritiesSorted.reduce((s, p) => s + (p.count || 0), 0);
 
@@ -931,6 +1167,12 @@ function DashboardPage() {
   const pipelineTotalValue = pipelineStages.reduce((s, st) => s + st.value, 0);
 
   const agendaItems = [
+    ...upcomingCalendarEvents.map((event) => ({
+      kind: "Calendario",
+      title: event.title || "Evento programado",
+      dateKey: toDateKey(event.start_at),
+      to: "/calendar",
+    })),
     ...tasks
       .filter((t) => !isCompletedTaskStatus(t.status))
       .map((t) => ({
@@ -982,7 +1224,8 @@ function DashboardPage() {
         id: `wa:${c.id}`,
         name: c.whatsapp_contacts?.name || "Contacto",
         channel: "WhatsApp",
-        preview: c.last_message_body || "Sin mensaje reciente.",
+        preview: c.last_message || "Sin mensaje reciente.",
+        at: c.last_message_at || "",
         to: "/whatsapp",
       })),
     ...metaConversations
@@ -997,6 +1240,7 @@ function DashboardPage() {
             : "Usuario de Messenger"),
         channel: String(c.platform).toLowerCase() === "instagram" ? "Instagram" : "Messenger",
         preview: c.last_message_text || "Sin mensaje reciente.",
+        at: c.last_message_at || c.created_at || "",
         to: "/whatsapp",
       })),
     ...emailConversations
@@ -1007,6 +1251,7 @@ function DashboardPage() {
         name: "Email",
         channel: "Email",
         preview: c.subject || "Sin asunto.",
+        at: c.last_message_at || "",
         to: "/email",
       })),
   ].slice(0, 6);
@@ -1014,6 +1259,7 @@ function DashboardPage() {
   const attentionCards = [
     {
       key: "leads",
+      module: "leads",
       title: "Leads que necesitan seguimiento",
       icon: Users,
       to: "/leads",
@@ -1030,6 +1276,7 @@ function DashboardPage() {
     },
     {
       key: "tasks",
+      module: "tasks",
       title: "Tareas atrasadas",
       icon: AlertTriangle,
       to: "/tasks",
@@ -1054,6 +1301,7 @@ function DashboardPage() {
     },
     {
       key: "deals",
+      module: "projects",
       title: "Deals estancados",
       icon: GitBranch,
       to: "/pipeline",
@@ -1079,6 +1327,7 @@ function DashboardPage() {
     },
     {
       key: "proposals",
+      module: "proposals",
       title: "Propuestas pendientes",
       icon: FileText,
       to: "/proposals",
@@ -1105,6 +1354,7 @@ function DashboardPage() {
     },
     {
       key: "invoices",
+      module: "invoices",
       title: "Facturas pendientes o vencidas",
       icon: Receipt,
       to: "/invoices",
@@ -1136,6 +1386,11 @@ function DashboardPage() {
       ),
     },
   ];
+  const attentionCardsSorted = [...attentionCards].sort(
+    (a, b) =>
+      moduleScore((b.module as AttentionModule) || "tasks") -
+        moduleScore((a.module as AttentionModule) || "tasks") || a.title.localeCompare(b.title),
+  );
 
   const dashboardPercent = (value: number, total: number) => {
     if (!total || total <= 0) return "0%";
@@ -1286,6 +1541,8 @@ function DashboardPage() {
   };
 
   const dashboardScheduleSubtitle = (item: { kind: string; title: string; dateKey: string }) => {
+    if (item.kind === "Calendario")
+      return item.dateKey < today ? "Evento pendiente" : "Evento programado";
     if (item.kind === "Tarea") return "Tarea pendiente";
     if (item.kind === "Factura")
       return item.dateKey < today ? "Factura vencida" : "Factura por cobrar";
@@ -1402,6 +1659,16 @@ function DashboardPage() {
     .slice(0, 8);
 
   const dashboardV2ProjectRisks: [string, string, string, string, string][] = [
+    ...overdueCalendarEvents.map(
+      (event) =>
+        [
+          event.title || "Evento pendiente",
+          `Debió ocurrir ${formatShortDate(event.start_at)}`,
+          event.status || "Programado",
+          "orange",
+          "/calendar",
+        ] as [string, string, string, string, string],
+    ),
     ...projectsAtRisk.map(
       (project) =>
         [
@@ -1715,7 +1982,7 @@ function DashboardPage() {
         conversation.whatsapp_contacts?.name ||
         conversation.whatsapp_contacts?.phone ||
         "Contacto de WhatsApp",
-      preview: conversation.last_message_body || "Sin mensaje reciente.",
+      preview: conversation.last_message || "Sin mensaje reciente.",
       count: String(Number(conversation.unread_count ?? 0)),
       tone: Number(conversation.unread_count ?? 0) > 0 ? "green" : "neutral",
       href: "/whatsapp",
@@ -1746,8 +2013,8 @@ function DashboardPage() {
       channel: "Email",
       name: conversation.subject || "Email sin asunto",
       preview: conversation.status || "Correo pendiente.",
-      count: String(Number(conversation.unread_count ?? 0)),
-      tone: Number(conversation.unread_count ?? 0) > 0 ? "red" : "neutral",
+      count: String(conversation.is_read === false ? 1 : 0),
+      tone: conversation.is_read === false ? "red" : "neutral",
       href: "/email",
       at: conversation.last_message_at || "",
     })),
@@ -2060,7 +2327,7 @@ function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {attentionCards.map((card) => {
+        {attentionCardsSorted.map((card) => {
           const Icon = card.icon;
           return (
             <DataCard

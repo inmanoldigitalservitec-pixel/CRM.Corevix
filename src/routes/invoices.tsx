@@ -38,19 +38,28 @@ import { SearchFilters } from "@/components/crm/search-filters";
 import { EmptyState } from "@/components/crm/empty-state";
 import { DataCard } from "@/components/crm/data-card";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
+import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { isPaidInvoiceStatus, normalizeStatus } from "@/lib/crm/status";
+import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 
 export const Route = createFileRoute("/invoices")({
   component: InvoicesPage,
-  head: () => ({ meta: [{ title: "Invoices — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Facturas — Corevix CRM" }] }),
 });
 
 const INVOICE_STATUSES = ["Draft", "Sent", "Paid", "Overdue", "Cancelled"];
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  Draft: "Borrador",
+  Sent: "Enviada",
+  Paid: "Pagada",
+  Overdue: "Vencida",
+  Cancelled: "Cancelada",
+};
 const NO_CLIENT = "__no_client__";
 const NO_PROPOSAL = "__no_proposal__";
 const NO_PRODUCT = "__no_product__";
@@ -118,6 +127,7 @@ type ClientOption = { id: string; company_name: string; contact_person: string |
 type ProposalOption = { id: string; number: string; title: string | null };
 
 function InvoicesPage() {
+  const { profile, user } = useAuth();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editItem, setEditItem] = useState<Invoice | null>(null);
@@ -154,9 +164,14 @@ function InvoicesPage() {
     limit: 200,
   });
 
-  const displayInvoiceStatus = (status: string) => {
-    if (status === "Draft") return "Pendiente de pago";
-    return status || "—";
+  const displayInvoiceStatus = (status: string) => INVOICE_STATUS_LABELS[status] || status || "—";
+  const sendInvoiceNotification = async (title: string, message: string) => {
+    if (!profile?.company_id || !user?.id) return;
+    await createAttentionNotification(
+      supabase,
+      { companyId: profile.company_id, userId: user.id },
+      { title, message, type: "attention:invoices", link: "/invoices" },
+    ).catch(() => {});
   };
 
   const [proposalsById, setProposalsById] = useState<Record<string, ProposalLite>>({});
@@ -477,10 +492,19 @@ function InvoicesPage() {
         if (projectResult.projectId) {
           setProjectByInvoiceId((prev) => ({ ...prev, [inv.id]: projectResult.projectId! }));
         }
+        void sendInvoiceNotification(
+          "Factura pagada",
+          `${inv.number || "Factura"} cambió a pagada${projectResult.created ? " y generó un proyecto." : "."}`,
+        );
         toast.success(
           projectResult.created
             ? "Factura marcada como pagada. Proyecto creado."
             : "Factura marcada como pagada. Proyecto ya existente.",
+        );
+      } else {
+        void sendInvoiceNotification(
+          "Factura actualizada",
+          `${inv.number || "Factura"} pasó a ${nextStatus}.`,
         );
       }
     } catch (e: any) {
@@ -498,7 +522,7 @@ function InvoicesPage() {
     const url = `${window.location.origin}/invoice/public/${token}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link de factura copiado");
+      toast.success("Enlace de factura copiado");
     } catch {
       toast.error("No se pudo copiar el enlace");
     }
@@ -627,11 +651,16 @@ function InvoicesPage() {
       let saved: Invoice | null = null;
       if (editItem) {
         saved = (await update(editItem.id, record)) as Invoice | null;
-        toast.success("Invoice updated");
+        void sendInvoiceNotification(
+          "Factura actualizada",
+          `${record.number || editItem.number || "Factura"} fue actualizada.`,
+        );
+        toast.success("Factura actualizada");
         setSelected(null);
       } else {
         saved = (await create(record)) as Invoice | null;
-        toast.success("Invoice created");
+        void sendInvoiceNotification("Factura creada", `${record.number || "Factura"} fue creada.`);
+        toast.success("Factura creada");
       }
 
       if (saved?.id) {
@@ -681,9 +710,9 @@ function InvoicesPage() {
   return (
     <div data-demo="invoices-main" className="p-4 sm:p-6 space-y-5">
       <PageHeader
-        title="Invoices"
-        subtitle={`${filtered.length} invoices`}
-        actionLabel="New Invoice"
+        title="Facturas"
+        subtitle={`${filtered.length} facturas`}
+        actionLabel="Nueva factura"
         onAction={() => {
           setSelected(null);
           setEditItem(null);
@@ -697,28 +726,31 @@ function InvoicesPage() {
             <SearchFilters
               searchValue={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Search invoices..."
+              searchPlaceholder="Buscar facturas..."
               filters={[
                 {
                   key: "status",
-                  placeholder: "Status",
+                  placeholder: "Estado",
                   value: statusFilter,
                   onChange: setStatusFilter,
-                  options: INVOICE_STATUSES.map((s) => ({ label: s, value: s })),
+                  options: INVOICE_STATUSES.map((s) => ({
+                    label: displayInvoiceStatus(s),
+                    value: s,
+                  })),
                 },
               ]}
             />
             {error ? (
               <div className="rounded-lg border bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                Error loading invoices: {error}
+                Error al cargar facturas: {error}
               </div>
             ) : null}
             {filtered.length === 0 ? (
               <EmptyState
                 icon={<Receipt className="h-6 w-6" />}
-                title="No invoices"
-                description="Create your first invoice."
-                actionLabel="New Invoice"
+                title="No hay facturas"
+                description="Crea tu primera factura."
+                actionLabel="Nueva factura"
                 onAction={() => {
                   setSelected(null);
                   setEditItem(null);
@@ -731,14 +763,14 @@ function InvoicesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="pl-4 sm:pl-5">Number</TableHead>
+                      <TableHead className="pl-4 sm:pl-5">Número</TableHead>
                       <TableHead className="hidden md:table-cell">Cliente</TableHead>
                       <TableHead className="hidden lg:table-cell">Servicio</TableHead>
                       <TableHead className="hidden lg:table-cell">Propuesta</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Estado</TableHead>
                       <TableHead>Total</TableHead>
-                      <TableHead className="hidden md:table-cell">Issued</TableHead>
-                      <TableHead className="hidden md:table-cell">Due</TableHead>
+                      <TableHead className="hidden md:table-cell">Emitida</TableHead>
+                      <TableHead className="hidden md:table-cell">Vence</TableHead>
                       <TableHead className="pr-4 sm:pr-5 text-right"> </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -773,7 +805,7 @@ function InvoicesPage() {
                           </div>
                         </TableCell>
                         <TableCell data-demo={index === 0 ? "invoice-status" : undefined}>
-                          <StatusBadge status={displayInvoiceStatus(i.status)} />
+                          <StatusBadge status={i.status} />
                         </TableCell>
                         <TableCell className="font-medium">
                           USD {Number(i.total || 0).toLocaleString()}
@@ -823,7 +855,7 @@ function InvoicesPage() {
                                 <SelectContent>
                                   {INVOICE_STATUSES.map((s) => (
                                     <SelectItem key={s} value={s}>
-                                      {s}
+                                      {displayInvoiceStatus(s)}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -1026,7 +1058,7 @@ function InvoicesPage() {
                     </div>
                     <div>
                       <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                        Tax / Discount
+                        Impuesto / Descuento
                       </div>
                       <div className="mt-1 text-sm font-medium">
                         USD {Number(selected.tax || 0).toLocaleString()} / USD{" "}
@@ -1255,7 +1287,7 @@ function InvoicesPage() {
                           <Input name="clientCompany" defaultValue={invData.clientCompany || ""} />
                         </div>
                         <div className="space-y-1.5">
-                          <Label>Email</Label>
+                          <Label>Correo electrónico</Label>
                           <Input name="clientEmail" defaultValue={invData.clientEmail || ""} />
                         </div>
                         <div className="space-y-1.5">
@@ -1263,7 +1295,7 @@ function InvoicesPage() {
                           <Input name="clientPhone" defaultValue={invData.clientPhone || ""} />
                         </div>
                         <div className="space-y-1.5">
-                          <Label>Tax ID / RNC</Label>
+                          <Label>ID fiscal / RNC</Label>
                           <Input name="clientTaxId" defaultValue={invData.clientTaxId || ""} />
                         </div>
                       </div>
@@ -1396,7 +1428,7 @@ function InvoicesPage() {
                       <div className="mb-4">
                         <div className="text-sm font-bold text-slate-900">Totales</div>
                         <div className="text-xs text-muted-foreground">
-                          El total se recalcula al guardar: subtotal + tax - discount.
+                          El total se recalcula al guardar: subtotal + impuesto - descuento.
                         </div>
                       </div>
 
@@ -1417,7 +1449,7 @@ function InvoicesPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Tax</Label>
+                          <Label>Impuesto</Label>
                           <Input
                             name="tax"
                             type="number"
@@ -1431,7 +1463,7 @@ function InvoicesPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Discount</Label>
+                          <Label>Descuento</Label>
                           <Input
                             name="discount"
                             type="number"
@@ -1472,7 +1504,7 @@ function InvoicesPage() {
                           onClick={() =>
                             editItem
                               ? void copyPublicInvoiceLink(editItem)
-                              : toast.error("Guarda la factura para generar enlace")
+                              : toast.error("Guarda la factura para generar el enlace")
                           }
                           disabled={!editItem?.public_token}
                         >
@@ -1510,11 +1542,11 @@ function InvoicesPage() {
                           <Input name="issuerName" defaultValue={invData.issuerName || ""} />
                         </div>
                         <div className="space-y-1.5">
-                          <Label>Tax ID emisor</Label>
+                          <Label>ID fiscal emisor</Label>
                           <Input name="issuerTaxId" defaultValue={invData.issuerTaxId || ""} />
                         </div>
                         <div className="space-y-1.5">
-                          <Label>Email emisor</Label>
+                          <Label>Correo electrónico emisor</Label>
                           <Input name="issuerEmail" defaultValue={invData.issuerEmail || ""} />
                         </div>
                         <div className="space-y-1.5">
@@ -1522,7 +1554,7 @@ function InvoicesPage() {
                           <Input name="issuerPhone" defaultValue={invData.issuerPhone || ""} />
                         </div>
                         <div className="space-y-1.5">
-                          <Label>Website</Label>
+                          <Label>Sitio web</Label>
                           <Input name="issuerWebsite" defaultValue={invData.issuerWebsite || ""} />
                         </div>
                         <div className="space-y-1.5">
@@ -1594,16 +1626,16 @@ function InvoicesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Eliminar factura</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 try {
                   await remove(deleteId!);
-                  toast.success("Deleted");
+                  toast.success("Factura eliminada");
                   setDeleteId(null);
                   setSelected(null);
                   setEditItem(null);
@@ -1615,7 +1647,7 @@ function InvoicesPage() {
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

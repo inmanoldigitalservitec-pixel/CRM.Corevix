@@ -46,6 +46,8 @@ import { DataCard } from "@/components/crm/data-card";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { useCrud } from "@/hooks/use-crud";
 import { MetricCard } from "@/components/crm/metric-card";
+import { supabase } from "@/integrations/supabase/client";
+import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import {
   isApprovedProposalStatus,
   isPendingProposalStatus,
@@ -62,7 +64,7 @@ export const Route = createFileRoute("/proposals")({
     clientId: typeof search.clientId === "string" ? search.clientId : undefined,
   }),
   component: ProposalsPage,
-  head: () => ({ meta: [{ title: "Proposals — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Propuestas — Corevix CRM" }] }),
 });
 
 type ProposalsSearch = {
@@ -544,6 +546,14 @@ function ProposalsPage() {
     ascending: true,
     filters: [{ column: "is_active", op: "eq", value: true }],
   });
+  const sendProposalNotification = async (title: string, message: string) => {
+    if (!profile?.company_id || !user?.id) return;
+    await createAttentionNotification(
+      supabase,
+      { companyId: profile.company_id, userId: user.id },
+      { title, message, type: "attention:proposals", link: "/proposals" },
+    ).catch(() => {});
+  };
 
   const productById = useMemo(() => {
     const m = new Map<string, Product>();
@@ -927,6 +937,7 @@ function ProposalsPage() {
     try {
       if (editItem) {
         await update(editItem.id, record as any);
+        void sendProposalNotification("Propuesta actualizada", `${title} fue actualizada.`);
         toast.success("Propuesta actualizada correctamente.");
         setSelected(null);
       } else {
@@ -939,6 +950,7 @@ function ProposalsPage() {
           payload,
         });
         await create(payload as any);
+        void sendProposalNotification("Propuesta creada", `${title} fue creada.`);
         toast.success("Propuesta creada correctamente.");
       }
       setDrawerOpen(false);
@@ -1102,14 +1114,14 @@ function ProposalsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4 sm:pl-5">Number</TableHead>
-                    <TableHead>Title</TableHead>
+                    <TableHead className="pl-4 sm:pl-5">Número</TableHead>
+                    <TableHead>Título</TableHead>
                     <TableHead className="hidden md:table-cell">Producto</TableHead>
                     <TableHead className="hidden lg:table-cell">Cliente</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Amount</TableHead>
-                    <TableHead className="hidden md:table-cell">Valid Until</TableHead>
-                    <TableHead className="hidden lg:table-cell">Updated</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="hidden md:table-cell">Monto</TableHead>
+                    <TableHead className="hidden md:table-cell">Válida hasta</TableHead>
+                    <TableHead className="hidden lg:table-cell">Actualizada</TableHead>
                     <TableHead className="text-right pr-4 sm:pr-5">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1381,7 +1393,7 @@ function ProposalsPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Deal</div>
+                      <div className="text-xs text-muted-foreground">Oportunidad</div>
                       <div className="font-medium">
                         {selected.deal_id ? String(selected.deal_id).slice(0, 8) + "…" : "—"}
                       </div>
@@ -1866,7 +1878,7 @@ function ProposalsPage() {
                         {form.processSteps.length > 0 ? (
                           <div className="space-y-2 rounded-md border bg-muted/30 p-3">
                             <div className="text-xs font-medium text-muted-foreground">
-                              Pasos del workflow del producto
+                              Pasos del flujo de trabajo del producto
                             </div>
                             <div className="space-y-2">
                               {form.processSteps.map((step, index) => (

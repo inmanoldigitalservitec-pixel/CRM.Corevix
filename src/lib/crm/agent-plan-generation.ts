@@ -1,0 +1,373 @@
+import type {
+  AgentAttentionItem,
+  AgentAttentionSnapshot,
+} from "@/lib/crm/agent-attention-snapshot";
+import type {
+  AgentDailyPlanRow,
+  AgentDailyPlanUpsert,
+  AgentGeneratedPlan,
+  AgentPlanCase,
+  AgentPlanCaseType,
+  AgentPlanScope,
+  AgentPlanState,
+} from "@/lib/crm/agent-plans";
+
+type BuildAgentPlanCasesOptions = {
+  topPriorityLimit?: number;
+  riskLimit?: number;
+  upcomingLimit?: number;
+  staleLimit?: number;
+};
+
+type BuildAgentDailyPlansOptions = BuildAgentPlanCasesOptions & {
+  cycleDate?: string;
+  now?: Date;
+};
+
+type SyncAgentDailyPlansOptions = BuildAgentDailyPlansOptions & {
+  expireMissing?: boolean;
+};
+
+const DEFAULT_PLAN_STATE: AgentPlanState = "new";
+
+function localDateKey(date: Date) {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function stableHash(input: string, seed: number) {
+  let hash = seed >>> 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function stableFingerprint(input: string) {
+  const part1 = stableHash(input, 0x811c9dc5).toString(16).padStart(8, "0");
+  const part2 = stableHash(input, 0x01000193).toString(16).padStart(8, "0");
+  const part3 = stableHash(input, 0x9e3779b9).toString(16).padStart(8, "0");
+  return `${part1}${part2}${part3}`;
+}
+
+function compactUnique(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
+}
+
+function defaultNextReminderAt(now: Date) {
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  next.setHours(8, 0, 0, 0);
+  return next.toISOString();
+}
+
+function caseTypeForBucket(key: string): AgentPlanCaseType {
+  if (key === "risks") return "risk";
+  if (key === "upcomingCommitments") return "upcoming_commitment";
+  if (key === "staleOpportunities") return "stale_opportunity";
+  return "top_priority";
+}
+
+function caseKey(type: AgentPlanCaseType, item: AgentAttentionItem) {
+  return [type, item.module, item.sourceType || "source", item.sourceId || item.id].join("::");
+}
+
+function planTitleForCase(item: AgentAttentionItem, type: AgentPlanCaseType) {
+  if (type === "risk") return `Plan para reducir riesgo: ${item.title}`;
+  if (type === "upcoming_commitment") return `Plan para compromiso proximo: ${item.title}`;
+  if (type === "stale_opportunity") return `Plan para reactivar oportunidad: ${item.title}`;
+  return `Plan de atencion: ${item.title}`;
+}
+
+function planSummaryForCase(item: AgentAttentionItem, type: AgentPlanCaseType) {
+  const recommendation =
+    item.recommendation || item.urgencyReason || item.summary || "Revisar este caso hoy.";
+
+  if (type === "risk") {
+    return `El agente detecto un riesgo activo y propone atenderlo hoy. ${recommendation}`;
+  }
+  if (type === "upcoming_commitment") {
+    return `Hay un compromiso cercano que conviene preparar antes de que venza. ${recommendation}`;
+  }
+  if (type === "stale_opportunity") {
+    return `Hay una oportunidad enfriandose y el agente propone reactivarla. ${recommendation}`;
+  }
+  return `Este caso aparece entre las prioridades principales del dia. ${recommendation}`;
+}
+
+function buildReservedAgentPlan(item: AgentAttentionItem, type: AgentPlanCaseType): AgentGeneratedPlan {
+  return {
+    title: "Reserved for future agent",
+    summary:
+      "El sistema detectó este caso, pero no generó un plan automático. El agente futuro deberá crear el plan de sanación.",
+    actions: item.actions || [],
+    rationale:
+      item.urgencyReason ||
+      item.summary ||
+      "Caso detectado por el sistema de prioridades del CRM.",
+  };
+}
+
+function toCase(item: AgentAttentionItem, type: AgentPlanCaseType): AgentPlanCase {
+  return {
+    key: caseKey(type, item),
+    type,
+    title: item.title,
+    summary: item.summary,
+    severity: item.severity,
+    sourceEventIds: compactUnique([item.id]),
+    sourceMemoryKeys: compactUnique([item.memoryKey || item.id]),
+    sourceModules: compactUnique([item.module]),
+    item,
+  };
+}
+
+function mergeCases(cases: AgentPlanCase[]) {
+  const byKey = new Map<string, AgentPlanCase>();
+
+  for (const current of cases) {
+    const existing = byKey.get(current.key);
+    if (!existing) {
+      byKey.set(current.key, current);
+      continue;
+    }
+
+    byKey.set(current.key, {
+      ...existing,
+      summary:
+        existing.summary === current.summary
+          ? existing.summary
+          : `${existing.summary} | ${current.summary}`,
+      sourceEventIds: compactUnique([...existing.sourceEventIds, ...current.sourceEventIds]),
+      sourceMemoryKeys: compactUnique([...existing.sourceMemoryKeys, ...current.sourceMemoryKeys]),
+      sourceModules: compactUnique([...existing.sourceModules, ...current.sourceModules]),
+      item: current.item.score > existing.item.score ? current.item : existing.item,
+    });
+  }
+
+  return Array.from(byKey.values());
+}
+
+export function buildAgentPlanCases(
+  snapshot: AgentAttentionSnapshot,
+  options: BuildAgentPlanCasesOptions = {},
+) {
+  const sources: Array<[keyof AgentAttentionSnapshot, AgentAttentionItem[], number | undefined]> = [
+    ["topPriorities", snapshot.topPriorities, options.topPriorityLimit],
+    ["risks", snapshot.risks, options.riskLimit],
+    ["upcomingCommitments", snapshot.upcomingCommitments, options.upcomingLimit],
+    ["staleOpportunities", snapshot.staleOpportunities, options.staleLimit],
+  ];
+
+  const cases: AgentPlanCase[] = [];
+
+  for (const [key, items, limit] of sources) {
+    const type = caseTypeForBucket(String(key));
+    for (const item of typeof limit === "number" ? items.slice(0, limit) : items) {
+      cases.push(toCase(item, type));
+    }
+  }
+
+  return mergeCases(cases);
+}
+
+export function buildAgentDailyPlans(
+  snapshot: AgentAttentionSnapshot,
+  scope: AgentPlanScope,
+  options: BuildAgentDailyPlansOptions = {},
+): AgentDailyPlanUpsert[] {
+  const now = options.now || new Date();
+  const cycleDate = options.cycleDate || localDateKey(now);
+  const cases = buildAgentPlanCases(snapshot, options);
+
+  return cases.map((detectedCase) => {
+    const reservedAgentPlan = buildReservedAgentPlan(detectedCase.item, detectedCase.type);
+    const fingerprint = stableFingerprint(
+      JSON.stringify({
+        cycleDate,
+        caseKey: detectedCase.key,
+        severity: detectedCase.severity,
+        summary: detectedCase.summary,
+        recommendation: detectedCase.item.recommendation || null,
+        actions: (reservedAgentPlan.actions || []).map((action) => ({
+          type: action.type,
+          label: action.label,
+          target: action.target.id || action.target.label || null,
+        })),
+      }),
+    );
+
+    return {
+      company_id: scope.companyId,
+      user_id: scope.userId,
+      cycle_date: cycleDate,
+      snapshot_version: snapshot.schemaVersion,
+      snapshot_base: {
+        schemaVersion: snapshot.schemaVersion,
+        generatedAt: snapshot.generatedAt,
+        cycleDate,
+        summary: snapshot.summary,
+      },
+      case_key: detectedCase.key,
+      case_type: detectedCase.type,
+      case_title: detectedCase.title,
+      case_summary: detectedCase.summary || null,
+      case_severity: detectedCase.severity,
+      detected_case: detectedCase,
+      plan_title: `Caso detectado: ${detectedCase.title}`,
+      plan_summary:
+        detectedCase.summary ||
+        detectedCase.item.recommendation ||
+        detectedCase.item.urgencyReason ||
+        "Caso detectado por el sistema de prioridades. Pendiente de análisis por el agente.",
+      generated_plan: reservedAgentPlan,
+      suggested_actions: reservedAgentPlan.actions,
+      state: DEFAULT_PLAN_STATE,
+      state_reason: null,
+      source_memory_keys: detectedCase.sourceMemoryKeys,
+      source_event_ids: detectedCase.sourceEventIds,
+      source_modules: detectedCase.sourceModules,
+      origin_fingerprint: fingerprint,
+      reminder_count: 0,
+      last_reminded_at: null,
+      next_reminder_at: defaultNextReminderAt(now),
+      reviewed_at: null,
+      approved_at: null,
+      executing_at: null,
+      completed_at: null,
+      dismissed_at: null,
+      expired_at: null,
+      metadata: {
+        bucket: detectedCase.item.bucket,
+        kind: detectedCase.item.kind,
+        score: detectedCase.item.score,
+        system_should_generate_plans: false,
+        agent_should_generate_plans: true,
+        execute_without_confirmation: false,
+        agent_workspace: {
+          status: "reserved_for_future_agent",
+          agent_enabled: false,
+          expected_output: "recovery_plans",
+          notes: "Aquí el agente futuro escribirá los planes de sanación.",
+        },
+        recovery_plans: [],
+      },
+    };
+  });
+}
+
+function preservePlanState(
+  generated: AgentDailyPlanUpsert,
+  existing?: AgentDailyPlanRow,
+): AgentDailyPlanUpsert {
+  if (!existing) return generated;
+
+  return {
+    ...generated,
+    state: existing.state,
+    state_reason: existing.state_reason,
+    reminder_count: existing.reminder_count,
+    last_reminded_at: existing.last_reminded_at,
+    next_reminder_at: existing.next_reminder_at,
+    reviewed_at: existing.reviewed_at,
+    approved_at: existing.approved_at,
+    executing_at: existing.executing_at,
+    completed_at: existing.completed_at,
+    dismissed_at: existing.dismissed_at,
+    expired_at: existing.expired_at,
+    metadata: {
+      ...(generated.metadata || {}),
+      ...(existing.metadata || {}),
+    },
+  };
+}
+
+function shouldAutoExpirePlan(existing: AgentDailyPlanRow) {
+  return ["new", "reviewed", "approved"].includes(existing.state);
+}
+
+export async function listAgentDailyPlansForDate(
+  db: any,
+  scope: AgentPlanScope,
+  cycleDate: string,
+): Promise<{ data: AgentDailyPlanRow[]; error: unknown | null }> {
+  const { data, error } = await db
+    .from("agent_daily_plans")
+    .select("*")
+    .eq("company_id", scope.companyId)
+    .eq("user_id", scope.userId)
+    .eq("cycle_date", cycleDate)
+    .order("created_at", { ascending: true });
+
+  return {
+    data: (data || []) as AgentDailyPlanRow[],
+    error,
+  };
+}
+
+export async function syncAgentDailyPlans(
+  db: any,
+  scope: AgentPlanScope,
+  snapshot: AgentAttentionSnapshot,
+  options: SyncAgentDailyPlansOptions = {},
+) {
+  const now = options.now || new Date();
+  const cycleDate = options.cycleDate || localDateKey(now);
+  const generated = buildAgentDailyPlans(snapshot, scope, {
+    ...options,
+    now,
+    cycleDate,
+  });
+
+  const existingResult = await listAgentDailyPlansForDate(db, scope, cycleDate);
+  if (existingResult.error) {
+    return { data: [] as AgentDailyPlanRow[], error: existingResult.error };
+  }
+
+  const existingByKey = new Map(
+    existingResult.data.map((plan) => [String(plan.case_key), plan] as const),
+  );
+
+  const rows = generated.map((plan) => preservePlanState(plan, existingByKey.get(plan.case_key)));
+
+  const { data: upserted, error: upsertError } = await db
+    .from("agent_daily_plans")
+    .upsert(rows, { onConflict: "company_id,user_id,cycle_date,case_key" })
+    .select("*");
+
+  if (upsertError) {
+    return { data: [] as AgentDailyPlanRow[], error: upsertError };
+  }
+
+  if (options.expireMissing !== false) {
+    const activeKeys = new Set(rows.map((plan) => plan.case_key));
+    const missing = existingResult.data.filter(
+      (plan) => !activeKeys.has(plan.case_key) && shouldAutoExpirePlan(plan),
+    );
+
+    if (missing.length) {
+      await db
+        .from("agent_daily_plans")
+        .update({
+          state: "expired",
+          state_reason: "Ya no aparece en el snapshot de atención más reciente del día.",
+          expired_at: now.toISOString(),
+        })
+        .eq("company_id", scope.companyId)
+        .eq("user_id", scope.userId)
+        .eq("cycle_date", cycleDate)
+        .in(
+          "case_key",
+          missing.map((plan) => plan.case_key),
+        );
+    }
+  }
+
+  return {
+    data: (upserted || []) as AgentDailyPlanRow[],
+    error: null as unknown,
+  };
+}

@@ -35,8 +35,20 @@ if (typeof window !== "undefined") {
 
 type ProposalDocumentBuilderProps = { proposalId: string };
 type ProposalRow = Record<string, any> & { id: string };
-type ClientRow = { id: string; company_name?: string | null; contact_person?: string | null; email?: string | null; phone?: string | null };
-type ProductRow = { id: string; name?: string | null; price?: number | null; base_price?: number | null; currency?: string | null };
+type ClientRow = {
+  id: string;
+  company_name?: string | null;
+  contact_person?: string | null;
+  email?: string | null;
+  phone?: string | null;
+};
+type ProductRow = {
+  id: string;
+  name?: string | null;
+  price?: number | null;
+  base_price?: number | null;
+  currency?: string | null;
+};
 
 type TemplateConfig = {
   id: string;
@@ -167,8 +179,14 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
   const [currency, setCurrency] = useState("USD");
   const [amount, setAmount] = useState("0");
 
-  const selectedClient = useMemo(() => clients.find((c) => c.id === clientId) || null, [clients, clientId]);
-  const selectedProduct = useMemo(() => products.find((p) => p.id === productId) || null, [products, productId]);
+  const selectedClient = useMemo(
+    () => clients.find((c) => c.id === clientId) || null,
+    [clients, clientId],
+  );
+  const selectedProduct = useMemo(
+    () => products.find((p) => p.id === productId) || null,
+    [products, productId],
+  );
 
   const crmValues = useMemo(
     () => ({
@@ -191,9 +209,22 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
       setLoading(true);
       const db = supabase as any;
       const [{ data, error }, clientsRes, productsRes] = await Promise.all([
-        db.from("proposals").select("*").eq("id", proposalId).eq("company_id", profile.company_id).single(),
-        db.from("clients").select("id,company_name,contact_person,email,phone").eq("company_id", profile.company_id).limit(500),
-        db.from("products").select("id,name,price,base_price,currency").eq("company_id", profile.company_id).limit(500),
+        db
+          .from("proposals")
+          .select("*")
+          .eq("id", proposalId)
+          .eq("company_id", profile.company_id)
+          .single(),
+        db
+          .from("clients")
+          .select("id,company_name,contact_person,email,phone")
+          .eq("company_id", profile.company_id)
+          .limit(500),
+        db
+          .from("products")
+          .select("id,name,price,base_price,currency")
+          .eq("company_id", profile.company_id)
+          .limit(500),
       ]);
 
       if (error) {
@@ -203,7 +234,8 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
       }
 
       if (!cancelled) {
-        const savedData = data?.proposal_data && typeof data.proposal_data === "object" ? data.proposal_data : {};
+        const savedData =
+          data?.proposal_data && typeof data.proposal_data === "object" ? data.proposal_data : {};
         const builder = (savedData as any).document_builder || {};
         const nextTemplateId = builder.template_id || PROPOSAL_TEMPLATES[0].id;
         const nextClientId = data?.client_id || "";
@@ -212,7 +244,10 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
         const nextAmount = String(data?.amount ?? 0);
         const nextValid = data?.valid_until || builder.valid_until_label || "30 días";
         const nextDate = builder.proposal_date || todayISO();
-        const baseHtml = String(data?.content || "").trim() || PROPOSAL_TEMPLATES.find((t) => t.id === nextTemplateId)?.html || PROPOSAL_TEMPLATES[0].html;
+        const baseHtml =
+          String(data?.content || "").trim() ||
+          PROPOSAL_TEMPLATES.find((t) => t.id === nextTemplateId)?.html ||
+          PROPOSAL_TEMPLATES[0].html;
 
         setProposal(data);
         setClients(clientsRes.data || []);
@@ -256,7 +291,8 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
   const fields = useMemo(() => fieldSchemaFromHtml(content), [content]);
 
   const applyTemplate = (nextTemplateId: string) => {
-    const template = PROPOSAL_TEMPLATES.find((item) => item.id === nextTemplateId) || PROPOSAL_TEMPLATES[0];
+    const template =
+      PROPOSAL_TEMPLATES.find((item) => item.id === nextTemplateId) || PROPOSAL_TEMPLATES[0];
     const nextContent = replaceProtectedFields(template.html, crmValues);
     setTemplateId(template.id);
     setContent(nextContent);
@@ -267,8 +303,14 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
     if (!proposal || !profile?.company_id) return;
     setSaving(true);
     try {
-      const finalContent = replaceProtectedFields(editorRef.current?.getContent?.() || content, crmValues);
-      const previousData = proposal.proposal_data && typeof proposal.proposal_data === "object" ? proposal.proposal_data : {};
+      const finalContent = replaceProtectedFields(
+        editorRef.current?.getContent?.() || content,
+        crmValues,
+      );
+      const previousData =
+        proposal.proposal_data && typeof proposal.proposal_data === "object"
+          ? proposal.proposal_data
+          : {};
       const { error } = await (supabase as any)
         .from("proposals")
         .update({
@@ -305,7 +347,8 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
     }
   };
 
-  if (loading) return <div className="p-6 text-sm text-muted-foreground">Cargando documento...</div>;
+  if (loading)
+    return <div className="p-6 text-sm text-muted-foreground">Cargando documento...</div>;
 
   return (
     <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-950">
@@ -325,15 +368,93 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
 
       <div className="shrink-0 border-b bg-white/95 p-3 backdrop-blur">
         <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-7">
-          <label className="text-xs font-bold text-slate-600">Plantilla<select value={templateId} onChange={(e) => applyTemplate(e.target.value)} className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900">{PROPOSAL_TEMPLATES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          <label className="text-xs font-bold text-slate-600">Cliente<select value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900"><option value="">Seleccionar</option>{clients.map((client) => <option key={client.id} value={client.id}>{clientName(client)}</option>)}</select></label>
-          <label className="text-xs font-bold text-slate-600">Servicio<select value={productId} onChange={(e) => setProductId(e.target.value)} className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900"><option value="">Seleccionar</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name || "Servicio"}</option>)}</select></label>
-          <label className="text-xs font-bold text-slate-600">Fecha<Input type="date" value={proposalDate} onChange={(e) => setProposalDate(e.target.value)} className="mt-1 h-9" /></label>
-          <label className="text-xs font-bold text-slate-600">Validez<Input value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className="mt-1 h-9" /></label>
-          <label className="text-xs font-bold text-slate-600">Monto<div className="mt-1 flex gap-1"><select value={currency} onChange={(e) => setCurrency(e.target.value)} className="h-9 w-20 rounded-md border px-2 text-sm font-normal"><option>USD</option><option>RD$</option><option>EUR</option></select><Input value={amount} onChange={(e) => setAmount(e.target.value)} className="h-9" /></div></label>
-          <div className="flex items-end"><Button className="h-9 w-full" disabled={saving} onClick={() => void save()}>{saving ? "Guardando..." : "Guardar"}</Button></div>
+          <label className="text-xs font-bold text-slate-600">
+            Plantilla
+            <select
+              value={templateId}
+              onChange={(e) => applyTemplate(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900"
+            >
+              {PROPOSAL_TEMPLATES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-bold text-slate-600">
+            Cliente
+            <select
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900"
+            >
+              <option value="">Seleccionar</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {clientName(client)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-bold text-slate-600">
+            Servicio
+            <select
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border px-2 text-sm font-normal text-slate-900"
+            >
+              <option value="">Seleccionar</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name || "Servicio"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-bold text-slate-600">
+            Fecha
+            <Input
+              type="date"
+              value={proposalDate}
+              onChange={(e) => setProposalDate(e.target.value)}
+              className="mt-1 h-9"
+            />
+          </label>
+          <label className="text-xs font-bold text-slate-600">
+            Validez
+            <Input
+              value={validUntil}
+              onChange={(e) => setValidUntil(e.target.value)}
+              className="mt-1 h-9"
+            />
+          </label>
+          <label className="text-xs font-bold text-slate-600">
+            Monto
+            <div className="mt-1 flex gap-1">
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="h-9 w-20 rounded-md border px-2 text-sm font-normal"
+              >
+                <option>USD</option>
+                <option>RD$</option>
+                <option>EUR</option>
+              </select>
+              <Input value={amount} onChange={(e) => setAmount(e.target.value)} className="h-9" />
+            </div>
+          </label>
+          <div className="flex items-end">
+            <Button className="h-9 w-full" disabled={saving} onClick={() => void save()}>
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          </div>
         </div>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-3 max-w-xl font-bold" />
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="mt-3 max-w-xl font-bold"
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden bg-slate-100">
@@ -346,7 +467,7 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
             }}
             onEditorChange={(value) => setContent(value)}
             init={{
-              license_key: "gpl",
+              licenseKey: "gpl",
               height: "100%",
               skin: false,
               content_css: false,
@@ -354,12 +475,15 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
               toolbar_sticky: true,
               toolbar_location: "top",
               statusbar: true,
-              plugins: "advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount",
-              toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | table image link | code preview fullscreen",
+              plugins:
+                "advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount",
+              toolbar:
+                "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | table image link | code preview fullscreen",
               toolbar_mode: "sliding",
               branding: false,
               promotion: false,
-              extended_valid_elements: "span[class|data-corevix-field|data-label|data-type|data-required|contenteditable]",
+              extended_valid_elements:
+                "span[class|data-corevix-field|data-label|data-type|data-required|contenteditable]",
               noneditable_class: "corevix-field-chip",
               content_style: `
                 html{
@@ -401,7 +525,10 @@ export function ProposalDocumentBuilder({ proposalId }: ProposalDocumentBuilderP
             }}
           />
         </div>
-        <div className="mx-auto mt-3 max-w-[1060px] text-xs text-slate-500">Campos CRM protegidos detectados: {fields.map((f: any) => f.label).join(", ") || "ninguno"}</div>
+        <div className="mx-auto mt-3 max-w-[1060px] text-xs text-slate-500">
+          Campos CRM protegidos detectados:{" "}
+          {fields.map((f: any) => f.label).join(", ") || "ninguno"}
+        </div>
       </div>
     </div>
   );

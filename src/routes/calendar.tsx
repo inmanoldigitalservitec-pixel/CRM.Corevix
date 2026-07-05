@@ -48,6 +48,8 @@ type CalendarItem = {
   location?: string | null;
   amount?: number | null;
   eventType?: string | null;
+  href: string;
+  context?: string | null;
   tone: "blue" | "violet" | "amber" | "sky" | "emerald" | "orange" | "slate";
 };
 
@@ -170,38 +172,45 @@ function CalendarPage() {
     const cid = profile.company_id;
     setLoading(true);
 
-    const [{ data: calendarEvents }, { data: tasks }, { data: invoices }, { data: proposals }, { data: projects }] =
-      await Promise.all([
-        db
-          .from("calendar_events")
-          .select("id,title,description,location,type,status,start_at,end_at,all_day,related_task_id,created_at")
-          .eq("company_id", cid)
-          .order("start_at", { ascending: true }),
-        db
-          .from("tasks")
-          .select("id,title,description,due_date,status,priority")
-          .eq("company_id", cid)
-          .not("due_date", "is", null)
-          .order("due_date", { ascending: true }),
-        db
-          .from("invoices")
-          .select("id,number,due_date,status,total")
-          .eq("company_id", cid)
-          .not("due_date", "is", null)
-          .order("due_date", { ascending: true }),
-        db
-          .from("proposals")
-          .select("id,number,title,valid_until,status")
-          .eq("company_id", cid)
-          .not("valid_until", "is", null)
-          .order("valid_until", { ascending: true }),
-        db
-          .from("projects")
-          .select("id,name,description,due_date,status")
-          .eq("company_id", cid)
-          .not("due_date", "is", null)
-          .order("due_date", { ascending: true }),
-      ]);
+    const [
+      { data: calendarEvents },
+      { data: tasks },
+      { data: invoices },
+      { data: proposals },
+      { data: projects },
+    ] = await Promise.all([
+      db
+        .from("calendar_events")
+        .select(
+          "id,title,description,location,type,status,start_at,end_at,all_day,related_task_id,created_at",
+        )
+        .eq("company_id", cid)
+        .order("start_at", { ascending: true }),
+      db
+        .from("tasks")
+        .select("id,title,description,due_date,status,priority")
+        .eq("company_id", cid)
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true }),
+      db
+        .from("invoices")
+        .select("id,number,due_date,status,total")
+        .eq("company_id", cid)
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true }),
+      db
+        .from("proposals")
+        .select("id,number,title,valid_until,status")
+        .eq("company_id", cid)
+        .not("valid_until", "is", null)
+        .order("valid_until", { ascending: true }),
+      db
+        .from("projects")
+        .select("id,name,description,due_date,status")
+        .eq("company_id", cid)
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true }),
+    ]);
 
     const combined: CalendarItem[] = [
       ...(calendarEvents || []).map((e: any) => ({
@@ -216,6 +225,8 @@ function CalendarPage() {
         description: e.description,
         location: e.location,
         eventType: e.type,
+        href: "/calendar",
+        context: e.type ? FORM_TYPE_LABELS[e.type as FormType] || e.type : "Evento manual",
         tone: getCalendarEventTone(e.type),
       })),
       ...(tasks || []).map((t: any) => ({
@@ -227,6 +238,8 @@ function CalendarPage() {
         allDay: true,
         status: t.status,
         description: t.description,
+        href: "/tasks",
+        context: t.priority ? `Prioridad ${t.priority}` : "Tarea vinculada",
         tone: "blue" as const,
       })),
       ...(invoices || []).map((i: any) => ({
@@ -238,6 +251,8 @@ function CalendarPage() {
         allDay: true,
         status: i.status,
         amount: i.total,
+        href: "/invoices",
+        context: i.number ? `Factura ${i.number}` : "Factura pendiente",
         tone: "orange" as const,
       })),
       ...(proposals || []).map((p: any) => ({
@@ -248,6 +263,8 @@ function CalendarPage() {
         start: p.valid_until,
         allDay: true,
         status: p.status,
+        href: "/proposals",
+        context: p.number ? `Propuesta ${p.number}` : "Propuesta comercial",
         tone: "emerald" as const,
       })),
       ...(projects || []).map((p: any) => ({
@@ -259,6 +276,8 @@ function CalendarPage() {
         allDay: true,
         status: p.status,
         description: p.description,
+        href: "/projects",
+        context: p.name ? `Proyecto ${p.name}` : "Proyecto activo",
         tone: "violet" as const,
       })),
     ];
@@ -320,7 +339,9 @@ function CalendarPage() {
         const date = dateOnly(event.start);
         return date >= today && date <= weekEndText;
       }).length,
-      overdue: events.filter((event) => dateOnly(event.start) < today && event.status !== "completed").length,
+      overdue: events.filter(
+        (event) => dateOnly(event.start) < today && event.status !== "completed",
+      ).length,
     };
   }, [events]);
 
@@ -329,15 +350,25 @@ function CalendarPage() {
     return events.filter((event) => event.start >= now || event.allDay).slice(0, 7);
   }, [events]);
 
-  function openCreateModal(selection?: { start?: Date | string; end?: Date | string; allDay?: boolean }) {
+  function openCreateModal(selection?: {
+    start?: Date | string;
+    end?: Date | string;
+    allDay?: boolean;
+  }) {
     const allDay = Boolean(selection?.allDay);
     setForm({
       title: "",
       type: "event",
       description: "",
       location: "",
-      start_at: allDay ? toDateInputValue(selection?.start) : toLocalInputValue(selection?.start || new Date()),
-      end_at: selection?.end ? (allDay ? toDateInputValue(selection.end) : toLocalInputValue(selection.end)) : "",
+      start_at: allDay
+        ? toDateInputValue(selection?.start)
+        : toLocalInputValue(selection?.start || new Date()),
+      end_at: selection?.end
+        ? allDay
+          ? toDateInputValue(selection.end)
+          : toLocalInputValue(selection.end)
+        : "",
       all_day: allDay,
     });
     setCreateOpen(true);
@@ -416,19 +447,35 @@ function CalendarPage() {
       }
 
       if (item.source === "task") {
-        await db.from("tasks").update({ due_date: newDate }).eq("id", item.relatedId).eq("company_id", profile.company_id);
+        await db
+          .from("tasks")
+          .update({ due_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
       }
 
       if (item.source === "project") {
-        await db.from("projects").update({ due_date: newDate }).eq("id", item.relatedId).eq("company_id", profile.company_id);
+        await db
+          .from("projects")
+          .update({ due_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
       }
 
       if (item.source === "proposal") {
-        await db.from("proposals").update({ valid_until: newDate }).eq("id", item.relatedId).eq("company_id", profile.company_id);
+        await db
+          .from("proposals")
+          .update({ valid_until: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
       }
 
       if (item.source === "invoice") {
-        await db.from("invoices").update({ due_date: newDate }).eq("id", item.relatedId).eq("company_id", profile.company_id);
+        await db
+          .from("invoices")
+          .update({ due_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
       }
 
       await fetchEvents();
@@ -472,17 +519,25 @@ function CalendarPage() {
                   </span>
                 </div>
                 <p className="mt-1 max-w-2xl text-sm font-semibold text-[#667085]">
-                  Gestiona citas, demos, llamadas, recordatorios, tareas, proyectos, propuestas y facturas desde una agenda visual.
+                  Gestiona citas, demos, llamadas, recordatorios, tareas, proyectos, propuestas y
+                  facturas desde una agenda visual.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={() => void fetchEvents()} className="h-10 gap-2 rounded-2xl border-[#dce3ef] bg-white">
+              <Button
+                variant="outline"
+                onClick={() => void fetchEvents()}
+                className="h-10 gap-2 rounded-2xl border-[#dce3ef] bg-white"
+              >
                 <RefreshCw className="h-4 w-4" />
                 Actualizar
               </Button>
-              <Button onClick={() => openCreateModal()} className="h-10 gap-2 rounded-2xl bg-[#111827] px-4 font-black text-white hover:bg-[#020617]">
+              <Button
+                onClick={() => openCreateModal()}
+                className="h-10 gap-2 rounded-2xl bg-[#111827] px-4 font-black text-white hover:bg-[#020617]"
+              >
                 <Plus className="h-4 w-4" />
                 Crear evento
               </Button>
@@ -495,7 +550,9 @@ function CalendarPage() {
                 <Card className="border border-[#edf1f7] bg-white shadow-sm">
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#98a2b3]">Resumen</p>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#98a2b3]">
+                        Resumen
+                      </p>
                       <Sparkles className="h-4 w-4 text-blue-500" />
                     </div>
 
@@ -506,9 +563,16 @@ function CalendarPage() {
                         ["Semana", counters.week, "emerald"],
                         ["Vencidos", counters.overdue, "orange"],
                       ].map(([label, value, tone]) => (
-                        <div key={label} className="rounded-2xl border border-[#edf1f7] bg-[#f8fafc] p-3">
-                          <p className="text-[11px] font-black uppercase tracking-wide text-[#98a2b3]">{label}</p>
-                          <p className={`mt-1 text-2xl font-black ${tone === "orange" ? "text-orange-600" : "text-[#111827]"}`}>
+                        <div
+                          key={label}
+                          className="rounded-2xl border border-[#edf1f7] bg-[#f8fafc] p-3"
+                        >
+                          <p className="text-[11px] font-black uppercase tracking-wide text-[#98a2b3]">
+                            {label}
+                          </p>
+                          <p
+                            className={`mt-1 text-2xl font-black ${tone === "orange" ? "text-orange-600" : "text-[#111827]"}`}
+                          >
                             {value}
                           </p>
                         </div>
@@ -549,7 +613,9 @@ function CalendarPage() {
                           }`}
                         >
                           <span className="flex items-center gap-2">
-                            <span className={`h-2.5 w-2.5 rounded-full ${DOT_STYLES[tone as CalendarItem["tone"]]}`} />
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${DOT_STYLES[tone as CalendarItem["tone"]]}`}
+                            />
                             {label}
                           </span>
                           {filter === value ? <CheckCircle2 className="h-4 w-4" /> : null}
@@ -561,7 +627,9 @@ function CalendarPage() {
 
                 <Card className="border border-[#edf1f7] bg-white shadow-sm">
                   <CardContent className="p-4">
-                    <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#98a2b3]">Próximos</p>
+                    <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#98a2b3]">
+                      Próximos
+                    </p>
                     {upcoming.length === 0 ? (
                       <p className="rounded-2xl bg-[#f8fafc] p-3 text-sm font-semibold text-[#667085]">
                         No hay eventos próximos.
@@ -576,11 +644,19 @@ function CalendarPage() {
                             className="group w-full rounded-2xl border border-[#edf1f7] bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                           >
                             <div className="flex items-start gap-2">
-                              <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${DOT_STYLES[event.tone]}`} />
+                              <span
+                                className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${DOT_STYLES[event.tone]}`}
+                              />
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-black text-[#111827]">{event.title}</p>
+                                <p className="truncate text-sm font-black text-[#111827]">
+                                  {event.title}
+                                </p>
+                                <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-[#98a2b3]">
+                                  {EVENT_TYPE_LABELS[event.source]}
+                                </p>
                                 <p className="mt-1 text-xs font-bold text-[#667085]">
-                                  {formatDate(event.start)} · {event.allDay ? "Todo el día" : formatTime(event.start)}
+                                  {formatDate(event.start)} ·{" "}
+                                  {event.allDay ? "Todo el día" : formatTime(event.start)}
                                 </p>
                               </div>
                             </div>
@@ -642,10 +718,14 @@ function CalendarPage() {
                     return (
                       <div className={`corevix-calendar-event ${TONE_STYLES[item.tone]}`}>
                         <div className="flex min-w-0 items-center gap-1.5">
-                          <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_STYLES[item.tone]}`} />
+                          <span
+                            className={`h-2 w-2 shrink-0 rounded-full ${DOT_STYLES[item.tone]}`}
+                          />
                           <span className="truncate">{arg.event.title}</span>
                         </div>
-                        <div className="truncate text-[10px] font-black opacity-70">{EVENT_TYPE_LABELS[item.source]}</div>
+                        <div className="truncate text-[10px] font-black opacity-70">
+                          {EVENT_TYPE_LABELS[item.source]}
+                        </div>
                       </div>
                     );
                   }}
@@ -660,7 +740,9 @@ function CalendarPage() {
         <DialogContent className="max-w-xl rounded-3xl border-0 p-0 shadow-2xl">
           <div className="border-b bg-gradient-to-r from-white to-blue-50 px-6 py-5">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black tracking-[-0.03em]">Crear evento</DialogTitle>
+              <DialogTitle className="text-xl font-black tracking-[-0.03em]">
+                Crear evento
+              </DialogTitle>
             </DialogHeader>
             <p className="mt-1 text-sm font-semibold text-[#667085]">
               Programa una cita, demo, llamada o recordatorio dentro del CRM.
@@ -669,7 +751,9 @@ function CalendarPage() {
 
           <div className="space-y-4 p-6">
             <div>
-              <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">Título</label>
+              <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">
+                Título
+              </label>
               <input
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
@@ -680,10 +764,14 @@ function CalendarPage() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">Tipo</label>
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">
+                  Tipo
+                </label>
                 <select
                   value={form.type}
-                  onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value as FormType }))}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, type: event.target.value as FormType }))
+                  }
                   className="h-12 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 text-sm font-bold outline-none"
                 >
                   <option value="event">Evento</option>
@@ -703,8 +791,14 @@ function CalendarPage() {
                     setForm((prev) => ({
                       ...prev,
                       all_day: event.target.checked,
-                      start_at: event.target.checked ? toDateInputValue(prev.start_at) : toLocalInputValue(prev.start_at),
-                      end_at: prev.end_at ? (event.target.checked ? toDateInputValue(prev.end_at) : toLocalInputValue(prev.end_at)) : "",
+                      start_at: event.target.checked
+                        ? toDateInputValue(prev.start_at)
+                        : toLocalInputValue(prev.start_at),
+                      end_at: prev.end_at
+                        ? event.target.checked
+                          ? toDateInputValue(prev.end_at)
+                          : toLocalInputValue(prev.end_at)
+                        : "",
                     }))
                   }
                 />
@@ -714,16 +808,22 @@ function CalendarPage() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">Inicio</label>
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">
+                  Inicio
+                </label>
                 <input
                   type={form.all_day ? "date" : "datetime-local"}
                   value={form.start_at}
-                  onChange={(event) => setForm((prev) => ({ ...prev, start_at: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, start_at: event.target.value }))
+                  }
                   className="h-12 w-full rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 text-sm font-bold outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">Fin</label>
+                <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">
+                  Fin
+                </label>
                 <input
                   type={form.all_day ? "date" : "datetime-local"}
                   value={form.end_at}
@@ -734,7 +834,9 @@ function CalendarPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">Lugar</label>
+              <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">
+                Lugar
+              </label>
               <input
                 value={form.location}
                 onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
@@ -744,20 +846,32 @@ function CalendarPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">Descripción</label>
+              <label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">
+                Descripción
+              </label>
               <textarea
                 value={form.description}
-                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, description: event.target.value }))
+                }
                 className="min-h-24 w-full resize-none rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 py-3 text-sm font-semibold outline-none"
                 placeholder="Notas internas del evento..."
               />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setCreateOpen(false)} className="rounded-2xl">
+              <Button
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+                className="rounded-2xl"
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleCreateEvent} disabled={saving || !form.title.trim()} className="rounded-2xl bg-[#111827] font-black">
+              <Button
+                onClick={handleCreateEvent}
+                disabled={saving || !form.title.trim()}
+                className="rounded-2xl bg-[#111827] font-black"
+              >
                 {saving ? "Guardando..." : "Crear evento"}
               </Button>
             </div>
@@ -771,7 +885,10 @@ function CalendarPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between gap-2">
                 <span className="text-xl font-black tracking-[-0.03em]">Detalle del evento</span>
-                <button onClick={() => setSelectedEvent(null)} className="rounded-xl p-1 hover:bg-muted">
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="rounded-xl p-1 hover:bg-muted"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </DialogTitle>
@@ -780,15 +897,21 @@ function CalendarPage() {
 
           {selectedEvent ? (
             <div className="space-y-4 p-6">
-              <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${TONE_STYLES[selectedEvent.tone]}`}>
+              <span
+                className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${TONE_STYLES[selectedEvent.tone]}`}
+              >
                 {EVENT_TYPE_LABELS[selectedEvent.source]}
               </span>
 
               <div>
                 <p className="text-xl font-black tracking-[-0.03em]">{selectedEvent.title}</p>
+                {selectedEvent.context ? (
+                  <p className="mt-2 text-sm font-bold text-[#667085]">{selectedEvent.context}</p>
+                ) : null}
                 <p className="mt-2 flex items-center gap-2 text-sm font-bold text-[#667085]">
                   <Clock className="h-4 w-4" />
-                  {formatDate(selectedEvent.start)} · {selectedEvent.allDay ? "Todo el día" : formatTime(selectedEvent.start)}
+                  {formatDate(selectedEvent.start)} ·{" "}
+                  {selectedEvent.allDay ? "Todo el día" : formatTime(selectedEvent.start)}
                 </p>
               </div>
 
@@ -812,6 +935,12 @@ function CalendarPage() {
                   Monto: ${Number(selectedEvent.amount).toLocaleString()}
                 </p>
               ) : null}
+
+              <div className="flex justify-end">
+                <Button asChild className="rounded-2xl bg-[#111827] font-black hover:bg-[#020617]">
+                  <a href={selectedEvent.href}>Abrir módulo relacionado</a>
+                </Button>
+              </div>
             </div>
           ) : null}
         </DialogContent>

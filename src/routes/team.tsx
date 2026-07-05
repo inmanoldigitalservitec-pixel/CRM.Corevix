@@ -126,7 +126,10 @@ function fmtRelative(input?: string | null) {
   return `${Math.round(hrs / 24)}d`;
 }
 
-function daysUntil(input: string | null | undefined, t: (key: string, params?: Record<string, string | number>) => string) {
+function daysUntil(
+  input: string | null | undefined,
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
   if (!input) return "—";
   const d = new Date(input);
   if (Number.isNaN(d.getTime())) return "—";
@@ -174,7 +177,10 @@ function PermissionPreview({ role }: { role: AppRole }) {
       label: t("team.permission.deleteRecords"),
       on: role === "super_admin" || role === "admin" || role === "manager",
     },
-    { label: t("team.permission.assignUsers"), on: role === "super_admin" || role === "admin" || role === "manager" },
+    {
+      label: t("team.permission.assignUsers"),
+      on: role === "super_admin" || role === "admin" || role === "manager",
+    },
     { label: t("team.permission.manageUsers"), on: role === "super_admin" || role === "admin" },
     { label: t("team.permission.manageSettings"), on: role === "super_admin" || role === "admin" },
     { label: t("team.permission.exportData"), on: role !== "viewer" },
@@ -393,10 +399,7 @@ function TeamUsersPage() {
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <PageHeader
-        title={t("team.title")}
-        subtitle={t("team.subtitle")}
-      >
+      <PageHeader title={t("team.title")} subtitle={t("team.subtitle")}>
         {can("team.manage") && (
           <Button onClick={() => setInviteOpen(true)} size="sm">
             <Send className="mr-2 h-4 w-4" />
@@ -464,7 +467,9 @@ function TeamUsersPage() {
         <DataCard className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
             <div>
-              <p className="text-sm font-extrabold tracking-tight">{t("team.pendingInvitations")}</p>
+              <p className="text-sm font-extrabold tracking-tight">
+                {t("team.pendingInvitations")}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {t("team.pendingInvitationsSubtitle")}
               </p>
@@ -648,7 +653,7 @@ function TeamUsersPage() {
               <TableBody>
                 {users.map((u) => (
                   <TableRow
-                    key={u.profile_id}
+                    key={`${u.profile_id}-${u.user_id}`}
                     className="cursor-pointer"
                     onClick={() => {
                       setSelected(u);
@@ -737,7 +742,9 @@ function TeamUsersPage() {
       >
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>{inviteResult ? t("team.invitationReady") : t("team.inviteTeammate")}</DialogTitle>
+            <DialogTitle>
+              {inviteResult ? t("team.invitationReady") : t("team.inviteTeammate")}
+            </DialogTitle>
           </DialogHeader>
           {inviteResult ? (
             <div className="space-y-4">

@@ -1,0 +1,456 @@
+export const AGENT_WIDGET_CONTRACT_VERSION = 'agent_widget_contract_v1' as const;
+
+export type AgentWidgetContractStatus = 'idle' | 'analyzing' | 'ready' | 'executing' | 'done' | 'error';
+export type AgentWidgetSeverity = 'critical' | 'high' | 'medium' | 'low';
+
+export type AgentWidgetSummary = {
+	total_cases: number;
+	critical: number;
+	high: number;
+	medium: number;
+	low: number;
+};
+
+export type AgentWidgetRecommendedStep = {
+	title: string;
+	description: string;
+};
+
+export type AgentWidgetSuggestedAction = {
+	action_id: string;
+	type: string;
+	label: string;
+	requires_confirmation: boolean;
+	payload?: Record<string, string | number | boolean | null>;
+};
+
+export type AgentWidgetRecoveryPlan = {
+	case_key: string;
+	case_type?: string;
+	plan_title: string;
+	severity: AgentWidgetSeverity;
+	message?: string;
+	diagnosis: string;
+	recommended_steps: AgentWidgetRecommendedStep[];
+	suggested_actions: AgentWidgetSuggestedAction[];
+	requires_confirmation: boolean;
+	success_criteria: string;
+};
+
+export type AgentWidgetContractV1 = {
+	schema_version: typeof AGENT_WIDGET_CONTRACT_VERSION;
+	status: AgentWidgetContractStatus;
+	generated_at: string;
+	summary: AgentWidgetSummary;
+	recovery_plans: AgentWidgetRecoveryPlan[];
+};
+
+export type AgentDailyPlanForWidget = {
+	id?: string | null;
+	company_id?: string | null;
+	user_id?: string | null;
+	cycle_date?: string | null;
+	case_key?: string | null;
+	case_type?: string | null;
+	case_title?: string | null;
+	case_summary?: string | null;
+	case_severity?: string | null;
+	detected_case?: unknown;
+	plan_title?: string | null;
+	plan_summary?: string | null;
+	generated_plan?: unknown;
+	suggested_actions?: unknown;
+	state?: string | null;
+	source_modules?: string[] | null;
+	source_event_ids?: string[] | null;
+	source_memory_keys?: string[] | null;
+	updated_at?: string | null;
+	created_at?: string | null;
+};
+
+type SupabaseLike = {
+	from: (table: string) => any;
+};
+
+type WriteAgentWidgetContractOptions = {
+	companyId?: string | null;
+	userId?: string | null;
+	cycleDate?: string | null;
+	generatedBy?: string;
+	sourceContextId?: string | null;
+};
+
+type WriteAgentWidgetContractResult = {
+	contract: AgentWidgetContractV1;
+	row: unknown;
+	mode: 'inserted' | 'updated';
+};
+
+
+function isReservedAgentPlaceholder(value: unknown): boolean {
+	if (typeof value !== 'string') return false;
+	const normalized = value.trim().toLowerCase();
+	return (
+		normalized === 'reserved for future agent' ||
+		normalized === 'reserved_for_future_agent' ||
+		normalized.includes('reserved for future agent')
+	);
+}
+
+function cleanWidgetText(value: unknown): string | null {
+	if (typeof value !== 'string') return null;
+	const trimmed = value.trim();
+	if (!trimmed || isReservedAgentPlaceholder(trimmed)) return null;
+	return trimmed;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+	return isRecord(value) ? value : {};
+}
+
+function asArray(value: unknown): unknown[] {
+	return Array.isArray(value) ? value : [];
+}
+
+function cleanText(value: unknown, fallback: string): string {
+	if (typeof value !== 'string') return fallback;
+
+	const text = value.trim();
+
+	return text.length > 0 ? text : fallback;
+}
+
+function normalizeSeverity(value: unknown): AgentWidgetSeverity {
+	if (value === 'critical' || value === 'high' || value === 'medium' || value === 'low') {
+		return value;
+	}
+
+	if (value === 'urgent') return 'critical';
+	if (value === 'normal') return 'medium';
+
+	return 'low';
+}
+
+function normalizePayload(value: unknown): Record<string, string | number | boolean | null> | undefined {
+	if (!isRecord(value)) return undefined;
+
+	const entries = Object.entries(value).filter(([, item]) => {
+		return typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean' || item === null;
+	});
+
+	if (entries.length === 0) return undefined;
+
+	return Object.fromEntries(entries) as Record<string, string | number | boolean | null>;
+}
+
+function normalizeSuggestedActions(plan: AgentDailyPlanForWidget): AgentWidgetSuggestedAction[] {
+	const generatedPlan = asRecord(plan.generated_plan);
+	const generatedActions = asArray(generatedPlan.actions);
+	const directActions = asArray(plan.suggested_actions);
+	const rawActions = generatedActions.length > 0 ? generatedActions : directActions;
+
+	const actions = rawActions.filter(isRecord).map((action, index): AgentWidgetSuggestedAction => {
+		const type = cleanText(action.type, 'review_record');
+		const label = cleanText(action.label, 'Revisar caso');
+		const target = asRecord(action.target);
+		const payload = normalizePayload(action.payload);
+
+		return {
+			action_id:
+				cleanText(action.action_id, '') ||
+				cleanText(action.id, '') ||
+				`${cleanText(plan.case_key, 'case')}::${type}::${index + 1}`,
+			type,
+			label,
+			requires_confirmation:
+				typeof action.requires_confirmation === 'boolean'
+					? action.requires_confirmation
+					: typeof action.requiresConfirmation === 'boolean'
+						? action.requiresConfirmation
+						: true,
+			...(payload
+				? { payload }
+				: target.id || target.label || target.href
+					? {
+							payload: {
+								target_id: typeof target.id === 'string' ? target.id : null,
+								target_label: typeof target.label === 'string' ? target.label : null,
+								target_href: typeof target.href === 'string' ? target.href : null,
+							},
+						}
+					: {}),
+		};
+	});
+
+	if (actions.length > 0) return actions;
+
+	return [
+		{
+			action_id: `${cleanText(plan.case_key, 'case')}::review_record`,
+			type: 'review_record',
+			label: 'Revisar caso',
+			requires_confirmation: true,
+		},
+	];
+}
+
+function buildRecommendedSteps(plan: AgentDailyPlanForWidget): AgentWidgetRecommendedStep[] {
+	const detectedCase = asRecord(plan.detected_case);
+	const generatedPlan = asRecord(plan.generated_plan);
+
+	const recommendation =
+		cleanText(generatedPlan.summary, '') ||
+		cleanText(plan.plan_summary, '') ||
+		cleanText(detectedCase.summary, '') ||
+		'Preparar una acción segura antes de modificar datos del CRM.';
+
+	const modules = Array.isArray(plan.source_modules) && plan.source_modules.length > 0
+		? plan.source_modules.join(', ')
+		: cleanText(detectedCase.source_module, 'CRM');
+
+	return [
+		{
+			title: 'Revisar evidencia',
+			description: `Validar el caso en ${modules} antes de ejecutar cualquier acción.`,
+		},
+		{
+			title: 'Confirmar recomendación',
+			description: recommendation,
+		},
+		{
+			title: 'Solicitar aprobación',
+			description: 'No ejecutar cambios sensibles sin confirmación humana.',
+		},
+	];
+}
+
+function dailyPlanToWidgetRecoveryPlan(plan: AgentDailyPlanForWidget): AgentWidgetRecoveryPlan {
+	const generatedPlan = asRecord(plan.generated_plan);
+	const detectedCase = asRecord(plan.detected_case);
+	const actions = normalizeSuggestedActions(plan);
+
+	return {
+		case_key: cleanText(plan.case_key, cleanText(plan.id, 'case')),
+		case_type: cleanText(plan.case_type, 'detected_case'),
+		plan_title:
+			cleanWidgetText(plan.case_title) ||
+			cleanWidgetText(detectedCase.title) ||
+			cleanWidgetText(plan.plan_title) ||
+			cleanWidgetText(generatedPlan.title) ||
+			'Caso detectado',
+		severity: normalizeSeverity(plan.case_severity),
+		message:
+			cleanText(plan.plan_summary, '') ||
+			cleanText(plan.case_summary, '') ||
+			cleanText(detectedCase.summary, 'El agente detectó un caso que requiere atención.'),
+		diagnosis:
+			cleanText(generatedPlan.rationale, '') ||
+			cleanText(detectedCase.reason, '') ||
+			cleanText(plan.case_summary, 'El caso requiere revisión antes de ejecutar acciones.'),
+		recommended_steps: buildRecommendedSteps(plan),
+		suggested_actions: actions,
+		requires_confirmation: actions.some((action) => action.requires_confirmation),
+		success_criteria: 'El caso queda revisado, aprobado y listo para ejecución controlada.',
+	};
+}
+
+function buildSummary(plans: AgentWidgetRecoveryPlan[]): AgentWidgetSummary {
+	return plans.reduce<AgentWidgetSummary>(
+		(summary, plan) => {
+			summary.total_cases += 1;
+			summary[plan.severity] += 1;
+			return summary;
+		},
+		{
+			total_cases: 0,
+			critical: 0,
+			high: 0,
+			medium: 0,
+			low: 0,
+		},
+	);
+}
+
+export function buildAgentWidgetContractFromDailyPlans(plans: AgentDailyPlanForWidget[]): AgentWidgetContractV1 {
+	const activePlans = plans.filter((plan) => {
+		const state = cleanText(plan.state, 'new');
+
+		return !['completed', 'dismissed', 'expired'].includes(state);
+	});
+
+	const recoveryPlans = activePlans.map(dailyPlanToWidgetRecoveryPlan);
+
+	return {
+		schema_version: AGENT_WIDGET_CONTRACT_VERSION,
+		status: recoveryPlans.length > 0 ? 'ready' : 'idle',
+		generated_at: new Date().toISOString(),
+		summary: buildSummary(recoveryPlans),
+		recovery_plans: recoveryPlans,
+	};
+}
+
+function nullableFilter(query: any, column: string, value: string | null | undefined) {
+	if (value) return query.eq(column, value);
+
+	return query.is(column, null);
+}
+
+export async function writeAgentWidgetContractFromDailyPlans(
+	supabase: SupabaseLike,
+	plans: AgentDailyPlanForWidget[],
+	options: WriteAgentWidgetContractOptions = {},
+): Promise<WriteAgentWidgetContractResult> {
+	const cycleDate = options.cycleDate || plans[0]?.cycle_date || new Date().toISOString().slice(0, 10);
+	const companyId = options.companyId ?? plans[0]?.company_id ?? null;
+	const userId = options.userId ?? plans[0]?.user_id ?? null;
+	const generatedBy = options.generatedBy || 'agent-worker';
+
+	const contract = buildAgentWidgetContractFromDailyPlans(plans);
+
+	const payload = {
+		company_id: companyId,
+		user_id: userId,
+		cycle_date: cycleDate,
+		schema_version: AGENT_WIDGET_CONTRACT_VERSION,
+		status: contract.status,
+		contract_json: contract,
+		source_context_id: options.sourceContextId || null,
+		generated_by: generatedBy,
+		error_message: null,
+		updated_at: new Date().toISOString(),
+	};
+
+	let existingQuery = supabase
+		.from('agent_widget_contracts')
+		.select('id')
+		.eq('cycle_date', cycleDate)
+		.eq('generated_by', generatedBy)
+		.order('created_at', { ascending: false })
+		.limit(1);
+
+	existingQuery = nullableFilter(existingQuery, 'company_id', companyId);
+	existingQuery = nullableFilter(existingQuery, 'user_id', userId);
+
+	const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+
+	if (existingError) throw existingError;
+
+	if (existing?.id) {
+		const { data, error } = await supabase
+			.from('agent_widget_contracts')
+			.update(payload)
+			.eq('id', existing.id)
+			.select('id, cycle_date, schema_version, status, generated_by, created_at, updated_at')
+			.single();
+
+		if (error) throw error;
+
+		return {
+			contract,
+			row: data,
+			mode: 'updated',
+		};
+	}
+
+	const { data, error } = await supabase
+		.from('agent_widget_contracts')
+		.insert({
+			...payload,
+			created_at: new Date().toISOString(),
+		})
+		.select('id, cycle_date, schema_version, status, generated_by, created_at, updated_at')
+		.single();
+
+	if (error) throw error;
+
+	return {
+		contract,
+		row: data,
+		mode: 'inserted',
+	};
+}
+
+
+export async function writeAgentWidgetContractPayload(
+	supabase: SupabaseLike,
+	contract: AgentWidgetContractV1,
+	options: WriteAgentWidgetContractOptions = {},
+): Promise<WriteAgentWidgetContractResult> {
+	const cycleDate = options.cycleDate || new Date().toISOString().slice(0, 10);
+	const companyId = options.companyId ?? null;
+	const userId = options.userId ?? null;
+	const generatedBy = options.generatedBy || 'agent-worker';
+
+	const safeContract: AgentWidgetContractV1 = {
+		...contract,
+		schema_version: AGENT_WIDGET_CONTRACT_VERSION,
+		status: contract.recovery_plans?.length ? 'ready' : 'idle',
+		generated_at: contract.generated_at || new Date().toISOString(),
+		summary: contract.summary || buildSummary(contract.recovery_plans || []),
+		recovery_plans: Array.isArray(contract.recovery_plans) ? contract.recovery_plans : [],
+	};
+
+	const payload = {
+		company_id: companyId,
+		user_id: userId,
+		cycle_date: cycleDate,
+		schema_version: AGENT_WIDGET_CONTRACT_VERSION,
+		status: safeContract.status,
+		contract_json: safeContract,
+		source_context_id: options.sourceContextId || null,
+		generated_by: generatedBy,
+		error_message: null,
+		updated_at: new Date().toISOString(),
+	};
+
+	let existingQuery = supabase
+		.from('agent_widget_contracts')
+		.select('id')
+		.eq('cycle_date', cycleDate)
+		.eq('generated_by', generatedBy)
+		.order('created_at', { ascending: false })
+		.limit(1);
+
+	existingQuery = nullableFilter(existingQuery, 'company_id', companyId);
+	existingQuery = nullableFilter(existingQuery, 'user_id', userId);
+
+	const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+
+	if (existingError) throw existingError;
+
+	if (existing?.id) {
+		const { data, error } = await supabase
+			.from('agent_widget_contracts')
+			.update(payload)
+			.eq('id', existing.id)
+			.select('id, cycle_date, schema_version, status, generated_by, created_at, updated_at')
+			.single();
+
+		if (error) throw error;
+
+		return {
+			contract: safeContract,
+			row: data,
+			mode: 'updated',
+		};
+	}
+
+	const { data, error } = await supabase
+		.from('agent_widget_contracts')
+		.insert(payload)
+		.select('id, cycle_date, schema_version, status, generated_by, created_at, updated_at')
+		.single();
+
+	if (error) throw error;
+
+	return {
+		contract: safeContract,
+		row: data,
+		mode: 'inserted',
+	};
+}
+

@@ -320,7 +320,7 @@ export function DocumentBuilderTinyMCE() {
         value={content}
         onEditorChange={(value) => setContent(value)}
         init={{
-          license_key: "gpl",
+          licenseKey: "gpl",
           height: "calc(100vh - 136px)",
           min_height: 760,
           menubar: "file edit insert view format table tools help",
@@ -377,8 +377,7 @@ export function DocumentBuilderTinyMCE() {
               max-width: 100%;
             }
           `,
-          quickbars_selection_toolbar:
-            "bold italic underline | quicklink h2 h3 blockquote",
+          quickbars_selection_toolbar: "bold italic underline | quicklink h2 h3 blockquote",
           quickbars_insert_toolbar: "quickimage quicktable",
           image_advtab: true,
           table_advtab: true,

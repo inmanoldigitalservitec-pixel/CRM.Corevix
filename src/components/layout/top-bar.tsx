@@ -23,6 +23,7 @@ interface Notification {
   title: string;
   message: string | null;
   type: string | null;
+  link: string | null;
   read: boolean;
   created_at: string;
 }
@@ -39,7 +40,7 @@ export function TopBar() {
     if (!user) return;
     const { data } = await supabase
       .from("notifications")
-      .select("id, title, message, type, read, created_at")
+      .select("id, title, message, type, link, read, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(10);
@@ -62,6 +63,11 @@ export function TopBar() {
   const markAsRead = async (id: string) => {
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const openNotification = async (notification: Notification) => {
+    await markAsRead(notification.id);
+    if (notification.link) navigate({ to: notification.link as any });
   };
 
   const markAllRead = async () => {
@@ -153,7 +159,7 @@ export function TopBar() {
                 <DropdownMenuItem
                   key={n.id}
                   className="flex flex-col items-start gap-0.5 py-2.5"
-                  onClick={() => markAsRead(n.id)}
+                  onClick={() => void openNotification(n)}
                 >
                   <span className={`text-sm ${n.read ? "text-muted-foreground" : "font-medium"}`}>
                     {n.title}

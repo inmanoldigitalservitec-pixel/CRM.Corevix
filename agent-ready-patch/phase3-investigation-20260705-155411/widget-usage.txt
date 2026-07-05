@@ -1,0 +1,11 @@
+./src/components/dashboard-v2/dashboard-v2.tsx:27:import { AgentCommandWidget } from "@/components/agent";
+./src/components/dashboard-v2/dashboard-v2.tsx:1697:          render: () => <AgentCommandWidget />,
+./src/components/agent/AgentCommandWidget.tsx:2:import "./AgentCommandWidget.css";
+./src/components/agent/AgentCommandWidget.tsx:30:type AgentCommandWidgetProps = {
+./src/components/agent/AgentCommandWidget.tsx:237:export function AgentCommandWidget({
+./src/components/agent/AgentCommandWidget.tsx:246:}: AgentCommandWidgetProps) {
+./src/components/agent/AgentCommandWidget.tsx:490:export default AgentCommandWidget;
+./src/components/agent/index.ts:2:  AgentCommandWidget,
+./src/components/agent/index.ts:3:  default as AgentCommandWidgetDefault,
+./src/components/agent/index.ts:4:} from "./AgentCommandWidget";
+./src/components/agent/index.ts:10:} from "./AgentCommandWidget";

@@ -167,6 +167,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
   };
 
   const update = async (id: string, updates: Partial<T>): Promise<T | null> => {
+    if (!profile?.company_id) throw new Error("No company context");
     const { data: row, error: err } = await db
       .from(table)
       .update(updates)

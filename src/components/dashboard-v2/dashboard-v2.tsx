@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -24,7 +24,9 @@ import {
 import { DashboardCard, DashboardTextButton } from "./dashboard-card";
 import { DashboardKpiCard } from "./dashboard-kpi-card";
 import { DashboardBuilder } from "@/components/dashboard-builder";
+import { AgentCommandWidgetConnected } from "@/components/agent";
 import type { DashboardWidgetMode } from "@/components/dashboard-builder";
+import { fetchAgentWidgetContract, refreshAgentOperatingContext } from "@/lib/agentClient";
 
 type DashboardV2Tone = "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral";
 
@@ -1034,12 +1036,12 @@ export function DashboardActionPrioritiesWidget({
             <span>Acción</span>
           </div>
 
-          {actions.slice(0, visibleLimit).map((item) => {
+          {actions.slice(0, visibleLimit).map((item, index) => {
             const Icon = item.icon;
 
             return (
               <div
-                key={`${item.title}-${item.relatedTo}`}
+                key={`${index}-${item.title}-${item.relatedTo}`}
                 className="grid grid-cols-[minmax(210px,1.3fr)_minmax(116px,.68fr)_minmax(104px,.58fr)_74px_116px] items-center gap-2 border-b border-slate-200 px-4 py-1.5 text-[11.5px]"
               >
                 <div className="flex min-w-0 items-center gap-3">
@@ -1310,9 +1312,9 @@ export function DashboardClientsReviewWidget({
     >
       <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
         <div className="min-h-0 space-y-1.5 overflow-hidden">
-          {clients.slice(0, visibleLimit).map(([initials, name, note, status, tone]) => (
+          {clients.slice(0, visibleLimit).map(([initials, name, note, status, tone], index) => (
             <div
-              key={String(name)}
+              key={`${index}-${String(name)}-${String(note)}-${String(status)}`}
               className="grid grid-cols-[26px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-200 py-1 last:border-0"
             >
               <span
@@ -1538,6 +1540,75 @@ export function DashboardV2({
   collectionPeriodLabel = "Este mes⌄",
   pipelinePeriodLabel = "Este mes⌄",
 }: DashboardV2Props = {}) {
+
+  const [agentPromptPayload, setAgentPromptPayload] = useState<Record<string, unknown> | null>(null);
+  const [isAgentPromptPayloadLoading, setIsAgentPromptPayloadLoading] = useState(false);
+
+  const refreshAgentPromptPayload = useCallback(async () => {
+    setIsAgentPromptPayloadLoading(true);
+
+    try {
+      await refreshAgentOperatingContext({
+        expireMissing: true,
+        debug: true,
+      });
+
+      const widgetContractResult = await fetchAgentWidgetContract();
+
+      if (widgetContractResult.payload) {
+        setAgentPromptPayload(widgetContractResult.payload);
+        return;
+      }
+
+      setAgentPromptPayload({
+        schema_version: "agent_widget_contract_v1",
+        status: "idle",
+        generated_at: new Date().toISOString(),
+        summary: {
+          total_cases: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+        },
+        recovery_plans: [],
+      });
+    } catch (error) {
+      console.warn("[dashboard-v2] No se pudo refrescar agent_widget_contracts", error);
+
+      try {
+        const widgetContractResult = await fetchAgentWidgetContract();
+
+        if (widgetContractResult.payload) {
+          setAgentPromptPayload(widgetContractResult.payload);
+          return;
+        }
+      } catch (fallbackError) {
+        console.warn("[dashboard-v2] Tampoco se pudo cargar el contrato existente", fallbackError);
+      }
+
+      setAgentPromptPayload({
+        schema_version: "agent_widget_contract_v1",
+        status: "error",
+        generated_at: new Date().toISOString(),
+        summary: {
+          total_cases: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+        },
+        recovery_plans: [],
+      });
+    } finally {
+      setIsAgentPromptPayloadLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshAgentPromptPayload();
+  }, [refreshAgentPromptPayload]);
+
   const resolvedLeadAttention = leadsAttention ?? actionListItems(actions, "/leads", "blue");
   const resolvedProjectRisks = projectRisks ?? actionListItems(actions, "/projects", "orange");
   const resolvedInvoiceRows =
@@ -1691,6 +1762,10 @@ export function DashboardV2({
   return (
     <DashboardBuilder
       widgets={[
+        {
+          id: "agent.autopilot",
+          render: () => <AgentCommandWidgetConnected payload={agentPromptPayload} isLoading={isAgentPromptPayloadLoading} onAnalyzeNow={refreshAgentPromptPayload} />,
+        },
         {
           id: "sales.quick-kpis",
           render: ({ mode }) => <DashboardKpiStripWidget kpis={kpis} mode={mode} />,

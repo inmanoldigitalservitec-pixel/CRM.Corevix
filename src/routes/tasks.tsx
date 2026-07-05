@@ -66,6 +66,7 @@ import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import {
   isActiveProjectStatus,
   isClosedTaskStatusValue,
@@ -75,7 +76,7 @@ import {
 
 export const Route = createFileRoute("/tasks")({
   component: TasksPage,
-  head: () => ({ meta: [{ title: "Tasks — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Tareas — Corevix CRM" }] }),
 });
 
 const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
@@ -592,6 +593,15 @@ function TasksPage() {
 
   const clearTaskSelection = () => setSelectedIds([]);
 
+  const sendTaskNotification = async (title: string, message: string) => {
+    if (!profile?.company_id || !user?.id) return;
+    await createAttentionNotification(
+      supabase,
+      { companyId: profile.company_id, userId: user.id },
+      { title, message, type: "attention:tasks", link: "/tasks" },
+    ).catch(() => {});
+  };
+
   const updateTaskStatusInline = async (task: Task, nextStatus: string) => {
     if (!can("tasks.edit")) {
       toast.error("No tienes permiso para editar tareas.");
@@ -601,6 +611,10 @@ function TasksPage() {
       await update(task.id, { status: nextStatus } as Partial<Task>);
       if (selectedTask?.id === task.id)
         setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      void sendTaskNotification(
+        `Tarea ${nextStatus === "Completed" ? "completada" : "actualizada"}`,
+        `${task.title || "Tarea sin título"} pasó a ${nextStatus}.`,
+      );
       toast.success("Estado actualizado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar la tarea.");
@@ -658,10 +672,18 @@ function TasksPage() {
     try {
       if (editTask) {
         await update(editTask.id, data);
+        void sendTaskNotification(
+          "Tarea actualizada",
+          `${data.title || "Tarea sin título"} fue actualizada.`,
+        );
         toast.success("Tarea actualizada.");
         setSelectedTask(null);
       } else {
         await create(data);
+        void sendTaskNotification(
+          "Tarea creada",
+          `${data.title || "Tarea sin título"} fue creada.`,
+        );
         toast.success("Tarea creada.");
       }
       setDialogOpen(false);
@@ -1041,7 +1063,7 @@ function TasksPage() {
                     setDialogOpen(true);
                   }}
                 >
-                  <Plus className="mr-2 h-4 w-4" /> New Task
+                  <Plus className="mr-2 h-4 w-4" /> Nueva tarea
                 </Button>
               ) : null}
               <Button
@@ -1051,7 +1073,7 @@ function TasksPage() {
                 onClick={exportTasksCsv}
                 disabled={!sortedTasks.length}
               >
-                <Download className="mr-2 h-4 w-4" /> Export
+                <Download className="mr-2 h-4 w-4" /> Exportar
               </Button>
               <Button
                 type="button"
@@ -1059,10 +1081,10 @@ function TasksPage() {
                 className="h-9"
                 onClick={() => void fetchTasks()}
               >
-                <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+                <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
               </Button>
               <Button type="button" variant="ghost" className="h-9" onClick={resetFilters}>
-                Clear filters
+                Limpiar filtros
               </Button>
             </div>
             <div className="text-sm font-semibold text-slate-500">
@@ -1073,18 +1095,18 @@ function TasksPage() {
           <SearchFilters
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Search tasks, projects or clients..."
+            searchPlaceholder="Buscar tareas, proyectos o clientes..."
             filters={[
               {
                 key: "status",
-                placeholder: "All Status",
+                placeholder: "Todos los estados",
                 value: statusFilter,
                 onChange: setStatusFilter,
                 options: TASK_STATUSES.map((s) => ({ label: s, value: s })),
               },
               {
                 key: "priority",
-                placeholder: "All Priority",
+                placeholder: "Todas las prioridades",
                 value: priorityFilter,
                 onChange: setPriorityFilter,
                 options: PRIORITIES.map((s) => ({ label: s, value: s })),
@@ -1149,7 +1171,7 @@ function TasksPage() {
             <EmptyState
               icon={<CheckSquare className="h-6 w-6" />}
               title="No hay tareas todavía."
-              description="Cuando una factura se marque como pagada, el workflow del producto creará tareas automáticamente."
+              description="Cuando una factura se marque como pagada, el flujo de trabajo del producto creará tareas automáticamente."
               actionLabel={can("tasks.create") ? "Nueva tarea" : undefined}
               onAction={() => setDialogOpen(true)}
             />
@@ -1181,13 +1203,13 @@ function TasksPage() {
                       <TableHead className="w-14">#</TableHead>
                       <TableHead className="min-w-[320px]">Nombre</TableHead>
                       <TableHead className="min-w-[140px]">Estado</TableHead>
-                      <TableHead className="min-w-[115px]">Start Date</TableHead>
+                      <TableHead className="min-w-[115px]">Fecha de inicio</TableHead>
                       <TableHead className="min-w-[115px]">Vencimiento</TableHead>
-                      <TableHead className="min-w-[120px]">Assigned to</TableHead>
-                      <TableHead className="min-w-[170px]">Project / Client</TableHead>
-                      <TableHead className="min-w-[90px]">Files</TableHead>
+                      <TableHead className="min-w-[120px]">Asignada a</TableHead>
+                      <TableHead className="min-w-[170px]">Proyecto / Cliente</TableHead>
+                      <TableHead className="min-w-[90px]">Archivos</TableHead>
                       <TableHead className="min-w-[100px]">Prioridad</TableHead>
-                      <TableHead className="w-[190px] text-right">Actions</TableHead>
+                      <TableHead className="w-[190px] text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1280,15 +1302,15 @@ function TasksPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editTask ? "Edit Task" : "Add Task"}</DialogTitle>
+            <DialogTitle>{editTask ? "Editar tarea" : "Agregar tarea"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">Título</Label>
               <Input id="title" name="title" defaultValue={editTask?.title || ""} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Descripción</Label>
               <Textarea
                 id="description"
                 name="description"
@@ -1305,7 +1327,7 @@ function TasksPage() {
                   <SelectContent>
                     {TASK_STATUSES.map((s) => (
                       <SelectItem key={s} value={s}>
-                        {displayLabel(s)}
+                        {s}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1396,11 +1418,17 @@ function TasksPage() {
         onComplete={() => updateSelectedTaskStatus("Completed")}
         onSetInProgress={() => updateSelectedTaskStatus("In Progress")}
         onDriveUrlChange={setDriveUrlInput}
-        onAttachDriveUrl={attachDriveUrl}
+        onAttachDriveUrl={async () => {
+          await attachDriveUrl();
+        }}
         onUploadClick={handleUploadClick}
         onFilePicked={handleFilePicked}
-        onCopyFileLink={copyFileLink}
-        onDeleteDriveFile={deleteDriveFile}
+        onCopyFileLink={async (file) => {
+          await copyFileLink(file as DriveFileRow);
+        }}
+        onDeleteDriveFile={async (file) => {
+          await deleteDriveFile(file as DriveFileRow);
+        }}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

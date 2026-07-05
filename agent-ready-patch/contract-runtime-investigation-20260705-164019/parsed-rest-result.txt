@@ -1,0 +1,6 @@
+latest_rows_count: 0
+exact_rows_count: 0
+latest_first_plan_title: None
+exact_first_plan_title: None
+latest_generated_by: None
+exact_generated_by: None

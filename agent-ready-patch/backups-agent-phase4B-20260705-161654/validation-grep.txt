@@ -1,0 +1,43 @@
+./src/components/dashboard-v2/dashboard-v2.tsx:29:import { fetchAgentPromptPayload, fetchAgentWidgetContract } from "@/lib/agentClient";
+./src/components/dashboard-v2/dashboard-v2.tsx:1551:      const widgetContractResult = await fetchAgentWidgetContract();
+./src/lib/agentClient.ts:350:export type AgentWidgetContractRow = {
+./src/lib/agentClient.ts:357:  contract_json?: unknown;
+./src/lib/agentClient.ts:358:  source_context_id?: string | null;
+./src/lib/agentClient.ts:372:  row: AgentWidgetContractRow | null;
+./src/lib/agentClient.ts:376:export async function fetchAgentWidgetContract(
+./src/lib/agentClient.ts:380:    .from("agent_widget_contracts")
+./src/lib/agentClient.ts:381:    .select("id, company_id, user_id, cycle_date, schema_version, status, contract_json, source_context_id, generated_by, error_message, created_at, updated_at")
+./src/lib/agentClient.ts:403:  const row = (data || null) as AgentWidgetContractRow | null;
+./src/lib/agentClient.ts:404:  const contractJson = row?.contract_json;
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:5:-- agent_widget_contracts = output/contract the widget displays.
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:7:create table if not exists public.agent_widget_contracts (
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:18:  contract_json jsonb not null default '{}'::jsonb,
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:20:  source_context_id uuid null,
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:28:  constraint agent_widget_contracts_schema_version_check
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:31:  constraint agent_widget_contracts_status_check
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:34:  constraint agent_widget_contracts_contract_is_object_check
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:35:    check (jsonb_typeof(contract_json) = 'object')
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:38:create index if not exists agent_widget_contracts_cycle_date_idx
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:39:  on public.agent_widget_contracts (cycle_date desc);
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:41:create index if not exists agent_widget_contracts_generated_at_idx
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:42:  on public.agent_widget_contracts (created_at desc);
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:44:create index if not exists agent_widget_contracts_company_cycle_idx
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:45:  on public.agent_widget_contracts (company_id, cycle_date desc);
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:47:create index if not exists agent_widget_contracts_user_cycle_idx
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:48:  on public.agent_widget_contracts (user_id, cycle_date desc);
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:50:create index if not exists agent_widget_contracts_status_idx
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:51:  on public.agent_widget_contracts (status);
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:53:create index if not exists agent_widget_contracts_contract_json_gin_idx
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:54:  on public.agent_widget_contracts using gin (contract_json);
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:56:create or replace function public.set_agent_widget_contracts_updated_at()
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:66:drop trigger if exists set_agent_widget_contracts_updated_at
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:67:  on public.agent_widget_contracts;
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:69:create trigger set_agent_widget_contracts_updated_at
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:70:before update on public.agent_widget_contracts
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:72:execute function public.set_agent_widget_contracts_updated_at();
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:74:comment on table public.agent_widget_contracts is
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:77:comment on column public.agent_widget_contracts.contract_json is
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:80:comment on column public.agent_widget_contracts.source_context_id is
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:85:grant select on public.agent_widget_contracts to anon;
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:86:grant select on public.agent_widget_contracts to authenticated;
+./supabase/migrations/20260705162000_agent_widget_contracts.sql:87:grant insert, update on public.agent_widget_contracts to authenticated;

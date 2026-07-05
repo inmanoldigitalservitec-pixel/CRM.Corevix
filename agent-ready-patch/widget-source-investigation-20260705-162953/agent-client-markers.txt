@@ -1,0 +1,12 @@
+282:  context_json?: unknown;
+299:export async function fetchAgentPromptPayload(
+303:    .from("agent_operating_context")
+304:    .select("id, company_id, user_id, context_json, generated_at, created_at, updated_at")
+316:  const { data, error } = await query.maybeSingle();
+323:  const contextJson = row?.context_json;
+357:  contract_json?: unknown;
+376:export async function fetchAgentWidgetContract(
+380:    .from("agent_widget_contracts")
+381:    .select("id, company_id, user_id, cycle_date, schema_version, status, contract_json, source_context_id, generated_by, error_message, created_at, updated_at")
+397:  const { data, error } = await query.maybeSingle();
+404:  const contractJson = row?.contract_json;

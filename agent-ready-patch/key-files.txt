@@ -1,0 +1,10 @@
+./agent-ready-patch/investigation-report.md
+./supabase/migrations/20260705143000_agent_operating_context.sql
+./supabase/migrations/20260705133000_agent_daily_plans.sql
+./investigate-agent-brief.sh
+./src/lib/agentClient.ts
+./src/lib/crm/agent-plans.ts
+./src/lib/crm/agent-plan-generation.ts
+./apps/agent-worker/src/agent-daily-plans.ts
+./apps/agent-worker/src/agent-operating-context.ts
+./src/components/dashboard-v2/dashboard-v2.tsx

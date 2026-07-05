@@ -1,13 +1,22 @@
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, ClipboardList, FileText, Inbox, Receipt, Reply, SearchCheck } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ClipboardList,
+  FileText,
+  Inbox,
+  Receipt,
+  Reply,
+  SearchCheck,
+} from "lucide-react";
 
 type FilterKey = "all" | "unread" | "pending" | "proposal" | "invoice" | "task" | "closed";
 
 type FilterOption = {
   key: FilterKey;
   label: string;
-  icon: JSX.Element;
+  icon: ReactNode;
 };
 
 const FILTERS: FilterOption[] = [
@@ -21,8 +30,9 @@ const FILTERS: FilterOption[] = [
 ];
 
 function getChannelRow() {
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) =>
-    ["Todos", "WhatsApp", "Messenger", "Instagram"].includes((button.textContent || "").trim()),
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter(
+    (button) =>
+      ["Todos", "WhatsApp", "Messenger", "Instagram"].includes((button.textContent || "").trim()),
   );
   return buttons[0]?.parentElement || null;
 }
@@ -42,23 +52,37 @@ function ensureSlot() {
 function getConversationButtons() {
   return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
     const className = String(button.className || "");
-    return className.includes("mb-1") && className.includes("w-full") && className.includes("text-left");
+    return (
+      className.includes("mb-1") && className.includes("w-full") && className.includes("text-left")
+    );
   });
 }
 
 function buttonHasUnread(button: HTMLElement) {
-  return Array.from(button.querySelectorAll("span")).some((span) => /^\d+$/.test((span.textContent || "").trim()));
+  return Array.from(button.querySelectorAll("span")).some((span) =>
+    /^\d+$/.test((span.textContent || "").trim()),
+  );
 }
 
 function buttonMatches(button: HTMLElement, active: FilterKey) {
   if (active === "all") return true;
   const text = (button.textContent || "").toLowerCase();
   if (active === "unread") return buttonHasUnread(button);
-  if (active === "pending") return buttonHasUnread(button) || text.includes("pendiente") || text.includes("seguimiento") || text.includes("responder");
-  if (active === "proposal") return text.includes("propuesta") || text.includes("cotiz") || text.includes("quote");
-  if (active === "invoice") return text.includes("factura") || text.includes("pago") || text.includes("invoice");
-  if (active === "task") return text.includes("tarea") || text.includes("seguimiento") || text.includes("llamar");
-  if (active === "closed") return text.includes("cerrado") || text.includes("cerrada") || text.includes("closed");
+  if (active === "pending")
+    return (
+      buttonHasUnread(button) ||
+      text.includes("pendiente") ||
+      text.includes("seguimiento") ||
+      text.includes("responder")
+    );
+  if (active === "proposal")
+    return text.includes("propuesta") || text.includes("cotiz") || text.includes("quote");
+  if (active === "invoice")
+    return text.includes("factura") || text.includes("pago") || text.includes("invoice");
+  if (active === "task")
+    return text.includes("tarea") || text.includes("seguimiento") || text.includes("llamar");
+  if (active === "closed")
+    return text.includes("cerrado") || text.includes("cerrada") || text.includes("closed");
   return true;
 }
 
@@ -104,10 +128,13 @@ export function WhatsAppOperationalFilters() {
 
   const counts = useMemo(() => {
     version;
-    return FILTERS.reduce<Record<FilterKey, number>>((acc, option) => {
-      acc[option.key] = countForFilter(option.key);
-      return acc;
-    }, {} as Record<FilterKey, number>);
+    return FILTERS.reduce<Record<FilterKey, number>>(
+      (acc, option) => {
+        acc[option.key] = countForFilter(option.key);
+        return acc;
+      },
+      {} as Record<FilterKey, number>,
+    );
   }, [version]);
 
   const activeOption = FILTERS.find((option) => option.key === active) || FILTERS[0];
@@ -163,14 +190,18 @@ export function WhatsAppOperationalFilters() {
                     window.requestAnimationFrame(() => applyFilter(option.key));
                   }}
                   className={`flex h-9 w-full items-center justify-between gap-2 rounded-xl px-2.5 text-left text-xs font-black transition ${
-                    selected ? "bg-[#d9fdd3] text-[#007a5d]" : "text-[#52645d] hover:bg-[#f1f8f5] hover:text-[#008069]"
+                    selected
+                      ? "bg-[#d9fdd3] text-[#007a5d]"
+                      : "text-[#52645d] hover:bg-[#f1f8f5] hover:text-[#008069]"
                   }`}
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     {option.icon}
                     <span className="truncate">{option.label}</span>
                   </span>
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${selected ? "bg-white/70" : "bg-[#edf6f2]"}`}>
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${selected ? "bg-white/70" : "bg-[#edf6f2]"}`}
+                  >
                     {counts[option.key] ?? 0}
                   </span>
                 </button>

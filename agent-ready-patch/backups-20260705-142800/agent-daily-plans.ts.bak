@@ -1,0 +1,1100 @@
+import type { ToolContext } from './types';
+
+type WorkerPlanState = 'new' | 'reviewed' | 'approved' | 'executing' | 'completed' | 'dismissed' | 'expired';
+
+type WorkerSeverity = 'critical' | 'high' | 'medium' | 'low';
+type WorkerCaseType = 'top_priority' | 'risk' | 'upcoming_commitment' | 'stale_opportunity' | 'follow_up';
+
+type WorkerActionType =
+	| 'create_task'
+	| 'send_reminder'
+	| 'schedule_call'
+	| 'draft_email'
+	| 'reassign_owner'
+	| 'move_due_date'
+	| 'escalate_ticket'
+	| 'record_outcome'
+	| 'mark_resolved'
+	| 'review_record';
+
+type WorkerAction = {
+	id: string;
+	type: WorkerActionType;
+	label: string;
+	reason: string;
+	module: string;
+	target: {
+		type: string;
+		id?: string | null;
+		label?: string | null;
+		href?: string | null;
+		status?: string | null;
+	};
+	priority: WorkerSeverity;
+	requiresConfirmation: boolean;
+	payload?: Record<string, string | number | boolean | null>;
+};
+
+type WorkerPlanItem = {
+	id: string;
+	memoryKey: string;
+	module: string;
+	title: string;
+	summary: string;
+	severity: WorkerSeverity;
+	score: number;
+	bucket: 'overdue' | 'today' | 'upcoming' | 'recent' | 'open';
+	kind: 'calendar' | 'activity' | 'commitment' | 'risk' | 'notification';
+	dueAt?: string | null;
+	href?: string;
+	sourceType?: string;
+	sourceId?: string | null;
+	sourceLabel?: string | null;
+	urgencyReason?: string;
+	recommendation?: string;
+	client?: string | null;
+	lead?: string | null;
+	project?: string | null;
+	amount?: string | null;
+	actions: WorkerAction[];
+};
+
+type WorkerCase = {
+	key: string;
+	type: WorkerCaseType;
+	title: string;
+	summary: string;
+	severity: WorkerSeverity;
+	sourceEventIds: string[];
+	sourceMemoryKeys: string[];
+	sourceModules: string[];
+	item: WorkerPlanItem;
+};
+
+type WorkerPlanRow = {
+	id?: string;
+	company_id: string;
+	user_id: string;
+	cycle_date: string;
+	snapshot_version: string;
+	snapshot_base: Record<string, unknown>;
+	case_key: string;
+	case_type: WorkerCaseType;
+	case_title: string;
+	case_summary: string | null;
+	case_severity: WorkerSeverity;
+	detected_case: WorkerCase;
+	plan_title: string;
+	plan_summary: string;
+	generated_plan: {
+		title: string;
+		summary: string;
+		actions: WorkerAction[];
+		rationale?: string | null;
+	};
+	suggested_actions: WorkerAction[];
+	state: WorkerPlanState;
+	state_reason: string | null;
+	source_memory_keys: string[];
+	source_event_ids: string[];
+	source_modules: string[];
+	origin_fingerprint: string;
+	reminder_count: number;
+	last_reminded_at: string | null;
+	next_reminder_at: string | null;
+	reviewed_at: string | null;
+	approved_at: string | null;
+	executing_at: string | null;
+	completed_at: string | null;
+	dismissed_at: string | null;
+	expired_at: string | null;
+	metadata: Record<string, unknown>;
+};
+
+type WorkerWhatsAppConversation = {
+	id: string;
+	status?: string | null;
+	unread_count?: number | null;
+	last_message?: string | null;
+	last_message_at?: string | null;
+};
+
+type WorkerEmailConversation = {
+	id: string;
+	status?: string | null;
+	is_read?: boolean | null;
+	subject?: string | null;
+	last_message_at?: string | null;
+};
+
+type WorkerMetaConversation = {
+	id: string;
+	platform?: string | null;
+	status?: string | null;
+	unread_count?: number | null;
+	last_message_text?: string | null;
+	last_message_at?: string | null;
+	created_at?: string | null;
+};
+
+type SyncOptions = {
+	cycleDate?: string;
+	expireMissing?: boolean;
+	now?: Date;
+};
+
+function normalizeStatus(value: unknown) {
+	return String(value || '')
+		.toLowerCase()
+		.replace(/[_-]/g, ' ')
+		.trim();
+}
+
+function localDateKey(date: Date) {
+	const yyyy = String(date.getFullYear());
+	const mm = String(date.getMonth() + 1).padStart(2, '0');
+	const dd = String(date.getDate()).padStart(2, '0');
+	return `${yyyy}-${mm}-${dd}`;
+}
+
+function toDateKey(value: string | null | undefined) {
+	if (!value) return null;
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+	const t = Date.parse(value);
+	if (!Number.isFinite(t)) return null;
+	return localDateKey(new Date(t));
+}
+
+function daysUntil(dateKey: string, now: Date) {
+	const [y, m, d] = dateKey.split('-').map((value) => Number(value));
+	if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return Infinity;
+	const start = new Date(now);
+	start.setHours(0, 0, 0, 0);
+	const target = new Date(y, m - 1, d);
+	target.setHours(0, 0, 0, 0);
+	return Math.round((target.getTime() - start.getTime()) / 86400000);
+}
+
+function hoursSince(value: string | null | undefined, nowMs: number) {
+	const t = Date.parse(String(value || ''));
+	if (!Number.isFinite(t)) return Infinity;
+	return (nowMs - t) / 36e5;
+}
+
+function daysSince(value: string | null | undefined, nowMs: number) {
+	const t = Date.parse(String(value || ''));
+	if (!Number.isFinite(t)) return Infinity;
+	return (nowMs - t) / 86400000;
+}
+
+function isDateKeyInNextDays(dateKey: string, days: number, now: Date) {
+	const [y, m, d] = dateKey.split('-').map((value) => Number(value));
+	if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+	const start = new Date(now);
+	start.setHours(0, 0, 0, 0);
+	const end = new Date(start);
+	end.setDate(end.getDate() + days);
+	const dt = new Date(y, m - 1, d);
+	return dt >= start && dt <= end;
+}
+
+function score(severity: WorkerSeverity, bucket: WorkerPlanItem['bucket']) {
+	const severityWeight = {
+		critical: 100,
+		high: 70,
+		medium: 40,
+		low: 15,
+	} as const;
+	const bucketWeight = {
+		overdue: 30,
+		today: 20,
+		upcoming: 10,
+		recent: 6,
+		open: 0,
+	} as const;
+	return severityWeight[severity] + bucketWeight[bucket];
+}
+
+function stableHash(input: string, seed: number) {
+	let hash = seed >>> 0;
+	for (let i = 0; i < input.length; i += 1) {
+		hash ^= input.charCodeAt(i);
+		hash = Math.imul(hash, 16777619);
+	}
+	return hash >>> 0;
+}
+
+function stableFingerprint(input: string) {
+	const part1 = stableHash(input, 0x811c9dc5).toString(16).padStart(8, '0');
+	const part2 = stableHash(input, 0x01000193).toString(16).padStart(8, '0');
+	const part3 = stableHash(input, 0x9e3779b9).toString(16).padStart(8, '0');
+	return `${part1}${part2}${part3}`;
+}
+
+function compactUnique(values: Array<string | null | undefined>) {
+	return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)));
+}
+
+function planStateCanExpire(state: string) {
+	return ['new', 'reviewed', 'approved'].includes(state);
+}
+
+function nextReminderAt(now: Date) {
+	const next = new Date(now);
+	next.setDate(next.getDate() + 1);
+	next.setHours(8, 0, 0, 0);
+	return next.toISOString();
+}
+
+function actionId(item: WorkerPlanItem, type: WorkerActionType) {
+	return [item.module, item.sourceType || 'source', item.sourceId || item.id, type].join('::');
+}
+
+function makeAction(
+	item: WorkerPlanItem,
+	type: WorkerActionType,
+	label: string,
+	reason: string,
+	payload?: Record<string, string | number | boolean | null>,
+): WorkerAction {
+	return {
+		id: actionId(item, type),
+		type,
+		label,
+		reason,
+		module: item.module,
+		target: {
+			type: item.sourceType || item.module,
+			id: item.sourceId || item.id,
+			label: item.sourceLabel || item.title,
+			href: item.href || null,
+		},
+		priority: item.severity,
+		requiresConfirmation: true,
+		payload,
+	};
+}
+
+function buildActions(item: WorkerPlanItem) {
+	const reason = item.urgencyReason || item.summary;
+	const actions: WorkerAction[] = [];
+
+	if (item.module === 'tasks') {
+		actions.push(makeAction(item, 'mark_resolved', 'Marcar como resuelta', reason));
+		if (item.bucket === 'overdue') {
+			actions.push(
+				makeAction(item, 'move_due_date', 'Mover fecha de entrega', reason, {
+					dueAt: item.dueAt || null,
+				}),
+			);
+		}
+	}
+
+	if (item.module === 'invoices') {
+		actions.push(makeAction(item, 'send_reminder', 'Enviar recordatorio de pago', reason));
+		actions.push(makeAction(item, 'create_task', 'Crear tarea de cobro', reason));
+	}
+
+	if (item.module === 'proposals') {
+		actions.push(makeAction(item, 'draft_email', 'Redactar seguimiento', reason));
+		actions.push(makeAction(item, 'schedule_call', 'Agendar llamada comercial', reason));
+	}
+
+	if (item.module === 'projects') {
+		actions.push(makeAction(item, 'create_task', 'Crear tarea de desbloqueo', reason));
+		actions.push(makeAction(item, 'reassign_owner', 'Reasignar responsable', reason));
+	}
+
+	if (item.module === 'calendar') {
+		actions.push(makeAction(item, 'review_record', 'Revisar evento', reason));
+		if (item.kind === 'risk') {
+			actions.push(makeAction(item, 'record_outcome', 'Registrar resultado', reason));
+		}
+	}
+
+	if (item.module === 'tickets') {
+		actions.push(makeAction(item, 'escalate_ticket', 'Escalar ticket', reason));
+	}
+
+	if (item.module === 'clients') {
+		actions.push(makeAction(item, 'schedule_call', 'Agendar seguimiento', reason));
+	}
+
+	if (item.module === 'leads') {
+		actions.push(makeAction(item, 'create_task', 'Crear tarea de seguimiento', reason));
+		actions.push(makeAction(item, 'schedule_call', 'Agendar llamada', reason));
+	}
+
+	return actions;
+}
+
+async function fetchAttentionInputs(ctx: ToolContext) {
+	const queries = await Promise.all([
+		ctx.supabase
+			.from('leads')
+			.select('id,first_name,last_name,company_name,status,created_at,updated_at,last_interaction_at')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+		ctx.supabase
+			.from('tasks')
+			.select('id,title,status,priority,due_date,updated_at,related_lead_id,related_client_id,related_project_id')
+			.eq('company_id', ctx.companyId)
+			.limit(300),
+		ctx.supabase.from('projects').select('id,name,status,due_date').eq('company_id', ctx.companyId).limit(200),
+		ctx.supabase.from('invoices').select('id,status,total,due_date,number,client_id').eq('company_id', ctx.companyId).limit(200),
+		ctx.supabase
+			.from('proposals')
+			.select('id,status,valid_until,title,number,amount,client_id,sent_at,updated_at')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+		ctx.supabase
+			.from('tickets')
+			.select('id,ticket_number,subject,department,service,status,priority,updated_at,resolution_due_at')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+		ctx.supabase
+			.from('calendar_events')
+			.select('id,title,description,location,type,status,start_at,end_at,all_day,created_at')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+		ctx.supabase
+			.from('clients')
+			.select('id,company_name,contact_person,status,updated_at,account_manager')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+		ctx.supabase
+			.from('client_products')
+			.select('id,client_id,product_id,status,start_date,end_date,price,billing_type,updated_at')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+		ctx.supabase
+			.from('whatsapp_conversations')
+			.select('id,status,unread_count,last_message,last_message_at')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+		ctx.supabase.from('email_conversations').select('id,status,is_read,subject,last_message_at').eq('company_id', ctx.companyId).limit(200),
+		ctx.supabase
+			.from('meta_conversations')
+			.select('id,platform,status,unread_count,last_message_text,last_message_at,created_at')
+			.eq('company_id', ctx.companyId)
+			.limit(200),
+	]);
+
+	const errors = queries.map((entry) => entry.error).filter(Boolean);
+	if (errors.length) {
+		throw new Error(errors.map((entry: any) => entry.message).join(' | '));
+	}
+
+	return {
+		leads: queries[0].data || [],
+		tasks: queries[1].data || [],
+		projects: queries[2].data || [],
+		invoices: queries[3].data || [],
+		proposals: queries[4].data || [],
+		tickets: queries[5].data || [],
+		calendarEvents: queries[6].data || [],
+		clients: queries[7].data || [],
+		clientProducts: queries[8].data || [],
+		whatsappConversations: (queries[9].data || []) as WorkerWhatsAppConversation[],
+		emailConversations: (queries[10].data || []) as WorkerEmailConversation[],
+		metaConversations: (queries[11].data || []) as WorkerMetaConversation[],
+	};
+}
+
+function clientLabel(client: any) {
+	return client?.company_name || client?.contact_person || 'Cliente sin nombre';
+}
+
+function leadLabel(lead: any) {
+	return lead?.company_name || `${lead?.first_name || ''} ${lead?.last_name || ''}`.trim() || 'Lead sin nombre';
+}
+
+function buildDailyItems(data: Awaited<ReturnType<typeof fetchAttentionInputs>>, now: Date) {
+	const nowMs = now.getTime();
+	const today = localDateKey(now);
+	const clientsById = new Map(data.clients.map((client: any) => [String(client.id), client]));
+	const projectsById = new Map(data.projects.map((project: any) => [String(project.id), project]));
+	const leadsById = new Map(data.leads.map((lead: any) => [String(lead.id), lead]));
+	const items: WorkerPlanItem[] = [];
+
+	for (const lead of data.leads) {
+		const status = normalizeStatus(lead.status);
+		if (['won', 'lost', 'converted', 'closed'].includes(status)) continue;
+		const lastTouch = lead.last_interaction_at || lead.updated_at || lead.created_at;
+		const staleDays = daysSince(lastTouch, nowMs);
+		const isNew = status === 'new';
+		const needsFollowUp = staleDays >= 3 || (isNew && daysSince(lead.created_at, nowMs) >= 2);
+		if (!needsFollowUp) continue;
+		const severeStale = staleDays >= 5;
+		const bucket: WorkerPlanItem['bucket'] = severeStale ? 'recent' : 'open';
+		const severity: WorkerSeverity = severeStale ? 'high' : 'medium';
+		const item: WorkerPlanItem = {
+			id: `lead:${lead.id}`,
+			memoryKey: `leads::${lead.id}::${severeStale ? 'stale' : 'follow_up'}`,
+			module: 'leads',
+			title: leadLabel(lead),
+			summary: isNew ? 'Lead nuevo sin avance suficiente' : 'Lead abierto sin movimiento reciente',
+			severity,
+			score: score(severity, bucket),
+			bucket,
+			kind: 'activity',
+			href: '/leads',
+			sourceType: 'lead',
+			sourceId: lead.id,
+			sourceLabel: leadLabel(lead),
+			urgencyReason: severeStale
+				? `El lead lleva ${Math.floor(staleDays)} días sin movimiento.`
+				: isNew
+					? 'El lead sigue en etapa inicial sin avance.'
+					: 'El lead necesita una próxima acción clara.',
+			recommendation: 'Crear seguimiento, actualizar estado o agendar contacto.',
+			lead: leadLabel(lead),
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const task of data.tasks) {
+		const status = normalizeStatus(task.status);
+		if (['completed', 'cancelled', 'canceled'].includes(status)) continue;
+		const dueKey = toDateKey(task.due_date);
+		if (!dueKey) continue;
+		const overdue = dueKey < today;
+		const dueToday = dueKey === today;
+		const dueSoon = dueKey > today && isDateKeyInNextDays(dueKey, 3, now);
+		if (!overdue && !dueToday && !dueSoon) continue;
+		const relatedClient = task.related_client_id ? clientsById.get(String(task.related_client_id)) : null;
+		const relatedProject = task.related_project_id ? projectsById.get(String(task.related_project_id)) : null;
+		const relatedLead = task.related_lead_id ? leadsById.get(String(task.related_lead_id)) : null;
+		const bucket = overdue ? 'overdue' : dueToday ? 'today' : 'upcoming';
+		const item: WorkerPlanItem = {
+			id: `task:${task.id}`,
+			memoryKey: `tasks::${task.id}::${bucket}`,
+			module: 'tasks',
+			title: task.title || 'Tarea sin titulo',
+			summary: relatedProject?.name
+				? `Proyecto: ${relatedProject.name}`
+				: relatedClient
+					? `Cliente: ${clientLabel(relatedClient)}`
+					: relatedLead
+						? `Lead: ${leadLabel(relatedLead)}`
+						: 'Sin relacion',
+			severity: overdue ? 'critical' : 'medium',
+			score: score(overdue ? 'critical' : 'medium', bucket),
+			bucket,
+			kind: 'commitment',
+			dueAt: task.due_date,
+			href: '/tasks',
+			sourceType: 'task',
+			sourceId: task.id,
+			sourceLabel: task.title || 'Tarea sin titulo',
+			urgencyReason: overdue
+				? 'La tarea esta vencida.'
+				: dueToday
+					? 'La tarea vence hoy.'
+					: `La tarea vence en ${daysUntil(dueKey, now)} dias.`,
+			recommendation: overdue ? 'Reasignar, completar o mover la fecha.' : 'Preparar el seguimiento antes de que venza.',
+			client: relatedClient ? clientLabel(relatedClient) : null,
+			lead: relatedLead ? leadLabel(relatedLead) : null,
+			project: relatedProject?.name || null,
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const invoice of data.invoices) {
+		const status = normalizeStatus(invoice.status);
+		if (['paid', 'cancelled', 'canceled'].includes(status)) continue;
+		const dueKey = toDateKey(invoice.due_date);
+		const overdue = Boolean(dueKey && dueKey < today);
+		const dueToday = Boolean(dueKey && dueKey === today);
+		const dueSoon = Boolean(dueKey && dueKey > today && isDateKeyInNextDays(dueKey, 3, now));
+		if (!overdue && !dueToday && !dueSoon) continue;
+		const client = invoice.client_id ? clientsById.get(String(invoice.client_id)) : null;
+		const bucket = overdue ? 'overdue' : dueToday ? 'today' : 'upcoming';
+		const item: WorkerPlanItem = {
+			id: `invoice:${invoice.id}`,
+			memoryKey: `invoices::${invoice.id}::${bucket}`,
+			module: 'invoices',
+			title: invoice.number ? `Factura ${invoice.number}` : 'Factura pendiente',
+			summary: client ? clientLabel(client) : 'Sin cliente vinculado',
+			severity: overdue ? 'critical' : dueToday ? 'high' : 'medium',
+			score: score(overdue ? 'critical' : dueToday ? 'high' : 'medium', bucket),
+			bucket,
+			kind: overdue ? 'risk' : 'commitment',
+			dueAt: invoice.due_date,
+			href: '/invoices',
+			sourceType: 'invoice',
+			sourceId: invoice.id,
+			sourceLabel: invoice.number ? `Factura ${invoice.number}` : 'Factura pendiente',
+			urgencyReason: overdue
+				? 'La factura esta vencida.'
+				: dueToday
+					? 'La factura vence hoy.'
+					: `La factura vence en ${daysUntil(String(dueKey), now)} dias.`,
+			recommendation: overdue ? 'Confirmar cobro, enviar recordatorio o escalar seguimiento.' : 'Preparar seguimiento preventivo de cobro.',
+			client: client ? clientLabel(client) : null,
+			amount: invoice.total != null ? `$${Number(invoice.total).toLocaleString()}` : null,
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const proposal of data.proposals) {
+		const status = normalizeStatus(proposal.status);
+		const pending = ['pending', 'sent', 'viewed'].includes(status);
+		if (!pending) continue;
+		const viewedNoResponse = status === 'viewed' && daysSince(proposal.updated_at || proposal.sent_at, nowMs) >= 2;
+		const dueKey = toDateKey(proposal.valid_until);
+		const nearExpiry = Boolean(dueKey && (dueKey < today || isDateKeyInNextDays(dueKey, 3, now)));
+		if (!viewedNoResponse && !nearExpiry) continue;
+		const client = proposal.client_id ? clientsById.get(String(proposal.client_id)) : null;
+		const bucket: WorkerPlanItem['bucket'] = viewedNoResponse ? 'recent' : dueKey === today ? 'today' : 'upcoming';
+		const severity: WorkerSeverity = viewedNoResponse ? 'high' : dueKey && dueKey < today ? 'high' : 'medium';
+		const item: WorkerPlanItem = {
+			id: `proposal:${proposal.id}`,
+			memoryKey: `proposals::${proposal.id}::${viewedNoResponse ? 'stale' : 'expiry'}`,
+			module: 'proposals',
+			title: proposal.title || proposal.number || 'Propuesta pendiente',
+			summary: client ? clientLabel(client) : 'Sin cliente vinculado',
+			severity,
+			score: score(severity, bucket),
+			bucket,
+			kind: viewedNoResponse ? 'activity' : 'commitment',
+			dueAt: proposal.valid_until,
+			href: '/proposals',
+			sourceType: 'proposal',
+			sourceId: proposal.id,
+			sourceLabel: proposal.title || proposal.number || 'Propuesta pendiente',
+			urgencyReason: viewedNoResponse ? 'La propuesta fue vista y sigue sin respuesta.' : 'La propuesta esta cerca de vencer.',
+			recommendation: viewedNoResponse
+				? 'Dar seguimiento comercial con contexto de la propuesta.'
+				: 'Revisar con el cliente antes de que caduque.',
+			client: client ? clientLabel(client) : null,
+			amount: proposal.amount != null ? `$${Number(proposal.amount).toLocaleString()}` : null,
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const project of data.projects) {
+		const status = normalizeStatus(project.status);
+		if (!['active', 'in progress', 'ongoing', 'open'].includes(status)) continue;
+		const dueKey = toDateKey(project.due_date);
+		if (!dueKey || dueKey >= today) continue;
+		const item: WorkerPlanItem = {
+			id: `project:${project.id}`,
+			memoryKey: `projects::${project.id}::risk`,
+			module: 'projects',
+			title: project.name || 'Proyecto por revisar',
+			summary: project.due_date ? `Entrega ${project.due_date}` : 'Sin fecha de entrega',
+			severity: 'critical',
+			score: score('critical', 'overdue'),
+			bucket: 'overdue',
+			kind: 'risk',
+			dueAt: project.due_date,
+			href: '/projects',
+			sourceType: 'project',
+			sourceId: project.id,
+			sourceLabel: project.name || 'Proyecto por revisar',
+			urgencyReason: 'El proyecto tiene la fecha de entrega vencida.',
+			recommendation: 'Revisar avance, dependencias y bloqueos.',
+			project: project.name || null,
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const event of data.calendarEvents) {
+		const status = normalizeStatus(event.status);
+		if (['completed', 'done', 'cancelled', 'canceled'].includes(status)) continue;
+		const startMs = Date.parse(String(event.start_at || ''));
+		if (!Number.isFinite(startMs)) continue;
+		const overdue = startMs < nowMs;
+		const upcoming = !overdue && startMs - nowMs <= 24 * 36e5;
+		if (!overdue && !upcoming) continue;
+		const isMeeting = normalizeStatus(event.type) === 'meeting';
+		const severity: WorkerSeverity = overdue && isMeeting ? 'medium' : overdue ? 'medium' : 'low';
+		const bucket: WorkerPlanItem['bucket'] = overdue ? 'overdue' : 'upcoming';
+		const item: WorkerPlanItem = {
+			id: `calendar:${event.id}`,
+			memoryKey: `calendar::${event.id}::${bucket}`,
+			module: 'calendar',
+			title: event.title || 'Evento pendiente',
+			summary: [event.type, event.location, event.description].filter(Boolean).join(' | ') || 'Evento del calendario',
+			severity,
+			score: score(severity, bucket),
+			bucket,
+			kind: overdue && isMeeting ? 'risk' : 'calendar',
+			dueAt: event.start_at,
+			href: '/calendar',
+			sourceType: 'calendar_event',
+			sourceId: event.id,
+			sourceLabel: event.title || 'Evento pendiente',
+			urgencyReason: overdue
+				? isMeeting
+					? 'La reunion ya paso y no tiene resultado visible.'
+					: 'El evento ya deberia haberse ejecutado.'
+				: 'El evento esta proximo.',
+			recommendation: overdue ? 'Marcar como completado o reprogramar.' : 'Preparar o confirmar el evento.',
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const ticket of data.tickets) {
+		const status = normalizeStatus(ticket.status);
+		if (status.includes('closed')) continue;
+		const dueKey = toDateKey(ticket.resolution_due_at);
+		const overdue = Boolean(dueKey && dueKey < today);
+		const dueSoon = !overdue && ticket.resolution_due_at && Date.parse(String(ticket.resolution_due_at)) - nowMs <= 24 * 36e5;
+		if (!overdue && !dueSoon) continue;
+		const severity: WorkerSeverity = dueSoon ? 'high' : 'medium';
+		const bucket: WorkerPlanItem['bucket'] = overdue ? 'overdue' : 'upcoming';
+		const item: WorkerPlanItem = {
+			id: `ticket:${ticket.id}`,
+			memoryKey: `tickets::${ticket.id}::${bucket}`,
+			module: 'tickets',
+			title: ticket.subject || (ticket.ticket_number ? `Ticket ${ticket.ticket_number}` : 'Ticket'),
+			summary: ticket.department || ticket.service || 'Ticket abierto',
+			severity,
+			score: score(severity, bucket),
+			bucket,
+			kind: 'risk',
+			dueAt: ticket.resolution_due_at,
+			href: '/tickets',
+			sourceType: 'ticket',
+			sourceId: ticket.id,
+			sourceLabel: ticket.subject || (ticket.ticket_number ? `Ticket ${ticket.ticket_number}` : 'Ticket'),
+			urgencyReason: dueSoon ? 'El ticket esta cerca del SLA.' : 'El ticket abierto requiere atencion.',
+			recommendation: dueSoon ? 'Responder o escalar antes de incumplir el SLA.' : 'Responder o escalar al area responsable.',
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const client of data.clients) {
+		if (normalizeStatus(client.status) !== 'vip') continue;
+		if (daysSince(client.updated_at, nowMs) < 5) continue;
+		const item: WorkerPlanItem = {
+			id: `client:${client.id}`,
+			memoryKey: `clients::vip::${client.id}`,
+			module: 'clients',
+			title: clientLabel(client),
+			summary: client.account_manager ? `VIP | Responsable ${client.account_manager}` : 'Cliente VIP sin seguimiento reciente',
+			severity: 'high',
+			score: score('high', 'recent'),
+			bucket: 'recent',
+			kind: 'activity',
+			href: '/clients',
+			sourceType: 'client',
+			sourceId: client.id,
+			sourceLabel: clientLabel(client),
+			urgencyReason: 'El cliente VIP lleva varios dias sin actividad visible.',
+			recommendation: 'Programar seguimiento o revisar oportunidades abiertas.',
+			client: clientLabel(client),
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	for (const product of data.clientProducts) {
+		const status = normalizeStatus(product.status);
+		const endKey = toDateKey(product.end_date);
+		if (!endKey || !isDateKeyInNextDays(endKey, 30, now)) continue;
+		if (status.includes('cancel') || status.includes('inactive')) continue;
+		const client = product.client_id ? clientsById.get(String(product.client_id)) : null;
+		const severity: WorkerSeverity = daysUntil(endKey, now) <= 7 ? 'high' : 'medium';
+		const item: WorkerPlanItem = {
+			id: `renewal:${product.id}`,
+			memoryKey: `renewals::${product.id}`,
+			module: 'clients',
+			title: client ? `Renovacion: ${clientLabel(client)}` : 'Renovacion proxima',
+			summary:
+				[product.billing_type, product.price ? `$${Number(product.price).toLocaleString()}` : null].filter(Boolean).join(' | ') ||
+				'Producto o servicio proximo a vencer',
+			severity,
+			score: score(severity, 'upcoming'),
+			bucket: 'upcoming',
+			kind: 'commitment',
+			dueAt: product.end_date,
+			href: '/clients',
+			sourceType: 'client_product',
+			sourceId: product.id,
+			sourceLabel: client ? clientLabel(client) : 'Renovacion proxima',
+			urgencyReason: `El servicio vence en ${daysUntil(endKey, now)} dias.`,
+			recommendation: 'Contactar al cliente para confirmar renovacion o continuidad.',
+			client: client ? clientLabel(client) : null,
+			amount: product.price != null ? `$${Number(product.price).toLocaleString()}` : null,
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		items.push(item);
+	}
+
+	const whatsappOpen = data.whatsappConversations.filter((conversation) => normalizeStatus(conversation.status) === 'open').length;
+	const metaOpen = data.metaConversations.filter((conversation) => normalizeStatus(conversation.status) === 'open').length;
+	const emailOpen = data.emailConversations.filter(
+		(conversation) => normalizeStatus(conversation.status) === 'open' || conversation.is_read === false,
+	).length;
+	const inboxTotal = whatsappOpen + metaOpen + emailOpen;
+
+	if (inboxTotal > 0) {
+		const unreadTotal =
+			data.whatsappConversations.reduce((sum, conversation) => sum + Number(conversation.unread_count || 0), 0) +
+			data.metaConversations.reduce((sum, conversation) => sum + Number(conversation.unread_count || 0), 0) +
+			data.emailConversations.filter((conversation) => conversation.is_read === false).length;
+		const lastActivityCandidates = [
+			...data.whatsappConversations.map((conversation) => conversation.last_message_at),
+			...data.metaConversations.map((conversation) => conversation.last_message_at || conversation.created_at),
+			...data.emailConversations.map((conversation) => conversation.last_message_at),
+		]
+			.map((value) => Date.parse(String(value || '')))
+			.filter((value) => Number.isFinite(value));
+		const hasUnread = unreadTotal > 0;
+		const item: WorkerPlanItem = {
+			id: 'inbox:open',
+			memoryKey: 'inbox::open',
+			module: 'inbox',
+			title: 'Conversaciones por atender',
+			summary: `${inboxTotal} conversación(es) abiertas en canales del CRM`,
+			severity: hasUnread ? 'high' : 'medium',
+			score: score(hasUnread ? 'high' : 'medium', 'open') + Math.min(16, unreadTotal),
+			bucket: 'open',
+			kind: 'notification',
+			href: '/whatsapp',
+			sourceType: 'conversation_batch',
+			sourceId: 'open',
+			sourceLabel: 'Bandeja de conversaciones abiertas',
+			urgencyReason: hasUnread
+				? `Hay ${unreadTotal} mensaje(s) sin leer en conversaciones abiertas.`
+				: 'Hay conversaciones abiertas que requieren seguimiento.',
+			recommendation: 'Responder, reasignar o cerrar las conversaciones pendientes.',
+			actions: [],
+		};
+		item.actions = buildActions(item);
+		if (lastActivityCandidates.length) {
+			item.dueAt = new Date(Math.max(...lastActivityCandidates)).toISOString();
+		}
+		items.push(item);
+	}
+
+	return items.sort((a, b) => b.score - a.score);
+}
+
+function buildSnapshotFromItems(items: WorkerPlanItem[], now: Date) {
+	const topPriorities = items.slice(0, 7);
+	const risks = items.filter((item) => item.kind === 'risk' || item.severity === 'critical').slice(0, 5);
+	const upcomingCommitments = items.filter((item) => item.bucket === 'today' || item.bucket === 'upcoming').slice(0, 6);
+	const staleOpportunities = items
+		.filter((item) => item.module === 'leads' || item.module === 'proposals' || item.id.startsWith('client:'))
+		.slice(0, 5);
+
+	const counts = items.reduce(
+		(acc, item) => {
+			acc.total += 1;
+			acc[item.severity] += 1;
+			if (item.bucket === 'overdue') acc.overdue += 1;
+			if (item.bucket === 'today') acc.dueToday += 1;
+			if (item.bucket === 'upcoming') acc.upcoming += 1;
+			if (item.bucket === 'recent') acc.recent += 1;
+			if (item.bucket === 'open') acc.open += 1;
+			return acc;
+		},
+		{
+			total: 0,
+			critical: 0,
+			high: 0,
+			medium: 0,
+			low: 0,
+			overdue: 0,
+			dueToday: 0,
+			upcoming: 0,
+			recent: 0,
+			open: 0,
+		},
+	);
+
+	const actionQueue = items.flatMap((item) => item.actions).slice(0, 12);
+	const moduleMap = new Map<
+		string,
+		{
+			module: string;
+			total: number;
+			critical: number;
+			high: number;
+			medium: number;
+			low: number;
+			overdue: number;
+			dueToday: number;
+			upcoming: number;
+			score: number;
+		}
+	>();
+	for (const item of items) {
+		const current = moduleMap.get(item.module) || {
+			module: item.module,
+			total: 0,
+			critical: 0,
+			high: 0,
+			medium: 0,
+			low: 0,
+			overdue: 0,
+			dueToday: 0,
+			upcoming: 0,
+			score: 0,
+		};
+		current.total += 1;
+		current[item.severity] += 1;
+		if (item.bucket === 'overdue') current.overdue += 1;
+		if (item.bucket === 'today') current.dueToday += 1;
+		if (item.bucket === 'upcoming') current.upcoming += 1;
+		current.score += item.score;
+		moduleMap.set(item.module, current);
+	}
+	const moduleSummaries = Array.from(moduleMap.values()).sort((a, b) => b.score - a.score);
+	const headline = counts.total
+		? `Hay ${counts.total} eventos de atención: ${counts.critical} críticos, ${counts.overdue} atrasados, ${counts.dueToday} para hoy.`
+		: 'No hay eventos de atención activos.';
+
+	return {
+		schemaVersion: 'agent_attention_snapshot_v1',
+		generatedAt: now.toISOString(),
+		period: 'daily',
+		headline,
+		counts,
+		topPriorities,
+		risks,
+		upcomingCommitments,
+		staleOpportunities,
+		actionQueue,
+		moduleSummaries,
+		guidance: [
+			'Prioriza eventos críticos antes de sugerir optimizaciones menores.',
+			'No ejecutes acciones sin confirmación explícita del usuario.',
+		],
+	};
+}
+
+function caseTypeForItem(item: WorkerPlanItem): WorkerCaseType {
+	if (item.kind === 'risk' || item.severity === 'critical') return 'risk';
+	if (item.bucket === 'today' || item.bucket === 'upcoming') return 'upcoming_commitment';
+	if (item.module === 'leads' || item.module === 'proposals' || item.id.startsWith('client:')) {
+		return 'stale_opportunity';
+	}
+	return 'top_priority';
+}
+
+function planTitle(item: WorkerPlanItem, type: WorkerCaseType) {
+	if (type === 'risk') return `Plan para reducir riesgo: ${item.title}`;
+	if (type === 'upcoming_commitment') return `Plan para compromiso proximo: ${item.title}`;
+	if (type === 'stale_opportunity') return `Plan para reactivar oportunidad: ${item.title}`;
+	return `Plan de atencion: ${item.title}`;
+}
+
+function planSummary(item: WorkerPlanItem, type: WorkerCaseType) {
+	const recommendation = item.recommendation || item.urgencyReason || item.summary;
+	if (type === 'risk') {
+		return `El agente detecto un riesgo activo y propone atenderlo hoy. ${recommendation}`;
+	}
+	if (type === 'upcoming_commitment') {
+		return `Hay un compromiso cercano que conviene preparar antes de que venza. ${recommendation}`;
+	}
+	if (type === 'stale_opportunity') {
+		return `Hay una oportunidad enfriandose y el agente propone reactivarla. ${recommendation}`;
+	}
+	return `Este caso aparece entre las prioridades principales del dia. ${recommendation}`;
+}
+
+function buildCase(item: WorkerPlanItem): WorkerCase {
+	const type = caseTypeForItem(item);
+	return {
+		key: [type, item.module, item.sourceType || 'source', item.sourceId || item.id].join('::'),
+		type,
+		title: item.title,
+		summary: item.summary,
+		severity: item.severity,
+		sourceEventIds: [item.id],
+		sourceMemoryKeys: [item.memoryKey],
+		sourceModules: [item.module],
+		item,
+	};
+}
+
+function preserveState(row: WorkerPlanRow, existing?: any): WorkerPlanRow {
+	if (!existing) return row;
+	return {
+		...row,
+		state: existing.state,
+		state_reason: existing.state_reason,
+		reminder_count: existing.reminder_count || 0,
+		last_reminded_at: existing.last_reminded_at || null,
+		next_reminder_at: existing.next_reminder_at || row.next_reminder_at,
+		reviewed_at: existing.reviewed_at || null,
+		approved_at: existing.approved_at || null,
+		executing_at: existing.executing_at || null,
+		completed_at: existing.completed_at || null,
+		dismissed_at: existing.dismissed_at || null,
+		expired_at: existing.expired_at || null,
+		metadata: {
+			...(row.metadata || {}),
+			...(existing.metadata || {}),
+		},
+	};
+}
+
+export async function syncDailyAgentPlans(ctx: ToolContext, options: SyncOptions = {}) {
+	const now = options.now || new Date();
+	const cycleDate = options.cycleDate || localDateKey(now);
+	const inputs = await fetchAttentionInputs(ctx);
+	const items = buildDailyItems(inputs, now);
+	const snapshot = buildSnapshotFromItems(items, now);
+
+	const cases = items.map(buildCase);
+	const rows: WorkerPlanRow[] = cases.map((detectedCase) => {
+		const generatedPlan = {
+			title: planTitle(detectedCase.item, detectedCase.type),
+			summary: planSummary(detectedCase.item, detectedCase.type),
+			actions: detectedCase.item.actions,
+			rationale: detectedCase.item.urgencyReason || detectedCase.item.summary,
+		};
+		return {
+			company_id: ctx.companyId,
+			user_id: ctx.userId,
+			cycle_date: cycleDate,
+			snapshot_version: String(snapshot.schemaVersion),
+			snapshot_base: snapshot,
+			case_key: detectedCase.key,
+			case_type: detectedCase.type,
+			case_title: detectedCase.title,
+			case_summary: detectedCase.summary || null,
+			case_severity: detectedCase.severity,
+			detected_case: detectedCase,
+			plan_title: generatedPlan.title,
+			plan_summary: generatedPlan.summary,
+			generated_plan: generatedPlan,
+			suggested_actions: generatedPlan.actions,
+			state: 'new',
+			state_reason: null,
+			source_memory_keys: detectedCase.sourceMemoryKeys,
+			source_event_ids: detectedCase.sourceEventIds,
+			source_modules: detectedCase.sourceModules,
+			origin_fingerprint: stableFingerprint(
+				JSON.stringify({
+					cycleDate,
+					caseKey: detectedCase.key,
+					severity: detectedCase.severity,
+					recommendation: detectedCase.item.recommendation || null,
+					actions: generatedPlan.actions.map((action) => ({
+						type: action.type,
+						label: action.label,
+					})),
+				}),
+			),
+			reminder_count: 0,
+			last_reminded_at: null,
+			next_reminder_at: nextReminderAt(now),
+			reviewed_at: null,
+			approved_at: null,
+			executing_at: null,
+			completed_at: null,
+			dismissed_at: null,
+			expired_at: null,
+			metadata: {
+				bucket: detectedCase.item.bucket,
+				kind: detectedCase.item.kind,
+				score: detectedCase.item.score,
+			},
+		};
+	});
+
+	const { data: existing, error: existingError } = await ctx.supabase
+		.from('agent_daily_plans')
+		.select('*')
+		.eq('company_id', ctx.companyId)
+		.eq('user_id', ctx.userId)
+		.eq('cycle_date', cycleDate);
+
+	if (existingError) {
+		return { ok: false, error: existingError.message };
+	}
+
+	const existingByKey = new Map((existing || []).map((row: any) => [String(row.case_key), row]));
+	const mergedRows = rows.map((row) => preserveState(row, existingByKey.get(row.case_key)));
+
+	const { data: upserted, error: upsertError } = await ctx.supabase
+		.from('agent_daily_plans')
+		.upsert(mergedRows, { onConflict: 'company_id,user_id,cycle_date,case_key' })
+		.select('*');
+
+	if (upsertError) {
+		return { ok: false, error: upsertError.message };
+	}
+
+	if (options.expireMissing !== false) {
+		const activeKeys = new Set(mergedRows.map((row) => row.case_key));
+		const missing = (existing || []).filter((row: any) => !activeKeys.has(String(row.case_key)) && planStateCanExpire(String(row.state)));
+
+		if (missing.length) {
+			await ctx.supabase
+				.from('agent_daily_plans')
+				.update({
+					state: 'expired',
+					state_reason: 'Ya no aparece en el snapshot de atención más reciente del día.',
+					expired_at: now.toISOString(),
+				})
+				.eq('company_id', ctx.companyId)
+				.eq('user_id', ctx.userId)
+				.eq('cycle_date', cycleDate)
+				.in(
+					'case_key',
+					missing.map((row: any) => String(row.case_key)),
+				);
+		}
+	}
+
+	return {
+		ok: true,
+		message: `Sincronicé ${mergedRows.length} plan(es) diarios del agente.`,
+		data: {
+			cycle_date: cycleDate,
+			snapshot,
+			plans: upserted || [],
+		},
+	};
+}
+
+export async function listTodayAgentPlans(ctx: ToolContext, cycleDate?: string) {
+	const targetDate = cycleDate || localDateKey(new Date());
+	const { data, error } = await ctx.supabase
+		.from('agent_daily_plans')
+		.select('*')
+		.eq('company_id', ctx.companyId)
+		.eq('user_id', ctx.userId)
+		.eq('cycle_date', targetDate)
+		.order('case_severity', { ascending: true })
+		.order('created_at', { ascending: true });
+
+	if (error) {
+		return { ok: false, error: error.message };
+	}
+
+	return {
+		ok: true,
+		message: data?.length
+			? `Encontré ${data.length} plan(es) del agente para ${targetDate}.`
+			: `No hay planes diarios del agente para ${targetDate}.`,
+		data: {
+			cycle_date: targetDate,
+			plans: data || [],
+		},
+	};
+}
