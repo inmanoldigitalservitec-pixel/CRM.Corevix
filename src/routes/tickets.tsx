@@ -36,6 +36,7 @@ import { LoadingTable } from "@/components/crm/loading-state";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
+import { statusKey, useT } from "@/i18n";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/tickets")({
@@ -162,9 +163,16 @@ function contactName(contact?: ContactRow | null) {
   return `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || contact.email || "—";
 }
 
+function optionLabel(value: string, t: (key: string) => string) {
+  const key = statusKey(value);
+  const label = t(key);
+  return label === key ? value : label;
+}
+
 function TicketsPage() {
   const { profile } = useAuth();
   const { can } = usePermissions();
+  const { t } = useT();
   const db = supabase as any;
 
   const [loading, setLoading] = useState(true);
@@ -187,6 +195,7 @@ function TicketsPage() {
   const [saving, setSaving] = useState(false);
 
   const canCreateTickets = can("tickets.create");
+  const labelFor = useCallback((value: string) => optionLabel(value, t), [t]);
 
   const clientById = useMemo(() => new Map(clients.map((item) => [item.id, item])), [clients]);
   const contactById = useMemo(() => new Map(contacts.map((item) => [item.id, item])), [contacts]);
@@ -423,9 +432,9 @@ function TicketsPage() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <PageHeader
-        title={activeProject ? `Tickets de soporte · ${activeProject.name}` : "Tickets de soporte"}
-        subtitle="Panel central para incidencias, solicitudes de clientes y casos relacionados a proyectos."
-        actionLabel={canCreateTickets ? "Nuevo ticket" : undefined}
+        title={activeProject ? `${t("tickets.title")} · ${activeProject.name}` : t("tickets.title")}
+        subtitle={t("tickets.subtitle")}
+        actionLabel={canCreateTickets ? t("tickets.new") : undefined}
         onAction={canCreateTickets ? openNewTicket : undefined}
       />
 
@@ -448,7 +457,7 @@ function TicketsPage() {
           >
             <Icon className={`h-4 w-4 ${tone}`} />
             <span>{value}</span>
-            <span className={tone}>{label}</span>
+            <span className={tone}>{labelFor(label)}</span>
           </button>
         ))}
       </div>
@@ -459,12 +468,12 @@ function TicketsPage() {
             {canCreateTickets ? (
               <Button onClick={openNewTicket}>
                 <Plus className="mr-2 h-4 w-4" />
-                New Ticket
+                {t("tickets.new")}
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => void fetchTickets()}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              Actualizar
+              {t("profile.workMonitor.refresh")}
             </Button>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -472,7 +481,7 @@ function TicketsPage() {
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input
                 className="w-full pl-9 sm:w-72"
-                placeholder="Buscar tickets..."
+                placeholder={t("tickets.searchPlaceholder")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -482,7 +491,7 @@ function TicketsPage() {
                 <SelectValue placeholder="Proyecto" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Todos los proyectos</SelectItem>
+                <SelectItem value={ALL}>{t("tickets.allProjects")}</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -492,26 +501,26 @@ function TicketsPage() {
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Estado" />
+                <SelectValue placeholder={t("tickets.table.status")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Todos los estados</SelectItem>
+                <SelectItem value={ALL}>{t("tickets.allStatuses")}</SelectItem>
                 {STATUSES.map((status) => (
                   <SelectItem key={status} value={status}>
-                    {status}
+                    {labelFor(status)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
               <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Prioridad" />
+                <SelectValue placeholder={t("tickets.table.priority")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Todas las prioridades</SelectItem>
+                <SelectItem value={ALL}>{t("tickets.allPriorities")}</SelectItem>
                 {PRIORITIES.map((priority) => (
                   <SelectItem key={priority} value={priority}>
-                    {priority}
+                    {labelFor(priority)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -525,14 +534,14 @@ function TicketsPage() {
               <TableHeader className="bg-slate-50">
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
-                  <TableHead className="min-w-[320px]">Subject</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Last Reply</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="min-w-[320px]">{t("tickets.table.subject")}</TableHead>
+                  <TableHead>{t("tickets.table.department")}</TableHead>
+                  <TableHead>{t("tickets.table.service")}</TableHead>
+                  <TableHead>{t("tickets.table.contact")}</TableHead>
+                  <TableHead>{t("tickets.table.status")}</TableHead>
+                  <TableHead>{t("tickets.table.priority")}</TableHead>
+                  <TableHead>{t("tickets.table.lastReply")}</TableHead>
+                  <TableHead className="text-right">{t("tickets.table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -553,7 +562,7 @@ function TicketsPage() {
                         <TableCell>
                           <div className="font-semibold text-slate-900">{ticket.subject}</div>
                           <div className="mt-1 line-clamp-1 text-xs text-slate-500">
-                            {client?.company_name || "Sin cliente"}
+                            {client?.company_name || t("tickets.noClient")}
                             {project ? ` · ${project.name}` : ""}
                           </div>
                         </TableCell>
@@ -565,7 +574,7 @@ function TicketsPage() {
                         </TableCell>
                         <TableCell>
                           <span className={`font-bold ${priorityClass(ticket.priority)}`}>
-                            {ticket.priority}
+                            {labelFor(ticket.priority)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -580,7 +589,7 @@ function TicketsPage() {
                             size="sm"
                             onClick={() => setSelectedTicket(ticket)}
                           >
-                            View
+                            {t("tickets.view")}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -589,7 +598,7 @@ function TicketsPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={9} className="py-10 text-center text-sm text-slate-500">
-                      No hay tickets con estos filtros.
+                      {t("tickets.emptyFiltered")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -602,11 +611,11 @@ function TicketsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editTicket ? "Editar ticket" : "Nuevo ticket"}</DialogTitle>
+            <DialogTitle>{editTicket ? t("tickets.edit") : t("tickets.new")}</DialogTitle>
           </DialogHeader>
           <form className="space-y-4" onSubmit={saveTicket}>
             <div className="space-y-1.5">
-              <Label>Subject</Label>
+              <Label>{t("tickets.subject")}</Label>
               <Input
                 value={form.subject}
                 onChange={(event) =>
@@ -616,7 +625,7 @@ function TicketsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Description</Label>
+              <Label>{t("tickets.description")}</Label>
               <Textarea
                 rows={4}
                 value={form.description}
@@ -627,21 +636,21 @@ function TicketsPage() {
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <TicketSelect
-                label="Estado"
+                label={t("tickets.table.status")}
                 value={form.status}
                 onChange={(value) => setForm((current) => ({ ...current, status: value }))}
-                options={STATUSES.map((value) => ({ label: value, value }))}
+                options={STATUSES.map((value) => ({ label: labelFor(value), value }))}
                 hideNone
               />
               <TicketSelect
-                label="Prioridad"
+                label={t("tickets.table.priority")}
                 value={form.priority}
                 onChange={(value) => setForm((current) => ({ ...current, priority: value }))}
-                options={PRIORITIES.map((value) => ({ label: value, value }))}
+                options={PRIORITIES.map((value) => ({ label: labelFor(value), value }))}
                 hideNone
               />
               <div className="space-y-1.5">
-                <Label>Department</Label>
+                <Label>{t("tickets.department")}</Label>
                 <Input
                   value={form.department}
                   onChange={(event) =>
@@ -650,7 +659,7 @@ function TicketsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Service</Label>
+                <Label>{t("tickets.service")}</Label>
                 <Input
                   value={form.service}
                   onChange={(event) =>
@@ -665,23 +674,23 @@ function TicketsPage() {
                   setForm((current) => ({ ...current, client_id: value, contact_id: NONE }))
                 }
                 options={clients.map((item) => ({ label: item.company_name, value: item.id }))}
-                noneLabel="Sin cliente"
+                noneLabel={t("tickets.noClient")}
               />
               <TicketSelect
-                label="Contacto"
+                label={t("tickets.table.contact")}
                 value={form.contact_id}
                 onChange={(value) => setForm((current) => ({ ...current, contact_id: value }))}
                 options={contacts
                   .filter((item) => form.client_id === NONE || item.client_id === form.client_id)
                   .map((item) => ({ label: contactName(item), value: item.id }))}
-                noneLabel="Sin contacto"
+                noneLabel={t("tickets.noContact")}
               />
               <TicketSelect
                 label="Proyecto"
                 value={form.project_id}
                 onChange={(value) => setForm((current) => ({ ...current, project_id: value }))}
                 options={projects.map((item) => ({ label: item.name, value: item.id }))}
-                noneLabel="Sin proyecto"
+                noneLabel={t("tickets.noProject")}
               />
               <TicketSelect
                 label="Asignado a"
@@ -693,15 +702,15 @@ function TicketsPage() {
                     label: item.full_name || item.email || item.id,
                     value: item.id,
                   }))}
-                noneLabel="Sin asignar"
+                noneLabel={t("tickets.unassigned")}
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? "Guardando..." : "Guardar ticket"}
+                {saving ? t("tickets.saving") : t("tickets.save")}
               </Button>
             </div>
           </form>
@@ -724,8 +733,8 @@ function TicketsPage() {
                     </div>
                     <p className="mt-1 text-sm font-medium text-slate-500">
                       {clientById.get(selectedTicket.client_id || "")?.company_name ||
-                        "Sin cliente"}{" "}
-                      · {projectById.get(selectedTicket.project_id || "")?.name || "Sin proyecto"}
+                        t("tickets.noClient")}{" "}
+                      · {projectById.get(selectedTicket.project_id || "")?.name || t("tickets.noProject")}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -736,7 +745,7 @@ function TicketsPage() {
                         variant={selectedTicket.status === status ? "default" : "outline"}
                         onClick={() => void updateTicketStatus(selectedTicket, status)}
                       >
-                        {status}
+                        {labelFor(status)}
                       </Button>
                     ))}
                     <Button
@@ -744,7 +753,7 @@ function TicketsPage() {
                       variant="outline"
                       onClick={() => openEditTicket(selectedTicket)}
                     >
-                      Edit
+                      {t("tickets.editAction")}
                     </Button>
                   </div>
                 </div>
@@ -753,7 +762,7 @@ function TicketsPage() {
               <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <main className="min-h-0 overflow-y-auto p-5">
                   <div className="mb-5 rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                    {selectedTicket.description || "Sin descripción."}
+                    {selectedTicket.description || t("tickets.noDescription")}
                   </div>
                   <div className="space-y-3">
                     {messages.length ? (
@@ -788,7 +797,7 @@ function TicketsPage() {
                       })
                     ) : (
                       <div className="rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">
-                        Este ticket todavía no tiene mensajes.
+                        {t("tickets.noMessages")}
                       </div>
                     )}
                   </div>
@@ -796,29 +805,29 @@ function TicketsPage() {
 
                 <aside className="border-t bg-slate-50 p-4 lg:border-l lg:border-t-0">
                   <div className="space-y-3 text-sm">
-                    <Info label="Prioridad" value={selectedTicket.priority} />
-                    <Info label="Department" value={selectedTicket.department} />
-                    <Info label="Servicio" value={selectedTicket.service || "—"} />
+                    <Info label={t("tickets.table.priority")} value={labelFor(selectedTicket.priority)} />
+                    <Info label={t("tickets.department")} value={selectedTicket.department} />
+                    <Info label={t("tickets.service")} value={selectedTicket.service || "—"} />
                     <Info
                       label="Asignado"
                       value={
                         profileById.get(selectedTicket.assigned_to || "")?.full_name ||
-                        "Sin asignar"
+                        t("tickets.unassigned")
                       }
                     />
                     <Info label="Creado" value={formatDateTime(selectedTicket.created_at)} />
                     <Info
-                      label="Última respuesta"
+                      label={t("tickets.table.lastReply")}
                       value={formatDateTime(selectedTicket.last_reply_at)}
                     />
                   </div>
                   <div className="mt-5 space-y-2">
-                    <Label>Reply / internal note</Label>
+                    <Label>{t("tickets.replyLabel")}</Label>
                     <Textarea
                       rows={5}
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}
-                      placeholder="Write a reply..."
+                      placeholder={t("tickets.replyPlaceholder")}
                     />
                     <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                       <input
@@ -826,14 +835,14 @@ function TicketsPage() {
                         checked={replyInternal}
                         onChange={(event) => setReplyInternal(event.target.checked)}
                       />
-                      Internal note
+                      {t("tickets.internalNote")}
                     </label>
                     <Button
                       className="w-full"
                       onClick={() => void addMessage()}
                       disabled={!reply.trim()}
                     >
-                      {replyInternal ? "Agregar nota interna" : "Enviar respuesta"}
+                      {replyInternal ? t("tickets.addInternalNote") : t("tickets.sendReply")}
                     </Button>
                   </div>
                 </aside>
