@@ -91,6 +91,24 @@ export const es = {
   "dashboard.trend.overdue": "{count} vencidas",
   "dashboard.now": "ahora",
 
+  // Profile
+  "profile.workMonitor.title": "Monitor de trabajo",
+  "profile.workMonitor.subtitle": "Trabajo asignado y actividad reciente de este perfil.",
+  "profile.workMonitor.refresh": "Actualizar",
+  "profile.workMonitor.openAssignedWork": "Trabajo abierto asignado",
+  "profile.workMonitor.tasks": "Tareas",
+  "profile.workMonitor.leads": "Prospectos",
+  "profile.workMonitor.deals": "Oportunidades",
+  "profile.workMonitor.projects": "Proyectos",
+  "profile.workMonitor.tickets": "Tickets",
+  "profile.workMonitor.recentActivity": "Actividad reciente",
+  "profile.workMonitor.noActivity": "No se encontró actividad reciente para este perfil.",
+  "profile.workMonitor.summary": "Resumen de trabajo del perfil",
+  "profile.workMonitor.lastActivity": "Última actividad",
+  "profile.workMonitor.scope": "Alcance",
+  "profile.workMonitor.scopeDescription": "Los conteos se basan en asignaciones del CRM vinculadas actualmente a este perfil.",
+  "profile.workMonitor.noActivityYet": "Sin actividad todavía",
+
   // Status labels (presentation only)
   "status.new": "Nuevo",
   "status.contacted": "Contactado",
