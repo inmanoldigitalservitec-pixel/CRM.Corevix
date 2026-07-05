@@ -26,6 +26,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const PRIORITY_LABELS: Record<string, string> = {
+  Low: "Baja",
+  Medium: "Media",
+  High: "Alta",
+  Urgent: "Urgente",
+};
 
 type ProjectTicketRow = {
   id: string;
@@ -76,6 +82,10 @@ function priorityClass(priority: string) {
   if (value === "high") return "text-orange-600";
   if (value === "medium") return "text-blue-600";
   return "text-slate-500";
+}
+
+function priorityLabel(priority: string) {
+  return PRIORITY_LABELS[priority] ?? priority;
 }
 
 export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
@@ -162,25 +172,25 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="font-extrabold text-slate-900">Project Tickets</h3>
+          <h3 className="font-extrabold text-slate-900">Tickets del proyecto</h3>
           <p className="text-sm font-medium text-slate-500">
-            {summary.total} total · {summary.open} open · {summary.closed} closed
+            {summary.total} total · {summary.open} abiertos · {summary.closed} cerrados
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => void fetchTickets()} disabled={loading}>
             <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            Actualizar
           </Button>
           <Button variant="outline" asChild>
             <a href={ticketsUrl}>
               <ExternalLink className="mr-2 h-4 w-4" />
-              Open tickets
+              Abrir tickets
             </a>
           </Button>
           <Button onClick={openNewTicket}>
             <Plus className="mr-2 h-4 w-4" />
-            New Ticket
+            Nuevo ticket
           </Button>
         </div>
       </div>
@@ -191,18 +201,18 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
             <TableHeader className="bg-slate-50">
               <TableRow>
                 <TableHead className="w-16">#</TableHead>
-                <TableHead className="min-w-[280px]">Subject</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Last Reply</TableHead>
+                <TableHead className="min-w-[280px]">Asunto</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Prioridad</TableHead>
+                <TableHead>Departamento</TableHead>
+                <TableHead>Última respuesta</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-sm text-slate-500">
-                    Loading tickets...
+                    Cargando tickets...
                   </TableCell>
                 </TableRow>
               ) : tickets.length ? (
@@ -216,7 +226,7 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
                       </div>
                     </TableCell>
                     <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                    <TableCell><span className={`font-bold ${priorityClass(ticket.priority)}`}>{ticket.priority}</span></TableCell>
+                    <TableCell><span className={`font-bold ${priorityClass(ticket.priority)}`}>{priorityLabel(ticket.priority)}</span></TableCell>
                     <TableCell>{ticket.department || "-"}</TableCell>
                     <TableCell>{formatDateTime(ticket.last_reply_at || ticket.created_at)}</TableCell>
                   </TableRow>
@@ -228,12 +238,12 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
                       <div className="grid h-10 w-10 place-items-center rounded-xl border bg-slate-50 text-slate-500">
                         <Ticket className="h-5 w-5" />
                       </div>
-                      <div className="font-bold text-slate-900">No project tickets yet</div>
+                      <div className="font-bold text-slate-900">Este proyecto todavía no tiene tickets</div>
                       <p className="text-sm font-medium text-slate-500">
                         Crea el primer ticket relacionado a este proyecto sin salir del workspace.
                       </p>
                       <Button size="sm" className="mt-2" onClick={openNewTicket}>
-                        Create ticket
+                        Crear ticket
                       </Button>
                     </div>
                   </TableCell>
@@ -247,11 +257,11 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>New Project Ticket</DialogTitle>
+            <DialogTitle>Nuevo ticket del proyecto</DialogTitle>
           </DialogHeader>
           <form className="space-y-4" onSubmit={saveTicket}>
             <div className="space-y-1.5">
-              <Label>Subject</Label>
+              <Label>Asunto</Label>
               <Input
                 value={form.subject}
                 onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
@@ -259,7 +269,7 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Description</Label>
+              <Label>Descripción</Label>
               <Textarea
                 rows={4}
                 value={form.description}
@@ -268,23 +278,23 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-1.5 sm:col-span-1">
-                <Label>Priority</Label>
+                <Label>Prioridad</Label>
                 <Select value={form.priority} onValueChange={(value) => setForm((current) => ({ ...current, priority: value }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}
+                    {PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priorityLabel(priority)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-1">
-                <Label>Department</Label>
+                <Label>Departamento</Label>
                 <Input
                   value={form.department}
                   onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))}
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-1">
-                <Label>Service</Label>
+                <Label>Servicio</Label>
                 <Input
                   value={form.service}
                   onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}
@@ -293,10 +303,10 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-                Cancel
+                Cancelar
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? "Creating..." : "Create Ticket"}
+                {saving ? "Creando..." : "Crear ticket"}
               </Button>
             </div>
           </form>
