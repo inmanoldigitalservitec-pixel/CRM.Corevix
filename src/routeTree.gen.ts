@@ -23,7 +23,9 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as PipelineRouteImport } from './routes/pipeline'
+import { Route as PdfExportRouteImport } from './routes/pdf-export'
 import { Route as PaymentsRouteImport } from './routes/payments'
+import { Route as MediaLibraryRouteImport } from './routes/media-library'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
@@ -34,12 +36,14 @@ import { Route as EstimatesRouteImport } from './routes/estimates'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DocumentBuilderTestRouteImport } from './routes/document-builder-test'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CsvExportRouteImport } from './routes/csv-export'
 import { Route as CreditNotesRouteImport } from './routes/credit-notes'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as AiAssistantRouteImport } from './routes/ai-assistant'
+import { Route as ActivityLogRouteImport } from './routes/activity-log'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProposalBuilderProposalIdRouteImport } from './routes/proposal-builder/$proposalId'
 import { Route as ProposalsProposalIdBuilderRouteImport } from './routes/proposals/$proposalId/builder'
@@ -116,9 +120,19 @@ const PipelineRoute = PipelineRouteImport.update({
   path: '/pipeline',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PdfExportRoute = PdfExportRouteImport.update({
+  id: '/pdf-export',
+  path: '/pdf-export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentsRoute = PaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MediaLibraryRoute = MediaLibraryRouteImport.update({
+  id: '/media-library',
+  path: '/media-library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -171,6 +185,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CsvExportRoute = CsvExportRouteImport.update({
+  id: '/csv-export',
+  path: '/csv-export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreditNotesRoute = CreditNotesRouteImport.update({
   id: '/credit-notes',
   path: '/credit-notes',
@@ -199,6 +218,11 @@ const AutomationsRoute = AutomationsRouteImport.update({
 const AiAssistantRoute = AiAssistantRouteImport.update({
   id: '/ai-assistant',
   path: '/ai-assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityLogRoute = ActivityLogRouteImport.update({
+  id: '/activity-log',
+  path: '/activity-log',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -233,12 +257,14 @@ const InvoicePublicPublicTokenRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity-log': typeof ActivityLogRoute
   '/ai-assistant': typeof AiAssistantRoute
   '/automations': typeof AutomationsRoute
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
   '/contracts': typeof ContractsRoute
   '/credit-notes': typeof CreditNotesRoute
+  '/csv-export': typeof CsvExportRoute
   '/dashboard': typeof DashboardRoute
   '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
@@ -249,7 +275,9 @@ export interface FileRoutesByFullPath {
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
+  '/media-library': typeof MediaLibraryRoute
   '/payments': typeof PaymentsRoute
+  '/pdf-export': typeof PdfExportRoute
   '/pipeline': typeof PipelineRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
@@ -271,12 +299,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity-log': typeof ActivityLogRoute
   '/ai-assistant': typeof AiAssistantRoute
   '/automations': typeof AutomationsRoute
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
   '/contracts': typeof ContractsRoute
   '/credit-notes': typeof CreditNotesRoute
+  '/csv-export': typeof CsvExportRoute
   '/dashboard': typeof DashboardRoute
   '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
@@ -287,7 +317,9 @@ export interface FileRoutesByTo {
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
+  '/media-library': typeof MediaLibraryRoute
   '/payments': typeof PaymentsRoute
+  '/pdf-export': typeof PdfExportRoute
   '/pipeline': typeof PipelineRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
@@ -310,12 +342,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity-log': typeof ActivityLogRoute
   '/ai-assistant': typeof AiAssistantRoute
   '/automations': typeof AutomationsRoute
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRoute
   '/contracts': typeof ContractsRoute
   '/credit-notes': typeof CreditNotesRoute
+  '/csv-export': typeof CsvExportRoute
   '/dashboard': typeof DashboardRoute
   '/document-builder-test': typeof DocumentBuilderTestRoute
   '/email': typeof EmailRoute
@@ -326,7 +360,9 @@ export interface FileRoutesById {
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
+  '/media-library': typeof MediaLibraryRoute
   '/payments': typeof PaymentsRoute
+  '/pdf-export': typeof PdfExportRoute
   '/pipeline': typeof PipelineRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
@@ -350,12 +386,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity-log'
     | '/ai-assistant'
     | '/automations'
     | '/calendar'
     | '/clients'
     | '/contracts'
     | '/credit-notes'
+    | '/csv-export'
     | '/dashboard'
     | '/document-builder-test'
     | '/email'
@@ -366,7 +404,9 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/leads'
     | '/login'
+    | '/media-library'
     | '/payments'
+    | '/pdf-export'
     | '/pipeline'
     | '/products'
     | '/profile'
@@ -388,12 +428,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/activity-log'
     | '/ai-assistant'
     | '/automations'
     | '/calendar'
     | '/clients'
     | '/contracts'
     | '/credit-notes'
+    | '/csv-export'
     | '/dashboard'
     | '/document-builder-test'
     | '/email'
@@ -404,7 +446,9 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/leads'
     | '/login'
+    | '/media-library'
     | '/payments'
+    | '/pdf-export'
     | '/pipeline'
     | '/products'
     | '/profile'
@@ -426,12 +470,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/activity-log'
     | '/ai-assistant'
     | '/automations'
     | '/calendar'
     | '/clients'
     | '/contracts'
     | '/credit-notes'
+    | '/csv-export'
     | '/dashboard'
     | '/document-builder-test'
     | '/email'
@@ -442,7 +488,9 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/leads'
     | '/login'
+    | '/media-library'
     | '/payments'
+    | '/pdf-export'
     | '/pipeline'
     | '/products'
     | '/profile'
@@ -465,12 +513,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityLogRoute: typeof ActivityLogRoute
   AiAssistantRoute: typeof AiAssistantRoute
   AutomationsRoute: typeof AutomationsRoute
   CalendarRoute: typeof CalendarRoute
   ClientsRoute: typeof ClientsRoute
   ContractsRoute: typeof ContractsRoute
   CreditNotesRoute: typeof CreditNotesRoute
+  CsvExportRoute: typeof CsvExportRoute
   DashboardRoute: typeof DashboardRoute
   DocumentBuilderTestRoute: typeof DocumentBuilderTestRoute
   EmailRoute: typeof EmailRoute
@@ -481,7 +531,9 @@ export interface RootRouteChildren {
   InvoicesRoute: typeof InvoicesRoute
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
+  MediaLibraryRoute: typeof MediaLibraryRoute
   PaymentsRoute: typeof PaymentsRoute
+  PdfExportRoute: typeof PdfExportRoute
   PipelineRoute: typeof PipelineRoute
   ProductsRoute: typeof ProductsRoute
   ProfileRoute: typeof ProfileRoute
@@ -601,11 +653,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PipelineRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pdf-export': {
+      id: '/pdf-export'
+      path: '/pdf-export'
+      fullPath: '/pdf-export'
+      preLoaderRoute: typeof PdfExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payments': {
       id: '/payments'
       path: '/payments'
       fullPath: '/payments'
       preLoaderRoute: typeof PaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/media-library': {
+      id: '/media-library'
+      path: '/media-library'
+      fullPath: '/media-library'
+      preLoaderRoute: typeof MediaLibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -678,6 +744,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/csv-export': {
+      id: '/csv-export'
+      path: '/csv-export'
+      fullPath: '/csv-export'
+      preLoaderRoute: typeof CsvExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/credit-notes': {
       id: '/credit-notes'
       path: '/credit-notes'
@@ -718,6 +791,13 @@ declare module '@tanstack/react-router' {
       path: '/ai-assistant'
       fullPath: '/ai-assistant'
       preLoaderRoute: typeof AiAssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity-log': {
+      id: '/activity-log'
+      path: '/activity-log'
+      fullPath: '/activity-log'
+      preLoaderRoute: typeof ActivityLogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -772,12 +852,14 @@ const ProposalsRouteWithChildren = ProposalsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityLogRoute: ActivityLogRoute,
   AiAssistantRoute: AiAssistantRoute,
   AutomationsRoute: AutomationsRoute,
   CalendarRoute: CalendarRoute,
   ClientsRoute: ClientsRoute,
   ContractsRoute: ContractsRoute,
   CreditNotesRoute: CreditNotesRoute,
+  CsvExportRoute: CsvExportRoute,
   DashboardRoute: DashboardRoute,
   DocumentBuilderTestRoute: DocumentBuilderTestRoute,
   EmailRoute: EmailRoute,
@@ -788,7 +870,9 @@ const rootRouteChildren: RootRouteChildren = {
   InvoicesRoute: InvoicesRoute,
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
+  MediaLibraryRoute: MediaLibraryRoute,
   PaymentsRoute: PaymentsRoute,
+  PdfExportRoute: PdfExportRoute,
   PipelineRoute: PipelineRoute,
   ProductsRoute: ProductsRoute,
   ProfileRoute: ProfileRoute,

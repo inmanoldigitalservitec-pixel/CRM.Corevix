@@ -690,6 +690,15 @@ function ProposalPublicPage() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!proposal) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("autoprint") === "1") {
+      const timeout = window.setTimeout(() => window.print(), 350);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [proposal]);
+
   async function handleApprove() {
     if (!token) return;
     if (approving) return;

@@ -60,6 +60,15 @@ function InvoicePublicPage() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!invoice) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("autoprint") === "1") {
+      const timeout = window.setTimeout(() => window.print(), 350);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [invoice]);
+
   if (loading) {
     return (
       <div className="min-h-[60vh] grid place-items-center text-sm text-muted-foreground">
