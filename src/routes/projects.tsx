@@ -82,7 +82,7 @@ import {
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage,
-  head: () => ({ meta: [{ title: "Projects — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Proyectos — Corevix CRM" }] }),
 });
 
 const PROJECT_STATUSES = ["Not Started", "In Progress", "On Hold", "Completed", "Cancelled"];
@@ -633,10 +633,10 @@ function ProjectsPage() {
       if (editItem) {
         await update(editItem.id, record);
         setSelected(null);
-        toast.success("Project updated");
+        toast.success("Proyecto actualizado");
       } else {
         await create(record);
-        toast.success("Project created");
+        toast.success("Proyecto creado");
       }
       setDialogOpen(false);
       setEditItem(null);
@@ -655,7 +655,7 @@ function ProjectsPage() {
       await fetchTasks();
       setDeleteId(null);
       setSelected(null);
-      toast.success("Deleted");
+      toast.success("Proyecto eliminado");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo eliminar el proyecto.");
     }
@@ -721,7 +721,7 @@ function ProjectsPage() {
   return (
     <div data-demo="projects-main" className="space-y-5 p-4 sm:p-6">
       <PageHeader
-        title="Projects"
+        title="Proyectos"
         subtitle="Workspace operativo para clientes, entregas, tareas y futuros módulos."
         actionLabel={can("projects.create") ? "Add Project" : undefined}
         onAction={can("projects.create") ? abiertasNewProject : undefined}
@@ -782,7 +782,7 @@ function ProjectsPage() {
               },
               {
                 key: "product",
-                placeholder: "Product",
+                placeholder: "Producto",
                 value: productFilter,
                 onChange: setProductFilter,
                 options: productOptions,
@@ -815,8 +815,8 @@ function ProjectsPage() {
           {filtered.length === 0 ? (
             <EmptyState
               icon={<FolderOpen className="h-6 w-6" />}
-              title="No projects"
-              description="Create your first project."
+              title="No hay proyectos"
+              description="Crea tu primer proyecto."
               actionLabel="Add Project"
               onAction={abiertasNewProject}
             />
@@ -825,12 +825,12 @@ function ProjectsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4 sm:pl-5">Project</TableHead>
-                    <TableHead className="hidden lg:table-cell">Client / Product</TableHead>
+                    <TableHead className="pl-4 sm:pl-5">Proyecto</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead className="hidden md:table-cell">Progress</TableHead>
-                    <TableHead className="hidden xl:table-cell">Owner</TableHead>
-                    <TableHead className="hidden lg:table-cell">Timeline</TableHead>
+                    <TableHead className="hidden md:table-cell">Progreso</TableHead>
+                    <TableHead className="hidden xl:table-cell">Responsable</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cronograma</TableHead>
                     <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">
                       Budget
                     </TableHead>
@@ -1353,7 +1353,7 @@ function ProjectWorkspaceDialog({
   onCompleteTask: (task: TaskRow) => void;
 }) {
   const tabs = [
-    { value: "overview", label: "Overview", icon: BarChart3 },
+    { value: "overview", label: "Resumen", icon: BarChart3 },
     { value: "tasks", label: "Tareas", icon: CheckCircle2 },
     { value: "timesheets", label: "Horas", icon: Clock3 },
     { value: "milestones", label: "Hitos", icon: ShieldCheck },
@@ -1361,7 +1361,7 @@ function ProjectWorkspaceDialog({
     { value: "discussions", label: "Conversaciones", icon: MessageSquare },
     { value: "gantt", label: "Gantt", icon: GanttChartSquare },
     { value: "tickets", label: "Tickets", icon: Ticket },
-    { value: "contracts", label: "Contracts", icon: Landmark },
+    { value: "contracts", label: "Contratos", icon: Landmark },
     { value: "sales", label: "Ventas", icon: ReceiptText },
     { value: "notes", label: "Notas", icon: FileText },
     { value: "activity", label: "Actividad", icon: Activity },
@@ -1369,7 +1369,7 @@ function ProjectWorkspaceDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="h-[92vh] w-[calc(100vw-24px)] max-w-[1100px] gap-0 overflow-hidden rounded-2xl border bg-white p-0 shadow-2xl">
-        <DialogTitle className="sr-only">Project workspace</DialogTitle>
+        <DialogTitle className="sr-only">Espacio del proyecto</DialogTitle>
         <header className="shrink-0 border-b bg-white px-5 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
@@ -1474,11 +1474,11 @@ function ProjectWorkspaceDialog({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
+                      <TableHead>Nombre</TableHead>
                       <TableHead>Estado</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
+                      <TableHead>Fecha límite</TableHead>
+                      <TableHead>Prioridad</TableHead>
+                      <TableHead className="text-right">Acción</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1644,9 +1644,9 @@ function ProjectOverviewPanel({
     <div className="grid grid-cols-1 overflow-hidden rounded-xl border bg-white xl:grid-cols-[minmax(0,0.98fr)_minmax(420px,1.02fr)]">
       <section className="border-b p-5 xl:border-b-0 xl:border-r">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-base font-extrabold text-slate-900">Overview</h3>
+          <h3 className="text-base font-extrabold text-slate-900">Resumen</h3>
           <button type="button" className="text-xs font-bold text-blue-600 hover:text-blue-700">
-            Export Project Data
+            Exportar datos del proyecto
           </button>
         </div>
 
@@ -1659,17 +1659,17 @@ function ProjectOverviewPanel({
             label="Fecha de creación"
             value={formatDate(project.created_at?.slice(0, 10))}
           />
-          <OverviewField label="Start Date" value={formatDate(project.start_date)} />
+          <OverviewField label="Fecha de inicio" value={formatDate(project.start_date)} />
           <OverviewField
-            label="Deadline"
+            label="Fecha límite"
             value={formatDate(project.due_date)}
             danger={meta.isOverdue}
           />
           <OverviewField label="Responsable del proyecto" value={managerName} />
-          <OverviewField label="Product" value={productName} />
-          <OverviewField label="Deal" value={dealName} />
-          <OverviewField label="Lead" value={leadName} />
-          <OverviewField label="Budget" value={formatMoney(project.budget)} strong />
+          <OverviewField label="Producto" value={productName} />
+          <OverviewField label="Oportunidad" value={dealName} />
+          <OverviewField label="Prospecto" value={leadName} />
+          <OverviewField label="Presupuesto" value={formatMoney(project.budget)} strong />
         </div>
 
         <div className="mt-5 border-t pt-4">
@@ -1684,7 +1684,7 @@ function ProjectOverviewPanel({
         <div>
           <h3 className="text-base font-extrabold text-slate-900">{project.name}</h3>
           <p className="mt-1 text-sm font-medium text-slate-500">
-            Project Progress{" "}
+            Progreso del proyecto{" "}
             <span className="font-extrabold text-slate-700">{meta.stats.pct}%</span>
           </p>
           <Progress value={meta.stats.pct} className="mt-2 h-2" />
@@ -1692,7 +1692,7 @@ function ProjectOverviewPanel({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <PerformanceCard
-            title={`${meta.stats.abiertas} / ${meta.stats.total} Open Tasks`}
+            title={`${meta.stats.abiertas} / ${meta.stats.total} tareas abiertas`}
             value={`${taskProgress}%`}
             progress={taskProgress}
           />
@@ -1708,31 +1708,31 @@ function ProjectOverviewPanel({
           icon={<Clock3 className="h-4 w-4" />}
           title="Horas registradas"
           rows={[
-            ["Logged Hours", "00:00", "$0.00", "text-slate-700"],
-            ["Billable Hours", "00:00", "$0.00", "text-blue-600"],
-            ["Billed Hours", "00:00", "$0.00", "text-emerald-600"],
-            ["Unbilled Hours", "00:00", "$0.00", "text-rose-600"],
+            ["Horas registradas", "00:00", "$0.00", "text-slate-700"],
+            ["Horas facturables", "00:00", "$0.00", "text-blue-600"],
+            ["Horas facturadas", "00:00", "$0.00", "text-emerald-600"],
+            ["Horas sin facturar", "00:00", "$0.00", "text-rose-600"],
           ]}
         />
 
         <FinanceSection
           icon={<ReceiptText className="h-4 w-4" />}
-          title="Expenses"
+          title="Gastos"
           rows={[
             ["Gastos totales", "", "$0.00", "text-slate-700"],
-            ["Billable Expenses", "", "$0.00", "text-blue-600"],
-            ["Billed Expenses", "", "$0.00", "text-emerald-600"],
-            ["Unbilled Expenses", "", "$0.00", "text-rose-600"],
+            ["Gastos facturables", "", "$0.00", "text-blue-600"],
+            ["Gastos facturados", "", "$0.00", "text-emerald-600"],
+            ["Gastos sin facturar", "", "$0.00", "text-rose-600"],
           ]}
         />
 
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-bold text-slate-700">Weekly Logged Hours</div>
-            <div className="text-xs font-semibold text-slate-500">This Week</div>
+            <div className="text-sm font-bold text-slate-700">Horas registradas esta semana</div>
+            <div className="text-xs font-semibold text-slate-500">Esta semana</div>
           </div>
           <div className="mt-4 grid h-24 grid-cols-7 items-end gap-2 border-b border-l px-2 pb-2">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+            {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
               <div key={day} className="flex h-full flex-col justify-end gap-1">
                 <div className="h-1 rounded-sm bg-blue-400" />
                 <div className="h-1 rounded-sm bg-rose-400" />
