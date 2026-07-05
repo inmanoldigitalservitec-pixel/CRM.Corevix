@@ -534,8 +534,8 @@ function ProjectsPage() {
       const matchTasks =
         tasksFilter === "all" ||
         (tasksFilter === "overdue" && meta.stats.overdue > 0) ||
-        (tasksFilter === "in_progress" && meta.stats.total > 0 && meta.stats.open > 0) ||
-        (tasksFilter === "completed" && meta.stats.total > 0 && meta.stats.open === 0) ||
+        (tasksFilter === "in_progress" && meta.stats.total > 0 && meta.stats.abiertas > 0) ||
+        (tasksFilter === "completed" && meta.stats.total > 0 && meta.stats.abiertas === 0) ||
         (tasksFilter === "no_tasks" && meta.stats.total === 0);
       return (
         (!search.trim() || haystack.includes(search.trim().toLowerCase())) &&
@@ -740,7 +740,7 @@ function ProjectsPage() {
           },
           {
             label: "Tareas abiertas",
-            value: kpis.openTasks,
+            value: kpis.abiertasTasks,
             icon: ClipboardList,
             tone: "text-amber-700",
           },
@@ -818,7 +818,7 @@ function ProjectsPage() {
               title="No projects"
               description="Create your first project."
               actionLabel="Add Project"
-              onAction={openNewProject}
+              onAction={abiertasNewProject}
             />
           ) : (
             <div className="-mx-4 overflow-x-auto sm:-mx-5">
@@ -958,7 +958,7 @@ function ProjectsPage() {
       </DataCard>
 
       <Dialog
-        abiertas={dialogOpen}
+        open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) {
@@ -1182,7 +1182,7 @@ function ProjectsPage() {
         />
       ) : null}
 
-      <AlertDialog abiertas={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar proyecto</AlertDialogTitle>
@@ -1203,7 +1203,7 @@ function ProjectsPage() {
       </AlertDialog>
 
       <Dialog
-        abiertas={taskDialogOpen}
+        open={taskDialogOpen}
         onOpenChange={(open) => {
           setTaskDialogOpen(open);
           if (!open) setTaskForm({ title: "", description: "", due_date: "", priority: "Medium" });
@@ -1367,7 +1367,7 @@ function ProjectWorkspaceDialog({
     { value: "activity", label: "Actividad", icon: Activity },
   ];
   return (
-    <Dialog abiertas onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="h-[92vh] w-[calc(100vw-24px)] max-w-[1100px] gap-0 overflow-hidden rounded-2xl border bg-white p-0 shadow-2xl">
         <DialogTitle className="sr-only">Project workspace</DialogTitle>
         <header className="shrink-0 border-b bg-white px-5 py-4">
@@ -1459,7 +1459,7 @@ function ProjectWorkspaceDialog({
                 <div>
                   <h3 className="font-extrabold text-slate-900">Tareas del proyecto</h3>
                   <p className="text-sm font-medium text-slate-500">
-                    {meta.stats.completed}/{meta.stats.total} completadas · {meta.stats.open}{" "}
+                    {meta.stats.completed}/{meta.stats.total} completadas · {meta.stats.abiertas}{" "}
                     abiertas
                   </p>
                 </div>
@@ -1692,7 +1692,7 @@ function ProjectOverviewPanel({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <PerformanceCard
-            title={`${meta.stats.open} / ${meta.stats.total} Open Tasks`}
+            title={`${meta.stats.abiertas} / ${meta.stats.total} Open Tasks`}
             value={`${taskProgress}%`}
             progress={taskProgress}
           />
