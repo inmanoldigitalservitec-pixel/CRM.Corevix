@@ -92,6 +92,24 @@ export const en = {
   "dashboard.trend.overdue": "{count} overdue",
   "dashboard.now": "now",
 
+  // Profile
+  "profile.workMonitor.title": "Work Monitor",
+  "profile.workMonitor.subtitle": "Assigned work and recent activity for this profile.",
+  "profile.workMonitor.refresh": "Refresh",
+  "profile.workMonitor.openAssignedWork": "Open assigned work",
+  "profile.workMonitor.tasks": "Tasks",
+  "profile.workMonitor.leads": "Leads",
+  "profile.workMonitor.deals": "Deals",
+  "profile.workMonitor.projects": "Projects",
+  "profile.workMonitor.tickets": "Tickets",
+  "profile.workMonitor.recentActivity": "Recent Activity",
+  "profile.workMonitor.noActivity": "No recent activity found for this profile.",
+  "profile.workMonitor.summary": "Profile Work Summary",
+  "profile.workMonitor.lastActivity": "Last activity",
+  "profile.workMonitor.scope": "Scope",
+  "profile.workMonitor.scopeDescription": "Counts are based on CRM assignments currently linked to this profile.",
+  "profile.workMonitor.noActivityYet": "No activity yet",
+
   // Status labels (presentation only)
   "status.new": "New",
   "status.contacted": "Contacted",
