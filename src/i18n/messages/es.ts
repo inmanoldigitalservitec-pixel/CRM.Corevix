@@ -106,12 +106,14 @@ export const es = {
   "profile.workMonitor.summary": "Resumen de trabajo del perfil",
   "profile.workMonitor.lastActivity": "Última actividad",
   "profile.workMonitor.scope": "Alcance",
-  "profile.workMonitor.scopeDescription": "Los conteos se basan en asignaciones del CRM vinculadas actualmente a este perfil.",
+  "profile.workMonitor.scopeDescription":
+    "Los conteos se basan en asignaciones del CRM vinculadas actualmente a este perfil.",
   "profile.workMonitor.noActivityYet": "Sin actividad todavía",
 
   // Tickets
   "tickets.title": "Tickets de soporte",
-  "tickets.subtitle": "Panel central para incidencias, solicitudes de clientes y casos relacionados a proyectos.",
+  "tickets.subtitle":
+    "Panel central para incidencias, solicitudes de clientes y casos relacionados a proyectos.",
   "tickets.new": "Nuevo ticket",
   "tickets.searchPlaceholder": "Buscar tickets...",
   "tickets.allProjects": "Todos los proyectos",
@@ -153,7 +155,8 @@ export const es = {
   "team.inviteUser": "Invitar usuario",
   "team.invite": "Invitar",
   "team.pendingInvitations": "Invitaciones pendientes",
-  "team.pendingInvitationsSubtitle": "Copia enlaces, reenvía correos o revoca accesos antes de que sean aceptados.",
+  "team.pendingInvitationsSubtitle":
+    "Copia enlaces, reenvía correos o revoca accesos antes de que sean aceptados.",
   "team.stats.total": "Total usuarios",
   "team.stats.totalHelper": "Todos los miembros del equipo",
   "team.stats.active": "Usuarios activos",
@@ -217,15 +220,18 @@ export const es = {
   "products.stats.inactive": "Inactivos",
   "products.stats.avgPrice": "Precio promedio",
   "products.empty": "No hay productos",
-  "products.emptyAdmin": "Todavía no hay productos o servicios.\nCrea tu primer producto para empezar a relacionarlo con prospectos, oportunidades y clientes.",
+  "products.emptyAdmin":
+    "Todavía no hay productos o servicios.\nCrea tu primer producto para empezar a relacionarlo con prospectos, oportunidades y clientes.",
   "products.emptyActive": "No hay productos activos disponibles.",
   "products.name": "Nombre",
   "products.category": "Categoría",
   "products.type": "Tipo",
   "products.price": "Precio",
   "products.billingLabel": "Cobro",
+  "products.status": "Estado",
   "products.currency": "Moneda",
   "products.deliverables": "Entregables",
+  "products.description": "Descripción",
   "products.updated": "Actualizado",
   "products.activate": "Activar",
   "products.deactivate": "Desactivar",
@@ -272,8 +278,10 @@ export const es = {
   "products.placeholder.nameSubscription": "Ej: Mantenimiento mensual de redes",
   "products.placeholder.duration": "Días, opcional",
   "products.placeholder.serviceDeliverables": "Ej: 1 diseño, 2 revisiones",
-  "products.placeholder.packageIncludes": "Ej: Logo, paleta de colores, 5 posts, portada para redes...",
-  "products.placeholder.subscriptionIncludes": "Ej: 12 publicaciones mensuales, reportes, soporte por WhatsApp...",
+  "products.placeholder.packageIncludes":
+    "Ej: Logo, paleta de colores, 5 posts, portada para redes...",
+  "products.placeholder.subscriptionIncludes":
+    "Ej: 12 publicaciones mensuales, reportes, soporte por WhatsApp...",
   "products.placeholder.productDetails": "Ej: Tamaño, color, materiales, variaciones...",
   "products.placeholder.description": "Describe brevemente qué recibe el cliente.",
   "products.placeholder.suggestedRole": "Ej: developer, designer…",

@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/products")({
   component: ProductsPage,
@@ -158,8 +159,39 @@ function formatMoney(value: number, currency: string) {
   return `${currency} ${n.toLocaleString()}`;
 }
 
+function productTypeLabel(value: string | null | undefined, t: (key: string) => string) {
+  switch (value) {
+    case "service":
+      return t("products.type.service");
+    case "product":
+      return t("products.type.product");
+    case "package":
+      return t("products.type.package");
+    case "subscription":
+      return t("products.type.subscription");
+    default:
+      return value || "—";
+  }
+}
+
+function billingTypeLabel(value: string | null | undefined, t: (key: string) => string) {
+  switch (value) {
+    case "one_time":
+      return t("products.billing.one_time");
+    case "monthly":
+      return t("products.billing.monthly");
+    case "yearly":
+      return t("products.billing.yearly");
+    case "custom":
+      return t("products.billing.custom");
+    default:
+      return value || "—";
+  }
+}
+
 function ProductsPage() {
   const { profile, roles } = useAuth();
+  const { t } = useT();
   const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
 
   const [search, setSearch] = useState("");
@@ -715,9 +747,9 @@ function ProductsPage() {
   return (
     <div className="p-4 sm:p-5 space-y-4">
       <PageHeader
-        title="Productos"
-        subtitle="Administra los servicios, paquetes y ofertas que vende tu negocio."
-        actionLabel={isAdminLike ? "Nuevo producto" : undefined}
+        title={t("products.title")}
+        subtitle={t("products.subtitle")}
+        actionLabel={isAdminLike ? t("products.new") : undefined}
         onAction={
           isAdminLike
             ? () => {
@@ -732,7 +764,7 @@ function ProductsPage() {
         <MetricCard
           variant="reference"
           size="compact"
-          label="Total productos"
+          label={t("products.stats.total")}
           value={stats.total}
           icon={Layers}
           iconClassName="text-[#1d62f9]"
@@ -741,7 +773,7 @@ function ProductsPage() {
         <MetricCard
           variant="reference"
           size="compact"
-          label="Activos"
+          label={t("products.stats.active")}
           value={stats.active}
           icon={ShieldCheck}
           iconClassName="text-emerald-700"
@@ -750,7 +782,7 @@ function ProductsPage() {
         <MetricCard
           variant="reference"
           size="compact"
-          label="Inactivos"
+          label={t("products.stats.inactive")}
           value={stats.inactive}
           icon={Power}
           iconClassName="text-slate-700"
@@ -759,7 +791,7 @@ function ProductsPage() {
         <MetricCard
           variant="reference"
           size="compact"
-          label="Precio promedio"
+          label={t("products.stats.avgPrice")}
           value={`USD ${stats.avgPrice.toLocaleString()}`}
           icon={BadgeDollarSign}
           iconClassName="text-amber-700"
@@ -772,40 +804,43 @@ function ProductsPage() {
           <SearchFilters
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Buscar productos..."
+            searchPlaceholder={t("products.searchPlaceholder")}
             filters={[
               {
                 key: "category",
-                placeholder: "Categoría",
+                placeholder: t("products.category"),
                 value: categoryFilter,
                 onChange: setCategoryFilter,
                 options: categories.map((c) => ({ label: c, value: c })),
               },
               {
                 key: "type",
-                placeholder: "Tipo",
+                placeholder: t("products.type"),
                 value: typeFilter,
                 onChange: setTypeFilter,
-                options: types.map((t) => ({ label: t, value: t })),
+                options: types.map((type) => ({ label: productTypeLabel(type, t), value: type })),
               },
               {
                 key: "billing",
-                placeholder: "Cobro",
+                placeholder: t("products.billingLabel"),
                 value: billingFilter,
                 onChange: setBillingFilter,
-                options: billingTypes.map((b) => ({ label: b, value: b })),
+                options: billingTypes.map((billing) => ({
+                  label: billingTypeLabel(billing, t),
+                  value: billing,
+                })),
               },
               ...(isAdminLike
                 ? [
                     {
                       key: "active",
-                      placeholder: "Estado",
+                      placeholder: t("products.status"),
                       value: activeFilter,
                       onChange: setActiveFilter as any,
                       options: [
-                        { label: "Todos", value: "all" },
-                        { label: "Activos", value: "active" },
-                        { label: "Inactivos", value: "inactive" },
+                        { label: t("products.all"), value: "all" },
+                        { label: t("status.active"), value: "active" },
+                        { label: t("status.inactive"), value: "inactive" },
                       ],
                     },
                   ]
@@ -816,13 +851,9 @@ function ProductsPage() {
           {filtered.length === 0 ? (
             <EmptyState
               icon={<Package className="h-6 w-6" />}
-              title="No hay productos"
-              description={
-                isAdminLike
-                  ? "Todavía no hay productos o servicios.\nCrea tu primer producto para empezar a relacionarlo con prospectos, oportunidades y clientes."
-                  : "No hay productos activos disponibles."
-              }
-              actionLabel={isAdminLike ? "Nuevo producto" : undefined}
+              title={t("products.empty")}
+              description={isAdminLike ? t("products.emptyAdmin") : t("products.emptyActive")}
+              actionLabel={isAdminLike ? t("products.new") : undefined}
               onAction={
                 isAdminLike
                   ? () => {
@@ -893,7 +924,7 @@ function ProductsPage() {
                         {p.category || "—"}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm">
-                        {p.type || "—"}
+                        {productTypeLabel(p.type, t)}
                       </TableCell>
                       <TableCell
                         data-demo={index === 0 ? "products-price" : undefined}
@@ -905,7 +936,7 @@ function ProductsPage() {
                         data-demo={index === 0 ? "products-billing" : undefined}
                         className="hidden lg:table-cell text-sm"
                       >
-                        {p.billing_type || "—"}
+                        {billingTypeLabel(p.billing_type, t)}
                       </TableCell>
                       {isAdminLike ? (
                         <TableCell
@@ -944,10 +975,8 @@ function ProductsPage() {
       >
         <DialogContent className="max-w-5xl overflow-hidden p-0">
           <DialogHeader className="border-b px-6 py-5 text-left">
-            <DialogTitle>{editItem ? "Editar producto" : "Nuevo producto"}</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Define lo que vendes. El formulario cambia según el tipo seleccionado.
-            </p>
+            <DialogTitle>{editItem ? t("products.edit") : t("products.new")}</DialogTitle>
+            <p className="text-sm text-muted-foreground">{t("products.formSubtitle")}</p>
           </DialogHeader>
 
           <form onSubmit={handleSubmit}>
@@ -963,18 +992,20 @@ function ProductsPage() {
                       {activeProductImagePreview ? (
                         <img
                           src={activeProductImagePreview}
-                          alt={editItem?.name || "Imagen del producto"}
+                          alt={editItem?.name || t("products.productImage")}
                           className="h-full w-full object-cover"
                         />
                       ) : (
                         <div className="px-6 text-center">
                           <Package className="mx-auto h-10 w-10 text-muted-foreground" />
-                          <div className="mt-3 text-sm font-semibold">Imagen del producto</div>
+                          <div className="mt-3 text-sm font-semibold">
+                            {t("products.productImage")}
+                          </div>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Sube una foto para reconocerlo más fácil.
+                            {t("products.productImageHelp")}
                           </p>
                           <div className="mt-4 inline-flex rounded-full border bg-white px-4 py-2 text-sm font-medium">
-                            Upload image
+                            {t("products.uploadImage")}
                           </div>
                         </div>
                       )}
@@ -995,7 +1026,9 @@ function ProductsPage() {
                         className="flex-1"
                         onClick={() => productImageInputRef.current?.click()}
                       >
-                        {activeProductImagePreview ? "Cambiar imagen" : "Upload image"}
+                        {activeProductImagePreview
+                          ? t("products.changeImage")
+                          : t("products.uploadImage")}
                       </Button>
 
                       {activeProductImagePreview ? (
@@ -1009,12 +1042,14 @@ function ProductsPage() {
                               productImageInputRef.current.value = "";
                           }}
                         >
-                          Quitar
+                          {t("products.remove")}
                         </Button>
                       ) : null}
                     </div>
 
-                    <p className="text-xs text-muted-foreground">JPG, PNG o WebP. Máximo 5 MB.</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("products.imageRequirements")}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1024,14 +1059,10 @@ function ProductsPage() {
                           <ProductVisualIcon name={productDraftIcon} className="h-10 w-10" />
                         </div>
                         <div className="mt-4 text-sm font-semibold">
-                          {productDraftType === "service"
-                            ? "Servicio"
-                            : productDraftType === "package"
-                              ? "Paquete"
-                              : "Suscripción"}
+                          {productTypeLabel(productDraftType, t)}
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Elige un icono para identificarlo rápido en el catálogo.
+                          {t("products.iconHelp")}
                         </p>
                       </div>
                     </div>
@@ -1060,7 +1091,7 @@ function ProductsPage() {
                             <Input
                               value={iconSearch}
                               onChange={(e) => setIconSearch(e.target.value)}
-                              placeholder="Buscar icono..."
+                              placeholder={t("products.searchIcon")}
                               autoFocus
                             />
                           </div>
@@ -1093,7 +1124,7 @@ function ProductsPage() {
                               </div>
                             ) : (
                               <div className="p-4 text-center text-sm text-muted-foreground">
-                                No encontré iconos con esa búsqueda.
+                                {t("products.noIcons")}
                               </div>
                             )}
                           </div>
@@ -1107,7 +1138,7 @@ function ProductsPage() {
               <div className="space-y-5 p-6">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Tipo</Label>
+                    <Label>{t("products.type")}</Label>
                     <Select
                       name="type"
                       value={productDraftType}
@@ -1128,9 +1159,9 @@ function ProductsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {PRODUCT_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
+                        {PRODUCT_TYPES.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {productTypeLabel(item.value, t)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1138,16 +1169,16 @@ function ProductsPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>Categoría</Label>
+                    <Label>{t("products.category")}</Label>
                     <Input
                       name="category"
                       defaultValue={editItem?.category || ""}
                       placeholder={
                         productDraftType === "product"
-                          ? "Ej: Decoración"
+                          ? t("products.placeholder.categoryProduct")
                           : productDraftType === "subscription"
-                            ? "Ej: Mantenimiento"
-                            : "Ej: Diseño gráfico"
+                            ? t("products.placeholder.categorySubscription")
+                            : t("products.placeholder.categoryService")
                       }
                     />
                   </div>
@@ -1156,12 +1187,12 @@ function ProductsPage() {
                 <div className="space-y-1.5">
                   <Label>
                     {productDraftType === "subscription"
-                      ? "Nombre de la suscripción"
+                      ? t("products.nameSubscription")
                       : productDraftType === "package"
-                        ? "Nombre del paquete"
+                        ? t("products.namePackage")
                         : productDraftType === "product"
-                          ? "Nombre del producto"
-                          : "Nombre del servicio"}
+                          ? t("products.nameProduct")
+                          : t("products.nameService")}
                   </Label>
                   <Input
                     name="name"
@@ -1169,12 +1200,12 @@ function ProductsPage() {
                     required
                     placeholder={
                       productDraftType === "subscription"
-                        ? "Ej: Mantenimiento mensual de redes"
+                        ? t("products.placeholder.nameSubscription")
                         : productDraftType === "package"
-                          ? "Ej: Paquete branding inicial"
+                          ? t("products.placeholder.namePackage")
                           : productDraftType === "product"
-                            ? "Ej: Arreglo floral premium"
-                            : "Ej: Diseño de flyer personalizado"
+                            ? t("products.placeholder.nameProduct")
+                            : t("products.placeholder.nameService")
                     }
                   />
                 </div>
@@ -1189,12 +1220,12 @@ function ProductsPage() {
                   >
                     <Label>
                       {productDraftType === "subscription"
-                        ? "Mensualidad"
+                        ? t("products.monthlyPrice")
                         : productDraftType === "package"
-                          ? "Precio del paquete"
+                          ? t("products.packagePrice")
                           : productDraftType === "product"
-                            ? "Precio del producto"
-                            : "Precio del servicio"}
+                            ? t("products.productPrice")
+                            : t("products.servicePrice")}
                     </Label>
                     <Input
                       name="base_price"
@@ -1210,7 +1241,7 @@ function ProductsPage() {
                     <input type="hidden" name="billing_type" value="monthly" />
                   ) : (
                     <div className="space-y-1.5">
-                      <Label>Cobro</Label>
+                      <Label>{t("products.billingLabel")}</Label>
                       <Select
                         name="billing_type"
                         defaultValue={editItem?.billing_type || "one_time"}
@@ -1219,9 +1250,9 @@ function ProductsPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {BILLING_TYPES.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
+                          {BILLING_TYPES.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {billingTypeLabel(item.value, t)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1230,7 +1261,7 @@ function ProductsPage() {
                   )}
 
                   <div className="space-y-1.5">
-                    <Label>Moneda</Label>
+                    <Label>{t("products.currency")}</Label>
                     <Input name="currency" defaultValue={editItem?.currency || "DOP"} />
                   </div>
                 </div>
@@ -1238,20 +1269,20 @@ function ProductsPage() {
                 {productDraftType === "service" ? (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label>Duración estimada</Label>
+                      <Label>{t("products.estimatedDuration")}</Label>
                       <Input
                         name="duration_days"
                         type="number"
                         defaultValue={editItem?.duration_days ?? ""}
-                        placeholder="Días, opcional"
+                        placeholder={t("products.placeholder.duration")}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Entregables del servicio</Label>
+                      <Label>{t("products.serviceDeliverables")}</Label>
                       <Input
                         name="deliverables"
                         defaultValue={editItem?.deliverables || ""}
-                        placeholder="Ej: 1 diseño, 2 revisiones"
+                        placeholder={t("products.placeholder.serviceDeliverables")}
                       />
                     </div>
                   </div>
@@ -1259,59 +1290,59 @@ function ProductsPage() {
 
                 {productDraftType === "package" ? (
                   <div className="space-y-1.5">
-                    <Label>Qué incluye el paquete</Label>
+                    <Label>{t("products.packageIncludes")}</Label>
                     <Textarea
                       name="deliverables"
                       defaultValue={editItem?.deliverables || ""}
                       rows={3}
-                      placeholder="Ej: Logo, paleta de colores, 5 posts, portada para redes..."
+                      placeholder={t("products.placeholder.packageIncludes")}
                     />
                   </div>
                 ) : null}
 
                 {productDraftType === "subscription" ? (
                   <div className="space-y-1.5">
-                    <Label>Qué incluye la mensualidad</Label>
+                    <Label>{t("products.subscriptionIncludes")}</Label>
                     <Textarea
                       name="deliverables"
                       defaultValue={editItem?.deliverables || ""}
                       rows={3}
-                      placeholder="Ej: 12 publicaciones mensuales, reportes, soporte por WhatsApp..."
+                      placeholder={t("products.placeholder.subscriptionIncludes")}
                     />
                   </div>
                 ) : null}
 
                 {productDraftType === "product" ? (
                   <div className="space-y-1.5">
-                    <Label>Detalles del producto</Label>
+                    <Label>{t("products.productDetails")}</Label>
                     <Textarea
                       name="deliverables"
                       defaultValue={editItem?.deliverables || ""}
                       rows={2}
-                      placeholder="Ej: Tamaño, color, materiales, variaciones..."
+                      placeholder={t("products.placeholder.productDetails")}
                     />
                   </div>
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <Label>Descripción</Label>
+                  <Label>{t("products.description")}</Label>
                   <Textarea
                     name="description"
                     defaultValue={editItem?.description || ""}
                     rows={4}
-                    placeholder="Describe brevemente qué recibe el cliente."
+                    placeholder={t("products.placeholder.description")}
                   />
                 </div>
 
                 <div className="rounded-2xl border bg-muted/20 p-4">
-                  <div className="mb-3 text-sm font-semibold">Opciones internas</div>
+                  <div className="mb-3 text-sm font-semibold">{t("products.internalOptions")}</div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>Slug</Label>
                       <Input
                         name="slug"
                         defaultValue={editItem?.slug || ""}
-                        placeholder="Opcional"
+                        placeholder={t("products.optional")}
                       />
                     </div>
 
@@ -1324,7 +1355,7 @@ function ProductsPage() {
                           className="h-4 w-4"
                           defaultChecked={editItem ? Boolean(editItem.is_active) : true}
                         />
-                        <Label htmlFor="is_active">Activo</Label>
+                        <Label htmlFor="is_active">{t("status.active")}</Label>
                       </div>
                     </div>
                   </div>
@@ -1346,10 +1377,14 @@ function ProductsPage() {
                       resetProductDraftVisuals();
                     }}
                   >
-                    Cancelar
+                    {t("common.cancel")}
                   </Button>
                   <Button type="submit" disabled={!isAdminLike || productSaving}>
-                    {productSaving ? "Guardando..." : editItem ? "Guardar cambios" : "Crear"}
+                    {productSaving
+                      ? t("products.saving")
+                      : editItem
+                        ? t("products.saveChanges")
+                        : t("products.create")}
                   </Button>
                 </div>
               </div>
@@ -1384,8 +1419,8 @@ function ProductsPage() {
                     {selected.name}
                   </DialogTitle>
                   <div className="mt-0.5 text-[13px] text-muted-foreground truncate">
-                    {(selected.category || "Producto") +
-                      (selected.type ? ` · ${selected.type}` : "")}
+                    {(selected.category || t("products.fallbackProduct")) +
+                      (selected.type ? ` · ${productTypeLabel(selected.type, t)}` : "")}
                   </div>
                 </div>
               </div>
@@ -1398,7 +1433,7 @@ function ProductsPage() {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Tipo</div>
-                  <div className="font-medium">{selected.type || "—"}</div>
+                  <div className="font-medium">{productTypeLabel(selected.type, t)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Precio</div>
@@ -1408,7 +1443,7 @@ function ProductsPage() {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Cobro</div>
-                  <div className="font-medium">{selected.billing_type || "—"}</div>
+                  <div className="font-medium">{billingTypeLabel(selected.billing_type, t)}</div>
                 </div>
               </div>
               {selected.type === "product" && selected.image_url ? (

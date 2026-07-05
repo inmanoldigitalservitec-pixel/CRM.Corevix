@@ -107,7 +107,8 @@ export const en = {
   "profile.workMonitor.summary": "Profile Work Summary",
   "profile.workMonitor.lastActivity": "Last activity",
   "profile.workMonitor.scope": "Scope",
-  "profile.workMonitor.scopeDescription": "Counts are based on CRM assignments currently linked to this profile.",
+  "profile.workMonitor.scopeDescription":
+    "Counts are based on CRM assignments currently linked to this profile.",
   "profile.workMonitor.noActivityYet": "No activity yet",
 
   // Tickets
@@ -154,7 +155,8 @@ export const en = {
   "team.inviteUser": "Invite user",
   "team.invite": "Invite",
   "team.pendingInvitations": "Pending invitations",
-  "team.pendingInvitationsSubtitle": "Copy links, resend emails, or revoke access before acceptance.",
+  "team.pendingInvitationsSubtitle":
+    "Copy links, resend emails, or revoke access before acceptance.",
   "team.stats.total": "Total users",
   "team.stats.totalHelper": "All team members",
   "team.stats.active": "Active users",
@@ -218,15 +220,18 @@ export const en = {
   "products.stats.inactive": "Inactive",
   "products.stats.avgPrice": "Average price",
   "products.empty": "No products",
-  "products.emptyAdmin": "There are no products or services yet.\nCreate your first product to connect it with leads, deals, and clients.",
+  "products.emptyAdmin":
+    "There are no products or services yet.\nCreate your first product to connect it with leads, deals, and clients.",
   "products.emptyActive": "No active products available.",
   "products.name": "Name",
   "products.category": "Category",
   "products.type": "Type",
   "products.price": "Price",
   "products.billingLabel": "Billing",
+  "products.status": "Status",
   "products.currency": "Currency",
   "products.deliverables": "Deliverables",
+  "products.description": "Description",
   "products.updated": "Updated",
   "products.activate": "Activate",
   "products.deactivate": "Deactivate",
