@@ -65,22 +65,22 @@ export function ProjectContractsPanel({ projectId }: { projectId: string }) {
 
   useEffect(() => { void loadContracts(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [projectId, profile?.company_id]);
 
-  if (loading) return <div className="rounded-xl border bg-white p-5 text-sm font-semibold text-slate-500">Loading contracts...</div>;
+  if (loading) return <div className="rounded-xl border bg-white p-5 text-sm font-semibold text-slate-500">Cargando contratos...</div>;
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4"><div className="text-xs font-bold uppercase text-slate-500">Contracts</div><div className="mt-1 text-2xl font-extrabold text-slate-900">{contracts.length}</div></div>
-        <div className="rounded-xl border bg-white p-4"><div className="text-xs font-bold uppercase text-slate-500">Active</div><div className="mt-1 text-2xl font-extrabold text-emerald-700">{activeCount}</div></div>
-        <div className="rounded-xl border bg-white p-4"><div className="text-xs font-bold uppercase text-slate-500">Total Value</div><div className="mt-1 text-2xl font-extrabold text-slate-900">{formatMoney(totalValue)}</div></div>
+        <div className="rounded-xl border bg-white p-4"><div className="text-xs font-bold uppercase text-slate-500">Contratos</div><div className="mt-1 text-2xl font-extrabold text-slate-900">{contracts.length}</div></div>
+        <div className="rounded-xl border bg-white p-4"><div className="text-xs font-bold uppercase text-slate-500">Activos</div><div className="mt-1 text-2xl font-extrabold text-emerald-700">{activeCount}</div></div>
+        <div className="rounded-xl border bg-white p-4"><div className="text-xs font-bold uppercase text-slate-500">Valor total</div><div className="mt-1 text-2xl font-extrabold text-slate-900">{formatMoney(totalValue)}</div></div>
       </div>
 
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><h3 className="font-extrabold text-slate-900">Project Contracts</h3><p className="text-sm font-medium text-slate-500">Agreements linked to this project.</p></div>
-          <div className="flex gap-2"><Button variant="outline" onClick={() => void loadContracts()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>{can("contracts.create") && <Button onClick={() => setDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />New Contract</Button>}</div>
+          <div><h3 className="font-extrabold text-slate-900">Contratos del proyecto</h3><p className="text-sm font-medium text-slate-500">Acuerdos vinculados a este proyecto.</p></div>
+          <div className="flex gap-2"><Button variant="outline" onClick={() => void loadContracts()}><RefreshCw className="mr-2 h-4 w-4" />Actualizar</Button>{can("contracts.create") && <Button onClick={() => setDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Nuevo contrato</Button>}</div>
         </div>
-        <div className="overflow-hidden rounded-xl border"><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>#</TableHead><TableHead>Subject</TableHead><TableHead>Type</TableHead><TableHead>Value</TableHead><TableHead>Start</TableHead><TableHead>End</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>{contracts.length ? contracts.map((contract) => <TableRow key={contract.id}><TableCell className="font-semibold text-slate-500">{contract.contract_number || "—"}</TableCell><TableCell><div className="font-semibold text-slate-900">{contract.subject}</div><div className="line-clamp-1 text-xs text-slate-500">{contract.description || "Sin descripción"}</div></TableCell><TableCell>{contract.contract_type || "—"}</TableCell><TableCell className="font-semibold">{formatMoney(contract.contract_value)}</TableCell><TableCell>{formatDate(contract.start_date)}</TableCell><TableCell>{formatDate(contract.end_date)}</TableCell><TableCell><StatusBadge status={contract.status} /></TableCell></TableRow>) : <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500"><FileText className="mx-auto mb-2 h-5 w-5" />Este proyecto todavía no tiene contratos.</TableCell></TableRow>}</TableBody></Table></div></div>
+        <div className="overflow-hidden rounded-xl border"><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>#</TableHead><TableHead>Asunto</TableHead><TableHead>Tipo</TableHead><TableHead>Valor</TableHead><TableHead>Inicio</TableHead><TableHead>Fin</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader><TableBody>{contracts.length ? contracts.map((contract) => <TableRow key={contract.id}><TableCell className="font-semibold text-slate-500">{contract.contract_number || "—"}</TableCell><TableCell><div className="font-semibold text-slate-900">{contract.subject}</div><div className="line-clamp-1 text-xs text-slate-500">{contract.description || "Sin descripción"}</div></TableCell><TableCell>{contract.contract_type || "—"}</TableCell><TableCell className="font-semibold">{formatMoney(contract.contract_value)}</TableCell><TableCell>{formatDate(contract.start_date)}</TableCell><TableCell>{formatDate(contract.end_date)}</TableCell><TableCell><StatusBadge status={contract.status} /></TableCell></TableRow>) : <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500"><FileText className="mx-auto mb-2 h-5 w-5" />Este proyecto todavía no tiene contratos.</TableCell></TableRow>}</TableBody></Table></div></div>
       </div>
 
       <ContractEditorDialog open={dialogOpen} onOpenChange={setDialogOpen} contract={null} clients={clients} projects={projects} profiles={profiles} initialValues={{ project_id: project?.id || projectId, client_id: project?.client_id || "none" }} onSaved={loadContracts} />
