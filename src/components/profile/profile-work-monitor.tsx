@@ -15,6 +15,7 @@ import { useUserActivity } from "@/hooks/use-user-activity";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useT } from "@/i18n";
 
 type ProfileWorkMonitorProps = {
   profileId: string | null;
@@ -28,10 +29,10 @@ type ExtraCounts = {
 
 type WorkRoute = "/tasks" | "/leads" | "/pipeline" | "/projects" | "/tickets";
 
-function formatDateTime(value?: string | null) {
-  if (!value) return "No activity yet";
+function formatDateTime(value: string | null | undefined, fallback: string) {
+  if (!value) return fallback;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "No activity yet";
+  if (Number.isNaN(date.getTime())) return fallback;
   return date.toLocaleString();
 }
 
@@ -41,12 +42,14 @@ function WorkMetric({
   value,
   href,
   tone = "slate",
+  helper,
 }: {
   icon: ElementType;
   label: string;
   value: number;
   href: WorkRoute;
   tone?: "blue" | "emerald" | "violet" | "amber" | "rose" | "slate";
+  helper: string;
 }) {
   const toneClass = {
     blue: "bg-blue-50 text-blue-700",
@@ -66,17 +69,19 @@ function WorkMetric({
         <span className="text-2xl font-black text-slate-950">{value}</span>
       </div>
       <p className="mt-3 text-sm font-semibold text-slate-950">{label}</p>
-      <p className="mt-1 text-xs text-muted-foreground">Open assigned work</p>
+      <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
     </Link>
   );
 }
 
 export function ProfileWorkMonitor({ profileId, userId }: ProfileWorkMonitorProps) {
   const db = supabase as any;
+  const { t } = useT();
   const { data: teamUsers, loading: teamLoading, refetch: refetchTeam } = useTeamUsers({ enabled: !!profileId });
   const { data: activity, loading: activityLoading, refetch: refetchActivity } = useUserActivity(profileId, 10);
   const [extraCounts, setExtraCounts] = useState<ExtraCounts>({ projects: 0, tickets: 0 });
   const [extraLoading, setExtraLoading] = useState(false);
+  const noActivityYet = t("profile.workMonitor.noActivityYet");
 
   const teamRow = useMemo(() => {
     if (!profileId && !userId) return null;
@@ -116,28 +121,29 @@ export function ProfileWorkMonitor({ profileId, userId }: ProfileWorkMonitorProp
   };
 
   const loading = teamLoading || extraLoading;
+  const metricHelper = t("profile.workMonitor.openAssignedWork");
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-base font-black text-slate-950">Work Monitor</h3>
+          <h3 className="text-base font-black text-slate-950">{t("profile.workMonitor.title")}</h3>
           <p className="text-sm text-muted-foreground">
-            Assigned work and recent activity for this profile.
+            {t("profile.workMonitor.subtitle")}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={refresh} disabled={loading || activityLoading}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
+          {t("profile.workMonitor.refresh")}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <WorkMetric icon={CheckSquare} label="Tasks" value={teamRow?.tasks_assigned || 0} href="/tasks" tone="rose" />
-        <WorkMetric icon={Users} label="Leads" value={teamRow?.leads_assigned || 0} href="/leads" tone="violet" />
-        <WorkMetric icon={BriefcaseBusiness} label="Deals" value={teamRow?.deals_assigned || 0} href="/pipeline" tone="emerald" />
-        <WorkMetric icon={FolderOpen} label="Projects" value={extraCounts.projects} href="/projects" tone="blue" />
-        <WorkMetric icon={Ticket} label="Tickets" value={extraCounts.tickets} href="/tickets" tone="amber" />
+        <WorkMetric icon={CheckSquare} label={t("profile.workMonitor.tasks")} value={teamRow?.tasks_assigned || 0} href="/tasks" tone="rose" helper={metricHelper} />
+        <WorkMetric icon={Users} label={t("profile.workMonitor.leads")} value={teamRow?.leads_assigned || 0} href="/leads" tone="violet" helper={metricHelper} />
+        <WorkMetric icon={BriefcaseBusiness} label={t("profile.workMonitor.deals")} value={teamRow?.deals_assigned || 0} href="/pipeline" tone="emerald" helper={metricHelper} />
+        <WorkMetric icon={FolderOpen} label={t("profile.workMonitor.projects")} value={extraCounts.projects} href="/projects" tone="blue" helper={metricHelper} />
+        <WorkMetric icon={Ticket} label={t("profile.workMonitor.tickets")} value={extraCounts.tickets} href="/tickets" tone="amber" helper={metricHelper} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -145,7 +151,7 @@ export function ProfileWorkMonitor({ profileId, userId }: ProfileWorkMonitorProp
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Activity className="h-4 w-4" />
-              Recent Activity
+              {t("profile.workMonitor.recentActivity")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -168,13 +174,13 @@ export function ProfileWorkMonitor({ profileId, userId }: ProfileWorkMonitorProp
                         {item.entity_type}
                       </Badge>
                     </div>
-                    <p className="mt-2 text-xs text-muted-foreground">{formatDateTime(item.created_at)}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{formatDateTime(item.created_at, noActivityYet)}</p>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed bg-slate-50 p-6 text-sm text-muted-foreground">
-                No recent activity found for this profile.
+                {t("profile.workMonitor.noActivity")}
               </div>
             )}
           </CardContent>
@@ -182,17 +188,17 @@ export function ProfileWorkMonitor({ profileId, userId }: ProfileWorkMonitorProp
 
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Profile Work Summary</CardTitle>
+            <CardTitle className="text-base">{t("profile.workMonitor.summary")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="rounded-xl border bg-white p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Last activity</p>
-              <p className="mt-1 font-semibold text-slate-950">{formatDateTime(teamRow?.last_activity_at)}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("profile.workMonitor.lastActivity")}</p>
+              <p className="mt-1 font-semibold text-slate-950">{formatDateTime(teamRow?.last_activity_at, noActivityYet)}</p>
             </div>
             <div className="rounded-xl border bg-white p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Scope</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("profile.workMonitor.scope")}</p>
               <p className="mt-1 text-muted-foreground">
-                Counts are based on CRM assignments currently linked to this profile.
+                {t("profile.workMonitor.scopeDescription")}
               </p>
             </div>
           </CardContent>
