@@ -197,6 +197,107 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] td:last-child button {
     border-radius: 4px;
   }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(1) {
+    display: none;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) {
+    display: block;
+    order: 10;
+    padding-right: 38px;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) > div:first-child {
+    gap: 7px;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) span.font-semibold {
+    display: block;
+    font-size: 17px;
+    line-height: 1.28;
+    font-weight: 850;
+    letter-spacing: -0.035em;
+    color: rgb(2 6 23);
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) .line-clamp-2 {
+    margin-top: 10px;
+    max-width: 34ch;
+    font-size: 13.5px;
+    line-height: 1.6;
+    font-weight: 550;
+    color: rgb(100 116 139);
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(3) {
+    order: 20;
+    width: auto;
+    padding-right: 0;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(4) {
+    display: none;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(5),
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(6),
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(7),
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(8) {
+    order: 40;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 650;
+    color: rgb(100 116 139);
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(5)::before,
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(6)::before,
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(7)::before,
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(8)::before {
+    min-width: 72px;
+    color: rgb(148 163 184);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(5)::before {
+    content: "Entrega";
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(6)::before {
+    content: "Asignado";
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(7)::before {
+    content: "Proyecto";
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(8)::before {
+    content: "Files";
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(9) {
+    order: 21;
+    margin-top: -36px;
+    padding-left: 112px;
+    width: auto;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(9) span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    border-radius: 4px;
+    background: rgb(241 245 249);
+    padding: 0 9px;
+    font-size: 11px;
+    font-weight: 850;
+  }
 }
 `;
 
