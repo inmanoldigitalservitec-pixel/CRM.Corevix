@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -18,6 +19,17 @@ export function PageHeader({
   actionIcon,
   children,
 }: PageHeaderProps) {
+  const [isTasksRoute, setIsTasksRoute] = useState(false);
+
+  useEffect(() => {
+    const syncRoute = () => setIsTasksRoute(window.location.pathname === "/tasks");
+    syncRoute();
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  const showAction = Boolean(actionLabel && onAction && !isTasksRoute);
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
@@ -26,7 +38,7 @@ export function PageHeader({
       </div>
       <div className="flex items-center gap-2">
         {children}
-        {actionLabel && onAction && (
+        {showAction && (
           <Button size="sm" onClick={onAction} className="gap-2">
             {actionIcon || <Plus className="h-4 w-4" />}
             {actionLabel}
