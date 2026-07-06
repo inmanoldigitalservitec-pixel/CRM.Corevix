@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { ListFilter, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Download, ListFilter, MoreHorizontal, RefreshCw, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -35,6 +36,18 @@ interface SearchFiltersProps {
   className?: string;
 }
 
+type TaskToolbarButtons = {
+  exportButton?: HTMLButtonElement;
+  refreshButton?: HTMLButtonElement;
+  clearButton?: HTMLButtonElement;
+};
+
+function getButtonByText(root: HTMLElement, text: string) {
+  return Array.from(root.querySelectorAll("button")).find((button) =>
+    (button.textContent || "").toLowerCase().includes(text.toLowerCase()),
+  ) as HTMLButtonElement | undefined;
+}
+
 export function SearchFilters({
   searchValue,
   onSearchChange,
@@ -43,7 +56,11 @@ export function SearchFilters({
   className,
 }: SearchFiltersProps) {
   const { t } = useT();
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [taskActionMenuOpen, setTaskActionMenuOpen] = useState(false);
+  const [taskActionsHost, setTaskActionsHost] = useState<HTMLDivElement | null>(null);
+  const [taskToolbarButtons, setTaskToolbarButtons] = useState<TaskToolbarButtons>({});
   const resolvedSearchPlaceholder = searchPlaceholder === "Search..." ? t("common.search") : searchPlaceholder;
   const activeFiltersCount = useMemo(
     () => filters.filter((filter) => filter.value && filter.value !== "all").length,
@@ -58,6 +75,112 @@ export function SearchFilters({
       document.body.style.overflow = previousOverflow;
     };
   }, [filtersOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.pathname !== "/tasks") return;
+    const root = rootRef.current;
+    const toolbar = root?.previousElementSibling as HTMLElement | null;
+    const actionRow = toolbar?.querySelector("div.flex.flex-wrap.items-center.gap-2") as HTMLElement | null;
+    if (!root || !toolbar || !actionRow) return;
+
+    const exportButton = getButtonByText(actionRow, "Exportar");
+    const refreshButton = getButtonByText(actionRow, "Actualizar");
+    const clearButton = getButtonByText(actionRow, "Limpiar filtros");
+    const secondaryButtons = [exportButton, refreshButton, clearButton].filter(Boolean) as HTMLButtonElement[];
+    if (!secondaryButtons.length) return;
+
+    const previousDisplays = new Map<HTMLButtonElement, string>();
+    secondaryButtons.forEach((button) => {
+      previousDisplays.set(button, button.style.display);
+      button.style.display = "none";
+    });
+
+    const host = document.createElement("div");
+    host.className = "flex shrink-0 items-center";
+    actionRow.classList.remove("flex-wrap");
+    actionRow.classList.add("justify-between", "w-full", "flex-nowrap");
+    actionRow.appendChild(host);
+
+    setTaskToolbarButtons({ exportButton, refreshButton, clearButton });
+    setTaskActionsHost(host);
+
+    return () => {
+      secondaryButtons.forEach((button) => {
+        button.style.display = previousDisplays.get(button) || "";
+      });
+      actionRow.classList.add("flex-wrap");
+      actionRow.classList.remove("justify-between", "w-full", "flex-nowrap");
+      host.remove();
+      setTaskActionsHost(null);
+      setTaskToolbarButtons({});
+      setTaskActionMenuOpen(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!taskActionMenuOpen) return;
+    const close = () => setTaskActionMenuOpen(false);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [taskActionMenuOpen]);
+
+  const runToolbarAction = (button?: HTMLButtonElement) => {
+    setTaskActionMenuOpen(false);
+    button?.click();
+  };
+
+  const renderTaskToolbarMenu = () => {
+    if (!taskActionsHost) return null;
+
+    return createPortal(
+      <div className="relative">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 rounded-xl border-border/60 bg-white shadow-sm"
+          onClick={() => setTaskActionMenuOpen((open) => !open)}
+          aria-label="Más acciones de tareas"
+          aria-expanded={taskActionMenuOpen}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+
+        {taskActionMenuOpen ? (
+          <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+              onClick={() => runToolbarAction(taskToolbarButtons.exportButton)}
+              disabled={taskToolbarButtons.exportButton?.disabled}
+            >
+              <Download className="h-4 w-4" /> Exportar
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              onClick={() => runToolbarAction(taskToolbarButtons.refreshButton)}
+            >
+              <RefreshCw className="h-4 w-4" /> Actualizar
+            </button>
+            <div className="my-1 h-px bg-slate-100" />
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              onClick={() => runToolbarAction(taskToolbarButtons.clearButton)}
+            >
+              <X className="h-4 w-4" /> Limpiar filtros
+            </button>
+          </div>
+        ) : null}
+      </div>,
+      taskActionsHost,
+    );
+  };
 
   const renderSelect = (filter: FilterConfig, mode: "desktop" | "mobile") => (
     <Select key={`${mode}-${filter.key}`} value={filter.value} onValueChange={filter.onChange}>
@@ -94,7 +217,10 @@ export function SearchFilters({
 
   return (
     <>
+      {renderTaskToolbarMenu()}
+
       <div
+        ref={rootRef}
         className={[
           "flex flex-col gap-3 sm:flex-row sm:flex-wrap",
           filters.length ? "sm:items-center" : "",
