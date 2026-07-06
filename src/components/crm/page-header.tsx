@@ -4,10 +4,23 @@ import { Plus } from "lucide-react";
 
 const TASKS_MOBILE_KPI_STYLES = `
 @media (max-width: 767px) {
+  body:has([data-corevix-page-header="tasks"]) {
+    background: #ffffff;
+  }
+
+  body:has([data-corevix-page-header="tasks"]) #root,
+  body:has([data-corevix-page-header="tasks"]) main {
+    background: #ffffff;
+  }
+
+  [data-corevix-page-header="tasks"] {
+    gap: 0;
+  }
+
   [data-corevix-page-header="tasks"] + div.grid {
     display: flex !important;
     grid-template-columns: none !important;
-    gap: 8px !important;
+    gap: 7px !important;
     margin-right: -16px;
     margin-left: -16px;
     overflow-x: auto;
@@ -22,10 +35,11 @@ const TASKS_MOBILE_KPI_STYLES = `
   }
 
   [data-corevix-page-header="tasks"] + div.grid > button {
-    min-width: 138px;
+    min-width: 126px;
     scroll-snap-align: start;
     border-radius: 12px;
-    padding: 10px 12px;
+    padding: 9px 11px;
+    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.055);
   }
 
   [data-corevix-page-header="tasks"] + div.grid > button > div:first-child {
@@ -38,7 +52,7 @@ const TASKS_MOBILE_KPI_STYLES = `
   }
 
   [data-corevix-page-header="tasks"] + div.grid > button span {
-    max-width: 92px;
+    max-width: 82px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -49,6 +63,20 @@ const TASKS_MOBILE_KPI_STYLES = `
     margin-top: 2px;
     font-size: 17px;
     line-height: 1.1;
+  }
+
+  [data-corevix-page-header="tasks"] + div.grid + div {
+    margin-right: -16px;
+    margin-left: -16px;
+    border-right: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  [data-corevix-page-header="tasks"] + div.grid + div > div {
+    padding: 16px !important;
   }
 }
 `;
@@ -93,7 +121,7 @@ export function PageHeader({
           {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">
-          {children}
+          {!isTasksRoute ? children : null}
           {showAction && (
             <Button size="sm" onClick={onAction} className="gap-2">
               {actionIcon || <Plus className="h-4 w-4" />}
