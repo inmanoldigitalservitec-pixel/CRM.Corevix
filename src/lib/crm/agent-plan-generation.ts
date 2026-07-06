@@ -209,7 +209,7 @@ export function buildAgentDailyPlans(
         schemaVersion: snapshot.schemaVersion,
         generatedAt: snapshot.generatedAt,
         cycleDate,
-        summary: snapshot.summary,
+        summary: snapshot.headline,
       },
       case_key: detectedCase.key,
       case_type: detectedCase.type,

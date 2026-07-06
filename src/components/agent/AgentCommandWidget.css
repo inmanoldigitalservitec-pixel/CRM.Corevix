@@ -554,3 +554,213 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Autopilot decision panel */
+.agent-decision-mode {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  animation: agent-slide-in 220ms ease both;
+}
+
+.agent-decision-header {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-decision-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.agent-decision-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.agent-suggested-action-list {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-suggested-action-btn {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  padding: 13px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(248, 250, 252, 0.92);
+  color: #0f172a;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.agent-suggested-action-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--agent-accent);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.agent-suggested-action-btn.is-selected {
+  border-color: var(--agent-accent);
+  background: var(--agent-soft);
+}
+
+.agent-suggested-action-btn strong {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.agent-suggested-action-btn span {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.agent-suggested-action-btn small {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.agent-custom-instruction-field {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-custom-instruction-field > span {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.agent-custom-instruction-field textarea {
+  width: 100%;
+  min-height: 98px;
+  resize: vertical;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 13px 14px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: #0f172a;
+  outline: none;
+}
+
+.agent-custom-instruction-field textarea:focus {
+  border-color: var(--agent-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.agent-custom-instruction-field small,
+.agent-empty-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.agent-decision-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Autopilot Phase 3B: in-widget fields and confirmation */
+.agent-form-slide,
+.agent-confirm-slide {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  animation: agent-slide-in 220ms ease both;
+}
+
+.agent-field-list {
+  display: grid;
+  gap: 12px;
+}
+
+.agent-field-control {
+  display: grid;
+  gap: 7px;
+}
+
+.agent-field-control span {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.agent-field-control input {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0 14px;
+  font-size: 0.88rem;
+  color: #0f172a;
+  outline: none;
+}
+
+.agent-field-control input:focus {
+  border-color: var(--agent-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.agent-confirm-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.agent-confirm-card div,
+.agent-confirm-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.agent-confirm-card span,
+.agent-confirm-field span {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.agent-confirm-card strong,
+.agent-confirm-field strong {
+  font-size: 0.84rem;
+  color: #0f172a;
+  text-align: right;
+}
+
+.agent-confirm-fields {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.agent-confirm-note {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--agent-soft);
+  color: #334155;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  font-weight: 700;
+}
+

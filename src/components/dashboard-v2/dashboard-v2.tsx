@@ -1605,9 +1605,55 @@ export function DashboardV2({
     }
   }, []);
 
+  const loadAgentPromptPayload = useCallback(async () => {
+    setIsAgentPromptPayloadLoading(true);
+
+    try {
+      const widgetContractResult = await fetchAgentWidgetContract();
+
+      if (widgetContractResult.payload) {
+        setAgentPromptPayload(widgetContractResult.payload);
+        return;
+      }
+
+      setAgentPromptPayload({
+        schema_version: "agent_widget_contract_v1",
+        status: "idle",
+        generated_at: new Date().toISOString(),
+        summary: {
+          total_cases: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+        },
+        recovery_plans: [],
+      });
+    } catch (error) {
+      console.warn("[dashboard-v2] No se pudo cargar agent_widget_contracts", error);
+
+      setAgentPromptPayload({
+        schema_version: "agent_widget_contract_v1",
+        status: "error",
+        generated_at: new Date().toISOString(),
+        summary: {
+          total_cases: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+        },
+        recovery_plans: [],
+      });
+    } finally {
+      setIsAgentPromptPayloadLoading(false);
+    }
+  }, []);
+
+
   useEffect(() => {
-    void refreshAgentPromptPayload();
-  }, [refreshAgentPromptPayload]);
+    void loadAgentPromptPayload();
+  }, [loadAgentPromptPayload]);
 
   const resolvedLeadAttention = leadsAttention ?? actionListItems(actions, "/leads", "blue");
   const resolvedProjectRisks = projectRisks ?? actionListItems(actions, "/projects", "orange");

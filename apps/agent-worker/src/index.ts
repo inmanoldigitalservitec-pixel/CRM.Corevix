@@ -7,6 +7,7 @@ import { executeTool } from './tool-router';
 import { listTodayAgentPlans, syncDailyAgentPlans } from './agent-daily-plans';
 import { writeAgentWidgetContractFromDailyPlans, writeAgentWidgetContractPayload, type AgentWidgetContractV1 } from './agent-widget-contract';
 import { getTodayAgentOperatingContext, refreshAgentOperatingContext } from './agent-operating-context';
+import { resolveAgentActionIntent } from './agent-action-intent';
 
 const AVAILABLE_TOOLS = [
 	'create_lead',
@@ -272,6 +273,11 @@ export default {
 			return handleTodayAgentOperatingContext(request, env);
 		}
 
+		if (url.pathname === '/agent/action/resolve-intent' && request.method === 'POST') {
+			return handleAgentActionResolveIntent(request);
+		}
+
+
 		return json({ error: 'Not found' }, 404);
 	},
 };
@@ -431,6 +437,46 @@ async function handleTodayAgentOperatingContext(request: Request, env: Env) {
 				message: error?.message ?? 'Unknown error',
 			},
 			500,
+		);
+	}
+}
+
+
+async function handleAgentActionResolveIntent(request: Request): Promise<Response> {
+	try {
+		const body = await request.json().catch(() => ({}));
+		const resolved = resolveAgentActionIntent(body as any);
+
+		return new Response(
+			JSON.stringify({
+				ok: true,
+				data: resolved,
+			}),
+			{
+				status: 200,
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'access-control-allow-origin': '*',
+					'access-control-allow-headers': 'authorization, content-type',
+					'access-control-allow-methods': 'GET, POST, OPTIONS',
+				},
+			},
+		);
+	} catch (error: any) {
+		return new Response(
+			JSON.stringify({
+				ok: false,
+				error: error?.message || 'No se pudo resolver la intención del agente.',
+			}),
+			{
+				status: 500,
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'access-control-allow-origin': '*',
+					'access-control-allow-headers': 'authorization, content-type',
+					'access-control-allow-methods': 'GET, POST, OPTIONS',
+				},
+			},
 		);
 	}
 }

@@ -478,3 +478,81 @@ export async function fetchAgentWidgetContract(
   };
 }
 
+export type ResolveAgentActionIntentRequest = {
+  case_key?: string | null;
+  case_type?: string | null;
+  case_title?: string | null;
+  case_summary?: string | null;
+  user_instruction?: string | null;
+  selected_action?: Record<string, unknown> | null;
+  suggested_actions?: Array<Record<string, unknown>>;
+  source_records?: Array<Record<string, unknown>>;
+  context_refs?: Record<string, unknown> | null;
+  values?: Record<string, string>;
+  plan?: Record<string, unknown> | null;
+};
+
+export type ResolveAgentActionIntentResponse = {
+  schema_version: "agent_action_intent_v1";
+  status: "needs_fields" | "ready";
+  execution_ready: boolean;
+  case_key: string;
+  case_title: string;
+  agent_message: string;
+  intent: {
+    action_id?: string | null;
+    type: string;
+    label: string;
+    reason?: string | null;
+    module?: string | null;
+    tool_hint?: string | null;
+    risk_level: "read" | "low_write" | "medium_write" | "sensitive";
+    requires_confirmation: boolean;
+    required_fields: string[];
+    target?: Record<string, unknown> | null;
+    payload: Record<string, unknown>;
+    user_instruction?: string | null;
+  };
+  values: Record<string, string>;
+  missing_fields: string[];
+  field_questions: Array<{
+    field: string;
+    label: string;
+    question: string;
+    input_type: "text" | "date" | "textarea";
+    required: boolean;
+  }>;
+  confirmation_summary: {
+    title: string;
+    message: string;
+    lines: string[];
+  };
+};
+
+export async function resolveAgentActionIntent(
+  input: ResolveAgentActionIntentRequest,
+): Promise<ResolveAgentActionIntentResponse> {
+  if (!AGENT_URL) {
+    throw new Error("Falta configurar VITE_AGENT_URL para conectar con Corevix AI.");
+  }
+
+  const accessToken = await getAgentAccessToken();
+
+  const response = await fetch(`${AGENT_URL}/agent/action/resolve-intent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error || "No se pudo resolver la intención de Autopilot.");
+  }
+
+  return (payload?.data || payload) as ResolveAgentActionIntentResponse;
+}
+

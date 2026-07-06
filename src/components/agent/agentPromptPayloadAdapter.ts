@@ -1,4 +1,6 @@
-import type { AgentRecoveryPlan, AgentSeverity } from "./AgentCommandWidget";
+import type { AgentRecoveryPlan,
+  AgentSourceRecord,
+  AgentRiskLevel, AgentSeverity } from "./AgentCommandWidget";
 import {
   isAgentWidgetContractV1,
   type AgentWidgetContractV1,
@@ -193,23 +195,29 @@ function normalizeStringArray(value: unknown): string[] {
   return value.map((item) => String(item || "").trim()).filter(Boolean);
 }
 
-function normalizeSourceRecords(records: unknown): AgentPromptSourceRecord[] {
+function normalizeSourceRecords(records: unknown): AgentSourceRecord[] {
   if (!Array.isArray(records)) return [];
 
-  return records.slice(0, 5).map((record) => {
-    const item = record && typeof record === "object" ? (record as AgentPromptSourceRecord) : {};
-
-    return {
-      type: cleanText(item.type, "record"),
-      id: item.id || null,
-      label: item.label || null,
-      href: item.href || null,
-      status: item.status || null,
-      due_at: item.due_at || null,
-      amount: item.amount ?? null,
-      module: item.module || null,
-    };
-  });
+  return records
+    .filter((record): record is Record<string, unknown> => Boolean(record) && typeof record === "object")
+    .map((record) => ({
+      id: String(record.id || record.record_id || record.uuid || "unknown"),
+      type: String(record.type || record.module || record.entity_type || "record"),
+      label:
+        typeof record.label === "string"
+          ? record.label
+          : typeof record.name === "string"
+            ? record.name
+            : typeof record.title === "string"
+              ? record.title
+              : null,
+      module: typeof record.module === "string" ? record.module : null,
+      url: typeof record.url === "string" ? record.url : null,
+      metadata:
+        record.metadata && typeof record.metadata === "object"
+          ? (record.metadata as Record<string, unknown>)
+          : undefined,
+    }));
 }
 
 function normalizeSuggestedAction(action: AgentPromptSuggestedAction) {

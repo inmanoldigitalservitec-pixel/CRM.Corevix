@@ -489,6 +489,20 @@ export function AgentChat({
   }, [messages.length, loading]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const pendingPrompt = window.sessionStorage.getItem("corevix.autopilot.pendingPrompt");
+    if (!pendingPrompt?.trim()) return;
+
+    window.sessionStorage.removeItem("corevix.autopilot.pendingPrompt");
+    window.sessionStorage.removeItem("corevix.autopilot.pendingCaseKey");
+    window.sessionStorage.removeItem("corevix.autopilot.pendingCaseTitle");
+
+    void handleSend(pendingPrompt, null);
+  }, [handleSend]);
+
+
+  useEffect(() => {
     resizeTextarea();
   }, [text, messages.length, fullscreen, selectedScope]);
 
