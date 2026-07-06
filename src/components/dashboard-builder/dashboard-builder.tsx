@@ -51,53 +51,6 @@ const miniModeThreshold = {
   h: 2,
 };
 
-const mobileWidgetOrder = [
-  "agent.autopilot",
-  "tasks.my-work",
-  "sales.quick-kpis",
-  "personal.todo-items",
-  "calendar.agenda",
-  "work.center",
-  "inbox.pending",
-  "invoices.collections",
-  "sales.pipeline-summary",
-  "leads.attention",
-  "proposals.pending",
-  "projects.risk",
-  "activity.recent",
-  "reports.revenue-snapshot",
-  "finance.documents-overview",
-  "clients.review",
-  "tickets.status",
-  "goals.progress",
-];
-
-const mobileWidgetModes: Partial<Record<string, DashboardWidgetMode>> = {
-  "agent.autopilot": "standard",
-  "tasks.my-work": "standard",
-  "sales.quick-kpis": "mini",
-  "personal.todo-items": "mini",
-  "calendar.agenda": "mini",
-  "work.center": "mini",
-  "inbox.pending": "mini",
-  "invoices.collections": "mini",
-  "sales.pipeline-summary": "mini",
-  "leads.attention": "mini",
-  "proposals.pending": "mini",
-  "projects.risk": "mini",
-  "activity.recent": "mini",
-  "reports.revenue-snapshot": "mini",
-  "finance.documents-overview": "mini",
-  "clients.review": "mini",
-  "tickets.status": "mini",
-  "goals.progress": "mini",
-};
-
-const mobileWidgetMinHeight: Partial<Record<string, string>> = {
-  "agent.autopilot": "min-h-[260px]",
-  "tasks.my-work": "min-h-[340px]",
-};
-
 function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: Set<string>) {
   const layouts: ResponsiveLayouts<DashboardBreakpoint> = {};
 
@@ -259,28 +212,16 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
   const visiblePreferences = normalizedPreferences.filter(
     (preference) => preference.enabled && renderableIds.has(preference.widgetId),
   );
-  const mobileVisiblePreferences = useMemo(() => {
-    const orderById = new Map(mobileWidgetOrder.map((widgetId, index) => [widgetId, index]));
-
-    return [...visiblePreferences].sort((a, b) => {
-      const aOrder = orderById.get(a.widgetId) ?? 999;
-      const bOrder = orderById.get(b.widgetId) ?? 999;
-      return aOrder - bOrder || a.widgetId.localeCompare(b.widgetId);
-    });
-  }, [visiblePreferences]);
   const layouts = useMemo(
     () => toGridLayouts(normalizedPreferences, renderableIds),
     [normalizedPreferences, renderableIds],
   );
   const gridWidth = mounted && width > 0 ? width : 1280;
-  const isMobileDashboard = mounted && gridWidth < breakpoints.sm;
 
   const handleLayoutChange = (
     _currentLayout: Layout,
     allLayouts: ResponsiveLayouts<DashboardBreakpoint>,
   ) => {
-    if (isMobileDashboard) return;
-
     if (!layoutChangeReadyRef.current) {
       layoutChangeReadyRef.current = true;
       return;
@@ -314,16 +255,15 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
   }
 
   return (
-    <div ref={containerRef} className="min-h-0 bg-[#f8fafc] max-sm:bg-white">
-      <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-[#f8fafc]/95 px-3 py-2 backdrop-blur max-sm:bg-white/95">
+    <div ref={containerRef} className="min-h-0 bg-[#f8fafc]">
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-[#f8fafc]/95 px-3 py-2 backdrop-blur">
         <div className="min-w-0">
           <h1 className="truncate text-[18px] font-semibold tracking-[-0.035em] text-slate-950">
             Dashboard
           </h1>
           <p className="truncate text-[12px] font-medium text-slate-500">
-            {isMobileDashboard
-              ? "Vista mobile organizada en una sola columna."
-              : "Arrastra desde el icono lateral o redimensiona widgets. Los cambios se guardan automáticamente."}
+            Arrastra desde el icono lateral o redimensiona widgets. Los cambios se guardan
+            automáticamente.
           </p>
         </div>
 
@@ -343,20 +283,18 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
             />
           </Sheet>
 
-          {!isMobileDashboard ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                void resetPreferences();
-              }}
-              disabled={saving}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              void resetPreferences();
+            }}
+            disabled={saving}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset
+          </Button>
         </div>
       </div>
 
@@ -385,28 +323,6 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
               Restaurar widgets
             </Button>
           </div>
-        </div>
-      ) : isMobileDashboard ? (
-        <div className="space-y-3 bg-white px-3 py-3">
-          {mobileVisiblePreferences.map((preference) => {
-            const widget = widgetById.get(preference.widgetId);
-            if (!widget) return null;
-
-            const mode = mobileWidgetModes[preference.widgetId] || preference.mode;
-
-            return (
-              <section
-                key={preference.widgetId}
-                className={cn(
-                  "dashboard-mobile-widget min-w-0 overflow-hidden rounded-[18px]",
-                  mobileWidgetMinHeight[preference.widgetId] || "min-h-[88px]",
-                )}
-                data-dashboard-mobile-widget={preference.widgetId}
-              >
-                {widget.render ? widget.render({ mode, settings: preference.settings }) : widget.content}
-              </section>
-            );
-          })}
         </div>
       ) : (
         <ResponsiveGridLayout
