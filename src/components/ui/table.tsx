@@ -4,7 +4,24 @@ import { cn } from "@/lib/utils";
 
 const TASKS_MOBILE_CARD_TABLE_STYLES = `
 @media (max-width: 767px) {
+  div:has(> div > [data-corevix-tasks-mobile-cards="true"]),
+  div:has(> [data-corevix-tasks-mobile-cards="true"]) {
+    overflow: visible !important;
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  div:has(> div > [data-corevix-tasks-mobile-cards="true"]) {
+    margin-right: -16px;
+    margin-left: -16px;
+  }
+
   [data-corevix-tasks-mobile-cards="true"] {
+    width: calc(100% + 32px);
+    margin-right: -16px;
+    margin-left: -16px;
     overflow: visible;
   }
 
@@ -29,7 +46,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] tbody {
     display: grid;
-    gap: 12px;
+    gap: 14px;
   }
 
   [data-corevix-tasks-mobile-cards="true"] tr {
@@ -39,11 +56,13 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
     flex-direction: column;
     gap: 12px;
     overflow: hidden;
-    border: 1px solid rgb(226 232 240);
-    border-radius: 6px;
+    border-width: 1px 0;
+    border-style: solid;
+    border-color: rgb(226 232 240);
+    border-radius: 0;
     background: #ffffff;
-    padding: 20px 16px 16px 22px;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.045);
+    padding: 22px 18px 18px 24px;
+    box-shadow: none;
   }
 
   [data-corevix-tasks-mobile-cards="true"] tr::before {
@@ -77,7 +96,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(3) {
     order: 10;
-    padding-right: 38px;
+    padding-right: 32px;
   }
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(3) > div:first-child {
@@ -95,7 +114,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(3) .line-clamp-2 {
     margin-top: 10px;
-    max-width: 34ch;
+    max-width: 36ch;
     font-size: 13.5px;
     line-height: 1.6;
     font-weight: 550;
@@ -181,7 +200,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] td:last-child {
     order: 90;
     margin-top: auto;
-    padding-top: 6px;
+    padding-top: 10px;
     border-top: 1px solid rgb(226 232 240);
   }
 
@@ -205,7 +224,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) {
     display: block;
     order: 10;
-    padding-right: 38px;
+    padding-right: 32px;
   }
 
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) > div:first-child {
@@ -223,7 +242,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) .line-clamp-2 {
     margin-top: 10px;
-    max-width: 34ch;
+    max-width: 36ch;
     font-size: 13.5px;
     line-height: 1.6;
     font-weight: 550;
@@ -297,6 +316,46 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
     padding: 0 9px;
     font-size: 11px;
     font-weight: 850;
+  }
+
+  div[role="dialog"] header > div:first-child {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  div[role="dialog"] header > div:first-child > div:first-child,
+  div[role="dialog"] header > div:first-child > div:last-child {
+    width: 100%;
+  }
+
+  div[role="dialog"] header > div:first-child > div:last-child {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  div[role="dialog"] header > div:first-child > div:first-child > div:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  div[role="dialog"] header h2 {
+    width: 100%;
+    max-width: none;
+    font-size: 29px !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.055em !important;
+  }
+
+  div[role="dialog"] header .h-9.px-3.text-sm {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  div[role="dialog"] header [aria-label="Cerrar detalle de tarea"] {
+    flex: 0 0 40px;
   }
 }
 `;
