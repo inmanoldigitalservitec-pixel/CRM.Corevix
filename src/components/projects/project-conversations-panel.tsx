@@ -39,39 +39,39 @@ type EmailMessageRow = {
   created_at: string;
 };
 
-type WhatsappConversationRow = {
-  id: string;
-  status: string | null;
+type WhatsappConversationViewRow = {
+  conversation_id: string | null;
+  conversation_status: string | null;
   last_message: string | null;
   unread_count: number | null;
   last_message_at: string | null;
-  updated_at?: string | null;
-  created_at: string | null;
+  conversation_updated_at: string | null;
+  conversation_created_at: string | null;
   contact_id: string | null;
-};
-
-type WhatsappContactRow = {
-  id: string;
-  name: string | null;
+  contact_name: string | null;
+  display_name: string | null;
   phone: string | null;
-  profile_name?: string | null;
-  linked_client_id?: string | null;
-  linked_lead_id?: string | null;
+  lead_id: string | null;
+  lead_name: string | null;
+  whatsapp_lead_id: string | null;
+  whatsapp_profile_name: string | null;
 };
 
 type WhatsappMessageRow = {
-  id: string;
+  id?: string | null;
+  message_id?: string | null;
   content: string | null;
-  direction: string;
+  direction: string | null;
   message_type: string | null;
   created_at: string | null;
-  phone: string;
+  phone: string | null;
 };
 
 type ProposalSendRow = {
   whatsapp_conversation_id: string | null;
 };
 
+type ContextRow = Record<string, unknown> | null;
 type SelectedConversation = ProjectConversationItem | null;
 
 function formatDateTime(value: string | null | undefined) {
@@ -89,35 +89,118 @@ function formatDateTime(value: string | null | undefined) {
   }
 }
 
-function channelIcon(channel: ProjectConversationItem["channel"]) {
-  return channel === "email" ? Mail : MessageCircleMore;
+function normalizeEmail(value: unknown) {
+  return String(value || "").trim().toLowerCase();
 }
 
-function emailMatchReason(row: EmailConversationRow, clientId: string | null, leadId: string | null) {
-  if (clientId && String((row as any).related_client_id || "") === clientId) return "Vinculado por cliente";
-  if (leadId && String((row as any).related_lead_id || "") === leadId) return "Vinculado por prospecto";
+function normalizePhone(value: unknown) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function addIfPresent(target: Set<string>, value: unknown, normalizer: (value: unknown) => string) {
+  const normalized = normalizer(value);
+  if (normalized) target.add(normalized);
+}
+
+function collectContextEmails(client: ContextRow, lead: ContextRow) {
+  const emails = new Set<string>();
+
+  for (const row of [client, lead]) {
+    if (!row) continue;
+    addIfPresent(emails, row.email, normalizeEmail);
+    addIfPresent(emails, row.contact_email, normalizeEmail);
+    addIfPresent(emails, row.primary_email, normalizeEmail);
+  }
+
+  return emails;
+}
+
+function collectContextPhones(client: ContextRow, lead: ContextRow) {
+  const phones = new Set<string>();
+
+  for (const row of [client, lead]) {
+    if (!row) continue;
+    addIfPresent(phones, row.phone, normalizePhone);
+    addIfPresent(phones, row.whatsapp, normalizePhone);
+    addIfPresent(phones, row.mobile, normalizePhone);
+    addIfPresent(phones, row.contact_phone, normalizePhone);
+  }
+
+  return phones;
+}
+
+function phoneMatches(phone: unknown, phoneSet: Set<string>) {
+  const normalized = normalizePhone(phone);
+  if (!normalized || phoneSet.size === 0) return false;
+
+  if (phoneSet.has(normalized)) return true;
+
+  for (const candidate of phoneSet) {
+    if (!candidate) continue;
+    if (normalized.endsWith(candidate) || candidate.endsWith(normalized)) return true;
+
+    const shortA = normalized.slice(-10);
+    const shortB = candidate.slice(-10);
+    if (shortA && shortB && shortA === shortB) return true;
+  }
+
+  return false;
+}
+
+function emailMatchesConversation(row: EmailConversationRow, emailSet: Set<string>) {
+  if (emailSet.size === 0) return false;
+
+  const from = normalizeEmail(row.from_email);
+  const to = normalizeEmail(row.to_email);
+
+  return Boolean((from && emailSet.has(from)) || (to && emailSet.has(to)));
+}
+
+function emailMatchReason(
+  row: EmailConversationRow,
+  clientId: string | null,
+  leadId: string | null,
+  emailSet: Set<string>,
+) {
+  if (clientId && String((row as any).related_client_id || "") === clientId) {
+    return "Vinculado por cliente";
+  }
+
+  if (leadId && String((row as any).related_lead_id || "") === leadId) {
+    return "Vinculado por prospecto";
+  }
+
+  if (emailMatchesConversation(row, emailSet)) {
+    return "Relacionado por email";
+  }
+
   return "Contexto relacionado";
 }
 
 function whatsappMatchReason(
-  row: WhatsappConversationRow,
-  contact: WhatsappContactRow | null,
-  clientId: string | null,
+  row: WhatsappConversationViewRow,
   leadId: string | null,
+  phoneSet: Set<string>,
   matchedByProposal: boolean,
 ) {
-  if (clientId && String(contact?.linked_client_id || "") === clientId) return "Vinculado por cliente";
-  if (leadId && String(contact?.linked_lead_id || "") === leadId) return "Vinculado por prospecto";
+  if (leadId && String(row.lead_id || "") === leadId) return "Vinculado por prospecto";
   if (matchedByProposal) return "Relacionado por propuesta u oportunidad";
+  if (phoneMatches(row.phone, phoneSet)) return "Relacionado por teléfono";
   return "Contexto relacionado";
+}
+
+function channelIcon(channel: ProjectConversationItem["channel"]) {
+  return channel === "email" ? Mail : MessageCircleMore;
 }
 
 function buildEmailItem(
   row: EmailConversationRow,
   clientId: string | null,
   leadId: string | null,
+  emailSet: Set<string>,
 ): ProjectConversationItem {
   const unreadCount = Number(row.unread_count ?? (row.is_read ? 0 : 1) ?? 0);
+
   return {
     id: `email:${row.id}`,
     channel: "email",
@@ -127,31 +210,34 @@ function buildEmailItem(
     status: row.status || null,
     unreadCount,
     lastActivityAt: row.last_message_at || row.updated_at || null,
-    matchReason: emailMatchReason(row, clientId, leadId),
+    matchReason: emailMatchReason(row, clientId, leadId, emailSet),
   };
 }
 
 function buildWhatsappItem(
-  row: WhatsappConversationRow,
-  contact: WhatsappContactRow | null,
-  clientId: string | null,
+  row: WhatsappConversationViewRow,
   leadId: string | null,
+  phoneSet: Set<string>,
   matchedByProposal: boolean,
-): ProjectConversationItem {
+): ProjectConversationItem | null {
+  if (!row.conversation_id) return null;
+
   return {
-    id: `whatsapp:${row.id}`,
+    id: `whatsapp:${row.conversation_id}`,
     channel: "whatsapp",
     title:
-      contact?.name ||
-      contact?.profile_name ||
-      contact?.phone ||
+      row.display_name ||
+      row.contact_name ||
+      row.whatsapp_profile_name ||
+      row.lead_name ||
+      row.phone ||
       "Conversación de WhatsApp",
-    subtitle: contact?.phone || null,
+    subtitle: row.phone || row.lead_name || null,
     preview: row.last_message || null,
-    status: row.status || null,
+    status: row.conversation_status || null,
     unreadCount: Number(row.unread_count || 0),
-    lastActivityAt: row.last_message_at || row.updated_at || row.created_at || null,
-    matchReason: whatsappMatchReason(row, contact, clientId, leadId, matchedByProposal),
+    lastActivityAt: row.last_message_at || row.conversation_updated_at || row.conversation_created_at || null,
+    matchReason: whatsappMatchReason(row, leadId, phoneSet, matchedByProposal),
   };
 }
 
@@ -180,6 +266,7 @@ export function ProjectConversationsPanel({
   const loadConversations = useCallback(async () => {
     if (!profile?.company_id) {
       setItems([]);
+      setSelected(null);
       setLoading(false);
       return;
     }
@@ -187,19 +274,55 @@ export function ProjectConversationsPanel({
     setLoading(true);
     const db = supabase as any;
 
+    const clientPromise = clientId
+      ? db
+          .from("clients")
+          .select("*")
+          .eq("company_id", profile.company_id)
+          .eq("id", clientId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null });
+
+    const leadPromise = leadId
+      ? db
+          .from("leads")
+          .select("*")
+          .eq("company_id", profile.company_id)
+          .eq("id", leadId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null });
+
     const emailPromise = db
       .from("email_conversations")
       .select("*")
       .eq("company_id", profile.company_id)
-      .order("last_message_at", { ascending: false })
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(200);
 
     const whatsappPromise = db
-      .from("whatsapp_conversations")
-      .select("id,status,last_message,unread_count,last_message_at,updated_at,created_at,contact_id")
+      .from("crm_whatsapp_conversation_list")
+      .select(
+        [
+          "conversation_id",
+          "conversation_status",
+          "last_message",
+          "unread_count",
+          "last_message_at",
+          "conversation_updated_at",
+          "conversation_created_at",
+          "contact_id",
+          "contact_name",
+          "display_name",
+          "phone",
+          "lead_id",
+          "lead_name",
+          "whatsapp_lead_id",
+          "whatsapp_profile_name",
+        ].join(","),
+      )
       .eq("company_id", profile.company_id)
       .order("last_message_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
       .limit(200);
 
     const proposalSendPromise =
@@ -220,14 +343,27 @@ export function ProjectConversationsPanel({
             .limit(120)
         : Promise.resolve({ data: [], error: null });
 
-    const [emailResult, whatsappResult, proposalSendResult] = await Promise.all([
-      emailPromise,
-      whatsappPromise,
-      proposalSendPromise,
-    ]);
+    const [clientResult, leadResult, emailResult, whatsappResult, proposalSendResult] =
+      await Promise.all([
+        clientPromise,
+        leadPromise,
+        emailPromise,
+        whatsappPromise,
+        proposalSendPromise,
+      ]);
+
+    if (clientResult.error) {
+      toast.error(clientResult.error.message || "No se pudo cargar el cliente del proyecto.");
+    }
+
+    if (leadResult.error) {
+      toast.error(leadResult.error.message || "No se pudo cargar el prospecto del proyecto.");
+    }
 
     if (emailResult.error) {
       toast.error(emailResult.error.message || "No se pudieron cargar los emails del proyecto.");
+      setItems([]);
+      setSelected(null);
       setLoading(false);
       return;
     }
@@ -236,6 +372,8 @@ export function ProjectConversationsPanel({
       toast.error(
         whatsappResult.error.message || "No se pudieron cargar las conversaciones de WhatsApp.",
       );
+      setItems([]);
+      setSelected(null);
       setLoading(false);
       return;
     }
@@ -246,11 +384,10 @@ export function ProjectConversationsPanel({
       );
     }
 
-    const emailRows = ((emailResult.data || []) as EmailConversationRow[]).filter((row) => {
-      const relatedClientId = String((row as any).related_client_id || "");
-      const relatedLeadId = String((row as any).related_lead_id || "");
-      return (clientId && relatedClientId === clientId) || (leadId && relatedLeadId === leadId);
-    });
+    const clientContext = (clientResult.data || null) as ContextRow;
+    const leadContext = (leadResult.data || null) as ContextRow;
+    const contextEmails = collectContextEmails(clientContext, leadContext);
+    const contextPhones = collectContextPhones(clientContext, leadContext);
 
     const proposalConversationIds = new Set(
       ((proposalSendResult.data || []) as ProposalSendRow[])
@@ -258,50 +395,43 @@ export function ProjectConversationsPanel({
         .filter(Boolean),
     );
 
-    const whatsappRows = (whatsappResult.data || []) as WhatsappConversationRow[];
-    const contactIds = Array.from(
-      new Set(whatsappRows.map((row) => String(row.contact_id || "").trim()).filter(Boolean)),
-    );
+    const emailRows = ((emailResult.data || []) as EmailConversationRow[]).filter((row) => {
+      const relatedClientId = String((row as any).related_client_id || "");
+      const relatedLeadId = String((row as any).related_lead_id || "");
 
-    let contactsById = new Map<string, WhatsappContactRow>();
-    if (contactIds.length) {
-      const { data: contactRows, error: contactError } = await db
-        .from("whatsapp_contacts")
-        .select("id,name,phone,profile_name,linked_client_id,linked_lead_id")
-        .eq("company_id", profile.company_id)
-        .in("id", contactIds);
-
-      if (contactError) {
-        toast.error(contactError.message || "No se pudieron cargar los contactos de WhatsApp.");
-      } else {
-        contactsById = new Map(
-          ((contactRows || []) as WhatsappContactRow[]).map((row) => [String(row.id), row]),
-        );
-      }
-    }
-
-    const filteredWhatsappRows = whatsappRows.filter((row) => {
-      const contact = row.contact_id ? contactsById.get(String(row.contact_id)) || null : null;
-      const contactClientId = String(contact?.linked_client_id || "");
-      const contactLeadId = String(contact?.linked_lead_id || "");
       return (
-        (clientId && contactClientId === clientId) ||
-        (leadId && contactLeadId === leadId) ||
-        proposalConversationIds.has(String(row.id))
+        (clientId && relatedClientId === clientId) ||
+        (leadId && relatedLeadId === leadId) ||
+        emailMatchesConversation(row, contextEmails)
       );
     });
 
-    const nextItems = [
-      ...emailRows.map((row) => buildEmailItem(row, clientId, leadId)),
-      ...filteredWhatsappRows.map((row) =>
+    const whatsappRows = ((whatsappResult.data || []) as WhatsappConversationViewRow[]).filter(
+      (row) => {
+        const conversationId = String(row.conversation_id || "").trim();
+
+        return (
+          (leadId && String(row.lead_id || "") === leadId) ||
+          (conversationId && proposalConversationIds.has(conversationId)) ||
+          phoneMatches(row.phone, contextPhones)
+        );
+      },
+    );
+
+    const whatsappItems = whatsappRows
+      .map((row) =>
         buildWhatsappItem(
           row,
-          row.contact_id ? contactsById.get(String(row.contact_id)) || null : null,
-          clientId,
           leadId,
-          proposalConversationIds.has(String(row.id)),
+          contextPhones,
+          proposalConversationIds.has(String(row.conversation_id || "")),
         ),
-      ),
+      )
+      .filter(Boolean) as ProjectConversationItem[];
+
+    const nextItems = [
+      ...emailRows.map((row) => buildEmailItem(row, clientId, leadId, contextEmails)),
+      ...whatsappItems,
     ].sort((a, b) => {
       const at = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
       const bt = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
@@ -327,6 +457,15 @@ export function ProjectConversationsPanel({
   });
 
   useRealtimeTable({
+    table: "email_messages",
+    companyId: profile?.company_id || null,
+    enabled: Boolean(profile?.company_id),
+    onChange: () => {
+      void loadConversations();
+    },
+  });
+
+  useRealtimeTable({
     table: "whatsapp_conversations",
     companyId: profile?.company_id || null,
     enabled: Boolean(profile?.company_id),
@@ -339,14 +478,8 @@ export function ProjectConversationsPanel({
     table: "whatsapp_conversation_messages",
     companyId: profile?.company_id || null,
     enabled: Boolean(profile?.company_id),
-    onChange: (payload) => {
+    onChange: () => {
       void loadConversations();
-      const changedConversationId = String(
-        (payload.new as any)?.conversation_id || (payload.old as any)?.conversation_id || "",
-      ).trim();
-      if (selected?.channel === "whatsapp" && selected.id === `whatsapp:${changedConversationId}`) {
-        void loadConversations();
-      }
     },
   });
 
@@ -376,6 +509,7 @@ export function ProjectConversationsPanel({
         } else {
           setEmailMessages((data || []) as EmailMessageRow[]);
         }
+
         setWhatsappMessages([]);
         setMessagesLoading(false);
         return;
@@ -383,8 +517,8 @@ export function ProjectConversationsPanel({
 
       const conversationId = selected.id.replace("whatsapp:", "");
       const { data, error } = await db
-        .from("whatsapp_conversation_messages")
-        .select("id,content,direction,message_type,created_at,phone")
+        .from("crm_whatsapp_messages")
+        .select("message_id,content,direction,message_type,created_at,phone")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true })
         .limit(160);
@@ -395,6 +529,7 @@ export function ProjectConversationsPanel({
       } else {
         setWhatsappMessages((data || []) as WhatsappMessageRow[]);
       }
+
       setEmailMessages([]);
       setMessagesLoading(false);
     }
@@ -423,13 +558,15 @@ export function ProjectConversationsPanel({
               Conversaciones del proyecto
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Visibilidad unificada de emails y WhatsApp relacionados con el contexto comercial del proyecto.
+              Emails y WhatsApp relacionados con el cliente, prospecto u oportunidad del proyecto.
             </p>
           </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
               {items.length ? `${items.length} conversaciones` : "Sin conversaciones"}
             </span>
+
             <Button
               type="button"
               variant="ghost"
@@ -472,6 +609,7 @@ export function ProjectConversationsPanel({
                   <h4 className="text-sm font-semibold text-slate-900">Detalle</h4>
                 )}
               </div>
+
               {selected ? (
                 <p className="mt-1 text-xs text-slate-500">
                   {selected.matchReason} · {selected.status || "sin estado"} ·{" "}
@@ -488,6 +626,7 @@ export function ProjectConversationsPanel({
                   emailMessages.length ? (
                     emailMessages.map((message) => {
                       const outbound = String(message.direction || "").toLowerCase() === "outbound";
+
                       return (
                         <article
                           key={message.id}
@@ -500,14 +639,17 @@ export function ProjectConversationsPanel({
                           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">
                             {outbound ? "Salida" : "Entrada"}
                           </p>
+
                           <p className="mt-1 text-xs opacity-80">
                             {(message.sender || message.from_email || message.recipient || message.to_email || "")
                               .toString()
                               .trim() || "Sin remitente"}
                           </p>
+
                           <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
                             {message.body || message.snippet || "Sin contenido disponible."}
                           </p>
+
                           <p className="mt-2 text-[11px] opacity-70">
                             {formatDateTime(message.sent_at || message.created_at)}
                           </p>
@@ -515,14 +657,17 @@ export function ProjectConversationsPanel({
                       );
                     })
                   ) : (
-                    <p className="text-sm text-slate-500">Esta conversación de email no tiene mensajes visibles.</p>
+                    <p className="text-sm text-slate-500">
+                      Esta conversación de email no tiene mensajes visibles.
+                    </p>
                   )
                 ) : whatsappMessages.length ? (
-                  whatsappMessages.map((message) => {
+                  whatsappMessages.map((message, index) => {
                     const outbound = String(message.direction || "").toLowerCase() === "outbound";
+
                     return (
                       <article
-                        key={message.id}
+                        key={message.id || message.message_id || `${message.created_at}-${index}`}
                         className={`max-w-[90%] rounded-[20px] px-4 py-3 ${
                           outbound
                             ? "ml-auto bg-emerald-600 text-white"
@@ -532,9 +677,11 @@ export function ProjectConversationsPanel({
                         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-75">
                           {outbound ? "Salida" : "Entrada"}
                         </p>
+
                         <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
                           {message.content || "Mensaje sin texto visible."}
                         </p>
+
                         <p className="mt-2 text-[11px] opacity-75">
                           {formatDateTime(message.created_at)}
                         </p>
