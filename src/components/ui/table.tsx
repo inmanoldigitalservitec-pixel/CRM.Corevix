@@ -6,23 +6,23 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 @media (max-width: 767px) {
   div:has(> div > [data-corevix-tasks-mobile-cards="true"]),
   div:has(> [data-corevix-tasks-mobile-cards="true"]) {
-    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
     border-color: transparent !important;
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
   }
 
-  div:has(> div > [data-corevix-tasks-mobile-cards="true"]) {
-    margin-right: -16px;
-    margin-left: -16px;
-  }
-
   [data-corevix-tasks-mobile-cards="true"] {
-    width: calc(100% + 32px);
-    margin-right: -16px;
-    margin-left: -16px;
-    overflow: visible;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
   }
 
   [data-corevix-tasks-mobile-cards="true"] table,
@@ -31,7 +31,9 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] tr,
   [data-corevix-tasks-mobile-cards="true"] th,
   [data-corevix-tasks-mobile-cards="true"] td {
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
   }
 
   [data-corevix-tasks-mobile-cards="true"] table {
@@ -52,6 +54,9 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] tr {
     position: relative;
     display: flex;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     min-height: 218px;
     flex-direction: column;
     gap: 12px;
@@ -61,7 +66,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
     border-color: rgb(226 232 240);
     border-radius: 0;
     background: #ffffff;
-    padding: 22px 18px 18px 24px;
+    padding: 22px 14px 18px 20px;
     box-shadow: none;
   }
 
@@ -81,12 +86,23 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
     display: block;
     border: 0;
     padding: 0;
-    min-width: 0;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+  }
+
+  [data-corevix-tasks-mobile-cards="true"] td *,
+  [data-corevix-tasks-mobile-cards="true"] td span,
+  [data-corevix-tasks-mobile-cards="true"] td div {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(1):has([role="checkbox"]) {
     order: 80;
-    width: auto;
+    width: auto !important;
     padding-top: 2px;
   }
 
@@ -96,7 +112,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(3) {
     order: 10;
-    padding-right: 32px;
+    padding-right: 28px;
   }
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(3) > div:first-child {
@@ -114,7 +130,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(3) .line-clamp-2 {
     margin-top: 10px;
-    max-width: 36ch;
+    max-width: 100% !important;
     font-size: 13.5px;
     line-height: 1.6;
     font-weight: 550;
@@ -123,7 +139,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(4) {
     order: 20;
-    width: auto;
+    width: auto !important;
   }
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(5) {
@@ -135,7 +151,8 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(8),
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(9) {
     order: 40;
-    display: flex;
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
     align-items: center;
     gap: 8px;
     font-size: 13px;
@@ -147,7 +164,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(7)::before,
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(8)::before,
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(9)::before {
-    min-width: 72px;
+    min-width: 0;
     color: rgb(148 163 184);
     font-size: 11px;
     font-weight: 850;
@@ -171,19 +188,11 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
     content: "Files";
   }
 
-  [data-corevix-tasks-mobile-cards="true"] td:nth-child(6),
-  [data-corevix-tasks-mobile-cards="true"] td:nth-child(7),
-  [data-corevix-tasks-mobile-cards="true"] td:nth-child(8),
-  [data-corevix-tasks-mobile-cards="true"] td:nth-child(9) span,
-  [data-corevix-tasks-mobile-cards="true"] td:nth-child(8) div {
-    min-width: 0;
-  }
-
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(10) {
     order: 21;
     margin-top: -36px;
-    padding-left: 112px;
-    width: auto;
+    padding-left: min(112px, 34vw);
+    width: auto !important;
   }
 
   [data-corevix-tasks-mobile-cards="true"] td:nth-child(10) span {
@@ -224,7 +233,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) {
     display: block;
     order: 10;
-    padding-right: 32px;
+    padding-right: 28px;
   }
 
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) > div:first-child {
@@ -242,7 +251,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(2) .line-clamp-2 {
     margin-top: 10px;
-    max-width: 36ch;
+    max-width: 100% !important;
     font-size: 13.5px;
     line-height: 1.6;
     font-weight: 550;
@@ -251,7 +260,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(3) {
     order: 20;
-    width: auto;
+    width: auto !important;
     padding-right: 0;
   }
 
@@ -264,7 +273,8 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(7),
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(8) {
     order: 40;
-    display: flex;
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
     align-items: center;
     gap: 8px;
     font-size: 13px;
@@ -276,7 +286,7 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(6)::before,
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(7)::before,
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(8)::before {
-    min-width: 72px;
+    min-width: 0;
     color: rgb(148 163 184);
     font-size: 11px;
     font-weight: 850;
@@ -303,8 +313,8 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(9) {
     order: 21;
     margin-top: -36px;
-    padding-left: 112px;
-    width: auto;
+    padding-left: min(112px, 34vw);
+    width: auto !important;
   }
 
   [data-corevix-tasks-mobile-cards="true"] tr:not(:has(td:nth-child(1) [role="checkbox"])) td:nth-child(9) span {
