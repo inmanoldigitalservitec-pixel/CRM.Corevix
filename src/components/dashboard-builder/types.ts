@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 
 export type DashboardWidgetMode = "mini" | "standard" | "advanced";
 export type DashboardWidgetSize = "compact" | "standard" | "expanded";
-export type DashboardBreakpoint = "lg" | "md" | "sm" | "xs";
+export type DashboardBreakpoint = "2xl" | "xl" | "lg" | "md" | "sm" | "xs";
 
 export type DashboardGridLayoutItem = {
   i: string;

@@ -33,13 +33,17 @@ import {
 import { useDashboardLayout } from "./use-dashboard-layout";
 
 const cols: Record<DashboardBreakpoint, number> = {
+  "2xl": 20,
+  xl: 16,
   lg: 12,
-  md: 6,
-  sm: 6,
+  md: 8,
+  sm: 4,
   xs: 1,
 };
 
 const breakpoints: Record<DashboardBreakpoint, number> = {
+  "2xl": 1800,
+  xl: 1440,
   lg: 1200,
   md: 900,
   sm: 640,
@@ -55,15 +59,26 @@ function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: 
   const layouts: ResponsiveLayouts<DashboardBreakpoint> = {};
 
   (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
+    const columnCount = cols[breakpoint];
+
     layouts[breakpoint] = preferences
       .filter((preference) => preference.enabled && renderableIds.has(preference.widgetId))
       .map((preference) => preference.layout[breakpoint])
       .filter((item): item is DashboardGridLayoutItem => Boolean(item))
-      .map((item) => ({
-        ...item,
-        minW: Math.min(item.minW || 1, miniModeThreshold.w),
-        minH: Math.min(item.minH || 1, 1),
-      })) as LayoutItem[];
+      .map((item) => {
+        const minW = Math.min(item.minW || 1, columnCount);
+        const w = Math.max(Math.min(item.w, columnCount), minW);
+        const maxX = Math.max(columnCount - w, 0);
+        const x = Math.min(Math.max(item.x, 0), maxX);
+
+        return {
+          ...item,
+          x,
+          w,
+          minW,
+          minH: Math.max(item.minH || 1, 1),
+        };
+      }) as LayoutItem[];
   });
 
   return layouts;
@@ -255,7 +270,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
   }
 
   return (
-    <div ref={containerRef} className="min-h-0 bg-[#f8fafc]">
+    <div ref={containerRef} className="min-h-0 w-full bg-[#f8fafc]">
       <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-[#f8fafc]/95 px-3 py-2 backdrop-blur">
         <div className="min-w-0">
           <h1 className="truncate text-[18px] font-semibold tracking-[-0.035em] text-slate-950">

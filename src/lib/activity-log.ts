@@ -19,6 +19,35 @@ type CrudActivity = {
   metadata?: Record<string, unknown>;
 };
 
+const activityUserIdCache = new Map<string, string | null>();
+
+async function resolveActivityUserId(userId: string | null | undefined) {
+  const candidate = String(userId || "").trim();
+  if (!candidate) return null;
+
+  if (activityUserIdCache.has(candidate)) {
+    return activityUserIdCache.get(candidate) ?? null;
+  }
+
+  try {
+    const { data, error } = await (supabase as any)
+      .from("profiles")
+      .select("user_id")
+      .eq("id", candidate)
+      .maybeSingle();
+
+    if (!error && data?.user_id) {
+      activityUserIdCache.set(candidate, data.user_id);
+      return data.user_id;
+    }
+  } catch {
+    // Ignore lookup failures and fall back to the provided id.
+  }
+
+  activityUserIdCache.set(candidate, candidate);
+  return candidate;
+}
+
 function trimText(value: unknown) {
   const text = String(value ?? "").trim();
   return text.length ? text : null;
@@ -194,9 +223,10 @@ export async function logActivityEvent(args: ActivityContext) {
   if (!companyId || !action.trim() || !entityType.trim()) return null;
 
   try {
+    const resolvedUserId = await resolveActivityUserId(userId);
     const { data, error } = await (supabase as any).rpc("log_activity_event", {
       p_company_id: companyId,
-      p_user_id: userId,
+      p_user_id: resolvedUserId,
       p_action: action.trim(),
       p_entity_type: entityType.trim(),
       p_entity_id: entityId,

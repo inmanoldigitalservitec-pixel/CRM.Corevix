@@ -27,10 +27,16 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProjectActivityPanel } from "@/components/projects/project-activity-panel";
+import { ProjectConversationsPanel } from "@/components/projects/project-conversations-panel";
+import { ProjectFilesPanel } from "@/components/projects/project-files-panel";
+import { ProjectMilestonesPanel } from "@/components/projects/project-milestones-panel";
 import { ProjectTicketsPanel } from "@/components/projects/project-tickets-panel";
+import { ProjectTimesheetsPanel } from "@/components/projects/project-timesheets-panel";
 import { ProjectContractsPanel } from "@/components/projects/project-contracts-panel";
+import { ProjectNotesPanel } from "@/components/projects/project-notes-panel";
 import { DataCard } from "@/components/crm/data-card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1415,6 +1421,9 @@ function ProjectWorkspaceDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="h-[92vh] w-[calc(100vw-24px)] max-w-[1100px] gap-0 overflow-hidden rounded-2xl border bg-white p-0 shadow-2xl">
         <DialogTitle className="sr-only">Espacio del proyecto</DialogTitle>
+        <DialogDescription className="sr-only">
+          Panel de detalles del proyecto con resumen, tareas, notas y modulos relacionados.
+        </DialogDescription>
         <header className="shrink-0 border-b bg-white px-5 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
@@ -1566,31 +1575,32 @@ function ProjectWorkspaceDialog({
               </div>
             </TabsContent>
             <TabsContent value="timesheets" className="mt-0">
-              <PlaceholderModule
-                icon={<Clock3 className="h-5 w-5" />}
-                title="Horas"
-                description="Aquí vivirá el registro de horas trabajadas, horas facturables, horas no facturables y resumen semanal del proyecto."
+              <ProjectTimesheetsPanel
+                projectId={project.id}
+                canEdit={canEdit}
+                tasks={tasks.map((task) => ({ id: task.id, title: task.title }))}
               />
             </TabsContent>
             <TabsContent value="milestones" className="mt-0">
-              <PlaceholderModule
-                icon={<ShieldCheck className="h-5 w-5" />}
-                title="Hitos"
-                description="Sección preparada para hitos de entrega, fechas clave, dependencias y checkpoints de aprobación."
+              <ProjectMilestonesPanel
+                projectId={project.id}
+                canEdit={canEdit}
+                projectStartDate={project.start_date}
+                projectDueDate={project.due_date}
               />
             </TabsContent>
             <TabsContent value="files" className="mt-0">
-              <PlaceholderModule
-                icon={<Paperclip className="h-5 w-5" />}
-                title="Archivos"
-                description="Aquí conectaremos los archivos de Drive del proyecto, documentos entregables, links y adjuntos internos."
+              <ProjectFilesPanel
+                projectId={project.id}
+                canEdit={canEdit}
+                tasks={tasks.map((task) => ({ id: task.id, title: task.title }))}
               />
             </TabsContent>
             <TabsContent value="discussions" className="mt-0">
-              <PlaceholderModule
-                icon={<MessageSquare className="h-5 w-5" />}
-                title="Conversaciones"
-                description="Espacio para conversaciones internas del proyecto, decisiones y seguimiento por equipo."
+              <ProjectConversationsPanel
+                clientId={project.client_id}
+                leadId={project.lead_id}
+                dealId={project.deal_id}
               />
             </TabsContent>
             <TabsContent value="gantt" className="mt-0">
@@ -1614,17 +1624,17 @@ function ProjectWorkspaceDialog({
               />
             </TabsContent>
             <TabsContent value="notes" className="mt-0">
-              <PlaceholderModule
-                icon={<FileText className="h-5 w-5" />}
-                title="Notas"
-                description="Notas internas del proyecto, contexto del cliente, decisiones importantes y próximos pasos."
-              />
+              <ProjectNotesPanel projectId={project.id} canEdit={canEdit} />
             </TabsContent>
             <TabsContent value="activity" className="mt-0">
-              <PlaceholderModule
-                icon={<Activity className="h-5 w-5" />}
-                title="Actividad"
-                description="Timeline futuro con eventos del proyecto: tareas creadas, cambios de estado, archivos, comentarios y actividad del agente."
+              <ProjectActivityPanel
+                projectId={project.id}
+                tasks={tasks.map((task) => ({
+                  id: task.id,
+                  title: task.title,
+                  status: task.status,
+                  updated_at: task.updated_at,
+                }))}
               />
             </TabsContent>
           </div>

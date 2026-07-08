@@ -23,7 +23,7 @@ import type {
   DashboardWidgetPreference,
 } from "./types";
 
-const breakpoints: DashboardBreakpoint[] = ["lg", "md", "sm", "xs"];
+const breakpoints: DashboardBreakpoint[] = ["2xl", "xl", "lg", "md", "sm", "xs"];
 
 function layout(
   id: string,
@@ -33,9 +33,11 @@ function layout(
   xs?: Omit<DashboardGridLayoutItem, "i">,
 ) {
   return {
+    "2xl": { i: id, ...lg },
+    xl: { i: id, ...lg },
     lg: { i: id, ...lg },
-    md: { i: id, ...(md || { ...lg, x: Math.min(lg.x, 3), w: Math.min(lg.w, 6) }) },
-    sm: { i: id, ...(sm || { ...lg, x: 0, w: 6 }) },
+    md: { i: id, ...(md || { ...lg, x: Math.min(lg.x, 4), w: Math.min(lg.w, 8) }) },
+    sm: { i: id, ...(sm || { ...lg, x: 0, w: Math.min(lg.w, 4) }) },
     xs: { i: id, ...(xs || { ...lg, x: 0, w: 1 }) },
   };
 }
