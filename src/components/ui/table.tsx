@@ -370,6 +370,120 @@ const TASKS_MOBILE_CARD_TABLE_STYLES = `
 }
 `;
 
+const PROJECTS_MOBILE_LIST_TABLE_STYLES = `
+@media (max-width: 767px) {
+  [data-demo="projects-list"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-demo="projects-list"] > div:has([data-corevix-projects-mobile-list="true"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] table,
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] thead,
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] tbody,
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] tr,
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] th,
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] table {
+    display: block;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] thead {
+    display: none !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    overflow: hidden;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 18px;
+    background: #ffffff;
+    padding: 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] tr:hover {
+    background: #ffffff;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td {
+    border: 0 !important;
+    padding: 0 !important;
+    white-space: normal !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(1),
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(3) {
+    display: block !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(2),
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(4),
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(5),
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(6),
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(7) {
+    display: none !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(1) > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(1) .truncate,
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(1) div,
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(1) span {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-wrap: anywhere;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(1) .truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  [data-demo="projects-list"] [data-corevix-projects-mobile-list="true"] td:nth-child(3) {
+    padding-left: 56px !important;
+    margin-top: -6px;
+  }
+}
+`;
+
 function useIsTasksRoute() {
   const [isTasksRoute, setIsTasksRoute] = React.useState(() => {
     if (typeof window === "undefined") return false;
@@ -386,16 +500,35 @@ function useIsTasksRoute() {
   return isTasksRoute;
 }
 
+function useIsProjectsRoute() {
+  const [isProjectsRoute, setIsProjectsRoute] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.location.pathname === "/projects";
+  });
+
+  React.useEffect(() => {
+    const syncRoute = () => setIsProjectsRoute(window.location.pathname === "/projects");
+    syncRoute();
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  return isProjectsRoute;
+}
+
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => {
     const isTasksRoute = useIsTasksRoute();
+    const isProjectsRoute = useIsProjectsRoute();
 
     return (
       <div
         className="relative w-full overflow-auto"
         data-corevix-tasks-mobile-cards={isTasksRoute ? "true" : undefined}
+        data-corevix-projects-mobile-list={isProjectsRoute ? "true" : undefined}
       >
         {isTasksRoute ? <style>{TASKS_MOBILE_CARD_TABLE_STYLES}</style> : null}
+        {isProjectsRoute ? <style>{PROJECTS_MOBILE_LIST_TABLE_STYLES}</style> : null}
         <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
       </div>
     );
