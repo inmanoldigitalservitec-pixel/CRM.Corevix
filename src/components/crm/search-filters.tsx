@@ -34,6 +34,8 @@ interface SearchFiltersProps {
   searchPlaceholder?: string;
   filters?: FilterConfig[];
   className?: string;
+  mobileCollapsible?: boolean;
+  mobileFiltersLabel?: string;
 }
 
 type TaskToolbarButtons = {
@@ -54,6 +56,8 @@ export function SearchFilters({
   searchPlaceholder = "Search...",
   filters = [],
   className,
+  mobileCollapsible = false,
+  mobileFiltersLabel = "Filtros",
 }: SearchFiltersProps) {
   const { t } = useT();
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -207,7 +211,6 @@ export function SearchFilters({
       </SelectContent>
     </Select>
   );
-
   const clearAdvancedFilters = () => {
     filters.forEach((filter) => {
       if (filter.includeAllOption === false) return;

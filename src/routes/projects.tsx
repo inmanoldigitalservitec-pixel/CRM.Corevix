@@ -573,8 +573,9 @@ function ProjectsPage() {
       (project) => normalizeStatus(project.status) === normalizeStatus("Completed"),
     ).length;
     const risky = projects.filter((project) => projectMeta(project).hasRisk).length;
+    const overdue = projects.filter((project) => projectMeta(project).isOverdue).length;
     const abiertasTasks = tasks.filter((task) => !isClosedTaskStatusValue(task.status)).length;
-    return { total: projects.length, active, completed, risky, abiertasTasks };
+    return { total: projects.length, active, completed, risky, overdue, abiertasTasks };
   }, [projects, statsByProjectId, tasks]);
 
   useEffect(() => {
@@ -752,7 +753,7 @@ function ProjectsPage() {
         onAction={can("projects.create") ? abiertasNewProject : undefined}
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {[
           { label: "Total", value: kpis.total, icon: FolderOpen, tone: "text-slate-600" },
           { label: "Activos", value: kpis.active, icon: Zap, tone: "text-blue-600" },
@@ -762,6 +763,12 @@ function ProjectsPage() {
             value: kpis.completed,
             icon: CheckCircle2,
             tone: "text-emerald-600",
+          },
+          {
+            label: "Vencidos",
+            value: kpis.overdue,
+            icon: CalendarClock,
+            tone: "text-orange-600",
           },
           {
             label: "Tareas abiertas",
@@ -789,6 +796,8 @@ function ProjectsPage() {
             searchValue={search}
             onSearchChange={setSearch}
             searchPlaceholder="Search projects..."
+            mobileCollapsible
+            mobileFiltersLabel="Filtros"
             filters={[
               {
                 key: "status",
@@ -846,9 +855,9 @@ function ProjectsPage() {
               onAction={abiertasNewProject}
             />
           ) : (
-            <div className="-mx-4 overflow-x-auto sm:-mx-5">
-              <Table>
-                <TableHeader>
+            <div className="-mx-2 sm:-mx-5">
+              <Table className="projects-list-table">
+                <TableHeader className="projects-list-table__head">
                   <TableRow>
                     <TableHead className="pl-4 sm:pl-5">Proyecto</TableHead>
                     <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
@@ -875,9 +884,9 @@ function ProjectsPage() {
                         onClick={() => setSelected(project)}
                       >
                         <TableCell className="pl-4 sm:pl-5">
-                          <div className="flex min-w-[320px] items-start gap-3">
+                          <div className="flex min-w-0 items-start gap-3 sm:min-w-[320px]">
                             <div
-                              className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border font-bold ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}
+                              className={`grid h-12 w-12 shrink-0 place-items-center rounded-[18px] border font-bold shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}
                             >
                               {meta.hasRisk ? (
                                 <AlertTriangle className="h-5 w-5" />
@@ -885,24 +894,26 @@ function ProjectsPage() {
                                 <span className="text-xs">{initials(project.name)}</span>
                               )}
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <div className="truncate font-semibold">{project.name}</div>
+                                <div className="truncate text-[15px] font-semibold text-slate-950">
+                                  {project.name}
+                                </div>
                                 {meta.hasRisk ? (
                                   <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
                                     Riesgo
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                              <div className="mt-1 truncate text-[12.5px] text-muted-foreground">
                                 {clientName} · {meta.deal?.name || "Sin oportunidad"}
                               </div>
-                              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                                <span className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-slate-600">
+                              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                                   <Package className="h-3 w-3" />
                                   {productName}
                                 </span>
-                                <span className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-slate-600 md:hidden">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:hidden">
                                   <UserRound className="h-3 w-3" />
                                   {owner}
                                 </span>
