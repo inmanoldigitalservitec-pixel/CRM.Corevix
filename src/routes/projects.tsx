@@ -38,7 +38,9 @@ import {
 import { ProjectActivityPanel } from "@/components/projects/project-activity-panel";
 import { ProjectConversationsPanel } from "@/components/projects/project-conversations-panel";
 import { ProjectFilesPanel } from "@/components/projects/project-files-panel";
+import { ProjectGanttPanel } from "@/components/projects/project-gantt-panel";
 import { ProjectMilestonesPanel } from "@/components/projects/project-milestones-panel";
+import { ProjectSalesPanel } from "@/components/projects/project-sales-panel";
 import { ProjectTicketsPanel } from "@/components/projects/project-tickets-panel";
 import { ProjectTimesheetsPanel } from "@/components/projects/project-timesheets-panel";
 import { ProjectContractsPanel } from "@/components/projects/project-contracts-panel";
@@ -2000,11 +2002,7 @@ function ProjectWorkspaceDialog({
               />
             </TabsContent>
             <TabsContent value="gantt" className="mt-0">
-              <PlaceholderModule
-                icon={<GanttChartSquare className="h-5 w-5" />}
-                title="Gantt"
-                description="Vista futura de calendario y dependencias para visualizar tareas, hitos y fechas de entrega."
-              />
+              <ProjectGanttPanel project={project} tasks={tasks} />
             </TabsContent>
             <TabsContent value="tickets" className="mt-0">
               <ProjectTicketsPanel projectId={project.id} />
@@ -2013,11 +2011,7 @@ function ProjectWorkspaceDialog({
               <ProjectContractsPanel projectId={project.id} />
             </TabsContent>
             <TabsContent value="sales" className="mt-0">
-              <PlaceholderModule
-                icon={<ReceiptText className="h-5 w-5" />}
-                title="Ventas"
-                description="Resumen futuro de facturas, propuestas, pagos, gastos, horas billables y rentabilidad del proyecto."
-              />
+              <ProjectSalesPanel project={project} />
             </TabsContent>
             <TabsContent value="notes" className="mt-0">
               <ProjectNotesPanel projectId={project.id} canEdit={canEdit} />
