@@ -56,6 +56,8 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      { rel: "icon", type: "image/svg+xml", href: "/imagotipo_corevix.svg" },
+      { rel: "shortcut icon", type: "image/svg+xml", href: "/imagotipo_corevix.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "stylesheet", href: projectWorkspaceResponsiveCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
