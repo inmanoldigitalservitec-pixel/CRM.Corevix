@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowLeft,
   BarChart3,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   CircleDot,
   ClipboardList,
   Clock3,
@@ -27,6 +29,12 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ProjectActivityPanel } from "@/components/projects/project-activity-panel";
 import { ProjectConversationsPanel } from "@/components/projects/project-conversations-panel";
 import { ProjectFilesPanel } from "@/components/projects/project-files-panel";
@@ -36,7 +44,20 @@ import { ProjectTimesheetsPanel } from "@/components/projects/project-timesheets
 import { ProjectContractsPanel } from "@/components/projects/project-contracts-panel";
 import { ProjectNotesPanel } from "@/components/projects/project-notes-panel";
 import { DataCard } from "@/components/crm/data-card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +83,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -86,6 +114,7 @@ import {
   isInProgressTaskStatusValue,
   normalizeStatus,
 } from "@/lib/crm/status";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage,
@@ -225,6 +254,16 @@ type ProjectStats = {
   pct: number;
 };
 
+type ProjectMeta = {
+  client: ClientRow | null;
+  product: ProductRow | null;
+  deal: DealRow | null;
+  lead: LeadRow | null;
+  stats: ProjectStats;
+  isOverdue: boolean;
+  hasRisk: boolean;
+};
+
 type ProjectForm = {
   name: string;
   description: string;
@@ -317,6 +356,123 @@ function PlaceholderModule({
         </div>
       </div>
     </div>
+  );
+}
+
+function ProjectMobileCard({
+  project,
+  meta,
+  owner,
+  onOpen,
+  demo,
+}: {
+  project: Project;
+  meta: ProjectMeta;
+  owner: string;
+  onOpen: () => void;
+  demo?: string;
+}) {
+  const clientName = meta.client?.company_name || "Sin cliente";
+  const opportunityName = meta.deal?.name || "Sin oportunidad";
+  const productName = meta.product?.name || "Sin producto";
+  const progress = Math.min(100, Math.max(0, Number(meta.stats.pct || 0)));
+  const statusLabel = displayLabel(project.status);
+  const taskLabel = meta.stats.total
+    ? `${meta.stats.completed}/${meta.stats.total} tareas`
+    : "Sin tareas";
+  const overdueLabel =
+    meta.stats.overdue > 0
+      ? `${meta.stats.overdue} ${meta.stats.overdue === 1 ? "tarea vencida" : "tareas vencidas"}`
+      : meta.isOverdue
+        ? "Entrega vencida"
+        : null;
+
+  return (
+    <button
+      type="button"
+      data-demo={demo}
+      onClick={onOpen}
+      className="w-full rounded-[18px] border border-slate-200 bg-white p-3.5 text-left transition-colors active:scale-[0.992] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-200 hover:border-slate-300"
+      aria-label={`Abrir proyecto ${project.name}`}
+    >
+      <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-2.5">
+        <div
+          className={cn(
+            "grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border text-xs font-extrabold tracking-[-0.02em]",
+            meta.hasRisk
+              ? "border-rose-100 bg-rose-50 text-rose-700"
+              : "border-blue-100 bg-blue-50 text-blue-700",
+          )}
+        >
+          {meta.hasRisk ? <AlertTriangle className="h-5 w-5" /> : initials(project.name)}
+        </div>
+
+        <div className="min-w-0 pt-0.5">
+          <div className="truncate text-[15px] font-bold leading-5 tracking-[-0.01em] text-slate-950">
+            {project.name}
+          </div>
+          <div className="mt-0.5 truncate text-[12.5px] font-medium leading-4 text-slate-500">
+            {clientName} · {opportunityName}
+          </div>
+        </div>
+
+        {meta.hasRisk ? (
+          <span className="inline-flex min-h-6 max-w-[90px] shrink-0 items-center rounded-full bg-rose-50 px-2.5 text-[11px] font-bold text-rose-700">
+            Riesgo
+          </span>
+        ) : (
+          <StatusBadge
+            status={project.status}
+            className="min-h-6 max-w-[96px] shrink-0 truncate rounded-full px-2.5 text-[11px] font-bold"
+          />
+        )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 pl-[50px] max-[360px]:grid-cols-1 max-[360px]:pl-0">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+            Producto
+          </div>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-slate-600">
+            <Package className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="truncate">{productName}</span>
+          </div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+            Responsable
+          </div>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-slate-600">
+            <UserRound className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="truncate">{owner}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3.5 border-t border-slate-100 pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-xs font-bold text-slate-600">{statusLabel}</span>
+          <span className="shrink-0 text-[11.5px] font-semibold text-slate-500">{taskLabel}</span>
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className={cn(
+              "h-full rounded-full",
+              normalizeStatus(project.status) === normalizeStatus("Completed")
+                ? "bg-emerald-600"
+                : "bg-blue-600",
+            )}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        {overdueLabel ? (
+          <div className="mt-2 flex items-center gap-1.5 text-[11.5px] font-bold text-rose-700">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{overdueLabel}</span>
+          </div>
+        ) : null}
+      </div>
+    </button>
   );
 }
 
@@ -805,8 +961,11 @@ function ProjectsPage() {
         })}
       </div>
 
-      <DataCard>
-        <div data-demo="projects-list" className="space-y-4">
+      <DataCard
+        noPadding
+        className="border-0 bg-transparent shadow-none md:border-border/40 md:bg-card md:shadow-sm"
+      >
+        <div data-demo="projects-list" className="space-y-4 md:p-5">
           <SearchFilters
             searchValue={search}
             onSearchChange={setSearch}
@@ -870,140 +1029,158 @@ function ProjectsPage() {
               onAction={abiertasNewProject}
             />
           ) : (
-            <div className="-mx-2 sm:-mx-5">
-              <Table className="projects-list-table">
-                <TableHeader className="projects-list-table__head">
-                  <TableRow>
-                    <TableHead className="pl-4 sm:pl-5">Proyecto</TableHead>
-                    <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="hidden md:table-cell">Progreso</TableHead>
-                    <TableHead className="hidden xl:table-cell">Responsable</TableHead>
-                    <TableHead className="hidden lg:table-cell">Cronograma</TableHead>
-                    <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">
-                      Budget
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((project, index) => {
-                    const meta = projectMeta(project);
-                    const clientName = meta.client?.company_name || "Sin cliente";
-                    const productName = meta.product?.name || "Sin producto";
-                    const owner = managerName(project.manager);
-                    return (
-                      <TableRow
-                        key={project.id}
-                        data-demo={index === 0 ? "projects-first-row" : undefined}
-                        className="cursor-pointer align-top hover:bg-muted/40"
-                        onClick={() => setSelected(project)}
-                      >
-                        <TableCell className="pl-4 sm:pl-5">
-                          <div className="flex min-w-0 items-start gap-3 sm:min-w-[320px]">
-                            <div
-                              className={`grid h-12 w-12 shrink-0 place-items-center rounded-[18px] border font-bold shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}
-                            >
-                              {meta.hasRisk ? (
-                                <AlertTriangle className="h-5 w-5" />
-                              ) : (
-                                <span className="text-xs">{initials(project.name)}</span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <div className="truncate text-[15px] font-semibold text-slate-950">
-                                  {project.name}
-                                </div>
-                                {meta.hasRisk ? (
-                                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                                    Riesgo
-                                  </span>
-                                ) : null}
-                              </div>
-                              <div className="mt-1 truncate text-[12.5px] text-muted-foreground">
-                                {clientName} · {meta.deal?.name || "Sin oportunidad"}
-                              </div>
-                              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                                  <Package className="h-3 w-3" />
-                                  {productName}
-                                </span>
-                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:hidden">
-                                  <UserRound className="h-3 w-3" />
-                                  {owner}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="max-w-[240px]">
-                            <div className="truncate text-sm font-medium">{clientName}</div>
-                            <div className="mt-1 truncate text-xs text-muted-foreground">
-                              {productName}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell data-demo={index === 0 ? "projects-status" : undefined}>
-                          <StatusBadge status={project.status} />
-                        </TableCell>
-                        <TableCell
-                          data-demo={index === 0 ? "projects-progress" : undefined}
-                          className="hidden md:table-cell"
+            <>
+              <div className="grid gap-2.5 md:hidden">
+                {filtered.map((project, index) => {
+                  const meta = projectMeta(project);
+                  return (
+                    <ProjectMobileCard
+                      key={project.id}
+                      project={project}
+                      meta={meta}
+                      owner={managerName(project.manager)}
+                      demo={index === 0 ? "projects-first-row" : undefined}
+                      onOpen={() => setSelected(project)}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block md:-mx-5">
+                <Table className="projects-list-table">
+                  <TableHeader className="projects-list-table__head">
+                    <TableRow>
+                      <TableHead className="pl-4 sm:pl-5">Proyecto</TableHead>
+                      <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="hidden md:table-cell">Progreso</TableHead>
+                      <TableHead className="hidden xl:table-cell">Responsable</TableHead>
+                      <TableHead className="hidden lg:table-cell">Cronograma</TableHead>
+                      <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">
+                        Budget
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((project, index) => {
+                      const meta = projectMeta(project);
+                      const clientName = meta.client?.company_name || "Sin cliente";
+                      const productName = meta.product?.name || "Sin producto";
+                      const owner = managerName(project.manager);
+                      return (
+                        <TableRow
+                          key={project.id}
+                          data-demo={index === 0 ? "projects-first-row" : undefined}
+                          className="cursor-pointer align-top hover:bg-muted/40"
+                          onClick={() => setSelected(project)}
                         >
-                          <div className="min-w-[150px]">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-semibold">{meta.stats.pct}%</span>
-                              <span className="text-muted-foreground">
-                                {meta.stats.total
-                                  ? `${meta.stats.completed}/${meta.stats.total}`
-                                  : "Sin tareas"}
-                              </span>
-                            </div>
-                            <Progress value={meta.stats.pct} className="mt-2 h-2" />
-                            {meta.stats.overdue ? (
-                              <div className="mt-1 text-[11px] font-medium text-rose-700">
-                                {meta.stats.overdue} vencidas
+                          <TableCell className="pl-4 sm:pl-5">
+                            <div className="flex min-w-0 items-start gap-3 sm:min-w-[320px]">
+                              <div
+                                className={`grid h-12 w-12 shrink-0 place-items-center rounded-[18px] border font-bold shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}
+                              >
+                                {meta.hasRisk ? (
+                                  <AlertTriangle className="h-5 w-5" />
+                                ) : (
+                                  <span className="text-xs">{initials(project.name)}</span>
+                                )}
                               </div>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden xl:table-cell">
-                          <div className="flex items-center gap-2">
-                            <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-                              {initials(owner)}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="truncate text-[15px] font-semibold text-slate-950">
+                                    {project.name}
+                                  </div>
+                                  {meta.hasRisk ? (
+                                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                                      Riesgo
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 truncate text-[12.5px] text-muted-foreground">
+                                  {clientName} · {meta.deal?.name || "Sin oportunidad"}
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                    <Package className="h-3 w-3" />
+                                    {productName}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:hidden">
+                                    <UserRound className="h-3 w-3" />
+                                    {owner}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="max-w-[160px] truncate text-sm">{owner}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="space-y-1 text-sm">
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <CalendarClock className="h-3.5 w-3.5" />
-                              Inicio: {formatDate(project.start_date)}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="max-w-[240px]">
+                              <div className="truncate text-sm font-medium">{clientName}</div>
+                              <div className="mt-1 truncate text-xs text-muted-foreground">
+                                {productName}
+                              </div>
                             </div>
-                            <div
-                              className={
-                                meta.isOverdue
-                                  ? "flex items-center gap-1.5 font-medium text-rose-700"
-                                  : "flex items-center gap-1.5 text-muted-foreground"
-                              }
-                            >
-                              <CircleDot className="h-3.5 w-3.5" />
-                              Entrega: {formatDate(project.due_date)}
+                          </TableCell>
+                          <TableCell data-demo={index === 0 ? "projects-status" : undefined}>
+                            <StatusBadge status={project.status} />
+                          </TableCell>
+                          <TableCell
+                            data-demo={index === 0 ? "projects-progress" : undefined}
+                            className="hidden md:table-cell"
+                          >
+                            <div className="min-w-[150px]">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold">{meta.stats.pct}%</span>
+                                <span className="text-muted-foreground">
+                                  {meta.stats.total
+                                    ? `${meta.stats.completed}/${meta.stats.total}`
+                                    : "Sin tareas"}
+                                </span>
+                              </div>
+                              <Progress value={meta.stats.pct} className="mt-2 h-2" />
+                              {meta.stats.overdue ? (
+                                <div className="mt-1 text-[11px] font-medium text-rose-700">
+                                  {meta.stats.overdue} vencidas
+                                </div>
+                              ) : null}
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5">
-                          <div className="font-semibold">{formatMoney(project.budget)}</div>
-                          <div className="text-[11px] text-muted-foreground">presupuesto</div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </TableCell>
+                          <TableCell className="hidden xl:table-cell">
+                            <div className="flex items-center gap-2">
+                              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+                                {initials(owner)}
+                              </div>
+                              <div className="max-w-[160px] truncate text-sm">{owner}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="space-y-1 text-sm">
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <CalendarClock className="h-3.5 w-3.5" />
+                                Inicio: {formatDate(project.start_date)}
+                              </div>
+                              <div
+                                className={
+                                  meta.isOverdue
+                                    ? "flex items-center gap-1.5 font-medium text-rose-700"
+                                    : "flex items-center gap-1.5 text-muted-foreground"
+                                }
+                              >
+                                <CircleDot className="h-3.5 w-3.5" />
+                                Entrega: {formatDate(project.due_date)}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5">
+                            <div className="font-semibold">{formatMoney(project.budget)}</div>
+                            <div className="text-[11px] text-muted-foreground">presupuesto</div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </div>
       </DataCard>
@@ -1403,6 +1580,9 @@ function ProjectWorkspaceDialog({
   onCreateTask: () => void;
   onCompleteTask: (task: TaskRow) => void;
 }) {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const tabs = [
     { value: "overview", label: "Resumen", icon: BarChart3 },
     { value: "tasks", label: "Tareas", icon: CheckCircle2 },
@@ -1417,14 +1597,158 @@ function ProjectWorkspaceDialog({
     { value: "notes", label: "Notas", icon: FileText },
     { value: "activity", label: "Actividad", icon: Activity },
   ];
+  const secondaryGroups = [
+    {
+      title: "Operación",
+      items: [
+        { value: "timesheets", label: "Horas", description: "Tiempo registrado", icon: Clock3 },
+        {
+          value: "milestones",
+          label: "Hitos",
+          description: "Entregables y fechas",
+          icon: ShieldCheck,
+        },
+        { value: "tickets", label: "Tickets", description: "Soporte relacionado", icon: Ticket },
+      ],
+    },
+    {
+      title: "Comunicación",
+      items: [
+        {
+          value: "discussions",
+          label: "Conversaciones",
+          description: "Hilos del cliente",
+          icon: MessageSquare,
+        },
+        { value: "notes", label: "Notas", description: "Notas internas", icon: FileText },
+        {
+          value: "activity",
+          label: "Actividad",
+          description: "Historial del proyecto",
+          icon: Activity,
+        },
+      ],
+    },
+    {
+      title: "Comercial y planificación",
+      items: [
+        {
+          value: "contracts",
+          label: "Contratos",
+          description: "Documentos comerciales",
+          icon: Landmark,
+        },
+        {
+          value: "sales",
+          label: "Ventas",
+          description: "Facturas y rentabilidad",
+          icon: ReceiptText,
+        },
+        {
+          value: "gantt",
+          label: "Gantt",
+          description: "Planificación futura",
+          icon: GanttChartSquare,
+        },
+      ],
+    },
+  ];
+  const progress = Math.min(Math.max(meta.stats.pct, 0), 100);
+  const mobileSubtitle = [displayLabel(project.status), meta.hasRisk ? "Riesgo" : null, managerName]
+    .filter(Boolean)
+    .join(" · ");
+  const selectTab = (value: string) => {
+    setActiveTab(value);
+    setMoreOpen(false);
+    requestAnimationFrame(() => contentRef.current?.scrollTo({ top: 0 }));
+  };
+
+  useEffect(() => {
+    setActiveTab("overview");
+    setMoreOpen(false);
+  }, [project.id]);
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="h-[92vh] w-[calc(100vw-24px)] max-w-[1100px] gap-0 overflow-hidden rounded-2xl border bg-white p-0 shadow-2xl">
+      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-none md:h-[92vh] md:w-[calc(100vw-24px)] md:max-w-[1100px] md:rounded-2xl md:border md:shadow-2xl [&>button.absolute.right-4.top-4]:hidden">
         <DialogTitle className="sr-only">Espacio del proyecto</DialogTitle>
         <DialogDescription className="sr-only">
           Panel de detalles del proyecto con resumen, tareas, notas y modulos relacionados.
         </DialogDescription>
-        <header className="shrink-0 border-b bg-white px-5 py-4">
+        <header className="shrink-0 border-b bg-white/95 backdrop-blur md:hidden">
+          <div className="grid min-h-[58px] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 px-2.5 py-1.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              aria-label="Cerrar proyecto"
+              className="h-11 w-11 rounded-xl"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0" title={project.name}>
+              <h2 className="truncate text-[16px] font-extrabold leading-5 tracking-[-0.02em] text-slate-950">
+                {project.name}
+              </h2>
+              <p
+                className={cn(
+                  "mt-0.5 truncate text-[11.5px] font-semibold text-slate-500",
+                  meta.hasRisk && "text-rose-700",
+                )}
+              >
+                {mobileSubtitle}
+              </p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Acciones del proyecto"
+                  className="h-11 w-11 rounded-xl"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {canEdit ? (
+                  <DropdownMenuItem onSelect={onEdit}>Editar proyecto</DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem disabled>Exportar datos</DropdownMenuItem>
+                {canDelete ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={onDelete}
+                    >
+                      Eliminar proyecto
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="px-4 pb-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 truncate text-[11.5px] font-bold text-slate-600">
+                {meta.hasRisk ? (
+                  <span className="text-rose-700">Riesgo activo</span>
+                ) : (
+                  <span>{displayLabel(project.status)}</span>
+                )}
+              </div>
+              <span className="shrink-0 text-[11.5px] font-extrabold text-slate-700">
+                {progress}%
+              </span>
+            </div>
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-blue-600" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </header>
+
+        <header className="hidden shrink-0 border-b bg-white px-5 py-4 md:block">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -1472,14 +1796,54 @@ function ProjectWorkspaceDialog({
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
               <div
                 className="h-full rounded-full bg-emerald-500"
-                style={{ width: `${Math.min(Math.max(meta.stats.pct, 0), 100)}%` }}
+                style={{ width: `${progress}%` }}
               />
             </div>
             <span className="text-sm font-bold text-slate-700">{meta.stats.pct}%</span>
           </div>
         </header>
-        <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 overflow-x-auto border-b bg-slate-50 px-4 py-2">
+
+        <Tabs value={activeTab} onValueChange={selectTab} className="flex min-h-0 flex-1 flex-col">
+          <div className="grid h-[52px] shrink-0 grid-cols-4 border-b bg-white md:hidden">
+            {[
+              { value: "overview", label: "Resumen", icon: BarChart3 },
+              { value: "tasks", label: "Tareas", icon: CheckCircle2 },
+              { value: "files", label: "Archivos", icon: Paperclip },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => selectTab(tab.value)}
+                  className={cn(
+                    "relative flex min-w-0 items-center justify-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
+                    active &&
+                      "text-blue-600 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-t-full after:bg-blue-600",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              className={cn(
+                "relative flex min-w-0 items-center justify-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
+                !["overview", "tasks", "files"].includes(activeTab) &&
+                  "text-blue-600 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-t-full after:bg-blue-600",
+              )}
+              aria-label="Ver más módulos"
+            >
+              <MoreHorizontal className="h-4 w-4 shrink-0" />
+              <span>Más</span>
+            </button>
+          </div>
+
+          <div className="hidden shrink-0 overflow-x-auto border-b bg-slate-50 px-4 py-2 md:block">
             <TabsList className="inline-flex h-11 w-max justify-start gap-1 bg-transparent p-0">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -1496,17 +1860,33 @@ function ProjectWorkspaceDialog({
               })}
             </TabsList>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-5">
+          <div
+            ref={contentRef}
+            className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-3 pb-[calc(1rem+env(safe-area-inset-bottom))] md:bg-white md:p-5"
+          >
             <TabsContent value="overview" className="mt-0">
-              <ProjectOverviewPanel
-                project={project}
-                meta={meta}
-                clientName={clientName}
-                productName={productName}
-                dealName={dealName}
-                leadName={leadName}
-                managerName={managerName}
-              />
+              <div className="md:hidden">
+                <ProjectMobileOverview
+                  project={project}
+                  meta={meta}
+                  clientName={clientName}
+                  productName={productName}
+                  dealName={dealName}
+                  leadName={leadName}
+                  managerName={managerName}
+                />
+              </div>
+              <div className="hidden md:block">
+                <ProjectOverviewPanel
+                  project={project}
+                  meta={meta}
+                  clientName={clientName}
+                  productName={productName}
+                  dealName={dealName}
+                  leadName={leadName}
+                  managerName={managerName}
+                />
+              </div>
             </TabsContent>
             <TabsContent value="tasks" className="mt-0 space-y-4">
               <div className="flex items-center justify-between">
@@ -1524,7 +1904,23 @@ function ProjectWorkspaceDialog({
                   </Button>
                 ) : null}
               </div>
-              <div className="overflow-hidden rounded-xl border">
+              <div className="grid gap-2.5 md:hidden">
+                {tasks.length ? (
+                  tasks.map((task) => (
+                    <ProjectTaskMobileCard
+                      key={task.id}
+                      task={task}
+                      canEditTasks={canEditTasks}
+                      onCompleteTask={onCompleteTask}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed bg-white p-5 text-center text-sm font-medium text-slate-500">
+                    Este proyecto todavía no tiene tareas.
+                  </div>
+                )}
+              </div>
+              <div className="hidden overflow-hidden rounded-xl border md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1639,8 +2035,239 @@ function ProjectWorkspaceDialog({
             </TabsContent>
           </div>
         </Tabs>
+
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetContent
+            side="bottom"
+            className="max-h-[78dvh] rounded-t-3xl border-t bg-white p-0 md:hidden [&>button.absolute.right-4.top-4]:hidden"
+          >
+            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <SheetHeader className="border-b px-4 py-3 text-left">
+              <SheetTitle className="text-[17px] font-extrabold tracking-[-0.02em]">
+                Más módulos
+              </SheetTitle>
+              <SheetDescription>Accede a las áreas secundarias del proyecto.</SheetDescription>
+            </SheetHeader>
+            <div className="max-h-[calc(78dvh-88px)] overflow-y-auto px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              {secondaryGroups.map((group) => (
+                <section key={group.title} className="mb-5 last:mb-0">
+                  <h3 className="mb-2 px-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
+                    {group.title}
+                  </h3>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.value}
+                          type="button"
+                          onClick={() => selectTab(item.value)}
+                          className="grid min-h-[54px] w-full grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-100 bg-white px-3 py-2 text-left last:border-b-0 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200"
+                        >
+                          <span className="grid h-[34px] w-[34px] place-items-center rounded-xl bg-slate-100 text-slate-600">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-[13px] font-bold text-slate-900">
+                              {item.label}
+                            </span>
+                            <span className="block truncate text-[11px] font-medium text-slate-500">
+                              {item.description}
+                            </span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ProjectMobileOverview({
+  project,
+  meta,
+  clientName,
+  productName,
+  dealName,
+  leadName,
+  managerName,
+}: {
+  project: Project;
+  meta: { stats: ProjectStats; isOverdue: boolean; hasRisk: boolean };
+  clientName: string;
+  productName: string;
+  dealName: string;
+  leadName: string;
+  managerName: string;
+}) {
+  const safeClient = clientName === "—" ? "Sin cliente" : clientName;
+  const safeProduct = productName === "—" ? "Sin producto" : productName;
+  const safeDeal = dealName === "—" ? "Sin oportunidad" : dealName;
+  const safeLead = leadName === "—" ? "Sin prospecto" : leadName;
+  const safeManager = managerName === "—" ? "Sin asignar" : managerName;
+  const taskLabel = meta.stats.total
+    ? `${meta.stats.completed}/${meta.stats.total} tareas`
+    : "Sin tareas";
+  const primaryDetails = [
+    ["Cliente", safeClient],
+    ["Responsable", safeManager],
+    ["Fecha límite", project.due_date ? formatDate(project.due_date) : "Sin fecha límite"],
+    ["Producto", safeProduct],
+    ["Progreso", `${meta.stats.pct}%`],
+    ["Tareas", taskLabel],
+  ];
+  const secondaryDetails = [
+    ["Proyecto #", getProjectNumber(project)],
+    ["Estado", displayLabel(project.status)],
+    ["Tipo de facturación", "Horas por tarea"],
+    ["Fecha de creación", formatDate(project.created_at?.slice(0, 10))],
+    [
+      "Fecha de inicio",
+      project.start_date ? formatDate(project.start_date) : "Sin fecha de inicio",
+    ],
+    ["Oportunidad", safeDeal],
+    ["Prospecto", safeLead],
+    ["Presupuesto", formatMoney(project.budget)],
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-white">
+        {primaryDetails.map(([label, value]) => (
+          <div
+            key={label}
+            className="grid min-h-[54px] grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-3 border-b border-slate-100 px-3.5 py-2.5 last:border-b-0"
+          >
+            <div className="text-xs font-semibold text-slate-500">{label}</div>
+            <div
+              className={cn(
+                "truncate text-right text-[13px] font-bold text-slate-900",
+                label === "Fecha límite" && meta.isOverdue && "text-rose-700",
+              )}
+              title={value}
+            >
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {meta.hasRisk ? (
+        <div className="flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white text-rose-700">
+            <AlertTriangle className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-extrabold text-rose-700">Requiere atención</div>
+            <p className="mt-0.5 text-[11.5px] font-medium leading-5 text-rose-700">
+              Revisa fechas y tareas vencidas para mantener el proyecto en curso.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="rounded-[18px] border border-slate-200 bg-white p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[13px] font-extrabold text-slate-900">Progreso del proyecto</div>
+          <div className="text-[15px] font-extrabold text-slate-900">{meta.stats.pct}%</div>
+        </div>
+        <Progress value={Math.min(100, Math.max(0, meta.stats.pct))} className="mt-2 h-1.5" />
+        <div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-500">
+          <span>{taskLabel}</span>
+          <span>{meta.stats.abiertas} abiertas</span>
+        </div>
+      </div>
+
+      <Accordion type="single" collapsible>
+        <AccordionItem
+          value="details"
+          className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+        >
+          <AccordionTrigger className="min-h-12 px-3.5 py-0 text-[12.5px] font-bold hover:no-underline">
+            Ver todos los detalles
+          </AccordionTrigger>
+          <AccordionContent className="px-3.5 pb-3">
+            <div className="overflow-hidden rounded-xl border border-slate-100">
+              {secondaryDetails.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="grid min-h-[46px] grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0"
+                >
+                  <div className="text-[11.5px] font-semibold text-slate-500">{label}</div>
+                  <div
+                    className="truncate text-right text-[12.5px] font-bold text-slate-900"
+                    title={value}
+                  >
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
+      <div>
+        <h3 className="mb-2 text-sm font-extrabold text-slate-900">Descripción</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-[12.5px] font-medium leading-6 text-slate-600">
+          {project.description || "No hay descripción registrada para este proyecto."}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectTaskMobileCard({
+  task,
+  canEditTasks,
+  onCompleteTask,
+}: {
+  task: TaskRow;
+  canEditTasks: boolean;
+  onCompleteTask: (task: TaskRow) => void;
+}) {
+  const canComplete = !isClosedTaskStatusValue(task.status) && canEditTasks;
+  return (
+    <div className="rounded-[17px] border border-slate-200 bg-white p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="line-clamp-2 text-[13.5px] font-extrabold leading-5 text-slate-900">
+            {task.title}
+          </h3>
+          <p className="mt-1 line-clamp-2 text-[11.5px] font-medium leading-5 text-slate-500">
+            {task.description || "Sin descripción"}
+          </p>
+        </div>
+        <StatusBadge
+          status={task.status}
+          className="min-h-6 max-w-[96px] shrink-0 truncate rounded-full px-2.5 text-[10.5px] font-bold"
+        />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] font-semibold text-slate-500">
+        <span className="inline-flex items-center gap-1">
+          <CalendarClock className="h-3.5 w-3.5" />
+          {formatDate(task.due_date)}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          {displayLabel(task.priority)}
+        </span>
+      </div>
+      {canComplete ? (
+        <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+          <Button size="sm" variant="outline" onClick={() => onCompleteTask(task)}>
+            Completar
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
