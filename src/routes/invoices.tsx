@@ -411,43 +411,13 @@ function InvoicesPage() {
   const [projectByInvoiceId, setProjectByInvoiceId] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      if (!drawerOpen || drawerMode !== "view" || !selected) {
-        setLinkedProjectId(null);
-        return;
-      }
-      try {
-        const db = supabase as any;
-        let q = db.from("projects").select("id").eq("invoice_id", selected.id).limit(1);
-        const { data: byInvoice, error: e1 } = await q;
-        if (e1) throw e1;
-        const first = Array.isArray(byInvoice) && byInvoice.length ? byInvoice[0] : null;
-        if (first?.id) {
-          if (!cancelled) setLinkedProjectId(String(first.id));
-          return;
-        }
-        if (selected.proposal_id) {
-          const { data: byProposal, error: e2 } = await db
-            .from("projects")
-            .select("id")
-            .eq("proposal_id", selected.proposal_id)
-            .limit(1);
-          if (e2) throw e2;
-          const p = Array.isArray(byProposal) && byProposal.length ? byProposal[0] : null;
-          if (!cancelled) setLinkedProjectId(p?.id ? String(p.id) : null);
-        } else if (!cancelled) {
-          setLinkedProjectId(null);
-        }
-      } catch {
-        if (!cancelled) setLinkedProjectId(null);
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [drawerOpen, drawerMode, selected?.id, selected?.proposal_id]);
+    if (!drawerOpen || drawerMode !== "view" || !selected) {
+      setLinkedProjectId(null);
+      return;
+    }
+
+    setLinkedProjectId(projectByInvoiceId[selected.id] || null);
+  }, [drawerOpen, drawerMode, projectByInvoiceId, selected]);
 
   const createProjectFromInvoice = async (invoiceId: string) => {
     if (!invoiceId) return;
@@ -529,60 +499,13 @@ function InvoicesPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const invoiceIds = uniqueStrings(data.map((i) => i.id));
-      const proposalIds = uniqueStrings(data.map((i) => i.proposal_id));
-      if (!invoiceIds.length && !proposalIds.length) {
-        if (!cancelled) setProjectByInvoiceId({});
-        return;
-      }
-      try {
-        const db = supabase as any;
-        const map: Record<string, string> = {};
-
-        if (invoiceIds.length) {
-          const { data: byInvoice, error: e1 } = await db
-            .from("projects")
-            .select("id, invoice_id")
-            .in("invoice_id", invoiceIds);
-          if (e1) throw e1;
-          for (const row of byInvoice || []) {
-            if (row?.invoice_id) map[String(row.invoice_id)] = String(row.id);
-          }
-        }
-
-        if (proposalIds.length) {
-          const { data: byProposal, error: e2 } = await db
-            .from("projects")
-            .select("id, proposal_id, invoice_id")
-            .in("proposal_id", proposalIds);
-          if (e2) throw e2;
-
-          const invoiceByProposal = new Map<string, string>();
-          for (const inv of data) {
-            if (inv.proposal_id) invoiceByProposal.set(String(inv.proposal_id), String(inv.id));
-          }
-          for (const row of byProposal || []) {
-            if (!row?.proposal_id) continue;
-            const invoiceId = row.invoice_id
-              ? String(row.invoice_id)
-              : invoiceByProposal.get(String(row.proposal_id));
-            if (invoiceId && !map[invoiceId]) {
-              map[invoiceId] = String(row.id);
-            }
-          }
-        }
-
-        if (!cancelled) setProjectByInvoiceId(map);
-      } catch {
-        if (!cancelled) setProjectByInvoiceId({});
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
+    setProjectByInvoiceId((current) => {
+      const invoiceIds = new Set(data.map((invoice) => invoice.id));
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([invoiceId]) => invoiceIds.has(invoiceId)),
+      );
+      return next;
+    });
   }, [data]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

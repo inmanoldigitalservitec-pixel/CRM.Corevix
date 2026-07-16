@@ -830,8 +830,13 @@ function ProjectsPage() {
   async function handleDeleteProject() {
     if (!deleteId) return;
     if (!can("projects.delete")) return toast.error("No tienes permiso para eliminar proyectos");
+    if (!profile?.company_id) return toast.error("No se pudo identificar tu compañía.");
     try {
-      const { error } = await supabase.from("tasks").delete().eq("related_project_id", deleteId);
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("company_id", profile.company_id)
+        .eq("related_project_id", deleteId);
       if (error) throw error;
       await remove(deleteId);
       await fetchTasks();
@@ -893,10 +898,13 @@ function ProjectsPage() {
 
   async function completeTask(task: TaskRow) {
     if (!can("tasks.edit")) return toast.error("No tienes permiso para actualizar tareas");
+    if (!profile?.company_id) return toast.error("No se pudo identificar tu compañía.");
     const { error } = await (supabase as any)
       .from("tasks")
       .update({ status: "Completed" })
-      .eq("id", task.id);
+      .eq("id", task.id)
+      .eq("company_id", profile.company_id)
+      .eq("related_project_id", task.related_project_id);
     if (error) return toast.error(error.message || "No se pudo completar la tarea");
     await fetchTasks();
     void sendProjectNotification(

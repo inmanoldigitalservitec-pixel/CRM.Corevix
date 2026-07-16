@@ -17,7 +17,6 @@ import { ProjectSalesSummaryView } from "@/components/projects/project-sales-sum
 import {
   buildSalesDocuments,
   buildSalesSummary,
-  compactIds,
   dedupeById,
   type ProjectContractRow,
   type ProjectExpenseRow,
@@ -28,6 +27,12 @@ import {
   type ProjectSalesProject,
   type ProjectTimeEntryRow,
 } from "@/components/projects/project-sales-utils";
+import {
+  compactIds,
+  getInvoiceIdsFromContracts,
+  getProposalIdsFromContracts,
+  getRelatedPaymentInvoiceIds,
+} from "@/lib/projects/project-relations";
 import { cn } from "@/lib/utils";
 
 type SalesErrorKey = "contracts" | "expenses" | "timeEntries" | "proposals" | "invoices" | "payments";
@@ -123,7 +128,7 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
     const expenses = readRows<ProjectExpenseRow>(expensesRes, "expenses", nextErrors);
     const timeEntries = readRows<ProjectTimeEntryRow>(timeEntriesRes, "timeEntries", nextErrors);
 
-    const proposalIdsFromContracts = compactIds(contracts.map((contract) => contract.proposal_id));
+    const proposalIdsFromContracts = getProposalIdsFromContracts(contracts);
     const proposalRequests: Promise<{ data: unknown; error: { message?: string } | null }>[] = [];
 
     if (proposalIdsFromContracts.length) {
@@ -143,7 +148,7 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
       proposalResponses.flatMap((response) => readRows<ProjectProposalRow>(response, "proposals", nextErrors)),
     );
 
-    const invoiceIdsFromContracts = compactIds(contracts.map((contract) => contract.invoice_id));
+    const invoiceIdsFromContracts = getInvoiceIdsFromContracts(contracts);
     const relatedProposalIds = compactIds(proposals.map((proposal) => proposal.id));
     const invoiceRequests: Promise<{ data: unknown; error: { message?: string } | null }>[] = [];
 
@@ -168,7 +173,7 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
       invoiceResponses.flatMap((response) => readRows<ProjectInvoiceRow>(response, "invoices", nextErrors)),
     );
 
-    const relatedInvoiceIds = compactIds(invoices.map((invoice) => invoice.id));
+    const relatedInvoiceIds = getRelatedPaymentInvoiceIds(invoices);
     let payments: ProjectPaymentRow[] = [];
 
     if (relatedInvoiceIds.length) {

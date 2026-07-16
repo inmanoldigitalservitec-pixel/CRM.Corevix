@@ -3,6 +3,7 @@ import {
   isPaidInvoiceStatus,
   normalizeStatus,
 } from "@/lib/crm/status";
+export { compactIds, dedupeById } from "@/lib/projects/project-relations";
 
 export type ProjectSalesProject = {
   id: string;
@@ -175,14 +176,6 @@ export type ProjectSalesSummary = {
   contextualCurrency: string | undefined;
   hasMultipleCurrencies: boolean;
 };
-
-export function dedupeById<T extends { id: string }>(rows: T[]) {
-  return Array.from(new Map(rows.map((row) => [row.id, row])).values());
-}
-
-export function compactIds(values: Array<string | null | undefined>) {
-  return Array.from(new Set(values.filter(Boolean) as string[]));
-}
 
 export function formatMoney(amount: number | null | undefined, currency?: string) {
   return new Intl.NumberFormat("es-DO", {

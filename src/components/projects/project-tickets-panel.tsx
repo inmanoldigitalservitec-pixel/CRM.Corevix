@@ -100,12 +100,25 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
   const ticketsUrl = `/tickets?projectId=${encodeURIComponent(projectId)}`;
 
   const fetchTickets = useCallback(async () => {
+    if (!profile?.company_id) {
+      setTickets([]);
+      setProject(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const [projectRes, ticketsRes] = await Promise.all([
-      (supabase as any).from("projects").select("id,client_id").eq("id", projectId).single(),
+      (supabase as any)
+        .from("projects")
+        .select("id,client_id")
+        .eq("company_id", profile.company_id)
+        .eq("id", projectId)
+        .maybeSingle(),
       (supabase as any)
         .from("tickets")
         .select("id,ticket_number,subject,description,status,priority,department,service,last_reply_at,created_at,updated_at")
+        .eq("company_id", profile.company_id)
         .eq("project_id", projectId)
         .order("updated_at", { ascending: false })
         .limit(100),
@@ -121,7 +134,7 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
     setProject(projectRes.data || null);
     setTickets(ticketsRes.data || []);
     setLoading(false);
-  }, [projectId]);
+  }, [profile?.company_id, projectId]);
 
   useEffect(() => {
     void fetchTickets();
