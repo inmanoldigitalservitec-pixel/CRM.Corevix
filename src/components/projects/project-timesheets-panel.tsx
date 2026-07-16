@@ -172,9 +172,15 @@ export function ProjectTimesheetsPanel({
   }
 
   async function handleCreate(values: ProjectTimeEntryFormValues) {
-    if (!profile?.company_id || !profile.id) return toast.error("No se pudo identificar tu usuario.");
+    if (!profile?.company_id || !profile.id) {
+      toast.error("No se pudo identificar tu usuario.");
+      return;
+    }
     const durationMinutes = parseMinutesFromValues(values);
-    if (!durationMinutes) return toast.error("Indica una duración válida.");
+    if (!durationMinutes) {
+      toast.error("Indica una duración válida.");
+      return;
+    }
 
     setSaving(true);
     const { error } = await (supabase as any).from("project_time_entries").insert({
@@ -189,7 +195,10 @@ export function ProjectTimesheetsPanel({
     });
     setSaving(false);
 
-    if (error) return toast.error(error.message || "No se pudo guardar la hora.");
+    if (error) {
+      toast.error(error.message || "No se pudo guardar la hora.");
+      return;
+    }
 
     setComposerOpen(false);
     await loadEntries();
@@ -212,7 +221,10 @@ export function ProjectTimesheetsPanel({
   async function handleUpdate(values: ProjectTimeEntryFormValues) {
     if (!editing?.id || !profile?.company_id) return;
     const durationMinutes = parseMinutesFromValues(values);
-    if (!durationMinutes) return toast.error("Indica una duración válida.");
+    if (!durationMinutes) {
+      toast.error("Indica una duración válida.");
+      return;
+    }
 
     setSaving(true);
     const { error } = await (supabase as any)
@@ -228,7 +240,10 @@ export function ProjectTimesheetsPanel({
       .eq("company_id", profile.company_id);
     setSaving(false);
 
-    if (error) return toast.error(error.message || "No se pudo actualizar la hora.");
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar la hora.");
+      return;
+    }
 
     setEditing(null);
     await loadEntries();
@@ -261,7 +276,10 @@ export function ProjectTimesheetsPanel({
       .eq("company_id", profile.company_id);
     setSaving(false);
 
-    if (error) return toast.error(error.message || "No se pudo eliminar la entrada.");
+    if (error) {
+      toast.error(error.message || "No se pudo eliminar la entrada.");
+      return;
+    }
 
     if (editing?.id === entry.id) setEditing(null);
     await loadEntries();

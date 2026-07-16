@@ -199,7 +199,7 @@ function buildEmailItem(
   leadId: string | null,
   emailSet: Set<string>,
 ): ProjectConversationItem {
-  const unreadCount = Number(row.unread_count ?? (row.is_read ? 0 : 1) ?? 0);
+  const unreadCount = Number(row.unread_count ?? (row.is_read ? 0 : 1));
 
   return {
     id: `email:${row.id}`,

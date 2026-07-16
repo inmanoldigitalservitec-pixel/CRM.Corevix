@@ -205,12 +205,7 @@ export function buildAgentDailyPlans(
       user_id: scope.userId,
       cycle_date: cycleDate,
       snapshot_version: snapshot.schemaVersion,
-      snapshot_base: {
-        schemaVersion: snapshot.schemaVersion,
-        generatedAt: snapshot.generatedAt,
-        cycleDate,
-        summary: snapshot.headline,
-      },
+      snapshot_base: snapshot,
       case_key: detectedCase.key,
       case_type: detectedCase.type,
       case_title: detectedCase.title,

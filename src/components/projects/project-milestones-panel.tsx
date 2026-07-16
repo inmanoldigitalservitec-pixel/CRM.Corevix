@@ -108,7 +108,10 @@ export function ProjectMilestonesPanel({
   }, [milestones]);
 
   async function handleCreate(values: ProjectMilestoneFormValues) {
-    if (!profile?.company_id) return toast.error("No se pudo identificar tu compañía.");
+    if (!profile?.company_id) {
+      toast.error("No se pudo identificar tu compañía.");
+      return;
+    }
 
     setSaving(true);
     const { error } = await (supabase as any).from("project_milestones").insert({
@@ -124,7 +127,10 @@ export function ProjectMilestonesPanel({
     });
     setSaving(false);
 
-    if (error) return toast.error(error.message || "No se pudo crear el hito.");
+    if (error) {
+      toast.error(error.message || "No se pudo crear el hito.");
+      return;
+    }
 
     setComposerOpen(false);
     await loadMilestones();
@@ -156,7 +162,10 @@ export function ProjectMilestonesPanel({
       .eq("company_id", profile.company_id);
     setSaving(false);
 
-    if (error) return toast.error(error.message || "No se pudo actualizar el hito.");
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar el hito.");
+      return;
+    }
 
     setEditing(null);
     await loadMilestones();
@@ -184,7 +193,10 @@ export function ProjectMilestonesPanel({
       .eq("company_id", profile.company_id);
     setSaving(false);
 
-    if (error) return toast.error(error.message || "No se pudo eliminar el hito.");
+    if (error) {
+      toast.error(error.message || "No se pudo eliminar el hito.");
+      return;
+    }
 
     if (editing?.id === milestone.id) setEditing(null);
     await loadMilestones();

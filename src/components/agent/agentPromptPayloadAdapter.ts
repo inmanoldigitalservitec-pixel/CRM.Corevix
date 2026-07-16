@@ -174,7 +174,7 @@ function actionRequiresConfirmation(action: AgentPromptSuggestedAction) {
   return true;
 }
 
-function normalizeRiskLevel(value: unknown) {
+function normalizeRiskLevel(value: unknown): AgentRiskLevel | undefined {
   const normalized = String(value || "").trim();
 
   if (
@@ -251,7 +251,10 @@ function actionsForCase(payload: AgentPromptPayload, caseKey: string) {
     .map(normalizeSuggestedAction);
 }
 
-function fallbackActionsFromCase(payload: AgentPromptPayload, detectedCase: AgentPromptDetectedCase) {
+function fallbackActionsFromCase(
+  payload: AgentPromptPayload,
+  detectedCase: AgentPromptDetectedCase,
+): AgentRecoveryPlan["suggested_actions"] {
   const caseKey = cleanText(detectedCase.case_key, "unknown_case");
   const directActions = actionsForCase(payload, caseKey);
 
