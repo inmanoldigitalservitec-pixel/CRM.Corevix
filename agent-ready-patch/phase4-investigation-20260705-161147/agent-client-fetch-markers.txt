@@ -1,8 +1,0 @@
-278:export type AgentPromptPayloadRow = {
-288:export type FetchAgentPromptPayloadOptions = {
-293:export type FetchAgentPromptPayloadResult = {
-294:  row: AgentPromptPayloadRow | null;
-299:export async function fetchAgentPromptPayload(
-300:  options: FetchAgentPromptPayloadOptions = {},
-301:): Promise<FetchAgentPromptPayloadResult> {
-322:  const row = (data || null) as AgentPromptPayloadRow | null;

@@ -1,1 +1,0 @@
-./src/components/invoices/PayPalInvoiceButton.tsx:143:          window.alert("PayPal todavía no está conectado. Falta VITE_PAYPAL_CLIENT_ID.")

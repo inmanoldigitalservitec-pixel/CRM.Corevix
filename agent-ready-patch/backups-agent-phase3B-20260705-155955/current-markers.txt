@@ -1,6 +1,0 @@
-./src/lib/agentClient.ts:1:import { supabase } from "@/integrations/supabase/client";
-./src/lib/agentClient.ts:145:  const sessionResult = await supabase.auth.getSession();
-./src/lib/agentClient.ts:202:export async function fetchAgentDailyPlans(cycleDate?: string) {
-./src/lib/agentClient.ts:236:export async function syncAgentDailyPlans(
-./src/components/dashboard-v2/dashboard-v2.tsx:27:import { AgentCommandWidget } from "@/components/agent";
-./src/components/dashboard-v2/dashboard-v2.tsx:1697:          render: () => <AgentCommandWidget />,

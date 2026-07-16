@@ -48,3 +48,6 @@ apps/agent-worker/dist/
 *.backup
 *.orig
 *.rej
+
+# Generated agent investigations and recovery artifacts
+agent-ready-patch/
