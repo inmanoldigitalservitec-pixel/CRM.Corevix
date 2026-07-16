@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export type ProjectMilestoneFormValues = {
   title: string;
@@ -47,6 +48,7 @@ export function ProjectMilestoneForm({
   projectWindowLabel,
   saving,
   submitLabel,
+  variant = "card",
   onCancel,
   onSubmit,
 }: {
@@ -54,6 +56,7 @@ export function ProjectMilestoneForm({
   projectWindowLabel?: string | null;
   saving: boolean;
   submitLabel: string;
+  variant?: "card" | "plain";
   onCancel?: () => void;
   onSubmit: (values: ProjectMilestoneFormValues) => Promise<void> | void;
 }) {
@@ -77,7 +80,10 @@ export function ProjectMilestoneForm({
 
   return (
     <form
-      className="space-y-4 rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5"
+      className={cn(
+        "space-y-4",
+        variant === "card" && "rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5",
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         void onSubmit(values);
@@ -88,7 +94,9 @@ export function ProjectMilestoneForm({
           <Label>Título del hito</Label>
           <Input
             value={values.title}
-            onChange={(event) => setValues((current) => ({ ...current, title: event.target.value }))}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, title: event.target.value }))
+            }
             placeholder="Ej. Entrega inicial al cliente"
             className="h-11 rounded-2xl border-slate-200"
             disabled={saving}
@@ -100,11 +108,15 @@ export function ProjectMilestoneForm({
           <Input
             type="date"
             value={values.target_date}
-            onChange={(event) => setValues((current) => ({ ...current, target_date: event.target.value }))}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, target_date: event.target.value }))
+            }
             className="h-11 rounded-2xl border-slate-200"
             disabled={saving}
           />
-          {projectWindowLabel ? <p className="text-[11px] text-slate-500">{projectWindowLabel}</p> : null}
+          {projectWindowLabel ? (
+            <p className="text-[11px] text-slate-500">{projectWindowLabel}</p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
@@ -134,7 +146,9 @@ export function ProjectMilestoneForm({
             min="0"
             max="100"
             value={values.progress_pct}
-            onChange={(event) => setValues((current) => ({ ...current, progress_pct: event.target.value }))}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, progress_pct: event.target.value }))
+            }
             className="h-11 rounded-2xl border-slate-200"
             disabled={saving}
           />
@@ -144,7 +158,9 @@ export function ProjectMilestoneForm({
           <Label>Descripción</Label>
           <Textarea
             value={values.description}
-            onChange={(event) => setValues((current) => ({ ...current, description: event.target.value }))}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, description: event.target.value }))
+            }
             placeholder="Contexto, entregables esperados o checkpoints del hito."
             className="min-h-[104px] rounded-2xl border-slate-200 bg-white text-sm leading-6 shadow-none"
             disabled={saving}
@@ -152,13 +168,29 @@ export function ProjectMilestoneForm({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-end gap-2",
+          variant === "plain" &&
+            "sticky bottom-0 -mx-5 mt-6 border-t border-slate-200 bg-white px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]",
+        )}
+      >
         {onCancel ? (
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={saving} className="rounded-full px-4">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded-full px-4"
+          >
             Cancelar
           </Button>
         ) : null}
-        <Button type="submit" disabled={saving || !values.title.trim()} className="rounded-full px-4">
+        <Button
+          type="submit"
+          disabled={saving || !values.title.trim()}
+          className="rounded-full px-4"
+        >
           <Save className="mr-1.5 h-3.5 w-3.5" />
           {submitLabel}
         </Button>

@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/crm/empty-state";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
+import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
 
 type NoteAuthor = {
   id: string;
@@ -62,9 +63,8 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState("");
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<ProjectNoteRow | null>(null);
 
   const loadNotes = useCallback(async () => {
     if (!profile?.company_id) return;
@@ -119,7 +119,8 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
     if (error) return toast.error(error.message || "No se pudo guardar la nota.");
 
     setDraft("");
-    setComposerOpen(false);
+    setSelectedNote(null);
+    setDialogOpen(false);
     await loadNotes();
     void logActivityEvent({
       companyId: profile.company_id,
@@ -132,30 +133,31 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
     toast.success("Nota guardada.");
   }
 
-  async function handleSaveEdit(note: ProjectNoteRow) {
-    if (!editingId || !profile?.company_id) return;
-    if (!editingContent.trim()) return toast.error("La nota no puede quedar vacía.");
+  async function handleSaveEdit() {
+    if (!selectedNote || !profile?.company_id) return;
+    if (!draft.trim()) return toast.error("La nota no puede quedar vacía.");
 
     setSaving(true);
-    const content = editingContent.trim();
+    const content = draft.trim();
     const { error } = await (supabase as any)
       .from("project_notes")
       .update({ content })
-      .eq("id", note.id)
+      .eq("id", selectedNote.id)
       .eq("company_id", profile.company_id);
     setSaving(false);
 
     if (error) return toast.error(error.message || "No se pudo actualizar la nota.");
 
-    setEditingId(null);
-    setEditingContent("");
+    setSelectedNote(null);
+    setDraft("");
+    setDialogOpen(false);
     await loadNotes();
     void logActivityEvent({
       companyId: profile.company_id,
       userId: profile.id || null,
       action: "project_note_updated",
       entityType: "project_notes",
-      entityId: note.id,
+      entityId: selectedNote.id,
       detail: `Nota interna actualizada en proyecto (${content.slice(0, 80)})`,
       metadata: { project_id: projectId },
     }).catch(() => {});
@@ -174,9 +176,10 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
 
     if (error) return toast.error(error.message || "No se pudo eliminar la nota.");
 
-    if (editingId === note.id) {
-      setEditingId(null);
-      setEditingContent("");
+    if (selectedNote?.id === note.id) {
+      setSelectedNote(null);
+      setDraft("");
+      setDialogOpen(false);
     }
     await loadNotes();
     void logActivityEvent({
@@ -212,12 +215,16 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setComposerOpen((open) => !open)}
+                onClick={() => {
+                  setSelectedNote(null);
+                  setDraft("");
+                  setDialogOpen(true);
+                }}
                 disabled={saving}
                 className="h-8 rounded-full border-slate-200 px-3 text-xs font-semibold shadow-none"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                {composerOpen ? "Cerrar" : "Crear nota"}
+                Crear nota
               </Button>
             ) : null}
             <Button
@@ -233,33 +240,62 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
             </Button>
           </div>
         </div>
-
-        {composerOpen ? (
-          <div className="mt-4 border-t border-slate-200/80 pt-4">
-            <Textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Escribe una nota sobre este proyecto…"
-              className="min-h-[92px] resize-y rounded-2xl border-slate-200 bg-white text-sm leading-6 shadow-none"
-              disabled={!canEdit || saving}
-            />
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[11px] text-slate-500">
-                Visible para el equipo interno del CRM.
-              </p>
-              <Button
-                type="button"
-                onClick={handleCreateNote}
-                disabled={!canEdit || saving || !draft.trim()}
-                className="h-8 rounded-full px-3 text-xs font-semibold"
-              >
-                <Save className="mr-1.5 h-3.5 w-3.5" />
-                Guardar nota
-              </Button>
-            </div>
-          </div>
-        ) : null}
       </div>
+
+      <ProjectWorkspaceFormDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (saving) return;
+          setDialogOpen(open);
+          if (!open) {
+            setSelectedNote(null);
+            setDraft("");
+          }
+        }}
+        title={selectedNote ? "Editar nota" : "Crear nota"}
+        description="Visible para el equipo interno del CRM."
+        size="md"
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void (selectedNote ? handleSaveEdit() : handleCreateNote());
+          }}
+        >
+          <Textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Escribe una nota sobre este proyecto…"
+            className="min-h-[180px] resize-y rounded-2xl border-slate-200 bg-white text-sm leading-6 shadow-none"
+            disabled={!canEdit || saving}
+          />
+          <div className="sticky bottom-0 -mx-5 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                if (saving) return;
+                setDialogOpen(false);
+                setSelectedNote(null);
+                setDraft("");
+              }}
+              disabled={saving}
+              className="rounded-full px-4"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={!canEdit || saving || !draft.trim()}
+              className="rounded-full px-4"
+            >
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              {selectedNote ? "Guardar cambios" : "Guardar nota"}
+            </Button>
+          </div>
+        </form>
+      </ProjectWorkspaceFormDialog>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
         {loading ? (
@@ -268,7 +304,6 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
           </div>
         ) : notes.length ? (
           notes.map((note) => {
-            const isEditing = editingId === note.id;
             return (
               <article
                 key={note.id}
@@ -294,8 +329,9 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setEditingId(note.id);
-                            setEditingContent(note.content);
+                            setSelectedNote(note);
+                            setDraft(note.content);
+                            setDialogOpen(true);
                           }}
                           disabled={saving}
                           className="h-7 rounded-full px-2.5 text-xs font-medium text-slate-500 hover:text-slate-900"
@@ -319,43 +355,9 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
                   </div>
                 </div>
 
-                {isEditing ? (
-                  <div className="mt-3 space-y-3">
-                    <Textarea
-                      value={editingContent}
-                      onChange={(event) => setEditingContent(event.target.value)}
-                      className="min-h-[110px] resize-y rounded-2xl border-slate-200 text-sm leading-6 shadow-none"
-                      disabled={saving}
-                    />
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => {
-                          setEditingId(null);
-                          setEditingContent("");
-                        }}
-                        disabled={saving}
-                        className="h-8 rounded-full px-3 text-xs font-semibold text-slate-500"
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() => void handleSaveEdit(note)}
-                        disabled={saving}
-                        className="h-8 rounded-full px-3 text-xs font-semibold"
-                      >
-                        <Save className="mr-1.5 h-3.5 w-3.5" />
-                        Guardar cambios
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-slate-800">
-                    {note.content}
-                  </div>
-                )}
+                <div className="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-slate-800">
+                  {note.content}
+                </div>
               </article>
             );
           })
@@ -366,7 +368,11 @@ export function ProjectNotesPanel({ projectId, canEdit }: { projectId: string; c
               title="No hay notas en este proyecto"
               description="Agrega la primera nota interna para capturar contexto, decisiones y próximos pasos."
               actionLabel={canEdit ? "Crear nota" : undefined}
-              onAction={() => setComposerOpen(true)}
+              onAction={() => {
+                setSelectedNote(null);
+                setDraft("");
+                setDialogOpen(true);
+              }}
             />
           </div>
         )}

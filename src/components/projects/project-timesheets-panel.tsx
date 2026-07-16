@@ -13,6 +13,7 @@ import {
   type ProjectTimeEntryFormValues,
 } from "@/components/projects/project-time-entry-form";
 import { ProjectTimeSummary } from "@/components/projects/project-time-summary";
+import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
 
 type TaskSnapshot = {
   id: string;
@@ -86,7 +87,7 @@ export function ProjectTimesheetsPanel({
   const [profilesById, setProfilesById] = useState<Map<string, ProfileRow>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectTimeEntryDraft | null>(null);
 
   const taskTitleById = useMemo(() => new Map(tasks.map((task) => [task.id, task.title])), [tasks]);
@@ -102,7 +103,9 @@ export function ProjectTimesheetsPanel({
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("project_time_entries")
-      .select("id,task_id,profile_id,entry_date,duration_minutes,description,is_billable,created_at,updated_at")
+      .select(
+        "id,task_id,profile_id,entry_date,duration_minutes,description,is_billable,created_at,updated_at",
+      )
       .eq("company_id", profile.company_id)
       .eq("project_id", projectId)
       .is("archived_at", null)
@@ -129,9 +132,7 @@ export function ProjectTimesheetsPanel({
       if (profilesError) {
         toast.error(profilesError.message || "No se pudo resolver el equipo de las horas.");
       } else {
-        setProfilesById(
-          new Map(((profileRows || []) as ProfileRow[]).map((row) => [row.id, row])),
-        );
+        setProfilesById(new Map(((profileRows || []) as ProfileRow[]).map((row) => [row.id, row])));
       }
     } else {
       setProfilesById(new Map());
@@ -200,7 +201,8 @@ export function ProjectTimesheetsPanel({
       return;
     }
 
-    setComposerOpen(false);
+    setDialogOpen(false);
+    setEditing(null);
     await loadEntries();
     void logActivityEvent({
       companyId: profile.company_id,
@@ -245,6 +247,7 @@ export function ProjectTimesheetsPanel({
       return;
     }
 
+    setDialogOpen(false);
     setEditing(null);
     await loadEntries();
     void logActivityEvent({
@@ -281,7 +284,10 @@ export function ProjectTimesheetsPanel({
       return;
     }
 
-    if (editing?.id === entry.id) setEditing(null);
+    if (editing?.id === entry.id) {
+      setDialogOpen(false);
+      setEditing(null);
+    }
     await loadEntries();
     void logActivityEvent({
       companyId: profile.company_id,
@@ -300,9 +306,12 @@ export function ProjectTimesheetsPanel({
       <div className="border-b border-slate-200/80 pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-[17px] font-bold tracking-[-0.02em] text-slate-950">Horas del proyecto</h3>
+            <h3 className="text-[17px] font-bold tracking-[-0.02em] text-slate-950">
+              Horas del proyecto
+            </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Registro operativo de tiempo trabajado, con separación básica entre horas facturables e internas.
+              Registro operativo de tiempo trabajado, con separación básica entre horas facturables
+              e internas.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -316,13 +325,13 @@ export function ProjectTimesheetsPanel({
                 size="sm"
                 onClick={() => {
                   setEditing(null);
-                  setComposerOpen((open) => !open);
+                  setDialogOpen(true);
                 }}
                 disabled={saving}
                 className="h-8 rounded-full border-slate-200 px-3 text-xs font-semibold shadow-none"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                {composerOpen ? "Cerrar" : "Registrar horas"}
+                Registrar horas
               </Button>
             ) : null}
             <Button
@@ -347,36 +356,44 @@ export function ProjectTimesheetsPanel({
         entries={summary.entries}
       />
 
-      {composerOpen ? (
+      <ProjectWorkspaceFormDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (saving) return;
+          setDialogOpen(open);
+          if (!open) setEditing(null);
+        }}
+        title={editing ? "Editar entrada de horas" : "Registrar horas"}
+        description="Registra tiempo trabajado, tarea relacionada y tipo de facturación."
+        size="md"
+      >
         <ProjectTimeEntryForm
-          initialValues={defaultTimeEntryFormValues()}
+          initialValues={editing || defaultTimeEntryFormValues()}
           saving={saving}
-          submitLabel="Guardar horas"
+          submitLabel={editing ? "Actualizar horas" : "Guardar horas"}
           tasks={tasks}
-          onCancel={() => setComposerOpen(false)}
-          onSubmit={handleCreate}
+          variant="plain"
+          onCancel={() => {
+            if (saving) return;
+            setDialogOpen(false);
+            setEditing(null);
+          }}
+          onSubmit={editing ? handleUpdate : handleCreate}
         />
-      ) : null}
-
-      {editing ? (
-        <ProjectTimeEntryForm
-          initialValues={editing}
-          saving={saving}
-          submitLabel="Actualizar horas"
-          tasks={tasks}
-          onCancel={() => setEditing(null)}
-          onSubmit={handleUpdate}
-        />
-      ) : null}
+      </ProjectWorkspaceFormDialog>
 
       <div className="rounded-[24px] border border-slate-200/80 bg-white">
         <div className="border-b border-slate-200/80 px-4 py-3 sm:px-5">
           <h4 className="text-sm font-semibold text-slate-900">Actividad reciente</h4>
-          <p className="mt-1 text-xs text-slate-500">Últimas sesiones registradas para este proyecto.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Últimas sesiones registradas para este proyecto.
+          </p>
         </div>
 
         {loading ? (
-          <div className="px-4 py-8 text-sm text-slate-500 sm:px-5">Cargando horas del proyecto...</div>
+          <div className="px-4 py-8 text-sm text-slate-500 sm:px-5">
+            Cargando horas del proyecto...
+          </div>
         ) : entries.length ? (
           <div className="divide-y divide-slate-200/80">
             {entries.map((entry) => {
@@ -405,7 +422,9 @@ export function ProjectTimesheetsPanel({
                         <p className="text-sm font-semibold text-slate-900">
                           {member?.full_name || member?.email || "Miembro del equipo"}
                         </p>
-                        {taskTitle ? <p className="text-xs text-slate-500">Tarea: {taskTitle}</p> : null}
+                        {taskTitle ? (
+                          <p className="text-xs text-slate-500">Tarea: {taskTitle}</p>
+                        ) : null}
                       </div>
                       <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
                         {entry.description || "Sin descripción adicional."}
@@ -419,8 +438,8 @@ export function ProjectTimesheetsPanel({
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setComposerOpen(false);
                             setEditing(toDraft(entry));
+                            setDialogOpen(true);
                           }}
                           className="h-8 rounded-full px-3 text-xs text-slate-500"
                         >

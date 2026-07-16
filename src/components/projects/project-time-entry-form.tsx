@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export type ProjectTimeEntryFormValues = {
   entry_date: string;
@@ -44,6 +45,7 @@ export function ProjectTimeEntryForm({
   saving,
   submitLabel,
   tasks,
+  variant = "card",
   onCancel,
   onSubmit,
 }: {
@@ -51,6 +53,7 @@ export function ProjectTimeEntryForm({
   saving: boolean;
   submitLabel: string;
   tasks: TaskOption[];
+  variant?: "card" | "plain";
   onCancel?: () => void;
   onSubmit: (values: ProjectTimeEntryFormValues) => Promise<void> | void;
 }) {
@@ -74,7 +77,10 @@ export function ProjectTimeEntryForm({
 
   return (
     <form
-      className="space-y-4 rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5"
+      className={cn(
+        "space-y-4",
+        variant === "card" && "rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5",
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         void onSubmit(values);
@@ -86,7 +92,9 @@ export function ProjectTimeEntryForm({
           <Input
             type="date"
             value={values.entry_date}
-            onChange={(event) => setValues((current) => ({ ...current, entry_date: event.target.value }))}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, entry_date: event.target.value }))
+            }
             className="h-11 rounded-2xl border-slate-200"
             disabled={saving}
           />
@@ -100,12 +108,16 @@ export function ProjectTimeEntryForm({
             max="24"
             step="0.25"
             value={values.duration_hours}
-            onChange={(event) => setValues((current) => ({ ...current, duration_hours: event.target.value }))}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, duration_hours: event.target.value }))
+            }
             placeholder="Ej. 1.5"
             className="h-11 rounded-2xl border-slate-200"
             disabled={saving}
           />
-          <p className="text-[11px] text-slate-500">Usa decimales de hora, por ejemplo 0.5, 1.25 o 2.</p>
+          <p className="text-[11px] text-slate-500">
+            Usa decimales de hora, por ejemplo 0.5, 1.25 o 2.
+          </p>
         </div>
 
         <div className="space-y-1.5">
@@ -157,7 +169,9 @@ export function ProjectTimeEntryForm({
           <Label>Descripción</Label>
           <Textarea
             value={values.description}
-            onChange={(event) => setValues((current) => ({ ...current, description: event.target.value }))}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, description: event.target.value }))
+            }
             placeholder="Qué se trabajó, contexto o resultado de la sesión."
             className="min-h-[104px] rounded-2xl border-slate-200 bg-white text-sm leading-6 shadow-none"
             disabled={saving}
@@ -165,9 +179,21 @@ export function ProjectTimeEntryForm({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-end gap-2",
+          variant === "plain" &&
+            "sticky bottom-0 -mx-5 mt-6 border-t border-slate-200 bg-white px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]",
+        )}
+      >
         {onCancel ? (
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={saving} className="rounded-full px-4">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded-full px-4"
+          >
             Cancelar
           </Button>
         ) : null}

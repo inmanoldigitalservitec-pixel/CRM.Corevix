@@ -16,8 +16,12 @@ import {
   ProjectMilestoneList,
   type ProjectMilestoneRow,
 } from "@/components/projects/project-milestone-list";
+import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
 
-function formatProjectWindow(startDate: string | null | undefined, dueDate: string | null | undefined) {
+function formatProjectWindow(
+  startDate: string | null | undefined,
+  dueDate: string | null | undefined,
+) {
   if (!startDate && !dueDate) return null;
   const start = startDate || "sin inicio";
   const end = dueDate || "sin entrega";
@@ -50,7 +54,7 @@ export function ProjectMilestonesPanel({
   const [milestones, setMilestones] = useState<ProjectMilestoneRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectMilestoneDraft | null>(null);
 
   const projectWindowLabel = useMemo(
@@ -68,7 +72,9 @@ export function ProjectMilestonesPanel({
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("project_milestones")
-      .select("id,title,description,target_date,status,progress_pct,sort_order,created_at,updated_at")
+      .select(
+        "id,title,description,target_date,status,progress_pct,sort_order,created_at,updated_at",
+      )
       .eq("company_id", profile.company_id)
       .eq("project_id", projectId)
       .is("archived_at", null)
@@ -132,7 +138,8 @@ export function ProjectMilestonesPanel({
       return;
     }
 
-    setComposerOpen(false);
+    setDialogOpen(false);
+    setEditing(null);
     await loadMilestones();
     void logActivityEvent({
       companyId: profile.company_id,
@@ -167,6 +174,7 @@ export function ProjectMilestonesPanel({
       return;
     }
 
+    setDialogOpen(false);
     setEditing(null);
     await loadMilestones();
     void logActivityEvent({
@@ -198,7 +206,10 @@ export function ProjectMilestonesPanel({
       return;
     }
 
-    if (editing?.id === milestone.id) setEditing(null);
+    if (editing?.id === milestone.id) {
+      setDialogOpen(false);
+      setEditing(null);
+    }
     await loadMilestones();
     void logActivityEvent({
       companyId: profile.company_id,
@@ -240,13 +251,13 @@ export function ProjectMilestonesPanel({
                 size="sm"
                 onClick={() => {
                   setEditing(null);
-                  setComposerOpen((open) => !open);
+                  setDialogOpen(true);
                 }}
                 disabled={saving}
                 className="h-8 rounded-full border-slate-200 px-3 text-xs font-semibold shadow-none"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                {composerOpen ? "Cerrar" : "Crear hito"}
+                Crear hito
               </Button>
             ) : null}
             <Button
@@ -264,34 +275,40 @@ export function ProjectMilestonesPanel({
         </div>
       </div>
 
-      {composerOpen ? (
+      <ProjectWorkspaceFormDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (saving) return;
+          setDialogOpen(open);
+          if (!open) setEditing(null);
+        }}
+        title={editing ? "Editar hito" : "Crear hito"}
+        description="Define una fecha clave, estado y avance para este proyecto."
+        size="md"
+      >
         <ProjectMilestoneForm
-          initialValues={defaultMilestoneFormValues()}
+          initialValues={editing || defaultMilestoneFormValues()}
           projectWindowLabel={projectWindowLabel}
           saving={saving}
-          submitLabel="Guardar hito"
-          onCancel={() => setComposerOpen(false)}
-          onSubmit={handleCreate}
+          submitLabel={editing ? "Guardar cambios" : "Guardar hito"}
+          variant="plain"
+          onCancel={() => {
+            if (saving) return;
+            setDialogOpen(false);
+            setEditing(null);
+          }}
+          onSubmit={editing ? handleUpdate : handleCreate}
         />
-      ) : null}
-
-      {editing ? (
-        <ProjectMilestoneForm
-          initialValues={editing}
-          projectWindowLabel={projectWindowLabel}
-          saving={saving}
-          submitLabel="Guardar cambios"
-          onCancel={() => setEditing(null)}
-          onSubmit={handleUpdate}
-        />
-      ) : null}
+      </ProjectWorkspaceFormDialog>
 
       {loading ? (
         <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white">
           {Array.from({ length: 3 }).map((_, index) => (
             <div
               key={index}
-              className={index === 2 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"}
+              className={
+                index === 2 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"
+              }
             >
               <div className="flex gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-slate-100" />
@@ -309,8 +326,8 @@ export function ProjectMilestonesPanel({
           milestones={milestones}
           canEdit={canEdit}
           onEdit={(milestone) => {
-            setComposerOpen(false);
             setEditing(toDraft(milestone));
+            setDialogOpen(true);
           }}
           onDelete={handleArchive}
         />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
 
 type ProjectDriveFileRow = {
   id: string;
@@ -108,7 +109,11 @@ export function ProjectFilesPanel({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [driveUrlInput, setDriveUrlInput] = useState("");
-  const taskIds = useMemo(() => Array.from(new Set(tasks.map((task) => task.id).filter(Boolean))), [tasks]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const taskIds = useMemo(
+    () => Array.from(new Set(tasks.map((task) => task.id).filter(Boolean))),
+    [tasks],
+  );
   const taskTitleById = useMemo(() => new Map(tasks.map((task) => [task.id, task.title])), [tasks]);
 
   const loadFiles = useCallback(async () => {
@@ -121,7 +126,10 @@ export function ProjectFilesPanel({
     setLoading(true);
     const selectFields =
       "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at";
-    const queries: Promise<{ data: ProjectDriveFileRow[] | null; error: { message?: string } | null }>[] = [
+    const queries: Promise<{
+      data: ProjectDriveFileRow[] | null;
+      error: { message?: string } | null;
+    }>[] = [
       (supabase as any)
         .from("drive_files")
         .select(selectFields)
@@ -202,6 +210,7 @@ export function ProjectFilesPanel({
     if (error) return toast.error(error.message || "No se pudo adjuntar el enlace de Drive.");
 
     setDriveUrlInput("");
+    setDialogOpen(false);
     await loadFiles();
     toast.success("Enlace de Drive adjuntado.");
   }
@@ -233,6 +242,19 @@ export function ProjectFilesPanel({
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
               {fileCountLabel}
             </span>
+            {canEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setDialogOpen(true)}
+                disabled={saving}
+                className="h-8 rounded-full border-slate-200 px-3 text-xs font-semibold shadow-none"
+              >
+                <Link2 className="mr-1.5 h-3.5 w-3.5" />
+                Adjuntar enlace
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -246,9 +268,27 @@ export function ProjectFilesPanel({
             </Button>
           </div>
         </div>
+      </div>
 
-        {canEdit ? (
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <ProjectWorkspaceFormDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (saving) return;
+          setDialogOpen(open);
+          if (!open) setDriveUrlInput("");
+        }}
+        title="Adjuntar enlace"
+        description="Pega una URL de Google Drive para vincularla a este proyecto."
+        size="sm"
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void attachDriveUrl();
+          }}
+        >
+          <div className="space-y-1.5">
             <Input
               value={driveUrlInput}
               onChange={(event) => setDriveUrlInput(event.target.value)}
@@ -256,26 +296,45 @@ export function ProjectFilesPanel({
               className="h-11 rounded-2xl border-slate-200"
               disabled={saving}
             />
+            <p className="text-[11px] text-slate-500">
+              Puedes adjuntar archivos, carpetas, documentos, hojas o presentaciones de Drive.
+            </p>
+          </div>
+          <div className="sticky bottom-0 -mx-5 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             <Button
               type="button"
+              variant="ghost"
+              onClick={() => {
+                if (saving) return;
+                setDialogOpen(false);
+                setDriveUrlInput("");
+              }}
+              disabled={saving}
+              className="rounded-full px-4"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
               variant="outline"
-              onClick={attachDriveUrl}
               disabled={saving || !driveUrlInput.trim()}
-              className="h-11 rounded-2xl border-slate-200 px-4"
+              className="rounded-full border-slate-200 px-4"
             >
               <Link2 className="mr-2 h-4 w-4" />
-              Adjuntar link
+              Adjuntar
             </Button>
           </div>
-        ) : null}
-      </div>
+        </form>
+      </ProjectWorkspaceFormDialog>
 
       {loading ? (
         <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white">
           {Array.from({ length: 3 }).map((_, index) => (
             <div
               key={index}
-              className={index === 2 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"}
+              className={
+                index === 2 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"
+              }
             >
               <div className="flex gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-slate-100" />
@@ -294,7 +353,11 @@ export function ProjectFilesPanel({
             return (
               <article
                 key={file.id}
-                className={index === files.length - 1 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"}
+                className={
+                  index === files.length - 1
+                    ? "px-4 py-4 sm:px-5"
+                    : "border-b border-slate-200/70 px-4 py-4 sm:px-5"
+                }
               >
                 <div className="flex gap-3.5">
                   <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500">
@@ -308,7 +371,9 @@ export function ProjectFilesPanel({
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-slate-900">{file.name}</p>
+                          <p className="truncate text-sm font-semibold text-slate-900">
+                            {file.name}
+                          </p>
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
                             {fileKindLabel(file)}
                           </span>
@@ -322,7 +387,12 @@ export function ProjectFilesPanel({
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         {url ? (
-                          <Button size="sm" variant="outline" asChild className="h-8 rounded-full border-slate-200 px-3 text-xs">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                            className="h-8 rounded-full border-slate-200 px-3 text-xs"
+                          >
                             <a href={url} target="_blank" rel="noreferrer">
                               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                               Abrir
