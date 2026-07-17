@@ -22,8 +22,6 @@ type InvoiceData = {
   issuerAddress?: string;
   issuerWebsite?: string;
 
-  paymentMethod?: string;
-  paymentInstructions?: string;
   relatedProposalNumber?: string;
   relatedProposalTitle?: string;
   productName?: string;
@@ -39,7 +37,6 @@ type Invoice = {
   tax?: number | string | null;
   discount?: number | string | null;
   total?: number | string | null;
-  payment_link?: string | null;
   notes?: string | null;
   public_token?: string | null;
   invoice_data?: InvoiceData | null;
@@ -84,11 +81,8 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
     clean(data.productName) || getFirstItemTitle(items[0]?.description) || "Servicio aprobado";
 
   const paymentMessage =
-    clean(data.paymentInstructions) ||
     clean(invoice.notes) ||
-    (invoice.payment_link
-      ? "Puedes pagar usando el botón superior o contactar a Corevix para coordinar el pago."
-      : "Método de pago pendiente de configurar. Nuestro equipo te contactará para completar el pago.");
+    "Puedes completar el pago desde el módulo seguro de PayPal o contactar a Corevix para coordinar el pago.";
 
   const visibleItems =
     items && items.length > 0
@@ -148,17 +142,6 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
             Imprimir
           </button>
 
-          {invoice.payment_link ? (
-            <a
-              href={String(invoice.payment_link)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-[43px] items-center justify-center gap-2 rounded-[13px] bg-[linear-gradient(180deg,#1d62f9,#0f4de6)] px-[15px] text-[13px] font-[680] tracking-[0.002em] text-white no-underline shadow-[0_12px_24px_rgba(29,98,249,0.28)] transition-transform hover:-translate-y-px"
-            >
-              <CheckIcon />
-              Pagar
-            </a>
-          ) : null}
         </div>
 
         <article className="invoice-voucher relative flex min-h-[805px] w-full flex-col overflow-hidden rounded-[30px] border border-[rgba(220,230,243,0.96)] bg-white shadow-[0_28px_70px_rgba(10,32,80,0.16)] before:absolute before:-left-3.5 before:top-[345px] before:z-[5] before:h-7 before:w-7 before:rounded-full before:border before:border-[rgba(220,230,243,0.96)] before:bg-[#f2f5fa] after:absolute after:-right-3.5 after:top-[345px] after:z-[5] after:h-7 after:w-7 after:rounded-full after:border after:border-[rgba(220,230,243,0.96)] after:bg-[#f2f5fa]">
@@ -482,21 +465,6 @@ function PrintIcon() {
       <path d="M6 9V2h12v7" />
       <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
       <path d="M6 14h12v8H6z" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.3"
-    >
-      <path d="M20 6 9 17l-5-5" />
     </svg>
   );
 }

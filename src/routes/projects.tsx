@@ -119,6 +119,9 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/projects")({
+  validateSearch: (search: Record<string, unknown>): { projectId?: string } => ({
+    projectId: typeof search.projectId === "string" ? search.projectId : undefined,
+  }),
   component: ProjectsPage,
   head: () => ({ meta: [{ title: "Proyectos — Corevix CRM" }] }),
 });
@@ -479,6 +482,8 @@ function ProjectMobileCard({
 }
 
 function ProjectsPage() {
+  const routeSearch = Route.useSearch();
+  const openedProjectSearchRef = useRef<string | null>(null);
   const { profile, user } = useAuth();
   const { can } = usePermissions();
   const [search, setSearch] = useState("");
@@ -741,6 +746,19 @@ function ProjectsPage() {
     const abiertasTasks = tasks.filter((task) => !isClosedTaskStatusValue(task.status)).length;
     return { total: projects.length, active, completed, risky, overdue, abiertasTasks };
   }, [projects, statsByProjectId, tasks]);
+
+  useEffect(() => {
+    const projectId = routeSearch.projectId;
+    if (!projectId) {
+      openedProjectSearchRef.current = null;
+      return;
+    }
+    if (openedProjectSearchRef.current === projectId) return;
+    if (!projects.length) return;
+    const project = projects.find((item) => item.id === projectId);
+    openedProjectSearchRef.current = projectId;
+    if (project) setSelected(project);
+  }, [projects, routeSearch.projectId]);
 
   useEffect(() => {
     if (!dialogOpen || !form.client_id || form.client_id === NONE || form.manager !== NONE) return;

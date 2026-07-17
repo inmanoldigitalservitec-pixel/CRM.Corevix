@@ -1,9 +1,20 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { Plus, RefreshCw, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -111,6 +122,17 @@ type InvoiceRow = { id: string; number: string; total: number | null };
 type ProductRow = { id: string; name: string; base_price: number | null };
 
 type GenericRow = Record<string, any>;
+type SalesBasicPageProps = {
+  config: SalesConfig;
+  initialFieldValues?: Record<string, string>;
+  autoOpenCreate?: boolean;
+  onCreated?: (row: GenericRow | null) => void | Promise<void>;
+  onCreateAction?: () => void;
+  createDialog?: ReactNode;
+  refreshSignal?: number | string;
+  enableDelete?: boolean;
+  beforeDelete?: (row: GenericRow) => Promise<void> | void;
+};
 
 function formatMoney(value: number | string | null | undefined) {
   return `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -140,16 +162,36 @@ function normalizePayload(form: Record<string, string>) {
   return payload;
 }
 
-export function SalesBasicPage({ config }: { config: SalesConfig }) {
+export function SalesBasicPage({
+  config,
+  initialFieldValues,
+  autoOpenCreate = false,
+  onCreated,
+  onCreateAction,
+  createDialog,
+  refreshSignal,
+  enableDelete = false,
+  beforeDelete,
+}: SalesBasicPageProps) {
   const { profile } = useAuth();
   const { can } = usePermissions();
+  const canDelete = enableDelete && can(`${config.module}.delete` as any);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<Record<string, string>>(config.defaultValues);
+  const [deleteRow, setDeleteRow] = useState<GenericRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const autoOpenKeyRef = useRef<string | null>(null);
+  const defaultValuesKey = JSON.stringify(config.defaultValues);
+  const initialFieldValuesKey = JSON.stringify(initialFieldValues || {});
+  const initialForm = useMemo(
+    () => ({ ...config.defaultValues, ...(initialFieldValues || {}) }),
+    [defaultValuesKey, initialFieldValuesKey],
+  );
+  const [form, setForm] = useState<Record<string, string>>(initialForm);
 
-  const { data, loading, error, fetch, create } = useCrud<GenericRow>({
+  const { data, loading, error, fetch, create, remove } = useCrud<GenericRow>({
     table: config.table,
     orderBy: "updated_at",
     ascending: false,
@@ -249,9 +291,39 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
   ]);
 
   const openCreate = () => {
-    setForm(config.defaultValues);
+    if (onCreateAction) {
+      onCreateAction();
+      return;
+    }
+    setForm(initialForm);
     setDialogOpen(true);
   };
+
+  useEffect(() => {
+    setForm(initialForm);
+  }, [initialForm]);
+
+  useEffect(() => {
+    if (!autoOpenCreate) {
+      autoOpenKeyRef.current = null;
+      return;
+    }
+    if (!can(`${config.module}.create` as any)) return;
+    if (autoOpenKeyRef.current === initialFieldValuesKey) return;
+
+    autoOpenKeyRef.current = initialFieldValuesKey;
+    if (onCreateAction) {
+      onCreateAction();
+      return;
+    }
+    setForm(initialForm);
+    setDialogOpen(true);
+  }, [autoOpenCreate, can, config.module, initialFieldValuesKey, initialForm, onCreateAction]);
+
+  useEffect(() => {
+    if (refreshSignal === undefined) return;
+    void fetch();
+  }, [fetch, refreshSignal]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -262,14 +334,31 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
     if (requiredMissing) return toast.error(`${requiredMissing.label} es obligatorio.`);
     setSaving(true);
     try {
-      await create(normalizePayload(form));
+      const created = await create(normalizePayload(form));
       toast.success(`${config.primaryLabel} creado correctamente.`);
       setDialogOpen(false);
       await fetch();
+      await onCreated?.(created);
     } catch (e: any) {
       toast.error(e.message || `No se pudo crear ${config.primaryLabel.toLowerCase()}.`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteRow?.id) return;
+    setDeleting(true);
+    try {
+      await beforeDelete?.(deleteRow);
+      await remove(String(deleteRow.id));
+      toast.success(`${config.primaryLabel} eliminado correctamente.`);
+      setDeleteRow(null);
+      await fetch();
+    } catch (e: any) {
+      toast.error(e?.message || `No se pudo eliminar ${config.primaryLabel.toLowerCase()}.`);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -351,6 +440,7 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Estado</TableHead>
+                  {canDelete ? <TableHead className="w-[72px] text-right">Acción</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -387,11 +477,24 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
                       <TableCell>
                         <StatusBadge status={row[config.statusKey] || "—"} />
                       </TableCell>
+                      {canDelete ? (
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setDeleteRow(row)}
+                            aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-500">
+                    <TableCell colSpan={canDelete ? 8 : 7} className="py-10 text-center text-sm text-slate-500">
                       No se encontraron registros.
                     </TableCell>
                   </TableRow>
@@ -402,34 +505,63 @@ export function SalesBasicPage({ config }: { config: SalesConfig }) {
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`}</DialogTitle>
-          </DialogHeader>
-          <form className="space-y-4" onSubmit={submit}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {config.fields.map((field) => (
-                <Field
-                  key={field.key}
-                  field={field}
-                  value={form[field.key] || ""}
-                  options={fieldOptions(field)}
-                  onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))}
-                />
-              ))}
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Guardando..." : "Crear"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {onCreateAction ? (
+        createDialog
+      ) : (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`}</DialogTitle>
+              <DialogDescription>
+                Completa los datos del registro. Los campos preseleccionados se pueden editar antes de guardar.
+              </DialogDescription>
+            </DialogHeader>
+            <form className="space-y-4" onSubmit={submit}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {config.fields.map((field) => (
+                  <Field
+                    key={field.key}
+                    field={field}
+                    value={form[field.key] || ""}
+                    options={fieldOptions(field)}
+                    onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))}
+                  />
+                ))}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Guardando..." : "Crear"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+      {canDelete ? (
+        <AlertDialog open={Boolean(deleteRow)} onOpenChange={(open) => !open && setDeleteRow(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminar {config.primaryLabel.toLowerCase()}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción eliminará el registro y sus archivos asociados cuando existan. No se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={(event) => {
+                event.preventDefault();
+                void confirmDelete();
+              }} disabled={deleting}>
+                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {deleting ? "Eliminando..." : "Eliminar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </div>
   );
 }

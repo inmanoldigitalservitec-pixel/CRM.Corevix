@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FormEvent, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ComponentType } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -97,6 +97,9 @@ import {
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
 
 export const Route = createFileRoute("/clients")({
+  validateSearch: (search: Record<string, unknown>): { clientId?: string } => ({
+    clientId: typeof search.clientId === "string" ? search.clientId : undefined,
+  }),
   component: ClientsPage,
   head: () => ({
     meta: [
@@ -597,6 +600,8 @@ function HealthBadge({ health }: { health: ClientHealth }) {
 
 function ClientsPage() {
   const navigate = useNavigate();
+  const routeSearch = Route.useSearch();
+  const openedClientSearchRef = useRef<string | null>(null);
   const { profile, user } = useAuth();
   const { can, role } = usePermissions();
   const [search, setSearch] = useState("");
@@ -1106,6 +1111,19 @@ function ClientsPage() {
     () => snapshots.find((client) => client.id === selectedClientId) || null,
     [selectedClientId, snapshots],
   );
+
+  useEffect(() => {
+    const clientId = routeSearch.clientId;
+    if (!clientId) {
+      openedClientSearchRef.current = null;
+      return;
+    }
+    if (openedClientSearchRef.current === clientId) return;
+    if (!snapshots.length) return;
+    const exists = snapshots.some((client) => client.id === clientId);
+    openedClientSearchRef.current = clientId;
+    if (exists) setSelectedClientId(clientId);
+  }, [routeSearch.clientId, snapshots]);
 
   const canCreateTaskForClient = (client: ClientSnapshot): boolean => {
     if (!profile?.company_id || !profile?.id) return false;

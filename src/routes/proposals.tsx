@@ -55,25 +55,27 @@ import {
   normalizeStatus,
 } from "@/lib/crm/status";
 
-export const Route = createFileRoute("/proposals")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    leadId: typeof search.leadId === "string" ? search.leadId : undefined,
-    dealId: typeof search.dealId === "string" ? search.dealId : undefined,
-    conversationId: typeof search.conversationId === "string" ? search.conversationId : undefined,
-    productId: typeof search.productId === "string" ? search.productId : undefined,
-    clientId: typeof search.clientId === "string" ? search.clientId : undefined,
-  }),
-  component: ProposalsPage,
-  head: () => ({ meta: [{ title: "Propuestas — Corevix CRM" }] }),
-});
-
 type ProposalsSearch = {
   leadId?: string;
   dealId?: string;
   conversationId?: string;
   productId?: string;
   clientId?: string;
+  proposalId?: string;
 };
+
+export const Route = createFileRoute("/proposals")({
+  validateSearch: (search: Record<string, unknown>): ProposalsSearch => ({
+    leadId: typeof search.leadId === "string" ? search.leadId : undefined,
+    dealId: typeof search.dealId === "string" ? search.dealId : undefined,
+    conversationId: typeof search.conversationId === "string" ? search.conversationId : undefined,
+    productId: typeof search.productId === "string" ? search.productId : undefined,
+    clientId: typeof search.clientId === "string" ? search.clientId : undefined,
+    proposalId: typeof search.proposalId === "string" ? search.proposalId : undefined,
+  }),
+  component: ProposalsPage,
+  head: () => ({ meta: [{ title: "Propuestas — Corevix CRM" }] }),
+});
 
 const PROPOSAL_STATUSES = [
   "Draft",
@@ -837,6 +839,21 @@ function ProposalsPage() {
     autoOpenSearchKeyRef.current = searchKey;
     openNew(openNewContext);
   }, [isAdminLike, openNew, openNewContext, routeSearch]);
+
+  useEffect(() => {
+    const proposalId = routeSearch.proposalId;
+    if (!proposalId) return;
+    if (!data.length) return;
+    if (autoOpenSearchKeyRef.current === `proposal:${proposalId}`) return;
+    const proposal = data.find((item) => item.id === proposalId);
+    autoOpenSearchKeyRef.current = `proposal:${proposalId}`;
+    if (proposal) {
+      setSelected(proposal);
+      setEditItem(null);
+      setDrawerMode("view");
+      setDrawerOpen(true);
+    }
+  }, [data, routeSearch.proposalId]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
