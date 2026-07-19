@@ -22,6 +22,11 @@ import { WhatsAppClient360Bridge } from "@/components/whatsapp/WhatsAppClient360
 import { WhatsAppInternalWorkPanel } from "@/components/whatsapp/WhatsAppInternalWorkPanel";
 import { WhatsAppPanelPhase2Safe } from "@/components/whatsapp/WhatsAppPanelPhase2Safe";
 import { WhatsAppResponsiveCompact } from "@/components/whatsapp/WhatsAppResponsiveCompact";
+import {
+  FirstRunSetupLoadingScreen,
+  FirstRunSetupScreen,
+} from "@/components/onboarding/first-run-setup-screen";
+import { useFirstRunSetup } from "@/hooks/use-first-run-setup";
 import appCss from "../styles.css?url";
 import projectWorkspaceResponsiveCss from "../project-workspace-responsive.css?url";
 
@@ -103,6 +108,7 @@ function RootComponent() {
 
 function AppShell() {
   const { user, loading, accountStatus, signOut } = useAuth();
+  const firstRunSetup = useFirstRunSetup();
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const isLoginPage = currentPath === "/login";
   const isPublicProposalRoute = currentPath.startsWith("/proposal/public/");
@@ -133,6 +139,21 @@ function AppShell() {
 
   if (accountStatus !== "ready") {
     return <AccountStateScreen status={accountStatus} onSignOut={signOut} />;
+  }
+
+  if (firstRunSetup.loading) {
+    return <FirstRunSetupLoadingScreen />;
+  }
+
+  if (firstRunSetup.shouldShowSetup) {
+    return (
+      <FirstRunSetupScreen
+        defaultValues={firstRunSetup.defaultForm}
+        saving={firstRunSetup.saving}
+        onSave={firstRunSetup.saveSetup}
+        onDismiss={firstRunSetup.dismissSetup}
+      />
+    );
   }
 
   return (

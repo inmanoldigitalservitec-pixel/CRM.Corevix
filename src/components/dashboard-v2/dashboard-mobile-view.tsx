@@ -96,6 +96,23 @@ function mobileGradient(tone?: MobileTone) {
   return "from-[#edf5ff] via-white to-white";
 }
 
+function mobileSummaryFrame(tone?: MobileTone) {
+  if (tone === "red") return "border-rose-100 shadow-[0_18px_38px_rgba(244,63,94,0.10)]";
+  if (tone === "orange") return "border-orange-100 shadow-[0_18px_38px_rgba(249,115,22,0.10)]";
+  if (tone === "green") return "border-emerald-100 shadow-[0_18px_38px_rgba(16,185,129,0.10)]";
+  if (tone === "purple") return "border-violet-100 shadow-[0_18px_38px_rgba(124,58,237,0.10)]";
+  if (tone === "teal") return "border-teal-100 shadow-[0_18px_38px_rgba(20,184,166,0.10)]";
+  if (tone === "neutral") return "border-[#edf1f7] shadow-none";
+  return "border-[#dbeafe] shadow-[0_18px_38px_rgba(29,98,249,0.10)]";
+}
+
+function mobileSummaryButton(tone?: MobileTone) {
+  if (tone === "green") return "bg-emerald-600 text-white hover:bg-emerald-700";
+  if (tone === "red") return "bg-rose-600 text-white hover:bg-rose-700";
+  if (tone === "orange") return "bg-orange-600 text-white hover:bg-orange-700";
+  return "bg-[#111827] text-white hover:bg-slate-800";
+}
+
 function toneDot(tone?: MobileTone) {
   if (tone === "red") return "bg-rose-500";
   if (tone === "orange") return "bg-orange-500";
@@ -1264,10 +1281,12 @@ export function DashboardMobileView({
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") goTo(activeSummary.href);
           }}
-          className={`grid min-h-[178px] gap-3 rounded-[28px] border border-[#dbeafe] bg-gradient-to-br ${mobileGradient(activeSummary.tone)} p-4 text-left text-slate-950 shadow-[0_22px_48px_rgba(29,98,249,0.13)]`}
+          className={`grid min-h-[178px] gap-3 rounded-[28px] border bg-gradient-to-br ${mobileGradient(activeSummary.tone)} ${mobileSummaryFrame(activeSummary.tone)} p-4 text-left text-slate-950`}
         >
           <span className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-700">
-            <Receipt className="h-4 w-4 text-[#1d62f9]" />
+            <Receipt
+              className={`h-4 w-4 ${activeSummary.tone === "green" ? "text-emerald-600" : "text-[#1d62f9]"}`}
+            />
             Resumen de hoy
           </span>
 
@@ -1297,7 +1316,7 @@ export function DashboardMobileView({
                   event.stopPropagation();
                   goTo(activeSummary.href);
                 }}
-                className="mt-4 inline-flex h-9 items-center justify-center rounded-full bg-[#111827] px-4 text-[12px] font-medium text-white shadow-[0_10px_22px_rgba(17,24,39,0.14)]"
+                className={`mt-4 inline-flex h-9 items-center justify-center rounded-full px-4 text-[12px] font-medium shadow-none transition ${mobileSummaryButton(activeSummary.tone)}`}
               >
                 {activeSummary.ctaLabel}
               </button>

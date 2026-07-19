@@ -116,16 +116,51 @@ export function useFirstRunSetup() {
     !preferences?.onboarding_completed &&
     !preferences?.onboarding_dismissed;
 
-  const saveSetup = async (form: FirstRunSetupForm) => {
+  const uploadProfileAvatar = async (file: File) => {
+    if (!profile?.id) {
+      throw new Error("No se encontró el perfil para subir la imagen.");
+    }
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const safeExt = ext.replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${profile.id}/${Date.now()}-${crypto.randomUUID()}.${safeExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("profile-avatars")
+      .upload(path, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from("profile-avatars").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const saveSetup = async (form: FirstRunSetupForm, avatarFile?: File | null) => {
     if (!profile?.id) {
       toast.error("No se encontró un perfil para este usuario.");
       return false;
     }
 
     setSaving(true);
+    let avatarUrl = form.avatar_url.trim() || null;
+
+    if (avatarFile) {
+      try {
+        avatarUrl = await uploadProfileAvatar(avatarFile);
+      } catch (avatarError: any) {
+        setSaving(false);
+        toast.error(avatarError?.message || "No se pudo subir la foto de perfil.");
+        return false;
+      }
+    }
+
     const profilePayload = {
       full_name: form.full_name.trim() || null,
-      avatar_url: form.avatar_url.trim() || null,
+      avatar_url: avatarUrl,
       phone: form.phone.trim() || null,
       department: form.department.trim() || null,
       updated_at: new Date().toISOString(),

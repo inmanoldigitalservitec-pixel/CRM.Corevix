@@ -4136,12 +4136,12 @@ function DashboardPage() {
       : [
           {
             type: "tasks",
-            title: "Sin pendientes activos",
-            value: "0",
-            detail: "Dashboard al día",
+            title: "Todo está al día",
+            value: "OK",
+            detail: "Tu CRM está limpio y listo para trabajar",
             href: "/dashboard",
-            tone: "neutral",
-            ctaLabel: "Ver dashboard",
+            tone: "green",
+            ctaLabel: "Abrir dashboard",
             chart: { kind: "none" },
           },
         ];
