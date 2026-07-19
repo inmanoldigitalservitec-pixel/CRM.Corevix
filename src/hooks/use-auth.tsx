@@ -46,6 +46,7 @@ interface AuthState {
     invitationToken?: string,
   ) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasAnyRole: (roles: string[]) => boolean;
 }
@@ -195,6 +196,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuthState();
   };
 
+  const refreshProfile = async () => {
+    if (!currentUserIdRef.current) return;
+    await loadProfile(currentUserIdRef.current);
+  };
+
   const hasRole = (role: string) => roles.includes(role);
   const hasAnyRole = (r: string[]) => r.some((role) => roles.includes(role));
   const isEmailPending = Boolean(user) && !user?.email_confirmed_at && !user?.confirmed_at;
@@ -224,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        refreshProfile,
         hasRole,
         hasAnyRole,
       }}
