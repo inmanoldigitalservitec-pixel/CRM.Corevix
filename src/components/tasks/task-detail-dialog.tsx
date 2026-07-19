@@ -1,9 +1,26 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type Dispatch,
+  type ReactNode,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,14 +35,23 @@ import {
   FileText,
   Flag,
   FolderKanban,
+  Heading2,
+  Italic,
   Link2,
+  List,
+  ListOrdered,
   MessageSquare,
   MoreVertical,
   Paperclip,
   Pencil,
   Plus,
+  Quote,
+  RemoveFormatting,
   Star,
+  Strikethrough,
   Trash2,
+  Type,
+  Underline,
   Upload,
   User,
   Users,
@@ -36,6 +62,7 @@ type TaskRow = {
   id: string;
   title: string;
   description: string | null;
+  description_html?: string | null;
   status: string;
   priority: string;
   assigned_to: string | null;
@@ -44,6 +71,20 @@ type TaskRow = {
   related_client_id: string | null;
   created_at: string;
   company_id: string;
+};
+
+type TaskEditorDraft = {
+  title: string;
+  description: string;
+  descriptionHtml: string;
+  status: string;
+  priority: string;
+  dueDate: string;
+  assignedTo: string;
+  projectId: string;
+  clientId: string;
+  leadId: string;
+  dealId: string;
 };
 
 type QuickProfile = {
@@ -95,6 +136,16 @@ type DriveFileRow = {
   created_at: string;
 };
 
+type PendingTaskResource =
+  | { id: string; type: "file"; file: File; name: string; size: number }
+  | {
+      id: string;
+      type: "link";
+      url: string;
+      driveId: string;
+      driveType: "file" | "folder" | "unknown";
+    };
+
 type ProjectOption = {
   id: string;
   name: string;
@@ -136,11 +187,241 @@ type TaskDetailDialogProps = {
   onDeleteDriveFile?: (file: DriveFileRow) => void | Promise<void>;
 };
 
+type TaskCreateDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  companyId?: string | null;
+  currentUserId?: string | null;
+  profiles?: QuickProfile[];
+  initialValues?: Partial<TaskEditorDraft>;
+  onCreated?: (task: TaskRow) => void | Promise<void>;
+  canCreate?: boolean;
+};
+
 const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
 const TASK_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_PROJECT_VALUE = "__no_project__";
 const NO_CLIENT_VALUE = "__no_client__";
+const EMPTY_PROFILES: QuickProfile[] = [];
+const RICH_TEXT_COLORS = ["#0f172a", "#475569", "#2563eb", "#059669", "#d97706", "#dc2626"];
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function plainTextToHtml(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
+function richTextToPlainText(html: string) {
+  if (!html) return "";
+  if (typeof DOMParser === "undefined") {
+    return html
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent?.replace(/\u00a0/g, " ").trim() || "";
+}
+
+function safeHref(value: string | null) {
+  const href = String(value || "").trim();
+  if (/^(https?:|mailto:|tel:)/i.test(href)) return href;
+  return "";
+}
+
+function safeRichTextColor(value: string | null) {
+  const color = String(value || "")
+    .trim()
+    .toLowerCase();
+  return RICH_TEXT_COLORS.includes(color) ? color : "";
+}
+
+function sanitizeRichTextHtml(input: string) {
+  const raw = String(input || "").trim();
+  if (!raw) return "";
+  if (typeof DOMParser === "undefined") return plainTextToHtml(raw);
+
+  const doc = new DOMParser().parseFromString(raw, "text/html");
+
+  const walk = (node: ChildNode): string => {
+    if (node.nodeType === Node.TEXT_NODE) return escapeHtml(node.textContent || "");
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+    const element = node as HTMLElement;
+    const tag = element.tagName.toLowerCase();
+    const children = Array.from(element.childNodes).map(walk).join("");
+
+    if (["script", "style", "iframe", "object", "embed", "svg", "canvas"].includes(tag)) {
+      return "";
+    }
+    if (["b", "strong"].includes(tag)) return `<strong>${children}</strong>`;
+    if (["i", "em"].includes(tag)) return `<em>${children}</em>`;
+    if (tag === "u") return `<u>${children}</u>`;
+    if (["s", "strike"].includes(tag)) return `<s>${children}</s>`;
+    if (tag === "br") return "<br>";
+    if (["ul", "ol", "li", "blockquote", "code", "pre"].includes(tag)) {
+      return `<${tag}>${children}</${tag}>`;
+    }
+    if (["h1", "h2", "h3", "h4"].includes(tag)) return `<${tag}>${children}</${tag}>`;
+    if (tag === "a") {
+      const href = safeHref(element.getAttribute("href"));
+      return href
+        ? `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${children}</a>`
+        : children;
+    }
+    if (["p", "div", "section", "article"].includes(tag)) return `<p>${children || "<br>"}</p>`;
+    if (["span", "font"].includes(tag)) {
+      const color =
+        safeRichTextColor(element.getAttribute("color")) ||
+        safeRichTextColor(element.style?.color || null);
+      return color ? `<span style="color:${color}">${children}</span>` : children;
+    }
+    if (["table", "thead", "tbody", "tr"].includes(tag)) return children;
+    if (["td", "th"].includes(tag)) return `<p>${children}</p>`;
+    return children;
+  };
+
+  return Array.from(doc.body.childNodes).map(walk).join("").trim();
+}
+
+function insertHtmlAtCursor(html: string) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return false;
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+  const fragment = range.createContextualFragment(html);
+  const lastNode = fragment.lastChild;
+  range.insertNode(fragment);
+  if (lastNode) {
+    const nextRange = document.createRange();
+    nextRange.setStartAfter(lastNode);
+    nextRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(nextRange);
+  }
+  return true;
+}
+
+function parseGoogleDriveUrl(
+  rawUrl: string,
+): { id: string; type: "file" | "folder" | "unknown" } | null {
+  const value = String(rawUrl || "").trim();
+  if (!value) return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+
+  const pathname = url.pathname || "";
+  const fileMatch = pathname.match(/\/file\/d\/([^/]+)/);
+  if (fileMatch?.[1]) return { id: fileMatch[1], type: "file" };
+  const folderMatch = pathname.match(/\/folders\/([^/]+)/);
+  if (folderMatch?.[1]) return { id: folderMatch[1], type: "folder" };
+  const docsMatch = pathname.match(/\/(document|spreadsheets|presentation)\/d\/([^/]+)/);
+  if (docsMatch?.[2]) return { id: docsMatch[2], type: "file" };
+  const queryId = url.searchParams.get("id");
+  if (queryId) return { id: queryId, type: "unknown" };
+  return null;
+}
+
+function uploadTaskFileWithProgress(args: {
+  taskId: string;
+  file: File;
+  token: string;
+  onProgress: (percent: number) => void;
+}): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+    const xhr = new XMLHttpRequest();
+    const body = new FormData();
+    body.append("task_id", args.taskId);
+    body.append("file", args.file);
+
+    xhr.open("POST", `${supabaseUrl}/functions/v1/drive-upload-file`);
+    xhr.setRequestHeader("Authorization", `Bearer ${args.token}`);
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      args.onProgress(Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))));
+    };
+    xhr.onerror = () => reject(new Error("No se pudo subir el archivo a Google Drive"));
+    xhr.onload = () => {
+      let payload: any = null;
+      try {
+        payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        payload = null;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(payload?.error || "No se pudo subir el archivo a Google Drive"));
+        return;
+      }
+      resolve(payload);
+    };
+    xhr.send(body);
+  });
+}
+
+function createEmptyTaskDraft(initialValues: Partial<TaskEditorDraft> = {}): TaskEditorDraft {
+  return {
+    title: initialValues.title || "",
+    description: initialValues.description || "",
+    descriptionHtml:
+      initialValues.descriptionHtml || plainTextToHtml(initialValues.description || ""),
+    status: initialValues.status || "To Do",
+    priority: initialValues.priority || "Medium",
+    dueDate: initialValues.dueDate || "",
+    assignedTo: initialValues.assignedTo || UNASSIGNED_VALUE,
+    projectId: initialValues.projectId || NO_PROJECT_VALUE,
+    clientId: initialValues.clientId || NO_CLIENT_VALUE,
+    leadId: initialValues.leadId || "",
+    dealId: initialValues.dealId || "",
+  };
+}
+
+async function fetchTaskRelationOptions(companyId: string) {
+  const [projectResult, clientResult, productResult] = await Promise.all([
+    (supabase as any)
+      .from("projects")
+      .select("id,name,client_id,product_id")
+      .eq("company_id", companyId)
+      .order("name", { ascending: true })
+      .limit(500),
+    (supabase as any)
+      .from("clients")
+      .select("id,company_name,contact_person")
+      .eq("company_id", companyId)
+      .order("company_name", { ascending: true })
+      .limit(500),
+    (supabase as any)
+      .from("products")
+      .select("id,name")
+      .eq("company_id", companyId)
+      .order("name", { ascending: true })
+      .limit(500),
+  ]);
+
+  return {
+    projects: !projectResult.error && Array.isArray(projectResult.data) ? projectResult.data : [],
+    clients: !clientResult.error && Array.isArray(clientResult.data) ? clientResult.data : [],
+    products: !productResult.error && Array.isArray(productResult.data) ? productResult.data : [],
+    error: projectResult.error || clientResult.error || productResult.error || null,
+  };
+}
 
 function readTaskIdFromUrl() {
   if (typeof window === "undefined") return null;
@@ -156,9 +437,13 @@ function readTaskTextSnapshot(root: HTMLDivElement | null) {
   if (!root) return { title: "", description: "", priority: "Medium", dueDate: "" };
   const title = root.querySelector("h2")?.textContent?.trim() || "";
   const description = root.querySelector("h2 + p")?.textContent?.trim() || "";
-  const labels = Array.from(root.querySelectorAll(".rounded-xl .text-xs.font-semibold.text-slate-500"));
+  const labels = Array.from(
+    root.querySelectorAll(".rounded-xl .text-xs.font-semibold.text-slate-500"),
+  );
   const readValue = (label: string) => {
-    const found = labels.find((node) => node.textContent?.trim().toLowerCase() === label.toLowerCase());
+    const found = labels.find(
+      (node) => node.textContent?.trim().toLowerCase() === label.toLowerCase(),
+    );
     return found?.parentElement?.querySelector(".mt-1")?.textContent?.trim() || "";
   };
   const due = readValue("Vence");
@@ -210,7 +495,8 @@ function getGoogleDrivePreviewUrl(rawHref: string | null | undefined, driveFileI
     const fileMatch = pathname.match(/\/file\/d\/([^/]+)/);
     if (fileMatch?.[1]) return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
     const docsMatch = pathname.match(/\/(document|spreadsheets|presentation)\/d\/([^/]+)/);
-    if (docsMatch?.[1] && docsMatch?.[2]) return `https://docs.google.com/${docsMatch[1]}/d/${docsMatch[2]}/preview`;
+    if (docsMatch?.[1] && docsMatch?.[2])
+      return `https://docs.google.com/${docsMatch[1]}/d/${docsMatch[2]}/preview`;
     const queryId = url.searchParams.get("id");
     if (queryId) return `https://drive.google.com/file/d/${queryId}/preview`;
     return null;
@@ -221,7 +507,9 @@ function getGoogleDrivePreviewUrl(rawHref: string | null | undefined, driveFileI
 
 function clientLabel(client: ClientOption | null | undefined) {
   if (!client) return "—";
-  return client.contact_person ? `${client.company_name} · ${client.contact_person}` : client.company_name || "—";
+  return client.contact_person
+    ? `${client.company_name} · ${client.contact_person}`
+    : client.company_name || "—";
 }
 
 function eventIcon(type: string) {
@@ -239,12 +527,989 @@ function priorityTone(priority: string | null | undefined) {
   return "text-slate-700";
 }
 
+function renderEditField(label: string, control: ReactNode) {
+  return (
+    <label className="grid gap-1.5">
+      <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">
+        {label}
+      </span>
+      {control}
+    </label>
+  );
+}
+
+function TaskRichTextEditor({
+  html,
+  plainText,
+  onChange,
+  className = "",
+}: {
+  html: string;
+  plainText: string;
+  onChange: (next: { html: string; text: string }) => void;
+  className?: string;
+}) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const focusedRef = useRef(false);
+  const selectionRef = useRef<Range | null>(null);
+
+  useEffect(() => {
+    if (!editorRef.current || focusedRef.current) return;
+    editorRef.current.innerHTML = sanitizeRichTextHtml(html) || plainTextToHtml(plainText);
+  }, [html, plainText]);
+
+  const sync = () => {
+    const nextHtml = sanitizeRichTextHtml(editorRef.current?.innerHTML || "");
+    onChange({ html: nextHtml, text: richTextToPlainText(nextHtml) });
+  };
+
+  const rememberSelection = () => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (editor.contains(range.commonAncestorContainer)) {
+      selectionRef.current = range.cloneRange();
+    }
+  };
+
+  const restoreSelection = () => {
+    const selection = window.getSelection();
+    const range = selectionRef.current;
+    if (!selection || !range) return false;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  };
+
+  const applyCommand = (
+    command:
+      | "bold"
+      | "italic"
+      | "underline"
+      | "strikeThrough"
+      | "insertUnorderedList"
+      | "insertOrderedList"
+      | "removeFormat",
+  ) => {
+    editorRef.current?.focus();
+    restoreSelection();
+    document.execCommand(command);
+    rememberSelection();
+    sync();
+  };
+
+  const applyBlock = (block: "p" | "h2" | "blockquote") => {
+    editorRef.current?.focus();
+    restoreSelection();
+    document.execCommand("formatBlock", false, block);
+    rememberSelection();
+    sync();
+  };
+
+  const applyColor = (color: string) => {
+    const nextColor = safeRichTextColor(color);
+    if (!nextColor) return;
+    editorRef.current?.focus();
+    restoreSelection();
+    document.execCommand("foreColor", false, nextColor);
+    rememberSelection();
+    sync();
+  };
+
+  const insertLink = () => {
+    const selectedText = selectionRef.current?.toString().trim();
+    const url = window.prompt("Pega el enlace");
+    const href = safeHref(url);
+    if (!href) return;
+    editorRef.current?.focus();
+    const restored = restoreSelection();
+    if (restored && selectedText) {
+      document.execCommand("createLink", false, href);
+    } else {
+      insertHtmlAtCursor(
+        `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(href)}</a>`,
+      );
+    }
+    rememberSelection();
+    sync();
+  };
+
+  const toolbarButtonClass =
+    "h-8 w-8 shrink-0 rounded-lg px-0 text-slate-600 hover:bg-slate-100 hover:text-slate-950";
+  const separator = <span className="mx-1 h-6 w-px shrink-0 bg-slate-200" />;
+
+  const handlePaste = (event: ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const rawHtml = event.clipboardData.getData("text/html");
+    const rawText = event.clipboardData.getData("text/plain");
+    const nextHtml = sanitizeRichTextHtml(rawHtml || plainTextToHtml(rawText));
+    if (!nextHtml) return;
+    if (!insertHtmlAtCursor(nextHtml)) {
+      editorRef.current?.insertAdjacentHTML("beforeend", nextHtml);
+    }
+    rememberSelection();
+    sync();
+  };
+
+  return (
+    <div
+      className={`flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white ${className}`}
+    >
+      <div
+        className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-2 py-1.5"
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyBlock("p")}
+          aria-label="Texto normal"
+          title="Texto normal"
+        >
+          <Type className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyBlock("h2")}
+          aria-label="Título"
+          title="Título"
+        >
+          <Heading2 className="h-4 w-4" />
+        </Button>
+        {separator}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={`${toolbarButtonClass} font-bold`}
+          onClick={() => applyCommand("bold")}
+          aria-label="Negrita"
+          title="Negrita"
+        >
+          B
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyCommand("italic")}
+          aria-label="Cursiva"
+          title="Cursiva"
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyCommand("underline")}
+          aria-label="Subrayado"
+          title="Subrayado"
+        >
+          <Underline className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyCommand("strikeThrough")}
+          aria-label="Tachado"
+          title="Tachado"
+        >
+          <Strikethrough className="h-4 w-4" />
+        </Button>
+        {separator}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyCommand("insertUnorderedList")}
+          aria-label="Lista con puntos"
+          title="Lista con puntos"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyCommand("insertOrderedList")}
+          aria-label="Lista numerada"
+          title="Lista numerada"
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyBlock("blockquote")}
+          aria-label="Cita"
+          title="Cita"
+        >
+          <Quote className="h-4 w-4" />
+        </Button>
+        {separator}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={insertLink}
+          aria-label="Insertar enlace"
+          title="Insertar enlace"
+        >
+          <Link2 className="h-4 w-4" />
+        </Button>
+        {separator}
+        <div className="flex shrink-0 items-center gap-1 px-1">
+          {RICH_TEXT_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              className="h-6 w-6 rounded-full border border-slate-200 shadow-sm transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ backgroundColor: color }}
+              onClick={() => applyColor(color)}
+              aria-label={`Color ${color}`}
+              title={`Color ${color}`}
+            />
+          ))}
+        </div>
+        {separator}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={toolbarButtonClass}
+          onClick={() => applyCommand("removeFormat")}
+          aria-label="Quitar formato"
+          title="Quitar formato"
+        >
+          <RemoveFormatting className="h-4 w-4" />
+        </Button>
+      </div>
+      <div
+        ref={editorRef}
+        role="textbox"
+        aria-multiline="true"
+        contentEditable
+        suppressContentEditableWarning
+        onFocus={() => {
+          focusedRef.current = true;
+          rememberSelection();
+        }}
+        onBlur={() => {
+          focusedRef.current = false;
+          sync();
+        }}
+        onInput={() => {
+          rememberSelection();
+          sync();
+        }}
+        onMouseUp={rememberSelection}
+        onKeyUp={rememberSelection}
+        onPaste={handlePaste}
+        className="task-rich-text min-h-[230px] flex-1 overflow-auto px-4 py-3 text-sm leading-7 text-slate-800 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
+        data-placeholder="Escribe o pega aquí el brief, instrucciones, listas y detalles de la tarea..."
+      />
+    </div>
+  );
+}
+
+function TaskRichTextView({ html, fallback }: { html?: string | null; fallback?: string | null }) {
+  const safeHtml = sanitizeRichTextHtml(html || plainTextToHtml(fallback || ""));
+  if (!safeHtml) {
+    return (
+      <div className="whitespace-pre-wrap rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[14px] font-medium leading-7 text-slate-800">
+        Sin descripción.
+      </div>
+    );
+  }
+  return (
+    <div
+      className="task-rich-text-view rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[14px] font-medium leading-7 text-slate-800"
+      dangerouslySetInnerHTML={{ __html: safeHtml }}
+    />
+  );
+}
+
+function TaskEditorInfoFields({
+  draft,
+  setDraft,
+  profiles,
+  projects,
+  clients,
+  draftProductName,
+}: {
+  draft: TaskEditorDraft;
+  setDraft: Dispatch<SetStateAction<TaskEditorDraft>>;
+  profiles: QuickProfile[];
+  projects: ProjectOption[];
+  clients: ClientOption[];
+  draftProductName: string;
+}) {
+  return (
+    <div className="space-y-3">
+      {renderEditField(
+        "Status",
+        <Select
+          value={draft.status}
+          onValueChange={(value) => setDraft((d) => ({ ...d, status: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            {TASK_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {status}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      )}
+      {renderEditField(
+        "Priority",
+        <Select
+          value={draft.priority}
+          onValueChange={(value) => setDraft((d) => ({ ...d, priority: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Prioridad" />
+          </SelectTrigger>
+          <SelectContent>
+            {TASK_PRIORITIES.map((priority) => (
+              <SelectItem key={priority} value={priority}>
+                {priority}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      )}
+      {renderEditField(
+        "Due date",
+        <Input
+          type="date"
+          value={draft.dueDate}
+          onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
+        />,
+      )}
+      {renderEditField(
+        "Assignee",
+        <Select
+          value={draft.assignedTo}
+          onValueChange={(value) => setDraft((d) => ({ ...d, assignedTo: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Responsable" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNASSIGNED_VALUE}>Sin asignar</SelectItem>
+            {profiles.map((p) => (
+              <SelectItem key={p.id} value={String(p.user_id || p.id)}>
+                {String(p.full_name || p.email || "Usuario")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      )}
+      {renderEditField(
+        "Project",
+        <Select
+          value={draft.projectId}
+          onValueChange={(value) => setDraft((d) => ({ ...d, projectId: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      )}
+      {renderEditField(
+        "Client",
+        <Select
+          value={draft.clientId}
+          onValueChange={(value) => setDraft((d) => ({ ...d, clientId: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_CLIENT_VALUE}>Sin cliente directo</SelectItem>
+            {clients.map((client) => (
+              <SelectItem key={client.id} value={client.id}>
+                {clientLabel(client)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      )}
+      <div className="rounded-lg border bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+        Producto automático:{" "}
+        <span className="font-extrabold text-slate-900">{draftProductName}</span>
+      </div>
+    </div>
+  );
+}
+
+function TaskCreateResourcesPanel({
+  resources,
+  linkValue,
+  uploadingName,
+  uploadProgress,
+  fileInputRef,
+  onLinkChange,
+  onAddLink,
+  onPickFile,
+  onUploadClick,
+  onRemove,
+}: {
+  resources: PendingTaskResource[];
+  linkValue: string;
+  uploadingName: string;
+  uploadProgress: number;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  onLinkChange: (value: string) => void;
+  onAddLink: () => void;
+  onPickFile: (event: ChangeEvent<HTMLInputElement>) => void;
+  onUploadClick: () => void;
+  onRemove: (resourceId: string) => void;
+}) {
+  return (
+    <section className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
+            <Paperclip className="h-4 w-4 text-slate-400" /> Recursos
+          </h3>
+          <p className="mt-1 text-xs font-semibold text-slate-500">
+            Se adjuntan al crear la tarea.
+          </p>
+        </div>
+        <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
+        <Button type="button" size="sm" variant="outline" onClick={onUploadClick}>
+          <Upload className="mr-2 h-4 w-4" />
+          Archivo
+        </Button>
+      </div>
+
+      <div className="mb-3 flex gap-2">
+        <Input
+          value={linkValue}
+          onChange={(event) => onLinkChange(event.target.value)}
+          placeholder="Pega URL de Google Drive"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onAddLink();
+            }
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onAddLink}
+          disabled={!linkValue.trim()}
+          aria-label="Adjuntar enlace"
+        >
+          <Link2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {uploadingName ? (
+        <div className="mb-3 rounded-xl border bg-slate-50 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+            <span className="truncate">Subiendo {uploadingName}</span>
+            <span>{uploadProgress}%</span>
+          </div>
+          <Progress value={uploadProgress} className="h-2" />
+        </div>
+      ) : null}
+
+      {resources.length === 0 ? (
+        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
+          No hay recursos agregados todavía.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {resources.map((resource) => (
+            <div
+              key={resource.id}
+              className="flex items-center gap-2 rounded-xl border bg-slate-50 p-2.5"
+            >
+              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border bg-white text-slate-500">
+                {resource.type === "file" ? (
+                  <Paperclip className="h-4 w-4" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-extrabold text-slate-900">
+                  {resource.type === "file" ? resource.name : "Enlace de Google Drive"}
+                </div>
+                <div className="truncate text-xs font-semibold text-slate-500">
+                  {resource.type === "file" ? formatBytes(resource.size) : resource.url}
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-slate-400 hover:text-red-600"
+                onClick={() => onRemove(resource.id)}
+                aria-label="Quitar recurso"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function TaskCreateDialog({
+  open,
+  onOpenChange,
+  companyId,
+  currentUserId,
+  profiles: propProfiles = EMPTY_PROFILES,
+  initialValues,
+  onCreated,
+  canCreate = true,
+}: TaskCreateDialogProps) {
+  const [draft, setDraft] = useState<TaskEditorDraft>(() =>
+    createEmptyTaskDraft({
+      assignedTo: currentUserId || UNASSIGNED_VALUE,
+      ...initialValues,
+    }),
+  );
+  const [profiles, setProfiles] = useState<QuickProfile[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pendingResources, setPendingResources] = useState<PendingTaskResource[]>([]);
+  const [resourceUrlInput, setResourceUrlInput] = useState("");
+  const [resourceUploadingName, setResourceUploadingName] = useState("");
+  const [resourceUploadProgress, setResourceUploadProgress] = useState(0);
+  const resourceFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const projectsById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
+    [projects],
+  );
+  const clientsById = useMemo(
+    () => new Map(clients.map((client) => [client.id, client])),
+    [clients],
+  );
+  const productsById = useMemo(
+    () => new Map(products.map((product) => [product.id, product])),
+    [products],
+  );
+
+  const selectedProject =
+    draft.projectId !== NO_PROJECT_VALUE ? projectsById.get(draft.projectId) || null : null;
+  const selectedClient =
+    draft.clientId !== NO_CLIENT_VALUE
+      ? clientsById.get(draft.clientId) || null
+      : selectedProject?.client_id
+        ? clientsById.get(selectedProject.client_id) || null
+        : null;
+  const draftProductName = selectedProject?.product_id
+    ? productsById.get(selectedProject.product_id)?.name || "—"
+    : "—";
+  const assigneeLabel = useMemo(() => {
+    if (draft.assignedTo === UNASSIGNED_VALUE) return "Sin asignar";
+    const profile = profiles.find(
+      (p) => p.id === draft.assignedTo || p.user_id === draft.assignedTo,
+    );
+    return String(profile?.full_name || profile?.email || "Sin asignar");
+  }, [draft.assignedTo, profiles]);
+
+  const resetDraft = () => {
+    setDraft(
+      createEmptyTaskDraft({
+        assignedTo: currentUserId || UNASSIGNED_VALUE,
+        ...initialValues,
+      }),
+    );
+    setMessage(null);
+    setPendingResources([]);
+    setResourceUrlInput("");
+    setResourceUploadingName("");
+    setResourceUploadProgress(0);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    resetDraft();
+  }, [open, currentUserId, initialValues]);
+
+  useEffect(() => {
+    if (!open || !companyId) return;
+    let cancelled = false;
+    setLoadingOptions(true);
+    setMessage(null);
+    void Promise.all([
+      fetchTaskRelationOptions(companyId),
+      propProfiles.length
+        ? Promise.resolve(propProfiles)
+        : (supabase as any)
+            .from("profiles")
+            .select("id,user_id,full_name,email,is_active")
+            .eq("company_id", companyId)
+            .order("full_name", { ascending: true })
+            .limit(500)
+            .then((result: any) =>
+              !result.error && Array.isArray(result.data)
+                ? result.data.filter((p: QuickProfile) => p && p.is_active !== false)
+                : [],
+            ),
+    ])
+      .then(([options, nextProfiles]) => {
+        if (cancelled) return;
+        setProfiles(nextProfiles);
+        setProjects(options.projects);
+        setClients(options.clients);
+        setProducts(options.products);
+        if (options.error) setMessage(options.error.message || "No se pudieron cargar relaciones.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOptions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, companyId, propProfiles]);
+
+  const renderContextPill = (value: ReactNode, icon: ReactNode) => (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span className="shrink-0 text-slate-400">{icon}</span>
+      <span className="min-w-0 truncate text-[12px] font-semibold text-slate-900">
+        {value || "—"}
+      </span>
+    </div>
+  );
+
+  const addPendingFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    setPendingResources((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID?.() || `${Date.now()}-${file.name}`,
+        type: "file",
+        file,
+        name: file.name,
+        size: file.size,
+      },
+    ]);
+  };
+
+  const addPendingDriveLink = () => {
+    const url = resourceUrlInput.trim();
+    const parsed = parseGoogleDriveUrl(url);
+    if (!parsed) {
+      toast.error("La URL de Google Drive no es válida.");
+      return;
+    }
+    setPendingResources((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID?.() || `${Date.now()}-${parsed.id}`,
+        type: "link",
+        url,
+        driveId: parsed.id,
+        driveType: parsed.type,
+      },
+    ]);
+    setResourceUrlInput("");
+  };
+
+  const attachPendingResources = async (createdTask: TaskRow) => {
+    if (!pendingResources.length) return;
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    const authUserId = sessionData.session?.user?.id || currentUserId || null;
+    const failures: string[] = [];
+
+    for (const resource of pendingResources) {
+      try {
+        if (resource.type === "link") {
+          const isFolder = resource.driveType === "folder";
+          const { error } = await (supabase as any).from("drive_files").insert({
+            company_id: createdTask.company_id,
+            drive_file_id: resource.driveId,
+            name: isFolder ? "Carpeta de Google Drive" : "Archivo de Google Drive",
+            mime_type: isFolder ? "application/vnd.google-apps.folder" : null,
+            web_view_link: resource.url,
+            web_content_link: null,
+            thumbnail_link: null,
+            icon_link: null,
+            size_bytes: null,
+            linked_type: "task",
+            linked_id: createdTask.id,
+            created_by: authUserId,
+          });
+          if (error) throw error;
+          continue;
+        }
+
+        if (!accessToken) throw new Error("No estás autenticado.");
+        setResourceUploadingName(resource.name);
+        setResourceUploadProgress(0);
+        const result = await uploadTaskFileWithProgress({
+          taskId: createdTask.id,
+          file: resource.file,
+          token: accessToken,
+          onProgress: setResourceUploadProgress,
+        });
+        if (result?.error) throw new Error(String(result.error));
+        setResourceUploadProgress(100);
+      } catch (error: any) {
+        failures.push(resource.type === "file" ? resource.name : resource.url);
+      }
+    }
+
+    setResourceUploadingName("");
+    setResourceUploadProgress(0);
+
+    if (failures.length) {
+      toast.error(`Tarea creada, pero ${failures.length} recurso(s) no se pudieron adjuntar.`);
+    } else {
+      toast.success("Recursos adjuntados.");
+    }
+  };
+
+  const createTask = async () => {
+    if (!companyId) {
+      toast.error("No se pudo detectar la empresa.");
+      return;
+    }
+    if (!canCreate) {
+      toast.error("No tienes permiso para crear tareas.");
+      return;
+    }
+    const title = draft.title.trim();
+    if (!title) {
+      toast.error("El título de la tarea es requerido.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        company_id: companyId,
+        title,
+        description: draft.description.trim() || null,
+        description_html: sanitizeRichTextHtml(draft.descriptionHtml) || null,
+        status: draft.status || "To Do",
+        priority: draft.priority || "Medium",
+        due_date: draft.dueDate || null,
+        assigned_to: draft.assignedTo === UNASSIGNED_VALUE ? null : draft.assignedTo,
+        related_project_id: draft.projectId === NO_PROJECT_VALUE ? null : draft.projectId,
+        related_client_id:
+          draft.clientId === NO_CLIENT_VALUE ? selectedProject?.client_id || null : draft.clientId,
+        related_lead_id: draft.leadId || null,
+        related_deal_id: draft.dealId || null,
+      };
+
+      const { data, error } = await (supabase as any)
+        .from("tasks")
+        .insert(payload)
+        .select(
+          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,created_at,company_id",
+        )
+        .single();
+      if (error) throw error;
+
+      toast.success("Tarea creada.");
+      const createdTask = data as TaskRow;
+      await attachPendingResources(createdTask);
+      await onCreated?.(createdTask);
+      onOpenChange(false);
+      resetDraft();
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo crear la tarea.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-2xl [&>button.absolute.right-4.top-4]:hidden sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[980px] sm:rounded-[18px] sm:border">
+        <DialogTitle className="sr-only">Crear tarea</DialogTitle>
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white sm:max-h-[92vh]">
+          <header className="shrink-0 border-b bg-white px-3 py-3 sm:px-5 sm:py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <Input
+                  value={draft.title}
+                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                  className="h-10 border-0 px-0 text-[20px] font-extrabold leading-[1.08] tracking-[-0.025em] shadow-none focus-visible:ring-0 sm:text-[22px]"
+                  placeholder="Nueva tarea..."
+                  autoFocus
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <StatusBadge status={draft.status} />
+                  <span
+                    className={`rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold ${priorityTone(draft.priority)}`}
+                  >
+                    {draft.priority}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-600">
+                    Vence {formatDate(draft.dueDate)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <Button
+                  className="h-9 px-3 text-sm"
+                  onClick={() => void createTask()}
+                  disabled={saving || loadingOptions || !canCreate || !draft.title.trim()}
+                >
+                  {saving ? "Creando..." : "Crear"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onOpenChange(false)}
+                  aria-label="Cerrar creador de tarea"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+            <div className="mt-3 flex w-full min-w-0 items-center gap-2 overflow-hidden border-t border-slate-100 pt-2">
+              {renderContextPill(
+                selectedClient ? clientLabel(selectedClient) : "Sin cliente",
+                <Users className="h-3.5 w-3.5" />,
+              )}
+              {renderContextPill(
+                selectedProject?.name || "Sin proyecto",
+                <FolderKanban className="h-3.5 w-3.5" />,
+              )}
+              {renderContextPill(assigneeLabel, <User className="h-3.5 w-3.5" />)}
+            </div>
+          </header>
+
+          <main className="min-h-0 flex-1 overflow-y-auto bg-white">
+            <div className="grid min-h-full gap-5 px-3 py-4 sm:px-5 sm:py-5 md:grid-cols-[minmax(0,1fr)_320px] md:items-stretch">
+              <section className="order-1 min-w-0 md:flex md:h-full md:flex-col">
+                <div className="mb-3 flex items-center justify-between gap-3 border-b pb-2">
+                  <h3 className="text-[15px] font-extrabold text-slate-900">Descripción</h3>
+                </div>
+                <TaskRichTextEditor
+                  html={draft.descriptionHtml}
+                  plainText={draft.description}
+                  onChange={(next) =>
+                    setDraft((d) => ({
+                      ...d,
+                      description: next.text,
+                      descriptionHtml: next.html,
+                    }))
+                  }
+                  className="md:min-h-0 md:flex-1"
+                />
+                {message ? (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                    {message}
+                  </div>
+                ) : null}
+              </section>
+
+              <div className="order-2 flex min-w-0 flex-col gap-4 md:sticky md:top-0 md:h-full">
+                <section className="rounded-xl border bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
+                      <Star className="h-4 w-4 text-slate-400" /> Task Info
+                    </h3>
+                    <span className="text-slate-400">•••</span>
+                  </div>
+                  <TaskEditorInfoFields
+                    draft={draft}
+                    setDraft={setDraft}
+                    profiles={profiles}
+                    projects={projects}
+                    clients={clients}
+                    draftProductName={draftProductName}
+                  />
+                </section>
+
+                <TaskCreateResourcesPanel
+                  resources={pendingResources}
+                  linkValue={resourceUrlInput}
+                  uploadingName={resourceUploadingName}
+                  uploadProgress={resourceUploadProgress}
+                  fileInputRef={resourceFileInputRef}
+                  onLinkChange={setResourceUrlInput}
+                  onAddLink={addPendingDriveLink}
+                  onPickFile={addPendingFile}
+                  onUploadClick={() => resourceFileInputRef.current?.click()}
+                  onRemove={(resourceId) =>
+                    setPendingResources((current) =>
+                      current.filter((resource) => resource.id !== resourceId),
+                    )
+                  }
+                />
+              </div>
+            </div>
+          </main>
+
+          <footer className="shrink-0 border-t bg-white px-3 py-3 sm:px-5">
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void createTask()}
+                disabled={saving || loadingOptions || !canCreate || !draft.title.trim()}
+              >
+                {saving ? "Creando..." : "Crear tarea"}
+              </Button>
+            </div>
+          </footer>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function TaskDetailDialog({
   open,
   onOpenChange,
   children,
   task: propTask,
-  profiles: propProfiles = [],
+  profiles: propProfiles = EMPTY_PROFILES,
   projectName = "—",
   clientName = "—",
   productName = "—",
@@ -283,44 +1548,55 @@ export function TaskDetailDialog({
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [previewFile, setPreviewFile] = useState<{ url: string; title: string } | null>(null);
-  const [draft, setDraft] = useState({
-    title: "",
-    description: "",
-    status: "To Do",
-    priority: "Medium",
-    dueDate: "",
-    assignedTo: UNASSIGNED_VALUE,
-    projectId: NO_PROJECT_VALUE,
-    clientId: NO_CLIENT_VALUE,
-  });
+  const [draft, setDraft] = useState<TaskEditorDraft>(() => createEmptyTaskDraft());
 
-  const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
-  const clientsById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
-  const productsById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+  const projectsById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
+    [projects],
+  );
+  const clientsById = useMemo(
+    () => new Map(clients.map((client) => [client.id, client])),
+    [clients],
+  );
+  const productsById = useMemo(
+    () => new Map(products.map((product) => [product.id, product])),
+    [products],
+  );
 
-  const selectedProject = task?.related_project_id ? projectsById.get(task.related_project_id) || null : null;
+  const selectedProject = task?.related_project_id
+    ? projectsById.get(task.related_project_id) || null
+    : null;
   const selectedClient = task?.related_client_id
     ? clientsById.get(task.related_client_id) || null
     : selectedProject?.client_id
       ? clientsById.get(selectedProject.client_id) || null
       : null;
-  const selectedProduct = selectedProject?.product_id ? productsById.get(selectedProject.product_id) || null : null;
+  const selectedProduct = selectedProject?.product_id
+    ? productsById.get(selectedProject.product_id) || null
+    : null;
 
   const displayProjectName = selectedProject?.name || projectName || "—";
   const displayClientName = selectedClient ? clientLabel(selectedClient) : clientName || "—";
   const displayProductName = selectedProduct?.name || productName || "—";
 
-  const draftProject = draft.projectId !== NO_PROJECT_VALUE ? projectsById.get(draft.projectId) || null : null;
-  const draftProductName = draftProject?.product_id ? productsById.get(draftProject.product_id)?.name || "—" : "—";
+  const draftProject =
+    draft.projectId !== NO_PROJECT_VALUE ? projectsById.get(draft.projectId) || null : null;
+  const draftProductName = draftProject?.product_id
+    ? productsById.get(draftProject.product_id)?.name || "—"
+    : "—";
 
   const assigneeLabel = useMemo(() => {
     if (!task?.assigned_to) return "Sin asignar";
-    const profile = profiles.find((p) => p.id === task.assigned_to || p.user_id === task.assigned_to);
+    const profile = profiles.find(
+      (p) => p.id === task.assigned_to || p.user_id === task.assigned_to,
+    );
     return String(profile?.full_name || profile?.email || "Sin asignar");
   }, [profiles, task?.assigned_to]);
 
   const completedChecklist = checklist.filter((item) => item.is_completed).length;
-  const checklistProgress = checklist.length ? Math.round((completedChecklist / checklist.length) * 100) : 0;
+  const checklistProgress = checklist.length
+    ? Math.round((completedChecklist / checklist.length) * 100)
+    : 0;
 
   const resetState = () => {
     setTask(null);
@@ -340,30 +1616,10 @@ export function TaskDetailDialog({
   }, [open]);
 
   const loadRelationOptions = async (companyId: string) => {
-    const [projectResult, clientResult, productResult] = await Promise.all([
-      (supabase as any)
-        .from("projects")
-        .select("id,name,client_id,product_id")
-        .eq("company_id", companyId)
-        .order("name", { ascending: true })
-        .limit(500),
-      (supabase as any)
-        .from("clients")
-        .select("id,company_name,contact_person")
-        .eq("company_id", companyId)
-        .order("company_name", { ascending: true })
-        .limit(500),
-      (supabase as any)
-        .from("products")
-        .select("id,name")
-        .eq("company_id", companyId)
-        .order("name", { ascending: true })
-        .limit(500),
-    ]);
-
-    if (!projectResult.error) setProjects(Array.isArray(projectResult.data) ? projectResult.data : []);
-    if (!clientResult.error) setClients(Array.isArray(clientResult.data) ? clientResult.data : []);
-    if (!productResult.error) setProducts(Array.isArray(productResult.data) ? productResult.data : []);
+    const options = await fetchTaskRelationOptions(companyId);
+    setProjects(options.projects);
+    setClients(options.clients);
+    setProducts(options.products);
   };
 
   const loadTaskDetails = async (taskId: string) => {
@@ -388,34 +1644,53 @@ export function TaskDetailDialog({
         .limit(12),
       (supabase as any)
         .from("drive_files")
-        .select("id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,created_at")
+        .select(
+          "id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,created_at",
+        )
         .eq("linked_type", "task")
         .eq("linked_id", taskId)
         .order("created_at", { ascending: false })
         .limit(20),
     ]);
 
-    if (!checklistResult.error) setChecklist(Array.isArray(checklistResult.data) ? checklistResult.data : []);
-    if (!commentsResult.error) setComments(Array.isArray(commentsResult.data) ? commentsResult.data : []);
-    if (!activityResult.error) setActivity(Array.isArray(activityResult.data) ? activityResult.data : []);
-    if (!driveResult.error && !propDriveFiles) setDriveFiles(Array.isArray(driveResult.data) ? driveResult.data : []);
+    if (!checklistResult.error)
+      setChecklist(Array.isArray(checklistResult.data) ? checklistResult.data : []);
+    if (!commentsResult.error)
+      setComments(Array.isArray(commentsResult.data) ? commentsResult.data : []);
+    if (!activityResult.error)
+      setActivity(Array.isArray(activityResult.data) ? activityResult.data : []);
+    if (!driveResult.error && !propDriveFiles)
+      setDriveFiles(Array.isArray(driveResult.data) ? driveResult.data : []);
 
-    const errors = [checklistResult.error, commentsResult.error, activityResult.error, driveResult.error].filter(Boolean);
+    const errors = [
+      checklistResult.error,
+      commentsResult.error,
+      activityResult.error,
+      driveResult.error,
+    ].filter(Boolean);
     setMessage(errors[0]?.message || null);
   };
 
-  const applyLoadedTask = async (loadedTask: TaskRow, loadedProfiles: QuickProfile[] = propProfiles) => {
+  const applyLoadedTask = async (
+    loadedTask: TaskRow,
+    loadedProfiles: QuickProfile[] = propProfiles,
+  ) => {
     setTask(loadedTask);
     setProfiles(loadedProfiles);
     setDraft({
       title: loadedTask.title || "",
       description: loadedTask.description || "",
+      descriptionHtml:
+        sanitizeRichTextHtml(loadedTask.description_html || "") ||
+        plainTextToHtml(loadedTask.description || ""),
       status: loadedTask.status || "To Do",
       priority: loadedTask.priority || "Medium",
       dueDate: loadedTask.due_date || "",
       assignedTo: loadedTask.assigned_to || UNASSIGNED_VALUE,
       projectId: loadedTask.related_project_id || NO_PROJECT_VALUE,
       clientId: loadedTask.related_client_id || NO_CLIENT_VALUE,
+      leadId: "",
+      dealId: "",
     });
     await Promise.all([loadRelationOptions(loadedTask.company_id), loadTaskDetails(loadedTask.id)]);
     if (propDriveFiles) setDriveFiles(propDriveFiles);
@@ -438,11 +1713,15 @@ export function TaskDetailDialog({
         .select("id,user_id,full_name,email,is_active")
         .order("full_name", { ascending: true })
         .limit(500);
-      const loadedProfiles = Array.isArray(profileRows) ? profileRows.filter((p) => p && p.is_active !== false) : [];
+      const loadedProfiles = Array.isArray(profileRows)
+        ? profileRows.filter((p) => p && p.is_active !== false)
+        : [];
 
       let query = (supabase as any)
         .from("tasks")
-        .select("id,title,description,status,priority,assigned_to,due_date,related_project_id,related_client_id,created_at,company_id")
+        .select(
+          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,created_at,company_id",
+        )
         .limit(2);
 
       if (taskIdFromUrl) {
@@ -461,7 +1740,11 @@ export function TaskDetailDialog({
       if (error) throw error;
       const rows = Array.isArray(data) ? data : [];
       if (rows.length !== 1) {
-        setMessage(taskIdFromUrl ? "No encontré esta tarea." : "Abre la tarea desde /tasks?taskId=... para cargar el detalle completo.");
+        setMessage(
+          taskIdFromUrl
+            ? "No encontré esta tarea."
+            : "Abre la tarea desde /tasks?taskId=... para cargar el detalle completo.",
+        );
         return;
       }
 
@@ -526,6 +1809,7 @@ export function TaskDetailDialog({
     await updateTask({
       title: draft.title.trim() || "Sin título",
       description: draft.description.trim() || null,
+      description_html: sanitizeRichTextHtml(draft.descriptionHtml) || null,
       status: draft.status,
       priority: draft.priority,
       due_date: draft.dueDate || null,
@@ -569,7 +1853,10 @@ export function TaskDetailDialog({
   };
 
   const deleteChecklistItem = async (item: TaskChecklistItem) => {
-    const { error } = await (supabase as any).from("task_checklist_items").delete().eq("id", item.id);
+    const { error } = await (supabase as any)
+      .from("task_checklist_items")
+      .delete()
+      .eq("id", item.id);
     if (error) {
       toast.error(error.message || "No se pudo borrar la subtarea.");
       return;
@@ -612,18 +1899,24 @@ export function TaskDetailDialog({
   };
 
   const renderInfoRow = (label: string, value: ReactNode, icon: ReactNode) => (
-    <div className="grid grid-cols-[22px_108px_minmax(0,1fr)] items-start gap-2 border-b border-slate-200/70 py-2.5 last:border-b-0">
+    <div className="grid grid-cols-[22px_minmax(0,1fr)] gap-x-2 gap-y-1 border-b border-slate-200/70 py-2.5 last:border-b-0 sm:grid-cols-[22px_108px_minmax(0,1fr)]">
       <span className="mt-0.5 text-slate-400">{icon}</span>
-      <span className="text-[13px] font-semibold text-slate-500">{label}</span>
-      <span className="min-w-0 text-[13px] font-semibold text-slate-900">{value || "—"}</span>
+      <span className="text-[12px] font-semibold uppercase tracking-[0.04em] text-slate-500 sm:text-[13px] sm:normal-case sm:tracking-normal">
+        {label}
+      </span>
+      <span className="col-start-2 min-w-0 text-[13px] font-semibold text-slate-900 sm:col-start-auto">
+        {value || "—"}
+      </span>
     </div>
   );
 
-  const renderEditField = (label: string, control: ReactNode) => (
-    <label className="grid gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">{label}</span>
-      {control}
-    </label>
+  const renderContextPill = (value: ReactNode, icon: ReactNode) => (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span className="shrink-0 text-slate-400">{icon}</span>
+      <span className="min-w-0 truncate text-[12px] font-semibold text-slate-900">
+        {value || "—"}
+      </span>
+    </div>
   );
 
   return (
@@ -631,177 +1924,413 @@ export function TaskDetailDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-2xl [&>button.absolute.right-4.top-4]:hidden sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-24px)] sm:max-w-[980px] sm:rounded-[18px] sm:border">
           <DialogTitle className="sr-only">Detalle de tarea</DialogTitle>
-          <div ref={legacyContentRef} className="pointer-events-none absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden opacity-0">
+          <div
+            ref={legacyContentRef}
+            className="pointer-events-none absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden opacity-0"
+          >
             {children}
           </div>
 
           <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white sm:max-h-[92vh]">
-            <header className="shrink-0 border-b bg-white px-5 py-4">
+            <header className="shrink-0 border-b bg-white px-3 py-3 sm:px-5 sm:py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 items-start gap-3">
                     {editing ? (
-                      <Input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} className="h-10 max-w-2xl text-lg font-extrabold" />
+                      <Input
+                        value={draft.title}
+                        onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                        className="h-10 max-w-2xl text-lg font-extrabold"
+                      />
                     ) : (
-                      <h2 className="min-w-0 text-[19px] font-extrabold leading-tight tracking-[-0.025em] text-slate-900 sm:text-[20px]">
+                      <h2 className="min-w-0 flex-1 text-[20px] font-extrabold leading-[1.08] tracking-[-0.025em] text-slate-900 sm:text-[22px]">
                         {task?.title || "Cargando tarea..."}
                       </h2>
                     )}
-                    {task ? <StatusBadge status={task.status} /> : null}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-semibold text-slate-600">
-                    <span>Task ID: {task?.id ? task.id.slice(0, 8) : "—"}</span>
-                    <span className="text-slate-300">•</span>
-                    <span>Creada {formatDate(task?.created_at)}</span>
-                    <span className="text-slate-300">•</span>
-                    <span>{displayClientName}</span>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {task ? <StatusBadge status={task.status} /> : null}
+                    {task?.priority ? (
+                      <span
+                        className={`rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold ${priorityTone(task.priority)}`}
+                      >
+                        {task.priority}
+                      </span>
+                    ) : null}
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-600">
+                      Vence {formatDate(task?.due_date)}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                   {editing ? (
                     <>
-                      <Button variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
-                      <Button onClick={() => void saveInlineEdit()} disabled={saving || !canEdit}>Guardar</Button>
+                      <Button variant="outline" onClick={() => setEditing(false)} className="h-9">
+                        Cancelar
+                      </Button>
+                      <Button
+                        onClick={() => void saveInlineEdit()}
+                        disabled={saving || !canEdit}
+                        className="h-9"
+                      >
+                        Guardar
+                      </Button>
                     </>
                   ) : (
                     <>
-                      <Button className="hidden h-9 px-3 text-sm sm:inline-flex" onClick={() => void (onComplete ? onComplete() : updateTask({ status: "Completed" }))} disabled={!task?.id || task.status === "Completed" || !canEdit}>
+                      <Button
+                        className="hidden h-9 px-3 text-sm md:inline-flex"
+                        onClick={() =>
+                          void (onComplete ? onComplete() : updateTask({ status: "Completed" }))
+                        }
+                        disabled={!task?.id || task.status === "Completed" || !canEdit}
+                      >
                         <Check className="mr-2 h-4 w-4" /> Completar
                       </Button>
-                      <Button className="h-9 px-3 text-sm" variant="outline" onClick={() => void (onSetInProgress ? onSetInProgress() : updateTask({ status: "In Progress" }))} disabled={!task?.id || task.status === "In Progress" || !canEdit}>
+                      <Button
+                        className="hidden h-9 px-3 text-sm sm:inline-flex"
+                        variant="outline"
+                        onClick={() =>
+                          void (onSetInProgress
+                            ? onSetInProgress()
+                            : updateTask({ status: "In Progress" }))
+                        }
+                        disabled={!task?.id || task.status === "In Progress" || !canEdit}
+                      >
                         <Circle className="mr-2 h-4 w-4" /> En progreso
                       </Button>
-                      <Button className="h-9 px-3 text-sm" variant="outline" onClick={() => setEditing(true)} disabled={!task?.id || !canEdit}>
-                        <Pencil className="mr-2 h-4 w-4" /> Editar
+                      <Button
+                        className="h-9 w-9 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 sm:w-auto sm:px-3 sm:text-sm"
+                        variant="ghost"
+                        onClick={() => setEditing(true)}
+                        disabled={!task?.id || !canEdit}
+                        aria-label="Editar tarea"
+                      >
+                        <Pencil className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Editar</span>
                       </Button>
                     </>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Cerrar detalle de tarea"><X className="h-5 w-5" /></Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onOpenChange(false)}
+                    aria-label="Cerrar detalle de tarea"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
+              </div>
+              <div className="mt-3 flex w-full min-w-0 items-center gap-2 overflow-hidden border-t border-slate-100 pt-2">
+                {renderContextPill(displayClientName, <Users className="h-3.5 w-3.5" />)}
+                {renderContextPill(displayProjectName, <FolderKanban className="h-3.5 w-3.5" />)}
+                {renderContextPill(assigneeLabel, <User className="h-3.5 w-3.5" />)}
               </div>
             </header>
 
             <main className="min-h-0 flex-1 overflow-y-auto bg-white">
               {loading && !task ? (
-                <div className="m-5 rounded-xl border bg-white p-6 text-sm font-semibold text-slate-500">Cargando detalle de tarea...</div>
+                <div className="m-5 rounded-xl border bg-white p-6 text-sm font-semibold text-slate-500">
+                  Cargando detalle de tarea...
+                </div>
               ) : (
-                <div className="grid min-h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_302px]">
-                  <section className="min-w-0 space-y-6 px-5 py-5 lg:border-r">
-                    <section>
+                <div className="grid min-h-full gap-5 px-3 py-4 sm:px-5 sm:py-5 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
+                  <section className="contents md:flex md:min-w-0 md:flex-col md:gap-5">
+                    <section className="order-1">
                       <div className="mb-3 flex items-center justify-between gap-3 border-b pb-2">
-                        <h3 className="text-[15px] font-extrabold text-slate-900">Description</h3>
-                        {!editing ? <Button size="sm" variant="ghost" className="h-8 gap-1 text-slate-500" onClick={() => setEditing(true)}><Pencil className="h-3.5 w-3.5" /> Editar</Button> : null}
+                        <h3 className="text-[15px] font-extrabold text-slate-900">Descripción</h3>
+                        {!editing ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 gap-1 text-slate-500"
+                            onClick={() => setEditing(true)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Editar
+                          </Button>
+                        ) : null}
                       </div>
                       {editing ? (
-                        <Textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} className="min-h-[230px] text-sm leading-6" placeholder="Escribe aquí el brief, instrucciones, copy y detalles de la tarea..." />
+                        <TaskRichTextEditor
+                          html={draft.descriptionHtml}
+                          plainText={draft.description}
+                          onChange={(next) =>
+                            setDraft((d) => ({
+                              ...d,
+                              description: next.text,
+                              descriptionHtml: next.html,
+                            }))
+                          }
+                        />
                       ) : (
-                        <div className="whitespace-pre-wrap text-[14px] font-medium leading-7 text-slate-800">
-                          {task?.description || "Sin descripción."}
-                        </div>
+                        <TaskRichTextView
+                          html={task?.description_html}
+                          fallback={task?.description}
+                        />
                       )}
-                      {message ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">{message}</div> : null}
+                      {message ? (
+                        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                          {message}
+                        </div>
+                      ) : null}
                     </section>
 
-                    <section>
+                    <section className="order-3">
                       <div className="mb-3 flex items-end justify-between gap-3 border-b pb-2">
                         <div>
-                          <h3 className="text-[15px] font-extrabold text-slate-900">Checklist Items</h3>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">{completedChecklist} de {checklist.length} completadas</p>
+                          <h3 className="text-[15px] font-extrabold text-slate-900">Checklist</h3>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            {completedChecklist} de {checklist.length} completadas
+                          </p>
                         </div>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => document.getElementById("task-new-checklist-item")?.focus()} aria-label="Agregar subtarea"><Plus className="h-4 w-4" /></Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() =>
+                            document.getElementById("task-new-checklist-item")?.focus()
+                          }
+                          aria-label="Agregar subtarea"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
                       <Progress value={checklistProgress} className="mb-4 h-2" />
                       <div className="mb-3 flex gap-2">
-                        <Input id="task-new-checklist-item" value={newChecklistTitle} onChange={(e) => setNewChecklistTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void addChecklistItem(); }} placeholder="Add a checklist item..." />
-                        <Button variant="outline" onClick={() => void addChecklistItem()} disabled={!task?.id || saving || !newChecklistTitle.trim()}>Add</Button>
+                        <Input
+                          id="task-new-checklist-item"
+                          value={newChecklistTitle}
+                          onChange={(e) => setNewChecklistTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void addChecklistItem();
+                          }}
+                          placeholder="Agregar subtarea..."
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => void addChecklistItem()}
+                          disabled={!task?.id || saving || !newChecklistTitle.trim()}
+                        >
+                          Agregar
+                        </Button>
                       </div>
                       {checklist.length === 0 ? (
-                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay subtareas todavía.</div>
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
+                          No hay subtareas todavía.
+                        </div>
                       ) : (
                         <div className="divide-y rounded-xl border bg-white">
                           {checklist.map((item) => (
-                            <div key={item.id} className="grid grid-cols-[26px_minmax(0,1fr)_auto] items-start gap-3 px-3 py-3 hover:bg-slate-50">
-                              <button type="button" onClick={() => void toggleChecklistItem(item)} className={"mt-0.5 grid h-5 w-5 place-items-center rounded-full border text-[10px] " + (item.is_completed ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 text-transparent")}><Check className="h-3.5 w-3.5" /></button>
+                            <div
+                              key={item.id}
+                              className="grid grid-cols-[26px_minmax(0,1fr)_auto] items-start gap-3 px-3 py-3 hover:bg-slate-50"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => void toggleChecklistItem(item)}
+                                className={
+                                  "mt-0.5 grid h-5 w-5 place-items-center rounded-full border text-[10px] " +
+                                  (item.is_completed
+                                    ? "border-slate-900 bg-slate-900 text-white"
+                                    : "border-slate-300 text-transparent")
+                                }
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
                               <div>
-                                <div className={"text-sm font-medium " + (item.is_completed ? "text-slate-400 line-through" : "text-slate-800")}>{item.title}</div>
-                                <div className="mt-1 text-xs font-medium text-slate-500">Creada {formatDate(item.created_at)}</div>
+                                <div
+                                  className={
+                                    "text-sm font-medium " +
+                                    (item.is_completed
+                                      ? "text-slate-400 line-through"
+                                      : "text-slate-800")
+                                  }
+                                >
+                                  {item.title}
+                                </div>
+                                <div className="mt-1 text-xs font-medium text-slate-500">
+                                  Creada {formatDate(item.created_at)}
+                                </div>
                               </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600" onClick={() => void deleteChecklistItem(item)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-400 hover:text-red-600"
+                                onClick={() => void deleteChecklistItem(item)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           ))}
                         </div>
                       )}
                     </section>
 
-                    <section>
+                    <section className="order-6">
                       <div className="mb-3 border-b pb-2">
-                        <h3 className="text-[15px] font-extrabold text-slate-900">Comments</h3>
+                        <h3 className="text-[15px] font-extrabold text-slate-900">Comentarios</h3>
                       </div>
                       <div className="space-y-3">
-                        <Textarea value={newCommentBody} onChange={(e) => setNewCommentBody(e.target.value)} placeholder="Write an internal comment..." className="min-h-[96px]" />
-                        <div className="flex justify-end"><Button onClick={() => void addComment()} disabled={!task?.id || saving || !newCommentBody.trim()}>Add comment</Button></div>
+                        <Textarea
+                          value={newCommentBody}
+                          onChange={(e) => setNewCommentBody(e.target.value)}
+                          placeholder="Escribe un comentario interno..."
+                          className="min-h-[96px]"
+                        />
+                        <div className="flex justify-end">
+                          <Button
+                            onClick={() => void addComment()}
+                            disabled={!task?.id || saving || !newCommentBody.trim()}
+                          >
+                            Agregar comentario
+                          </Button>
+                        </div>
                       </div>
                       <div className="mt-4 space-y-3">
-                        {comments.length === 0 ? <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">No hay comentarios todavía.</div> : comments.map((comment) => (
-                          <div key={comment.id} className="grid grid-cols-[34px_minmax(0,1fr)] gap-3 border-b pb-3 last:border-b-0">
-                            <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">IC</div>
-                            <div className="min-w-0"><div className="mb-1 text-xs font-bold text-slate-500">{formatDateTime(comment.created_at)}</div><div className="whitespace-pre-wrap text-sm font-medium leading-6 text-slate-700">{comment.body}</div></div>
+                        {comments.length === 0 ? (
+                          <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
+                            No hay comentarios todavía.
                           </div>
-                        ))}
+                        ) : (
+                          comments.map((comment) => (
+                            <div
+                              key={comment.id}
+                              className="grid grid-cols-[34px_minmax(0,1fr)] gap-3 border-b pb-3 last:border-b-0"
+                            >
+                              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                                IC
+                              </div>
+                              <div className="min-w-0">
+                                <div className="mb-1 text-xs font-bold text-slate-500">
+                                  {formatDateTime(comment.created_at)}
+                                </div>
+                                <div className="whitespace-pre-wrap text-sm font-medium leading-6 text-slate-700">
+                                  {comment.body}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </section>
                   </section>
 
-                  <aside className="min-w-0 bg-slate-50/70 px-5 py-5">
-                    <section className="rounded-xl border bg-white p-4 shadow-sm">
+                  <aside className="contents md:sticky md:top-0 md:flex md:min-w-0 md:flex-col md:gap-4">
+                    <section className="order-2 rounded-xl border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-center justify-between gap-3">
-                        <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900"><Star className="h-4 w-4 text-slate-400" /> Task Info</h3>
+                        <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
+                          <Star className="h-4 w-4 text-slate-400" /> Task Info
+                        </h3>
                         <span className="text-slate-400">•••</span>
                       </div>
 
                       {editing ? (
-                        <div className="space-y-3">
-                          {renderEditField("Status", <Select value={draft.status} onValueChange={(value) => setDraft((d) => ({ ...d, status: value }))}><SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent>{TASK_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>)}
-                          {renderEditField("Priority", <Select value={draft.priority} onValueChange={(value) => setDraft((d) => ({ ...d, priority: value }))}><SelectTrigger><SelectValue placeholder="Prioridad" /></SelectTrigger><SelectContent>{TASK_PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select>)}
-                          {renderEditField("Due date", <Input type="date" value={draft.dueDate} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} />)}
-                          {renderEditField("Assignee", <Select value={draft.assignedTo} onValueChange={(value) => setDraft((d) => ({ ...d, assignedTo: value }))}><SelectTrigger><SelectValue placeholder="Responsable" /></SelectTrigger><SelectContent><SelectItem value={UNASSIGNED_VALUE}>Sin asignar</SelectItem>{profiles.map((p) => <SelectItem key={p.id} value={String(p.user_id || p.id)}>{String(p.full_name || p.email || "Usuario")}</SelectItem>)}</SelectContent></Select>)}
-                          {renderEditField("Project", <Select value={draft.projectId} onValueChange={(value) => setDraft((d) => ({ ...d, projectId: value }))}><SelectTrigger><SelectValue placeholder="Proyecto" /></SelectTrigger><SelectContent><SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent></Select>)}
-                          {renderEditField("Client", <Select value={draft.clientId} onValueChange={(value) => setDraft((d) => ({ ...d, clientId: value }))}><SelectTrigger><SelectValue placeholder="Cliente" /></SelectTrigger><SelectContent><SelectItem value={NO_CLIENT_VALUE}>Sin cliente directo</SelectItem>{clients.map((client) => <SelectItem key={client.id} value={client.id}>{clientLabel(client)}</SelectItem>)}</SelectContent></Select>)}
-                          <div className="rounded-lg border bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">Producto automático: <span className="font-extrabold text-slate-900">{draftProductName}</span></div>
-                        </div>
+                        <TaskEditorInfoFields
+                          draft={draft}
+                          setDraft={setDraft}
+                          profiles={profiles}
+                          projects={projects}
+                          clients={clients}
+                          draftProductName={draftProductName}
+                        />
                       ) : (
                         <div>
-                          {renderInfoRow("Status", <StatusBadge status={task?.status || "—"} />, <Star className="h-4 w-4" />)}
-                          {renderInfoRow("Created", formatDate(task?.created_at), <CalendarDays className="h-4 w-4" />)}
-                          {renderInfoRow("Due Date", formatDate(task?.due_date), <CalendarDays className="h-4 w-4" />)}
-                          {renderInfoRow("Priority", <span className={priorityTone(task?.priority)}>{task?.priority || "—"}</span>, <Flag className="h-4 w-4" />)}
-                          {renderInfoRow("Assignee", assigneeLabel, <User className="h-4 w-4" />)}
-                          {renderInfoRow("Project", <span className="break-words">{displayProjectName}</span>, <FolderKanban className="h-4 w-4" />)}
-                          {renderInfoRow("Client", <span className="break-words">{displayClientName}</span>, <Users className="h-4 w-4" />)}
-                          {renderInfoRow("Product", <span className="break-words">{displayProductName}</span>, <FileText className="h-4 w-4" />)}
+                          {renderInfoRow(
+                            "Estado",
+                            <StatusBadge status={task?.status || "—"} />,
+                            <Star className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Task ID",
+                            <span className="font-mono text-[12px]">{task?.id || "—"}</span>,
+                            <Copy className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Creada",
+                            formatDate(task?.created_at),
+                            <CalendarDays className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Vence",
+                            formatDate(task?.due_date),
+                            <CalendarDays className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Prioridad",
+                            <span className={priorityTone(task?.priority)}>
+                              {task?.priority || "—"}
+                            </span>,
+                            <Flag className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Responsable",
+                            assigneeLabel,
+                            <User className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Proyecto",
+                            <span className="break-words">{displayProjectName}</span>,
+                            <FolderKanban className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Cliente",
+                            <span className="break-words">{displayClientName}</span>,
+                            <Users className="h-4 w-4" />,
+                          )}
+                          {renderInfoRow(
+                            "Producto",
+                            <span className="break-words">{displayProductName}</span>,
+                            <FileText className="h-4 w-4" />,
+                          )}
                         </div>
                       )}
                     </section>
 
-                    <section className="mt-4 rounded-xl border bg-white p-4 shadow-sm">
+                    <section className="order-5 rounded-xl border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900"><Clock3 className="h-4 w-4 text-slate-400" /> Activity</h3>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">Cambios recientes de la tarea.</p>
+                          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
+                            <Clock3 className="h-4 w-4 text-slate-400" /> Actividad
+                          </h3>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Cambios recientes de la tarea.
+                          </p>
                         </div>
                       </div>
                       {activity.length === 0 ? (
-                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">Sin actividad registrada.</div>
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
+                          Sin actividad registrada.
+                        </div>
                       ) : (
                         <div className="relative max-h-[260px] space-y-4 overflow-auto pr-2 before:absolute before:bottom-4 before:left-[15px] before:top-4 before:w-px before:bg-slate-200">
                           {activity.map((event, index) => (
-                            <div key={event.id} className="relative grid grid-cols-[32px_minmax(0,1fr)] gap-3">
-                              <div className={"relative z-10 grid h-8 w-8 place-items-center rounded-full border " + (index === 0 ? "border-blue-200 bg-blue-50 text-blue-600" : "border-slate-200 bg-white text-slate-500")}>{eventIcon(event.event_type)}</div>
+                            <div
+                              key={event.id}
+                              className="relative grid grid-cols-[32px_minmax(0,1fr)] gap-3"
+                            >
+                              <div
+                                className={
+                                  "relative z-10 grid h-8 w-8 place-items-center rounded-full border " +
+                                  (index === 0
+                                    ? "border-blue-200 bg-blue-50 text-blue-600"
+                                    : "border-slate-200 bg-white text-slate-500")
+                                }
+                              >
+                                {eventIcon(event.event_type)}
+                              </div>
                               <div className="min-w-0">
-                                <div className="text-sm font-extrabold text-slate-900">{event.title}</div>
-                                {event.description ? <div className="mt-1 text-xs font-semibold text-slate-500">{event.description}</div> : null}
-                                <div className="mt-1 text-[11px] font-semibold text-slate-400">{formatDateTime(event.created_at)}</div>
+                                <div className="text-sm font-extrabold text-slate-900">
+                                  {event.title}
+                                </div>
+                                {event.description ? (
+                                  <div className="mt-1 text-xs font-semibold text-slate-500">
+                                    {event.description}
+                                  </div>
+                                ) : null}
+                                <div className="mt-1 text-[11px] font-semibold text-slate-400">
+                                  {formatDateTime(event.created_at)}
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -809,15 +2338,32 @@ export function TaskDetailDialog({
                       )}
                     </section>
 
-                    <section className="mt-4 rounded-xl border bg-white p-4 shadow-sm">
+                    <section className="order-4 rounded-xl border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900"><Paperclip className="h-4 w-4 text-slate-400" /> Attachments</h3>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">Archivos de trabajo.</p>
+                          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
+                            <Paperclip className="h-4 w-4 text-slate-400" /> Archivos
+                          </h3>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Archivos de trabajo.
+                          </p>
                         </div>
-                        {fileInputRef ? <input ref={fileInputRef} type="file" className="hidden" onChange={(event) => void onFilePicked?.(event)} /> : null}
-                        <Button size="sm" variant="outline" onClick={onUploadClick} disabled={!canEdit || isUploadingFile}>
-                          <Upload className="mr-2 h-4 w-4" />{isUploadingFile ? `${uploadProgress}%` : "Upload"}
+                        {fileInputRef ? (
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            className="hidden"
+                            onChange={(event) => void onFilePicked?.(event)}
+                          />
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={onUploadClick}
+                          disabled={!canEdit || isUploadingFile}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          {isUploadingFile ? `${uploadProgress}%` : "Upload"}
                         </Button>
                       </div>
                       {uploadingFileName ? (
@@ -831,16 +2377,30 @@ export function TaskDetailDialog({
                       ) : null}
                       {onAttachDriveUrl ? (
                         <div className="mb-3 flex gap-2">
-                          <Input value={driveUrlInput} onChange={(event) => onDriveUrlChange?.(event.target.value)} placeholder="Pega URL de Google Drive" />
-                          <Button type="button" variant="outline" size="icon" onClick={() => void onAttachDriveUrl()} disabled={!canEdit || !driveUrlInput.trim()}>
+                          <Input
+                            value={driveUrlInput}
+                            onChange={(event) => onDriveUrlChange?.(event.target.value)}
+                            placeholder="Pega URL de Google Drive"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => void onAttachDriveUrl()}
+                            disabled={!canEdit || !driveUrlInput.trim()}
+                          >
                             <Link2 className="h-4 w-4" />
                           </Button>
                         </div>
                       ) : null}
                       {driveFilesLoading ? (
-                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">Cargando archivos...</div>
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
+                          Cargando archivos...
+                        </div>
                       ) : driveFiles.length === 0 ? (
-                        <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm font-semibold text-slate-500">Drop files here to upload</div>
+                        <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm font-semibold text-slate-500">
+                          Drop files here to upload
+                        </div>
                       ) : (
                         <div className="space-y-2">
                           {driveFiles.map((file) => {
@@ -849,14 +2409,64 @@ export function TaskDetailDialog({
                             return (
                               <div key={file.id} className="rounded-xl border bg-slate-50 p-2.5">
                                 <div className="grid grid-cols-[32px_minmax(0,1fr)] items-center gap-2">
-                                  <div className="grid h-8 w-8 place-items-center rounded-lg border bg-white text-slate-500">{file.icon_link ? <img src={file.icon_link} alt="" className="h-5 w-5" /> : <Paperclip className="h-4 w-4" />}</div>
-                                  <div className="min-w-0"><div className="truncate text-sm font-extrabold text-slate-900">{file.name}</div><div className="text-xs font-semibold text-slate-500">{formatBytes(file.size_bytes)} · {formatDate(file.created_at)}</div></div>
+                                  <div className="grid h-8 w-8 place-items-center rounded-lg border bg-white text-slate-500">
+                                    {file.icon_link ? (
+                                      <img src={file.icon_link} alt="" className="h-5 w-5" />
+                                    ) : (
+                                      <Paperclip className="h-4 w-4" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="truncate text-sm font-extrabold text-slate-900">
+                                      {file.name}
+                                    </div>
+                                    <div className="text-xs font-semibold text-slate-500">
+                                      {formatBytes(file.size_bytes)} · {formatDate(file.created_at)}
+                                    </div>
+                                  </div>
                                 </div>
                                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                  {previewUrl ? <Button size="sm" variant="outline" onClick={() => setPreviewFile({ url: previewUrl, title: file.name })}>Preview</Button> : null}
-                                  {url ? <Button size="sm" variant="outline" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1.5 h-3.5 w-3.5" />Open</a></Button> : null}
-                                  <Button size="sm" variant="outline" onClick={() => void copyFileLink(file)}><Copy className="mr-1.5 h-3.5 w-3.5" />Copy</Button>
-                                  {onDeleteDriveFile ? <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => void onDeleteDriveFile(file)}><Trash2 className="h-4 w-4" /></Button> : <Button size="icon" variant="ghost" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>}
+                                  {previewUrl ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        setPreviewFile({ url: previewUrl, title: file.name })
+                                      }
+                                    >
+                                      Preview
+                                    </Button>
+                                  ) : null}
+                                  {url ? (
+                                    <Button size="sm" variant="outline" asChild>
+                                      <a href={url} target="_blank" rel="noreferrer">
+                                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                                        Open
+                                      </a>
+                                    </Button>
+                                  ) : null}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void copyFileLink(file)}
+                                  >
+                                    <Copy className="mr-1.5 h-3.5 w-3.5" />
+                                    Copy
+                                  </Button>
+                                  {onDeleteDriveFile ? (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8 text-red-600"
+                                      onClick={() => void onDeleteDriveFile(file)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
+                                    <Button size="icon" variant="ghost" className="h-8 w-8">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -876,10 +2486,26 @@ export function TaskDetailDialog({
         <DialogContent className="h-[92dvh] w-[calc(100vw-20px)] max-w-[1040px] gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-2xl">
           <DialogTitle className="sr-only">Preview de archivo</DialogTitle>
           <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-            <div className="min-w-0"><div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Preview de Drive</div><div className="truncate text-sm font-semibold text-slate-900">{previewFile?.title || "Archivo"}</div></div>
-            <Button type="button" variant="outline" size="sm" onClick={() => setPreviewFile(null)}>Cerrar</Button>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                Preview de Drive
+              </div>
+              <div className="truncate text-sm font-semibold text-slate-900">
+                {previewFile?.title || "Archivo"}
+              </div>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => setPreviewFile(null)}>
+              Cerrar
+            </Button>
           </div>
-          {previewFile?.url ? <iframe src={previewFile.url} title={previewFile.title || "Preview de Drive"} className="h-[calc(92dvh-57px)] w-full border-0 bg-slate-100" allow="autoplay" /> : null}
+          {previewFile?.url ? (
+            <iframe
+              src={previewFile.url}
+              title={previewFile.title || "Preview de Drive"}
+              className="h-[calc(92dvh-57px)] w-full border-0 bg-slate-100"
+              allow="autoplay"
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

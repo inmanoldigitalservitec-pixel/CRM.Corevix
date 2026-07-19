@@ -63,7 +63,6 @@ function ToolbarButton({
   );
 }
 
-
 const GOOGLE_FONTS = [
   "Arial",
   "Inter",
@@ -198,7 +197,6 @@ export function DocumentBuilderTest() {
   const [serviceName, setServiceName] = useState("Desarrollo Web Express");
   const [amount, setAmount] = useState("RD$ 25,000");
   const [validUntil, setValidUntil] = useState("30 días");
-
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -408,23 +406,38 @@ export function DocumentBuilderTest() {
             ))}
           </select>
 
-          <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+          <ToolbarButton
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          >
             <strong>B</strong>
           </ToolbarButton>
 
-          <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+          <ToolbarButton
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          >
             <em>I</em>
           </ToolbarButton>
 
-          <ToolbarButton active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+          <ToolbarButton
+            active={editor.isActive("heading", { level: 1 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          >
             H1
           </ToolbarButton>
 
-          <ToolbarButton active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+          <ToolbarButton
+            active={editor.isActive("heading", { level: 2 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          >
             H2
           </ToolbarButton>
 
-          <ToolbarButton active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+          <ToolbarButton
+            active={editor.isActive("bulletList")}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+          >
             Lista
           </ToolbarButton>
 
@@ -477,27 +490,47 @@ export function DocumentBuilderTest() {
             <div className="mt-3 space-y-3">
               <label className="block text-xs">
                 Cliente
-                <input className="mt-1 w-full rounded border bg-white px-2 py-1.5" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border bg-white px-2 py-1.5"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
               </label>
 
               <label className="block text-xs">
                 Empresa
-                <input className="mt-1 w-full rounded border bg-white px-2 py-1.5" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border bg-white px-2 py-1.5"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                />
               </label>
 
               <label className="block text-xs">
                 Servicio
-                <input className="mt-1 w-full rounded border bg-white px-2 py-1.5" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border bg-white px-2 py-1.5"
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                />
               </label>
 
               <label className="block text-xs">
                 Monto
-                <input className="mt-1 w-full rounded border bg-white px-2 py-1.5" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border bg-white px-2 py-1.5"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
               </label>
 
               <label className="block text-xs">
                 Validez
-                <input className="mt-1 w-full rounded border bg-white px-2 py-1.5" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border bg-white px-2 py-1.5"
+                  value={validUntil}
+                  onChange={(e) => setValidUntil(e.target.value)}
+                />
               </label>
             </div>
           </div>

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Mail, MessageCircleMore, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/crm/empty-state";
-import { ProjectConversationList, type ProjectConversationItem } from "@/components/projects/project-conversation-list";
+import {
+  ProjectConversationList,
+  type ProjectConversationItem,
+} from "@/components/projects/project-conversation-list";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
@@ -90,7 +93,9 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 function normalizeEmail(value: unknown) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizePhone(value: unknown) {
@@ -236,7 +241,8 @@ function buildWhatsappItem(
     preview: row.last_message || null,
     status: row.conversation_status || null,
     unreadCount: Number(row.unread_count || 0),
-    lastActivityAt: row.last_message_at || row.conversation_updated_at || row.conversation_created_at || null,
+    lastActivityAt:
+      row.last_message_at || row.conversation_updated_at || row.conversation_created_at || null,
     matchReason: whatsappMatchReason(row, leadId, phoneSet, matchedByProposal),
   };
 }
@@ -439,7 +445,9 @@ export function ProjectConversationsPanel({
     });
 
     setItems(nextItems);
-    setSelected((current) => nextItems.find((item) => item.id === current?.id) || nextItems[0] || null);
+    setSelected(
+      (current) => nextItems.find((item) => item.id === current?.id) || nextItems[0] || null,
+    );
     setLoading(false);
   }, [clientId, dealId, leadId, profile?.company_id]);
 
@@ -498,7 +506,9 @@ export function ProjectConversationsPanel({
         const conversationId = selected.id.replace("email:", "");
         const { data, error } = await db
           .from("email_messages")
-          .select("id,direction,sender,recipient,from_email,to_email,subject,body,body_html,snippet,sent_at,created_at")
+          .select(
+            "id,direction,sender,recipient,from_email,to_email,subject,body,body_html,snippet,sent_at,created_at",
+          )
           .eq("conversation_id", conversationId)
           .order("created_at", { ascending: true })
           .limit(120);
@@ -641,7 +651,13 @@ export function ProjectConversationsPanel({
                           </p>
 
                           <p className="mt-1 text-xs opacity-80">
-                            {(message.sender || message.from_email || message.recipient || message.to_email || "")
+                            {(
+                              message.sender ||
+                              message.from_email ||
+                              message.recipient ||
+                              message.to_email ||
+                              ""
+                            )
                               .toString()
                               .trim() || "Sin remitente"}
                           </p>

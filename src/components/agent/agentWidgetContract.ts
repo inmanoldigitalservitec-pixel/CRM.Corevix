@@ -69,8 +69,6 @@ export type AgentWidgetSuggestedAction = {
   payload?: Record<string, string | number | boolean | null>;
 };
 
-
-
 export type AgentWidgetRecoveryPlan = {
   case_key: string;
   case_type?: string;
@@ -88,8 +86,6 @@ export type AgentWidgetRecoveryPlan = {
   requires_confirmation: boolean;
   success_criteria: string;
 };
-
-
 
 export type AgentWidgetContractV1 = {
   schema_version: typeof AGENT_WIDGET_CONTRACT_VERSION;

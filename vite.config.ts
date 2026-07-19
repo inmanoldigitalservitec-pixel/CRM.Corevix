@@ -10,16 +10,6 @@ export default defineConfig({
   vite: {
     build: {
       chunkSizeWarningLimit: 2000,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes("tinymce") || id.includes("@tinymce")) return "proposal-builder-tinymce";
-            if (id.includes("src/components/document-builder/proposal-document-builder")) {
-              return "proposal-builder";
-            }
-          },
-        },
-      },
     },
   },
 });

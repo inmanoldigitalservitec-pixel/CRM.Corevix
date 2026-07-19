@@ -98,16 +98,17 @@ function planSummaryForCase(item: AgentAttentionItem, type: AgentPlanCaseType) {
   return `Este caso aparece entre las prioridades principales del dia. ${recommendation}`;
 }
 
-function buildReservedAgentPlan(item: AgentAttentionItem, type: AgentPlanCaseType): AgentGeneratedPlan {
+function buildReservedAgentPlan(
+  item: AgentAttentionItem,
+  type: AgentPlanCaseType,
+): AgentGeneratedPlan {
   return {
     title: "Reserved for future agent",
     summary:
       "El sistema detectó este caso, pero no generó un plan automático. El agente futuro deberá crear el plan de sanación.",
     actions: item.actions || [],
     rationale:
-      item.urgencyReason ||
-      item.summary ||
-      "Caso detectado por el sistema de prioridades del CRM.",
+      item.urgencyReason || item.summary || "Caso detectado por el sistema de prioridades del CRM.",
   };
 }
 

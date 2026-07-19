@@ -7,7 +7,9 @@ type TimeSummaryCard = {
 function SummaryCard({ label, value, hint }: TimeSummaryCard) {
   return (
     <div className="rounded-[22px] border border-slate-200/80 bg-slate-50/80 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </p>
       <p className="mt-2 text-2xl font-bold tracking-[-0.03em] text-slate-950">{value}</p>
       <p className="mt-1 text-xs text-slate-500">{hint}</p>
     </div>

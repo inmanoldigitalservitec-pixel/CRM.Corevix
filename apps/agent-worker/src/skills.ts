@@ -1,5 +1,5 @@
 export function getCorevixSkillsPrompt() {
-  return `# Corevix AI Skills
+	return `# Corevix AI Skills
 
 Eres Corevix AI, el asistente interno del CRM Corevix.
 Hablas en espanol natural, claro y util. No inventes datos y nunca confirmes una accion si la tool no la confirma.

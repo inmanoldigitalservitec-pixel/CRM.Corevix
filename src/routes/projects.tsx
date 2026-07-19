@@ -7,10 +7,8 @@ import {
   BarChart3,
   CalendarClock,
   CheckCircle2,
-  ChevronDown,
   ChevronRight,
   CircleDot,
-  ClipboardList,
   Clock3,
   FileText,
   FolderOpen,
@@ -26,7 +24,6 @@ import {
   Ticket,
   UserRound,
   X,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,7 +42,7 @@ import { ProjectTicketsPanel } from "@/components/projects/project-tickets-panel
 import { ProjectTimesheetsPanel } from "@/components/projects/project-timesheets-panel";
 import { ProjectContractsPanel } from "@/components/projects/project-contracts-panel";
 import { ProjectNotesPanel } from "@/components/projects/project-notes-panel";
-import { DataCard } from "@/components/crm/data-card";
+import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import {
   Dialog,
   DialogContent,
@@ -76,7 +73,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { PageHeader } from "@/components/crm/page-header";
 import { Progress } from "@/components/ui/progress";
-import { SearchFilters } from "@/components/crm/search-filters";
+import { CrmDetailSelectTrigger, CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
 import {
   Select,
   SelectContent,
@@ -117,6 +114,7 @@ import {
   normalizeStatus,
 } from "@/lib/crm/status";
 import { cn } from "@/lib/utils";
+import { crmFormStyles } from "@/components/crm/crm-form-shell";
 
 export const Route = createFileRoute("/projects")({
   validateSearch: (search: Record<string, unknown>): { projectId?: string } => ({
@@ -327,7 +325,7 @@ function defaultProjectForm(): ProjectForm {
     progress: "0",
     priority: "Medium",
     budget: "",
-    start_date: "",
+    start_date: isoToday(),
     due_date: "",
     client_id: NONE,
     product_id: NONE,
@@ -335,6 +333,46 @@ function defaultProjectForm(): ProjectForm {
     lead_id: NONE,
     manager: NONE,
   };
+}
+
+type ProjectKpiTone = "neutral" | "success" | "warning" | "danger" | "info";
+
+function projectRiskTone(value: number, warningAt: number, dangerAt: number): ProjectKpiTone {
+  if (value >= dangerAt) return "danger";
+  if (value >= warningAt) return "warning";
+  return "success";
+}
+
+function ProjectKpi({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: ProjectKpiTone;
+}) {
+  const toneClass =
+    tone === "success"
+      ? "text-emerald-600"
+      : tone === "warning"
+        ? "text-orange-500"
+        : tone === "danger"
+          ? "text-rose-600"
+          : tone === "info"
+            ? "text-blue-600"
+            : "text-slate-950";
+
+  return (
+    <div className="min-w-0 border-b border-slate-100 pb-3">
+      <div className="truncate text-[11px] font-medium uppercase tracking-normal text-slate-500">
+        {label}
+      </div>
+      <div className={cn("mt-1 truncate text-2xl font-normal leading-none", toneClass)}>
+        {value}
+      </div>
+    </div>
+  );
 }
 
 function PlaceholderModule({
@@ -397,7 +435,7 @@ function ProjectMobileCard({
       type="button"
       data-demo={demo}
       onClick={onOpen}
-      className="w-full rounded-[18px] border border-slate-200 bg-white p-3.5 text-left transition-colors active:scale-[0.992] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-200 hover:border-slate-300"
+      className="w-full border-b border-slate-100 bg-white px-4 py-3 text-left transition-colors active:scale-[0.992] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-200 hover:bg-slate-50/40"
       aria-label={`Abrir proyecto ${project.name}`}
     >
       <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-2.5">
@@ -493,20 +531,10 @@ function ProjectsPage() {
   const [managerFilter, setManagerFilter] = useState("all");
   const [tasksFilter, setTasksFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [editItem, setEditItem] = useState<Project | null>(null);
   const [selected, setSelected] = useState<Project | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectForm>(defaultProjectForm);
-  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  const [taskSaving, setTaskSaving] = useState(false);
-  const [taskForm, setTaskForm] = useState({
-    title: "",
-    description: "",
-    due_date: "",
-    priority: "Medium",
-  });
-
   const {
     data: projects,
     loading: projectsLoading,
@@ -774,7 +802,6 @@ function ProjectsPage() {
     if (!can("projects.create")) return toast.error("No tienes permiso para crear proyectos");
     setEditItem(null);
     setForm(defaultProjectForm());
-    setAdvancedOpen(false);
     setDialogOpen(true);
   }
 
@@ -796,7 +823,6 @@ function ProjectsPage() {
       lead_id: project.lead_id || NONE,
       manager: resolveManagerProfileId(project.manager) || NONE,
     });
-    setAdvancedOpen(false);
     setDialogOpen(true);
   }
 
@@ -869,49 +895,20 @@ function ProjectsPage() {
   function abiertasCreateTaskForProject(project: Project) {
     if (!can("tasks.create")) return toast.error("No tienes permiso para crear tareas");
     setSelected(project);
-    setTaskForm({ title: "", description: "", due_date: isoToday(), priority: "Medium" });
-    setTaskDialogOpen(true);
-  }
-
-  async function handleCreateTaskForSelectedProject() {
-    if (!selected || !profile?.company_id) return;
-    if (!taskForm.title.trim()) return toast.error("El título es requerido");
-    setTaskSaving(true);
-    try {
-      const { error } = await (supabase as any).from("tasks").insert({
-        company_id: profile.company_id,
-        title: taskForm.title.trim(),
-        description: taskForm.description.trim() || null,
-        status: "To Do",
-        priority: taskForm.priority || "Medium",
-        due_date: taskForm.due_date || null,
-        assigned_to: resolveTaskAssigneeUserId(selected.manager),
-        related_project_id: selected.id,
-        related_client_id: selected.client_id || null,
-        related_lead_id: selected.lead_id || null,
-        related_deal_id: selected.deal_id || null,
-      });
-      if (error) throw error;
-      await fetchTasks();
-      void sendProjectNotification(
-        "Tarea de proyecto creada",
-        `${taskForm.title.trim()} fue creada desde ${selected.name || "el proyecto"}.`,
-      );
-      toast.success("Tarea creada");
-      setTaskDialogOpen(false);
-      void logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id || null,
-        action: "task_created",
-        entityType: "tasks",
-        detail: `Tarea creada desde proyecto: ${taskForm.title.trim()}`,
-        metadata: { related_project_id: selected.id },
-      }).catch(() => {});
-    } catch (error: any) {
-      toast.error(error?.message || "No se pudo crear la tarea.");
-    } finally {
-      setTaskSaving(false);
-    }
+    window.dispatchEvent(
+      new CustomEvent("corevix:open-task-create", {
+        detail: {
+          initialValues: {
+            dueDate: isoToday(),
+            assignedTo: resolveTaskAssigneeUserId(project.manager) || undefined,
+            projectId: project.id,
+            clientId: project.client_id || undefined,
+            leadId: project.lead_id || undefined,
+            dealId: project.deal_id || undefined,
+          },
+        },
+      }),
+    );
   }
 
   async function completeTask(task: TaskRow) {
@@ -934,284 +931,348 @@ function ProjectsPage() {
 
   if (loading) return <LoadingState />;
 
-  return (
-    <div data-demo="projects-main" className="space-y-5 p-4 sm:p-6">
-      <PageHeader
-        title="Proyectos"
-        subtitle="Workspace operativo para clientes, entregas, tareas y futuros módulos."
-        actionLabel={can("projects.create") ? "Add Project" : undefined}
-        onAction={can("projects.create") ? abiertasNewProject : undefined}
-      />
+  const mobileStatusFilters = [
+    { value: "all", label: "Todos los estados" },
+    ...PROJECT_STATUSES.map((status) => ({ value: status, label: displayLabel(status) })),
+  ];
+  const mobileTaskFilters = [
+    { value: "all", label: "Todas las tareas" },
+    { value: "overdue", label: "Tareas vencidas" },
+    { value: "in_progress", label: "Con tareas abiertas" },
+    { value: "completed", label: "Tareas completas" },
+    { value: "no_tasks", label: "Sin tareas" },
+  ];
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          { label: "Total", value: kpis.total, icon: FolderOpen, tone: "text-slate-600" },
-          { label: "Activos", value: kpis.active, icon: Zap, tone: "text-blue-600" },
-          { label: "En riesgo", value: kpis.risky, icon: AlertTriangle, tone: "text-rose-600" },
-          {
-            label: "Completados",
-            value: kpis.completed,
-            icon: CheckCircle2,
-            tone: "text-emerald-600",
-          },
-          {
-            label: "Vencidos",
-            value: kpis.overdue,
-            icon: CalendarClock,
-            tone: "text-orange-600",
-          },
-          {
-            label: "Tareas abiertas",
-            value: kpis.abiertasTasks,
-            icon: ClipboardList,
-            tone: "text-amber-700",
-          },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.label}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Icon className={`h-4 w-4 shrink-0 ${item.tone}`} />
-                  <span className="truncate text-[11px] font-bold leading-4 text-muted-foreground">
-                    {item.label}
-                  </span>
-                </div>
-                <div className="shrink-0 text-[17px] font-semibold leading-none text-slate-950">
-                  {item.value}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+  return (
+    <div data-demo="projects-main" className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
+      <div className="hidden md:block">
+        <PageHeader
+          title="Proyectos"
+          subtitle="Workspace operativo para clientes, entregas, tareas y futuros módulos."
+        />
       </div>
 
-      <DataCard
-        noPadding
-        className="border-0 bg-transparent shadow-none md:border-border/40 md:bg-card md:shadow-sm"
+      <GlobalKpiStrip
+        title="Proyectos"
+        subtitle="Entregas, tareas y progreso operativo"
+        actionLabel={can("projects.create") ? "Nuevo proyecto" : undefined}
+        onAction={can("projects.create") ? abiertasNewProject : undefined}
+        actionIcon={<Plus className="h-3.5 w-3.5" />}
+        items={[
+          {
+            key: "projects-summary",
+            label: "Activos",
+            value: kpis.active,
+            helper: `${filtered.length} visibles de ${kpis.total} proyectos`,
+            icon: FolderOpen,
+            tone: "blue",
+            meta: [
+              { label: "Riesgo", value: kpis.risky, tone: "red" },
+              { label: "Vencidos", value: kpis.overdue, tone: "orange" },
+              { label: "Abiertas", value: kpis.abiertasTasks, tone: "teal" },
+            ],
+          },
+        ]}
       >
-        <div data-demo="projects-list" className="space-y-4 md:p-5">
-          <SearchFilters
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Search projects..."
-            mobileCollapsible
-            mobileFiltersLabel="Filtros"
-            filters={[
-              {
-                key: "status",
-                placeholder: "Estado",
-                value: statusFilter,
-                onChange: setStatusFilter,
-                options: PROJECT_STATUSES.map((s) => ({ label: displayLabel(s), value: s })),
-              },
-              {
-                key: "client",
-                placeholder: "Client",
-                value: clientFilter,
-                onChange: setClientFilter,
-                options: clientOptions,
-                width: "w-56",
-              },
-              {
-                key: "product",
-                placeholder: "Producto",
-                value: productFilter,
-                onChange: setProductFilter,
-                options: productOptions,
-                width: "w-56",
-              },
-              {
-                key: "manager",
-                placeholder: "Manager",
-                value: managerFilter,
-                onChange: setManagerFilter,
-                options: managerOptions,
-                width: "w-56",
-              },
-              {
-                key: "tasks",
-                placeholder: "Tareas",
-                value: tasksFilter,
-                onChange: setTasksFilter,
-                options: [
-                  { label: "Overdue", value: "overdue" },
-                  { label: "In progress", value: "in_progress" },
-                  { label: "Completed", value: "completed" },
-                  { label: "No tasks", value: "no_tasks" },
-                ],
-                width: "w-44",
-              },
-            ]}
-          />
+        <div className="mt-2 grid w-full grid-cols-2 gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileStatusFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={tasksFilter} onValueChange={setTasksFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileTaskFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </GlobalKpiStrip>
 
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<FolderOpen className="h-6 w-6" />}
-              title="No hay proyectos"
-              description="Crea tu primer proyecto."
-              actionLabel="Add Project"
-              onAction={abiertasNewProject}
+      <div className="hidden grid-cols-2 gap-x-8 gap-y-4 md:grid lg:grid-cols-6">
+        <ProjectKpi label="Total" value={kpis.total} />
+        <ProjectKpi label="Activos" value={kpis.active} tone="info" />
+        <ProjectKpi label="En riesgo" value={kpis.risky} tone={projectRiskTone(kpis.risky, 1, 3)} />
+        <ProjectKpi label="Completados" value={kpis.completed} tone="success" />
+        <ProjectKpi
+          label="Vencidos"
+          value={kpis.overdue}
+          tone={projectRiskTone(kpis.overdue, 1, 3)}
+        />
+        <ProjectKpi
+          label="Tareas abiertas"
+          value={kpis.abiertasTasks}
+          tone={projectRiskTone(kpis.abiertasTasks, 5, 12)}
+        />
+      </div>
+
+      <section
+        data-demo="projects-list"
+        className="overflow-hidden border-y border-slate-100 bg-white max-md:border-0"
+      >
+        <div className="hidden flex-col gap-3 border-b border-slate-100 px-4 py-3 md:flex xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {can("projects.create") ? (
+              <CrmDetailLineButton
+                icon={<Plus className="h-4 w-4" />}
+                onClick={abiertasNewProject}
+                className="h-9 rounded-full border-blue-600 bg-blue-600 px-3 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+              >
+                Nuevo proyecto
+              </CrmDetailLineButton>
+            ) : null}
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar proyectos..."
+              className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
-          ) : (
-            <>
-              <div className="grid gap-2.5 md:hidden">
-                {filtered.map((project, index) => {
-                  const meta = projectMeta(project);
-                  return (
-                    <ProjectMobileCard
-                      key={project.id}
-                      project={project}
-                      meta={meta}
-                      owner={managerName(project.manager)}
-                      demo={index === 0 ? "projects-first-row" : undefined}
-                      onOpen={() => setSelected(project)}
-                    />
-                  );
-                })}
-              </div>
+          </div>
 
-              <div className="hidden md:block md:-mx-5">
-                <Table className="projects-list-table">
-                  <TableHeader className="projects-list-table__head">
-                    <TableRow>
-                      <TableHead className="pl-4 sm:pl-5">Proyecto</TableHead>
-                      <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="hidden md:table-cell">Progreso</TableHead>
-                      <TableHead className="hidden xl:table-cell">Responsable</TableHead>
-                      <TableHead className="hidden lg:table-cell">Cronograma</TableHead>
-                      <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">
-                        Budget
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((project, index) => {
-                      const meta = projectMeta(project);
-                      const clientName = meta.client?.company_name || "Sin cliente";
-                      const productName = meta.product?.name || "Sin producto";
-                      const owner = managerName(project.manager);
-                      return (
-                        <TableRow
-                          key={project.id}
-                          data-demo={index === 0 ? "projects-first-row" : undefined}
-                          className="cursor-pointer align-top hover:bg-muted/40"
-                          onClick={() => setSelected(project)}
-                        >
-                          <TableCell className="pl-4 sm:pl-5">
-                            <div className="flex min-w-0 items-start gap-3 sm:min-w-[320px]">
-                              <div
-                                className={`grid h-12 w-12 shrink-0 place-items-center rounded-[18px] border font-bold shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}
-                              >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Estado" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {PROJECT_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {displayLabel(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={clientFilter} onValueChange={setClientFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="Cliente" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los clientes</SelectItem>
+                {clientOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={productFilter} onValueChange={setProductFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="Producto" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los productos</SelectItem>
+                {productOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={managerFilter} onValueChange={setManagerFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="Responsable" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los responsables</SelectItem>
+                {managerOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={tasksFilter} onValueChange={setTasksFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Tareas" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las tareas</SelectItem>
+                <SelectItem value="overdue">Vencidas</SelectItem>
+                <SelectItem value="in_progress">Abiertas</SelectItem>
+                <SelectItem value="completed">Completas</SelectItem>
+                <SelectItem value="no_tasks">Sin tareas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={<FolderOpen className="h-6 w-6" />}
+            title="No hay proyectos"
+            description="Crea tu primer proyecto."
+            actionLabel={can("projects.create") ? "Nuevo proyecto" : undefined}
+            onAction={can("projects.create") ? abiertasNewProject : undefined}
+          />
+        ) : (
+          <>
+            <div className="grid gap-2.5 md:hidden">
+              {filtered.map((project, index) => {
+                const meta = projectMeta(project);
+                return (
+                  <ProjectMobileCard
+                    key={project.id}
+                    project={project}
+                    meta={meta}
+                    owner={managerName(project.manager)}
+                    demo={index === 0 ? "projects-first-row" : undefined}
+                    onOpen={() => setSelected(project)}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block">
+              <Table className="projects-list-table">
+                <TableHeader className="bg-white">
+                  <TableRow>
+                    <TableHead className="pl-4 sm:pl-5">Proyecto</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="hidden md:table-cell">Progreso</TableHead>
+                    <TableHead className="hidden xl:table-cell">Responsable</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cronograma</TableHead>
+                    <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">
+                      Budget
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((project, index) => {
+                    const meta = projectMeta(project);
+                    const clientName = meta.client?.company_name || "Sin cliente";
+                    const productName = meta.product?.name || "Sin producto";
+                    const owner = managerName(project.manager);
+                    return (
+                      <TableRow
+                        key={project.id}
+                        data-demo={index === 0 ? "projects-first-row" : undefined}
+                        className="cursor-pointer align-top hover:bg-slate-50/40"
+                        onClick={() => setSelected(project)}
+                      >
+                        <TableCell className="pl-4 sm:pl-5">
+                          <div className="flex min-w-0 items-start gap-3 sm:min-w-[320px]">
+                            <div
+                              className={`grid h-12 w-12 shrink-0 place-items-center rounded-full border font-medium shadow-none sm:h-11 sm:w-11 ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}
+                            >
+                              {meta.hasRisk ? (
+                                <AlertTriangle className="h-5 w-5" />
+                              ) : (
+                                <span className="text-xs">{initials(project.name)}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <div className="truncate text-[15px] font-normal text-slate-950">
+                                  {project.name}
+                                </div>
                                 {meta.hasRisk ? (
-                                  <AlertTriangle className="h-5 w-5" />
-                                ) : (
-                                  <span className="text-xs">{initials(project.name)}</span>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <div className="truncate text-[15px] font-semibold text-slate-950">
-                                    {project.name}
-                                  </div>
-                                  {meta.hasRisk ? (
-                                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                                      Riesgo
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <div className="mt-1 truncate text-[12.5px] text-muted-foreground">
-                                  {clientName} · {meta.deal?.name || "Sin oportunidad"}
-                                </div>
-                                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                                    <Package className="h-3 w-3" />
-                                    {productName}
+                                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+                                    Riesgo
                                   </span>
-                                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:hidden">
-                                    <UserRound className="h-3 w-3" />
-                                    {owner}
-                                  </span>
-                                </div>
+                                ) : null}
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            <div className="max-w-[240px]">
-                              <div className="truncate text-sm font-medium">{clientName}</div>
-                              <div className="mt-1 truncate text-xs text-muted-foreground">
-                                {productName}
+                              <div className="mt-1 truncate text-[12.5px] text-muted-foreground">
+                                {clientName} · {meta.deal?.name || "Sin oportunidad"}
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell data-demo={index === 0 ? "projects-status" : undefined}>
-                            <StatusBadge status={project.status} />
-                          </TableCell>
-                          <TableCell
-                            data-demo={index === 0 ? "projects-progress" : undefined}
-                            className="hidden md:table-cell"
-                          >
-                            <div className="min-w-[150px]">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="font-semibold">{meta.stats.pct}%</span>
-                                <span className="text-muted-foreground">
-                                  {meta.stats.total
-                                    ? `${meta.stats.completed}/${meta.stats.total}`
-                                    : "Sin tareas"}
+                              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-none">
+                                  <Package className="h-3 w-3" />
+                                  {productName}
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-none md:hidden">
+                                  <UserRound className="h-3 w-3" />
+                                  {owner}
                                 </span>
                               </div>
-                              <Progress value={meta.stats.pct} className="mt-2 h-2" />
-                              {meta.stats.overdue ? (
-                                <div className="mt-1 text-[11px] font-medium text-rose-700">
-                                  {meta.stats.overdue} vencidas
-                                </div>
-                              ) : null}
                             </div>
-                          </TableCell>
-                          <TableCell className="hidden xl:table-cell">
-                            <div className="flex items-center gap-2">
-                              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-                                {initials(owner)}
-                              </div>
-                              <div className="max-w-[160px] truncate text-sm">{owner}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="max-w-[240px]">
+                            <div className="truncate text-sm font-normal">{clientName}</div>
+                            <div className="mt-1 truncate text-xs text-muted-foreground">
+                              {productName}
                             </div>
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            <div className="space-y-1 text-sm">
-                              <div className="flex items-center gap-1.5 text-muted-foreground">
-                                <CalendarClock className="h-3.5 w-3.5" />
-                                Inicio: {formatDate(project.start_date)}
-                              </div>
-                              <div
-                                className={
-                                  meta.isOverdue
-                                    ? "flex items-center gap-1.5 font-medium text-rose-700"
-                                    : "flex items-center gap-1.5 text-muted-foreground"
-                                }
-                              >
-                                <CircleDot className="h-3.5 w-3.5" />
-                                Entrega: {formatDate(project.due_date)}
-                              </div>
+                          </div>
+                        </TableCell>
+                        <TableCell data-demo={index === 0 ? "projects-status" : undefined}>
+                          <StatusBadge status={project.status} />
+                        </TableCell>
+                        <TableCell
+                          data-demo={index === 0 ? "projects-progress" : undefined}
+                          className="hidden md:table-cell"
+                        >
+                          <div className="min-w-[150px]">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-normal">{meta.stats.pct}%</span>
+                              <span className="text-muted-foreground">
+                                {meta.stats.total
+                                  ? `${meta.stats.completed}/${meta.stats.total}`
+                                  : "Sin tareas"}
+                              </span>
                             </div>
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5">
-                            <div className="font-semibold">{formatMoney(project.budget)}</div>
-                            <div className="text-[11px] text-muted-foreground">presupuesto</div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
-        </div>
-      </DataCard>
+                            <Progress value={meta.stats.pct} className="mt-2 h-2" />
+                            {meta.stats.overdue ? (
+                              <div className="mt-1 text-[11px] font-normal text-rose-700">
+                                {meta.stats.overdue} vencidas
+                              </div>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell">
+                          <div className="flex items-center gap-2">
+                            <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+                              {initials(owner)}
+                            </div>
+                            <div className="max-w-[160px] truncate text-sm">{owner}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Inicio: {formatDate(project.start_date)}
+                            </div>
+                            <div
+                              className={
+                                meta.isOverdue
+                                  ? "flex items-center gap-1.5 font-medium text-rose-700"
+                                  : "flex items-center gap-1.5 text-muted-foreground"
+                              }
+                            >
+                              <CircleDot className="h-3.5 w-3.5" />
+                              Entrega: {formatDate(project.due_date)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5">
+                          <div className="font-normal">{formatMoney(project.budget)}</div>
+                          <div className="text-[11px] text-muted-foreground">presupuesto</div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
+      </section>
 
       <Dialog
         open={dialogOpen}
@@ -1219,29 +1280,44 @@ function ProjectsPage() {
           setDialogOpen(open);
           if (!open) {
             setEditItem(null);
-            setAdvancedOpen(false);
           }
         }}
       >
-        <DialogContent className="max-w-3xl overflow-hidden p-0">
-          <DialogHeader className="border-b bg-white px-6 py-5">
-            <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">
-              {editItem ? "Editar proyecto" : "Nuevo proyecto"}
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none sm:h-auto sm:max-h-[90vh] sm:w-[calc(100vw-2rem)] sm:max-w-3xl sm:rounded-2xl sm:border sm:border-slate-200">
+          <DialogHeader className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 pr-14 text-left sm:px-6">
+            <DialogTitle className="text-xl font-normal tracking-normal text-slate-950">
+              {editItem ? "Editar proyecto" : "Añadir nuevo proyecto"}
             </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Crea un trabajo claro para ejecutar con cliente, responsable, entrega y alcance.
-            </p>
+            <DialogDescription className="text-sm font-normal text-slate-500">
+              Completa lo esencial primero. La configuración puede quedar para después.
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="max-h-[72vh] space-y-5 overflow-y-auto px-6 py-5">
-              <div className="rounded-3xl border bg-gradient-to-br from-blue-50/80 via-white to-white p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Información principal
-                </div>
-                <div className="mt-4 space-y-4">
+
+          <form onSubmit={handleSubmit} className="min-h-0 flex-1 bg-white">
+            <Tabs defaultValue="project" className="flex h-full min-h-0 flex-col">
+              <TabsList className="h-auto justify-start rounded-none border-b border-slate-100 bg-transparent px-4 py-0 sm:px-6">
+                <TabsTrigger
+                  value="project"
+                  className="rounded-none border-b-2 border-transparent px-3 py-3 text-sm font-normal data-[state=active]:border-slate-950 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Proyecto
+                </TabsTrigger>
+                <TabsTrigger
+                  value="settings"
+                  className="rounded-none border-b-2 border-transparent px-3 py-3 text-sm font-normal data-[state=active]:border-slate-950 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Configuración
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+                <TabsContent value="project" className="m-0 space-y-4">
                   <div className="space-y-1.5">
-                    <Label>Nombre del proyecto</Label>
+                    <Label className={crmFormStyles.label}>
+                      <span className="text-rose-600">*</span> Nombre del proyecto
+                    </Label>
                     <Input
+                      className={crmFormStyles.input}
                       value={form.name}
                       onChange={(event) =>
                         setForm((current) => ({ ...current, name: event.target.value }))
@@ -1249,14 +1325,50 @@ function ProjectsPage() {
                       required
                     />
                   </div>
+
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <ProjectSelect
                       label="Cliente"
                       value={form.client_id}
                       onChange={(value) => setForm((current) => ({ ...current, client_id: value }))}
                       options={clientOptions}
-                      noneLabel="Sin cliente"
+                      noneLabel="Selecciona o deja sin cliente"
                     />
+                    <ProjectSelect
+                      label="Responsable"
+                      value={form.manager}
+                      onChange={(value) => setForm((current) => ({ ...current, manager: value }))}
+                      options={managerOptions}
+                      noneLabel="Sin asignar"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Fecha de inicio</Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        type="date"
+                        value={form.start_date}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, start_date: event.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Fecha de entrega</Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        type="date"
+                        value={form.due_date}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, due_date: event.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <ProjectSelect
                       label="Producto o servicio"
                       value={form.product_id}
@@ -1267,149 +1379,111 @@ function ProjectsPage() {
                       noneLabel="Sin producto"
                     />
                     <ProjectSelect
-                      label="Responsable"
-                      value={form.manager}
-                      onChange={(value) => setForm((current) => ({ ...current, manager: value }))}
-                      options={managerOptions}
-                      noneLabel="Sin asignar"
+                      label="Estado inicial"
+                      value={form.status}
+                      onChange={(value) => setForm((current) => ({ ...current, status: value }))}
+                      options={PROJECT_STATUSES.map((item) => ({
+                        label: displayLabel(item),
+                        value: item,
+                      }))}
+                      noneLabel="No iniciado"
+                      hideNone
                     />
-                    <div className="space-y-1.5">
-                      <Label>Fecha de entrega</Label>
-                      <Input
-                        type="date"
-                        value={form.due_date}
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, due_date: event.target.value }))
-                        }
-                      />
-                    </div>
                   </div>
+
                   <div className="space-y-1.5">
-                    <Label>Alcance / descripción</Label>
+                    <Label className={crmFormStyles.label}>Descripción</Label>
                     <Textarea
+                      className={crmFormStyles.textarea}
                       value={form.description}
                       onChange={(event) =>
                         setForm((current) => ({ ...current, description: event.target.value }))
                       }
-                      rows={3}
+                      rows={6}
+                      placeholder="Alcance, entregables, notas del cliente o cualquier detalle importante."
                     />
                   </div>
-                </div>
+                </TabsContent>
+
+                <TabsContent value="settings" className="m-0 space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <ProjectSelect
+                      label="Oportunidad relacionada"
+                      value={form.deal_id}
+                      onChange={(value) => setForm((current) => ({ ...current, deal_id: value }))}
+                      options={dealOptions}
+                      noneLabel="Sin oportunidad"
+                    />
+                    <ProjectSelect
+                      label="Lead relacionado"
+                      value={form.lead_id}
+                      onChange={(value) => setForm((current) => ({ ...current, lead_id: value }))}
+                      options={leadOptions}
+                      noneLabel="Sin lead"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <ProjectSelect
+                      label="Prioridad"
+                      value={form.priority}
+                      onChange={(value) => setForm((current) => ({ ...current, priority: value }))}
+                      options={PRIORITIES.map((item) => ({
+                        label: displayLabel(item),
+                        value: item,
+                      }))}
+                      noneLabel="Media"
+                      hideNone
+                    />
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Presupuesto ($)</Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        type="number"
+                        min="0"
+                        value={form.budget}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, budget: event.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Progreso manual (%)</Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={form.progress}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, progress: event.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
               </div>
 
-              <div className="rounded-3xl border bg-white">
-                <button
-                  type="button"
-                  onClick={() => setAdvancedOpen((value) => !value)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left"
-                >
-                  <div>
-                    <div className="text-sm font-semibold">Opciones avanzadas</div>
-                    <div className="text-xs text-muted-foreground">
-                      Oportunidad, lead, estado, progreso, presupuesto y fecha de inicio.
-                    </div>
-                  </div>
-                  <ChevronDown
-                    className={
-                      "h-4 w-4 text-muted-foreground transition-transform " +
-                      (advancedOpen ? "rotate-180" : "")
-                    }
-                  />
-                </button>
-                {advancedOpen ? (
-                  <div className="space-y-4 border-t px-4 py-4">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <ProjectSelect
-                        label="Oportunidad relacionada"
-                        value={form.deal_id}
-                        onChange={(value) => setForm((current) => ({ ...current, deal_id: value }))}
-                        options={dealOptions}
-                        noneLabel="Sin oportunidad"
-                      />
-                      <ProjectSelect
-                        label="Lead relacionado"
-                        value={form.lead_id}
-                        onChange={(value) => setForm((current) => ({ ...current, lead_id: value }))}
-                        options={leadOptions}
-                        noneLabel="Sin lead"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <ProjectSelect
-                        label="Prioridad"
-                        value={form.priority}
-                        onChange={(value) =>
-                          setForm((current) => ({ ...current, priority: value }))
-                        }
-                        options={PRIORITIES.map((item) => ({
-                          label: displayLabel(item),
-                          value: item,
-                        }))}
-                        noneLabel="Media"
-                        hideNone
-                      />
-                      <div className="space-y-1.5">
-                        <Label>Presupuesto ($)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={form.budget}
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, budget: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Fecha inicio</Label>
-                        <Input
-                          type="date"
-                          value={form.start_date}
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, start_date: event.target.value }))
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <ProjectSelect
-                        label="Estado"
-                        value={form.status}
-                        onChange={(value) => setForm((current) => ({ ...current, status: value }))}
-                        options={PROJECT_STATUSES.map((item) => ({
-                          label: displayLabel(item),
-                          value: item,
-                        }))}
-                        noneLabel="No iniciado"
-                        hideNone
-                      />
-                      <div className="space-y-1.5">
-                        <Label>Progreso manual (%)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={form.progress}
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, progress: event.target.value }))
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
+              <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <p className="text-xs font-medium text-slate-500">
+                  Solo el nombre es obligatorio. Puedes completar los demás datos cuando avance el
+                  proyecto.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={crmFormStyles.cancelButton}
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className={crmFormStyles.primaryButton}>
+                    {editItem ? "Guardar cambios" : "Guardar"}
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center justify-between border-t bg-white px-6 py-4">
-              <p className="text-xs text-muted-foreground">
-                Los módulos avanzados quedan preparados como placeholders dentro del workspace.
-              </p>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit">{editItem ? "Guardar cambios" : "Crear proyecto"}</Button>
-              </div>
-            </div>
+            </Tabs>
           </form>
         </DialogContent>
       </Dialog>
@@ -1457,81 +1531,6 @@ function ProjectsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog
-        open={taskDialogOpen}
-        onOpenChange={(open) => {
-          setTaskDialogOpen(open);
-          if (!open) setTaskForm({ title: "", description: "", due_date: "", priority: "Medium" });
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nueva tarea</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleCreateTaskForSelectedProject();
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label>Título</Label>
-              <Input
-                value={taskForm.title}
-                onChange={(event) =>
-                  setTaskForm((current) => ({ ...current, title: event.target.value }))
-                }
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Descripción</Label>
-              <Textarea
-                value={taskForm.description}
-                onChange={(event) =>
-                  setTaskForm((current) => ({ ...current, description: event.target.value }))
-                }
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={taskForm.due_date}
-                  onChange={(event) =>
-                    setTaskForm((current) => ({ ...current, due_date: event.target.value }))
-                  }
-                />
-              </div>
-              <ProjectSelect
-                label="Prioridad"
-                value={taskForm.priority}
-                onChange={(value) => setTaskForm((current) => ({ ...current, priority: value }))}
-                options={PRIORITIES.map((item) => ({ label: displayLabel(item), value: item }))}
-                noneLabel="Media"
-                hideNone
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTaskDialogOpen(false)}
-                disabled={taskSaving}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={taskSaving || !can("tasks.create")}>
-                {taskSaving ? "Creando..." : "Crear"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -1553,9 +1552,9 @@ function ProjectSelect({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label className={crmFormStyles.label}>{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
+        <SelectTrigger className={crmFormStyles.select}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -1571,7 +1570,7 @@ function ProjectSelect({
   );
 }
 
-function ProjectWorkspaceDialog({
+export function ProjectWorkspaceDialog({
   project,
   meta,
   tasks,
@@ -1698,29 +1697,29 @@ function ProjectWorkspaceDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-none md:h-[92vh] md:w-[calc(100vw-24px)] md:max-w-[1100px] md:rounded-2xl md:border md:shadow-2xl [&>button.absolute.right-4.top-4]:hidden">
+      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-none md:h-[92vh] md:w-[calc(100vw-24px)] md:max-w-[1100px] md:rounded-none md:border md:border-slate-200 md:shadow-none [&>button.absolute.right-4.top-4]:hidden">
         <DialogTitle className="sr-only">Espacio del proyecto</DialogTitle>
         <DialogDescription className="sr-only">
           Panel de detalles del proyecto con resumen, tareas, notas y modulos relacionados.
         </DialogDescription>
-        <header className="shrink-0 border-b bg-white/95 backdrop-blur md:hidden">
+        <header className="shrink-0 border-b border-slate-100 bg-white md:hidden">
           <div className="grid min-h-[58px] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 px-2.5 py-1.5">
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
               aria-label="Cerrar proyecto"
-              className="h-11 w-11 rounded-xl"
+              className="h-11 w-11 rounded-none border-b border-slate-200 shadow-none"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="min-w-0" title={project.name}>
-              <h2 className="truncate text-[16px] font-extrabold leading-5 tracking-[-0.02em] text-slate-950">
+              <h2 className="truncate text-[16px] font-normal leading-5 tracking-normal text-slate-950">
                 {project.name}
               </h2>
               <p
                 className={cn(
-                  "mt-0.5 truncate text-[11.5px] font-semibold text-slate-500",
+                  "mt-0.5 truncate text-[11.5px] font-normal text-slate-500",
                   meta.hasRisk && "text-rose-700",
                 )}
               >
@@ -1733,7 +1732,7 @@ function ProjectWorkspaceDialog({
                   variant="ghost"
                   size="icon"
                   aria-label="Acciones del proyecto"
-                  className="h-11 w-11 rounded-xl"
+                  className="h-11 w-11 rounded-none border-b border-slate-200 shadow-none"
                 >
                   <MoreHorizontal className="h-5 w-5" />
                 </Button>
@@ -1759,38 +1758,36 @@ function ProjectWorkspaceDialog({
           </div>
           <div className="px-4 pb-2.5">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 truncate text-[11.5px] font-bold text-slate-600">
+              <div className="min-w-0 truncate text-[11.5px] font-normal text-slate-500">
                 {meta.hasRisk ? (
                   <span className="text-rose-700">Riesgo activo</span>
                 ) : (
                   <span>{displayLabel(project.status)}</span>
                 )}
               </div>
-              <span className="shrink-0 text-[11.5px] font-extrabold text-slate-700">
-                {progress}%
-              </span>
+              <span className="shrink-0 text-[11.5px] font-normal text-slate-700">{progress}%</span>
             </div>
-            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full bg-blue-600" style={{ width: `${progress}%` }} />
+            <div className="mt-1.5 h-px bg-slate-100">
+              <div className="h-px bg-slate-950" style={{ width: `${progress}%` }} />
             </div>
           </div>
         </header>
 
-        <header className="hidden shrink-0 border-b bg-white px-5 py-4 md:block">
+        <header className="hidden shrink-0 border-b border-slate-100 bg-white px-5 py-4 md:block">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-xl font-extrabold tracking-[-0.025em] text-slate-900">
+                <h2 className="truncate text-xl font-normal tracking-normal text-slate-950">
                   {project.name}
                 </h2>
                 <StatusBadge status={project.status} />
                 {meta.hasRisk ? (
-                  <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700">
+                  <span className="rounded-full border border-rose-200 bg-white px-2 py-0.5 text-xs font-normal text-rose-700">
                     Riesgo
                   </span>
                 ) : null}
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-500">
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-normal text-slate-500">
                 <span>{clientName}</span>
                 <span>·</span>
                 <span>{productName}</span>
@@ -1800,39 +1797,45 @@ function ProjectWorkspaceDialog({
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {canCreateTask ? (
-                <Button onClick={onCreateTask}>
-                  <Plus className="mr-2 h-4 w-4" />
+                <CrmDetailLineButton
+                  className="h-8"
+                  icon={<Plus className="h-4 w-4" />}
+                  onClick={onCreateTask}
+                >
                   Nueva tarea
-                </Button>
+                </CrmDetailLineButton>
               ) : null}
               {canEdit ? (
-                <Button variant="outline" onClick={onEdit}>
+                <CrmDetailLineButton className="h-8" onClick={onEdit}>
                   Editar
-                </Button>
+                </CrmDetailLineButton>
               ) : null}
               {canDelete ? (
-                <Button variant="outline" className="text-red-600" onClick={onDelete}>
+                <CrmDetailLineButton className="h-8" tone="danger" onClick={onDelete}>
                   Eliminar
-                </Button>
+                </CrmDetailLineButton>
               ) : null}
-              <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                aria-label="Cerrar"
+                className="h-8 w-8 rounded-none border-b border-slate-200 shadow-none"
+              >
                 <X className="h-5 w-5" />
               </Button>
             </div>
           </div>
           <div className="mt-4 flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-emerald-500"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="h-px flex-1 bg-slate-100">
+              <div className="h-px bg-slate-950" style={{ width: `${progress}%` }} />
             </div>
-            <span className="text-sm font-bold text-slate-700">{meta.stats.pct}%</span>
+            <span className="text-sm font-normal text-slate-700">{meta.stats.pct}%</span>
           </div>
         </header>
 
         <Tabs value={activeTab} onValueChange={selectTab} className="flex min-h-0 flex-1 flex-col">
-          <div className="grid h-[52px] shrink-0 grid-cols-4 border-b bg-white md:hidden">
+          <div className="grid h-[52px] shrink-0 grid-cols-4 border-b border-slate-100 bg-white md:hidden">
             {[
               { value: "overview", label: "Resumen", icon: BarChart3 },
               { value: "tasks", label: "Tareas", icon: CheckCircle2 },
@@ -1846,9 +1849,9 @@ function ProjectWorkspaceDialog({
                   type="button"
                   onClick={() => selectTab(tab.value)}
                   className={cn(
-                    "relative flex min-w-0 items-center justify-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
+                    "relative flex min-w-0 items-center justify-center gap-1.5 px-1 text-[11px] font-normal text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
                     active &&
-                      "text-blue-600 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-t-full after:bg-blue-600",
+                      "text-slate-950 after:absolute after:inset-x-3 after:bottom-0 after:h-px after:bg-slate-950",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -1860,9 +1863,9 @@ function ProjectWorkspaceDialog({
               type="button"
               onClick={() => setMoreOpen(true)}
               className={cn(
-                "relative flex min-w-0 items-center justify-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
+                "relative flex min-w-0 items-center justify-center gap-1.5 px-1 text-[11px] font-normal text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
                 !["overview", "tasks", "files"].includes(activeTab) &&
-                  "text-blue-600 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-t-full after:bg-blue-600",
+                  "text-slate-950 after:absolute after:inset-x-3 after:bottom-0 after:h-px after:bg-slate-950",
               )}
               aria-label="Ver más módulos"
             >
@@ -1871,7 +1874,7 @@ function ProjectWorkspaceDialog({
             </button>
           </div>
 
-          <div className="hidden shrink-0 overflow-x-auto border-b bg-slate-50 px-4 py-2 md:block">
+          <div className="hidden shrink-0 overflow-x-auto border-b border-slate-100 bg-white px-4 py-0 md:block">
             <TabsList className="inline-flex h-11 w-max justify-start gap-1 bg-transparent p-0">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -1879,7 +1882,7 @@ function ProjectWorkspaceDialog({
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="h-9 gap-2 rounded-lg px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                    className="h-11 gap-2 rounded-none border-b-2 border-transparent bg-white px-3 text-xs font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
                   >
                     <Icon className="h-4 w-4" />
                     {tab.label}
@@ -1890,7 +1893,7 @@ function ProjectWorkspaceDialog({
           </div>
           <div
             ref={contentRef}
-            className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-3 pb-[calc(1rem+env(safe-area-inset-bottom))] md:bg-white md:p-5"
+            className="min-h-0 flex-1 overflow-y-auto bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-5"
           >
             <TabsContent value="overview" className="mt-0">
               <div className="md:hidden">
@@ -1919,17 +1922,22 @@ function ProjectWorkspaceDialog({
             <TabsContent value="tasks" className="mt-0 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-extrabold text-slate-900">Tareas del proyecto</h3>
-                  <p className="text-sm font-medium text-slate-500">
+                  <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                    Tareas del proyecto
+                  </h3>
+                  <p className="mt-1 text-sm font-normal text-slate-500">
                     {meta.stats.completed}/{meta.stats.total} completadas · {meta.stats.abiertas}{" "}
                     abiertas
                   </p>
                 </div>
                 {canCreateTask ? (
-                  <Button onClick={onCreateTask}>
-                    <Plus className="mr-2 h-4 w-4" />
+                  <CrmDetailLineButton
+                    className="h-8"
+                    icon={<Plus className="h-4 w-4" />}
+                    onClick={onCreateTask}
+                  >
                     Crear tarea
-                  </Button>
+                  </CrmDetailLineButton>
                 ) : null}
               </div>
               <div className="grid gap-2.5 md:hidden">
@@ -1943,12 +1951,12 @@ function ProjectWorkspaceDialog({
                     />
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed bg-white p-5 text-center text-sm font-medium text-slate-500">
+                  <div className="border-y border-dashed border-slate-200 py-5 text-center text-sm font-normal text-slate-500">
                     Este proyecto todavía no tiene tareas.
                   </div>
                 )}
               </div>
-              <div className="hidden overflow-hidden rounded-xl border md:block">
+              <div className="hidden border-y border-slate-100 md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1964,8 +1972,8 @@ function ProjectWorkspaceDialog({
                       tasks.map((task) => (
                         <TableRow key={task.id}>
                           <TableCell>
-                            <div className="font-semibold text-slate-900">{task.title}</div>
-                            <div className="line-clamp-1 text-xs text-slate-500">
+                            <div className="font-normal text-slate-950">{task.title}</div>
+                            <div className="line-clamp-1 text-xs font-normal text-slate-500">
                               {task.description || "Sin descripción"}
                             </div>
                           </TableCell>
@@ -1976,13 +1984,12 @@ function ProjectWorkspaceDialog({
                           <TableCell>{displayLabel(task.priority)}</TableCell>
                           <TableCell className="text-right">
                             {!isClosedTaskStatusValue(task.status) && canEditTasks ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
+                              <CrmDetailLineButton
+                                className="h-8"
                                 onClick={() => onCompleteTask(task)}
                               >
                                 Completar
-                              </Button>
+                              </CrmDetailLineButton>
                             ) : null}
                           </TableCell>
                         </TableRow>
@@ -2059,22 +2066,24 @@ function ProjectWorkspaceDialog({
         <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
           <SheetContent
             side="bottom"
-            className="max-h-[78dvh] rounded-t-3xl border-t bg-white p-0 md:hidden [&>button.absolute.right-4.top-4]:hidden"
+            className="max-h-[78dvh] rounded-none border-t border-slate-200 bg-white p-0 shadow-none md:hidden [&>button.absolute.right-4.top-4]:hidden"
           >
-            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
-            <SheetHeader className="border-b px-4 py-3 text-left">
-              <SheetTitle className="text-[17px] font-extrabold tracking-[-0.02em]">
+            <div className="mx-auto mt-2 h-px w-10 bg-slate-300" />
+            <SheetHeader className="border-b border-slate-100 px-4 py-3 text-left">
+              <SheetTitle className="text-[17px] font-normal tracking-normal">
                 Más módulos
               </SheetTitle>
-              <SheetDescription>Accede a las áreas secundarias del proyecto.</SheetDescription>
+              <SheetDescription className="font-normal text-slate-500">
+                Accede a las áreas secundarias del proyecto.
+              </SheetDescription>
             </SheetHeader>
             <div className="max-h-[calc(78dvh-88px)] overflow-y-auto px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {secondaryGroups.map((group) => (
                 <section key={group.title} className="mb-5 last:mb-0">
-                  <h3 className="mb-2 px-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
+                  <h3 className="mb-2 px-1 text-[10px] font-normal uppercase tracking-wide text-slate-500">
                     {group.title}
                   </h3>
-                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                  <div className="border-y border-slate-100">
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       return (
@@ -2084,14 +2093,14 @@ function ProjectWorkspaceDialog({
                           onClick={() => selectTab(item.value)}
                           className="grid min-h-[54px] w-full grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-100 bg-white px-3 py-2 text-left last:border-b-0 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200"
                         >
-                          <span className="grid h-[34px] w-[34px] place-items-center rounded-xl bg-slate-100 text-slate-600">
+                          <span className="grid h-[34px] w-[34px] place-items-center rounded-full border border-slate-100 bg-white text-slate-600">
                             <Icon className="h-4 w-4" />
                           </span>
                           <span className="min-w-0">
-                            <span className="block truncate text-[13px] font-bold text-slate-900">
+                            <span className="block truncate text-[13px] font-normal text-slate-950">
                               {item.label}
                             </span>
-                            <span className="block truncate text-[11px] font-medium text-slate-500">
+                            <span className="block truncate text-[11px] font-normal text-slate-500">
                               {item.description}
                             </span>
                           </span>
@@ -2159,16 +2168,16 @@ function ProjectMobileOverview({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-white">
+      <div className="border-y border-slate-100">
         {primaryDetails.map(([label, value]) => (
           <div
             key={label}
             className="grid min-h-[54px] grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-3 border-b border-slate-100 px-3.5 py-2.5 last:border-b-0"
           >
-            <div className="text-xs font-semibold text-slate-500">{label}</div>
+            <div className="text-xs font-normal text-slate-500">{label}</div>
             <div
               className={cn(
-                "truncate text-right text-[13px] font-bold text-slate-900",
+                "truncate text-right text-[13px] font-normal text-slate-950",
                 label === "Fecha límite" && meta.isOverdue && "text-rose-700",
               )}
               title={value}
@@ -2180,49 +2189,46 @@ function ProjectMobileOverview({
       </div>
 
       {meta.hasRisk ? (
-        <div className="flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white text-rose-700">
+        <div className="flex items-start gap-2.5 border-b border-rose-100 pb-3">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-rose-100 bg-white text-rose-700">
             <AlertTriangle className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-extrabold text-rose-700">Requiere atención</div>
-            <p className="mt-0.5 text-[11.5px] font-medium leading-5 text-rose-700">
+            <div className="text-xs font-normal text-rose-700">Requiere atención</div>
+            <p className="mt-0.5 text-[11.5px] font-normal leading-5 text-rose-700">
               Revisa fechas y tareas vencidas para mantener el proyecto en curso.
             </p>
           </div>
         </div>
       ) : null}
 
-      <div className="rounded-[18px] border border-slate-200 bg-white p-3.5">
+      <div className="border-b border-slate-100 pb-3.5">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[13px] font-extrabold text-slate-900">Progreso del proyecto</div>
-          <div className="text-[15px] font-extrabold text-slate-900">{meta.stats.pct}%</div>
+          <div className="text-[13px] font-normal text-slate-950">Progreso del proyecto</div>
+          <div className="text-[15px] font-normal text-slate-950">{meta.stats.pct}%</div>
         </div>
         <Progress value={Math.min(100, Math.max(0, meta.stats.pct))} className="mt-2 h-1.5" />
-        <div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-500">
+        <div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-normal text-slate-500">
           <span>{taskLabel}</span>
           <span>{meta.stats.abiertas} abiertas</span>
         </div>
       </div>
 
       <Accordion type="single" collapsible>
-        <AccordionItem
-          value="details"
-          className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
-        >
-          <AccordionTrigger className="min-h-12 px-3.5 py-0 text-[12.5px] font-bold hover:no-underline">
+        <AccordionItem value="details" className="border-b border-slate-100 bg-white">
+          <AccordionTrigger className="min-h-12 px-0 py-0 text-[12.5px] font-normal hover:no-underline">
             Ver todos los detalles
           </AccordionTrigger>
-          <AccordionContent className="px-3.5 pb-3">
-            <div className="overflow-hidden rounded-xl border border-slate-100">
+          <AccordionContent className="pb-3">
+            <div className="border-y border-slate-100">
               {secondaryDetails.map(([label, value]) => (
                 <div
                   key={label}
                   className="grid min-h-[46px] grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0"
                 >
-                  <div className="text-[11.5px] font-semibold text-slate-500">{label}</div>
+                  <div className="text-[11.5px] font-normal text-slate-500">{label}</div>
                   <div
-                    className="truncate text-right text-[12.5px] font-bold text-slate-900"
+                    className="truncate text-right text-[12.5px] font-normal text-slate-950"
                     title={value}
                   >
                     {value}
@@ -2235,8 +2241,10 @@ function ProjectMobileOverview({
       </Accordion>
 
       <div>
-        <h3 className="mb-2 text-sm font-extrabold text-slate-900">Descripción</h3>
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-[12.5px] font-medium leading-6 text-slate-600">
+        <h3 className="mb-2 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+          Descripción
+        </h3>
+        <div className="border-y border-slate-100 py-3.5 text-[12.5px] font-normal leading-6 text-slate-500">
           {project.description || "No hay descripción registrada para este proyecto."}
         </div>
       </div>
@@ -2255,13 +2263,13 @@ function ProjectTaskMobileCard({
 }) {
   const canComplete = !isClosedTaskStatusValue(task.status) && canEditTasks;
   return (
-    <div className="rounded-[17px] border border-slate-200 bg-white p-3.5">
+    <div className="border-b border-slate-100 pb-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="line-clamp-2 text-[13.5px] font-extrabold leading-5 text-slate-900">
+          <h3 className="line-clamp-2 text-[13.5px] font-normal leading-5 text-slate-950">
             {task.title}
           </h3>
-          <p className="mt-1 line-clamp-2 text-[11.5px] font-medium leading-5 text-slate-500">
+          <p className="mt-1 line-clamp-2 text-[11.5px] font-normal leading-5 text-slate-500">
             {task.description || "Sin descripción"}
           </p>
         </div>
@@ -2270,7 +2278,7 @@ function ProjectTaskMobileCard({
           className="min-h-6 max-w-[96px] shrink-0 truncate rounded-full px-2.5 text-[10.5px] font-bold"
         />
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] font-semibold text-slate-500">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] font-normal text-slate-500">
         <span className="inline-flex items-center gap-1">
           <CalendarClock className="h-3.5 w-3.5" />
           {formatDate(task.due_date)}
@@ -2304,15 +2312,6 @@ function getDaysLeft(dueDate: string | null | undefined) {
   return Math.ceil((due.getTime() - today.getTime()) / 86400000);
 }
 
-function getDateProgress(startDate: string | null | undefined, dueDate: string | null | undefined) {
-  if (!startDate || !dueDate) return 0;
-  const start = new Date(`${startDate}T00:00:00`).getTime();
-  const due = new Date(`${dueDate}T00:00:00`).getTime();
-  const today = new Date(`${isoToday()}T00:00:00`).getTime();
-  if (due <= start) return 100;
-  return Math.min(100, Math.max(0, Math.round(((today - start) / (due - start)) * 100)));
-}
-
 function ProjectOverviewPanel({
   project,
   meta,
@@ -2330,24 +2329,14 @@ function ProjectOverviewPanel({
   leadName: string;
   managerName: string;
 }) {
-  const daysLeft = getDaysLeft(project.due_date);
-  const dateProgress = getDateProgress(project.start_date, project.due_date);
-  const taskProgress = meta.stats.total
-    ? Math.round((meta.stats.completed / meta.stats.total) * 100)
-    : 0;
-  const dueLabel =
-    daysLeft == null
-      ? "Sin fecha límite"
-      : daysLeft < 0
-        ? `${Math.abs(daysLeft)} días vencidos`
-        : `${daysLeft} días restantes`;
-
   return (
-    <div className="grid grid-cols-1 overflow-hidden rounded-xl border bg-white xl:grid-cols-[minmax(0,0.98fr)_minmax(420px,1.02fr)]">
-      <section className="border-b p-5 xl:border-b-0 xl:border-r">
+    <div className="grid grid-cols-1 bg-white xl:grid-cols-[minmax(0,0.98fr)_minmax(420px,1.02fr)]">
+      <section className="border-b border-slate-100 pb-5 xl:border-b-0 xl:border-r xl:pr-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-base font-extrabold text-slate-900">Resumen</h3>
-          <button type="button" className="text-xs font-bold text-blue-600 hover:text-blue-700">
+          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+            Resumen
+          </h3>
+          <button type="button" className="text-xs font-normal text-slate-500 hover:text-slate-950">
             Exportar datos del proyecto
           </button>
         </div>
@@ -2374,36 +2363,24 @@ function ProjectOverviewPanel({
           <OverviewField label="Presupuesto" value={formatMoney(project.budget)} strong />
         </div>
 
-        <div className="mt-5 border-t pt-4">
-          <h4 className="text-sm font-bold text-slate-900">Description</h4>
-          <p className="mt-2 max-w-3xl whitespace-pre-wrap text-sm leading-6 text-slate-600">
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <h4 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+            Descripción
+          </h4>
+          <p className="mt-2 max-w-3xl whitespace-pre-wrap text-sm font-normal leading-6 text-slate-500">
             {project.description || "No hay descripción registrada para este proyecto."}
           </p>
         </div>
       </section>
 
-      <section className="space-y-5 bg-slate-50/45 p-5">
+      <section className="space-y-5 bg-white pt-5 xl:pl-5 xl:pt-0">
         <div>
-          <h3 className="text-base font-extrabold text-slate-900">{project.name}</h3>
-          <p className="mt-1 text-sm font-medium text-slate-500">
+          <h3 className="text-base font-normal text-slate-950">{project.name}</h3>
+          <p className="mt-1 text-sm font-normal text-slate-500">
             Progreso del proyecto{" "}
-            <span className="font-extrabold text-slate-700">{meta.stats.pct}%</span>
+            <span className="font-normal text-slate-700">{meta.stats.pct}%</span>
           </p>
           <Progress value={meta.stats.pct} className="mt-2 h-2" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <PerformanceCard
-            title={`${meta.stats.abiertas} / ${meta.stats.total} tareas abiertas`}
-            value={`${taskProgress}%`}
-            progress={taskProgress}
-          />
-          <PerformanceCard
-            title={dueLabel}
-            value={project.due_date ? formatDate(project.due_date) : "—"}
-            progress={dateProgress}
-            danger={meta.isOverdue}
-          />
         </div>
 
         <FinanceSection
@@ -2428,10 +2405,10 @@ function ProjectOverviewPanel({
           ]}
         />
 
-        <div className="rounded-xl border bg-white p-4">
+        <div className="border-b border-slate-100 pb-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-bold text-slate-700">Horas registradas esta semana</div>
-            <div className="text-xs font-semibold text-slate-500">Esta semana</div>
+            <div className="text-sm font-normal text-slate-700">Horas registradas esta semana</div>
+            <div className="text-xs font-normal text-slate-500">Esta semana</div>
           </div>
           <div className="mt-4 grid h-24 grid-cols-7 items-end gap-2 border-b border-l px-2 pb-2">
             {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
@@ -2462,39 +2439,17 @@ function OverviewField({
   danger?: boolean;
 }) {
   return (
-    <div className="min-w-0">
-      <div className="text-xs font-semibold text-slate-500">{label}</div>
+    <div className="min-w-0 border-b border-slate-100 pb-2">
+      <div className="text-xs font-normal text-slate-500">{label}</div>
       <div
         className={
           "mt-1 truncate text-sm " +
-          (strong ? "font-extrabold " : "font-semibold ") +
-          (danger ? "text-rose-700" : "text-slate-900")
+          (strong ? "font-normal " : "font-normal ") +
+          (danger ? "text-rose-700" : "text-slate-950")
         }
       >
         {value || "—"}
       </div>
-    </div>
-  );
-}
-
-function PerformanceCard({
-  title,
-  value,
-  progress,
-  danger = false,
-}: {
-  title: string;
-  value: string;
-  progress: number;
-  danger?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border bg-white p-4">
-      <div className="text-sm font-extrabold text-slate-800">{title}</div>
-      <div className={"mt-1 text-xs font-bold " + (danger ? "text-rose-600" : "text-slate-500")}>
-        {value}
-      </div>
-      <Progress value={Math.min(100, Math.max(0, progress))} className="mt-3 h-2" />
     </div>
   );
 }
@@ -2510,16 +2465,16 @@ function FinanceSection({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
+      <div className="mb-2 flex items-center gap-2 text-sm font-normal text-slate-700">
         {icon}
         {title}
       </div>
-      <div className="grid grid-cols-2 gap-2 rounded-xl border bg-white p-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-slate-100 py-3 sm:grid-cols-4">
         {rows.map(([label, time, amount, tone]) => (
           <div key={label} className="min-w-0">
-            <div className={`text-xs font-bold ${tone}`}>{label}</div>
-            {time ? <div className="mt-1 text-sm font-semibold text-slate-700">{time}</div> : null}
-            <div className="text-sm font-extrabold text-slate-950">{amount}</div>
+            <div className={`text-xs font-normal ${tone}`}>{label}</div>
+            {time ? <div className="mt-1 text-sm font-normal text-slate-700">{time}</div> : null}
+            <div className="text-sm font-normal text-slate-950">{amount}</div>
           </div>
         ))}
       </div>

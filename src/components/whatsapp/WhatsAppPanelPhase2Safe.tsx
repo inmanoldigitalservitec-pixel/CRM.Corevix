@@ -22,7 +22,12 @@ function getGrid() {
 
 function getPanel() {
   const asides = Array.from(document.querySelectorAll<HTMLElement>("aside"));
-  return asides.find((aside) => aside.textContent?.includes("Envío rápido") || aside.querySelector('[title="Tarea"]')) || null;
+  return (
+    asides.find(
+      (aside) =>
+        aside.textContent?.includes("Envío rápido") || aside.querySelector('[title="Tarea"]'),
+    ) || null
+  );
 }
 
 function setAttr(element: HTMLElement, name: string, value: string) {
@@ -37,16 +42,18 @@ function injectStyles() {
     [data-corevix-wa-grid="true"] { min-width: 0; }
     [data-corevix-wa-grid="true"] > aside:first-child { display: none !important; }
     [data-corevix-wa-panel="true"] { overflow-x: hidden !important; scrollbar-width: thin; }
-    [data-corevix-wa-panel="true"] section { border-radius: 18px !important; box-shadow: 0 8px 18px rgba(18,35,29,.045) !important; }
-    [data-corevix-wa-main-button="true"], [data-corevix-wa-button="true"] { width: 100% !important; min-width: 0 !important; height: 36px !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important; border-radius: 13px !important; padding: 0 10px !important; white-space: nowrap !important; }
-    [data-corevix-wa-main-button="true"] { background: #00a884 !important; border: 1px solid #00a884 !important; color: #fff !important; box-shadow: 0 8px 16px rgba(0,168,132,.16) !important; }
-    [data-corevix-wa-button="true"] { background: #f7fbf9 !important; border: 1px solid #dce8e2 !important; color: #52645d !important; box-shadow: 0 5px 10px rgba(18,35,29,.035) !important; }
+    [data-corevix-wa-panel="true"] section { border-radius: 0 !important; box-shadow: none !important; }
+    [data-corevix-wa-main-button="true"], [data-corevix-wa-button="true"] { width: 100% !important; min-width: 0 !important; height: 36px !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important; border-radius: 10px !important; padding: 0 10px !important; white-space: nowrap !important; box-shadow: none !important; }
+    [data-corevix-wa-main-button="true"] { background: #2563eb !important; border: 1px solid #2563eb !important; color: #fff !important; }
+    [data-corevix-wa-main-button="true"]:hover { background: #1d4ed8 !important; border-color: #1d4ed8 !important; }
+    [data-corevix-wa-button="true"] { background: #fff !important; border: 1px solid #e2e8f0 !important; color: #475569 !important; }
+    [data-corevix-wa-button="true"]:hover { background: #f8fafc !important; color: #1d4ed8 !important; }
     [data-corevix-wa-label="true"] { pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 900; line-height: 1; }
     [data-corevix-wa-doc-actions="true"] { display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 7px !important; width: 100% !important; }
-    [data-corevix-wa-doc-card="true"] { border-color: #bcebd0 !important; background: linear-gradient(180deg,#f0fff6,#ffffff) !important; }
-    [data-corevix-wa-doc-helper="true"] { margin-top: 7px; border-radius: 12px; background: #e9fff1; padding: 7px 9px; color: #52645d; font-size: 10.5px; font-weight: 700; line-height: 1.25; }
-    [data-corevix-wa-empty-doc-helper="true"] { margin-top: 5px; color: #6c7f77; font-size: 10.5px; line-height: 1.3; }
-    [data-corevix-wa-next="true"] { padding: 10px !important; border-radius: 18px !important; }
+    [data-corevix-wa-doc-card="true"] { border-color: #e2e8f0 !important; background: #fff !important; box-shadow: none !important; }
+    [data-corevix-wa-doc-helper="true"] { margin-top: 7px; border-top: 1px solid #e2e8f0; padding: 7px 0 0; color: #64748b; font-size: 10.5px; font-weight: 700; line-height: 1.25; }
+    [data-corevix-wa-empty-doc-helper="true"] { margin-top: 5px; color: #64748b; font-size: 10.5px; line-height: 1.3; }
+    [data-corevix-wa-next="true"] { padding: 10px !important; border-radius: 0 !important; }
     [data-corevix-wa-next="true"] p { margin: 0 !important; }
     [data-corevix-wa-next="true"] [data-corevix-wa-main-button="true"] { height: 34px !important; }
     [data-corevix-wa-next="true"] .text-xs { font-size: 10.5px !important; line-height: 1.2 !important; }
@@ -78,21 +85,39 @@ function labelButton(button: HTMLElement, label: string, primary = false) {
 }
 
 function findActivitySection(panel: HTMLElement) {
-  return Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) => {
-    const txt = section.textContent || "";
-    return txt.includes("Actividad") || txt.includes("Último mensaje:") || txt.includes("Última interacción:");
-  }) || null;
+  return (
+    Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) => {
+      const txt = section.textContent || "";
+      return (
+        txt.includes("Actividad") ||
+        txt.includes("Último mensaje:") ||
+        txt.includes("Última interacción:")
+      );
+    }) || null
+  );
 }
 
 function findQuickSendSection(panel: HTMLElement) {
-  return Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) => section.textContent?.includes("Envío rápido")) || null;
+  return (
+    Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) =>
+      section.textContent?.includes("Envío rápido"),
+    ) || null
+  );
 }
 
 function findNextSection(panel: HTMLElement) {
-  return Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) => {
-    const txt = section.textContent || "";
-    return txt.includes("SIGUIENTE") || txt.includes("Crear lead") || txt.includes("Plantilla") || txt.includes("Crear propuesta") || txt.includes("Crear factura");
-  }) || null;
+  return (
+    Array.from(panel.querySelectorAll<HTMLElement>("section")).find((section) => {
+      const txt = section.textContent || "";
+      return (
+        txt.includes("SIGUIENTE") ||
+        txt.includes("Crear lead") ||
+        txt.includes("Plantilla") ||
+        txt.includes("Crear propuesta") ||
+        txt.includes("Crear factura")
+      );
+    }) || null
+  );
 }
 
 function enhanceLeftRail() {
@@ -103,8 +128,8 @@ function enhanceLeftRail() {
 }
 
 function enhanceChannelFilters() {
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) =>
-    CHANNEL_LABELS.includes((button.textContent || "").trim()),
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter(
+    (button) => CHANNEL_LABELS.includes((button.textContent || "").trim()),
   );
   if (!buttons.length) return;
   const row = buttons[0].parentElement;
@@ -122,21 +147,29 @@ function ensureTaskSlot(panel: HTMLElement) {
     slot.dataset.whatsappTaskSlot = "true";
   }
   const activity = findActivitySection(panel);
-  if (activity?.parentElement && slot.nextElementSibling !== activity) activity.parentElement.insertBefore(slot, activity);
-  else if (!activity && internal.nextElementSibling !== slot) internal.insertAdjacentElement("afterend", slot);
+  if (activity?.parentElement && slot.nextElementSibling !== activity)
+    activity.parentElement.insertBefore(slot, activity);
+  else if (!activity && internal.nextElementSibling !== slot)
+    internal.insertAdjacentElement("afterend", slot);
 }
 
 function enhanceQuickSend(panel: HTMLElement) {
   const section = findQuickSendSection(panel);
   if (!section) return;
-  const emptyDoc = Array.from(section.querySelectorAll<HTMLElement>("p")).find((p) => p.textContent?.includes("No hay docs listos") || p.textContent?.includes("No hay documentos listos"));
+  const emptyDoc = Array.from(section.querySelectorAll<HTMLElement>("p")).find(
+    (p) =>
+      p.textContent?.includes("No hay docs listos") ||
+      p.textContent?.includes("No hay documentos listos"),
+  );
   if (emptyDoc) {
-    if (emptyDoc.textContent !== "No hay documentos listos") emptyDoc.textContent = "No hay documentos listos";
+    if (emptyDoc.textContent !== "No hay documentos listos")
+      emptyDoc.textContent = "No hay documentos listos";
     const wrapper = emptyDoc.closest("div") as HTMLElement | null;
     if (wrapper && !wrapper.querySelector("[data-corevix-wa-empty-doc-helper]")) {
       const helper = document.createElement("p");
       helper.dataset.corevixWaEmptyDocHelper = "true";
-      helper.textContent = "Crea una propuesta o factura y vuelve aquí para prepararla en el chat sin salir del flujo.";
+      helper.textContent =
+        "Crea una propuesta o factura y vuelve aquí para prepararla en el chat sin salir del flujo.";
       emptyDoc.insertAdjacentElement("afterend", helper);
     }
   }
@@ -146,13 +179,16 @@ function enhanceQuickSend(panel: HTMLElement) {
   if (openButton) labelButton(openButton, "Abrir");
   const actions = prepareButton?.parentElement || openButton?.parentElement;
   if (actions) setAttr(actions, "data-corevix-wa-doc-actions", "true");
-  const docCard = prepareButton?.closest("div.rounded-2xl") as HTMLElement | null;
+  const docCard =
+    (prepareButton?.closest("[data-corevix-wa-doc-card]") as HTMLElement | null) ||
+    ((prepareButton?.parentElement?.parentElement as HTMLElement | null) ?? null);
   if (docCard) {
     setAttr(docCard, "data-corevix-wa-doc-card", "true");
     if (!docCard.querySelector("[data-corevix-wa-doc-helper]")) {
       const helper = document.createElement("p");
       helper.dataset.corevixWaDocHelper = "true";
-      helper.textContent = "Preparar mensaje coloca el texto en el input para revisarlo antes de enviarlo.";
+      helper.textContent =
+        "Preparar mensaje coloca el texto en el input para revisarlo antes de enviarlo.";
       actions?.insertAdjacentElement("afterend", helper);
     }
   }
@@ -162,9 +198,12 @@ function enhanceNextAction(panel: HTMLElement) {
   const section = findNextSection(panel);
   if (!section) return;
   setAttr(section, "data-corevix-wa-next", "true");
-  const main = section.querySelector<HTMLElement>('[title="Crear lead"], [title="Crear cliente"], [title="Crear propuesta"], [title="Crear factura"], [title="Preparar seguimiento"], [title="Preparar"], [title="Ver"]');
+  const main = section.querySelector<HTMLElement>(
+    '[title="Crear lead"], [title="Crear cliente"], [title="Crear propuesta"], [title="Crear factura"], [title="Preparar seguimiento"], [title="Preparar"], [title="Ver"]',
+  );
   if (main) {
-    const label = LABELS[main.getAttribute("title") || ""] || main.getAttribute("title") || "Continuar";
+    const label =
+      LABELS[main.getAttribute("title") || ""] || main.getAttribute("title") || "Continuar";
     labelButton(main, label, true);
   }
 }
@@ -182,10 +221,15 @@ function enhanceOnce() {
 
   enhanceNextAction(panel);
   for (const [title, label] of Object.entries(LABELS)) {
-    panel.querySelectorAll<HTMLElement>(`[title="${title}"]`).forEach((button) => labelButton(button, label, title === "Preparar mensaje"));
+    panel
+      .querySelectorAll<HTMLElement>(`[title="${title}"]`)
+      .forEach((button) => labelButton(button, label, title === "Preparar mensaje"));
   }
-  const firstDoc = panel.querySelector<HTMLElement>('[title="Crear propuesta"], [title="Crear factura"], [title="Preparar mensaje"]');
-  if (firstDoc?.parentElement) setAttr(firstDoc.parentElement, "data-corevix-wa-doc-actions", "true");
+  const firstDoc = panel.querySelector<HTMLElement>(
+    '[title="Crear propuesta"], [title="Crear factura"], [title="Preparar mensaje"]',
+  );
+  if (firstDoc?.parentElement)
+    setAttr(firstDoc.parentElement, "data-corevix-wa-doc-actions", "true");
   enhanceQuickSend(panel);
   ensureTaskSlot(panel);
 }
@@ -201,7 +245,11 @@ export function WhatsAppPanelPhase2Safe() {
       });
     };
     run();
-    const timers = [window.setTimeout(run, 250), window.setTimeout(run, 900), window.setTimeout(run, 1500)];
+    const timers = [
+      window.setTimeout(run, 250),
+      window.setTimeout(run, 900),
+      window.setTimeout(run, 1500),
+    ];
     const observer = new MutationObserver(run);
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("resize", run);

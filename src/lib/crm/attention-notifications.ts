@@ -62,6 +62,48 @@ function shouldMaterializeAttentionEvent(event: ScoredAttentionEvent) {
   return event.severity !== "low" || event.score >= 35 || (event.count ?? 0) > 1;
 }
 
+function directDetailHref(event: ScoredAttentionEvent) {
+  if (event.href?.includes("?")) return event.href;
+
+  const sourceId = event.source?.id || event.sourceId || null;
+  const sourceType = event.source?.type || event.sourceType || "";
+  const encodedSourceId = sourceId ? encodeURIComponent(String(sourceId)) : "";
+
+  if (sourceType === "client_product") {
+    const clientId = event.context?.client?.id;
+    return clientId ? `/clients?clientId=${encodeURIComponent(String(clientId))}` : event.href;
+  }
+
+  if (!encodedSourceId) return event.href || null;
+
+  switch (sourceType) {
+    case "client":
+      return `/clients?clientId=${encodedSourceId}`;
+    case "lead":
+      return `/leads?leadId=${encodedSourceId}`;
+    case "task":
+      return `/tasks?taskId=${encodedSourceId}`;
+    case "project":
+      return `/projects?projectId=${encodedSourceId}`;
+    case "ticket":
+      return `/tickets?ticketId=${encodedSourceId}`;
+    case "invoice":
+      return `/invoices?invoiceId=${encodedSourceId}`;
+    case "proposal":
+      return `/proposals?proposalId=${encodedSourceId}`;
+    case "estimate":
+      return `/estimates?estimateId=${encodedSourceId}`;
+    case "calendar_event":
+      return `/calendar?eventId=${encodedSourceId}`;
+    case "email_conversation":
+      return `/email?conversationId=${encodedSourceId}`;
+    case "whatsapp_conversation":
+      return `/whatsapp?conversationId=${encodedSourceId}`;
+    default:
+      return event.href || null;
+  }
+}
+
 export function buildAttentionNotificationDrafts(
   events: ScoredAttentionEvent[],
   scope: AttentionNotificationScope,
@@ -79,7 +121,7 @@ export function buildAttentionNotificationDrafts(
       title: event.title,
       message: event.summary || (event.evidence?.length ? event.evidence.join(" · ") : null),
       type: `attention:${event.module}`,
-      link: event.href || null,
+      link: directDetailHref(event),
       read: false,
     }));
 }

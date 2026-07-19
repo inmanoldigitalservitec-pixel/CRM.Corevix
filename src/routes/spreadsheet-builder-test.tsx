@@ -9,7 +9,8 @@ function SpreadsheetBuilderDisabledRoute() {
     <div className="p-6">
       <h1 className="text-xl font-bold">Spreadsheet Builder desactivado</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Esta ruta de laboratorio está desactivada en este branch para mantener el build liviano en Cloudflare.
+        Esta ruta de laboratorio está desactivada en este branch para mantener el build liviano en
+        Cloudflare.
       </p>
     </div>
   );

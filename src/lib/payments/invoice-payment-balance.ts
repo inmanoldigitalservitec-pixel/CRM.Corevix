@@ -8,13 +8,20 @@ export type InvoicePaymentBalance = {
 };
 
 function isCompletedPaymentStatus(status?: string | null) {
-  return String(status || "").trim().toLowerCase() === "completed";
+  return (
+    String(status || "")
+      .trim()
+      .toLowerCase() === "completed"
+  );
 }
 
-export async function loadInvoicePaymentBalance(invoice: {
-  id: string;
-  total?: number | null;
-}, companyId: string): Promise<InvoicePaymentBalance> {
+export async function loadInvoicePaymentBalance(
+  invoice: {
+    id: string;
+    total?: number | null;
+  },
+  companyId: string,
+): Promise<InvoicePaymentBalance> {
   const db = supabase as any;
   const { data, error } = await db
     .from("payments")

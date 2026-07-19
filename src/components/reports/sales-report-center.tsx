@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Download, RefreshCw, Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -377,10 +377,12 @@ export function SalesReportCenter() {
   }, [activeReport, config.amountKey, filtered]);
 
   return (
-    <div className="rounded-2xl border bg-white shadow-sm">
-      <div className="grid gap-0 lg:grid-cols-[320px_1fr]">
-        <aside className="border-b p-5 lg:border-b-0 lg:border-r">
-          <div className="mb-4 font-extrabold text-slate-900">Sales Report</div>
+    <div className="border-y border-slate-100 bg-white">
+      <div className="grid gap-0 lg:grid-cols-[300px_1fr]">
+        <aside className="border-b border-slate-100 p-4 lg:border-b-0 lg:border-r">
+          <div className="mb-4 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+            Reportes
+          </div>
           <div className="space-y-1">
             {REPORTS.map((report) => (
               <button
@@ -391,25 +393,30 @@ export function SalesReportCenter() {
                   setStatus("all");
                   setSearch("");
                 }}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${activeReport === report.id ? "border bg-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}
+                className={`flex w-full items-center justify-between border-b px-0 py-2.5 text-left text-sm font-normal transition ${
+                  activeReport === report.id
+                    ? "border-blue-500 text-slate-950"
+                    : "border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-950"
+                }`}
               >
                 {report.label}
-                <ChevronDown className="h-4 w-4 text-slate-400" />
               </button>
             ))}
           </div>
         </aside>
 
-        <section className="p-5">
+        <section className="p-4">
           <div className="grid gap-4 xl:grid-cols-[1fr_220px_220px]">
             <div>
-              <div className="font-extrabold text-slate-900">Reporte generado</div>
-              <p className="text-sm font-medium text-slate-500">{config.label}</p>
+              <div className="text-sm font-normal text-slate-950">Reporte generado</div>
+              <p className="text-sm font-normal text-slate-500">{config.label}</p>
             </div>
             <div>
-              <div className="mb-1 text-xs font-bold text-slate-600">Period</div>
+              <div className="mb-1 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                Periodo
+              </div>
               <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -422,9 +429,11 @@ export function SalesReportCenter() {
               </Select>
             </div>
             <div>
-              <div className="mb-1 text-xs font-bold text-slate-600">Estado</div>
+              <div className="mb-1 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                Estado
+              </div>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -439,15 +448,17 @@ export function SalesReportCenter() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <Summary label="Rows" value={String(filtered.length)} />
+          <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-3">
+            <Summary label="Filas" value={String(filtered.length)} />
             <Summary label="Total" value={config.amountKey ? money(totalAmount) : "—"} />
             <Summary label="Cerrados/pagados" value={String(paidOrClosed)} />
           </div>
 
           <div className="mt-5 grid gap-4 xl:grid-cols-[1.4fr_0.8fr]">
-            <div className="rounded-xl border bg-white p-4">
-              <div className="mb-3 text-sm font-extrabold text-slate-900">Chart Based Report</div>
+            <div className="border-y border-slate-100 py-4">
+              <div className="mb-3 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                Gráfico por grupo
+              </div>
               {chartData.length ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={chartData}>
@@ -467,13 +478,15 @@ export function SalesReportCenter() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="grid h-[260px] place-items-center text-sm font-medium text-slate-500">
+                <div className="grid h-[260px] place-items-center text-sm font-normal text-slate-500">
                   Todavía no hay datos para graficar.
                 </div>
               )}
             </div>
-            <div className="rounded-xl border bg-white p-4">
-              <div className="mb-3 text-sm font-extrabold text-slate-900">Distribution</div>
+            <div className="border-y border-slate-100 py-4">
+              <div className="mb-3 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                Distribución
+              </div>
               {chartData.length ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
@@ -494,7 +507,7 @@ export function SalesReportCenter() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="grid h-[260px] place-items-center text-sm font-medium text-slate-500">
+                <div className="grid h-[260px] place-items-center text-sm font-normal text-slate-500">
                   Todavía no hay datos de distribución.
                 </div>
               )}
@@ -502,34 +515,31 @@ export function SalesReportCenter() {
           </div>
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => void load()}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Actualizar
-              </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar en el reporte..."
+                  className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white pl-7 pr-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
               <Button
-                variant="outline"
+                variant="default"
+                className="h-9 rounded-full bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700"
                 onClick={() => downloadCsv(`${activeReport}-report.csv`, filtered, columns)}
               >
                 <Download className="mr-2 h-4 w-4" />
                 Exportar CSV
               </Button>
             </div>
-            <div className="relative sm:w-72">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                className="pl-9"
-                placeholder="Buscar..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border">
+          <div className="mt-4 overflow-hidden border-y border-slate-100">
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-white">
                   <TableRow>
                     {columns.map((column) => (
                       <TableHead key={column.key}>{column.label}</TableHead>
@@ -550,7 +560,7 @@ export function SalesReportCenter() {
                     filtered.map((row, index) => (
                       <TableRow key={row.id || index}>
                         {columns.map((column) => (
-                          <TableCell key={column.key}>
+                          <TableCell key={column.key} className="font-normal text-slate-700">
                             {renderCell(column.key, row[column.key])}
                           </TableCell>
                         ))}
@@ -592,9 +602,11 @@ function renderCell(key: string, value: any) {
 
 function Summary({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border bg-slate-50 p-3">
-      <div className="text-xs font-bold uppercase text-slate-500">{label}</div>
-      <div className="mt-1 text-xl font-extrabold text-slate-950">{value}</div>
+    <div className="min-w-0 border-b border-slate-100 pb-3">
+      <div className="truncate text-[11px] font-normal uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 truncate text-2xl font-normal leading-none text-slate-950">{value}</div>
     </div>
   );
 }

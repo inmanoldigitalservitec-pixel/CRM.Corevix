@@ -10,7 +10,6 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
 
 export function InvoiceActionsMenu({
   canOpenPublic,
@@ -63,11 +63,18 @@ export function InvoiceActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Más acciones">
+        <CrmDetailLineButton
+          type="button"
+          className="h-8 w-8 justify-center px-0"
+          aria-label="Más acciones"
+        >
           <MoreHorizontal className="h-4 w-4" />
-        </Button>
+        </CrmDetailLineButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent
+        align="end"
+        className="w-52 rounded-none border-slate-200 bg-white shadow-none"
+      >
         <DropdownMenuItem onSelect={onView}>
           <FileText className="h-4 w-4" />
           Ver detalle

@@ -147,28 +147,142 @@ const KIND_VIEW_LABEL: Partial<Record<AgentWidgetKind, string>> = {
 
 const KIND_LIST_ACTION: Partial<Record<AgentWidgetKind, AgentWidgetAction>> = {
   leads: { id: "open-leads", label: "Ver leads", href: "/leads", intent: "filter", tone: "blue" },
-  clients: { id: "open-clients", label: "Ver clientes", href: "/clients", intent: "filter", tone: "teal" },
-  tasks: { id: "open-tasks", label: "Ver tareas", href: "/tasks", intent: "filter", tone: "purple" },
-  calendar: { id: "open-calendar", label: "Ver agenda", href: "/calendar", intent: "filter", tone: "blue" },
-  deals: { id: "open-deals", label: "Ver pipeline", href: "/pipeline", intent: "filter", tone: "blue" },
-  communication: { id: "open-inbox", label: "Ver bandeja", href: "/whatsapp", intent: "filter", tone: "blue" },
-  invoices: { id: "open-invoices", label: "Ver facturas", href: "/invoices", intent: "filter", tone: "orange" },
-  projects: { id: "open-projects", label: "Ver proyectos", href: "/projects", intent: "filter", tone: "teal" },
-  proposals: { id: "open-proposals", label: "Ver propuestas", href: "/proposals", intent: "filter", tone: "teal" },
-  products: { id: "open-products", label: "Ver productos", href: "/products", intent: "filter", tone: "slate" },
-  summary: { id: "open-dashboard", label: "Ver dashboard", href: "/dashboard", intent: "filter", tone: "blue" },
-  reports: { id: "open-reports", label: "Ver reportes", href: "/reports", intent: "filter", tone: "purple" },
+  clients: {
+    id: "open-clients",
+    label: "Ver clientes",
+    href: "/clients",
+    intent: "filter",
+    tone: "teal",
+  },
+  tasks: {
+    id: "open-tasks",
+    label: "Ver tareas",
+    href: "/tasks",
+    intent: "filter",
+    tone: "purple",
+  },
+  calendar: {
+    id: "open-calendar",
+    label: "Ver agenda",
+    href: "/calendar",
+    intent: "filter",
+    tone: "blue",
+  },
+  deals: {
+    id: "open-deals",
+    label: "Ver pipeline",
+    href: "/pipeline",
+    intent: "filter",
+    tone: "blue",
+  },
+  communication: {
+    id: "open-inbox",
+    label: "Ver bandeja",
+    href: "/whatsapp",
+    intent: "filter",
+    tone: "blue",
+  },
+  invoices: {
+    id: "open-invoices",
+    label: "Ver facturas",
+    href: "/invoices",
+    intent: "filter",
+    tone: "orange",
+  },
+  projects: {
+    id: "open-projects",
+    label: "Ver proyectos",
+    href: "/projects",
+    intent: "filter",
+    tone: "teal",
+  },
+  proposals: {
+    id: "open-proposals",
+    label: "Ver propuestas",
+    href: "/proposals",
+    intent: "filter",
+    tone: "teal",
+  },
+  products: {
+    id: "open-products",
+    label: "Ver productos",
+    href: "/products",
+    intent: "filter",
+    tone: "slate",
+  },
+  summary: {
+    id: "open-dashboard",
+    label: "Ver dashboard",
+    href: "/dashboard",
+    intent: "filter",
+    tone: "blue",
+  },
+  reports: {
+    id: "open-reports",
+    label: "Ver reportes",
+    href: "/reports",
+    intent: "filter",
+    tone: "purple",
+  },
 };
 
 const METRIC_ACTIONS: Record<string, AgentWidgetAction> = {
-  new_leads_today: { id: "metric-new-leads", label: "Ver leads", href: "/leads?chip=today", intent: "filter", tone: "blue" },
-  open_tasks: { id: "metric-open-tasks", label: "Ver tareas", href: "/tasks?quick=all", intent: "filter", tone: "purple" },
-  unpaid_invoices: { id: "metric-unpaid-invoices", label: "Ver facturas", href: "/invoices?status=Sent", intent: "filter", tone: "orange" },
-  active_projects: { id: "metric-active-projects", label: "Ver proyectos", href: "/projects?status=In%20Progress", intent: "filter", tone: "teal" },
-  open_pipeline: { id: "metric-open-pipeline", label: "Ver pipeline", href: "/pipeline", intent: "filter", tone: "blue" },
-  won_value: { id: "metric-won-deals", label: "Ver ganadas", href: "/pipeline?status=won", intent: "filter", tone: "teal" },
-  open_deals: { id: "metric-open-deals", label: "Ver oportunidades", href: "/pipeline", intent: "filter", tone: "purple" },
-  activity: { id: "metric-activity", label: "Ver urgentes", href: "/tasks?quick=overdue", intent: "filter", tone: "orange" },
+  new_leads_today: {
+    id: "metric-new-leads",
+    label: "Ver leads",
+    href: "/leads?chip=today",
+    intent: "filter",
+    tone: "blue",
+  },
+  open_tasks: {
+    id: "metric-open-tasks",
+    label: "Ver tareas",
+    href: "/tasks?quick=all",
+    intent: "filter",
+    tone: "purple",
+  },
+  unpaid_invoices: {
+    id: "metric-unpaid-invoices",
+    label: "Ver facturas",
+    href: "/invoices?status=Sent",
+    intent: "filter",
+    tone: "orange",
+  },
+  active_projects: {
+    id: "metric-active-projects",
+    label: "Ver proyectos",
+    href: "/projects?status=In%20Progress",
+    intent: "filter",
+    tone: "teal",
+  },
+  open_pipeline: {
+    id: "metric-open-pipeline",
+    label: "Ver pipeline",
+    href: "/pipeline",
+    intent: "filter",
+    tone: "blue",
+  },
+  won_value: {
+    id: "metric-won-deals",
+    label: "Ver ganadas",
+    href: "/pipeline?status=won",
+    intent: "filter",
+    tone: "teal",
+  },
+  open_deals: {
+    id: "metric-open-deals",
+    label: "Ver oportunidades",
+    href: "/pipeline",
+    intent: "filter",
+    tone: "purple",
+  },
+  activity: {
+    id: "metric-activity",
+    label: "Ver urgentes",
+    href: "/tasks?quick=overdue",
+    intent: "filter",
+    tone: "orange",
+  },
 };
 
 function asRecord(value: unknown): Record<string, any> {
@@ -323,10 +437,18 @@ function enrichMetrics(metrics: AgentWidgetMetric[]) {
   });
 }
 
-function contextActions(kind: AgentWidgetKind, rows: AgentWidgetRow[], metrics?: AgentWidgetMetric[]) {
-  const primary = rows.find((row) => row.actions?.[0])?.actions?.[0] || metrics?.find((metric) => metric.actions?.[0])?.actions?.[0] || KIND_LIST_ACTION[kind];
-  const actions = [primary, KIND_LIST_ACTION[kind]].filter((action, index, list): action is AgentWidgetAction =>
-    Boolean(action && list.findIndex((item) => item?.href === action.href) === index),
+function contextActions(
+  kind: AgentWidgetKind,
+  rows: AgentWidgetRow[],
+  metrics?: AgentWidgetMetric[],
+) {
+  const primary =
+    rows.find((row) => row.actions?.[0])?.actions?.[0] ||
+    metrics?.find((metric) => metric.actions?.[0])?.actions?.[0] ||
+    KIND_LIST_ACTION[kind];
+  const actions = [primary, KIND_LIST_ACTION[kind]].filter(
+    (action, index, list): action is AgentWidgetAction =>
+      Boolean(action && list.findIndex((item) => item?.href === action.href) === index),
   );
   return { primaryAction: primary, actions };
 }
@@ -337,7 +459,11 @@ function mapLeadRows(data: unknown): AgentWidgetRow[] {
     return {
       id: String(item.id || `lead-${index}`),
       title: fullName(item),
-      subtitle: compact([item.company_name, item.status, item.phone || item.whatsapp || item.email]),
+      subtitle: compact([
+        item.company_name,
+        item.status,
+        item.phone || item.whatsapp || item.email,
+      ]),
       value: formatCurrency(item.estimated_value),
       tone: "blue",
     };
@@ -350,8 +476,14 @@ function mapClientRows(data: unknown): AgentWidgetRow[] {
     return {
       id: String(item.id || `client-${index}`),
       title: item.company_name || item.contact_person || "Cliente sin nombre",
-      subtitle: compact([item.status, item.contact_person, item.phone || item.whatsapp || item.email, item.industry]),
-      value: Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 2).join(", ") : undefined,
+      subtitle: compact([
+        item.status,
+        item.contact_person,
+        item.phone || item.whatsapp || item.email,
+        item.industry,
+      ]),
+      value:
+        Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 2).join(", ") : undefined,
       tone: item.status === "VIP" ? "purple" : "teal",
     };
   });
@@ -365,7 +497,10 @@ function mapTaskRows(data: unknown): AgentWidgetRow[] {
       title: item.title || "Tarea sin titulo",
       subtitle: compact([item.priority, item.status, item.description]),
       value: formatDate(item.due_date),
-      tone: item.priority === "High" || item.priority === "Urgent" || item.priority === "high" ? "red" : "purple",
+      tone:
+        item.priority === "High" || item.priority === "Urgent" || item.priority === "high"
+          ? "red"
+          : "purple",
     };
   });
 }
@@ -389,7 +524,12 @@ function mapDealRows(data: unknown): AgentWidgetRow[] {
     return {
       id: String(item.id || `deal-${index}`),
       title: item.name || "Oportunidad sin nombre",
-      subtitle: compact([item.stage, item.probability != null ? `${item.probability}%` : null, item.notes, formatDate(item.expected_close)]),
+      subtitle: compact([
+        item.stage,
+        item.probability != null ? `${item.probability}%` : null,
+        item.notes,
+        formatDate(item.expected_close),
+      ]),
       value: formatCurrency(item.value),
       tone: item.stage === "Won" ? "teal" : item.stage === "Lost" ? "red" : "blue",
     };
@@ -454,14 +594,23 @@ function mapCommunicationRows(data: unknown): AgentWidgetRow[] {
     const item = asRecord(row);
     return {
       id: String(item.conversation_id || item.id || `communication-${index}`),
-      title: item.subject || item.display_name || item.contact_name || item.sender_name || item.phone || "Conversacion",
+      title:
+        item.subject ||
+        item.display_name ||
+        item.contact_name ||
+        item.sender_name ||
+        item.phone ||
+        "Conversacion",
       subtitle: compact([
         item.type,
         item.provider,
         item.status || item.conversation_status,
         item.snippet || item.last_message || item.last_message_text || item.body || item.text,
       ]),
-      value: item.unread_count != null ? `${item.unread_count} sin leer` : formatDate(item.last_message_at || item.created_at || item.sent_at),
+      value:
+        item.unread_count != null
+          ? `${item.unread_count} sin leer`
+          : formatDate(item.last_message_at || item.created_at || item.sent_at),
       tone: Number(item.unread_count || 0) > 0 ? "blue" : "slate",
     };
   });
@@ -474,8 +623,15 @@ function mapGlobalRows(data: unknown): AgentWidgetRow[] {
     return {
       id: String(item.id || `global-${index}`),
       title: item.name || item.title || item.company_name || fullName(item),
-      subtitle: compact([item.type, item.status || item.stage || item.priority, item.phone || item.email || item.whatsapp]),
-      value: item.value != null ? formatCurrency(item.value) : formatDate(item.updated_at || item.created_at),
+      subtitle: compact([
+        item.type,
+        item.status || item.stage || item.priority,
+        item.phone || item.email || item.whatsapp,
+      ]),
+      value:
+        item.value != null
+          ? formatCurrency(item.value)
+          : formatDate(item.updated_at || item.created_at),
       tone: "blue",
     };
   });
@@ -487,14 +643,25 @@ function mapReportRows(data: unknown): AgentWidgetRow[] {
   const recentTasks = Array.isArray(item.recent_tasks) ? item.recent_tasks : [];
   const nestedDeals = asRecord(item.pipeline).top_open_deals;
   const sourceType = topOpenDeals.length || Array.isArray(nestedDeals) ? "deals" : "tasks";
-  const rows = topOpenDeals.length ? topOpenDeals : recentTasks.length ? recentTasks : Array.isArray(nestedDeals) ? nestedDeals : [];
+  const rows = topOpenDeals.length
+    ? topOpenDeals
+    : recentTasks.length
+      ? recentTasks
+      : Array.isArray(nestedDeals)
+        ? nestedDeals
+        : [];
 
   return rows.slice(0, 5).map((row, index) => {
     const entry = asRecord(row);
     return {
       id: String(entry.id || `report-${index}`),
       title: entry.name || entry.title || "Elemento destacado",
-      subtitle: compact([sourceType, entry.stage || entry.status, entry.priority, formatDate(entry.expected_close || entry.due_date)]),
+      subtitle: compact([
+        sourceType,
+        entry.stage || entry.status,
+        entry.priority,
+        formatDate(entry.expected_close || entry.due_date),
+      ]),
       value: entry.value != null ? formatCurrency(entry.value) : undefined,
       tone: "purple",
     };
@@ -504,10 +671,30 @@ function mapReportRows(data: unknown): AgentWidgetRow[] {
 function mapSummaryMetrics(data: unknown): AgentWidgetMetric[] {
   const item = asRecord(data);
   return enrichMetrics([
-    { id: "new_leads_today", label: "Leads nuevos", value: String(item.new_leads_today ?? 0), tone: "blue" },
-    { id: "open_tasks", label: "Tareas abiertas", value: String(item.open_tasks ?? 0), tone: "purple" },
-    { id: "unpaid_invoices", label: "Facturas pendientes", value: String(item.unpaid_invoices ?? 0), tone: "orange" },
-    { id: "active_projects", label: "Proyectos activos", value: String(item.active_projects ?? 0), tone: "teal" },
+    {
+      id: "new_leads_today",
+      label: "Leads nuevos",
+      value: String(item.new_leads_today ?? 0),
+      tone: "blue",
+    },
+    {
+      id: "open_tasks",
+      label: "Tareas abiertas",
+      value: String(item.open_tasks ?? 0),
+      tone: "purple",
+    },
+    {
+      id: "unpaid_invoices",
+      label: "Facturas pendientes",
+      value: String(item.unpaid_invoices ?? 0),
+      tone: "orange",
+    },
+    {
+      id: "active_projects",
+      label: "Proyectos activos",
+      value: String(item.active_projects ?? 0),
+      tone: "teal",
+    },
   ]);
 }
 
@@ -519,10 +706,30 @@ function mapReportMetrics(data: unknown): AgentWidgetMetric[] {
   const source = Object.keys(item).length ? item : {};
 
   return enrichMetrics([
-    { id: "open_pipeline", label: "Pipeline abierto", value: formatCurrency(source.open_pipeline_value ?? sales.open_pipeline_value ?? 0) || "0", tone: "blue" },
-    { id: "won_value", label: "Ganado", value: formatCurrency(source.won_value ?? sales.won_value ?? 0) || "0", tone: "teal" },
-    { id: "open_deals", label: "Oportunidades", value: String(source.open_deals ?? pipeline.total_deals ?? 0), tone: "purple" },
-    { id: "activity", label: "Actividad", value: String(source.urgent_tasks ?? activity.urgent_tasks ?? 0), tone: "orange" },
+    {
+      id: "open_pipeline",
+      label: "Pipeline abierto",
+      value: formatCurrency(source.open_pipeline_value ?? sales.open_pipeline_value ?? 0) || "0",
+      tone: "blue",
+    },
+    {
+      id: "won_value",
+      label: "Ganado",
+      value: formatCurrency(source.won_value ?? sales.won_value ?? 0) || "0",
+      tone: "teal",
+    },
+    {
+      id: "open_deals",
+      label: "Oportunidades",
+      value: String(source.open_deals ?? pipeline.total_deals ?? 0),
+      tone: "purple",
+    },
+    {
+      id: "activity",
+      label: "Actividad",
+      value: String(source.urgent_tasks ?? activity.urgent_tasks ?? 0),
+      tone: "orange",
+    },
   ]);
 }
 
@@ -552,7 +759,9 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
     };
   }
 
-  if (["sales_report", "pipeline_report", "activity_report", "agent_daily_briefing"].includes(tool)) {
+  if (
+    ["sales_report", "pipeline_report", "activity_report", "agent_daily_briefing"].includes(tool)
+  ) {
     const rows = enrichRows(context.kind, mapReportRows(result.data));
     const metrics = mapReportMetrics(result.data);
     const actions = contextActions(context.kind, rows, metrics);
@@ -625,6 +834,8 @@ export function mapAgentToolContext(tool: unknown, toolResult: unknown): AgentTo
   };
 }
 
-export function getLatestAgentToolContext(messages: Array<{ toolContext?: AgentToolContext | null }>) {
+export function getLatestAgentToolContext(
+  messages: Array<{ toolContext?: AgentToolContext | null }>,
+) {
   return [...messages].reverse().find((message) => message.toolContext)?.toolContext || null;
 }

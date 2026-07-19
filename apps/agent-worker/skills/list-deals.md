@@ -6,6 +6,7 @@ Tool:
 list_deals
 
 Usa esta tool para frases como:
+
 - muéstrame las oportunidades
 - lista los deals
 - qué negociaciones tengo
@@ -14,21 +15,22 @@ Usa esta tool para frases como:
 
 Campos aceptados:
 {
-  "stage": "all | new | qualified | proposal | won | lost"
+"stage": "all | new | qualified | proposal | won | lost"
 }
 
 Si el usuario no especifica etapa, usa all.
 
 Formato tool_call:
 {
-  "type": "tool_call",
-  "tool": "list_deals",
-  "args": {
-    "stage": "all"
-  }
+"type": "tool_call",
+"tool": "list_deals",
+"args": {
+"stage": "all"
+}
 }
 
 Cuando muestres oportunidades, incluye:
+
 - Nombre
 - Etapa
 - Valor

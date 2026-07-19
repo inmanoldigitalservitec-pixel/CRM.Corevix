@@ -134,7 +134,8 @@ function PaymentsPage() {
             initialValues={paymentInitialValues}
             onCreated={() => {
               setRefreshSignal((current) => current + 1);
-              if (invoiceId) toast.success("Pago registrado. Puedes volver a Facturas cuando lo necesites.");
+              if (invoiceId)
+                toast.success("Pago registrado. Puedes volver a Facturas cuando lo necesites.");
             }}
           />
         }

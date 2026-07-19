@@ -59,7 +59,10 @@ export function ProjectSalesDocuments({
           </p>
         </div>
         <div className="md:hidden">
-          <Select value={filter} onValueChange={(value) => setFilter(value as ProjectSalesDocumentType)}>
+          <Select
+            value={filter}
+            onValueChange={(value) => setFilter(value as ProjectSalesDocumentType)}
+          >
             <SelectTrigger className="h-9 w-full rounded-full border-slate-200 text-xs font-semibold shadow-none">
               <SelectValue />
             </SelectTrigger>

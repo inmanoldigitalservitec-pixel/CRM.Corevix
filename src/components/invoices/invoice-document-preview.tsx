@@ -8,16 +8,16 @@ type PartyField = {
 function PartyBlock({ title, fields }: { title: string; fields: PartyField[] }) {
   const visible = fields.filter((field) => field.value);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-extrabold text-slate-950">{title}</h3>
+    <div className="min-w-0 border-b border-slate-100 bg-white pb-4">
+      <h3 className="text-sm font-normal text-slate-950">{title}</h3>
       {visible.length ? (
         <dl className="mt-3 space-y-2 text-sm">
           {visible.map((field) => (
             <div key={field.label}>
-              <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+              <dt className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
                 {field.label}
               </dt>
-              <dd className="mt-0.5 whitespace-pre-wrap break-words font-medium text-slate-800">
+              <dd className="mt-0.5 whitespace-pre-wrap break-words font-normal text-slate-800">
                 {field.value}
               </dd>
             </div>
@@ -64,26 +64,28 @@ export function InvoiceDocumentPreview({
   formatMoney: (amount: number, currency: string) => string;
 }) {
   return (
-    <div className="space-y-5">
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+    <div className="min-w-0 space-y-5 overflow-hidden">
+      <section className="min-w-0 border-b border-slate-100 bg-white pb-5">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <div className="min-w-0">
+            <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
               Factura
             </div>
-            <h2 className="mt-1 text-2xl font-extrabold text-slate-950">{invoice.number}</h2>
+            <h2 className="mt-1 break-words text-2xl font-normal text-slate-950">
+              {invoice.number}
+            </h2>
           </div>
-          <dl className="grid gap-2 text-right text-sm">
+          <dl className="grid min-w-0 gap-2 text-sm sm:text-right">
             {invoice.date_issued ? (
               <div>
                 <dt className="text-slate-500">Emitida</dt>
-                <dd className="font-semibold">{invoice.date_issued}</dd>
+                <dd className="font-normal">{invoice.date_issued}</dd>
               </div>
             ) : null}
             {invoice.due_date ? (
               <div>
                 <dt className="text-slate-500">Vence</dt>
-                <dd className="font-semibold">{invoice.due_date}</dd>
+                <dd className="font-normal">{invoice.due_date}</dd>
               </div>
             ) : null}
           </dl>
@@ -95,8 +97,8 @@ export function InvoiceDocumentPreview({
         <PartyBlock title="Cliente" fields={clientFields} />
       </div>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-950">Detalle facturado</h3>
+      <section className="space-y-3 border-b border-slate-100 pb-5">
+        <h3 className="text-sm font-normal text-slate-950">Detalle facturado</h3>
         <InvoiceItemsView
           items={items}
           loading={itemsLoading}
@@ -106,34 +108,34 @@ export function InvoiceDocumentPreview({
         />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section className="min-w-0 border-b border-slate-100 bg-white pb-5">
         <dl className="ml-auto max-w-sm space-y-2 text-sm">
-          <div className="flex justify-between gap-4">
+          <div className="flex min-w-0 justify-between gap-4">
             <dt className="text-slate-500">Subtotal</dt>
-            <dd className="font-semibold">{subtotal}</dd>
+            <dd className="min-w-0 break-words text-right font-normal">{subtotal}</dd>
           </div>
-          <div className="flex justify-between gap-4">
+          <div className="flex min-w-0 justify-between gap-4">
             <dt className="text-slate-500">Impuesto</dt>
-            <dd className="font-semibold">{tax}</dd>
+            <dd className="min-w-0 break-words text-right font-normal">{tax}</dd>
           </div>
-          <div className="flex justify-between gap-4">
+          <div className="flex min-w-0 justify-between gap-4">
             <dt className="text-slate-500">Descuento</dt>
-            <dd className="font-semibold">{discount}</dd>
+            <dd className="min-w-0 break-words text-right font-normal">{discount}</dd>
           </div>
           <div className="border-t border-slate-200 pt-3">
-            <div className="flex justify-between gap-4 text-base">
-              <dt className="font-bold text-slate-950">Total</dt>
-              <dd className="font-extrabold text-slate-950">{total}</dd>
+            <div className="flex min-w-0 justify-between gap-4 text-base">
+              <dt className="font-normal text-slate-950">Total</dt>
+              <dd className="min-w-0 break-words text-right font-normal text-slate-950">{total}</dd>
             </div>
           </div>
         </dl>
       </section>
 
       {notes ? (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-extrabold text-slate-950">Notas</h3>
+        <section className="min-w-0 border-b border-slate-100 bg-white pb-5">
+          <h3 className="text-sm font-normal text-slate-950">Notas</h3>
           <div className="mt-3 space-y-3 text-sm">
-            <p className="whitespace-pre-wrap font-medium">{notes}</p>
+            <p className="whitespace-pre-wrap font-normal">{notes}</p>
           </div>
         </section>
       ) : null}

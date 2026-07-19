@@ -124,7 +124,11 @@ export function matchesOperationalFilter(
   return true;
 }
 
-export function matchesDueFilter(invoice: InvoiceLike, filter: InvoiceDueFilter, todayIso = isoToday()) {
+export function matchesDueFilter(
+  invoice: InvoiceLike,
+  filter: InvoiceDueFilter,
+  todayIso = isoToday(),
+) {
   if (filter === "all") return true;
   if (!invoice.due_date) return false;
   if (filter === "overdue") return isInvoiceOverdue(invoice, todayIso);

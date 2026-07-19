@@ -20,20 +20,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/crm/page-header";
-import { SearchFilters } from "@/components/crm/search-filters";
 import { EmptyState } from "@/components/crm/empty-state";
 import { DataCard } from "@/components/crm/data-card";
+import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
+import { CrmDetailLineButton, CrmDetailSelectTrigger } from "@/components/crm/crm-detail-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -57,7 +53,6 @@ import {
   type InvoicePaymentFeedback,
 } from "@/components/invoices/invoice-editor";
 import { InvoiceMobileCard } from "@/components/invoices/invoice-mobile-card";
-import { InvoiceSummaryMetrics } from "@/components/invoices/invoice-summary-metrics";
 import { PaymentReceiptsPanel } from "@/components/payments/payment-receipts-panel";
 import {
   PaymentFormDialog,
@@ -149,6 +144,54 @@ type ClientLite = {
   address?: string | null;
   tax_id?: string | null;
 };
+
+type InvoiceKpiTone = "neutral" | "success" | "warning" | "danger";
+
+function invoiceKpiToneClass(tone: InvoiceKpiTone) {
+  if (tone === "success") return "text-emerald-600";
+  if (tone === "warning") return "text-orange-500";
+  if (tone === "danger") return "text-rose-600";
+  return "text-slate-950";
+}
+
+function InvoiceKpi({
+  label,
+  value,
+  tone = "neutral",
+  active,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  tone?: InvoiceKpiTone;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <div className="text-xs font-normal uppercase text-slate-500">{label}</div>
+      <div className={`mt-1 truncate text-2xl font-normal ${invoiceKpiToneClass(tone)}`}>
+        {value}
+      </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={`border-b bg-white pb-4 text-left transition hover:border-slate-300 ${
+          active ? "border-slate-950" : "border-slate-100"
+        }`}
+        onClick={onClick}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className="border-b border-slate-100 bg-white pb-4">{content}</div>;
+}
 
 function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.filter((v): v is string => Boolean(v && String(v).trim()))));
@@ -924,7 +967,9 @@ function InvoicesPage() {
           const merged = { ...current, ...next };
           const unchanged =
             Object.keys(merged).length === Object.keys(current).length &&
-            Object.entries(merged).every(([invoiceId, projectId]) => current[invoiceId] === projectId);
+            Object.entries(merged).every(
+              ([invoiceId, projectId]) => current[invoiceId] === projectId,
+            );
           return unchanged ? current : merged;
         });
       } catch (e) {
@@ -1209,7 +1254,6 @@ function InvoicesPage() {
         { label: "Enviada", value: formatInvoiceDateTime(selected.sent_at) },
         { label: "Vista", value: formatInvoiceDateTime(selected.viewed_at) },
         { label: "Pagada", value: formatInvoiceDateTime(selected.paid_at) },
-        { label: "Token público", value: selected.public_token, mono: true },
       ]
     : [];
   const selectedIssuerFields = [
@@ -1301,31 +1345,25 @@ function InvoicesPage() {
     <>
       {isInvoicePaid(selected) ? (
         linkedProjectId ? (
-          <Button
-            variant="default"
-            size="sm"
-            className="h-8 text-xs"
+          <CrmDetailLineButton
+            type="button"
             onClick={() => viewProject(linkedProjectId)}
             disabled={!canViewProjects}
           >
             Ver proyecto
-          </Button>
+          </CrmDetailLineButton>
         ) : (
-          <Button
-            variant="default"
-            size="sm"
-            className="h-8 text-xs"
+          <CrmDetailLineButton
+            type="button"
             onClick={() => void createProjectFromInvoice(selected.id)}
             disabled={creatingProject || !canCreateProjectRecord}
           >
             {creatingProject ? "Creando..." : "Crear proyecto"}
-          </Button>
+          </CrmDetailLineButton>
         )
       ) : isInvoiceDraft(selected) ? (
-        <Button
-          variant="default"
-          size="sm"
-          className="h-8 text-xs"
+        <CrmDetailLineButton
+          type="button"
           onClick={() => {
             setEditItem(selected);
             setEditorPaymentFeedback(null);
@@ -1333,27 +1371,22 @@ function InvoicesPage() {
           }}
         >
           Editar
-        </Button>
+        </CrmDetailLineButton>
       ) : null}
       {canCreatePayment && !isInvoicePaid(selected) && !isInvoiceCancelled(selected) ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 text-xs"
-          onClick={() => void registerPayment(selected)}
-        >
+        <CrmDetailLineButton type="button" onClick={() => void registerPayment(selected)}>
           Registrar pago
-        </Button>
+        </CrmDetailLineButton>
       ) : null}
       {renderActionsMenu(selected)}
     </>
   ) : null;
 
   return (
-    <div data-demo="invoices-main" className="p-4 sm:p-6 space-y-5">
-      <PageHeader
+    <div data-demo="invoices-main" className="min-h-dvh space-y-3 bg-white p-4 sm:p-6 md:space-y-5">
+      <GlobalKpiStrip
         title="Facturas"
-        subtitle={`${filtered.length} facturas`}
+        subtitle="Cobros, vencimientos y facturación"
         actionLabel="Nueva factura"
         onAction={() => {
           setSelected(null);
@@ -1362,90 +1395,199 @@ function InvoicesPage() {
           setDrawerMode("create");
           setDrawerOpen(true);
         }}
-      />
-      <InvoiceSummaryMetrics
-        metrics={invoiceMetrics}
-        onSelect={(key) => {
-          const next = key as InvoiceOperationalFilter;
-          setOperationalFilter((current) => (current === next ? "all" : next));
-          setStatusFilter("all");
-        }}
-      />
-
-      <DataCard className="max-md:border-0 max-md:bg-transparent max-md:shadow-none" noPadding>
-        <div data-demo="invoices-list" className="space-y-4 p-0 md:p-5">
-          <SearchFilters
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Buscar por factura, cliente, email, propuesta o producto..."
-            filters={[
+        items={[
+          {
+            key: "pending",
+            label: "Pendiente por cobrar",
+            value: invoiceMetrics.find((metric) => metric.key === "pending")?.value || "$0.00",
+            helper: `${filtered.length} visibles de ${data.length} facturas`,
+            icon: Receipt,
+            tone: "orange",
+            onClick: () => {
+              setOperationalFilter((current) => (current === "pending" ? "all" : "pending"));
+              setStatusFilter("all");
+            },
+            meta: [
               {
-                key: "operation",
-                placeholder: "Operación",
-                value: operationalFilter,
-                onChange: (value) => setOperationalFilter(value as InvoiceOperationalFilter),
-                width: "w-44",
-                options: [
-                  { label: "Pendientes", value: "pending" },
-                  { label: "Vencidas", value: "overdue" },
-                  { label: "Pagadas", value: "paid" },
-                  { label: "Borradores", value: "draft" },
-                ],
+                label: "Vencidas",
+                value: data.filter((invoice) => isInvoiceOverdue(invoice, isoToday())).length,
+                tone: "red",
               },
               {
-                key: "status",
-                placeholder: "Estado",
-                value: statusFilter,
-                onChange: setStatusFilter,
-                options: INVOICE_STATUSES.map((s) => ({
-                  label: displayInvoiceStatus(s),
-                  value: s,
-                })),
+                label: "Pagadas",
+                value: data.filter((invoice) => isInvoicePaid(invoice)).length,
+                tone: "green",
               },
               {
-                key: "client",
-                placeholder: "Cliente",
-                value: clientFilter,
-                onChange: setClientFilter,
-                width: "w-48",
-                options: clients.map((client) => ({
-                  label: client.contact_person
-                    ? `${client.company_name} · ${client.contact_person}`
-                    : client.company_name,
-                  value: client.id,
-                })),
+                label: "Borradores",
+                value: data.filter((invoice) => isInvoiceDraft(invoice)).length,
+                tone: "neutral",
               },
-              {
-                key: "due",
-                placeholder: "Vencimiento",
-                value: dueFilter,
-                onChange: (value) => setDueFilter(value as InvoiceDueFilter),
-                width: "w-44",
-                options: [
-                  { label: "Hoy", value: "today" },
-                  { label: "Próximos 7 días", value: "week" },
-                  { label: "Próximos 31 días", value: "month" },
-                  { label: "Vencidas", value: "overdue" },
-                ],
-              },
-              {
-                key: "amount",
-                placeholder: "Monto",
-                value: amountFilter,
-                onChange: (value) => setAmountFilter(value as InvoiceAmountFilter),
-                width: "w-44",
-                options: [
-                  { label: "Menos de 1K", value: "lt1000" },
-                  { label: "1K a 5K", value: "1000_5000" },
-                  { label: "5K a 10K", value: "5000_10000" },
-                  { label: "10K o más", value: "gte10000" },
-                ],
-              },
-            ]}
+            ],
+          },
+        ]}
+      >
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <CrmDetailSelectTrigger className="h-9 text-[12px]">
+              <SelectValue placeholder="Estado" />
+            </CrmDetailSelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="all">Todos los estados</SelectItem>
+              {INVOICE_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {displayInvoiceStatus(status)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={dueFilter}
+            onValueChange={(value) => setDueFilter(value as InvoiceDueFilter)}
+          >
+            <CrmDetailSelectTrigger className="h-9 text-[12px]">
+              <SelectValue placeholder="Vencimiento" />
+            </CrmDetailSelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="all">Todo vencimiento</SelectItem>
+              <SelectItem value="today">Hoy</SelectItem>
+              <SelectItem value="week">Próximos 7 días</SelectItem>
+              <SelectItem value="month">Próximos 31 días</SelectItem>
+              <SelectItem value="overdue">Vencidas</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </GlobalKpiStrip>
+      <div className="max-md:hidden">
+        <PageHeader title="Facturas" subtitle={`${filtered.length} facturas`} />
+      </div>
+      <div className="hidden gap-3 md:grid md:grid-cols-4">
+        {invoiceMetrics.map((metric) => (
+          <InvoiceKpi
+            key={metric.key}
+            label={metric.label}
+            value={metric.value}
+            active={metric.active}
+            tone={
+              metric.tone === "success"
+                ? "success"
+                : metric.tone === "danger"
+                  ? "danger"
+                  : metric.key === "pending"
+                    ? "warning"
+                    : "neutral"
+            }
+            onClick={() => {
+              const next = metric.key as InvoiceOperationalFilter;
+              setOperationalFilter((current) => (current === next ? "all" : next));
+              setStatusFilter("all");
+            }}
           />
+        ))}
+      </div>
+
+      <DataCard
+        className="rounded-none border-x-0 border-y border-slate-100 bg-white shadow-none max-md:overflow-hidden max-md:border-0 max-md:bg-transparent"
+        noPadding
+      >
+        <div data-demo="invoices-list" className="space-y-0 p-0">
+          <div className="hidden border-b border-slate-100 px-4 py-3 md:flex md:items-center md:gap-3 sm:px-5">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar por factura, cliente, email, propuesta o producto..."
+              className="h-9 min-w-[260px] flex-1 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+            <Select
+              value={operationalFilter}
+              onValueChange={(value) => setOperationalFilter(value as InvoiceOperationalFilter)}
+            >
+              <CrmDetailSelectTrigger className="w-36">
+                <SelectValue placeholder="Operación" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Operación</SelectItem>
+                <SelectItem value="pending">Pendientes</SelectItem>
+                <SelectItem value="overdue">Vencidas</SelectItem>
+                <SelectItem value="paid">Pagadas</SelectItem>
+                <SelectItem value="draft">Borradores</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <CrmDetailSelectTrigger className="w-36">
+                <SelectValue placeholder="Estado" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Estado</SelectItem>
+                {INVOICE_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {displayInvoiceStatus(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={clientFilter} onValueChange={setClientFilter}>
+              <CrmDetailSelectTrigger className="w-44">
+                <SelectValue placeholder="Cliente" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Cliente</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.contact_person
+                      ? `${client.company_name} · ${client.contact_person}`
+                      : client.company_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={dueFilter}
+              onValueChange={(value) => setDueFilter(value as InvoiceDueFilter)}
+            >
+              <CrmDetailSelectTrigger className="w-40">
+                <SelectValue placeholder="Vencimiento" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Vencimiento</SelectItem>
+                <SelectItem value="today">Hoy</SelectItem>
+                <SelectItem value="week">Próximos 7 días</SelectItem>
+                <SelectItem value="month">Próximos 31 días</SelectItem>
+                <SelectItem value="overdue">Vencidas</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={amountFilter}
+              onValueChange={(value) => setAmountFilter(value as InvoiceAmountFilter)}
+            >
+              <CrmDetailSelectTrigger className="w-36">
+                <SelectValue placeholder="Monto" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Monto</SelectItem>
+                <SelectItem value="lt1000">Menos de 1K</SelectItem>
+                <SelectItem value="1000_5000">1K a 5K</SelectItem>
+                <SelectItem value="5000_10000">5K a 10K</SelectItem>
+                <SelectItem value="gte10000">10K o más</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              className="h-9 rounded-md bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700"
+              onClick={() => {
+                setSelected(null);
+                setEditItem(null);
+                setEditorPaymentFeedback(null);
+                setDrawerMode("create");
+                setDrawerOpen(true);
+              }}
+            >
+              Nueva factura
+            </Button>
+          </div>
 
           {activeFilterCount > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2 text-xs font-normal text-slate-500 sm:px-5">
               <span>
                 {activeFilterCount} filtro{activeFilterCount === 1 ? "" : "s"} activo
                 {activeFilterCount === 1 ? "" : "s"}
@@ -1454,7 +1596,7 @@ function InvoicesPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8"
+                className="h-8 rounded-none border-0 border-b border-slate-200 bg-white px-0 font-normal shadow-none hover:bg-white"
                 onClick={resetFilters}
               >
                 Restablecer filtros
@@ -1492,10 +1634,10 @@ function InvoicesPage() {
             />
           ) : (
             <>
-              <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
+              <div className="hidden overflow-x-auto border-y border-slate-100 md:block">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-50/80">
+                    <TableRow className="bg-white">
                       <TableHead className="min-w-[280px] pl-4">Factura</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead className="min-w-[120px]">Emitida</TableHead>
@@ -1521,7 +1663,7 @@ function InvoicesPage() {
                           >
                             <div className="min-w-0">
                               <div className="flex min-w-0 items-center gap-2">
-                                <span className="truncate font-semibold text-slate-950">
+                                <span className="truncate font-normal text-slate-950">
                                   {invoice.number}
                                 </span>
                                 <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
@@ -1545,10 +1687,10 @@ function InvoicesPage() {
                           <TableCell className="text-sm text-muted-foreground">
                             {formatInvoiceDueDate(invoice.due_date)}
                           </TableCell>
-                          <TableCell className="text-right font-semibold">
+                          <TableCell className="text-right font-normal">
                             {formatInvoiceMoney(invoice.total, currency)}
                           </TableCell>
-                          <TableCell className="text-sm font-medium text-muted-foreground">
+                          <TableCell className="text-sm font-normal text-muted-foreground">
                             {collectionLabel(invoice)}
                           </TableCell>
                           <TableCell className="pr-4 text-right">
@@ -1559,14 +1701,13 @@ function InvoicesPage() {
                                 event.stopPropagation();
                               }}
                             >
-                              <Button
+                              <CrmDetailLineButton
                                 type="button"
-                                size="sm"
-                                className="h-8"
+                                className="h-8 bg-transparent px-0 hover:bg-transparent"
                                 onClick={() => runPrimaryInvoiceAction(invoice)}
                               >
                                 {getInvoicePrimaryAction(invoice, hasProject)}
-                              </Button>
+                              </CrmDetailLineButton>
                               {renderActionsMenu(invoice)}
                             </div>
                           </TableCell>
@@ -1577,7 +1718,7 @@ function InvoicesPage() {
                 </Table>
               </div>
 
-              <div className="grid gap-3 md:hidden">
+              <div className="grid min-w-0 gap-3 overflow-hidden md:hidden">
                 {filtered.map((invoice) => {
                   const hasProject = Boolean(projectByInvoiceId[invoice.id]);
                   return (
@@ -1591,10 +1732,11 @@ function InvoicesPage() {
                       total={formatInvoiceMoney(invoice.total, getInvoiceDisplayCurrency(invoice))}
                       dueLabel={formatInvoiceDueDate(invoice.due_date)}
                       collectionLabel={collectionLabel(invoice)}
-                      actionLabel={getInvoicePrimaryAction(invoice, hasProject)}
                       actionMenu={renderActionsMenu(invoice)}
                       onOpen={() => openInvoiceDetail(invoice)}
-                      onPrimaryAction={() => runPrimaryInvoiceAction(invoice)}
+                      onOpenProject={
+                        hasProject ? () => viewProject(projectByInvoiceId[invoice.id]) : undefined
+                      }
                     />
                   );
                 })}
@@ -1617,22 +1759,22 @@ function InvoicesPage() {
       >
         <SheetContent
           side="right"
-          className="flex h-dvh w-screen max-w-none flex-col p-0 sm:max-w-[860px]"
+          className="flex h-dvh w-screen max-w-none flex-col overflow-hidden border-l border-slate-200 bg-white p-0 shadow-none sm:max-w-[860px]"
         >
-          <div className="border-b px-5 py-4">
+          <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 sm:px-6">
             <SheetHeader className="space-y-1 text-left">
-              <SheetTitle>
+              <SheetTitle className="text-xl font-normal tracking-normal text-slate-950">
                 {drawerMode === "create"
                   ? "Nueva factura"
                   : drawerMode === "edit"
                     ? `Editar factura ${editItem?.number || ""}`.trim()
                     : selected?.number || "Factura"}
               </SheetTitle>
-              <SheetDescription className="text-sm text-muted-foreground">
+              <SheetDescription className="text-sm font-normal text-slate-500">
                 {drawerMode === "view" && selected ? (
                   <>
                     Estado:{" "}
-                    <span className="font-medium text-foreground">
+                    <span className="font-medium text-slate-900">
                       {displayInvoiceStatus(selected.status)}
                     </span>
                   </>
@@ -1644,7 +1786,7 @@ function InvoicesPage() {
           </div>
 
           <ScrollArea className="flex-1">
-            <div className="px-5 py-4 space-y-4">
+            <div className="min-w-0 space-y-4 px-4 py-5 sm:px-6">
               {drawerMode === "view" && selected ? (
                 <>
                   <InvoiceDetailsPanel

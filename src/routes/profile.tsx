@@ -26,7 +26,13 @@ import { PageHeader } from "@/components/crm/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -89,12 +95,18 @@ const VALUE_LABELS: Record<string, string> = {
   email: "Email",
 };
 
+const profileInputClass =
+  "h-11 rounded-lg border-slate-200 bg-white text-sm font-medium text-slate-800 shadow-none focus-visible:ring-2 focus-visible:ring-blue-100 focus-visible:border-blue-300";
+
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
   head: () => ({
     meta: [
       { title: "Mi perfil - Corevix CRM" },
-      { name: "description", content: "Administra tu perfil y los datos de tu cuenta en Corevix CRM." },
+      {
+        name: "description",
+        content: "Administra tu perfil y los datos de tu cuenta en Corevix CRM.",
+      },
     ],
   }),
 });
@@ -118,7 +130,9 @@ function roleLabel(role: string) {
 }
 
 function labelFromValue(value: string) {
-  return VALUE_LABELS[value] ?? value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  return (
+    VALUE_LABELS[value] ?? value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+  );
 }
 
 function InfoRow({
@@ -131,12 +145,12 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border bg-white px-3 py-3">
-      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
+    <div className="flex items-start gap-3 border-b border-slate-100 px-0 py-3 last:border-b-0">
+      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700">
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-slate-400">
           {label}
         </p>
         <p className="mt-1 truncate text-sm font-semibold text-slate-950">{value || "-"}</p>
@@ -168,7 +182,7 @@ function FieldSelect({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
-        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-11 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -347,43 +361,48 @@ function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-4 md:p-6">
+      <div className="min-h-full space-y-6 bg-white p-4 md:p-6">
         <PageHeader title="Mi perfil" subtitle="Cargando tu perfil..." />
-        <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
+        <div className="flex min-h-[360px] items-center justify-center border-t border-blue-100">
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="min-h-full space-y-6 bg-white p-4 md:p-6">
       <PageHeader
         title="Mi perfil"
         subtitle="Administra tu identidad, trabajo, seguridad y preferencias."
       >
-        <Button size="sm" onClick={() => setEditOpen(true)}>
+        <Button
+          size="sm"
+          className="rounded-lg bg-blue-600 hover:bg-blue-700"
+          onClick={() => setEditOpen(true)}
+        >
           <Edit3 className="mr-2 h-4 w-4" />
           Editar perfil
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <Card className="overflow-hidden border-0 shadow-sm">
-          <div className="h-24 bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900" />
-          <CardContent className="-mt-12 space-y-5 p-6">
-            <div className="flex items-end justify-between gap-4">
+      <div className="grid grid-cols-1 gap-6 border-t border-blue-100 pt-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <Card className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-none">
+          <CardContent className="space-y-5 p-5">
+            <div className="flex items-start justify-between gap-4">
               {form.avatar_url ? (
                 <img
                   src={form.avatar_url}
                   alt={displayName}
-                  className="h-24 w-24 rounded-3xl border-4 border-white object-cover shadow-sm"
+                  className="h-20 w-20 rounded-lg border border-blue-100 object-cover"
                 />
               ) : (
-                <div className="grid h-24 w-24 place-items-center rounded-3xl border-4 border-white bg-slate-950 text-2xl font-black text-white shadow-sm">
+                <div className="grid h-20 w-20 place-items-center rounded-lg bg-blue-600 text-2xl font-black text-white">
                   {initials(displayName, email)}
                 </div>
               )}
               <Badge
-                className="mb-2"
+                className="rounded-full"
                 variant={accountStatus === "Activo" ? "default" : "destructive"}
               >
                 {accountStatus}
@@ -407,9 +426,9 @@ function ProfilePage() {
               )}
             </div>
 
-            <Separator />
+            <Separator className="bg-blue-100" />
 
-            <div className="space-y-3">
+            <div>
               <InfoRow icon={Mail} label="Email" value={email} />
               <InfoRow icon={Phone} label="Teléfono" value={form.phone || "Sin definir"} />
               <InfoRow
@@ -422,10 +441,10 @@ function ProfilePage() {
         </Card>
 
         <div className="min-w-0 space-y-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Card className="border-0 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <Card className="rounded-lg border border-slate-200 bg-white shadow-none">
               <CardContent className="flex items-center gap-3 p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
                   <CheckCircle2 className="h-5 w-5" />
                 </span>
                 <div>
@@ -436,9 +455,9 @@ function ProfilePage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-lg border border-slate-200 bg-white shadow-none">
               <CardContent className="flex items-center gap-3 p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-700">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-50 text-blue-700">
                   <ShieldCheck className="h-5 w-5" />
                 </span>
                 <div>
@@ -449,9 +468,9 @@ function ProfilePage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-lg border border-slate-200 bg-white shadow-none">
               <CardContent className="flex items-center gap-3 p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-50 text-violet-700">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-50 text-blue-700">
                   <CalendarDays className="h-5 w-5" />
                 </span>
                 <div>
@@ -465,16 +484,41 @@ function ProfilePage() {
           </div>
 
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5 md:w-auto md:inline-grid">
-              <TabsTrigger value="overview">Resumen</TabsTrigger>
-              <TabsTrigger value="access">Acceso</TabsTrigger>
-              <TabsTrigger value="security">Seguridad</TabsTrigger>
-              <TabsTrigger value="preferences">Preferencias</TabsTrigger>
-              <TabsTrigger value="activity">Actividad</TabsTrigger>
+            <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-blue-100 bg-white p-0 md:inline-flex md:w-auto">
+              <TabsTrigger
+                value="overview"
+                className="rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-xs font-bold text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
+              >
+                Resumen
+              </TabsTrigger>
+              <TabsTrigger
+                value="access"
+                className="rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-xs font-bold text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
+              >
+                Acceso
+              </TabsTrigger>
+              <TabsTrigger
+                value="security"
+                className="rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-xs font-bold text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
+              >
+                Seguridad
+              </TabsTrigger>
+              <TabsTrigger
+                value="preferences"
+                className="rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-xs font-bold text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
+              >
+                Preferencias
+              </TabsTrigger>
+              <TabsTrigger
+                value="activity"
+                className="rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-xs font-bold text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
+              >
+                Actividad
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
-              <Card className="border-0 shadow-sm">
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-none">
                 <CardHeader>
                   <CardTitle className="text-base">Detalles del perfil</CardTitle>
                 </CardHeader>
@@ -492,7 +536,7 @@ function ProfilePage() {
             </TabsContent>
 
             <TabsContent value="access" className="space-y-4">
-              <Card className="border-0 shadow-sm">
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-none">
                 <CardHeader>
                   <CardTitle className="text-base">Rol y acceso</CardTitle>
                 </CardHeader>
@@ -518,7 +562,7 @@ function ProfilePage() {
             </TabsContent>
 
             <TabsContent value="security" className="space-y-4">
-              <Card className="border-0 shadow-sm">
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-none">
                 <CardHeader>
                   <CardTitle className="text-base">Seguridad e inicio de sesión</CardTitle>
                   <p className="text-sm text-muted-foreground">
@@ -536,11 +580,11 @@ function ProfilePage() {
                     <InfoRow icon={Activity} label="Último acceso" value={lastSignIn} />
                     <InfoRow icon={CheckCircle2} label="Estado de cuenta" value={accountStatus} />
                   </div>
-                  <Separator />
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className="rounded-2xl border bg-white p-4">
+                  <Separator className="bg-blue-100" />
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                    <div className="border-t border-blue-100 pt-4">
                       <div className="mb-4 flex items-center gap-2">
-                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-700">
+                        <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-700">
                           <KeyRound className="h-4 w-4" />
                         </span>
                         <div>
@@ -565,6 +609,7 @@ function ProfilePage() {
                               }))
                             }
                             disabled={securitySaving}
+                            className={profileInputClass}
                           />
                         </div>
                         <div className="grid gap-2">
@@ -581,6 +626,7 @@ function ProfilePage() {
                               }))
                             }
                             disabled={securitySaving}
+                            className={profileInputClass}
                           />
                         </div>
                         <div className="grid gap-2">
@@ -597,6 +643,7 @@ function ProfilePage() {
                               }))
                             }
                             disabled={securitySaving}
+                            className={profileInputClass}
                           />
                         </div>
                       </div>
@@ -604,14 +651,18 @@ function ProfilePage() {
                         <p className="text-xs text-muted-foreground">
                           Usa al menos 8 caracteres. La sesión puede refrescarse después del cambio.
                         </p>
-                        <Button onClick={updatePassword} disabled={securitySaving}>
+                        <Button
+                          className="rounded-lg bg-blue-600 hover:bg-blue-700"
+                          onClick={updatePassword}
+                          disabled={securitySaving}
+                        >
                           {securitySaving ? "Actualizando..." : "Actualizar contraseña"}
                         </Button>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-dashed bg-slate-50 p-4">
+                    <div className="border-t border-blue-100 pt-4">
                       <div className="flex items-center gap-2">
-                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-700">
+                        <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-700">
                           <Smartphone className="h-4 w-4" />
                         </span>
                         <div>
@@ -622,9 +673,10 @@ function ProfilePage() {
                         </div>
                       </div>
                       <p className="mt-3 text-sm text-muted-foreground">
-                        Este espacio queda reservado para autenticación multifactor por TOTP o teléfono.
+                        Este espacio queda reservado para autenticación multifactor por TOTP o
+                        teléfono.
                       </p>
-                      <Button className="mt-4 w-full" variant="outline" disabled>
+                      <Button className="mt-4 w-full rounded-lg" variant="outline" disabled>
                         MFA próximamente
                       </Button>
                     </div>
@@ -634,7 +686,7 @@ function ProfilePage() {
             </TabsContent>
 
             <TabsContent value="preferences" className="space-y-4">
-              <Card className="border-0 shadow-sm">
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-none">
                 <CardHeader>
                   <CardTitle className="text-base">Preferencias personales</CardTitle>
                   <p className="text-sm text-muted-foreground">
@@ -746,6 +798,7 @@ function ProfilePage() {
                   </div>
                   <div className="flex justify-end">
                     <Button
+                      className="rounded-lg bg-blue-600 hover:bg-blue-700"
                       onClick={savePreferences}
                       disabled={preferencesLoading || preferencesSaving}
                     >
@@ -767,6 +820,9 @@ function ProfilePage() {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Editar perfil</DialogTitle>
+            <DialogDescription className="sr-only">
+              Actualiza tu nombre, teléfono, departamento y avatar del perfil.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-2">
@@ -778,6 +834,7 @@ function ProfilePage() {
                   setForm((prev) => ({ ...prev, full_name: event.target.value }))
                 }
                 placeholder="Tu nombre completo"
+                className={profileInputClass}
               />
             </div>
             <div className="grid gap-2">
@@ -787,6 +844,7 @@ function ProfilePage() {
                 value={form.phone}
                 onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
                 placeholder="Número de teléfono"
+                className={profileInputClass}
               />
             </div>
             <div className="grid gap-2">
@@ -798,6 +856,7 @@ function ProfilePage() {
                   setForm((prev) => ({ ...prev, department: event.target.value }))
                 }
                 placeholder="Ventas, soporte, operaciones..."
+                className={profileInputClass}
               />
             </div>
             <div className="grid gap-2">
@@ -809,13 +868,23 @@ function ProfilePage() {
                   setForm((prev) => ({ ...prev, avatar_url: event.target.value }))
                 }
                 placeholder="https://..."
+                className={profileInputClass}
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
+              <Button
+                className="rounded-lg"
+                variant="outline"
+                onClick={() => setEditOpen(false)}
+                disabled={saving}
+              >
                 Cancelar
               </Button>
-              <Button onClick={saveProfile} disabled={saving}>
+              <Button
+                className="rounded-lg bg-blue-600 hover:bg-blue-700"
+                onClick={saveProfile}
+                disabled={saving}
+              >
                 {saving ? "Guardando..." : "Guardar perfil"}
               </Button>
             </div>

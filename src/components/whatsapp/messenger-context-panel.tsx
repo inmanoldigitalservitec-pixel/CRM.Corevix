@@ -83,14 +83,6 @@ export function MessengerContextPanel({
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [leadMatches, setLeadMatches] = useState<any[]>([]);
   const [clientMatches, setClientMatches] = useState<any[]>([]);
-  const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpSaving, setFollowUpSaving] = useState(false);
-  const [followUpValues, setFollowUpValues] = useState({
-    title: "Seguimiento Messenger",
-    due_date: "",
-    priority: "Medium",
-    description: "",
-  });
   const [dealOpen, setDealOpen] = useState(false);
   const [dealSaving, setDealSaving] = useState(false);
   const [dealStages, setDealStages] = useState<
@@ -367,79 +359,23 @@ export function MessengerContextPanel({
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().slice(0, 10);
     const lastMsg = String(conversation.last_message_text || "").trim();
-    setFollowUpValues({
-      title: "Seguimiento Messenger",
-      due_date: dueDate,
-      priority: "Medium",
-      description: `Seguimiento creado desde conversación de Messenger.\nID de Messenger: ${messengerId || "—"}\nÚltimo mensaje: ${lastMsg || "—"}`,
-    });
-    setFollowUpOpen(true);
-  }
-
-  async function handleCreateFollowUp() {
-    if (!profile?.company_id || !actorUserId) {
-      toast.error("No se pudo identificar el perfil actual");
-      return;
-    }
-    if (!conversation?.linked_lead_id) {
-      toast.error("Crea o vincula un prospecto para activar seguimientos.");
-      return;
-    }
-    if (!can("tasks.create")) {
-      toast.error("No tienes permiso para crear seguimiento");
-      return;
-    }
-
-    if (!followUpValues.title.trim()) {
-      toast.error("El título es requerido");
-      return;
-    }
-    if (!followUpValues.due_date) {
-      toast.error("Selecciona una fecha de seguimiento");
-      return;
-    }
-
-    setFollowUpSaving(true);
-    try {
-      const db = supabase as any;
-      const leadId = String(conversation.linked_lead_id);
-      // Prefer auth uid for FK correctness (tasks.assigned_to -> auth.users.id).
-      const assignedTo: string | null =
-        (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) || actorUserId;
-
-      const basePayload: Record<string, any> = {
-        company_id: profile.company_id,
-        title: followUpValues.title.trim(),
-        description: followUpValues.description.trim() || null,
-        status: "To Do",
-        priority: followUpValues.priority || "Medium",
-        due_date: followUpValues.due_date,
-        assigned_to: assignedTo,
-        related_lead_id: leadId,
-        created_by: actorUserId,
-      };
-
-      let created: any = null;
-      const { data: createdTry, error: errTry } = await db
-        .from("tasks")
-        .insert(basePayload)
-        .select("id,title,due_date,priority,status,assigned_to,created_at")
-        .single();
-
-      if (errTry) {
-        toast.error(errTry.message || "No se pudo crear el seguimiento.");
-        return;
-      }
-      created = createdTry;
-
-      setNextTask(created || null);
-      toast.success("Seguimiento creado correctamente.");
-      setFollowUpOpen(false);
-    } catch (e: any) {
-      toast.error(e?.message || "No se pudo crear el seguimiento.");
-    } finally {
-      setFollowUpSaving(false);
-    }
+    window.dispatchEvent(
+      new CustomEvent("corevix:open-task-create", {
+        detail: {
+          initialValues: {
+            title: "Seguimiento Messenger",
+            dueDate,
+            priority: "Medium",
+            description: `Seguimiento creado desde conversación de Messenger.\nID de Messenger: ${messengerId || "—"}\nÚltimo mensaje: ${lastMsg || "—"}`,
+            assignedTo:
+              (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) ||
+              actorUserId ||
+              undefined,
+            leadId: String(conversation.linked_lead_id),
+          },
+        },
+      }),
+    );
   }
 
   useEffect(() => {
@@ -1181,76 +1117,6 @@ export function MessengerContextPanel({
           </div>
         </CardSection>
       </div>
-
-      <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear seguimiento</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleCreateFollowUp();
-            }}
-          >
-            <div>
-              <Label>Título</Label>
-              <Input
-                value={followUpValues.title}
-                onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Fecha de vencimiento</Label>
-                <Input
-                  type="date"
-                  value={followUpValues.due_date}
-                  onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Prioridad</Label>
-                <Select
-                  value={followUpValues.priority}
-                  onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Low">Baja</SelectItem>
-                    <SelectItem value="Medium">Media</SelectItem>
-                    <SelectItem value="High">Alta</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Descripción</Label>
-              <Textarea
-                value={followUpValues.description}
-                onChange={(e) => setFollowUpValues((p) => ({ ...p, description: e.target.value }))}
-                rows={4}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setFollowUpOpen(false)}
-                disabled={followUpSaving}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={followUpSaving}>
-                {followUpSaving ? "Enviando…" : "Crear"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={dealOpen} onOpenChange={setDealOpen}>
         <DialogContent>

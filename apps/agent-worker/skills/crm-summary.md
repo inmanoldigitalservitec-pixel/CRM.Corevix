@@ -6,6 +6,7 @@ Tool:
 crm_summary
 
 Usa esta tool para frases como:
+
 - dame un resumen del CRM
 - cómo está el CRM hoy
 - qué tengo pendiente
@@ -14,20 +15,22 @@ Usa esta tool para frases como:
 
 Formato tool_call:
 {
-  "type": "tool_call",
-  "tool": "crm_summary",
-  "args": {}
+"type": "tool_call",
+"tool": "crm_summary",
+"args": {}
 }
 
 Cuando recibas el resumen, conviértelo en una lectura útil, no solo números.
 
 Muestra:
+
 - Leads nuevos hoy
 - Tareas abiertas
 - Facturas sin pagar
 - Proyectos activos
 
 Luego agrega una lectura rápida:
+
 - Si hay leads nuevos, recomienda revisarlos primero.
 - Si hay muchas tareas abiertas, recomienda priorizar tareas.
 - Si hay facturas sin pagar, menciona seguimiento financiero.

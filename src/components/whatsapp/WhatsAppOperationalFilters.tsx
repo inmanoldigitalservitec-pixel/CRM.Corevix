@@ -53,7 +53,9 @@ function getConversationButtons() {
   return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
     const className = String(button.className || "");
     return (
-      className.includes("mb-1") && className.includes("w-full") && className.includes("text-left")
+      className.includes("w-full") &&
+      className.includes("text-left") &&
+      (className.includes("border-b") || className.includes("group"))
     );
   });
 }
@@ -127,7 +129,6 @@ export function WhatsAppOperationalFilters() {
   }, [active]);
 
   const counts = useMemo(() => {
-    version;
     return FILTERS.reduce<Record<FilterKey, number>>(
       (acc, option) => {
         acc[option.key] = countForFilter(option.key);
@@ -142,9 +143,9 @@ export function WhatsAppOperationalFilters() {
   if (!slot) return null;
 
   return createPortal(
-    <div className="mt-2 rounded-2xl border border-[#e0ebe6] bg-[#f7fbf9] p-2 shadow-inner">
+    <div className="mt-3 border-t border-slate-200 pt-3">
       <div className="mb-1 flex items-center justify-between px-1">
-        <p className="text-[10px] font-black uppercase tracking-wide text-[#6c7f77]">Filtro CRM</p>
+        <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Filtro CRM</p>
         {active !== "all" ? (
           <button
             type="button"
@@ -153,7 +154,7 @@ export function WhatsAppOperationalFilters() {
               setOpen(false);
               window.requestAnimationFrame(() => applyFilter("all"));
             }}
-            className="text-[10px] font-bold text-[#008069] hover:underline"
+            className="text-[10px] font-bold text-blue-700 hover:underline"
           >
             limpiar
           </button>
@@ -164,12 +165,12 @@ export function WhatsAppOperationalFilters() {
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="flex h-9 w-full items-center justify-between gap-2 rounded-2xl border border-[#dce8e2] bg-white px-3 text-left text-xs font-black text-[#52645d] shadow-sm hover:border-[#bcebd0] hover:bg-[#e9fff1] hover:text-[#008069]"
+          className="flex h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left text-xs font-black text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-blue-700"
         >
           <span className="flex min-w-0 items-center gap-2">
             {activeOption.icon}
             <span className="truncate">{activeOption.label}</span>
-            <span className="rounded-full bg-[#edf6f2] px-1.5 py-0.5 text-[10px] text-[#52645d]">
+            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
               {counts[activeOption.key] ?? 0}
             </span>
           </span>
@@ -177,7 +178,7 @@ export function WhatsAppOperationalFilters() {
         </button>
 
         {open ? (
-          <div className="absolute left-0 right-0 top-10 z-50 max-h-72 overflow-y-auto rounded-2xl border border-[#dce8e2] bg-white p-1.5 shadow-[0_16px_34px_rgba(18,35,29,.15)]">
+          <div className="absolute left-0 right-0 top-10 z-50 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5">
             {FILTERS.map((option) => {
               const selected = active === option.key;
               return (
@@ -191,8 +192,8 @@ export function WhatsAppOperationalFilters() {
                   }}
                   className={`flex h-9 w-full items-center justify-between gap-2 rounded-xl px-2.5 text-left text-xs font-black transition ${
                     selected
-                      ? "bg-[#d9fdd3] text-[#007a5d]"
-                      : "text-[#52645d] hover:bg-[#f1f8f5] hover:text-[#008069]"
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-blue-700"
                   }`}
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -200,7 +201,7 @@ export function WhatsAppOperationalFilters() {
                     <span className="truncate">{option.label}</span>
                   </span>
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${selected ? "bg-white/70" : "bg-[#edf6f2]"}`}
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${selected ? "bg-white" : "bg-slate-100"}`}
                   >
                     {counts[option.key] ?? 0}
                   </span>

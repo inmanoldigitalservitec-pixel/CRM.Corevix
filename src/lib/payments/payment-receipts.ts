@@ -74,7 +74,8 @@ export async function preparePaymentReceiptFile(file: File) {
   }
 
   if (file.type === "application/pdf") {
-    if (file.size > PAYMENT_RECEIPT_MAX_BYTES) throw new Error("El PDF no puede pesar más de 3 MB.");
+    if (file.size > PAYMENT_RECEIPT_MAX_BYTES)
+      throw new Error("El PDF no puede pesar más de 3 MB.");
     return file;
   }
 
@@ -99,11 +100,13 @@ export async function uploadPaymentReceipt(
   const prepared = await preparePaymentReceiptFile(file);
   const ext = safeExtension(prepared);
   const path = `${context.companyId}/${context.paymentId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-  const { error: uploadError } = await supabase.storage.from(PAYMENT_RECEIPTS_BUCKET).upload(path, prepared, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: prepared.type,
-  });
+  const { error: uploadError } = await supabase.storage
+    .from(PAYMENT_RECEIPTS_BUCKET)
+    .upload(path, prepared, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: prepared.type,
+    });
   if (uploadError) throw uploadError;
 
   const db = supabase as any;

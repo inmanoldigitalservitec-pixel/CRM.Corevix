@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { resolveAgentActionIntent, type ResolveAgentActionIntentResponse } from "../../lib/agentClient";
+import {
+  resolveAgentActionIntent,
+  type ResolveAgentActionIntentResponse,
+} from "../../lib/agentClient";
 import "./AgentCommandWidget.css";
 
-export type AgentWidgetMode = "compact" | "review" | "decision" | "collecting_fields" | "confirming" | "executing" | "result";
+export type AgentWidgetMode =
+  | "compact"
+  | "review"
+  | "decision"
+  | "collecting_fields"
+  | "confirming"
+  | "executing"
+  | "result";
 
 export type AgentSeverity = "critical" | "high" | "medium" | "low";
 
@@ -140,8 +150,10 @@ const demoPlans: AgentRecoveryPlan[] = [
     case_key: "demo::tasks::overdue",
     title: "Hay tareas vencidas",
     severity: "high",
-    message: "Puedo reorganizar las tareas vencidas y priorizar las que requieren acción inmediata.",
-    diagnosis: "La agenda tiene tareas vencidas que pueden afectar entregas, seguimiento y cumplimiento con clientes.",
+    message:
+      "Puedo reorganizar las tareas vencidas y priorizar las que requieren acción inmediata.",
+    diagnosis:
+      "La agenda tiene tareas vencidas que pueden afectar entregas, seguimiento y cumplimiento con clientes.",
     plan_steps: [
       {
         title: "Diagnóstico",
@@ -255,9 +267,12 @@ function inferIcon(plan: AgentRecoveryPlan): AgentIconName {
   if (text.includes("gmail") || text.includes("correo") || text.includes("email")) return "mail";
   if (text.includes("factura") || text.includes("cobro") || text.includes("pago")) return "dollar";
   if (text.includes("lead") || text.includes("cliente")) return "users";
-  if (text.includes("propuesta") || text.includes("contrato") || text.includes("documento")) return "file";
-  if (text.includes("sincron") || text.includes("integración") || text.includes("error")) return "sync";
-  if (text.includes("tarea") || text.includes("agenda") || text.includes("fecha")) return "calendar";
+  if (text.includes("propuesta") || text.includes("contrato") || text.includes("documento"))
+    return "file";
+  if (text.includes("sincron") || text.includes("integración") || text.includes("error"))
+    return "sync";
+  if (text.includes("tarea") || text.includes("agenda") || text.includes("fecha"))
+    return "calendar";
 
   return "spark";
 }
@@ -310,15 +325,18 @@ export function AgentCommandWidget({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mode, setMode] = useState<AgentWidgetMode>("compact");
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [streamLines, setStreamLines] = useState<Array<{ text: string; type?: "thinking" | "done" }>>([]);
+  const [streamLines, setStreamLines] = useState<
+    Array<{ text: string; type?: "thinking" | "done" }>
+  >([]);
   const [showResult, setShowResult] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAgentAction | null>(null);
   const [selectedSuggestedActionId, setSelectedSuggestedActionId] = useState<string>("");
   const [customAutopilotInstruction, setCustomAutopilotInstruction] = useState("");
-  const [resolvedIntent, setResolvedIntent] = useState<ResolveAgentActionIntentResponse | null>(null);
+  const [resolvedIntent, setResolvedIntent] = useState<ResolveAgentActionIntentResponse | null>(
+    null,
+  );
   const [isResolvingIntent, setIsResolvingIntent] = useState(false);
-
 
   const selectedPlan = availablePlans[Math.min(selectedIndex, availablePlans.length - 1)] || {
     case_key: "system::all_clear",
@@ -329,17 +347,15 @@ export function AgentCommandWidget({
     plan_steps: [
       {
         title: "Sin acciones críticas",
-        description: "Cuando el agente detecte algo importante, aparecerá aquí con un plan claro."
-      }
+        description: "Cuando el agente detecte algo importante, aparecerá aquí con un plan claro.",
+      },
     ],
     suggested_actions: [],
     result: {
       title: "Sistema estable",
       message: "No hay planes de recuperación pendientes.",
-      data: [
-        { label: "Estado", value: "Todo bien" }
-      ]
-    }
+      data: [{ label: "Estado", value: "Todo bien" }],
+    },
   };
 
   const theme = useMemo(() => getPlanTheme(selectedPlan), [selectedPlan]);
@@ -390,10 +406,7 @@ export function AgentCommandWidget({
   }
 
   function getSuggestedActionKey(action: AgentSuggestedAction, index: number) {
-    return (
-      action.action_id ||
-      `${action.type || "action"}-${action.tool_hint || "tool"}-${index}`
-    );
+    return action.action_id || `${action.type || "action"}-${action.tool_hint || "tool"}-${index}`;
   }
 
   function getHumanFieldLabel(field: string) {
@@ -446,11 +459,7 @@ export function AgentCommandWidget({
       const type = String(item.type || "").toLowerCase();
       const module = String(item.module || "").toLowerCase();
 
-      return (
-        type === wantedType ||
-        module === wantedType ||
-        module === `${wantedType}s`
-      );
+      return type === wantedType || module === wantedType || module === `${wantedType}s`;
     });
 
     return record?.id ? String(record.id).trim() : "";
@@ -576,7 +585,11 @@ export function AgentCommandWidget({
       return `¿Para qué fecha quieres mover "${targetLabel}"?`;
     }
 
-    if (normalized === "assignee_id" || normalized === "owner_id" || normalized === "responsible_id") {
+    if (
+      normalized === "assignee_id" ||
+      normalized === "owner_id" ||
+      normalized === "responsible_id"
+    ) {
       return `¿A quién quieres asignar "${targetLabel}"?`;
     }
 
@@ -611,7 +624,10 @@ export function AgentCommandWidget({
     const requiredFields = action.required_fields || [];
     const fieldLines = requiredFields.length
       ? requiredFields
-          .map((field) => `${getHumanFieldLabel(field)}: ${getActionValueForConfirmation(action, values, field)}`)
+          .map(
+            (field) =>
+              `${getHumanFieldLabel(field)}: ${getActionValueForConfirmation(action, values, field)}`,
+          )
           .join("\n")
       : "No faltan campos requeridos.";
 
@@ -710,7 +726,9 @@ export function AgentCommandWidget({
           action.reason ? `reason: ${action.reason}` : "",
           action.tool_hint ? `tool_hint: ${action.tool_hint}` : "",
           action.risk_level ? `risk_level: ${action.risk_level}` : "",
-          action.required_fields?.length ? `required_fields: ${action.required_fields.join(", ")}` : "",
+          action.required_fields?.length
+            ? `required_fields: ${action.required_fields.join(", ")}`
+            : "",
           action.target ? `target: ${compactJson(action.target)}` : "",
           action.payload ? `payload: ${compactJson(action.payload)}` : "",
         ].filter(Boolean);
@@ -783,8 +801,9 @@ export function AgentCommandWidget({
     const customInstruction = customAutopilotInstruction.trim();
     const suggestedActions = selectedPlan.suggested_actions || [];
     const selectedAction =
-      suggestedActions.find((candidate, index) => getSuggestedActionKey(candidate, index) === selectedSuggestedActionId) ||
-      getPrimarySuggestedAction(selectedPlan);
+      suggestedActions.find(
+        (candidate, index) => getSuggestedActionKey(candidate, index) === selectedSuggestedActionId,
+      ) || getPrimarySuggestedAction(selectedPlan);
 
     if (customInstruction && selectedAction) {
       return {
@@ -858,7 +877,8 @@ export function AgentCommandWidget({
       risk_level: resolved.intent.risk_level || fallbackAction?.risk_level || "medium_write",
       required_fields: resolved.intent.required_fields || fallbackAction?.required_fields || [],
       tool_hint: resolved.intent.tool_hint || fallbackAction?.tool_hint || null,
-      target: (resolved.intent.target as AgentActionTarget | null) || fallbackAction?.target || null,
+      target:
+        (resolved.intent.target as AgentActionTarget | null) || fallbackAction?.target || null,
       payload: {
         ...(fallbackAction?.payload || {}),
         ...(resolved.intent.payload as Record<string, string | number | boolean | null>),
@@ -894,9 +914,16 @@ export function AgentCommandWidget({
       case_summary: selectedPlan.message || selectedPlan.diagnosis,
       user_instruction: customAutopilotInstruction.trim() || null,
       selected_action: selectedAction as unknown as Record<string, unknown> | null,
-      suggested_actions: selectedPlan.suggested_actions as unknown as Array<Record<string, unknown>>,
-      source_records: (selectedPlan.source_records || []) as unknown as Array<Record<string, unknown>>,
-      context_refs: (selectedPlan.context_refs || null) as unknown as Record<string, unknown> | null,
+      suggested_actions: selectedPlan.suggested_actions as unknown as Array<
+        Record<string, unknown>
+      >,
+      source_records: (selectedPlan.source_records || []) as unknown as Array<
+        Record<string, unknown>
+      >,
+      context_refs: (selectedPlan.context_refs || null) as unknown as Record<
+        string,
+        unknown
+      > | null,
       values,
       plan: selectedPlan as unknown as Record<string, unknown>,
     });
@@ -1040,7 +1067,10 @@ export function AgentCommandWidget({
       setPendingAction(null);
       setResolvedIntent(null);
       setStreamLines([
-        { text: "No hay una acción sugerida ni una instrucción escrita para este caso.", type: "done" },
+        {
+          text: "No hay una acción sugerida ni una instrucción escrita para este caso.",
+          type: "done",
+        },
       ]);
       setMode("executing");
       return;
@@ -1067,9 +1097,10 @@ export function AgentCommandWidget({
         setPendingAction(null);
         setStreamLines([
           {
-            text: error instanceof Error
-              ? error.message
-              : "No se pudo resolver la intención con Autopilot.",
+            text:
+              error instanceof Error
+                ? error.message
+                : "No se pudo resolver la intención con Autopilot.",
             type: "done",
           },
         ]);
@@ -1099,20 +1130,24 @@ export function AgentCommandWidget({
             "La intención fue confirmada dentro del widget. La ejecución real todavía no se ejecuta; se conectará en la próxima fase.",
           data: [
             { label: "Acción", value: pendingAction.action.label || pendingAction.action.type },
-            { label: "Herramienta", value: getToolDisplayName(pendingAction.action.tool_hint, pendingAction.action.label) },
+            {
+              label: "Herramienta",
+              value: getToolDisplayName(pendingAction.action.tool_hint, pendingAction.action.label),
+            },
             { label: "Riesgo", value: pendingAction.action.risk_level || "medium_write" },
             { label: "Estado", value: "Confirmada sin ejecutar" },
           ],
         }
       : selectedPlan.result || {
-    title: "Plan listo",
-    message: "El agente preparó el plan de sanación. La ejecución real requiere confirmación.",
-    data: [
-      { label: "Caso", value: selectedPlan.severity },
-      { label: "Acciones", value: String(selectedPlan.suggested_actions.length) },
-      { label: "Estado", value: "Pendiente" },
-    ],
-  };
+          title: "Plan listo",
+          message:
+            "El agente preparó el plan de sanación. La ejecución real requiere confirmación.",
+          data: [
+            { label: "Caso", value: selectedPlan.severity },
+            { label: "Acciones", value: String(selectedPlan.suggested_actions.length) },
+            { label: "Estado", value: "Pendiente" },
+          ],
+        };
 
   return (
     <section
@@ -1134,7 +1169,12 @@ export function AgentCommandWidget({
           <span className="agent-last-check">{lastAnalysisLabel}</span>
         </div>
 
-        <button className="agent-analyze-btn" type="button" onClick={handleAnalyzeNow} disabled={isAnalyzing || isLoading}>
+        <button
+          className="agent-analyze-btn"
+          type="button"
+          onClick={handleAnalyzeNow}
+          disabled={isAnalyzing || isLoading}
+        >
           {isAnalyzing || isLoading ? "Revisando actividad..." : "Analizar ahora"}
         </button>
       </div>
@@ -1175,7 +1215,8 @@ export function AgentCommandWidget({
                         <strong>{action.label || action.type || `Acción ${index + 1}`}</strong>
                         {action.reason ? <span>{action.reason}</span> : null}
                         <small>
-                          {getToolDisplayName(action.tool_hint, action.label)} · {action.risk_level || "medium_write"}
+                          {getToolDisplayName(action.tool_hint, action.label)} ·{" "}
+                          {action.risk_level || "medium_write"}
                         </small>
                       </button>
                     );
@@ -1193,7 +1234,9 @@ export function AgentCommandWidget({
                   placeholder="Ejemplo: mueve esta tarea para el próximo lunes y agrega una nota interna..."
                   rows={4}
                 />
-                <small>Si escribes aquí, esta instrucción tendrá prioridad sobre los botones.</small>
+                <small>
+                  Si escribes aquí, esta instrucción tendrá prioridad sobre los botones.
+                </small>
               </label>
 
               <div className="agent-decision-actions">
@@ -1224,26 +1267,50 @@ export function AgentCommandWidget({
               <div className="agent-decision-header">
                 <span className="agent-section-eyebrow">Datos necesarios</span>
                 <h3>Necesito algunos datos antes de continuar</h3>
-                <p>{resolvedIntent?.agent_message || pendingAction?.action.label || selectedPlan.title}</p>
+                <p>
+                  {resolvedIntent?.agent_message ||
+                    pendingAction?.action.label ||
+                    selectedPlan.title}
+                </p>
               </div>
 
               <div className="agent-field-list">
                 {(pendingAction?.missingFields || []).map((field) => (
                   <label className="agent-field-control" key={field}>
-                    <span>{getResolvedFieldQuestion(field)?.label || getHumanFieldLabel(field)}</span>
+                    <span>
+                      {getResolvedFieldQuestion(field)?.label || getHumanFieldLabel(field)}
+                    </span>
                     {getResolvedFieldQuestion(field)?.input_type === "textarea" ? (
                       <textarea
                         value={pendingAction?.values[field] || ""}
                         onChange={(event) => handlePendingFieldChange(field, event.target.value)}
-                        placeholder={getResolvedFieldQuestion(field)?.question || getFieldPrompt(field, pendingAction?.action || getSelectedAutopilotAction() || selectedPlan.suggested_actions[0])}
+                        placeholder={
+                          getResolvedFieldQuestion(field)?.question ||
+                          getFieldPrompt(
+                            field,
+                            pendingAction?.action ||
+                              getSelectedAutopilotAction() ||
+                              selectedPlan.suggested_actions[0],
+                          )
+                        }
                         rows={4}
                       />
                     ) : (
                       <input
-                        type={getResolvedFieldQuestion(field)?.input_type === "date" ? "date" : "text"}
+                        type={
+                          getResolvedFieldQuestion(field)?.input_type === "date" ? "date" : "text"
+                        }
                         value={pendingAction?.values[field] || ""}
                         onChange={(event) => handlePendingFieldChange(field, event.target.value)}
-                        placeholder={getResolvedFieldQuestion(field)?.question || getFieldPrompt(field, pendingAction?.action || getSelectedAutopilotAction() || selectedPlan.suggested_actions[0])}
+                        placeholder={
+                          getResolvedFieldQuestion(field)?.question ||
+                          getFieldPrompt(
+                            field,
+                            pendingAction?.action ||
+                              getSelectedAutopilotAction() ||
+                              selectedPlan.suggested_actions[0],
+                          )
+                        }
                       />
                     )}
                   </label>
@@ -1273,17 +1340,26 @@ export function AgentCommandWidget({
               <div className="agent-decision-header">
                 <span className="agent-section-eyebrow">Confirmación humana</span>
                 <h3>Confirma antes de que Autopilot continúe</h3>
-                <p>{resolvedIntent?.agent_message || pendingAction?.planTitle || selectedPlan.title}</p>
+                <p>
+                  {resolvedIntent?.agent_message || pendingAction?.planTitle || selectedPlan.title}
+                </p>
               </div>
 
               <div className="agent-confirm-card">
                 <div>
                   <span>Acción</span>
-                  <strong>{pendingAction?.action.label || pendingAction?.action.type || "Sin acción"}</strong>
+                  <strong>
+                    {pendingAction?.action.label || pendingAction?.action.type || "Sin acción"}
+                  </strong>
                 </div>
                 <div>
                   <span>Tool sugerida</span>
-                  <strong>{getToolDisplayName(pendingAction?.action.tool_hint, pendingAction?.action.label)}</strong>
+                  <strong>
+                    {getToolDisplayName(
+                      pendingAction?.action.tool_hint,
+                      pendingAction?.action.label,
+                    )}
+                  </strong>
                 </div>
                 <div>
                   <span>Riesgo</span>
@@ -1371,7 +1447,9 @@ export function AgentCommandWidget({
                   <span className="agent-severity">{theme.label}</span>
                 </div>
 
-                <p className="agent-event-message">{selectedPlan.message || selectedPlan.diagnosis}</p>
+                <p className="agent-event-message">
+                  {selectedPlan.message || selectedPlan.diagnosis}
+                </p>
 
                 <div className="agent-promise">{selectedPlan.diagnosis}</div>
 
@@ -1405,7 +1483,9 @@ export function AgentCommandWidget({
             <div className="agent-stream-mark" />
             <div>
               <h3 className="agent-stream-title">Autopilot está trabajando</h3>
-              <p className="agent-stream-subtitle">El agente irá mostrando lo que está haciendo en tiempo real.</p>
+              <p className="agent-stream-subtitle">
+                El agente irá mostrando lo que está haciendo en tiempo real.
+              </p>
             </div>
           </div>
 
@@ -1435,7 +1515,11 @@ export function AgentCommandWidget({
               <button className="agent-primary-btn" type="button" onClick={() => setMode("review")}>
                 Volver al widget
               </button>
-              <button className="agent-secondary-btn" type="button" onClick={() => setMode("compact")}>
+              <button
+                className="agent-secondary-btn"
+                type="button"
+                onClick={() => setMode("compact")}
+              >
                 Ocultar plan
               </button>
             </div>

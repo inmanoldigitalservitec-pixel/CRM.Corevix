@@ -20,7 +20,11 @@ import {
 } from "lucide-react";
 import { getAgentUrl, type AgentToolScope } from "@/lib/agentClient";
 import { AgentContextPanel } from "./AgentContextPanel";
-import { getLatestAgentToolContext, type AgentToolContext, type AgentWidgetTone } from "./agentToolContext";
+import {
+  getLatestAgentToolContext,
+  type AgentToolContext,
+  type AgentWidgetTone,
+} from "./agentToolContext";
 import { AGENT_CHAT_STARTERS, useAgentChatController } from "./useAgentChatController";
 import "./AgenticAgentShell.css";
 import "./AgenticPrompt.css";
@@ -153,7 +157,8 @@ const COMPOSER_TOOL_META: Partial<Record<string, ComposerToolMeta>> = {
   crm_summary: {
     title: "Resumen CRM",
     eyebrow: "Dashboard",
-    nextStep: "Usa este resumen para decidir si conviene revisar leads, tareas, cobros o proyectos.",
+    nextStep:
+      "Usa este resumen para decidir si conviene revisar leads, tareas, cobros o proyectos.",
     tone: "blue",
     icon: BarChart3,
   },
@@ -195,14 +200,129 @@ const COMPOSER_TOOL_META: Partial<Record<string, ComposerToolMeta>> = {
 };
 
 const SCOPE_KEYWORDS: Array<{ scope: AgentToolScope; words: string[] }> = [
-  { scope: "leads", words: ["lead", "leads", "prospecto", "prospectos", "interesado", "cliente potencial", "contacto nuevo", "nuevo contacto"] },
-  { scope: "clients", words: ["cliente", "clientes", "empresa", "empresas", "cuenta", "cuentas", "contacto", "contactos"] },
-  { scope: "tasks", words: ["tarea", "tareas", "recordatorio", "recordatorios", "recuerdame", "recuérdame", "agenda", "agendar", "calendario", "cita", "reunion", "reunión", "demo", "seguimiento"] },
-  { scope: "pipeline", words: ["pipeline", "deal", "deals", "oportunidad", "oportunidades", "venta", "ventas", "negocio", "negocios", "etapa", "probabilidad", "cierre"] },
-  { scope: "reports", words: ["reporte", "reportes", "resumen", "briefing", "metricas", "métricas", "dashboard", "actividad", "rendimiento"] },
-  { scope: "communication", words: ["email", "correo", "correos", "gmail", "outlook", "whatsapp", "mensaje", "mensajes", "inbox", "bandeja", "conversacion", "conversación", "borrador", "responder"] },
-  { scope: "projects", words: ["proyecto", "proyectos", "project", "projects", "entrega", "implementacion", "implementación"] },
-  { scope: "finance", words: ["factura", "facturas", "invoice", "invoices", "pago", "pagos", "cobro", "cobros", "deuda", "vencida", "vencidas"] },
+  {
+    scope: "leads",
+    words: [
+      "lead",
+      "leads",
+      "prospecto",
+      "prospectos",
+      "interesado",
+      "cliente potencial",
+      "contacto nuevo",
+      "nuevo contacto",
+    ],
+  },
+  {
+    scope: "clients",
+    words: [
+      "cliente",
+      "clientes",
+      "empresa",
+      "empresas",
+      "cuenta",
+      "cuentas",
+      "contacto",
+      "contactos",
+    ],
+  },
+  {
+    scope: "tasks",
+    words: [
+      "tarea",
+      "tareas",
+      "recordatorio",
+      "recordatorios",
+      "recuerdame",
+      "recuérdame",
+      "agenda",
+      "agendar",
+      "calendario",
+      "cita",
+      "reunion",
+      "reunión",
+      "demo",
+      "seguimiento",
+    ],
+  },
+  {
+    scope: "pipeline",
+    words: [
+      "pipeline",
+      "deal",
+      "deals",
+      "oportunidad",
+      "oportunidades",
+      "venta",
+      "ventas",
+      "negocio",
+      "negocios",
+      "etapa",
+      "probabilidad",
+      "cierre",
+    ],
+  },
+  {
+    scope: "reports",
+    words: [
+      "reporte",
+      "reportes",
+      "resumen",
+      "briefing",
+      "metricas",
+      "métricas",
+      "dashboard",
+      "actividad",
+      "rendimiento",
+    ],
+  },
+  {
+    scope: "communication",
+    words: [
+      "email",
+      "correo",
+      "correos",
+      "gmail",
+      "outlook",
+      "whatsapp",
+      "mensaje",
+      "mensajes",
+      "inbox",
+      "bandeja",
+      "conversacion",
+      "conversación",
+      "borrador",
+      "responder",
+    ],
+  },
+  {
+    scope: "projects",
+    words: [
+      "proyecto",
+      "proyectos",
+      "project",
+      "projects",
+      "entrega",
+      "implementacion",
+      "implementación",
+    ],
+  },
+  {
+    scope: "finance",
+    words: [
+      "factura",
+      "facturas",
+      "invoice",
+      "invoices",
+      "pago",
+      "pagos",
+      "cobro",
+      "cobros",
+      "deuda",
+      "vencida",
+      "vencidas",
+    ],
+  },
 ];
 
 function normalizeScopeText(value: string) {
@@ -214,7 +334,10 @@ function normalizeScopeText(value: string) {
     .trim();
 }
 
-function detectScopeSuggestion(value: string, selectedScope: AgentToolScope | null): ScopeSuggestion | null {
+function detectScopeSuggestion(
+  value: string,
+  selectedScope: AgentToolScope | null,
+): ScopeSuggestion | null {
   if (selectedScope) return null;
   const text = normalizeScopeText(value);
   if (text.length < 3) return null;
@@ -235,7 +358,13 @@ function isActionTool(tool: string) {
   return /^(create|update|complete|reschedule|add|convert|link|assign|cancel|draft)_/.test(tool);
 }
 
-function ScopeIcon({ scope, className = "h-3.5 w-3.5" }: { scope: AgentToolScope; className?: string }) {
+function ScopeIcon({
+  scope,
+  className = "h-3.5 w-3.5",
+}: {
+  scope: AgentToolScope;
+  className?: string;
+}) {
   const Icon = SCOPE_ICONS[scope] || Sparkles;
   return <Icon className={className} />;
 }
@@ -255,9 +384,18 @@ function AgentComposerActionPanel({
   const Icon = meta?.icon || SCOPE_ICONS.general;
   const tone = meta?.tone || context.rows[0]?.tone || context.metrics?.[0]?.tone || "slate";
   const count = context.metrics?.length ? context.metrics.length : context.rows.length;
-  const countLabel = context.status === "error" ? "!" : isActionTool(context.tool) ? `+${Math.max(count, 1)}` : String(count || 1);
+  const countLabel =
+    context.status === "error"
+      ? "!"
+      : isActionTool(context.tool)
+        ? `+${Math.max(count, 1)}`
+        : String(count || 1);
   const title = meta?.title || context.title;
-  const summary = context.rows[0]?.subtitle || context.summary || meta?.nextStep || "Accion procesada por Corevix AI.";
+  const summary =
+    context.rows[0]?.subtitle ||
+    context.summary ||
+    meta?.nextStep ||
+    "Accion procesada por Corevix AI.";
   const visibleRows = context.rows.slice(0, 4);
   const visibleMetrics = context.metrics?.slice(0, 4) || [];
   const primaryAction = context.primaryAction;
@@ -265,7 +403,12 @@ function AgentComposerActionPanel({
   return (
     <div className={`agentic-ai-action-panel ${expanded ? "is-expanded" : ""} ${toneClass(tone)}`}>
       <div className="agentic-ai-action-summary">
-        <button type="button" className="agentic-ai-action-toggle" onClick={onToggle} aria-expanded={expanded}>
+        <button
+          type="button"
+          className="agentic-ai-action-toggle"
+          onClick={onToggle}
+          aria-expanded={expanded}
+        >
           <span className="agentic-ai-action-count">{countLabel}</span>
           <span className="agentic-ai-action-copy">
             <strong>{title}</strong>
@@ -277,7 +420,12 @@ function AgentComposerActionPanel({
             {primaryAction.label}
           </a>
         ) : null}
-        <button type="button" className="agentic-ai-action-expand" onClick={onToggle} aria-label={expanded ? "Contraer detalle" : "Ver detalle"}>
+        <button
+          type="button"
+          className="agentic-ai-action-expand"
+          onClick={onToggle}
+          aria-label={expanded ? "Contraer detalle" : "Ver detalle"}
+        >
           <ChevronUp className="h-4 w-4" />
         </button>
       </div>
@@ -294,13 +442,20 @@ function AgentComposerActionPanel({
             {visibleMetrics.map((metric) => {
               const metricAction = metric.actions?.[0];
               return metricAction ? (
-                <a key={metric.id} href={metricAction.href} className={`agentic-ai-action-metric ${toneClass(metric.tone)}`}>
+                <a
+                  key={metric.id}
+                  href={metricAction.href}
+                  className={`agentic-ai-action-metric ${toneClass(metric.tone)}`}
+                >
                   <strong>{metric.value}</strong>
                   <span>{metric.label}</span>
                   <em>{metricAction.label}</em>
                 </a>
               ) : (
-                <div key={metric.id} className={`agentic-ai-action-metric ${toneClass(metric.tone)}`}>
+                <div
+                  key={metric.id}
+                  className={`agentic-ai-action-metric ${toneClass(metric.tone)}`}
+                >
                   <strong>{metric.value}</strong>
                   <span>{metric.label}</span>
                 </div>
@@ -325,7 +480,11 @@ function AgentComposerActionPanel({
                 </>
               );
               return rowAction ? (
-                <a key={row.id} href={rowAction.href} className="agentic-ai-action-row is-clickable">
+                <a
+                  key={row.id}
+                  href={rowAction.href}
+                  className="agentic-ai-action-row is-clickable"
+                >
                   {content}
                 </a>
               ) : (
@@ -338,13 +497,17 @@ function AgentComposerActionPanel({
         ) : (
           <div className="agentic-ai-action-empty">
             <strong>{context.status === "error" ? "Hubo un problema" : title}</strong>
-            <span>{context.summary || meta?.nextStep || "No hay detalle adicional disponible."}</span>
+            <span>
+              {context.summary || meta?.nextStep || "No hay detalle adicional disponible."}
+            </span>
           </div>
         )}
 
         <div className="agentic-ai-action-next">
           <Sparkles className="h-3.5 w-3.5" />
-          <span>{meta?.nextStep || "Pide al agente el proximo paso o abre el registro relacionado."}</span>
+          <span>
+            {meta?.nextStep || "Pide al agente el proximo paso o abre el registro relacionado."}
+          </span>
         </div>
       </div>
     </div>
@@ -379,7 +542,10 @@ export function AgentChat({
   const [composerPanelOpen, setComposerPanelOpen] = useState(false);
   const activeToolContext = getLatestAgentToolContext(messages);
   const activeToolKey = `${activeToolContext?.tool || ""}:${activeToolContext?.rows[0]?.id || ""}:${activeToolContext?.summary || ""}`;
-  const scopeSuggestion = useMemo(() => detectScopeSuggestion(text, selectedScope), [text, selectedScope]);
+  const scopeSuggestion = useMemo(
+    () => detectScopeSuggestion(text, selectedScope),
+    [text, selectedScope],
+  );
 
   const resizeTextarea = () => {
     const el = textareaRef.current;
@@ -431,9 +597,15 @@ export function AgentChat({
     <div className="agentic-ai-scope-layer" aria-live="polite">
       {selectedScope ? (
         <span className="agentic-ai-tool-pill is-selected">
-          <span className="agentic-ai-tool-pill-icon"><ScopeIcon scope={selectedScope} /></span>
+          <span className="agentic-ai-tool-pill-icon">
+            <ScopeIcon scope={selectedScope} />
+          </span>
           <span>{SCOPE_LABELS[selectedScope]}</span>
-          <button type="button" onClick={() => setSelectedScope(null)} aria-label="Quitar tool seleccionada">
+          <button
+            type="button"
+            onClick={() => setSelectedScope(null)}
+            aria-label="Quitar tool seleccionada"
+          >
             <X className="h-3 w-3" />
           </button>
         </span>
@@ -445,9 +617,13 @@ export function AgentChat({
           onClick={() => setSelectedScope(scopeSuggestion.scope)}
           aria-label={`Usar tools de ${scopeSuggestion.label}`}
         >
-          <span className="agentic-ai-tool-pill-icon"><ScopeIcon scope={scopeSuggestion.scope} /></span>
+          <span className="agentic-ai-tool-pill-icon">
+            <ScopeIcon scope={scopeSuggestion.scope} />
+          </span>
           <span>Usar {scopeSuggestion.label}</span>
-          <span className="agentic-ai-tab-hint"><Keyboard className="h-3 w-3" /> Tab</span>
+          <span className="agentic-ai-tab-hint">
+            <Keyboard className="h-3 w-3" /> Tab
+          </span>
         </button>
       ) : null}
     </div>
@@ -501,7 +677,6 @@ export function AgentChat({
     void handleSend(pendingPrompt, null);
   }, [handleSend]);
 
-
   useEffect(() => {
     resizeTextarea();
   }, [text, messages.length, fullscreen, selectedScope]);
@@ -511,8 +686,13 @@ export function AgentChat({
       {messages.map((msg, index) => {
         const isUser = msg.role === "user";
         return (
-          <div key={msg.id || `${msg.role}-${index}`} className={isUser ? "flex justify-end" : "flex justify-start"}>
-            <div className={`max-w-[86%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${isUser ? "bg-[#1d62f9] text-white" : "border border-[#e6eaf0] bg-white text-[#111827]"}`}>
+          <div
+            key={msg.id || `${msg.role}-${index}`}
+            className={isUser ? "flex justify-end" : "flex justify-start"}
+          >
+            <div
+              className={`max-w-[86%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${isUser ? "bg-[#1d62f9] text-white" : "border border-[#e6eaf0] bg-white text-[#111827]"}`}
+            >
               {msg.content}
             </div>
           </div>
@@ -524,19 +704,42 @@ export function AgentChat({
 
   if (!fullscreen) {
     return (
-      <div className={`flex h-full flex-col overflow-hidden bg-white ${compact ? "" : "min-h-[620px]"}`}>
+      <div
+        className={`flex h-full flex-col overflow-hidden bg-white ${compact ? "" : "min-h-[620px]"}`}
+      >
         <div className="border-b border-[#e6eaf0] px-4 py-3">
           <h2 className="text-base font-black text-[#111827]">Corevix AI</h2>
-          <p className="truncate text-xs font-semibold text-[#667085]">Agente conectado · {getAgentUrl()}</p>
+          <p className="truncate text-xs font-semibold text-[#667085]">
+            Agente conectado · {getAgentUrl()}
+          </p>
         </div>
 
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#fbfcfe] p-4">
-          {loadingHistory ? <p className="text-sm text-[#667085]">Cargando historial...</p> : chatMessages}
+          {loadingHistory ? (
+            <p className="text-sm text-[#667085]">Cargando historial...</p>
+          ) : (
+            chatMessages
+          )}
         </div>
 
-        <form className="flex gap-2 border-t border-[#e6eaf0] p-3" onSubmit={(event) => { event.preventDefault(); submitAgentMessage(); }}>
-          <input className="h-11 flex-1 rounded-2xl border border-[#e6eaf0] px-3 text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Pregúntale algo a Corevix AI..." />
-          <button className="grid h-11 w-11 place-items-center rounded-2xl bg-[#1d62f9] text-white disabled:opacity-50" type="submit" disabled={loading || !text.trim()}>
+        <form
+          className="flex gap-2 border-t border-[#e6eaf0] p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitAgentMessage();
+          }}
+        >
+          <input
+            className="h-11 flex-1 rounded-2xl border border-[#e6eaf0] px-3 text-sm"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Pregúntale algo a Corevix AI..."
+          />
+          <button
+            className="grid h-11 w-11 place-items-center rounded-2xl bg-[#1d62f9] text-white disabled:opacity-50"
+            type="submit"
+            disabled={loading || !text.trim()}
+          >
             <Send className="h-4 w-4" />
           </button>
         </form>
@@ -562,7 +765,12 @@ export function AgentChat({
         <main className="agentic-ai-main">
           <header className="agentic-ai-topbar">
             <div className="agentic-ai-title-row">
-              <button type="button" onClick={() => setSidebarOpen((value) => !value)} className="agentic-ai-toggle" aria-label="Abrir panel CRM">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((value) => !value)}
+                className="agentic-ai-toggle"
+                aria-label="Abrir panel CRM"
+              >
                 <PanelLeft className="h-4 w-4" />
               </button>
               <div className="agentic-ai-title">
@@ -579,16 +787,25 @@ export function AgentChat({
                 <div className="agentic-ai-empty">
                   <div className="agentic-ai-thinking">
                     <span>Cargando historial</span>
-                    <span className="agentic-ai-dots"><span /><span /><span /></span>
+                    <span className="agentic-ai-dots">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
                   </div>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="agentic-ai-empty">
                   <div className="agentic-ai-empty-inner">
-                    <div className="agentic-ai-orb"><Bot className="h-6 w-6" /></div>
+                    <div className="agentic-ai-orb">
+                      <Bot className="h-6 w-6" />
+                    </div>
                     <p className="agentic-ai-kicker">Corevix AI</p>
                     <h2>¿Qué toca ahora, Inmanol?</h2>
-                    <p>Pregunta algo y el agente usa OpenClaw con tus tools reales del CRM. La interfaz cambia, la conexión se mantiene.</p>
+                    <p>
+                      Pregunta algo y el agente usa OpenClaw con tus tools reales del CRM. La
+                      interfaz cambia, la conexión se mantiene.
+                    </p>
 
                     <form
                       className="agentic-ai-hero-form"
@@ -597,7 +814,13 @@ export function AgentChat({
                         submitAgentMessage();
                       }}
                     >
-                      <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
+                      <button
+                        type="button"
+                        className="agentic-ai-input-action"
+                        aria-label="Nueva accion"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
                       {scopeControl}
                       <textarea
                         ref={textareaRef}
@@ -608,12 +831,23 @@ export function AgentChat({
                         onFocus={handleTextareaFocus}
                         onKeyDown={handlePromptKeyDown}
                       />
-                      <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
+                      <button
+                        type="submit"
+                        disabled={loading || !text.trim()}
+                        className="agentic-ai-send"
+                        aria-label="Enviar"
+                      >
+                        <Send className="h-4 w-4" />
+                      </button>
                     </form>
 
                     <div className="agentic-ai-starters">
                       {AGENT_CHAT_STARTERS.map((starter) => (
-                        <button key={starter} type="button" onClick={() => submitAgentMessage(starter)}>
+                        <button
+                          key={starter}
+                          type="button"
+                          onClick={() => submitAgentMessage(starter)}
+                        >
                           <Sparkles className="h-4 w-4" />
                           {starter}
                         </button>
@@ -628,7 +862,10 @@ export function AgentChat({
                       {messages.map((msg, index) => {
                         const isUser = msg.role === "user";
                         return (
-                          <div key={msg.id || `${msg.role}-${index}`} className={`agentic-ai-message ${isUser ? "is-user" : "is-assistant"}`}>
+                          <div
+                            key={msg.id || `${msg.role}-${index}`}
+                            className={`agentic-ai-message ${isUser ? "is-user" : "is-assistant"}`}
+                          >
                             <div className="agentic-ai-bubble">{msg.content}</div>
                           </div>
                         );
@@ -637,7 +874,11 @@ export function AgentChat({
                         <div className="agentic-ai-message is-assistant">
                           <div className="agentic-ai-thinking">
                             <span>Pensando</span>
-                            <span className="agentic-ai-dots"><span /><span /><span /></span>
+                            <span className="agentic-ai-dots">
+                              <span />
+                              <span />
+                              <span />
+                            </span>
                           </div>
                         </div>
                       ) : null}
@@ -649,8 +890,14 @@ export function AgentChat({
 
             {messages.length > 0 ? (
               <div className="agentic-ai-dock">
-                <div className={`agentic-ai-composer-stack ${composerPanelOpen ? "is-expanded" : ""} ${activeToolContext ? "has-action" : ""}`}>
-                  <AgentComposerActionPanel context={activeToolContext} expanded={composerPanelOpen} onToggle={toggleComposerPanel} />
+                <div
+                  className={`agentic-ai-composer-stack ${composerPanelOpen ? "is-expanded" : ""} ${activeToolContext ? "has-action" : ""}`}
+                >
+                  <AgentComposerActionPanel
+                    context={activeToolContext}
+                    expanded={composerPanelOpen}
+                    onToggle={toggleComposerPanel}
+                  />
                   <form
                     className="agentic-ai-dock-form"
                     onSubmit={(event) => {
@@ -658,7 +905,13 @@ export function AgentChat({
                       submitAgentMessage();
                     }}
                   >
-                    <button type="button" className="agentic-ai-input-action" aria-label="Nueva accion"><Plus className="h-4 w-4" /></button>
+                    <button
+                      type="button"
+                      className="agentic-ai-input-action"
+                      aria-label="Nueva accion"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
                     {scopeControl}
                     <textarea
                       ref={textareaRef}
@@ -669,7 +922,14 @@ export function AgentChat({
                       onFocus={handleTextareaFocus}
                       onKeyDown={handlePromptKeyDown}
                     />
-                    <button type="submit" disabled={loading || !text.trim()} className="agentic-ai-send" aria-label="Enviar"><Send className="h-4 w-4" /></button>
+                    <button
+                      type="submit"
+                      disabled={loading || !text.trim()}
+                      className="agentic-ai-send"
+                      aria-label="Enviar"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
                   </form>
                 </div>
               </div>

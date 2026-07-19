@@ -71,7 +71,9 @@
   color: #6f7f96;
   background: transparent;
   cursor: pointer;
-  transition: background 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
 .agentic-ai-tool-pill.is-selected button:hover {
@@ -89,7 +91,11 @@
   cursor: pointer;
   opacity: 0.92;
   transform: translateY(0);
-  transition: transform 0.16s ease, opacity 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    opacity 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .agentic-ai-tool-suggestion:hover {
@@ -227,7 +233,8 @@
 @media (max-width: 760px) {
   .agentic-ai-shell {
     --corevix-mobile-composer-height: 78px;
-    background: #fbfdff;
+    --corevix-mobile-bottom-nav-height: calc(5.4rem + env(safe-area-inset-bottom, 0px));
+    background: #ffffff;
     height: 100%;
     max-height: 100%;
     overflow: hidden;
@@ -260,15 +267,20 @@
 
   .agentic-ai-stage {
     height: 100% !important;
-    padding: 6px 8px 0 !important;
+    padding: 0 !important;
     grid-template-rows: minmax(0, 1fr) !important;
     overflow: hidden !important;
   }
 
   .agentic-ai-core {
     height: 100% !important;
-    border-radius: 18px !important;
-    padding-bottom: var(--corevix-mobile-composer-height) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    padding-bottom: calc(
+      var(--corevix-mobile-composer-height) + var(--corevix-mobile-bottom-nav-height)
+    ) !important;
   }
 
   .agentic-ai-chat {
@@ -277,7 +289,8 @@
 
   .agentic-ai-scroll {
     height: 100% !important;
-    padding: 14px 10px calc(var(--corevix-mobile-composer-height) + 42px) !important;
+    padding: 10px 14px
+      calc(var(--corevix-mobile-composer-height) + var(--corevix-mobile-bottom-nav-height) + 42px) !important;
     overflow-y: auto !important;
     overscroll-behavior-y: contain;
     scrollbar-gutter: auto !important;
@@ -290,23 +303,64 @@
   }
 
   .agentic-ai-stream {
-    gap: 12px !important;
+    gap: 18px !important;
   }
 
   .agentic-ai-message {
-    max-width: 92% !important;
+    max-width: 100% !important;
   }
 
   .agentic-ai-bubble {
+    max-width: 100% !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
     font-size: 14px !important;
-    line-height: 1.5 !important;
+    line-height: 1.55 !important;
+    padding: 0 !important;
+  }
+
+  .agentic-ai-message.is-user .agentic-ai-bubble {
+    max-width: 86% !important;
+    border-radius: 20px !important;
+    background: #f3f6fb !important;
+    padding: 10px 13px !important;
+  }
+
+  .agentic-ai-empty {
+    background: #ffffff !important;
+    padding: 24px 18px !important;
+  }
+
+  .agentic-ai-empty-inner {
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+
+  .agentic-ai-orb,
+  .agentic-ai-starters {
+    display: none !important;
+  }
+
+  .agentic-ai-empty h2 {
+    font-size: 30px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .agentic-ai-empty p,
+  .agentic-ai-kicker {
+    font-weight: 400 !important;
   }
 
   .agentic-ai-dock {
     position: fixed !important;
     left: max(8px, env(safe-area-inset-left, 0px)) !important;
     right: max(8px, env(safe-area-inset-right, 0px)) !important;
-    bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--corevix-visual-bottom, 0px)) + 10px) !important;
+    bottom: calc(
+      max(env(safe-area-inset-bottom, 0px), var(--corevix-visual-bottom, 0px)) +
+        var(--corevix-mobile-bottom-nav-height) + 10px
+    ) !important;
     z-index: 80 !important;
     display: flex !important;
     justify-content: center !important;
@@ -317,17 +371,19 @@
   .agentic-ai-composer-stack {
     width: min(100%, 760px) !important;
     overflow: hidden;
-    border: 1px solid rgba(225, 234, 247, 0.98);
-    border-radius: 24px;
-    background: rgba(255, 255, 255, 0.98);
-    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(29, 98, 249, 0.08);
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
     pointer-events: auto;
-    transition: border-radius 0.22s ease, box-shadow 0.22s ease;
+    transition:
+      border-radius 0.22s ease,
+      box-shadow 0.22s ease;
   }
 
   .agentic-ai-composer-stack.is-expanded {
-    border-radius: 27px;
-    box-shadow: 0 20px 58px rgba(15, 23, 42, 0.2), 0 6px 18px rgba(29, 98, 249, 0.1);
+    border-radius: 24px;
+    box-shadow: none;
   }
 
   .agentic-ai-dock-form,
@@ -335,8 +391,9 @@
     min-height: 52px;
     width: 100% !important;
     padding: 7px 8px !important;
-    border-radius: 0 !important;
-    border: 0 !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(225, 234, 247, 0.98) !important;
+    background: #ffffff !important;
     box-shadow: none !important;
     pointer-events: auto;
   }
@@ -354,10 +411,7 @@
   }
 
   .agentic-ai-action-panel {
-    display: block;
-    border-bottom: 1px solid rgba(225, 234, 247, 0.82);
-    background: linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
-    overflow: hidden;
+    display: none;
   }
 
   .agentic-ai-action-summary {
@@ -387,11 +441,26 @@
     font-weight: 950;
   }
 
-  .agentic-ai-action-panel.is-blue .agentic-ai-action-count { background: var(--agent-blue-soft); color: var(--agent-blue); }
-  .agentic-ai-action-panel.is-red .agentic-ai-action-count { background: var(--agent-red-soft); color: #ff3f6e; }
-  .agentic-ai-action-panel.is-orange .agentic-ai-action-count { background: var(--agent-orange-soft); color: #ff7b1a; }
-  .agentic-ai-action-panel.is-purple .agentic-ai-action-count { background: var(--agent-purple-soft); color: var(--agent-purple); }
-  .agentic-ai-action-panel.is-teal .agentic-ai-action-count { background: var(--agent-teal-soft); color: var(--agent-teal); }
+  .agentic-ai-action-panel.is-blue .agentic-ai-action-count {
+    background: var(--agent-blue-soft);
+    color: var(--agent-blue);
+  }
+  .agentic-ai-action-panel.is-red .agentic-ai-action-count {
+    background: var(--agent-red-soft);
+    color: #ff3f6e;
+  }
+  .agentic-ai-action-panel.is-orange .agentic-ai-action-count {
+    background: var(--agent-orange-soft);
+    color: #ff7b1a;
+  }
+  .agentic-ai-action-panel.is-purple .agentic-ai-action-count {
+    background: var(--agent-purple-soft);
+    color: var(--agent-purple);
+  }
+  .agentic-ai-action-panel.is-teal .agentic-ai-action-count {
+    background: var(--agent-teal-soft);
+    color: var(--agent-teal);
+  }
 
   .agentic-ai-action-copy {
     min-width: 0;
@@ -442,7 +511,10 @@
     overflow: hidden;
     padding: 0 11px;
     opacity: 0;
-    transition: max-height 0.28s cubic-bezier(0.2, 0.9, 0.2, 1), opacity 0.2s ease, padding 0.22s ease;
+    transition:
+      max-height 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+      opacity 0.2s ease,
+      padding 0.22s ease;
   }
 
   .agentic-ai-action-panel.is-expanded .agentic-ai-action-details {
@@ -539,15 +611,25 @@
   }
 
   .agentic-ai-action-row-dot.is-blue,
-  .agentic-ai-action-metric.is-blue { background: var(--agent-blue-soft); }
+  .agentic-ai-action-metric.is-blue {
+    background: var(--agent-blue-soft);
+  }
   .agentic-ai-action-row-dot.is-red,
-  .agentic-ai-action-metric.is-red { background: var(--agent-red-soft); }
+  .agentic-ai-action-metric.is-red {
+    background: var(--agent-red-soft);
+  }
   .agentic-ai-action-row-dot.is-orange,
-  .agentic-ai-action-metric.is-orange { background: var(--agent-orange-soft); }
+  .agentic-ai-action-metric.is-orange {
+    background: var(--agent-orange-soft);
+  }
   .agentic-ai-action-row-dot.is-purple,
-  .agentic-ai-action-metric.is-purple { background: var(--agent-purple-soft); }
+  .agentic-ai-action-metric.is-purple {
+    background: var(--agent-purple-soft);
+  }
   .agentic-ai-action-row-dot.is-teal,
-  .agentic-ai-action-metric.is-teal { background: var(--agent-teal-soft); }
+  .agentic-ai-action-metric.is-teal {
+    background: var(--agent-teal-soft);
+  }
 
   .agentic-ai-action-row strong,
   .agentic-ai-action-row small {

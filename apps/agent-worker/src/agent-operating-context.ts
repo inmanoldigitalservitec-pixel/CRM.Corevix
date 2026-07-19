@@ -125,7 +125,6 @@ async function loadNotificationDrafts(ctx: ToolContext) {
 	};
 }
 
-
 const AGENT_BRIEF_VERSION = 'agent_brief_v1';
 
 function compactActionForAgent(action: any) {
@@ -533,10 +532,7 @@ export async function refreshAgentOperatingContext(ctx: ToolContext, options: Ag
 	} catch (widgetContractError) {
 		return {
 			ok: false,
-			error:
-				widgetContractError instanceof Error
-					? widgetContractError.message
-					: 'No se pudo escribir agent_widget_contracts.',
+			error: widgetContractError instanceof Error ? widgetContractError.message : 'No se pudo escribir agent_widget_contracts.',
 		};
 	}
 

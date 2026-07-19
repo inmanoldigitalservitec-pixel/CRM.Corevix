@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   CheckCircle2,
   Clock3,
@@ -15,11 +16,13 @@ import {
   MessageCircle,
   MessageSquare,
   Phone,
+  Plus,
   Send,
   TrendingUp,
   Users,
   Workflow,
 } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { DashboardCard, DashboardTextButton } from "./dashboard-card";
 import { DashboardKpiCard } from "./dashboard-kpi-card";
@@ -27,6 +30,8 @@ import { DashboardBuilder } from "@/components/dashboard-builder";
 import { AgentCommandWidgetConnected } from "@/components/agent";
 import type { DashboardWidgetMode } from "@/components/dashboard-builder";
 import { fetchAgentWidgetContract, refreshAgentOperatingContext } from "@/lib/agentClient";
+import { DashboardCalendarWidget } from "./dashboard-calendar-widget";
+import type { CalendarItem } from "@/lib/crm/calendar-items";
 
 type DashboardV2Tone = "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral";
 
@@ -36,6 +41,9 @@ type DashboardV2Kpi = {
   helper: string;
   tone: DashboardV2Tone;
   icon: LucideIcon;
+  progressCurrent?: number;
+  progressTotal?: number;
+  progressLabel?: string;
 };
 
 type DashboardV2Action = {
@@ -64,15 +72,36 @@ type SalesDocumentsOverview = {
   proposals: DocumentStatusItem[];
   totals: [string, string, DashboardV2Tone][];
 };
-type WorkCenterItem = [string, string, string, DashboardV2Tone, string];
+type WorkCenterItemType = "task" | "project" | "ticket" | "inbox" | "calendar" | "sales";
+type WorkCenterItem = {
+  id?: string;
+  type: WorkCenterItemType;
+  title: string;
+  subtitle: string;
+  badge: string;
+  tone: DashboardV2Tone;
+  href: string;
+  meta?: string;
+  dueLabel?: string;
+  quickAction?: "complete-task" | "start-task";
+};
 type WorkCenterData = {
   tasks: WorkCenterItem[];
   projects: WorkCenterItem[];
   tickets: WorkCenterItem[];
   inbox: WorkCenterItem[];
   calendar: WorkCenterItem[];
+  sales: WorkCenterItem[];
 };
-type TodoItem = [string, string, DashboardV2Tone, string];
+type WorkCenterKey = keyof WorkCenterData;
+type TodoItem = {
+  id?: string;
+  title: string;
+  subtitle: string;
+  tone: DashboardV2Tone;
+  href: string;
+  completed?: boolean;
+};
 type TodoWidgetData = {
   pending: TodoItem[];
   completed: TodoItem[];
@@ -95,6 +124,10 @@ export type DashboardV2Props = {
   salesDocumentsOverview?: SalesDocumentsOverview;
   workCenter?: WorkCenterData;
   todoItems?: TodoWidgetData;
+  calendarItems?: CalendarItem[];
+  onCalendarRefresh?: () => void | Promise<void>;
+  onTaskComplete?: (taskId: string) => void | Promise<void>;
+  onTaskStart?: (taskId: string) => void | Promise<void>;
   todayLabel?: string;
   collectionPeriodLabel?: string;
   pipelinePeriodLabel?: string;
@@ -358,19 +391,6 @@ export function DashboardKpiStripWidget({
   kpis: DashboardV2Kpi[];
   mode?: DashboardWidgetMode;
 }) {
-  if (mode === "mini") {
-    const primary = kpis[0];
-    return (
-      <MiniWidgetCard
-        title={primary?.label || "Indicador"}
-        value={primary?.value || "0"}
-        helper={primary?.helper || "Sin datos"}
-        icon={primary?.icon || DollarSign}
-        tone={primary?.tone || "blue"}
-      />
-    );
-  }
-
   return (
     <section
       className={
@@ -569,12 +589,21 @@ function actionListItems(
 
 function DashboardReportSnapshotWidget({
   metrics,
+  pipeline,
+  collectionRows,
+  invoiceRows,
+  proposalRows,
   mode = "standard",
 }: {
   metrics: SnapshotMetricItem[];
+  pipeline: PipelineItem[];
+  collectionRows: CollectionItem[];
+  invoiceRows: ListWidgetItem[];
+  proposalRows: ListWidgetItem[];
   mode?: DashboardWidgetMode;
 }) {
   const primary = metrics[0];
+  const [activeSlide, setActiveSlide] = useState(0);
 
   if (mode === "mini") {
     return (
@@ -589,32 +618,320 @@ function DashboardReportSnapshotWidget({
     );
   }
 
-  const visibleLimit = mode === "advanced" ? metrics.length : 4;
+  const collectedMetric = metrics.find(([label]) => label.toLowerCase().includes("cobrado"));
+  const receivableMetric = metrics.find(([label]) => label.toLowerCase().includes("cobrar"));
+  const pipelineMetric = metrics.find(([label]) => label.toLowerCase().includes("pipeline"));
+  const proposalMetric = metrics.find(([label]) => label.toLowerCase().includes("propuesta"));
+  const overdueInvoicesCount = invoiceRows.filter(([, , badge]) =>
+    badge.toLowerCase().includes("venc"),
+  ).length;
+  const proposalsNeedingAttention = proposalRows.filter(
+    ([, , , tone]) => tone !== "neutral",
+  ).length;
+  const proposalChartData = [
+    { name: "Necesitan seguimiento", value: proposalsNeedingAttention || 0, color: "#7c3aed" },
+    {
+      name: "Sin urgencia inmediata",
+      value: Math.max(proposalRows.length - proposalsNeedingAttention, 0),
+      color: "#e2e8f0",
+    },
+  ].filter((item) => item.value > 0);
+  const priorityRows = [...invoiceRows, ...proposalRows]
+    .filter(([, , , tone]) => tone === "red" || tone === "orange" || tone === "purple")
+    .slice(0, 5);
+  const slides = [
+    {
+      key: "collections",
+      label: "Cobros",
+      title: "Cobros y cuentas",
+      value: receivableMetric?.[1] || "$0",
+      helper: `${overdueInvoicesCount} vencidas · ${collectedMetric?.[1] || "$0"} cobrado`,
+      description: "Estado de facturas: cobrado, vencido y por cobrar.",
+      href: "/invoices",
+    },
+    {
+      key: "pipeline",
+      label: "Pipeline",
+      title: "Pipeline abierto",
+      value: pipelineMetric?.[2] || pipelineMetric?.[1] || "$0",
+      helper: pipelineMetric?.[1] ? `${pipelineMetric[1]} abiertas` : "Oportunidades abiertas",
+      description: "Valor y cantidad por etapa comercial.",
+      href: "/pipeline",
+    },
+    {
+      key: "proposals",
+      label: "Propuestas",
+      title: "Propuestas pendientes",
+      value: proposalMetric?.[1] || String(proposalRows.length),
+      helper: proposalMetric?.[2] || "Pendientes",
+      description: "Seguimiento comercial antes de que pierdan impulso.",
+      href: "/proposals",
+    },
+    {
+      key: "priorities",
+      label: "Prioridad",
+      title: "Prioridades financieras",
+      value: String(priorityRows.length),
+      helper: "Facturas y propuestas para revisar primero",
+      description: "Lo más urgente para proteger cobros y cierres.",
+      href: "/reports",
+    },
+  ];
+  const slide = slides[activeSlide] || slides[0];
+
+  const renderSlideContent = () => {
+    if (slide.key === "collections") {
+      return collectionRows.length ? (
+        <div className="space-y-3">
+          <FinancialInsight
+            label="Balance"
+            value="Dinero cobrado, vencido y pendiente en una sola lectura."
+          />
+          <div className="space-y-2.5">
+            {collectionRows.slice(0, 3).map(([label, value, percent, tone]) => (
+              <FinancialMetricRow
+                key={label}
+                label={label}
+                value={value}
+                percent={percent}
+                tone={tone as DashboardV2Tone}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <FinancialEmptyChart />
+      );
+    }
+
+    if (slide.key === "pipeline") {
+      return pipeline.length ? (
+        <div className="space-y-3">
+          <FinancialInsight
+            label="Distribución"
+            value="Valor abierto organizado por etapa comercial."
+          />
+          <div className="space-y-2.5">
+            {pipeline.slice(0, 5).map(([label, count, value, percent, tone]) => (
+              <FinancialMetricRow
+                key={label}
+                label={label}
+                value={value}
+                percent={`${percent}%`}
+                detail={`${count} oportunidades`}
+                tone={tone as DashboardV2Tone}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <FinancialEmptyChart />
+      );
+    }
+
+    if (slide.key === "proposals") {
+      return proposalChartData.length ? (
+        <div className="grid h-full min-h-[160px] grid-cols-[116px_minmax(0,1fr)] items-center gap-4">
+          <div className="h-[132px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={proposalChartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={34}
+                  outerRadius={54}
+                  paddingAngle={4}
+                >
+                  {proposalChartData.map((item) => (
+                    <Cell key={item.name} fill={item.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="min-w-0 space-y-3">
+            <FinancialInsight
+              label="Seguimiento"
+              value="Propuestas activas separadas por nivel de atención."
+            />
+            <div className="space-y-2">
+              {proposalChartData.map((item) => (
+                <div key={item.name} className="flex min-w-0 items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2 text-[11.5px] text-slate-600">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="truncate">{item.name}</span>
+                  </span>
+                  <strong className="shrink-0 text-[12px] font-medium text-slate-900">
+                    {item.value}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <FinancialEmptyChart />
+      );
+    }
+
+    return (
+      <div className="h-full min-h-0 overflow-y-auto pr-1">
+        <FinancialInsight label="En foco" value="Facturas y propuestas que requieren atención." />
+        {priorityRows.length ? (
+          <div className="mt-2 divide-y divide-slate-100">
+            {priorityRows.map(([title, subtitle, badge, tone, href]) => (
+              <button
+                key={`${title}-${subtitle}`}
+                type="button"
+                onClick={() => {
+                  window.location.href = href;
+                }}
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2 text-left hover:bg-slate-50/70"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[12px] font-normal text-slate-900">
+                    {title}
+                  </span>
+                  <span className="block truncate text-[10.5px] font-normal text-slate-500">
+                    {subtitle}
+                  </span>
+                </span>
+                <span
+                  className={`max-w-[90px] truncate text-[10.5px] font-medium ${actionTone(tone as DashboardV2Tone)}`}
+                >
+                  {badge}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <FinancialEmptyChart />
+        )}
+      </div>
+    );
+  };
 
   return (
     <DashboardCard
-      title="Resumen financiero"
+      title="Panel financiero"
       action={<DashboardTextButton href="/reports">Ver reportes →</DashboardTextButton>}
-      bodyClassName="h-full p-3"
+      bodyClassName="h-full p-0"
     >
-      <div className="grid h-full min-h-0 gap-2 md:grid-cols-2">
-        {metrics.slice(0, visibleLimit).map(([label, value, helper, tone]) => (
-          <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <span className="block truncate text-[10.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-              {label}
-            </span>
-            <strong className="mt-1 block truncate text-[20px] font-semibold tracking-[-0.04em] text-slate-950">
-              {value}
-            </strong>
-            <small
-              className={`mt-1 block truncate text-[10.5px] font-semibold ${toneBadgeClass(tone)}`}
-            >
-              {helper}
-            </small>
+      <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] px-4 pb-3 pt-2">
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-medium text-slate-500">{slide.title}</div>
+          <div className="mt-0.5 truncate text-[24px] font-semibold tracking-normal text-slate-950">
+            {slide.value}
           </div>
-        ))}
+          <div className="mt-0.5 truncate text-[12px] font-normal text-slate-500">
+            {slide.helper}
+          </div>
+          <div className="mt-1 line-clamp-2 text-[11.5px] font-normal leading-4 text-slate-400">
+            {slide.description}
+          </div>
+        </div>
+
+        <div className="mt-3 flex min-w-0 items-center gap-4 overflow-x-auto border-b border-slate-100">
+          {slides.map((item, index) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setActiveSlide(index)}
+              className={`flex h-8 shrink-0 items-center border-b-2 text-[12px] font-medium ${
+                activeSlide === index
+                  ? "border-slate-900 text-slate-950"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-0 overflow-y-auto py-3">{renderSlideContent()}</div>
+
+        <div className="grid gap-2 border-t border-slate-100 pt-2 text-[11px] sm:grid-cols-3">
+          <FinancialSignal label="Cobrado" value={collectedMetric?.[1] || "$0"} />
+          <FinancialSignal label="Por cobrar" value={receivableMetric?.[1] || "$0"} />
+          <FinancialSignal
+            label="Propuestas"
+            value={proposalMetric?.[1] || String(proposalRows.length)}
+          />
+        </div>
       </div>
     </DashboardCard>
+  );
+}
+
+function FinancialInsight({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 text-[11.5px] font-normal leading-4 text-slate-500">
+      <span className="font-medium text-slate-700">{label}:</span> {value}
+    </div>
+  );
+}
+
+function FinancialMetricRow({
+  label,
+  value,
+  percent,
+  detail,
+  tone,
+}: {
+  label: string;
+  value: string;
+  percent: string;
+  detail?: string;
+  tone: DashboardV2Tone;
+}) {
+  const normalizedPercent = Math.max(
+    6,
+    Math.min(100, Number(percent.replace(/[^0-9.]/g, "")) || 0),
+  );
+
+  return (
+    <div className="min-w-0">
+      <div className="mb-1 flex min-w-0 items-baseline justify-between gap-3">
+        <span className="min-w-0 truncate text-[12px] font-normal text-slate-700">{label}</span>
+        <strong className="shrink-0 text-[12px] font-medium text-slate-950">{value}</strong>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+          <span
+            className={`block h-full rounded-full ${progressColor(tone)}`}
+            style={{ width: `${normalizedPercent}%` }}
+          />
+        </span>
+        <span className="w-10 shrink-0 text-right text-[10.5px] font-normal text-slate-400">
+          {percent}
+        </span>
+      </div>
+      {detail ? (
+        <div className="mt-1 truncate text-[10.5px] font-normal text-slate-400">{detail}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function FinancialSignal({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <span className="block truncate font-normal text-slate-400">{label}</span>
+      <strong className="block truncate text-[12px] font-medium text-slate-800">{value}</strong>
+    </div>
+  );
+}
+
+function FinancialEmptyChart() {
+  return (
+    <div className="grid h-full min-h-[120px] place-items-center text-center text-[12px] font-normal text-slate-500">
+      No hay datos suficientes.
+    </div>
   );
 }
 
@@ -651,9 +968,9 @@ function DashboardDocumentColumn({
               </span>
               <span className="shrink-0 font-medium text-slate-400">{percent}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <span
-                className={`block h-full rounded-full ${progressColor(tone)}`}
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full ${progressColor(tone)}`}
                 style={{ width: `${percent}%` }}
               />
             </div>
@@ -744,26 +1061,56 @@ function DashboardSalesDocumentsOverviewWidget({
 function DashboardWorkCenterWidget({
   workCenter,
   mode = "standard",
+  onTaskComplete,
+  onTaskStart,
 }: {
   workCenter: WorkCenterData;
   mode?: DashboardWidgetMode;
+  onTaskComplete?: (taskId: string) => void | Promise<void>;
+  onTaskStart?: (taskId: string) => void | Promise<void>;
 }) {
-  const tabs = [
-    ["tasks", "My Tasks", CheckCircle2, "/tasks"],
-    ["projects", "My Projects", Workflow, "/projects"],
+  const workTabs = [
+    ["tasks", "Tareas", CheckCircle2, "/tasks"],
+    ["projects", "Proyectos", Workflow, "/projects"],
     ["tickets", "Tickets", LifeBuoy, "/tickets"],
     ["inbox", "Inbox", MessageCircle, "/whatsapp"],
     ["calendar", "Agenda", Clock3, "/calendar"],
+    ["sales", "Ventas", DollarSign, "/invoices"],
   ] as const;
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>("tasks");
+  const tabs = [["overview", "Resumen", BarChart3, "/dashboard"], ...workTabs] as const;
+  const [activeTab, setActiveTab] = useState<WorkCenterKey | "overview">("overview");
+  const [workingItemId, setWorkingItemId] = useState<string | null>(null);
   const active = tabs.find(([key]) => key === activeTab) || tabs[0];
-  const items = workCenter[active[0]];
-  const totalItems = tabs.reduce((sum, [key]) => sum + workCenter[key].length, 0);
-  const attentionCount = tabs.reduce(
+  const activeItems = active[0] === "overview" ? [] : workCenter[active[0]];
+  const totalItems = workTabs.reduce((sum, [key]) => sum + workCenter[key].length, 0);
+  const attentionCount = workTabs.reduce(
     (sum, [key]) =>
-      sum + workCenter[key].filter(([, , , tone]) => tone === "red" || tone === "orange").length,
+      sum + workCenter[key].filter((item) => item.tone === "red" || item.tone === "orange").length,
     0,
   );
+  const priorityItems = workTabs
+    .flatMap(([key]) => workCenter[key].map((item) => ({ ...item, group: key })))
+    .sort((a, b) => {
+      const rank = { red: 0, orange: 1, purple: 2, blue: 3, teal: 4, green: 5, neutral: 6 };
+      return rank[a.tone] - rank[b.tone];
+    })
+    .slice(0, 5);
+
+  const handleQuickAction = async (
+    item: WorkCenterItem,
+    action: "complete-task" | "start-task",
+  ) => {
+    if (!item.id || workingItemId) return;
+    const handler = action === "complete-task" ? onTaskComplete : onTaskStart;
+    if (!handler) return;
+
+    setWorkingItemId(item.id);
+    try {
+      await handler(item.id);
+    } finally {
+      setWorkingItemId(null);
+    }
+  };
 
   if (mode === "mini") {
     return (
@@ -778,18 +1125,97 @@ function DashboardWorkCenterWidget({
     );
   }
 
+  const renderWorkItem = (item: WorkCenterItem) => (
+    <div
+      key={`${item.type}-${item.id || item.title}-${item.subtitle}`}
+      className="group grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-100 px-1 py-2.5 last:border-b-0 hover:bg-slate-50/70"
+    >
+      <button
+        type="button"
+        onClick={() => {
+          window.location.href = item.href;
+        }}
+        className="min-w-0 text-left"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${toneDot(item.tone)}`} />
+          <span className="truncate text-[12.5px] font-medium text-slate-900">{item.title}</span>
+        </div>
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-normal text-slate-500">
+          <span className="truncate">{item.subtitle}</span>
+          {item.meta ? <span className="truncate text-slate-400">{item.meta}</span> : null}
+        </div>
+      </button>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <span
+          className={`max-w-[92px] truncate rounded-md bg-transparent px-1.5 py-0.5 text-[10.5px] font-medium ${actionTone(
+            item.tone,
+          )}`}
+        >
+          {item.badge}
+        </span>
+        {item.type === "task" && item.id ? (
+          <div className="hidden items-center gap-1 sm:flex">
+            <button
+              type="button"
+              onClick={() => void handleQuickAction(item, "start-task")}
+              disabled={!onTaskStart || Boolean(workingItemId)}
+              className="rounded-md px-2 py-1 text-[10.5px] font-medium text-slate-500 opacity-80 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40"
+            >
+              Iniciar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleQuickAction(item, "complete-task")}
+              disabled={!onTaskComplete || Boolean(workingItemId)}
+              className="rounded-md px-2 py-1 text-[10.5px] font-medium text-emerald-700 opacity-90 hover:bg-emerald-50 disabled:opacity-40"
+            >
+              Listo
+            </button>
+          </div>
+        ) : (
+          <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <DashboardCard bodyClassName="h-full p-0">
       <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
-        <div className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-slate-200 px-3 py-2">
+        <header className="px-4 pb-2 pt-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-[15px] font-semibold text-slate-950">
+                Centro de trabajo
+              </h3>
+              <p className="mt-0.5 truncate text-[12px] font-normal text-slate-500">
+                {totalItems} activos · {attentionCount} requieren atención
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("corevix:open-task-create"));
+              }}
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nueva tarea
+            </button>
+          </div>
+        </header>
+
+        <div className="flex min-w-0 items-center gap-4 overflow-x-auto border-b border-slate-100 px-4">
           {tabs.map(([key, label, Icon]) => (
             <button
               key={key}
               type="button"
               onClick={() => setActiveTab(key)}
-              className={`flex h-8 shrink-0 items-center gap-1.5 border-b-2 px-2 text-[12px] font-semibold ${
+              className={`flex h-9 shrink-0 items-center gap-1.5 border-b-2 text-[12px] font-medium ${
                 activeTab === key
-                  ? "border-blue-600 text-slate-950"
+                  ? "border-slate-900 text-slate-950"
                   : "border-transparent text-slate-500 hover:text-slate-900"
               }`}
             >
@@ -799,58 +1225,63 @@ function DashboardWorkCenterWidget({
           ))}
         </div>
 
-        <div className="flex items-center justify-between gap-3 px-4 py-2">
-          <DashboardTextButton href={active[3]}>View All</DashboardTextButton>
-          <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10.5px] font-semibold text-slate-500">
-            {items.length} items
-          </span>
-        </div>
+        <div className="min-h-0 overflow-hidden bg-white px-4 py-3">
+          {active[0] === "overview" ? (
+            <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-slate-500">
+                {workTabs.slice(0, 6).map(([key, label, Icon]) => {
+                  const count = workCenter[key].length;
+                  const urgent = workCenter[key].filter(
+                    (item) => item.tone === "red" || item.tone === "orange",
+                  ).length;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setActiveTab(key)}
+                      className="inline-flex min-w-0 items-center gap-1.5 text-left font-normal text-slate-500 hover:text-slate-900"
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {count} {label.toLowerCase()}
+                      </span>
+                      {urgent ? <span className="text-orange-600">· {urgent}</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
 
-        <div className="min-h-0 overflow-hidden px-4 pb-3">
-          {items.length === 0 ? (
-            <div className="grid h-full place-items-center rounded-xl bg-slate-50 text-center">
-              <span className="text-[12px] font-semibold text-slate-500">
+              <div className="text-[12px] font-medium text-slate-700">Lo más importante ahora</div>
+
+              <div className="min-h-0 overflow-y-auto pr-1">
+                <div className="border-t border-slate-100">
+                  {priorityItems.length ? (
+                    priorityItems.map(renderWorkItem)
+                  ) : (
+                    <div className="grid h-24 place-items-center text-center text-[12px] font-normal text-slate-500">
+                      No hay prioridades pendientes.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : activeItems.length === 0 ? (
+            <div className="grid h-full place-items-center text-center">
+              <span className="text-[12px] font-normal text-slate-500">
                 No hay elementos en {active[1]}.
               </span>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              <div className="grid grid-cols-[36px_minmax(0,1fr)_92px_84px] bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-500">
-                <span>#</span>
-                <span>Subject</span>
-                <span>Status</span>
-                <span>Priority</span>
+            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <DashboardTextButton href={active[3]}>Ver panel completo</DashboardTextButton>
+                <span className="text-[11px] font-normal text-slate-400">
+                  {activeItems.length} items
+                </span>
               </div>
-              {items.slice(0, 6).map(([title, subtitle, badge, tone, href], index) => (
-                <button
-                  key={`${activeTab}-${title}-${subtitle}`}
-                  type="button"
-                  onClick={() => {
-                    window.location.href = href;
-                  }}
-                  className="grid w-full grid-cols-[36px_minmax(0,1fr)_92px_84px] items-center gap-2 border-t border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
-                >
-                  <span className="text-[12px] text-slate-600">{index + 1}</span>
-                  <span className="min-w-0">
-                    <strong className="block truncate text-[12px] font-semibold text-slate-900">
-                      {title}
-                    </strong>
-                    <small className="block truncate text-[10.5px] text-slate-500">
-                      {subtitle}
-                    </small>
-                  </span>
-                  <span
-                    className={`w-fit max-w-[86px] truncate rounded-md px-2 py-0.5 text-[10.5px] font-semibold ${toneBadgeClass(
-                      tone,
-                    )}`}
-                  >
-                    {badge}
-                  </span>
-                  <span className={`truncate text-[11px] font-semibold ${actionTone(tone)}`}>
-                    {tone === "red" ? "High" : tone === "orange" ? "Medium" : "Low"}
-                  </span>
-                </button>
-              ))}
+              <div className="min-h-0 overflow-y-auto border-t border-slate-100 pr-1">
+                {activeItems.slice(0, 8).map(renderWorkItem)}
+              </div>
             </div>
           )}
         </div>
@@ -862,99 +1293,108 @@ function DashboardWorkCenterWidget({
 function DashboardTodoItemsWidget({
   todos,
   mode = "standard",
+  onTaskComplete,
 }: {
   todos: TodoWidgetData;
   mode?: DashboardWidgetMode;
+  onTaskComplete?: (taskId: string) => void | Promise<void>;
 }) {
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+
+  const handleComplete = async (task: TodoItem) => {
+    if (!task.id || task.completed || completingTaskId || !onTaskComplete) return;
+    setCompletingTaskId(task.id);
+    try {
+      await onTaskComplete?.(task.id);
+    } finally {
+      setCompletingTaskId(null);
+    }
+  };
+
   if (mode === "mini") {
     return (
       <MiniWidgetCard
-        title="To do"
+        title="To Do"
         value={String(todos.pending.length)}
-        helper={
-          todos.completed.length ? `${todos.completed.length} completadas` : "Pendientes personales"
-        }
+        helper={todos.pending[0]?.title || `${todos.completed.length} completadas`}
         icon={CheckCircle2}
         tone={todos.pending.length ? "orange" : "green"}
-        status="Personal"
+        status={todos.pending.length ? "Pendiente" : "Listo"}
       />
     );
   }
 
+  const checklistItems = [...todos.pending.slice(0, 8), ...todos.completed.slice(0, 4)];
+
   return (
     <DashboardCard
-      title="My To Do Items"
-      action={<DashboardTextButton href="/tasks">View All</DashboardTextButton>}
+      title="To Do"
+      action={<DashboardTextButton href="/tasks">Ver todas</DashboardTextButton>}
       bodyClassName="h-full p-4"
     >
-      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-        <section className="min-h-0 overflow-hidden">
-          <h4 className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-orange-600">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Latest to do's
-          </h4>
-          <div className="space-y-1.5">
-            {todos.pending.length === 0 ? (
-              <p className="rounded-lg bg-slate-50 px-3 py-3 text-[12px] font-medium text-slate-400">
-                No pending todos found
-              </p>
-            ) : (
-              todos.pending.slice(0, 4).map(([title, subtitle, tone, href]) => (
-                <button
-                  key={`pending-${title}-${subtitle}`}
-                  type="button"
-                  onClick={() => {
-                    window.location.href = href;
-                  }}
-                  className="grid w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50"
-                >
-                  <span className="h-3.5 w-3.5 rounded border border-slate-300" />
-                  <span className="min-w-0">
-                    <strong className="block truncate text-[11.8px] font-semibold text-slate-800">
-                      {title}
-                    </strong>
-                    <small className="block truncate text-[10.5px] text-slate-500">
-                      {subtitle}
-                    </small>
-                  </span>
-                  <span className={`h-2 w-2 rounded-full ${toneDot(tone)}`} />
-                </button>
-              ))
-            )}
-          </div>
-        </section>
+      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <span className="text-[12px] font-semibold text-slate-700">
+            {todos.pending.length} pendientes
+          </span>
+          <span className="text-[12px] font-semibold text-emerald-600">
+            {todos.completed.length} completadas
+          </span>
+        </div>
 
-        <section className="min-h-0 overflow-hidden">
-          <h4 className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Latest finished to do's
+        <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2 overflow-hidden">
+          <h4 className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Checklist
           </h4>
-          <div className="space-y-1.5">
-            {todos.completed.length === 0 ? (
+          <div className="min-h-0 space-y-1.5 overflow-y-auto pb-2 pr-1">
+            {checklistItems.length === 0 ? (
               <p className="rounded-lg bg-slate-50 px-3 py-3 text-[12px] font-medium text-slate-400">
-                No finished todos found
+                No hay tareas pendientes
               </p>
             ) : (
-              todos.completed.slice(0, 3).map(([title, subtitle, tone, href]) => (
-                <button
-                  key={`done-${title}-${subtitle}`}
-                  type="button"
-                  onClick={() => {
-                    window.location.href = href;
-                  }}
-                  className="grid w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50"
+              checklistItems.map((task) => (
+                <div
+                  key={`${task.completed ? "done" : "pending"}-${task.id || task.title}-${task.subtitle}`}
+                  className="grid w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50"
                 >
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  <span className="min-w-0">
-                    <strong className="block truncate text-[11.8px] font-semibold text-slate-800">
-                      {title}
+                  {task.completed ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleComplete(task)}
+                      disabled={!task.id || !onTaskComplete || Boolean(completingTaskId)}
+                      className="grid h-5 w-5 place-items-center rounded border border-slate-300 bg-white text-slate-300 transition hover:border-emerald-400 hover:text-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Completar ${task.title}`}
+                    >
+                      {completingTaskId === task.id ? (
+                        <span className="h-2 w-2 rounded-full bg-slate-300" />
+                      ) : null}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = task.href;
+                    }}
+                    className="min-w-0 text-left"
+                  >
+                    <strong
+                      className={`block truncate text-[11.8px] font-semibold ${
+                        task.completed
+                          ? "text-slate-500 line-through decoration-slate-300"
+                          : "text-slate-800"
+                      }`}
+                    >
+                      {task.title}
                     </strong>
                     <small className="block truncate text-[10.5px] text-slate-500">
-                      {subtitle}
+                      {task.subtitle}
                     </small>
-                  </span>
-                  <span className={`h-2 w-2 rounded-full ${toneDot(tone)}`} />
-                </button>
+                  </button>
+                  <span className={`h-2 w-2 rounded-full ${toneDot(task.tone)}`} />
+                </div>
               ))
             )}
           </div>
@@ -1536,12 +1976,17 @@ export function DashboardV2({
   salesDocumentsOverview,
   workCenter,
   todoItems,
+  calendarItems = [],
+  onCalendarRefresh,
+  onTaskComplete,
+  onTaskStart,
   todayLabel = "Vie. 23 mayo",
   collectionPeriodLabel = "Este mes⌄",
   pipelinePeriodLabel = "Este mes⌄",
 }: DashboardV2Props = {}) {
-
-  const [agentPromptPayload, setAgentPromptPayload] = useState<Record<string, unknown> | null>(null);
+  const [agentPromptPayload, setAgentPromptPayload] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [isAgentPromptPayloadLoading, setIsAgentPromptPayloadLoading] = useState(false);
 
   const refreshAgentPromptPayload = useCallback(async () => {
@@ -1650,7 +2095,6 @@ export function DashboardV2({
     }
   }, []);
 
-
   useEffect(() => {
     void loadAgentPromptPayload();
   }, [loadAgentPromptPayload]);
@@ -1754,39 +2198,64 @@ export function DashboardV2({
         .filter((action) => action.href === "/tasks")
         .map(
           (action) =>
-            [
-              action.title,
-              action.relatedTo || action.due,
-              action.priority,
-              action.tone,
-              "/tasks",
-            ] as WorkCenterItem,
+            ({
+              type: "task",
+              title: action.title,
+              subtitle: action.relatedTo || action.due,
+              badge: action.priority,
+              tone: action.tone,
+              href: "/tasks",
+              meta: action.due,
+            }) as WorkCenterItem,
         ),
       projects: resolvedProjectRisks.map(
         ([title, subtitle, badge, tone, href]) =>
-          [title, subtitle, badge, tone as DashboardV2Tone, href] as WorkCenterItem,
+          ({
+            type: "project",
+            title,
+            subtitle,
+            badge,
+            tone: tone as DashboardV2Tone,
+            href,
+          }) as WorkCenterItem,
       ),
       tickets: [],
       inbox: communications.map(
         ([channel, name, preview, count, tone, href]) =>
-          [
-            `${channel}: ${name}`,
-            preview,
-            Number(count) > 0 ? `${count} nuevo` : "Abierto",
-            tone as DashboardV2Tone,
+          ({
+            type: "inbox",
+            title: `${channel}: ${name}`,
+            subtitle: preview,
+            badge: Number(count) > 0 ? `${count} nuevo` : "Abierto",
+            tone: tone as DashboardV2Tone,
             href,
-          ] as WorkCenterItem,
+          }) as WorkCenterItem,
       ),
       calendar: schedule.map(
         ([when, title, subtitle, tone]) =>
-          [
+          ({
+            type: "calendar",
             title,
-            `${when} · ${subtitle}`,
-            when,
-            tone as DashboardV2Tone,
-            "/calendar",
-          ] as WorkCenterItem,
+            subtitle,
+            badge: when,
+            tone: tone as DashboardV2Tone,
+            href: "/calendar",
+          }) as WorkCenterItem,
       ),
+      sales: resolvedInvoiceRows
+        .concat(resolvedProposalRows)
+        .slice(0, 6)
+        .map(
+          ([title, subtitle, badge, tone, href]) =>
+            ({
+              type: "sales",
+              title,
+              subtitle,
+              badge,
+              tone: tone as DashboardV2Tone,
+              href,
+            }) as WorkCenterItem,
+        ),
     } satisfies WorkCenterData);
   const resolvedTodoItems =
     todoItems ??
@@ -1795,12 +2264,13 @@ export function DashboardV2({
         .filter((action) => action.href === "/tasks")
         .map(
           (action) =>
-            [
-              action.title,
-              `${action.relatedTo} · ${action.due}`,
-              action.tone,
-              "/tasks",
-            ] as TodoItem,
+            ({
+              title: action.title,
+              subtitle: `${action.relatedTo} · ${action.due}`,
+              tone: action.tone,
+              href: "/tasks",
+              completed: false,
+            }) as TodoItem,
         ),
       completed: [],
     } satisfies TodoWidgetData);
@@ -1810,15 +2280,17 @@ export function DashboardV2({
       widgets={[
         {
           id: "agent.autopilot",
-          render: () => <AgentCommandWidgetConnected payload={agentPromptPayload} isLoading={isAgentPromptPayloadLoading} onAnalyzeNow={refreshAgentPromptPayload} />,
+          render: () => (
+            <AgentCommandWidgetConnected
+              payload={agentPromptPayload}
+              isLoading={isAgentPromptPayloadLoading}
+              onAnalyzeNow={refreshAgentPromptPayload}
+            />
+          ),
         },
         {
           id: "sales.quick-kpis",
           render: ({ mode }) => <DashboardKpiStripWidget kpis={kpis} mode={mode} />,
-        },
-        {
-          id: "tasks.my-work",
-          render: ({ mode }) => <DashboardActionPrioritiesWidget actions={actions} mode={mode} />,
         },
         {
           id: "leads.attention",
@@ -1838,18 +2310,10 @@ export function DashboardV2({
         {
           id: "calendar.agenda",
           render: ({ mode }) => (
-            <DashboardScheduleWidget schedule={schedule} todayLabel={todayLabel} mode={mode} />
-          ),
-        },
-        {
-          id: "sales.pipeline-summary",
-          render: ({ mode }) => (
-            <DashboardSalesCollectionsWidget
-              pipeline={pipeline}
-              collectionRows={collectionRows}
-              collectionPeriodLabel={collectionPeriodLabel}
-              pipelinePeriodLabel={pipelinePeriodLabel}
+            <DashboardCalendarWidget
+              events={calendarItems}
               mode={mode}
+              onRefresh={onCalendarRefresh}
             />
           ),
         },
@@ -1865,12 +2329,23 @@ export function DashboardV2({
         {
           id: "work.center",
           render: ({ mode }) => (
-            <DashboardWorkCenterWidget workCenter={resolvedWorkCenter} mode={mode} />
+            <DashboardWorkCenterWidget
+              workCenter={resolvedWorkCenter}
+              mode={mode}
+              onTaskComplete={onTaskComplete}
+              onTaskStart={onTaskStart}
+            />
           ),
         },
         {
           id: "personal.todo-items",
-          render: ({ mode }) => <DashboardTodoItemsWidget todos={resolvedTodoItems} mode={mode} />,
+          render: ({ mode }) => (
+            <DashboardTodoItemsWidget
+              todos={resolvedTodoItems}
+              mode={mode}
+              onTaskComplete={onTaskComplete}
+            />
+          ),
         },
         {
           id: "clients.review",
@@ -1934,7 +2409,14 @@ export function DashboardV2({
         {
           id: "reports.revenue-snapshot",
           render: ({ mode }) => (
-            <DashboardReportSnapshotWidget metrics={resolvedReportSnapshot} mode={mode} />
+            <DashboardReportSnapshotWidget
+              metrics={resolvedReportSnapshot}
+              pipeline={pipeline}
+              collectionRows={collectionRows}
+              invoiceRows={resolvedInvoiceRows}
+              proposalRows={resolvedProposalRows}
+              mode={mode}
+            />
           ),
         },
         {

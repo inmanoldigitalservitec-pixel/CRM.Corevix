@@ -17,9 +17,12 @@ const BUTTON_LABELS: Record<string, string> = {
 function getRightAside() {
   const asides = Array.from(document.querySelectorAll<HTMLElement>("aside"));
   return (
-    asides.find((aside) =>
-      aside.textContent?.includes("Envío rápido") ||
-      aside.querySelector('[title="Crear propuesta"], [title="Crear lead"], [title="Tarea"], [title="Preparar mensaje"]'),
+    asides.find(
+      (aside) =>
+        aside.textContent?.includes("Envío rápido") ||
+        aside.querySelector(
+          '[title="Crear propuesta"], [title="Crear lead"], [title="Tarea"], [title="Preparar mensaje"]',
+        ),
     ) || null
   );
 }
@@ -103,7 +106,8 @@ function applyResponsiveLayout() {
     grid.dataset.corevixWhatsappGrid = "true";
     const width = window.innerWidth;
     if (width >= 1460) {
-      grid.style.gridTemplateColumns = "72px minmax(340px, 390px) minmax(0, 1fr) minmax(320px, 340px)";
+      grid.style.gridTemplateColumns =
+        "72px minmax(340px, 390px) minmax(0, 1fr) minmax(320px, 340px)";
     } else if (width >= 1180) {
       grid.style.gridTemplateColumns = "66px minmax(330px, 360px) minmax(0, 1fr) 300px";
     } else if (width >= 980) {
@@ -119,7 +123,11 @@ function applyResponsiveLayout() {
   }
 }
 
-function ensureReadableButton(element: HTMLElement, label: string, variant: "primary" | "soft" | "icon" = "soft") {
+function ensureReadableButton(
+  element: HTMLElement,
+  label: string,
+  variant: "primary" | "soft" | "icon" = "soft",
+) {
   if (element.dataset.corevixLabelEnhanced === `${label}:${variant}`) return;
 
   element.dataset.corevixLabelEnhanced = `${label}:${variant}`;
@@ -221,15 +229,25 @@ function enhanceDocumentActions(aside: HTMLElement) {
     actionsRow.dataset.corevixDocActions = "true";
   }
 
-  aside.querySelectorAll<HTMLElement>('[title="Preparar mensaje"]').forEach((element) => ensureReadableButton(element, "Enviar", "primary"));
-  aside.querySelectorAll<HTMLElement>('[title="Abrir documento"]').forEach((element) => ensureReadableButton(element, "Abrir"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Preparar mensaje"]')
+    .forEach((element) => ensureReadableButton(element, "Enviar", "primary"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Abrir documento"]')
+    .forEach((element) => ensureReadableButton(element, "Abrir"));
 }
 
 function findActivitySection(aside: HTMLElement) {
-  return Array.from(aside.querySelectorAll<HTMLElement>("section")).find((section) => {
-    const title = section.querySelector("p")?.textContent?.trim().toLowerCase() || "";
-    return title === "actividad" || section.textContent?.includes("Último mensaje:") || section.textContent?.includes("Última interacción:");
-  }) || null;
+  return (
+    Array.from(aside.querySelectorAll<HTMLElement>("section")).find((section) => {
+      const title = section.querySelector("p")?.textContent?.trim().toLowerCase() || "";
+      return (
+        title === "actividad" ||
+        section.textContent?.includes("Último mensaje:") ||
+        section.textContent?.includes("Última interacción:")
+      );
+    }) || null
+  );
 }
 
 function ensureTaskSlot(aside: HTMLElement, internalSection: HTMLElement | null) {
@@ -255,13 +273,21 @@ function ensureTaskSlot(aside: HTMLElement, internalSection: HTMLElement | null)
 }
 
 function enhanceInternalActions(aside: HTMLElement) {
-  aside.querySelectorAll<HTMLElement>('[title="Tarea"]').forEach((element) => ensureReadableButton(element, "Tarea"));
-  aside.querySelectorAll<HTMLElement>('[title="Nota"]').forEach((element) => ensureReadableButton(element, "Nota"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Tarea"]')
+    .forEach((element) => ensureReadableButton(element, "Tarea"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Nota"]')
+    .forEach((element) => ensureReadableButton(element, "Nota"));
 
   const taskButton = aside.querySelector<HTMLElement>('[title="Tarea"]');
   const internalSection = taskButton?.closest("section") as HTMLElement | null;
   if (internalSection && !internalSection.querySelector("p")) {
-    ensureSectionTitle(internalSection, "Trabajo interno", "Crea tareas o notas sin salir del chat.");
+    ensureSectionTitle(
+      internalSection,
+      "Trabajo interno",
+      "Crea tareas o notas sin salir del chat.",
+    );
   }
   ensureTaskSlot(aside, internalSection);
 }

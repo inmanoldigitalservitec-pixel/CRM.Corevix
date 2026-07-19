@@ -18,7 +18,13 @@ export type AgentMessage = {
   created_at?: string;
   toolContext?: AgentToolContext | null;
 };
-export type AgentThread = { id: string; title: string; preview: string; updatedAt: string; isLocal?: boolean };
+export type AgentThread = {
+  id: string;
+  title: string;
+  preview: string;
+  updatedAt: string;
+  isLocal?: boolean;
+};
 
 export const LOCAL_THREAD_ID = "local-new";
 
@@ -47,10 +53,16 @@ function logBrowserAgentDebug(userText: string, recentHistory: AgentMessage[], r
     message_estimated_tokens: estimateTokens(userText),
     history_items_sent: recentHistory.length,
     history_chars_sent: historyChars,
-    history_estimated_tokens: estimateTokens(userText) + estimateTokens(recentHistory.map((item) => item.content).join("\n")),
+    history_estimated_tokens:
+      estimateTokens(userText) +
+      estimateTokens(recentHistory.map((item) => item.content).join("\n")),
     selected_tool_scope: payload?.agent_debug?.initial?.tool_scope_selected ?? null,
   });
-  console.log("Worker -> OpenClaw", payload?.agent_debug || "El worker no devolvio agent_debug. Verifica que el worker este actualizado/reiniciado.");
+  console.log(
+    "Worker -> OpenClaw",
+    payload?.agent_debug ||
+      "El worker no devolvio agent_debug. Verifica que el worker este actualizado/reiniciado.",
+  );
   console.groupEnd();
 }
 
@@ -326,7 +338,10 @@ export function useAgentChatController() {
 
       setMessagesByThread((prev) => ({
         ...prev,
-        [persistedThreadId]: [...(prev[persistedThreadId] || []), { role: "assistant", content: reply }],
+        [persistedThreadId]: [
+          ...(prev[persistedThreadId] || []),
+          { role: "assistant", content: reply },
+        ],
       }));
       updateThreadPreviewLocal(persistedThreadId, userText, reply);
     } finally {

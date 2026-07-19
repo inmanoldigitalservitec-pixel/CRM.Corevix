@@ -8,6 +8,8 @@ export type TeamInvitationActionResult = {
   invitation_link: string;
   token?: string;
   invitationId?: string;
+  delivery_channel?: "gmail" | "resend" | "manual";
+  gmail_error?: string;
   resend_error?: string;
   status?: string;
 };

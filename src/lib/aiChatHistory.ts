@@ -99,7 +99,12 @@ export async function listAiChatMessages(threadId: string) {
   return (data || []) as AiChatMessage[];
 }
 
-export async function appendAiChatMessage(threadId: string, role: AiChatRole, content: string, metadata?: Record<string, unknown>) {
+export async function appendAiChatMessage(
+  threadId: string,
+  role: AiChatRole,
+  content: string,
+  metadata?: Record<string, unknown>,
+) {
   const { userId, companyId } = await getCurrentContext();
 
   const { data, error } = await (supabase as any)
@@ -120,7 +125,10 @@ export async function appendAiChatMessage(threadId: string, role: AiChatRole, co
   return data as AiChatMessage;
 }
 
-export async function updateAiChatThread(threadId: string, input: { title?: string; preview?: string }) {
+export async function updateAiChatThread(
+  threadId: string,
+  input: { title?: string; preview?: string },
+) {
   const { userId, companyId } = await getCurrentContext();
 
   const { data, error } = await (supabase as any)

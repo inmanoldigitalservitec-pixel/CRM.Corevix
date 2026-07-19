@@ -126,24 +126,6 @@ function ActivityLogPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Buscar evento</CardTitle>
-          <CardDescription>Filtra por accion, detalle o entidad.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="relative max-w-xl">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Ej. invoice_paid, cliente, task_updated..."
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Timeline</CardTitle>
           <CardDescription>Ultimos 250 eventos disponibles para tu empresa.</CardDescription>
         </CardHeader>

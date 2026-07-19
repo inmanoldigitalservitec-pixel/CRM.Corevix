@@ -48,7 +48,10 @@ function readSelectedProjectTitle() {
 
   const title = candidates
     .map((node) => node.textContent?.trim() || "")
-    .find((text) => Boolean(text) && !["Nueva tarea", "Nuevo proyecto", "Editar proyecto"].includes(text));
+    .find(
+      (text) =>
+        Boolean(text) && !["Nueva tarea", "Nuevo proyecto", "Editar proyecto"].includes(text),
+    );
 
   return title || "";
 }
@@ -68,8 +71,8 @@ function keepTasksTabActive() {
   const candidates = Array.from(
     document.querySelectorAll<HTMLButtonElement>('[role="tab"], button'),
   );
-  const tasksButton = candidates.find((button) =>
-    (button.textContent || "").trim().toLowerCase() === "tareas",
+  const tasksButton = candidates.find(
+    (button) => (button.textContent || "").trim().toLowerCase() === "tareas",
   );
   tasksButton?.click();
 }
@@ -236,7 +239,9 @@ export function InlineProjectTaskCreator() {
                 To Do · {task.priority} · {task.due_date || "Sin fecha"}
               </div>
               {task.description ? (
-                <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</div>
+                <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {task.description}
+                </div>
               ) : null}
             </div>
             <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700">
@@ -307,10 +312,21 @@ export function InlineProjectTaskCreator() {
             </Select>
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={saving}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+            >
               Terminar
             </Button>
-            <Button type="submit" size="sm" disabled={saving || !form.title.trim()} className="gap-1.5">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving || !form.title.trim()}
+              className="gap-1.5"
+            >
               <Save className="h-3.5 w-3.5" /> {saving ? "Guardando..." : "Guardar y seguir"}
             </Button>
           </div>

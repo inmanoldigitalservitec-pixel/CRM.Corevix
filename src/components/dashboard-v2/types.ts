@@ -8,6 +8,9 @@ export type DashboardKpi = {
   helper: string;
   tone: DashboardTone;
   icon: LucideIcon;
+  progressCurrent?: number;
+  progressTotal?: number;
+  progressLabel?: string;
 };
 
 export type DashboardActionItem = {

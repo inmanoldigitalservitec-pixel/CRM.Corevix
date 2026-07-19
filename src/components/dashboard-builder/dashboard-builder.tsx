@@ -1,23 +1,14 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { GripVertical, Pencil, Plus, RotateCcw, X } from "lucide-react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import type { Layout, LayoutItem, ResponsiveLayouts } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 import type {
   DashboardBreakpoint,
@@ -33,11 +24,11 @@ import {
 import { useDashboardLayout } from "./use-dashboard-layout";
 
 const cols: Record<DashboardBreakpoint, number> = {
-  "2xl": 20,
-  xl: 16,
+  "2xl": 12,
+  xl: 12,
   lg: 12,
   md: 8,
-  sm: 4,
+  sm: 1,
   xs: 1,
 };
 
@@ -55,10 +46,68 @@ const miniModeThreshold = {
   h: 2,
 };
 
+const dashboardBreakpoints = Object.keys(cols) as DashboardBreakpoint[];
+const breakpointGroups: DashboardBreakpoint[][] = [["2xl", "xl", "lg"], ["md"], ["sm", "xs"]];
+
+function getBreakpointForWidth(width: number): DashboardBreakpoint {
+  const orderedBreakpoints = Object.entries(breakpoints).sort(([, a], [, b]) => b - a) as [
+    DashboardBreakpoint,
+    number,
+  ][];
+
+  return orderedBreakpoints.find(([, minWidth]) => width >= minWidth)?.[0] || "xs";
+}
+
+function getBreakpointGroup(breakpoint: DashboardBreakpoint) {
+  return (
+    breakpointGroups.find((group) => group.includes(breakpoint)) ||
+    ([breakpoint] as DashboardBreakpoint[])
+  );
+}
+
+function cloneLayoutItemForBreakpoint(
+  item: DashboardGridLayoutItem,
+  breakpoint: DashboardBreakpoint,
+): DashboardGridLayoutItem {
+  const columnCount = cols[breakpoint];
+  const minW = Math.min(item.minW || 1, columnCount);
+  const w = Math.max(Math.min(item.w, columnCount), minW);
+  const maxX = Math.max(columnCount - w, 0);
+
+  return {
+    ...item,
+    x: Math.min(Math.max(item.x, 0), maxX),
+    w,
+    minW,
+    minH: Math.max(item.minH || 1, 1),
+  };
+}
+
+function toStoredLayoutItem(item: LayoutItem): DashboardGridLayoutItem {
+  return {
+    i: item.i,
+    x: item.x,
+    y: item.y,
+    w: item.w,
+    h: item.h,
+    minW: item.minW,
+    minH: item.minH,
+    maxW: item.maxW,
+    maxH: item.maxH,
+    static: item.static,
+    isDraggable: item.isDraggable,
+    isResizable: item.isResizable,
+  };
+}
+
+function sortLayoutItems<T extends { x: number; y: number }>(items: readonly T[]) {
+  return [...items].sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
 function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: Set<string>) {
   const layouts: ResponsiveLayouts<DashboardBreakpoint> = {};
 
-  (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
+  dashboardBreakpoints.forEach((breakpoint) => {
     const columnCount = cols[breakpoint];
 
     layouts[breakpoint] = preferences
@@ -84,31 +133,56 @@ function toGridLayouts(preferences: DashboardWidgetPreference[], renderableIds: 
   return layouts;
 }
 
+function syncBreakpointGroupLayouts(
+  preferences: DashboardWidgetPreference[],
+  sourceBreakpoint: DashboardBreakpoint,
+  currentLayout?: Layout,
+) {
+  const group = getBreakpointGroup(sourceBreakpoint);
+
+  return preferences.map((preference) => {
+    const sourceItemFromCurrent = currentLayout?.find(
+      (layoutItem) => layoutItem.i === preference.widgetId,
+    );
+    const sourceItem = sourceItemFromCurrent
+      ? toStoredLayoutItem(sourceItemFromCurrent)
+      : preference.layout[sourceBreakpoint];
+
+    if (!sourceItem) return preference;
+
+    const nextLayout = { ...preference.layout };
+    group.forEach((breakpoint) => {
+      nextLayout[breakpoint] = cloneLayoutItemForBreakpoint(
+        {
+          ...sourceItem,
+          i: preference.widgetId,
+        },
+        breakpoint,
+      );
+    });
+
+    return {
+      ...preference,
+      layout: nextLayout,
+    };
+  });
+}
+
 function mergeLayoutsIntoPreferences(
   preferences: DashboardWidgetPreference[],
   currentLayout: Layout,
   layouts: ResponsiveLayouts<DashboardBreakpoint>,
+  activeBreakpoint: DashboardBreakpoint,
 ) {
-  return preferences.map((preference) => {
+  const mergedPreferences = preferences.map((preference) => {
     const nextLayout = { ...preference.layout };
     const currentItem = currentLayout.find((layoutItem) => layoutItem.i === preference.widgetId);
 
-    (Object.keys(cols) as DashboardBreakpoint[]).forEach((breakpoint) => {
+    dashboardBreakpoints.forEach((breakpoint) => {
       const item = layouts[breakpoint]?.find((layoutItem) => layoutItem.i === preference.widgetId);
       if (!item) return;
 
-      nextLayout[breakpoint] = {
-        i: item.i,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-        minW: item.minW,
-        minH: item.minH,
-        maxW: item.maxW,
-        maxH: item.maxH,
-        static: item.static,
-      } satisfies DashboardGridLayoutItem;
+      nextLayout[breakpoint] = toStoredLayoutItem(item);
     });
 
     return {
@@ -117,6 +191,67 @@ function mergeLayoutsIntoPreferences(
       layout: nextLayout,
     };
   });
+
+  return syncBreakpointGroupLayouts(mergedPreferences, activeBreakpoint, currentLayout);
+}
+
+function placeWidgetAtDashboardEnd(
+  preferences: DashboardWidgetPreference[],
+  renderableIds: Set<string>,
+  widgetId: string,
+  sourceBreakpoint: DashboardBreakpoint,
+) {
+  const targetPreference = preferences.find((preference) => preference.widgetId === widgetId);
+  if (!targetPreference) return undefined;
+
+  const nextLayout = { ...targetPreference.layout };
+
+  dashboardBreakpoints.forEach((breakpoint) => {
+    const currentItem = targetPreference.layout[breakpoint];
+    if (!currentItem) return;
+
+    const columnCount = cols[breakpoint];
+    const minW = Math.min(currentItem.minW || 1, columnCount);
+    const w = Math.max(Math.min(currentItem.w, columnCount), minW);
+    const h = Math.max(currentItem.h, currentItem.minH || 1);
+    const bottom = preferences.reduce((maxY, preference) => {
+      if (
+        !preference.enabled ||
+        preference.widgetId === widgetId ||
+        !renderableIds.has(preference.widgetId)
+      ) {
+        return maxY;
+      }
+
+      const item = preference.layout[breakpoint];
+      if (!item) return maxY;
+
+      return Math.max(maxY, item.y + item.h);
+    }, 0);
+
+    nextLayout[breakpoint] = {
+      ...currentItem,
+      x: 0,
+      y: bottom,
+      w,
+      h,
+      minW,
+      minH: Math.max(currentItem.minH || 1, 1),
+      static: false,
+    };
+  });
+
+  const [syncedPreference] = syncBreakpointGroupLayouts(
+    [
+      {
+        ...targetPreference,
+        layout: nextLayout,
+      },
+    ],
+    sourceBreakpoint,
+  );
+
+  return syncedPreference?.layout || nextLayout;
 }
 
 function inferWidgetMode(item: LayoutItem): DashboardWidgetMode {
@@ -127,93 +262,16 @@ function DashboardGridItemShell({ children }: { children: ReactNode }) {
   return <div className="h-full min-h-0 overflow-hidden">{children}</div>;
 }
 
-function DashboardOptionsPanel({
-  preferences,
-  renderableIds,
-  saving,
-  onEnabledChange,
-}: {
-  preferences: DashboardWidgetPreference[];
-  renderableIds: Set<string>;
-  saving: boolean;
-  onEnabledChange: (widgetId: string, enabled: boolean) => void;
-}) {
-  const options = preferences.filter((preference) => renderableIds.has(preference.widgetId));
-  const enabledCount = options.filter((preference) => preference.enabled).length;
-
-  return (
-    <SheetContent className="flex w-full flex-col overflow-hidden p-0 sm:max-w-[460px]">
-      <SheetHeader className="border-b border-slate-200 px-5 py-4">
-        <SheetTitle>Dashboard Options</SheetTitle>
-        <SheetDescription>Activa los widgets que quieres ver en tu dashboard.</SheetDescription>
-      </SheetHeader>
-
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-        <span className="text-sm font-semibold text-slate-700">Widgets visibles</span>
-        <Badge variant="outline" className="bg-white text-slate-600">
-          {enabledCount}/{options.length}
-        </Badge>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4">
-        {options.map((preference) => {
-          const definition = getDashboardWidgetDefinition(preference.widgetId);
-          const Icon = definition?.icon || SlidersHorizontal;
-
-          return (
-            <div
-              key={preference.widgetId}
-              className={cn(
-                "rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition",
-                !preference.enabled && "opacity-70",
-              )}
-            >
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-600">
-                  <Icon className="h-4 w-4" />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-sm font-semibold text-slate-950">
-                        {definition?.title || preference.widgetId}
-                      </h3>
-                      <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
-                        {definition?.description || "Widget del dashboard personalizado."}
-                      </p>
-                    </div>
-
-                    <Switch
-                      checked={preference.enabled}
-                      disabled={saving}
-                      onCheckedChange={(checked) => onEnabledChange(preference.widgetId, checked)}
-                      aria-label={`Mostrar ${definition?.title || preference.widgetId}`}
-                    />
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <Badge variant="secondary" className="capitalize text-slate-600">
-                      {definition?.module || "dashboard"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </SheetContent>
-  );
-}
-
 export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderItem[] }) {
   const { preferences, loading, saving, error, savePreferences, resetPreferences } =
     useDashboardLayout();
+  const [layoutEditing, setLayoutEditing] = useState(false);
   const { containerRef, mounted, width } = useContainerWidth({
     initialWidth: 1280,
-    measureBeforeMount: false,
+    measureBeforeMount: true,
   });
+  const gridWidth = mounted && width > 0 ? Math.floor(width) : 0;
+  const [activeBreakpoint, setActiveBreakpoint] = useState<DashboardBreakpoint | null>(null);
   const layoutChangeReadyRef = useRef(false);
   const widgetById = useMemo(
     () => new Map(widgets.map((widget) => [widget.id, widget])),
@@ -227,23 +285,34 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
   const visiblePreferences = normalizedPreferences.filter(
     (preference) => preference.enabled && renderableIds.has(preference.widgetId),
   );
+  const disabledPreferences = normalizedPreferences.filter(
+    (preference) => !preference.enabled && renderableIds.has(preference.widgetId),
+  );
   const layouts = useMemo(
     () => toGridLayouts(normalizedPreferences, renderableIds),
     [normalizedPreferences, renderableIds],
   );
-  const gridWidth = mounted && width > 0 ? width : 1280;
+  const detectedBreakpoint = mounted ? getBreakpointForWidth(gridWidth) : "lg";
+  const currentBreakpoint = detectedBreakpoint;
 
   const handleLayoutChange = (
     _currentLayout: Layout,
     allLayouts: ResponsiveLayouts<DashboardBreakpoint>,
   ) => {
+    if (loading || !layoutEditing) return;
+
     if (!layoutChangeReadyRef.current) {
       layoutChangeReadyRef.current = true;
       return;
     }
 
     void savePreferences(
-      mergeLayoutsIntoPreferences(normalizedPreferences, _currentLayout, allLayouts),
+      mergeLayoutsIntoPreferences(
+        normalizedPreferences,
+        _currentLayout,
+        allLayouts,
+        currentBreakpoint,
+      ),
       {
         silent: true,
       },
@@ -254,20 +323,88 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
     widgetId: string,
     patch: Partial<Pick<DashboardWidgetPreference, "enabled" | "mode">>,
   ) => {
+    if (loading || !layoutEditing) return;
+
     const nextPreferences = normalizedPreferences.map((preference) =>
-      preference.widgetId === widgetId ? { ...preference, ...patch } : preference,
+      preference.widgetId === widgetId
+        ? {
+            ...preference,
+            ...patch,
+            layout:
+              patch.enabled === true && !preference.enabled
+                ? placeWidgetAtDashboardEnd(
+                    normalizedPreferences,
+                    renderableIds,
+                    widgetId,
+                    currentBreakpoint,
+                  ) || preference.layout
+                : preference.layout,
+          }
+        : preference,
     );
 
     void savePreferences(nextPreferences, { silent: true });
   };
 
-  if (loading) {
-    return (
-      <div className="grid min-h-[420px] place-items-center p-6 text-sm font-medium text-slate-500">
-        Cargando dashboard...
-      </div>
+  const copyCurrentLayout = async () => {
+    const activeLayout = layouts[currentBreakpoint] || [];
+    const breakpointLayouts = dashboardBreakpoints.reduce(
+      (acc, breakpoint) => {
+        acc[breakpoint] = sortLayoutItems(layouts[breakpoint] || []).map((item) => ({
+          widgetId: item.i,
+          x: item.x,
+          y: item.y,
+          w: item.w,
+          h: item.h,
+          minW: item.minW,
+          minH: item.minH,
+        }));
+        return acc;
+      },
+      {} as Record<
+        DashboardBreakpoint,
+        Array<{
+          widgetId: string;
+          x: number;
+          y: number;
+          w: number;
+          h: number;
+          minW?: number;
+          minH?: number;
+        }>
+      >,
     );
-  }
+    const report = {
+      copiedAt: new Date().toISOString(),
+      viewport: {
+        windowWidth: typeof window === "undefined" ? null : window.innerWidth,
+        windowHeight: typeof window === "undefined" ? null : window.innerHeight,
+        dashboardContainerWidth: gridWidth,
+        detectedBreakpoint,
+        activeBreakpoint,
+        currentBreakpoint,
+        columns: cols[currentBreakpoint],
+      },
+      activeLayout: sortLayoutItems(activeLayout).map((item) => ({
+        widgetId: item.i,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        minW: item.minW,
+        minH: item.minH,
+      })),
+      breakpointLayouts,
+      preferences: normalizedPreferences,
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+      toast.success("Reporte del dashboard copiado.");
+    } catch {
+      toast.error("No se pudo copiar el reporte.");
+    }
+  };
 
   return (
     <div ref={containerRef} className="min-h-0 w-full bg-[#f8fafc]">
@@ -277,39 +414,39 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
             Dashboard
           </h1>
           <p className="truncate text-[12px] font-medium text-slate-500">
-            Arrastra desde el icono lateral o redimensiona widgets. Los cambios se guardan
-            automáticamente.
+            {layoutEditing
+              ? "Modo edición activo. Arrastra, redimensiona o activa widgets; se guarda automáticamente."
+              : "Resumen operativo de ventas, tareas, mensajes y proyectos."}
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button type="button" size="sm" variant="outline">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Opciones
-              </Button>
-            </SheetTrigger>
-            <DashboardOptionsPanel
-              preferences={normalizedPreferences}
-              renderableIds={renderableIds}
-              saving={saving}
-              onEnabledChange={(widgetId, enabled) => updateWidgetPreference(widgetId, { enabled })}
-            />
-          </Sheet>
-
           <Button
             type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              void resetPreferences();
-            }}
-            disabled={saving}
+            size="icon"
+            variant={layoutEditing ? "default" : "outline"}
+            aria-label={layoutEditing ? "Finalizar edición del layout" : "Editar layout"}
+            title={layoutEditing ? "Finalizar edición" : "Editar layout"}
+            disabled={saving || loading}
+            onClick={() => setLayoutEditing((editing) => !editing)}
           >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
+          {layoutEditing ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              aria-label="Restaurar layout por defecto"
+              title="Restaurar layout por defecto"
+              onClick={() => {
+                void resetPreferences();
+              }}
+              disabled={saving || loading}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -319,7 +456,9 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
         </div>
       ) : null}
 
-      {visiblePreferences.length === 0 ? (
+      {!mounted ? (
+        <div className="m-3 min-h-[360px] rounded-xl bg-white/60" />
+      ) : visiblePreferences.length === 0 && !layoutEditing ? (
         <div className="m-3 grid min-h-[360px] place-items-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
           <div className="max-w-sm">
             <h2 className="text-base font-semibold text-slate-950">No hay widgets visibles</h2>
@@ -332,7 +471,7 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
               onClick={() => {
                 void resetPreferences();
               }}
-              disabled={saving}
+              disabled={saving || loading}
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Restaurar widgets
@@ -340,51 +479,135 @@ export function DashboardBuilder({ widgets }: { widgets: DashboardWidgetRenderIt
           </div>
         </div>
       ) : (
-        <ResponsiveGridLayout
-          width={gridWidth}
-          className="dashboard-builder-grid p-3"
-          layouts={layouts}
-          breakpoints={breakpoints}
-          cols={cols}
-          rowHeight={92}
-          margin={[10, 10]}
-          containerPadding={[0, 0]}
-          dragConfig={{
-            enabled: true,
-            handle: ".dashboard-widget-drag-grip",
-            threshold: 3,
-            bounded: false,
-          }}
-          resizeConfig={{
-            enabled: true,
-            handles: ["se"],
-          }}
-          onLayoutChange={handleLayoutChange}
-        >
-          {visiblePreferences.map((preference) => {
-            const widget = widgetById.get(preference.widgetId);
-            const definition = getDashboardWidgetDefinition(preference.widgetId);
-            if (!widget) return null;
+        <>
+          <ResponsiveGridLayout
+            width={gridWidth}
+            breakpoint={currentBreakpoint}
+            className="dashboard-builder-grid"
+            layouts={layouts}
+            breakpoints={breakpoints}
+            cols={cols}
+            rowHeight={92}
+            margin={[10, 10]}
+            containerPadding={[12, 12]}
+            dragConfig={{
+              enabled: layoutEditing,
+              handle: ".dashboard-widget-drag-grip",
+              threshold: 3,
+              bounded: false,
+            }}
+            resizeConfig={{
+              enabled: layoutEditing,
+              handles: ["se"],
+            }}
+            autoSize
+            onLayoutChange={handleLayoutChange}
+            onBreakpointChange={(breakpoint) => {
+              setActiveBreakpoint(breakpoint as DashboardBreakpoint);
+            }}
+          >
+            {visiblePreferences.map((preference) => {
+              const widget = widgetById.get(preference.widgetId);
+              const definition = getDashboardWidgetDefinition(preference.widgetId);
+              if (!widget) return null;
 
-            return (
-              <div key={preference.widgetId} className="relative min-h-0 pl-6">
-                <button
-                  type="button"
-                  className="dashboard-widget-drag-grip absolute left-0 top-4 z-10 hidden cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:grid"
-                  aria-label={`Mover ${definition?.title || preference.widgetId}`}
-                >
-                  <GripVertical className="h-4 w-4" />
-                </button>
+              return (
+                <div key={preference.widgetId} className="relative min-h-0 pl-6">
+                  <button
+                    type="button"
+                    className={cn(
+                      "dashboard-widget-drag-grip absolute left-0 top-4 z-10 grid cursor-grab place-items-center rounded-md text-slate-300 transition hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing",
+                      !layoutEditing && "pointer-events-none opacity-0",
+                    )}
+                    aria-label={`Mover ${definition?.title || preference.widgetId}`}
+                    tabIndex={layoutEditing ? 0 : -1}
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </button>
 
-                <DashboardGridItemShell>
-                  {widget.render
-                    ? widget.render({ mode: preference.mode, settings: preference.settings })
-                    : widget.content}
-                </DashboardGridItemShell>
+                  {layoutEditing ? (
+                    <button
+                      type="button"
+                      className="absolute left-0 top-12 z-10 grid h-5 w-5 place-items-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                      onClick={() =>
+                        updateWidgetPreference(preference.widgetId, { enabled: false })
+                      }
+                      onPointerDown={(event) => event.stopPropagation()}
+                      aria-label={`Desactivar ${definition?.title || preference.widgetId}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  ) : null}
+
+                  <DashboardGridItemShell>
+                    {widget.render
+                      ? widget.render({ mode: preference.mode, settings: preference.settings })
+                      : widget.content}
+                  </DashboardGridItemShell>
+                </div>
+              );
+            })}
+          </ResponsiveGridLayout>
+
+          {layoutEditing ? (
+            <section className="px-3 pb-8 pt-3">
+              <div className="flex items-center gap-3 px-6">
+                <span className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
+                  Widgets desactivados
+                </span>
+                <div className="h-px flex-1 bg-slate-200" />
               </div>
-            );
-          })}
-        </ResponsiveGridLayout>
+
+              <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white/55 p-3 shadow-sm shadow-slate-200/40">
+                {disabledPreferences.length > 0 ? (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {disabledPreferences.map((preference) => {
+                      const definition = getDashboardWidgetDefinition(preference.widgetId);
+                      const Icon = definition?.icon || Pencil;
+
+                      return (
+                        <button
+                          key={preference.widgetId}
+                          type="button"
+                          className="group flex min-h-[68px] items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm shadow-slate-200/50 transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/70"
+                          onClick={() =>
+                            updateWidgetPreference(preference.widgetId, { enabled: true })
+                          }
+                        >
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500 transition group-hover:bg-blue-50 group-hover:text-blue-600">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-slate-700">
+                              {definition?.title || preference.widgetId}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs font-medium text-slate-400">
+                              Click para activar
+                            </span>
+                          </span>
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
+                            <Plus className="h-3.5 w-3.5" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid min-h-[88px] place-items-center rounded-xl bg-white text-center">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">
+                        Todos los widgets están activos
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-400">
+                        Usa la X lateral para mandar alguno a esta zona.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+        </>
       )}
     </div>
   );

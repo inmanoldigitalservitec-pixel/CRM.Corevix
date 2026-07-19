@@ -1,20 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle,
-  CalendarClock,
-  CalendarDays,
   CheckCircle2,
   CheckSquare,
   Download,
-  ListFilter,
   Minus,
   MoreHorizontal,
   Paperclip,
   Plus,
-  RefreshCw,
   Trash2,
-  User,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -57,10 +51,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/crm/page-header";
-import { SearchFilters } from "@/components/crm/search-filters";
+import { GlobalKpiStrip, type GlobalKpiItem } from "@/components/crm/global-kpi-strip";
 import { EmptyState } from "@/components/crm/empty-state";
-import { DataCard } from "@/components/crm/data-card";
-import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
+import { TaskCreateDialog, TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -127,6 +120,7 @@ interface Task {
   id: string;
   title: string;
   description: string | null;
+  description_html?: string | null;
   status: string;
   priority: string;
   assigned_to: string | null;
@@ -305,6 +299,51 @@ function priorityClass(priority: string | null | undefined) {
   if (p === "medium") return "text-blue-600";
   if (p === "low") return "text-slate-500";
   return "text-slate-600";
+}
+
+function taskRiskTone(value: number, warningAt: number, dangerAt: number) {
+  if (value >= dangerAt) return "text-rose-600";
+  if (value >= warningAt) return "text-orange-500";
+  return "text-emerald-600";
+}
+
+function TaskKpi({
+  label,
+  value,
+  tone = "text-slate-950",
+  onClick,
+  active = false,
+}: {
+  label: string;
+  value: number;
+  tone?: string;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  const content = (
+    <>
+      <p className="truncate text-[11px] font-normal uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className={`mt-1 text-2xl font-normal leading-none ${tone}`}>{value}</p>
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="min-w-0 border-b border-slate-100 pb-3">{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-w-0 border-b pb-3 text-left transition hover:border-slate-300 ${
+        active ? "border-blue-500" : "border-slate-100"
+      }`}
+    >
+      {content}
+    </button>
+  );
 }
 
 function TasksPage() {
@@ -529,6 +568,34 @@ function TasksPage() {
     };
   }, [projects, tasks]);
 
+  const mobileKpiItems = useMemo<GlobalKpiItem[]>(
+    () => [
+      {
+        key: "tasks-overview",
+        label: "Tareas",
+        value: kpis.total,
+        helper: `${sortedTasks.length} visibles de ${tasks.length} tareas`,
+        icon: CheckSquare,
+        tone: kpis.overdue ? "red" : "blue",
+        meta: [
+          { label: "Atrasadas", value: kpis.overdue, tone: "red" },
+          { label: "Hoy", value: kpis.dueToday, tone: "orange" },
+          { label: "Progreso", value: kpis.inProgress, tone: "blue" },
+          { label: "Sin asignar", value: kpis.unassigned, tone: "neutral" },
+        ],
+      },
+    ],
+    [
+      kpis.dueToday,
+      kpis.inProgress,
+      kpis.overdue,
+      kpis.total,
+      kpis.unassigned,
+      sortedTasks.length,
+      tasks.length,
+    ],
+  );
+
   const driveFileCountByTaskId = useMemo(() => {
     const map = new Map<string, number>();
     for (const file of taskDriveFilesIndex) {
@@ -658,9 +725,13 @@ function TasksPage() {
       return;
     }
     const fd = new FormData(e.currentTarget);
+    const description = (fd.get("description") as string) || "";
     const data = {
       title: fd.get("title") as string,
-      description: (fd.get("description") as string) || null,
+      description: description || null,
+      description_html: description
+        ? description.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        : null,
       status: (fd.get("status") as string) || "To Do",
       priority: (fd.get("priority") as string) || "Medium",
       due_date: (fd.get("due_date") as string) || null,
@@ -858,14 +929,6 @@ function TasksPage() {
     URL.revokeObjectURL(url);
   };
 
-  const resetFilters = () => {
-    setSearch("");
-    setStatusFilter("all");
-    setPriorityFilter("all");
-    setProjectFilter("all");
-    setQuickFilter("all");
-  };
-
   if (loading) return <LoadingState />;
 
   const selectedProject = selectedTask?.related_project_id
@@ -883,7 +946,7 @@ function TasksPage() {
         type="button"
         variant="outline"
         size="sm"
-        className="h-8 px-2"
+        className="h-8 rounded-full border-slate-200 bg-white px-2 font-normal shadow-none"
         onClick={() => setSelectedTask(task)}
       >
         Abrir
@@ -892,7 +955,7 @@ function TasksPage() {
         <Button
           type="button"
           size="sm"
-          className="h-8 px-2"
+          className="h-8 rounded-full bg-blue-600 px-2 font-normal text-white shadow-none hover:bg-blue-700"
           onClick={() => void updateTaskStatusInline(task, "Completed")}
         >
           Completar
@@ -904,7 +967,7 @@ function TasksPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 w-8 px-0"
+            className="h-8 w-8 rounded-full border-slate-200 bg-white px-0 shadow-none"
             aria-label="Más acciones"
           >
             <MoreHorizontal className="h-4 w-4" />
@@ -940,10 +1003,11 @@ function TasksPage() {
   );
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      <PageHeader
+    <div className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
+      <GlobalKpiStrip
+        items={mobileKpiItems}
         title="Tareas"
-        subtitle="Vista operativa compacta para revisar, filtrar y abrir tareas rápido."
+        subtitle="Seguimientos, pendientes y trabajo operativo"
         actionLabel={can("tasks.create") ? "Nueva tarea" : undefined}
         onAction={() => {
           setEditTask(null);
@@ -951,112 +1015,117 @@ function TasksPage() {
           setDialogOpen(true);
         }}
       >
-        <span className="inline-flex h-9 items-center rounded-full border bg-background px-3 text-[12px] font-semibold text-foreground">
-          {kpis.total} tareas
-        </span>
-      </PageHeader>
+        <div className="grid w-full grid-cols-2 gap-2 pt-1">
+          <Select
+            value={quickFilter}
+            onValueChange={(value) => {
+              setQuickFilter(value as typeof quickFilter);
+              if (value !== "all") setStatusFilter("all");
+            }}
+          >
+            <SelectTrigger className="h-9 rounded-full border-slate-200 bg-white px-3 text-[12px] font-bold shadow-none">
+              <SelectValue placeholder="Vista" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="today">Para hoy</SelectItem>
+              <SelectItem value="overdue">Atrasadas</SelectItem>
+              <SelectItem value="week">Esta semana</SelectItem>
+              <SelectItem value="unassigned">Sin asignar</SelectItem>
+              <SelectItem value="mine">Mis tareas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => {
+              setStatusFilter(value);
+              if (value !== "all") setQuickFilter("all");
+            }}
+          >
+            <SelectTrigger className="h-9 rounded-full border-slate-200 bg-white px-3 text-[12px] font-bold shadow-none">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              {TASK_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </GlobalKpiStrip>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          {
-            key: "overdue",
-            label: "Atrasadas",
-            value: kpis.overdue,
-            icon: AlertTriangle,
-            tone: "text-rose-600",
-            active: quickFilter === "overdue",
-            onClick: () => {
-              setQuickFilter("overdue");
-              setStatusFilter("all");
-            },
-          },
-          {
-            key: "today",
-            label: "Para hoy",
-            value: kpis.dueToday,
-            icon: CalendarClock,
-            tone: "text-amber-700",
-            active: quickFilter === "today",
-            onClick: () => {
-              setQuickFilter("today");
-              setStatusFilter("all");
-            },
-          },
-          {
-            key: "progress",
-            label: "En progreso",
-            value: kpis.inProgress,
-            icon: CalendarDays,
-            tone: "text-blue-600",
-            active: statusFilter === "In Progress",
-            onClick: () => {
-              setStatusFilter("In Progress");
-              setQuickFilter("all");
-            },
-          },
-          {
-            key: "completed",
-            label: "Completadas",
-            value: kpis.completed,
-            icon: CheckCircle2,
-            tone: "text-emerald-600",
-            active: statusFilter === "Completed",
-            onClick: () => {
-              setStatusFilter("Completed");
-              setQuickFilter("all");
-            },
-          },
-          {
-            key: "unassigned",
-            label: "Sin asignar",
-            value: kpis.unassigned,
-            icon: User,
-            tone: "text-slate-600",
-            active: quickFilter === "unassigned",
-            onClick: () => {
-              setQuickFilter("unassigned");
-              setStatusFilter("all");
-            },
-          },
-          {
-            key: "projects",
-            label: "Proyectos activos",
-            value: kpis.activeProjects,
-            icon: ListFilter,
-            tone: "text-slate-600",
-            active: false,
-            onClick: () => {},
-          },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={item.onClick}
-              className={
-                "rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md " +
-                (item.active ? "border-blue-200 bg-blue-50/60" : "border-slate-200")
-              }
-            >
-              <div className="flex items-center gap-2">
-                <Icon className={`h-4 w-4 ${item.value ? item.tone : "text-muted-foreground"}`} />
-                <span className="text-[12px] font-bold text-muted-foreground">{item.label}</span>
-              </div>
-              <div className="mt-1 text-[18px] font-semibold text-slate-950">{item.value}</div>
-            </button>
-          );
-        })}
+      <div className="max-md:hidden">
+        <PageHeader
+          title="Tareas"
+          subtitle="Vista operativa compacta para revisar, filtrar y abrir tareas rápido."
+        />
       </div>
 
-      <DataCard>
+      <div className="grid grid-cols-2 gap-x-8 gap-y-4 max-md:hidden sm:grid-cols-3 lg:grid-cols-6">
+        <TaskKpi
+          label="Atrasadas"
+          value={kpis.overdue}
+          tone={taskRiskTone(kpis.overdue, 1, 3)}
+          active={quickFilter === "overdue"}
+          onClick={() => {
+            setQuickFilter("overdue");
+            setStatusFilter("all");
+          }}
+        />
+        <TaskKpi
+          label="Para hoy"
+          value={kpis.dueToday}
+          tone={taskRiskTone(kpis.dueToday, 1, 6)}
+          active={quickFilter === "today"}
+          onClick={() => {
+            setQuickFilter("today");
+            setStatusFilter("all");
+          }}
+        />
+        <TaskKpi
+          label="En progreso"
+          value={kpis.inProgress}
+          tone="text-blue-600"
+          active={statusFilter === "In Progress"}
+          onClick={() => {
+            setStatusFilter("In Progress");
+            setQuickFilter("all");
+          }}
+        />
+        <TaskKpi
+          label="Completadas"
+          value={kpis.completed}
+          tone="text-emerald-600"
+          active={statusFilter === "Completed"}
+          onClick={() => {
+            setStatusFilter("Completed");
+            setQuickFilter("all");
+          }}
+        />
+        <TaskKpi
+          label="Sin asignar"
+          value={kpis.unassigned}
+          tone={taskRiskTone(kpis.unassigned, 1, 5)}
+          active={quickFilter === "unassigned"}
+          onClick={() => {
+            setQuickFilter("unassigned");
+            setStatusFilter("all");
+          }}
+        />
+        <TaskKpi label="Proyectos activos" value={kpis.activeProjects} />
+      </div>
+
+      <section className="overflow-hidden border-y border-slate-100 bg-white max-md:border-0">
         <div className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="max-md:hidden">
+            <div className="flex min-w-0 items-center gap-3 border-b border-slate-100 px-4 py-3">
               {can("tasks.create") ? (
                 <Button
                   type="button"
-                  className="h-9"
+                  className="h-9 shrink-0 rounded-full bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700"
                   onClick={() => {
                     setEditTask(null);
                     setPresetProjectId(null);
@@ -1066,69 +1135,84 @@ function TasksPage() {
                   <Plus className="mr-2 h-4 w-4" /> Nueva tarea
                 </Button>
               ) : null}
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar tareas..."
+                className="h-9 w-64 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-[170px] shrink-0 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {TASK_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="h-9 w-[180px] shrink-0 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Prioridad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las prioridades</SelectItem>
+                  {PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="h-9 w-[210px] shrink-0 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los proyectos</SelectItem>
+                  {projectOptions
+                    .filter((option) => option.value !== "all")
+                    .map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              <span className="ml-auto shrink-0 text-sm font-normal text-slate-500">
+                {sortedTasks.length} visibles · {selectedIds.length} seleccionadas
+              </span>
+
               <Button
                 type="button"
                 variant="outline"
-                className="h-9"
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-full border-slate-200 bg-white shadow-none"
                 onClick={exportTasksCsv}
                 disabled={!sortedTasks.length}
+                aria-label="Exportar tareas"
+                title="Exportar"
               >
-                <Download className="mr-2 h-4 w-4" /> Exportar
+                <Download className="h-4 w-4" />
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9"
-                onClick={() => void fetchTasks()}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
-              </Button>
-              <Button type="button" variant="ghost" className="h-9" onClick={resetFilters}>
-                Limpiar filtros
-              </Button>
-            </div>
-            <div className="text-sm font-semibold text-slate-500">
-              {sortedTasks.length} visibles · {selectedIds.length} seleccionadas
             </div>
           </div>
 
-          <SearchFilters
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Buscar tareas, proyectos o clientes..."
-            filters={[
-              {
-                key: "status",
-                placeholder: "Todos los estados",
-                value: statusFilter,
-                onChange: setStatusFilter,
-                options: TASK_STATUSES.map((s) => ({ label: s, value: s })),
-              },
-              {
-                key: "priority",
-                placeholder: "Todas las prioridades",
-                value: priorityFilter,
-                onChange: setPriorityFilter,
-                options: PRIORITIES.map((s) => ({ label: s, value: s })),
-              },
-              {
-                key: "project",
-                placeholder: "Todos los proyectos",
-                value: projectFilter,
-                onChange: setProjectFilter,
-                options: projectOptions.filter((o) => o.value !== "all"),
-              },
-            ]}
-          />
-
           {canDeleteTasks && (someVisibleSelected || selectedIds.length > 0) ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <div className="mx-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 py-2.5">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
+                className="inline-flex items-center gap-2 text-sm font-normal text-slate-700"
                 onClick={toggleSelectVisibleTasks}
               >
-                <span className="grid h-5 w-5 place-items-center rounded border bg-white">
+                <span className="grid h-5 w-5 place-items-center rounded border border-slate-200 bg-white">
                   {allVisibleSelected ? (
                     <CheckCircle2 className="h-4 w-4" />
                   ) : someVisibleSelected ? (
@@ -1140,7 +1224,7 @@ function TasksPage() {
                 {allVisibleSelected ? "Limpiar visibles" : "Seleccionar visibles"}
               </button>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">
+                <span className="text-xs font-normal text-slate-500">
                   {selectedVisibleCount}/{filteredTaskIds.length} visibles · {selectedIds.length}{" "}
                   seleccionadas
                 </span>
@@ -1148,7 +1232,7 @@ function TasksPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8"
+                  className="h-8 rounded-full border-slate-200 bg-white font-normal shadow-none"
                   onClick={clearTaskSelection}
                   disabled={!selectedIds.length}
                 >
@@ -1157,7 +1241,7 @@ function TasksPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 bg-red-600 text-white hover:bg-red-700"
+                  className="h-8 rounded-full bg-red-600 px-3 font-normal text-white shadow-none hover:bg-red-700"
                   onClick={() => setBulkDeleteOpen(true)}
                   disabled={!selectedIds.length}
                 >
@@ -1176,15 +1260,15 @@ function TasksPage() {
               onAction={() => setDialogOpen(true)}
             />
           ) : sortedTasks.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+            <div className="mx-4 border-b border-dashed border-slate-200 py-6 text-sm text-slate-500">
               No hay tareas con este filtro.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="overflow-hidden bg-white">
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow className="hover:bg-slate-50">
+                  <TableHeader className="bg-white">
+                    <TableRow className="hover:bg-white">
                       {canDeleteTasks ? (
                         <TableHead className="w-10">
                           <Checkbox
@@ -1203,7 +1287,7 @@ function TasksPage() {
                       <TableHead className="w-14">#</TableHead>
                       <TableHead className="min-w-[320px]">Nombre</TableHead>
                       <TableHead className="min-w-[140px]">Estado</TableHead>
-                      <TableHead className="min-w-[115px]">Fecha de inicio</TableHead>
+                      <TableHead className="min-w-[115px]">Inicio</TableHead>
                       <TableHead className="min-w-[115px]">Vencimiento</TableHead>
                       <TableHead className="min-w-[120px]">Asignada a</TableHead>
                       <TableHead className="min-w-[170px]">Proyecto / Cliente</TableHead>
@@ -1218,7 +1302,7 @@ function TasksPage() {
                       return (
                         <TableRow
                           key={task.id}
-                          className="cursor-pointer align-top hover:bg-slate-50"
+                          className="cursor-pointer align-top hover:bg-slate-50/40"
                           onClick={() => setSelectedTask(task)}
                         >
                           {canDeleteTasks ? (
@@ -1230,60 +1314,60 @@ function TasksPage() {
                               />
                             </TableCell>
                           ) : null}
-                          <TableCell className="font-medium text-slate-500">{index + 1}</TableCell>
+                          <TableCell className="font-normal text-slate-500">{index + 1}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold text-slate-900">{task.title}</span>
+                              <span className="font-normal text-slate-950">{task.title}</span>
                               {meta.isOverdue ? (
-                                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-normal text-rose-700">
                                   Atrasada
                                 </span>
                               ) : null}
                               {meta.isDueToday ? (
-                                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-normal text-amber-800">
                                   Hoy
                                 </span>
                               ) : null}
                             </div>
-                            <div className="mt-1 line-clamp-2 max-w-[520px] text-sm text-slate-500">
+                            <div className="mt-1 line-clamp-2 max-w-[520px] text-sm font-normal text-slate-500">
                               {task.description || "Sin descripción."}
                             </div>
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={task.status} />
                           </TableCell>
-                          <TableCell className="text-sm text-slate-600">
+                          <TableCell className="text-sm font-normal text-slate-600">
                             {formatShortDate(task.created_at?.slice(0, 10))}
                           </TableCell>
-                          <TableCell className="text-sm font-semibold text-slate-700">
+                          <TableCell className="text-sm font-normal text-slate-700">
                             {formatShortDate(task.due_date)}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">
+                              <span className="grid h-7 w-7 place-items-center rounded-full border border-slate-100 bg-white text-[11px] font-normal text-slate-600">
                                 {getInitials(meta.assigneeLabel)}
                               </span>
-                              <span className="max-w-[120px] truncate text-sm font-medium text-slate-700">
+                              <span className="max-w-[120px] truncate text-sm font-normal text-slate-700">
                                 {meta.assigneeLabel}
                               </span>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="max-w-[180px] truncate text-sm font-semibold text-slate-800">
+                            <div className="max-w-[180px] truncate text-sm font-normal text-slate-800">
                               {meta.project?.name || "—"}
                             </div>
-                            <div className="max-w-[180px] truncate text-xs font-medium text-slate-500">
+                            <div className="max-w-[180px] truncate text-xs font-normal text-slate-500">
                               {meta.client?.company_name || "Sin cliente"}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <span className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-normal text-slate-600">
                               <Paperclip className="h-3.5 w-3.5" />
                               {meta.filesCount || "—"}
                             </span>
                           </TableCell>
                           <TableCell>
-                            <span className={`text-sm font-bold ${priorityClass(task.priority)}`}>
+                            <span className={`text-sm font-normal ${priorityClass(task.priority)}`}>
                               {task.priority || "—"}
                             </span>
                           </TableCell>
@@ -1297,9 +1381,43 @@ function TasksPage() {
             </div>
           )}
         </div>
-      </DataCard>
+      </section>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <TaskCreateDialog
+        open={dialogOpen && !editTask}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setPresetProjectId(null);
+        }}
+        companyId={profile?.company_id}
+        currentUserId={profile?.user_id || user?.id || null}
+        profiles={profiles}
+        initialValues={{
+          projectId: presetProjectId || undefined,
+          assignedTo: profile?.user_id || user?.id || undefined,
+        }}
+        canCreate={can("tasks.create")}
+        onCreated={async (task) => {
+          await fetchTasks();
+          void sendTaskNotification(
+            "Tarea creada",
+            `${task.title || "Tarea sin título"} fue creada.`,
+          );
+          setSelectedTask(task as Task);
+          setPresetProjectId(null);
+        }}
+      />
+
+      <Dialog
+        open={dialogOpen && !!editTask}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setEditTask(null);
+            setPresetProjectId(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editTask ? "Editar tarea" : "Agregar tarea"}</DialogTitle>

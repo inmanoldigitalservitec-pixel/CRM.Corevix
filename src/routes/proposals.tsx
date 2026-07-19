@@ -9,7 +9,7 @@ import {
   Layers,
   Link as LinkIcon,
   Pencil,
-  Send,
+  Plus,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -37,15 +37,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { crmFormStyles } from "@/components/crm/crm-form-shell";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/crm/page-header";
-import { SearchFilters } from "@/components/crm/search-filters";
 import { EmptyState } from "@/components/crm/empty-state";
-import { DataCard } from "@/components/crm/data-card";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
+import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { useCrud } from "@/hooks/use-crud";
-import { MetricCard } from "@/components/crm/metric-card";
 import { supabase } from "@/integrations/supabase/client";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import {
@@ -207,7 +206,7 @@ function NumberStepperField({
       <Label>{label}</Label>
 
       <div className="flex items-stretch gap-2">
-        <div className="flex h-11 w-[170px] overflow-hidden rounded-[14px] border bg-background shadow-sm">
+        <div className="flex h-11 w-[170px] overflow-hidden rounded-none border-y border-slate-200 bg-white">
           <button
             type="button"
             onClick={decrease}
@@ -302,13 +301,13 @@ function EditableListField({
         </Button>
       </div>
 
-      <div className="space-y-2 rounded-[14px] border bg-muted/10 p-3">
+      <div className="space-y-2 border-y border-slate-100 py-2">
         {visibleItems.map((item, index) => (
           <div
             key={`${label}-${index}`}
-            className="flex items-center gap-2 rounded-[12px] border bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+            className="flex items-center gap-2 border-b border-slate-100 py-2 last:border-b-0"
           >
-            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#eaf1ff] text-[12px] font-bold text-[#1d62f9]">
+            <div className="grid h-7 w-7 shrink-0 place-items-center border-b border-blue-200 text-[12px] font-bold text-[#1d62f9]">
               {index + 1}
             </div>
 
@@ -328,7 +327,7 @@ function EditableListField({
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 w-9 px-0 text-muted-foreground hover:text-destructive"
+              className="h-9 w-9 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-destructive"
               onClick={() => removeItem(index)}
               disabled={visibleItems.length === 1 && !item.trim()}
               title="Quitar"
@@ -401,6 +400,32 @@ function generateProposalNumber() {
 function formatMoney(amount: number, currency: string | null | undefined) {
   const c = (currency || "USD").toUpperCase();
   return `${c} ${Number(amount || 0).toLocaleString()}`;
+}
+
+function proposalRiskValueClass(tone: "neutral" | "green" | "orange" | "red") {
+  if (tone === "green") return "text-emerald-600";
+  if (tone === "orange") return "text-orange-600";
+  if (tone === "red") return "text-rose-600";
+  return "text-slate-950";
+}
+
+function ProposalKpi({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "neutral" | "green" | "orange" | "red";
+}) {
+  return (
+    <div className="border-b border-slate-100 py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:px-4 sm:last:border-r-0">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
+      <div className={`mt-1 text-xl font-semibold ${proposalRiskValueClass(tone)}`}>{value}</div>
+    </div>
+  );
 }
 
 function generatePublicToken() {
@@ -626,8 +651,22 @@ function ProposalsPage() {
     const active = data.filter((p) => isPendingProposalStatus(p.status)).length;
     const sent = data.filter((p) => isSentOrViewedProposalStatus(p.status)).length;
     const drafts = data.filter((p) => normalizeStatus(p.status) === "draft").length;
+    const expired = data.filter(
+      (p) =>
+        isProposalExpired(p.valid_until) &&
+        !isApprovedProposalStatus(p.status) &&
+        normalizeStatus(p.status) !== "rejected",
+    ).length;
+    const pipelineAmount = data
+      .filter(
+        (p) =>
+          isPendingProposalStatus(p.status) ||
+          isSentOrViewedProposalStatus(p.status) ||
+          normalizeStatus(p.status) === "draft",
+      )
+      .reduce((s, p) => s + Number(p.amount || 0), 0);
     const totalAmount = data.reduce((s, p) => s + Number(p.amount || 0), 0);
-    return { total, active, sent, drafts, totalAmount };
+    return { total, active, sent, drafts, expired, pipelineAmount, totalAmount };
   }, [data]);
 
   const filtered = useMemo(() => {
@@ -1013,10 +1052,20 @@ function ProposalsPage() {
 
   if (loading) return <LoadingState />;
 
+  const mobileStatusFilters = [
+    { value: "all", label: "Todos los estados" },
+    ...PROPOSAL_STATUSES.map((status) => ({ value: status, label: status })),
+  ];
+  const mobileValidityFilters = [
+    { value: "all", label: "Toda validez" },
+    { value: "valid", label: "Vigentes" },
+    { value: "expired", label: "Vencidas" },
+  ];
+
   function copyPublicLink(publicToken: string | null | undefined) {
     const token = String(publicToken || "").trim();
     if (!token) {
-      toast.error("Esta propuesta no tiene public_token.");
+      toast.error("Esta propuesta no tiene enlace público.");
       return;
     }
     const publicUrl = `${window.location.origin}/proposal/public/${token}`;
@@ -1027,7 +1076,7 @@ function ProposalsPage() {
   function openPublicLink(publicToken: string | null | undefined) {
     const token = String(publicToken || "").trim();
     if (!token) {
-      toast.error("Esta propuesta no tiene public_token.");
+      toast.error("Esta propuesta no tiene enlace público.");
       return;
     }
     const publicUrl = `${window.location.origin}/proposal/public/${token}`;
@@ -1035,251 +1084,388 @@ function ProposalsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-5 space-y-4">
+    <div className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
       <div data-demo="proposals-main">
-        <PageHeader
-          title="Propuestas"
-          subtitle="Crea y administra propuestas comerciales conectadas a productos, clientes y oportunidades."
-          actionLabel={isAdminLike ? "Nueva propuesta" : undefined}
-          onAction={isAdminLike ? () => openNew(openNewContext) : undefined}
-        />
-      </div>
-
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          variant="reference"
-          size="compact"
-          label="Total propuestas"
-          value={stats.total}
-          icon={Layers}
-          iconClassName="text-[#1d62f9]"
-          iconChipClassName="bg-[#eaf1ff]"
-        />
-        <MetricCard
-          variant="reference"
-          size="compact"
-          label="Activas"
-          value={stats.active}
-          icon={FileText}
-          iconClassName="text-slate-700"
-          iconChipClassName="bg-slate-100"
-        />
-        <MetricCard
-          variant="reference"
-          size="compact"
-          label="Enviadas"
-          value={stats.sent}
-          icon={Send}
-          iconClassName="text-emerald-700"
-          iconChipClassName="bg-emerald-50"
-        />
-        <MetricCard
-          variant="reference"
-          size="compact"
-          label="Monto total"
-          value={`USD ${Math.round(stats.totalAmount).toLocaleString()}`}
-          icon={BadgeDollarSign}
-          iconClassName="text-amber-700"
-          iconChipClassName="bg-amber-50"
-        />
-      </div>
-
-      <DataCard>
-        <div className="space-y-4">
-          <SearchFilters
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Buscar por título o número..."
-            filters={[
-              {
-                key: "product",
-                placeholder: "Producto",
-                value: productFilter,
-                onChange: setProductFilter,
-                options: productOptions,
-              },
-              {
-                key: "status",
-                placeholder: "Estado",
-                value: statusFilter,
-                onChange: setStatusFilter,
-                options: PROPOSAL_STATUSES.map((s) => ({ label: s, value: s })),
-              },
-              {
-                key: "validity",
-                placeholder: "Validez",
-                value: validityFilter,
-                onChange: setValidityFilter as any,
-                options: [
-                  { label: "Todas", value: "all" },
-                  { label: "Vigentes", value: "valid" },
-                  { label: "Vencidas", value: "expired" },
-                ],
-              },
-            ]}
+        <div className="hidden md:block">
+          <PageHeader
+            title="Propuestas"
+            subtitle="Administra propuestas comerciales cargadas y compartidas como PDF."
           />
+        </div>
+      </div>
+
+      <GlobalKpiStrip
+        title="Propuestas"
+        subtitle="Cotizaciones, envíos y cierres comerciales"
+        actionLabel={isAdminLike ? "Nueva propuesta" : undefined}
+        onAction={isAdminLike ? () => openNew(openNewContext) : undefined}
+        actionIcon={<Plus className="h-3.5 w-3.5" />}
+        items={[
+          {
+            key: "proposals-summary",
+            label: "Pipeline",
+            value: `USD ${Math.round(stats.pipelineAmount).toLocaleString()}`,
+            helper: `${filtered.length} visibles de ${stats.total} propuestas`,
+            icon: BadgeDollarSign,
+            tone: stats.expired > 0 ? "orange" : "blue",
+            meta: [
+              { label: "Activas", value: stats.active, tone: "blue" },
+              { label: "Enviadas", value: stats.sent, tone: "green" },
+              { label: "Vencidas", value: stats.expired, tone: "orange" },
+            ],
+          },
+        ]}
+      >
+        <div className="mt-2 grid w-full grid-cols-2 gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileStatusFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={validityFilter}
+            onValueChange={(value) => setValidityFilter(value as typeof validityFilter)}
+          >
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileValidityFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </GlobalKpiStrip>
+
+      <div className="hidden border-y border-slate-100 bg-white sm:grid sm:grid-cols-4">
+        <ProposalKpi label="Propuestas" value={stats.total} />
+        <ProposalKpi label="Activas" value={stats.active} tone="green" />
+        <ProposalKpi
+          label="Vencidas"
+          value={stats.expired}
+          tone={stats.expired > 0 ? "orange" : "green"}
+        />
+        <ProposalKpi
+          label="Pipeline"
+          value={`USD ${Math.round(stats.pipelineAmount).toLocaleString()}`}
+          tone={stats.expired > 0 ? "orange" : "green"}
+        />
+      </div>
+
+      <section className="border-y border-slate-100 bg-white max-sm:border-0">
+        <div className="border-b border-slate-100 px-4 py-3 max-md:hidden sm:px-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2">
+              {isAdminLike ? (
+                <Button
+                  className="hidden h-9 rounded-md bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700 sm:inline-flex"
+                  onClick={() => openNew(openNewContext)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva propuesta
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por título o número..."
+                className="h-9 w-[240px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0"
+              />
+              <Select value={productFilter} onValueChange={setProductFilter}>
+                <SelectTrigger className="h-9 w-[180px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los productos</SelectItem>
+                  {productOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-[160px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {PROPOSAL_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={validityFilter}
+                onValueChange={(value) => setValidityFilter(value as typeof validityFilter)}
+              >
+                <SelectTrigger className="h-9 w-[150px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Validez" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toda validez</SelectItem>
+                  <SelectItem value="valid">Vigentes</SelectItem>
+                  <SelectItem value="expired">Vencidas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 space-y-4 md:mt-0">
           {filtered.length === 0 ? (
             <EmptyState
               icon={<FileText className="h-6 w-6" />}
               title="Todavía no hay propuestas"
               description="Crea una propuesta para enviarla luego a prospectos, clientes u oportunidades."
               actionLabel={isAdminLike ? "Nueva propuesta" : undefined}
-              onAction={isAdminLike ? openNew : undefined}
+              onAction={isAdminLike ? () => openNew(openNewContext) : undefined}
             />
           ) : (
-            <div className="overflow-x-auto -mx-4 sm:-mx-5">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-4 sm:pl-5">Número</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead className="hidden md:table-cell">Producto</TableHead>
-                    <TableHead className="hidden lg:table-cell">Cliente</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="hidden md:table-cell">Monto</TableHead>
-                    <TableHead className="hidden md:table-cell">Válida hasta</TableHead>
-                    <TableHead className="hidden lg:table-cell">Actualizada</TableHead>
-                    <TableHead className="text-right pr-4 sm:pr-5">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((p, index) => (
-                    <TableRow
+            <>
+              <div className="grid gap-2.5 md:hidden">
+                {filtered.map((p, index) => {
+                  const productName = p.product_id
+                    ? productById.get(p.product_id)?.name || "Sin producto"
+                    : "Sin producto";
+                  const clientName = p.client_id
+                    ? clientById.get(p.client_id)?.company_name || "Sin cliente"
+                    : "Sin cliente";
+                  const expired =
+                    isProposalExpired(p.valid_until) &&
+                    !isApprovedProposalStatus(p.status) &&
+                    normalizeStatus(p.status) !== "rejected";
+
+                  return (
+                    <button
                       key={p.id}
-                      className="cursor-pointer hover:bg-muted/40 transition-colors"
+                      type="button"
+                      data-demo={index === 0 ? "proposals-first-mobile-card" : undefined}
                       onClick={() => {
                         setSelected(p);
                         setEditItem(null);
                         setDrawerMode("view");
                         setDrawerOpen(true);
                       }}
+                      className="w-full rounded-[18px] border border-slate-200 bg-white p-3.5 text-left transition-colors active:scale-[0.992] hover:border-slate-300"
                     >
-                      <TableCell className="font-medium pl-4 sm:pl-5">{p.number}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        <div className="font-medium text-foreground">{p.title}</div>
-                        {p.product_id ? (
-                          <div className="text-xs text-muted-foreground md:hidden">
-                            {productById.get(p.product_id)?.name || "Sin producto"}
+                      <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-2.5">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-blue-100 bg-blue-50 text-blue-700">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 pt-0.5">
+                          <div className="truncate text-[15px] font-bold leading-5 tracking-[-0.01em] text-slate-950">
+                            {p.title}
                           </div>
+                          <div className="mt-0.5 truncate text-[12.5px] font-medium leading-4 text-slate-500">
+                            {p.number} · {productName}
+                          </div>
+                        </div>
+                        <StatusBadge
+                          status={p.status}
+                          className="min-h-6 max-w-[92px] shrink-0 truncate rounded-full px-2.5 text-[11px] font-bold"
+                        />
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-3 pl-[50px] max-[360px]:grid-cols-1 max-[360px]:pl-0">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+                            Monto
+                          </div>
+                          <div className="mt-1 truncate text-[13px] font-extrabold text-slate-900">
+                            {formatMoney(Number(p.amount || 0), p.currency)}
+                          </div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+                            Validez
+                          </div>
+                          <div className="mt-1 truncate text-[12.5px] font-semibold text-slate-600">
+                            {p.valid_until || "—"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3 text-[12.5px] font-semibold text-slate-500">
+                        <span className="min-w-0 truncate">{clientName}</span>
+                        {expired ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <TriangleAlert className="h-3 w-3" />
+                            Vencida
+                          </span>
                         ) : (
-                          <div className="text-xs text-muted-foreground md:hidden">
-                            Sin producto
-                          </div>
+                          <span className="shrink-0 text-slate-400">
+                            {p.updated_at ? new Date(p.updated_at).toLocaleDateString() : "—"}
+                          </span>
                         )}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {p.product_id ? productById.get(p.product_id)?.name || "—" : "—"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {p.client_id ? String(p.client_id).slice(0, 8) + "…" : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={p.status} />
-                          {isProposalExpired(p.valid_until) &&
-                          !isApprovedProposalStatus(p.status) &&
-                          normalizeStatus(p.status) !== "rejected" ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border-amber-200">
-                              <TriangleAlert className="h-3 w-3" /> Vencida
-                            </span>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium hidden md:table-cell">
-                        {formatMoney(Number(p.amount || 0), p.currency)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm hidden md:table-cell">
-                        {p.valid_until || "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">
-                        {p.updated_at ? new Date(p.updated_at).toLocaleDateString() : "—"}
-                      </TableCell>
-                      <TableCell className="text-right pr-4 sm:pr-5">
-                        <div
-                          data-demo={index === 0 ? "proposal-row-actions" : undefined}
-                          className="flex justify-end gap-1.5"
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-white">
+                      <TableRow>
+                        <TableHead className="pl-4 sm:pl-5">Número</TableHead>
+                        <TableHead>Título</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="hidden md:table-cell">Monto</TableHead>
+                        <TableHead className="hidden lg:table-cell">Vence</TableHead>
+                        <TableHead className="text-right pr-4 sm:pr-5">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((p, index) => (
+                        <TableRow
+                          key={p.id}
+                          className="cursor-pointer transition-colors hover:bg-slate-50/70"
+                          onClick={() => {
+                            setSelected(p);
+                            setEditItem(null);
+                            setDrawerMode("view");
+                            setDrawerOpen(true);
+                          }}
                         >
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setSelected(p);
-                              setEditItem(null);
-                              setDrawerMode("view");
-                              setDrawerOpen(true);
-                            }}
-                            title="Ver detalle"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              copyPublicLink((p as any).public_token ?? null);
-                            }}
-                            title="Copiar enlace público"
-                          >
-                            <LinkIcon className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              openPublicLink((p as any).public_token ?? null);
-                            }}
-                            title="Ver propuesta"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              void navigator.clipboard.writeText(p.content || "");
-                              toast.success("Contenido copiado.");
-                            }}
-                            title="Copiar contenido"
-                          >
-                            <Clipboard className="h-4 w-4" />
-                          </Button>
-                          {isAdminLike ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-2"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                openEdit(p);
-                              }}
-                              title="Editar"
+                          <TableCell className="pl-4 font-normal text-slate-500 sm:pl-5">
+                            {p.number}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-normal text-slate-900">{p.title}</div>
+                            {p.product_id ? (
+                              <div className="text-xs text-slate-500">
+                                {productById.get(p.product_id)?.name || "Sin producto"}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-500">Sin producto</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-slate-600">
+                            {p.client_id ? clientById.get(p.client_id)?.company_name || "—" : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={p.status} />
+                              {isProposalExpired(p.valid_until) &&
+                              !isApprovedProposalStatus(p.status) &&
+                              normalizeStatus(p.status) !== "rejected" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border-amber-200">
+                                  <TriangleAlert className="h-3 w-3" /> Vencida
+                                </span>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden font-normal md:table-cell">
+                            {formatMoney(Number(p.amount || 0), p.currency)}
+                          </TableCell>
+                          <TableCell className="hidden text-sm text-slate-500 lg:table-cell">
+                            {p.valid_until || "—"}
+                          </TableCell>
+                          <TableCell className="text-right pr-4 sm:pr-5">
+                            <div
+                              data-demo={index === 0 ? "proposal-row-actions" : undefined}
+                              className="flex justify-end gap-1.5"
                             >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelected(p);
+                                  setEditItem(null);
+                                  setDrawerMode("view");
+                                  setDrawerOpen(true);
+                                }}
+                                title="Ver detalle"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  copyPublicLink((p as any).public_token ?? null);
+                                }}
+                                title="Copiar enlace público"
+                              >
+                                <LinkIcon className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openPublicLink((p as any).public_token ?? null);
+                                }}
+                                title="Ver propuesta"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void navigator.clipboard.writeText(p.content || "");
+                                  toast.success("Contenido copiado.");
+                                }}
+                                title="Copiar contenido"
+                              >
+                                <Clipboard className="h-4 w-4" />
+                              </Button>
+                              {isAdminLike ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-full bg-blue-600 px-3 text-xs font-normal text-white shadow-none hover:bg-blue-700"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openEdit(p);
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Editar
+                                </Button>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
           )}
         </div>
-      </DataCard>
+      </section>
 
       <Sheet
         open={drawerOpen}
@@ -1295,11 +1481,11 @@ function ProposalsPage() {
         <SheetContent
           side="right"
           data-demo="proposal-editor"
-          className="w-full sm:max-w-[860px] p-0 flex flex-col"
+          className="flex h-dvh w-screen max-w-none flex-col overflow-hidden border-l border-slate-200 bg-white p-0 shadow-none sm:max-w-[860px]"
         >
-          <div className="border-b px-5 py-4">
+          <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 sm:px-6">
             <SheetHeader className="space-y-1 text-left">
-              <SheetTitle>
+              <SheetTitle className="text-xl font-normal tracking-normal text-slate-950">
                 {drawerMode === "create"
                   ? "Nueva propuesta"
                   : drawerMode === "edit"
@@ -1309,23 +1495,23 @@ function ProposalsPage() {
                       : "Propuesta"}
               </SheetTitle>
               {drawerMode === "view" && selected ? (
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm font-normal text-slate-500">
                   Estado:{" "}
-                  <span className="font-medium text-foreground">{selected.status || "—"}</span>
+                  <span className="font-medium text-slate-900">{selected.status || "—"}</span>
                 </div>
               ) : null}
             </SheetHeader>
           </div>
 
           <ScrollArea className="flex-1">
-            <div className="px-5 py-4 space-y-4">
+            <div className="space-y-4 px-4 py-5 sm:px-6">
               {drawerMode === "view" && selected ? (
                 <>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8"
+                      className="h-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
                       onClick={() => copyPublicLink((selected as any).public_token ?? null)}
                     >
                       <LinkIcon className="h-4 w-4" />
@@ -1334,7 +1520,7 @@ function ProposalsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8"
+                      className="h-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
                       onClick={() => openPublicLink((selected as any).public_token ?? null)}
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -1344,7 +1530,7 @@ function ProposalsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8"
+                        className="h-8 rounded-full bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700"
                         onClick={() => openEdit(selected)}
                       >
                         Editar
@@ -1354,7 +1540,7 @@ function ProposalsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-destructive hover:text-destructive"
+                        className="h-8 rounded-none border-0 border-b border-rose-200 bg-transparent px-0 text-destructive shadow-none hover:bg-transparent hover:text-destructive"
                         onClick={async () => {
                           const ok = window.confirm("¿Seguro que deseas eliminar esta propuesta?");
                           if (!ok) return;
@@ -1378,59 +1564,61 @@ function ProposalsPage() {
 
                   <Separator />
 
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Estado</div>
-                      <div className="font-medium">
+                  <div className="grid grid-cols-2 border-y border-slate-100 text-sm">
+                    <div className="border-b border-r border-slate-100 py-3 pr-3">
+                      <div className="text-xs text-slate-500">Estado</div>
+                      <div className="mt-1 font-medium">
                         <StatusBadge status={selected.status} />
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Producto</div>
-                      <div className="font-medium">
+                    <div className="border-b border-slate-100 py-3 pl-3">
+                      <div className="text-xs text-slate-500">Producto</div>
+                      <div className="mt-1 font-medium">
                         {selected.product_id
                           ? productById.get(selected.product_id)?.name || "—"
                           : "—"}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Monto</div>
-                      <div className="font-medium">
+                    <div className="border-b border-r border-slate-100 py-3 pr-3">
+                      <div className="text-xs text-slate-500">Monto</div>
+                      <div className="mt-1 font-medium">
                         {formatMoney(Number(selected.amount || 0), selected.currency)}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Válida hasta</div>
-                      <div className="font-medium">{selected.valid_until || "—"}</div>
+                    <div className="border-b border-slate-100 py-3 pl-3">
+                      <div className="text-xs text-slate-500">Válida hasta</div>
+                      <div className="mt-1 font-medium">{selected.valid_until || "—"}</div>
                     </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Cliente</div>
-                      <div className="font-medium">
-                        {selected.client_id ? String(selected.client_id).slice(0, 8) + "…" : "—"}
+                    <div className="border-r border-slate-100 py-3 pr-3">
+                      <div className="text-xs text-slate-500">Cliente</div>
+                      <div className="mt-1 font-medium">
+                        {selected.client_id
+                          ? clientById.get(selected.client_id)?.company_name || "—"
+                          : "—"}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Oportunidad</div>
-                      <div className="font-medium">
+                    <div className="py-3 pl-3">
+                      <div className="text-xs text-slate-500">Oportunidad</div>
+                      <div className="mt-1 font-medium">
                         {selected.deal_id ? String(selected.deal_id).slice(0, 8) + "…" : "—"}
                       </div>
                     </div>
                   </div>
 
                   {selected.description ? (
-                    <div>
-                      <div className="text-xs text-muted-foreground">Descripción</div>
+                    <div className="border-b border-slate-100 pb-4">
+                      <div className="text-xs text-slate-500">Descripción</div>
                       <div className="whitespace-pre-wrap">{selected.description}</div>
                     </div>
                   ) : null}
 
-                  <div>
-                    <div className="text-xs text-muted-foreground flex items-center justify-between gap-3">
+                  <div className="border-b border-slate-100 pb-4">
+                    <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
                       <span>Contenido</span>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-2"
+                        className="h-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
                         onClick={() => {
                           const fallback =
                             selected.content ||
@@ -1443,14 +1631,14 @@ function ProposalsPage() {
                         Copiar
                       </Button>
                     </div>
-                    <div className="mt-2 rounded-[12px] border bg-muted/10 px-3 py-2 whitespace-pre-wrap text-[12.5px]">
+                    <div className="mt-2 whitespace-pre-wrap text-[12.5px] leading-5 text-slate-700">
                       {selected.content || "—"}
                     </div>
                   </div>
 
                   {selected.notes ? (
-                    <div>
-                      <div className="text-xs text-muted-foreground">Notas</div>
+                    <div className="border-b border-slate-100 pb-4">
+                      <div className="text-xs text-slate-500">Notas</div>
                       <div className="whitespace-pre-wrap">{selected.notes}</div>
                     </div>
                   ) : null}
@@ -1463,26 +1651,42 @@ function ProposalsPage() {
               ) : null}
 
               {drawerMode === "create" || drawerMode === "edit" ? (
-                <form id="proposal-editor-form" onSubmit={handleSubmit} className="space-y-3">
+                <form id="proposal-editor-form" onSubmit={handleSubmit} className="space-y-4">
                   <Tabs value={proposalEditorTab} onValueChange={setProposalEditorTab}>
                     <TabsList
                       data-demo="proposal-editor-tabs"
-                      className="grid h-auto w-full grid-cols-3"
+                      className="grid h-auto w-full grid-cols-3 rounded-none border-b border-slate-100 bg-transparent p-0"
                     >
-                      <TabsTrigger value="general">Datos principales</TabsTrigger>
-                      <TabsTrigger value="content">Contenido</TabsTrigger>
-                      <TabsTrigger value="advanced">Avanzado</TabsTrigger>
+                      <TabsTrigger
+                        value="general"
+                        className="rounded-none border-b-2 border-transparent py-3 text-sm font-normal data-[state=active]:border-slate-950 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                      >
+                        Datos principales
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="content"
+                        className="rounded-none border-b-2 border-transparent py-3 text-sm font-normal data-[state=active]:border-slate-950 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                      >
+                        PDF / contenido
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="advanced"
+                        className="rounded-none border-b-2 border-transparent py-3 text-sm font-normal data-[state=active]:border-slate-950 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                      >
+                        Avanzado
+                      </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="general" className="mt-4 space-y-4">
                       <div
                         data-demo="proposal-main-fields"
-                        className="rounded-[16px] border bg-white p-4 space-y-4"
+                        className="space-y-5 border-0 bg-white p-0"
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Título</Label>
+                            <Label className={crmFormStyles.label}>Título</Label>
                             <Input
+                              className={crmFormStyles.input}
                               value={form.title}
                               onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
                               required
@@ -1490,12 +1694,12 @@ function ProposalsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label>Estado</Label>
+                            <Label className={crmFormStyles.label}>Estado</Label>
                             <Select
                               value={form.status}
                               onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className={crmFormStyles.select}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1511,14 +1715,14 @@ function ProposalsPage() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Prospecto / Cliente</Label>
+                            <Label className={crmFormStyles.label}>Prospecto / Cliente</Label>
                             <Select
                               value={form.client_id || "none"}
                               onValueChange={(v) =>
                                 setForm((p) => ({ ...p, client_id: v === "none" ? null : v }))
                               }
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className={crmFormStyles.select}>
                                 <SelectValue placeholder="Selecciona un destinatario" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1533,7 +1737,7 @@ function ProposalsPage() {
                           </div>
 
                           <div data-demo="proposal-product-selector" className="space-y-1.5">
-                            <Label>Producto</Label>
+                            <Label className={crmFormStyles.label}>Producto</Label>
                             <Select
                               value={form.product_id || "none"}
                               onValueChange={(v) => {
@@ -1545,7 +1749,7 @@ function ProposalsPage() {
                                 if (product) applyProductData(product);
                               }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className={crmFormStyles.select}>
                                 <SelectValue placeholder="Selecciona un producto" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1566,7 +1770,7 @@ function ProposalsPage() {
                               data-demo="proposal-use-product-data"
                               type="button"
                               variant="outline"
-                              className="gap-2"
+                              className="gap-2 rounded-none border-0 border-b border-slate-200 bg-transparent shadow-none hover:bg-transparent"
                               onClick={() => {
                                 const product = productById.get(form.product_id || "");
                                 if (!product) return;
@@ -1602,8 +1806,9 @@ function ProposalsPage() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Monto</Label>
+                            <Label className={crmFormStyles.label}>Monto</Label>
                             <Input
+                              className={crmFormStyles.input}
                               type="number"
                               step="0.01"
                               value={form.amount}
@@ -1612,12 +1817,12 @@ function ProposalsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label>Moneda</Label>
+                            <Label className={crmFormStyles.label}>Moneda</Label>
                             <Select
                               value={form.currency || "USD"}
                               onValueChange={(v) => setForm((p) => ({ ...p, currency: v }))}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className={crmFormStyles.select}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1628,8 +1833,9 @@ function ProposalsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label>Válida hasta</Label>
+                            <Label className={crmFormStyles.label}>Válida hasta</Label>
                             <Input
+                              className={crmFormStyles.input}
                               type="date"
                               value={form.valid_until}
                               onChange={(e) =>
@@ -1640,7 +1846,7 @@ function ProposalsPage() {
                         </div>
 
                         <div data-demo="proposal-validity" className="space-y-2">
-                          <Label>Validez rápida</Label>
+                          <Label className={crmFormStyles.label}>Validez rápida</Label>
                           <div className="flex flex-wrap gap-2">
                             {[7, 15, 30].map((days) => (
                               <Button
@@ -1648,6 +1854,7 @@ function ProposalsPage() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                className="rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
                                 onClick={() =>
                                   setForm((p) => ({ ...p, valid_until: dateAfterDays(days) }))
                                 }
@@ -1659,6 +1866,7 @@ function ProposalsPage() {
                               type="button"
                               variant="outline"
                               size="sm"
+                              className="rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
                               onClick={() => setForm((p) => ({ ...p, valid_until: "" }))}
                             >
                               Personalizado
@@ -1673,11 +1881,12 @@ function ProposalsPage() {
                       data-demo="proposal-content-section"
                       className="mt-4 space-y-4"
                     >
-                      <div className="rounded-[16px] border bg-white p-4 space-y-4">
+                      <div className="space-y-4 border-y border-slate-100 py-4">
                         <div className="grid grid-cols-1 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Resumen ejecutivo</Label>
+                            <Label className={crmFormStyles.label}>Resumen ejecutivo</Label>
                             <Textarea
+                              className={crmFormStyles.textarea}
                               value={form.introductionText}
                               onChange={(e) =>
                                 setForm((p) => ({ ...p, introductionText: e.target.value }))
@@ -1687,8 +1896,9 @@ function ProposalsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label>Objetivo principal</Label>
+                            <Label className={crmFormStyles.label}>Objetivo principal</Label>
                             <Textarea
+                              className={crmFormStyles.textarea}
                               value={form.objectiveText}
                               onChange={(e) =>
                                 setForm((p) => ({ ...p, objectiveText: e.target.value }))
@@ -1698,8 +1908,9 @@ function ProposalsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label>Descripción del servicio</Label>
+                            <Label className={crmFormStyles.label}>Descripción del servicio</Label>
                             <Textarea
+                              className={crmFormStyles.textarea}
                               value={form.description}
                               onChange={(e) =>
                                 setForm((p) => ({ ...p, description: e.target.value }))
@@ -1727,8 +1938,9 @@ function ProposalsPage() {
                           />
 
                           <div className="space-y-1.5">
-                            <Label>Requisitos del cliente</Label>
+                            <Label className={crmFormStyles.label}>Requisitos del cliente</Label>
                             <Textarea
+                              className={crmFormStyles.textarea}
                               value={form.clientRequirementsText}
                               onChange={(e) =>
                                 setForm((p) => ({ ...p, clientRequirementsText: e.target.value }))
@@ -1739,14 +1951,14 @@ function ProposalsPage() {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                              <Label>Tiempo estimado</Label>
+                              <Label className={crmFormStyles.label}>Tiempo estimado</Label>
                               <Select
                                 value={form.estimatedTime || "custom"}
                                 onValueChange={(v) =>
                                   setForm((p) => ({ ...p, estimatedTime: v === "custom" ? "" : v }))
                                 }
                               >
-                                <SelectTrigger>
+                                <SelectTrigger className={crmFormStyles.select}>
                                   <SelectValue placeholder="Selecciona tiempo" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1762,7 +1974,7 @@ function ProposalsPage() {
                                 form.estimatedTime,
                               ) ? (
                                 <Input
-                                  className="mt-2"
+                                  className={`${crmFormStyles.input} mt-2`}
                                   value={form.estimatedTime}
                                   onChange={(e) =>
                                     setForm((p) => ({ ...p, estimatedTime: e.target.value }))
@@ -1773,7 +1985,7 @@ function ProposalsPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                              <Label>Frecuencia de pago</Label>
+                              <Label className={crmFormStyles.label}>Frecuencia de pago</Label>
                               <Select
                                 value={form.paymentFrequency || "custom"}
                                 onValueChange={(v) =>
@@ -1783,7 +1995,7 @@ function ProposalsPage() {
                                   }))
                                 }
                               >
-                                <SelectTrigger>
+                                <SelectTrigger className={crmFormStyles.select}>
                                   <SelectValue placeholder="Selecciona pago" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1798,7 +2010,7 @@ function ProposalsPage() {
                                 form.paymentFrequency,
                               ) ? (
                                 <Input
-                                  className="mt-2"
+                                  className={`${crmFormStyles.input} mt-2`}
                                   value={form.paymentFrequency}
                                   onChange={(e) =>
                                     setForm((p) => ({ ...p, paymentFrequency: e.target.value }))
@@ -1810,8 +2022,11 @@ function ProposalsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label>Mensaje adicional para el cliente</Label>
+                            <Label className={crmFormStyles.label}>
+                              Mensaje adicional para el cliente
+                            </Label>
                             <Textarea
+                              className={crmFormStyles.textarea}
                               value={form.content}
                               onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
                               rows={3}
@@ -1827,11 +2042,12 @@ function ProposalsPage() {
                       data-demo="proposal-advanced-section"
                       className="mt-4 space-y-4"
                     >
-                      <div className="rounded-[16px] border bg-white p-4 space-y-4">
+                      <div className="space-y-4 border-y border-slate-100 py-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Número interno</Label>
+                            <Label className={crmFormStyles.label}>Número interno</Label>
                             <Input
+                              className={crmFormStyles.input}
                               value={form.number}
                               onChange={(e) => setForm((p) => ({ ...p, number: e.target.value }))}
                               placeholder={generateProposalNumber()}
@@ -1839,8 +2055,9 @@ function ProposalsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label>Rondas de cambios</Label>
+                            <Label className={crmFormStyles.label}>Rondas de cambios</Label>
                             <Input
+                              className={crmFormStyles.input}
                               value={form.revisionRoundsText}
                               onChange={(e) =>
                                 setForm((p) => ({ ...p, revisionRoundsText: e.target.value }))
@@ -1851,39 +2068,39 @@ function ProposalsPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Token público</Label>
+                          <Label className={crmFormStyles.label}>Enlace público</Label>
                           <div className="flex gap-2">
-                            <Input value={form.public_token} readOnly />
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-9 px-2"
+                              className="h-9 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
                               onClick={() => copyPublicLink(form.public_token)}
                               title="Copiar enlace público"
                             >
                               <LinkIcon className="h-4 w-4" />
+                              Copiar enlace
                             </Button>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-9 px-2"
+                              className="h-9 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
                               onClick={() => openPublicLink(form.public_token)}
                               title="Ver propuesta"
                             >
                               <ExternalLink className="h-4 w-4" />
+                              Ver
                             </Button>
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            Ruta pública:{" "}
-                            <span className="font-mono">{`/proposal/public/${form.public_token || ""}`}</span>
                           </div>
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Proceso manual / notas de proceso</Label>
+                          <Label className={crmFormStyles.label}>
+                            Proceso manual / notas de proceso
+                          </Label>
                           <Textarea
+                            className={crmFormStyles.textarea}
                             value={form.processText}
                             onChange={(e) =>
                               setForm((p) => ({ ...p, processText: e.target.value }))
@@ -1893,15 +2110,15 @@ function ProposalsPage() {
                         </div>
 
                         {form.processSteps.length > 0 ? (
-                          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-                            <div className="text-xs font-medium text-muted-foreground">
+                          <div className="space-y-2 border-y border-slate-100 py-3">
+                            <div className="text-xs font-medium text-slate-500">
                               Pasos del flujo de trabajo del producto
                             </div>
                             <div className="space-y-2">
                               {form.processSteps.map((step, index) => (
                                 <div
                                   key={`${step.order}-${index}`}
-                                  className="rounded border bg-background p-2"
+                                  className="border-b border-slate-100 py-2 last:border-b-0"
                                 >
                                   <div className="text-sm font-medium">
                                     {step.order || index + 1}. {step.title || `Paso ${index + 1}`}
@@ -1918,8 +2135,11 @@ function ProposalsPage() {
                         ) : null}
 
                         <div className="space-y-1.5">
-                          <Label>Servicios adicionales opcionales</Label>
+                          <Label className={crmFormStyles.label}>
+                            Servicios adicionales opcionales
+                          </Label>
                           <Textarea
+                            className={crmFormStyles.textarea}
                             value={form.optionalServicesText}
                             onChange={(e) =>
                               setForm((p) => ({ ...p, optionalServicesText: e.target.value }))
@@ -1929,8 +2149,11 @@ function ProposalsPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Fuera de alcance / no incluido</Label>
+                          <Label className={crmFormStyles.label}>
+                            Fuera de alcance / no incluido
+                          </Label>
                           <Textarea
+                            className={crmFormStyles.textarea}
                             value={form.outOfScopeText}
                             onChange={(e) =>
                               setForm((p) => ({ ...p, outOfScopeText: e.target.value }))
@@ -1940,8 +2163,9 @@ function ProposalsPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Condiciones importantes</Label>
+                          <Label className={crmFormStyles.label}>Condiciones importantes</Label>
                           <Textarea
+                            className={crmFormStyles.textarea}
                             value={form.termsText}
                             onChange={(e) => setForm((p) => ({ ...p, termsText: e.target.value }))}
                             rows={3}
@@ -1949,8 +2173,11 @@ function ProposalsPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Forma de pago / condiciones de pago</Label>
+                          <Label className={crmFormStyles.label}>
+                            Forma de pago / condiciones de pago
+                          </Label>
                           <Textarea
+                            className={crmFormStyles.textarea}
                             value={form.paymentTermsText}
                             onChange={(e) =>
                               setForm((p) => ({ ...p, paymentTermsText: e.target.value }))
@@ -1960,8 +2187,9 @@ function ProposalsPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Notas internas</Label>
+                          <Label className={crmFormStyles.label}>Notas internas</Label>
                           <Textarea
+                            className={crmFormStyles.textarea}
                             value={form.notes}
                             onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                             rows={3}
@@ -1976,10 +2204,11 @@ function ProposalsPage() {
           </ScrollArea>
 
           {drawerMode === "create" || drawerMode === "edit" ? (
-            <div className="border-t bg-background px-5 py-3 flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-white px-5 py-3">
               <Button
                 type="button"
                 variant="outline"
+                className="rounded-none border-0 border-b border-slate-200 bg-transparent shadow-none hover:bg-transparent"
                 onClick={() => {
                   setDrawerOpen(false);
                   setDrawerMode("view");
@@ -1988,7 +2217,12 @@ function ProposalsPage() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" form="proposal-editor-form" disabled={!isAdminLike}>
+              <Button
+                type="submit"
+                form="proposal-editor-form"
+                disabled={!isAdminLike}
+                className="rounded-full bg-blue-600 px-4 font-normal text-white shadow-none hover:bg-blue-700"
+              >
                 {drawerMode === "edit" ? "Guardar" : "Crear propuesta"}
               </Button>
             </div>

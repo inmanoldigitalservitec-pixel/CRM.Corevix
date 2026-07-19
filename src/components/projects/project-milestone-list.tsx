@@ -42,7 +42,11 @@ function milestoneStatusMeta(status: string) {
 }
 
 function milestoneTiming(milestone: ProjectMilestoneRow) {
-  if (!milestone.target_date || milestone.status === "completed" || milestone.status === "cancelled") {
+  if (
+    !milestone.target_date ||
+    milestone.status === "completed" ||
+    milestone.status === "cancelled"
+  ) {
     return null;
   }
 
@@ -61,7 +65,8 @@ function milestoneTiming(milestone: ProjectMilestoneRow) {
 
   if (diffDays <= 7) {
     return {
-      label: diffDays === 0 ? "Vence hoy" : `Próximo en ${diffDays} día${diffDays === 1 ? "" : "s"}`,
+      label:
+        diffDays === 0 ? "Vence hoy" : `Próximo en ${diffDays} día${diffDays === 1 ? "" : "s"}`,
       className: "bg-amber-50 text-amber-700",
       icon: CalendarClock,
     };
@@ -91,7 +96,11 @@ export function ProjectMilestoneList({
         return (
           <article
             key={milestone.id}
-            className={index === milestones.length - 1 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"}
+            className={
+              index === milestones.length - 1
+                ? "px-4 py-4 sm:px-5"
+                : "border-b border-slate-200/70 px-4 py-4 sm:px-5"
+            }
           >
             <div className="flex gap-3.5">
               <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500">
@@ -101,12 +110,18 @@ export function ProjectMilestoneList({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-slate-900">{milestone.title}</p>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.className}`}>
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {milestone.title}
+                      </p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.className}`}
+                      >
                         {statusMeta.label}
                       </span>
                       {timing ? (
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${timing.className}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${timing.className}`}
+                        >
                           {TimingIcon ? <TimingIcon className="h-3 w-3" /> : null}
                           {timing.label}
                         </span>

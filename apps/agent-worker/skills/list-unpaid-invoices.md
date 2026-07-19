@@ -6,6 +6,7 @@ Tool:
 list_unpaid_invoices
 
 Usa esta tool para frases como:
+
 - facturas pendientes
 - qué facturas no se han pagado
 - muéstrame cobros pendientes
@@ -14,12 +15,13 @@ Usa esta tool para frases como:
 
 Formato tool_call:
 {
-  "type": "tool_call",
-  "tool": "list_unpaid_invoices",
-  "args": {}
+"type": "tool_call",
+"tool": "list_unpaid_invoices",
+"args": {}
 }
 
 Cuando muestres facturas, incluye:
+
 - Número o ID
 - Estado
 - Total

@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  Search,
   Star,
   Archive,
   Trash2,
@@ -19,7 +18,6 @@ import {
   PencilLine,
   FileText,
   ShoppingBag,
-  Plus,
   Menu,
   Paperclip,
   Link2,
@@ -31,7 +29,6 @@ import {
   Triangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyState } from "@/components/crm/empty-state";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +39,9 @@ import { toast } from "sonner";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 
 export const Route = createFileRoute("/email")({
+  validateSearch: (search: Record<string, unknown>): { conversationId?: string } => ({
+    conversationId: typeof search.conversationId === "string" ? search.conversationId : undefined,
+  }),
   component: EmailPage,
   head: () => ({ meta: [{ title: "Email Inbox — Corevix CRM" }] }),
 });
@@ -256,12 +256,13 @@ function readFileAsAttachment(file: File): Promise<ComposerAttachment> {
 
 function EmailPage() {
   const { profile } = useAuth();
+  const routeSearch = Route.useSearch();
   const [conversations, setConversations] = useState<EmailConversation[]>([]);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [conversationCategories, setConversationCategories] = useState<ConversationCategoryMap>({});
   const [conversationLabels, setConversationLabels] = useState<ConversationLabelMap>({});
   const [selectedConvo, setSelectedConvo] = useState<EmailConversation | null>(null);
-  const [searchEmail, setSearchEmail] = useState("");
+  const [searchEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const conversationsSignatureRef = useRef("");
   const didLoadConversationsRef = useRef(false);
@@ -270,8 +271,6 @@ function EmailPage() {
   const [provider, setProvider] = useState<ProviderKey>("gmail");
   const [tab, setTab] = useState<InboxTab>("all");
   const [mailboxView, setMailboxView] = useState<MailboxView>("inbox");
-  const [searching, setSearching] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const [composerTo, setComposerTo] = useState("");
@@ -453,6 +452,21 @@ function EmailPage() {
     setMessages(data || []);
     setMessagesLoading(false);
   }, [db, selectedConvo?.id]);
+
+  useEffect(() => {
+    const conversationId = routeSearch.conversationId;
+    if (!conversationId) return;
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation || selectedConvo?.id === conversation.id) return;
+    setSelectedConvo(conversation);
+    setMessages([]);
+    setMessagesError(null);
+  }, [conversations, routeSearch.conversationId, selectedConvo?.id]);
+
+  useEffect(() => {
+    if (!routeSearch.conversationId || !selectedConvo?.id) return;
+    void loadMessagesForSelected();
+  }, [loadMessagesForSelected, routeSearch.conversationId, selectedConvo?.id]);
 
   const syncGmail = useCallback(
     async ({ force = false, silent = true }: { force?: boolean; silent?: boolean } = {}) => {
@@ -717,10 +731,10 @@ function EmailPage() {
   const selectedSender = selectedLastMessage?.from_email || selectedLastMessage?.sender || "—";
 
   const gmailSidebarItemClass = (view: MailboxView) =>
-    `grid h-8 grid-cols-[40px_1fr_auto] items-center rounded-r-full pr-3 transition ${
+    `grid h-9 grid-cols-[40px_1fr_auto] items-center rounded-lg pr-3 transition ${
       mailboxView === view
-        ? "bg-[#d3e3fd] font-bold text-[#001d35]"
-        : "text-[#3c4043] hover:bg-[#e9eef6]"
+        ? "bg-blue-50 font-semibold text-blue-700"
+        : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
     }`;
 
   const openReplyComposer = () => {
@@ -905,7 +919,7 @@ function EmailPage() {
 
   return (
     <div
-      className="relative h-[calc(100vh-3.5rem)] overflow-hidden bg-[#f6f8fc]"
+      className="relative h-[calc(100vh-3.5rem)] overflow-hidden bg-white"
       style={
         {
           ["--app-pad" as any]: "clamp(10px, 1.3vw, 18px)",
@@ -915,17 +929,17 @@ function EmailPage() {
         } as any
       }
     >
-      <aside className="hidden lg:flex absolute left-0 top-0 bottom-0 w-[248px] flex-col bg-[#f6f8fc] px-2 py-3 text-[#202124]">
+      <aside className="absolute left-0 top-0 bottom-0 hidden w-[248px] flex-col border-r border-slate-200 bg-white px-3 py-4 text-slate-900 lg:flex">
         <button
           type="button"
           onClick={openNewComposer}
-          className="mb-3 ml-1 flex h-14 w-[142px] items-center gap-4 rounded-[18px] bg-[#c2e7ff] px-5 text-[14px] font-medium text-[#001d35] shadow-sm transition hover:shadow-md"
+          className="mb-4 flex h-10 w-full items-center gap-3 rounded-lg border border-blue-200 bg-white px-3 text-[13px] font-semibold text-blue-700 shadow-none transition hover:border-blue-300 hover:bg-blue-50"
         >
           <PencilLine className="h-5 w-5" />
           Compose
         </button>
 
-        <nav className="grid gap-0.5 text-[14px]">
+        <nav className="grid gap-1 text-[14px]">
           <button
             type="button"
             onClick={() => {
@@ -1030,7 +1044,7 @@ function EmailPage() {
 
           <button
             type="button"
-            className="grid h-8 grid-cols-[40px_1fr_auto] items-center rounded-r-full pr-3 text-[#3c4043] transition hover:bg-[#e9eef6]"
+            className="grid h-9 grid-cols-[40px_1fr_auto] items-center rounded-lg pr-3 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
           >
             <span className="grid place-items-center">
               <ChevronDown className="h-4 w-4" />
@@ -1038,37 +1052,26 @@ function EmailPage() {
             <span className="text-left">More</span>
           </button>
         </nav>
-
-        <div className="mt-8 flex items-center justify-between px-5">
-          <span className="text-[16px] font-medium text-[#202124]">Labels</span>
-          <button
-            type="button"
-            className="grid h-8 w-8 place-items-center rounded-full text-[#5f6368] transition hover:bg-[#e9eef6]"
-            aria-label="Add label"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
       </aside>
       <div className="h-full p-[var(--app-pad)] lg:pl-[calc(248px+var(--app-pad))] flex flex-col gap-[var(--gap)]">
-        <div className="rounded-[18px] border border-[#e5e7eb] bg-white px-4 py-3 shadow-none flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-1 pb-3">
           <div className="min-w-0 flex items-center gap-3">
             <button
               type="button"
-              className="grid h-9 w-9 place-items-center rounded-full text-[#5f6368] transition hover:bg-[#e9eef6] lg:hidden"
+              className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 lg:hidden"
               aria-label="Menu"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary grid place-items-center">
+            <div className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-blue-600">
               <Inbox className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-lg font-black tracking-tight text-slate-950">
+                <h1 className="truncate text-lg font-semibold tracking-tight text-slate-950">
                   Email Inbox
                 </h1>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black uppercase text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-500">
                   {provider}
                 </span>
               </div>
@@ -1078,12 +1081,12 @@ function EmailPage() {
             </div>
           </div>
           <div
-            className={`hidden sm:flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${
+            className={`hidden sm:flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs font-semibold ${
               syncStatus === "error"
-                ? "border-destructive/30 bg-destructive/5 text-destructive"
+                ? "border-destructive/30 text-destructive"
                 : syncStatus === "syncing"
-                  ? "border-primary/20 bg-primary/5 text-primary"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  ? "border-blue-200 text-blue-700"
+                  : "border-emerald-200 text-emerald-700"
             }`}
             title={syncError || syncLabel}
           >
@@ -1100,73 +1103,27 @@ function EmailPage() {
 
         <div className="min-h-0 flex-1 grid grid-cols-1 gap-[var(--gap)]">
           <div
-            className={`${selectedConvo ? "hidden" : "flex"} min-h-0 rounded-2xl border bg-white/95 shadow-sm overflow-hidden flex-col backdrop-blur`}
+            className={`${selectedConvo ? "hidden" : "flex"} min-h-0 overflow-hidden border border-slate-200 bg-white shadow-none flex-col`}
           >
-            <div
-              className={`grid gap-2 border-b border-[#e5e7eb] bg-white p-2.5 transition-[grid-template-columns] duration-200 ${
-                searching
-                  ? "grid-cols-1"
-                  : "grid-cols-[clamp(104px,9vw,132px)_1fr_clamp(82px,7vw,104px)]"
-              }`}
-            >
-              {!searching && (
-                <Button
-                  variant="outline"
-                  className="h-[var(--control-h)] justify-between rounded-xl"
-                  onClick={() => setProvider((p) => (p === "gmail" ? "outlook" : "gmail"))}
-                >
-                  <span className="font-semibold capitalize">{provider}</span>
-                  <ChevronDown className="h-4 w-4 opacity-70" />
-                </Button>
-              )}
-              <div
-                className={`flex items-center gap-2 rounded-xl border px-3 h-[var(--control-h)] ${
-                  searching ? "ring-4 ring-primary/10 border-primary/30" : ""
-                }`}
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white p-2.5">
+              <Button
+                variant="outline"
+                className="h-[var(--control-h)] justify-between rounded-lg border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50"
+                onClick={() => setProvider((p) => (p === "gmail" ? "outlook" : "gmail"))}
               >
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <input
-                  ref={searchInputRef}
-                  value={searchEmail}
-                  onChange={(e) => setSearchEmail(e.target.value)}
-                  onFocus={() => setSearching(true)}
-                  onBlur={() => {
-                    if (searchEmail.trim() === "") setSearching(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setSearchEmail("");
-                      setSearching(false);
-                      searchInputRef.current?.blur();
-                    }
-                  }}
-                  placeholder="Buscar correos…"
-                  className="w-full bg-transparent outline-none text-sm"
-                />
-                {searchEmail && (
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-foreground"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setSearchEmail("")}
-                    aria-label="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {!searching && (
-                <Button
-                  variant="outline"
-                  className="h-[var(--control-h)] rounded-xl justify-center"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filtros
-                </Button>
-              )}
+                <span className="font-semibold capitalize">{provider}</span>
+                <ChevronDown className="h-4 w-4 opacity-70" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-[var(--control-h)] justify-center rounded-lg border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filtros
+              </Button>
             </div>
 
-            <div className="border-b bg-white px-3 py-2 sm:hidden">
+            <div className="border-b border-slate-200 bg-white px-3 py-2 sm:hidden">
               <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                 {syncStatus === "syncing" ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -1177,7 +1134,7 @@ function EmailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-5 border-b border-[#e5e7eb] bg-white px-3">
+            <div className="hidden grid-cols-5 border-b border-slate-200 bg-white px-3 sm:grid">
               {(
                 [
                   { key: "primary" as const, label: "Primary", count: tabCounts.primary },
@@ -1190,17 +1147,17 @@ function EmailPage() {
                 <button
                   key={t.key}
                   type="button"
-                  className={`relative h-10 flex items-center justify-center gap-2 text-sm font-bold transition-colors ${
-                    tab === t.key ? "text-primary" : "text-slate-700 hover:text-primary"
+                  className={`relative h-10 flex items-center justify-center gap-2 text-sm font-semibold transition-colors ${
+                    tab === t.key ? "text-blue-700" : "text-slate-600 hover:text-slate-950"
                   }`}
                   onClick={() => setTab(t.key)}
                 >
                   {t.label}
-                  <span className="min-w-6 h-[22px] rounded-full bg-primary/10 text-primary grid place-items-center text-xs font-black px-2">
+                  <span className="grid h-[22px] min-w-6 place-items-center rounded-full border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-500">
                     {t.count}
                   </span>
                   {tab === t.key && (
-                    <span className="absolute left-[10%] right-[10%] bottom-0 h-[3px] rounded-t-full bg-primary" />
+                    <span className="absolute bottom-0 left-[18%] right-[18%] h-0.5 rounded-t-full bg-blue-600" />
                   )}
                 </button>
               ))}
@@ -1211,7 +1168,10 @@ function EmailPage() {
                 {loading ? (
                   <div className="space-y-3 p-4">
                     {[0, 1, 2, 3].map((i) => (
-                      <div key={i} className="h-20 animate-pulse rounded-2xl bg-white shadow-sm" />
+                      <div
+                        key={i}
+                        className="h-12 animate-pulse border-b border-slate-100 bg-slate-50"
+                      />
                     ))}
                   </div>
                 ) : filtered.length === 0 ? (
@@ -1249,21 +1209,21 @@ function EmailPage() {
                         type="button"
                         key={convo.id}
                         onClick={() => selectConvo(convo)}
-                        className={`group grid w-full grid-cols-[32px_32px_minmax(150px,220px)_minmax(0,1fr)_76px] items-center gap-2 border-b border-[#e8eaed] px-3 py-0 text-left transition hover:relative hover:z-10 hover:bg-[#f2f6fc] hover:shadow-[0_1px_2px_rgba(60,64,67,.18),0_1px_3px_1px_rgba(60,64,67,.12)] ${
-                          isActive ? "bg-[#eaf1fb]" : unread ? "bg-white" : "bg-[#f8fafc]"
+                        className={`group grid w-full grid-cols-[32px_32px_minmax(150px,220px)_minmax(0,1fr)_76px] items-center gap-2 border-b border-slate-100 px-3 py-0 text-left transition hover:bg-slate-50 ${
+                          isActive ? "bg-blue-50" : "bg-white"
                         }`}
                       >
                         <span
                           className="flex h-10 items-center justify-center"
                           onClick={(event) => event.stopPropagation()}
                         >
-                          <span className="grid h-4 w-4 place-items-center rounded-[3px] border border-[#c4c7c5] bg-white transition group-hover:border-[#5f6368]">
+                          <span className="grid h-4 w-4 place-items-center rounded-[3px] border border-slate-300 bg-white transition group-hover:border-slate-500">
                             <span className="sr-only">Seleccionar</span>
                           </span>
                         </span>
 
                         <span
-                          className="flex h-10 items-center justify-center text-[#bdc1c6] transition hover:text-[#5f6368]"
+                          className="flex h-10 items-center justify-center text-slate-300 transition hover:text-slate-600"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <Star className="h-4 w-4" />
@@ -1271,27 +1231,27 @@ function EmailPage() {
 
                         <span
                           className={`truncate text-[13px] ${
-                            unread ? "font-bold text-[#202124]" : "font-medium text-[#3c4043]"
+                            unread ? "font-semibold text-slate-950" : "font-medium text-slate-700"
                           }`}
                         >
                           {senderLabel}
                         </span>
 
-                        <span className="min-w-0 truncate text-[13px] text-[#5f6368]">
+                        <span className="min-w-0 truncate text-[13px] text-slate-500">
                           <span
                             className={
-                              unread ? "font-bold text-[#202124]" : "font-semibold text-[#202124]"
+                              unread ? "font-semibold text-slate-950" : "font-medium text-slate-800"
                             }
                           >
                             {subject}
                           </span>
-                          <span className="mx-1 text-[#5f6368]">-</span>
+                          <span className="mx-1 text-slate-400">-</span>
                           <span>{convo.snippet || "Sin vista previa"}</span>
                         </span>
 
                         <span
                           className={`justify-self-end text-[12px] ${
-                            unread ? "font-bold text-[#202124]" : "font-medium text-[#5f6368]"
+                            unread ? "font-semibold text-slate-950" : "font-medium text-slate-500"
                           }`}
                           title={categoryLabel(conversationCategories[convo.id] || "primary")}
                         >
@@ -1306,16 +1266,16 @@ function EmailPage() {
           </div>
 
           <div
-            className={`${selectedConvo ? "flex" : "hidden"} min-h-0 rounded-2xl border bg-white/95 shadow-sm overflow-hidden flex-col backdrop-blur`}
+            className={`${selectedConvo ? "flex" : "hidden"} min-h-0 overflow-hidden border border-slate-200 bg-white shadow-none flex-col`}
           >
             {selectedConvo ? (
               <>
-                <div className="border-b bg-white px-4 py-3 flex items-center justify-between gap-3">
+                <div className="border-b border-slate-200 bg-white px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex items-center gap-3">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-9 shrink-0 rounded-xl px-2.5 text-xs font-bold"
+                      className="h-9 shrink-0 rounded-lg px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                       onClick={() => {
                         setSelectedConvo(null);
                         setMessages([]);
@@ -1325,11 +1285,11 @@ function EmailPage() {
                       ← Volver
                     </Button>
 
-                    <div className="hidden sm:grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-xs font-black text-primary">
+                    <div className="hidden h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-blue-700 sm:grid">
                       {getInitials(selectedSender)}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-lg font-extrabold tracking-tight truncate">
+                      <div className="text-lg font-semibold tracking-tight truncate">
                         {selectedConvo.subject || "(No Subject)"}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
@@ -1344,18 +1304,30 @@ function EmailPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-9 w-9"
+                      className="h-9 w-9 rounded-lg hover:bg-slate-50"
                       onClick={openReplyComposer}
                     >
                       <Reply className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 rounded-lg hover:bg-slate-50"
+                    >
                       <Star className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 rounded-lg hover:bg-slate-50"
+                    >
                       <Archive className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 rounded-lg hover:bg-slate-50"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -1368,7 +1340,7 @@ function EmailPage() {
                         {[0, 1, 2].map((i) => (
                           <div
                             key={i}
-                            className="h-28 animate-pulse rounded-2xl bg-white shadow-sm"
+                            className="h-24 animate-pulse border-b border-slate-100 bg-slate-50"
                           />
                         ))}
                       </div>
@@ -1385,7 +1357,7 @@ function EmailPage() {
                         />
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div>
                         {messages.map((msg) => {
                           const fromLabel = extractDisplayName(msg.from_email || msg.sender);
                           const fromAddr = String(msg.from_email || msg.sender || "").trim();
@@ -1394,11 +1366,11 @@ function EmailPage() {
                           return (
                             <div
                               key={msg.id}
-                              className="border-b border-[#e5e7eb] bg-white px-5 py-4 last:border-b-0"
+                              className="min-w-0 max-w-full overflow-x-hidden border-b border-slate-100 bg-white px-5 py-4 last:border-b-0"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex items-center gap-3">
-                                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[11px] font-black text-slate-700">
+                                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-slate-700">
                                     {getInitials(fromLabel)}
                                   </div>
                                   <div className="min-w-0">
@@ -1412,7 +1384,7 @@ function EmailPage() {
                                   {formatFullDate(when)}
                                 </div>
                               </div>
-                              <div className="mt-4 overflow-hidden bg-white">
+                              <div className="mt-4 min-w-0 max-w-full overflow-hidden bg-white">
                                 {msg.body_html ? (
                                   <EmailHtmlViewer html={msg.body_html} />
                                 ) : (
@@ -1430,7 +1402,7 @@ function EmailPage() {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground bg-slate-50/70">
+              <div className="flex-1 flex items-center justify-center text-muted-foreground bg-white">
                 <div className="text-center max-w-sm px-6">
                   <Mail className="h-10 w-10 mx-auto mb-3 opacity-50" />
                   <p className="text-sm font-bold text-slate-800">Selecciona una conversación</p>
@@ -1450,16 +1422,16 @@ function EmailPage() {
                 : "bottom-6 right-6 h-[min(560px,calc(100vh-96px))] w-[min(600px,calc(100vw-32px))]"
             }`}
           >
-            <div className="flex h-full flex-col overflow-hidden rounded-t-[10px] border border-[#dadce0] bg-white shadow-[0_8px_28px_rgba(60,64,67,.28)]">
-              <div className="flex h-10 items-center justify-between bg-[#f2f6fc] px-4 text-[#001d35]">
+            <div className="flex h-full flex-col overflow-hidden border border-slate-200 bg-white shadow-none">
+              <div className="flex h-10 items-center justify-between border-b border-slate-200 bg-white px-4 text-slate-900">
                 <div className="text-[14px] font-semibold">
                   {composerSubject ? "Reply" : "New Message"}
                 </div>
 
-                <div className="flex items-center gap-1 text-[#444746]">
+                <div className="flex items-center gap-1 text-slate-500">
                   <button
                     type="button"
-                    className="grid h-7 w-7 place-items-center rounded hover:bg-[#e8eaed]"
+                    className="grid h-7 w-7 place-items-center rounded-lg hover:bg-slate-50 hover:text-slate-900"
                     onClick={() => setComposerExpanded(false)}
                     aria-label="Minimize"
                   >
@@ -1468,7 +1440,7 @@ function EmailPage() {
 
                   <button
                     type="button"
-                    className="grid h-7 w-7 place-items-center rounded hover:bg-[#e8eaed]"
+                    className="grid h-7 w-7 place-items-center rounded-lg hover:bg-slate-50 hover:text-slate-900"
                     onClick={() => setComposerExpanded((v) => !v)}
                     aria-label={composerExpanded ? "Restore" : "Expand"}
                   >
@@ -1477,7 +1449,7 @@ function EmailPage() {
 
                   <button
                     type="button"
-                    className="grid h-7 w-7 place-items-center rounded hover:bg-[#e8eaed]"
+                    className="grid h-7 w-7 place-items-center rounded-lg hover:bg-slate-50 hover:text-slate-900"
                     onClick={closeComposer}
                     aria-label="Close"
                   >
@@ -1486,29 +1458,29 @@ function EmailPage() {
                 </div>
               </div>
 
-              <div className="border-b border-[#e8eaed] px-4">
+              <div className="border-b border-slate-100 px-4">
                 <div className="flex h-10 items-center gap-2 text-[14px]">
-                  <span className="shrink-0 text-[#3c4043]">To</span>
+                  <span className="shrink-0 text-slate-500">To</span>
                   <input
                     value={composerTo}
                     onChange={(e) => setComposerTo(e.target.value)}
                     className="min-w-0 flex-1 bg-transparent outline-none"
                     placeholder=""
                   />
-                  <button type="button" className="text-[13px] text-[#3c4043] hover:underline">
+                  <button type="button" className="text-[13px] text-slate-500 hover:text-blue-700">
                     Cc
                   </button>
-                  <button type="button" className="text-[13px] text-[#3c4043] hover:underline">
+                  <button type="button" className="text-[13px] text-slate-500 hover:text-blue-700">
                     Bcc
                   </button>
                 </div>
               </div>
 
-              <div className="border-b border-[#e8eaed] px-4">
+              <div className="border-b border-slate-100 px-4">
                 <input
                   value={composerSubject}
                   onChange={(e) => setComposerSubject(e.target.value)}
-                  className="h-10 w-full bg-transparent text-[14px] outline-none placeholder:text-[#5f6368]"
+                  className="h-10 w-full bg-transparent text-[14px] outline-none placeholder:text-slate-400"
                   placeholder="Subject"
                 />
               </div>
@@ -1516,27 +1488,27 @@ function EmailPage() {
               <textarea
                 value={composerBody}
                 onChange={(e) => setComposerBody(e.target.value)}
-                className="min-h-0 flex-1 resize-none bg-white px-4 py-3 text-[14px] leading-6 text-[#202124] outline-none"
+                className="min-h-0 flex-1 resize-none bg-white px-4 py-3 text-[14px] leading-6 text-slate-900 outline-none"
                 placeholder=""
               />
 
               {composerAttachments.length > 0 && (
-                <div className="border-t border-[#e8eaed] px-4 py-2">
+                <div className="border-t border-slate-100 px-4 py-2">
                   <div className="flex flex-wrap gap-2">
                     {composerAttachments.map((attachment) => (
                       <div
                         key={attachment.id}
-                        className="flex max-w-full items-center gap-2 rounded-full border border-[#dadce0] bg-[#f8fafc] px-3 py-1 text-[12px] text-[#3c4043]"
+                        className="flex max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1 text-[12px] text-slate-700"
                       >
                         <span className="max-w-[220px] truncate font-medium">
                           {attachment.filename}
                         </span>
-                        <span className="shrink-0 text-[#5f6368]">
+                        <span className="shrink-0 text-slate-500">
                           {formatFileSize(attachment.size)}
                         </span>
                         <button
                           type="button"
-                          className="grid h-5 w-5 shrink-0 place-items-center rounded-full hover:bg-[#e8eaed]"
+                          className="grid h-5 w-5 shrink-0 place-items-center rounded-md hover:bg-slate-50"
                           onClick={() => removeComposerAttachment(attachment.id)}
                           aria-label={`Remove ${attachment.filename}`}
                         >
@@ -1548,7 +1520,7 @@ function EmailPage() {
                 </div>
               )}
 
-              <div className="border-t border-[#e8eaed] bg-white px-4 py-3">
+              <div className="border-t border-slate-200 bg-white px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <input
@@ -1578,7 +1550,7 @@ function EmailPage() {
                       type="button"
                       onClick={sendComposer}
                       disabled={composerSending}
-                      className="flex h-9 overflow-hidden rounded-full bg-[#0b57d0] text-sm font-medium text-white shadow-sm transition hover:bg-[#0842a0] disabled:cursor-not-allowed disabled:opacity-70"
+                      className="flex h-9 overflow-hidden rounded-lg bg-blue-600 text-sm font-medium text-white shadow-none transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       <span className="flex items-center px-5">
                         {composerSending ? "Enviando..." : "Enviar"}
@@ -1590,8 +1562,12 @@ function EmailPage() {
 
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-full text-[24px] font-medium leading-none text-[#444746] hover:bg-[#f1f3f4]"
-                      onClick={() => toast.message("Formato de texto enriquecido pendiente para el editor de email.")}
+                      className="grid h-9 w-9 place-items-center rounded-lg text-[24px] font-medium leading-none text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                      onClick={() =>
+                        toast.message(
+                          "Formato de texto enriquecido pendiente para el editor de email.",
+                        )
+                      }
                       aria-label="Formatting options"
                       title="Formato"
                     >
@@ -1599,7 +1575,7 @@ function EmailPage() {
                     </button>
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                       onClick={() => attachmentInputRef.current?.click()}
                       aria-label="Attach files"
                       title="Adjuntar archivo"
@@ -1608,7 +1584,7 @@ function EmailPage() {
                     </button>
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                       onClick={insertLink}
                       aria-label="Insert link"
                       title="Insertar enlace"
@@ -1618,7 +1594,7 @@ function EmailPage() {
                     <div className="relative">
                       <button
                         type="button"
-                        className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                        className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                         onClick={() => setEmojiPickerOpen((open) => !open)}
                         aria-label="Insert emoji"
                         title="Insertar emoji"
@@ -1627,7 +1603,7 @@ function EmailPage() {
                       </button>
                       {emojiPickerOpen && (
                         <div
-                          className="absolute bottom-10 left-0 z-[60] overflow-hidden rounded-xl border bg-white shadow-xl"
+                          className="absolute bottom-10 left-0 z-[60] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-none"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <EmojiPicker
@@ -1641,7 +1617,7 @@ function EmailPage() {
                     </div>
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
                       onClick={() => driveInputRef.current?.click()}
                       disabled={driveUploading}
                       aria-label="Insert from Google Drive"
@@ -1655,7 +1631,7 @@ function EmailPage() {
                     </button>
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                       onClick={() => imageInputRef.current?.click()}
                       aria-label="Insert image"
                       title="Adjuntar imagen"
@@ -1664,8 +1640,8 @@ function EmailPage() {
                     </button>
                     <button
                       type="button"
-                      className={`grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4] ${
-                        composerConfidential ? "bg-[#e8f0fe] text-[#0b57d0]" : ""
+                      className={`grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900 ${
+                        composerConfidential ? "bg-blue-50 text-blue-700" : ""
                       }`}
                       onClick={() => {
                         setComposerConfidential((value) => !value);
@@ -1682,7 +1658,7 @@ function EmailPage() {
                     </button>
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                       onClick={insertSignature}
                       aria-label="Insert signature"
                       title="Insertar firma"
@@ -1691,7 +1667,7 @@ function EmailPage() {
                     </button>
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-full text-[#444746] hover:bg-[#f1f3f4]"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                       onClick={() => toast.message("Más opciones del composer en preparación.")}
                       aria-label="More options"
                       title="Más opciones"
@@ -1703,7 +1679,7 @@ function EmailPage() {
                   <button
                     type="button"
                     onClick={closeComposer}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded text-[#5f6368] hover:bg-[#f1f3f4]"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                     aria-label="Discard draft"
                   >
                     <Trash2 className="h-4 w-4" />

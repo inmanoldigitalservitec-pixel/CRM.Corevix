@@ -1,7 +1,4 @@
-export {
-  AgentCommandWidget,
-  default as AgentCommandWidgetDefault,
-} from "./AgentCommandWidget";
+export { AgentCommandWidget, default as AgentCommandWidgetDefault } from "./AgentCommandWidget";
 
 export {
   AgentCommandWidgetConnected,
@@ -13,11 +10,7 @@ export {
   getAgentPayloadLastAnalysisLabel,
 } from "./agentPromptPayloadAdapter";
 
-export type {
-  AgentRecoveryPlan,
-  AgentSeverity,
-  AgentWidgetMode,
-} from "./AgentCommandWidget";
+export type { AgentRecoveryPlan, AgentSeverity, AgentWidgetMode } from "./AgentCommandWidget";
 
 export type {
   AgentPromptPayload,
@@ -26,10 +19,7 @@ export type {
   AgentPromptSuggestedAction,
 } from "./agentPromptPayloadAdapter";
 
-export {
-  AGENT_WIDGET_CONTRACT_VERSION,
-  isAgentWidgetContractV1,
-} from "./agentWidgetContract";
+export { AGENT_WIDGET_CONTRACT_VERSION, isAgentWidgetContractV1 } from "./agentWidgetContract";
 
 export type {
   AgentWidgetContractStatus,

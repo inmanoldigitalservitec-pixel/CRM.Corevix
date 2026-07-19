@@ -32,17 +32,45 @@ export function EmailHtmlViewer({ html }: { html: string }) {
     <base target="_blank" />
     <style>
       html, body {
+        box-sizing: border-box;
+        width: 100% !important;
+        max-width: 100% !important;
         margin: 0;
-        padding: 16px;
+        padding: 14px;
         background: #ffffff;
         color: #111827;
         font-family: Arial, system-ui, -apple-system, Segoe UI, sans-serif;
         line-height: 1.5;
+        overflow-x: hidden;
         overflow-wrap: anywhere;
       }
-      img { max-width: 100%; height: auto; }
-      table { max-width: 100%; }
+      *, *::before, *::after {
+        box-sizing: border-box;
+        max-width: 100% !important;
+      }
+      img {
+        max-width: 100% !important;
+        height: auto !important;
+      }
+      table {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      td, th {
+        max-width: 100% !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      pre, code {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
       a { color: #2563eb; }
+      @media (max-width: 640px) {
+        html, body { padding: 10px; }
+      }
     </style>
   </head>
   <body>${sanitizedHtml}</body>
@@ -55,8 +83,8 @@ export function EmailHtmlViewer({ html }: { html: string }) {
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       referrerPolicy="no-referrer"
       srcDoc={srcDoc}
-      className="w-full border-0 rounded-md bg-white"
-      style={{ minHeight: 500, height }}
+      className="block w-full max-w-full rounded-md border-0 bg-white"
+      style={{ minHeight: 500, height, overflow: "hidden" }}
       onLoad={(e) => {
         try {
           const iframe = e.currentTarget;

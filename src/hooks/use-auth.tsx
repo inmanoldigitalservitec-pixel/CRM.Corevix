@@ -10,6 +10,15 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
+export type AccountStatus =
+  | "loading"
+  | "signed_out"
+  | "email_pending"
+  | "missing_profile"
+  | "missing_company"
+  | "inactive"
+  | "ready";
+
 interface Profile {
   id: string;
   user_id: string;
@@ -27,6 +36,7 @@ interface AuthState {
   profile: Profile | null;
   roles: string[];
   loading: boolean;
+  accountStatus: AccountStatus;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (
     email: string,
@@ -48,36 +58,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const inactiveSignOutOnce = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
   const profileLoadIdRef = useRef(0);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const [{ data: prof, error: profErr }, { data: userRoles, error: rolesErr }] =
-      await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", userId).single(),
-        supabase.from("user_roles").select("role").eq("user_id", userId),
-      ]);
+    const { data: accountProfile, error: accountProfileErr } = await (supabase as any).rpc(
+      "get_current_account_profile",
+    );
+    let prof = Array.isArray(accountProfile) ? accountProfile[0] : accountProfile;
+    let profErr = accountProfileErr;
+
+    if (accountProfileErr) {
+      const fallback = await supabase.from("profiles").select("*").eq("user_id", userId).single();
+      prof = fallback.data;
+      profErr = fallback.error;
+    }
+
+    const { data: userRoles, error: rolesErr } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+
     if (profErr) console.error("[Auth] Failed to load profile:", profErr);
-    if (rolesErr) console.error("[Auth] Failed to load roles:", rolesErr);
+    if (rolesErr && prof?.is_active !== false) {
+      console.error("[Auth] Failed to load roles:", rolesErr);
+    }
 
     const nextProfile = (prof as Profile) || null;
     const nextRoles = (userRoles || []).map((r: any) => r.role) as string[];
 
     setProfile(nextProfile);
     setRoles(nextRoles);
-
-    // Enforce deactivation at the auth layer (not only UI).
-    if (nextProfile && nextProfile.is_active === false && !inactiveSignOutOnce.current) {
-      inactiveSignOutOnce.current = true;
-      await supabase.auth.signOut();
-      currentUserIdRef.current = null;
-      profileLoadIdRef.current += 1;
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setRoles([]);
-    }
   }, []);
 
   const loadProfile = useCallback(
@@ -106,7 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRoles([]);
-    inactiveSignOutOnce.current = false;
     setLoading(false);
   }, []);
 
@@ -187,6 +197,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasRole = (role: string) => roles.includes(role);
   const hasAnyRole = (r: string[]) => r.some((role) => roles.includes(role));
+  const isEmailPending = Boolean(user) && !user?.email_confirmed_at && !user?.confirmed_at;
+  const accountStatus: AccountStatus = loading
+    ? "loading"
+    : !user
+      ? "signed_out"
+      : isEmailPending
+        ? "email_pending"
+        : !profile
+          ? "missing_profile"
+          : !profile.company_id
+            ? "missing_company"
+            : profile.is_active === false
+              ? "inactive"
+              : "ready";
 
   return (
     <AuthContext.Provider
@@ -196,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         roles,
         loading,
+        accountStatus,
         signIn,
         signUp,
         signOut,

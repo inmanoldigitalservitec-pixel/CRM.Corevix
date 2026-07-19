@@ -1,57 +1,34 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
-import { Button } from "@/components/ui/button";
-
-const ProposalDocumentBuilder = lazy(() =>
-  import.meta.env.SSR
-    ? Promise.resolve({
-        default: () => (
-          <div className="p-6 text-sm text-muted-foreground">Cargando editor de propuesta...</div>
-        ),
-      })
-    : import("@/components/document-builder/proposal-document-builder").then((mod) => ({
-        default: mod.ProposalDocumentBuilder,
-      })),
-);
 
 export const Route = createFileRoute("/proposals/$proposalId/builder")({
   component: ProposalBuilderRoute,
-  head: () => ({ meta: [{ title: "Proposal Builder — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Constructor de propuestas desactivado - Corevix CRM" }] }),
 });
 
 function ProposalBuilderRoute() {
-  const { proposalId } = Route.useParams();
-
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="sticky top-0 z-50 flex h-14 items-center justify-between border-b bg-white/95 px-4 backdrop-blur">
-        <div>
-          <div className="text-sm font-extrabold text-slate-950">Proposal Builder</div>
-          <div className="text-xs font-medium text-slate-500">Editor visual client-only</div>
-        </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link
-            to="/proposals"
-            search={{
-              leadId: undefined,
-              dealId: undefined,
-              conversationId: undefined,
-              productId: undefined,
-              clientId: undefined,
-            }}
-          >
-            Volver a propuestas
-          </Link>
-        </Button>
+    <div className="min-h-screen bg-white px-6 py-8">
+      <div className="mx-auto max-w-2xl border-y border-slate-200 py-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Propuestas</p>
+        <h1 className="mt-2 text-2xl font-semibold text-slate-950">Constructor desactivado</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          El editor visual de propuestas está neutralizado mientras se define el nuevo flujo. El CRM
+          queda preparado para continuar trabajando con propuestas cargadas como PDF.
+        </p>
+        <Link
+          to="/proposals"
+          search={{
+            leadId: undefined,
+            dealId: undefined,
+            conversationId: undefined,
+            productId: undefined,
+            clientId: undefined,
+          }}
+          className="mt-6 inline-flex h-10 items-center rounded-full bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+          Volver a propuestas
+        </Link>
       </div>
-
-      <Suspense
-        fallback={
-          <div className="p-6 text-sm text-muted-foreground">Cargando editor de propuesta...</div>
-        }
-      >
-        <ProposalDocumentBuilder proposalId={proposalId} />
-      </Suspense>
     </div>
   );
 }

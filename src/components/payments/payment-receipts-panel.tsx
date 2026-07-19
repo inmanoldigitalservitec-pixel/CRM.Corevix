@@ -70,9 +70,9 @@ export function PaymentReceiptsPanel({
   }, [paymentId, invoiceId, profile?.company_id, refreshKey]);
 
   const uploadReceipt = async (file: File | null) => {
-      if (!file || !paymentId || !profile?.company_id) return;
-      setUploading(true);
-      try {
+    if (!file || !paymentId || !profile?.company_id) return;
+    setUploading(true);
+    try {
       await uploadPaymentReceipt(file, {
         companyId: profile.company_id,
         paymentId,
@@ -139,8 +139,18 @@ export function PaymentReceiptsPanel({
               className="hidden"
               onChange={(event) => void uploadReceipt(event.target.files?.[0] || null)}
             />
-            <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
-              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
               {uploading ? "Subiendo..." : "Adjuntar comprobante"}
             </Button>
           </div>
@@ -155,18 +165,27 @@ export function PaymentReceiptsPanel({
       ) : receipts.length ? (
         <div className="divide-y rounded-lg border">
           {receipts.map((receipt) => (
-            <div key={receipt.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              key={receipt.id}
+              className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2 font-medium text-slate-950">
                   <FileText className="h-4 w-4 shrink-0 text-slate-500" />
                   <span className="truncate">{receipt.file_name}</span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {receipt.mime_type === "application/pdf" ? "PDF" : "Imagen"} · {formatPaymentReceiptFileSize(receipt.size_bytes)}
+                  {receipt.mime_type === "application/pdf" ? "PDF" : "Imagen"} ·{" "}
+                  {formatPaymentReceiptFileSize(receipt.size_bytes)}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => void openReceipt(receipt)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void openReceipt(receipt)}
+                >
                   <Download className="mr-2 h-4 w-4" />
                   Abrir
                 </Button>

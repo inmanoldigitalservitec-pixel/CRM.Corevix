@@ -52,8 +52,14 @@ function findTaskSlot() {
 }
 
 function findWhatsappPanelTaskButton() {
-  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="/tasks?conversationId="]'));
-  return links.find((link) => (link.getAttribute("title") || "").toLowerCase() === "tarea") || links[0] || null;
+  const links = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('a[href^="/tasks?conversationId="]'),
+  );
+  return (
+    links.find((link) => (link.getAttribute("title") || "").toLowerCase() === "tarea") ||
+    links[0] ||
+    null
+  );
 }
 
 function findWhatsappPanelNoteButton() {
@@ -70,7 +76,10 @@ function findPanelTarget(button: HTMLElement | null) {
 }
 
 function readConversationName() {
-  const panel = findTaskSlot()?.closest("aside") || findWhatsappPanelTaskButton()?.closest("aside") || findWhatsappPanelNoteButton()?.closest("aside");
+  const panel =
+    findTaskSlot()?.closest("aside") ||
+    findWhatsappPanelTaskButton()?.closest("aside") ||
+    findWhatsappPanelNoteButton()?.closest("aside");
   const heading = panel?.querySelector<HTMLElement>("h3");
   return heading?.textContent?.trim() || "este contacto";
 }
@@ -106,7 +115,12 @@ export function WhatsAppInlineTaskCreator() {
   useEffect(() => {
     function openPanel(nextMode: PanelMode, nextConversationId: string) {
       setConversationId(nextConversationId || readConversationIdFromPanel() || "");
-      setTarget(findTaskSlot() || findPanelTarget(nextMode === "task" ? findWhatsappPanelTaskButton() : findWhatsappPanelNoteButton()));
+      setTarget(
+        findTaskSlot() ||
+          findPanelTarget(
+            nextMode === "task" ? findWhatsappPanelTaskButton() : findWhatsappPanelNoteButton(),
+          ),
+      );
       setMode(nextMode);
       setForm(emptyTaskForm());
       setNoteBody("");
@@ -157,7 +171,11 @@ export function WhatsAppInlineTaskCreator() {
   useEffect(() => {
     if (!open) return;
     const observer = new MutationObserver(() => {
-      const nextTarget = findTaskSlot() || findPanelTarget(mode === "task" ? findWhatsappPanelTaskButton() : findWhatsappPanelNoteButton());
+      const nextTarget =
+        findTaskSlot() ||
+        findPanelTarget(
+          mode === "task" ? findWhatsappPanelTaskButton() : findWhatsappPanelNoteButton(),
+        );
       if (nextTarget) setTarget(nextTarget);
     });
     observer.observe(document.body, { childList: true, subtree: true });
@@ -182,7 +200,9 @@ export function WhatsAppInlineTaskCreator() {
       title: form.title.trim(),
       description:
         form.description.trim() ||
-        (conversationId ? `Tarea creada desde WhatsApp para ${contactName}. Conversación: ${conversationId}` : null),
+        (conversationId
+          ? `Tarea creada desde WhatsApp para ${contactName}. Conversación: ${conversationId}`
+          : null),
       status: "To Do",
       priority: form.priority || "Medium",
       assigned_to: user?.id || profile.user_id || null,
@@ -279,8 +299,14 @@ export function WhatsAppInlineTaskCreator() {
     <section className="rounded-2xl border border-[#bcebd0] bg-[#f0fff6] p-3 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 text-sm font-black text-[#12231d]">
-          {mode === "task" ? <Clock3 className="h-4 w-4 shrink-0 text-[#008069]" /> : <StickyNote className="h-4 w-4 shrink-0 text-[#008069]" />}
-          <span className="truncate">{mode === "task" ? "Crear tarea interna" : "Agregar nota interna"}</span>
+          {mode === "task" ? (
+            <Clock3 className="h-4 w-4 shrink-0 text-[#008069]" />
+          ) : (
+            <StickyNote className="h-4 w-4 shrink-0 text-[#008069]" />
+          )}
+          <span className="truncate">
+            {mode === "task" ? "Crear tarea interna" : "Agregar nota interna"}
+          </span>
         </div>
         <button
           type="button"
@@ -373,10 +399,22 @@ export function WhatsAppInlineTaskCreator() {
             </Select>
           </div>
           <div className="flex gap-2 pt-1">
-            <Button type="button" variant="outline" size="sm" className="h-9 flex-1 rounded-xl" onClick={() => setOpen(false)} disabled={saving}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 flex-1 rounded-xl"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+            >
               Cerrar
             </Button>
-            <Button type="submit" size="sm" className="h-9 flex-1 rounded-xl bg-[#00a884] hover:bg-[#008f72]" disabled={saving || !form.title.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-9 flex-1 rounded-xl bg-[#00a884] hover:bg-[#008f72]"
+              disabled={saving || !form.title.trim()}
+            >
               <Save className="mr-1.5 h-3.5 w-3.5" /> {saving ? "..." : "Guardar"}
             </Button>
           </div>
@@ -398,10 +436,22 @@ export function WhatsAppInlineTaskCreator() {
             className="min-h-[92px] rounded-xl border-[#dce8e2] bg-white text-sm"
           />
           <div className="flex gap-2 pt-1">
-            <Button type="button" variant="outline" size="sm" className="h-9 flex-1 rounded-xl" onClick={() => setOpen(false)} disabled={saving}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 flex-1 rounded-xl"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+            >
               Cerrar
             </Button>
-            <Button type="submit" size="sm" className="h-9 flex-1 rounded-xl bg-[#00a884] hover:bg-[#008f72]" disabled={saving || !noteBody.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-9 flex-1 rounded-xl bg-[#00a884] hover:bg-[#008f72]"
+              disabled={saving || !noteBody.trim()}
+            >
               <Save className="mr-1.5 h-3.5 w-3.5" /> {saving ? "..." : "Guardar nota"}
             </Button>
           </div>

@@ -10,11 +10,15 @@ type SummaryField = {
 function DetailField({ label, value, mono }: SummaryField) {
   if (!value) return null;
   return (
-    <div>
-      <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
-        {label}
-      </div>
-      <div className={mono ? "mt-1 break-words font-mono text-sm" : "mt-1 break-words text-sm font-medium"}>
+    <div className="min-w-0">
+      <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">{label}</div>
+      <div
+        className={
+          mono
+            ? "mt-1 min-w-0 break-all font-mono text-sm font-normal text-slate-950"
+            : "mt-1 min-w-0 break-words text-sm font-normal text-slate-950"
+        }
+      >
         {value}
       </div>
     </div>
@@ -34,7 +38,6 @@ export function InvoiceDetailsSummary({
   tax,
   discount,
   notes,
-  publicUrl,
   formatMoney,
 }: {
   invoice: { status: string };
@@ -53,28 +56,32 @@ export function InvoiceDetailsSummary({
   formatMoney: (amount: number, currency: string) => string;
 }) {
   return (
-    <div className="space-y-5">
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="min-w-0 space-y-5 overflow-hidden">
+      <section className="min-w-0 border-b border-slate-100 bg-white pb-5">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+            <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
               Estado
             </div>
             <div className="mt-2">
               <StatusBadge status={invoice.status} />
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+          <div className="min-w-0 sm:text-right">
+            <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
               Total
             </div>
-            <div className="mt-1 text-2xl font-extrabold text-slate-950">{total}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-500">Saldo: {balance}</div>
+            <div className="mt-1 break-words text-2xl font-normal leading-tight text-slate-950">
+              {total}
+            </div>
+            <div className="mt-1 break-words text-sm font-normal text-slate-500">
+              Saldo: {balance}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section className="min-w-0 border-b border-slate-100 bg-white pb-5">
         <div className="grid gap-4 sm:grid-cols-2">
           {fields.map((field) => (
             <DetailField key={field.label} {...field} />
@@ -82,8 +89,8 @@ export function InvoiceDetailsSummary({
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-950">Artículos</h3>
+      <section className="space-y-3 border-b border-slate-100 pb-5">
+        <h3 className="text-sm font-normal text-slate-950">Artículos</h3>
         <InvoiceItemsView
           items={items}
           loading={itemsLoading}
@@ -93,32 +100,31 @@ export function InvoiceDetailsSummary({
         />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section className="min-w-0 border-b border-slate-100 bg-white pb-5">
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+          <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
             Totales
           </div>
           <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
+            <div className="flex min-w-0 justify-between gap-4">
               <dt className="text-slate-500">Subtotal</dt>
-              <dd className="font-semibold">{subtotal}</dd>
+              <dd className="min-w-0 break-words text-right font-normal">{subtotal}</dd>
             </div>
-            <div className="flex justify-between gap-4">
+            <div className="flex min-w-0 justify-between gap-4">
               <dt className="text-slate-500">Impuesto</dt>
-              <dd className="font-semibold">{tax}</dd>
+              <dd className="min-w-0 break-words text-right font-normal">{tax}</dd>
             </div>
-            <div className="flex justify-between gap-4">
+            <div className="flex min-w-0 justify-between gap-4">
               <dt className="text-slate-500">Descuento</dt>
-              <dd className="font-semibold">{discount}</dd>
+              <dd className="min-w-0 break-words text-right font-normal">{discount}</dd>
             </div>
           </dl>
         </div>
       </section>
 
-      {notes || publicUrl ? (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          {notes ? <DetailField label="Notas" value={notes} /> : null}
-          {publicUrl ? <DetailField label="Factura pública" value={publicUrl} mono /> : null}
+      {notes ? (
+        <section className="min-w-0 border-b border-slate-100 bg-white pb-5">
+          <DetailField label="Notas" value={notes} />
         </section>
       ) : null}
     </div>

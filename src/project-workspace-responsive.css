@@ -55,13 +55,15 @@
 /* The component's original right panel minimum was 420px. That is too rigid
    inside an 1100px modal, so keep two columns but lower the minimum. */
 @media (min-width: 1024px) {
-  [role="dialog"].max-w-\[1100px\] .xl\:grid-cols-\[minmax\(0\,0\.98fr\)_minmax\(420px\,1\.02fr\)\] {
+  [role="dialog"].max-w-\[1100px\]
+    .xl\:grid-cols-\[minmax\(0\,0\.98fr\)_minmax\(420px\,1\.02fr\)\] {
     grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr) !important;
   }
 }
 
 @media (max-width: 1023px) {
-  [role="dialog"].max-w-\[1100px\] .xl\:grid-cols-\[minmax\(0\,0\.98fr\)_minmax\(420px\,1\.02fr\)\] {
+  [role="dialog"].max-w-\[1100px\]
+    .xl\:grid-cols-\[minmax\(0\,0\.98fr\)_minmax\(420px\,1\.02fr\)\] {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 

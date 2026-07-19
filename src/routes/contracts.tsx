@@ -1,18 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock3,
-  Eye,
-  FileText,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Search,
-  Signature,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Eye, FileText, Pencil, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -31,7 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/crm/page-header";
+import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { LoadingTable } from "@/components/crm/loading-state";
+import { CrmDetailLineButton, CrmDetailSelectTrigger } from "@/components/crm/crm-detail-layout";
 import {
   ContractDetailDialog,
   type ContractDetailRow,
@@ -153,6 +143,38 @@ function isExpired(contract: ContractRow) {
 function signatureStatus(contract: ContractRow) {
   if (contract.signed_at || contract.signature_status === "Signed") return "Signed";
   return contract.signature_status || "Not Signed";
+}
+
+type ContractKpiTone = "neutral" | "success" | "warning" | "danger";
+
+function contractRiskTone(value: number, warningAt: number, dangerAt: number): ContractKpiTone {
+  if (value >= dangerAt) return "danger";
+  if (value >= warningAt) return "warning";
+  return "success";
+}
+
+function ContractKpi({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  tone?: ContractKpiTone;
+}) {
+  const toneClass: Record<ContractKpiTone, string> = {
+    neutral: "text-slate-950",
+    success: "text-emerald-600",
+    warning: "text-orange-500",
+    danger: "text-rose-600",
+  };
+
+  return (
+    <div className="min-w-0 border-b border-slate-100 pb-3">
+      <div className="text-xs font-normal uppercase text-slate-500">{label}</div>
+      <div className={`mt-2 truncate text-xl font-normal ${toneClass[tone]}`}>{value}</div>
+    </div>
+  );
 }
 
 function ContractsPage() {
@@ -351,151 +373,281 @@ function ContractsPage() {
   if (loading) return <LoadingTable />;
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      <PageHeader
-        title="Contracts"
-        subtitle="Control central de acuerdos, renovaciones, fechas de vencimiento y contratos relacionados a clientes o proyectos."
+    <div className="min-h-dvh space-y-3 bg-white p-4 sm:p-6 md:space-y-5">
+      <GlobalKpiStrip
+        title="Contratos"
+        subtitle="Acuerdos, renovaciones y firmas"
         actionLabel={can("contracts.create") ? "Nuevo contrato" : undefined}
         onAction={can("contracts.create") ? openNewContract : undefined}
-      />
-
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
-        {[
-          { label: "Total", value: kpis.total, icon: FileText, tone: "text-slate-600" },
-          { label: "Activos", value: kpis.active, icon: CheckCircle2, tone: "text-emerald-600" },
-          { label: "Expired", value: kpis.expired, icon: AlertTriangle, tone: "text-rose-600" },
-          { label: "Pendientes", value: kpis.pending, icon: Signature, tone: "text-blue-600" },
-          { label: "Borradores", value: kpis.draft, icon: Clock3, tone: "text-amber-700" },
-          { label: "Firmados", value: kpis.signed, icon: Signature, tone: "text-emerald-700" },
+        items={[
           {
-            label: "Expiring",
-            value: kpis.expiringSoon,
-            icon: AlertTriangle,
-            tone: "text-orange-600",
+            key: "contracted-value",
+            label: "Valor contratado",
+            value: formatMoney(kpis.totalValue),
+            helper: `${filtered.length} visibles de ${contracts.length} contratos`,
+            icon: FileText,
+            tone: "purple",
+            meta: [
+              { label: "Activos", value: kpis.active, tone: "green" },
+              { label: "Pendientes", value: kpis.pending, tone: "blue" },
+              { label: "Vencen", value: kpis.expiringSoon, tone: "orange" },
+              { label: "Firmados", value: kpis.signed, tone: "teal" },
+            ],
           },
-          { label: "Facturados", value: kpis.invoiced, icon: FileText, tone: "text-indigo-600" },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="rounded-xl border bg-white p-3 shadow-sm">
-              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                <Icon className={`h-4 w-4 ${item.tone}`} />
-                {item.label}
-              </div>
-              <div className="mt-1 text-xl font-extrabold text-slate-950">{item.value}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="text-xs font-bold uppercase text-slate-500">Total Contracted Value</div>
-          <div className="mt-2 text-2xl font-extrabold text-slate-950">
-            {formatMoney(kpis.totalValue)}
-          </div>
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            Valor total de contratos registrados.
-          </p>
+        ]}
+      >
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value={ALL}>Todos los estados</SelectItem>
+              {STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {displayLabel(status)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <ReportList title="Clientes con mayor valor contratado" items={valueByClient} />
-        <ReportList title="Proyectos con mayor valor contratado" items={valueByProject} />
+      </GlobalKpiStrip>
+
+      <div className="max-md:hidden">
+        <PageHeader
+          title="Contratos"
+          subtitle="Control central de acuerdos, renovaciones, fechas de vencimiento y contratos relacionados a clientes o proyectos."
+        />
       </div>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => void fetchContracts()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Actualizar
-            </Button>
-            {can("contracts.create") && (
-              <Button onClick={openNewContract}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo contrato
-              </Button>
-            )}
+      <section className="hidden border-y border-slate-100 bg-white md:block">
+        <div className="px-5 py-4">
+          <div className="grid grid-cols-4 gap-x-8 gap-y-4">
+            <ContractKpi label="Total" value={kpis.total} />
+            <ContractKpi label="Activos" value={kpis.active} tone="success" />
+            <ContractKpi
+              label="Expirados"
+              value={kpis.expired}
+              tone={contractRiskTone(kpis.expired, 1, 3)}
+            />
+            <ContractKpi
+              label="Pendientes"
+              value={kpis.pending}
+              tone={contractRiskTone(kpis.pending, 2, 6)}
+            />
+            <ContractKpi
+              label="Borradores"
+              value={kpis.draft}
+              tone={contractRiskTone(kpis.draft, 3, 8)}
+            />
+            <ContractKpi label="Firmados" value={kpis.signed} tone="success" />
+            <ContractKpi
+              label="Por vencer"
+              value={kpis.expiringSoon}
+              tone={contractRiskTone(kpis.expiringSoon, 1, 4)}
+            />
+            <ContractKpi label="Facturados" value={kpis.invoiced} tone="success" />
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="relative sm:col-span-2 lg:col-span-1">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+
+          <div className="grid gap-5 pt-5 xl:grid-cols-[minmax(220px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="border-b border-slate-100 pb-4 xl:border-b-0">
+              <div className="text-xs font-normal uppercase text-slate-500">
+                Valor contratado total
+              </div>
+              <div className="mt-2 text-2xl font-normal text-slate-950">
+                {formatMoney(kpis.totalValue)}
+              </div>
+              <p className="mt-1 text-sm font-normal text-slate-500">
+                Valor total de contratos registrados.
+              </p>
+            </div>
+            <ReportList title="Clientes con mayor valor contratado" items={valueByClient} />
+            <ReportList title="Proyectos con mayor valor contratado" items={valueByProject} />
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden border-y border-slate-100 bg-white shadow-none max-md:border-0 max-md:bg-transparent">
+        <div className="border-b border-slate-100 px-4 py-3 max-md:hidden sm:px-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              {can("contracts.create") && (
+                <CrmDetailLineButton
+                  className="h-9 border-blue-600 bg-blue-600 px-3 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+                  icon={<Plus className="h-4 w-4" />}
+                  onClick={openNewContract}
+                >
+                  Nuevo contrato
+                </CrmDetailLineButton>
+              )}
               <Input
-                className="w-full pl-9"
-                placeholder="Buscar contratos..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar contratos..."
+                className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Todos los estados</SelectItem>
-                {STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {displayLabel(status)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={clientFilter} onValueChange={setClientFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Todos los clientes</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.company_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Proyecto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Todos los proyectos</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Todos los tipos</SelectItem>
-                {contractTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <CrmDetailSelectTrigger>
+                  <SelectValue placeholder="Estado" />
+                </CrmDetailSelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Todos los estados</SelectItem>
+                  {STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {displayLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={clientFilter} onValueChange={setClientFilter}>
+                <CrmDetailSelectTrigger>
+                  <SelectValue placeholder="Cliente" />
+                </CrmDetailSelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Todos los clientes</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.company_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <CrmDetailSelectTrigger>
+                  <SelectValue placeholder="Proyecto" />
+                </CrmDetailSelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Todos los proyectos</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <CrmDetailSelectTrigger>
+                  <SelectValue placeholder="Tipo" />
+                </CrmDetailSelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Todos los tipos</SelectItem>
+                  {contractTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50">
+        <div className="max-md:border-0">
+          <div className="grid min-w-0 gap-3 overflow-hidden bg-transparent md:hidden">
+            {filtered.length ? (
+              filtered.map((contract) => {
+                const client = contract.client_id ? clientById.get(contract.client_id) : null;
+                const project = contract.project_id ? projectById.get(contract.project_id) : null;
+                const assigned = contract.assigned_to
+                  ? profileById.get(contract.assigned_to)
+                  : null;
+                return (
+                  <article
+                    key={contract.id}
+                    className="min-w-0 overflow-hidden border-b border-slate-100 bg-white px-4 py-3 text-left transition hover:bg-slate-50/40 active:scale-[0.992]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openContractDetail(contract)}
+                      className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-left"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-[15px] font-normal leading-5 tracking-normal text-slate-950">
+                          {contract.subject}
+                        </div>
+                        <div className="mt-0.5 line-clamp-1 text-[12.5px] font-normal leading-4 text-slate-500">
+                          #{contract.contract_number || "—"} ·{" "}
+                          {client?.company_name || "Sin cliente"}
+                          {project ? ` · ${project.name}` : ""}
+                        </div>
+                      </div>
+                      <StatusBadge
+                        status={contract.status}
+                        className="min-h-6 max-w-[92px] shrink-0 truncate rounded-full px-2.5 text-[11px] font-bold"
+                      />
+                    </button>
+
+                    <div className="mt-3 flex min-w-0 items-center gap-3 border-t border-slate-100 pt-2.5 text-xs font-normal text-slate-500">
+                      <span className="min-w-0 flex-1 truncate font-normal text-slate-950">
+                        {formatMoney(contract.contract_value)}
+                      </span>
+                      <span
+                        className={
+                          isExpired(contract)
+                            ? "min-w-0 flex-1 truncate text-right font-normal text-rose-700"
+                            : "min-w-0 flex-1 truncate text-right text-slate-500"
+                        }
+                      >
+                        {formatDate(contract.end_date)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-right text-slate-500">
+                        {displayLabel(signatureStatus(contract))}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5 flex min-w-0 items-center justify-between gap-3 text-[12px] font-normal text-slate-400">
+                      <span className="min-w-0 truncate">
+                        {contract.contract_type || "Sin tipo"} ·{" "}
+                        {assigned?.full_name || assigned?.email || "Sin asignar"}
+                      </span>
+                      <div
+                        className="flex shrink-0 items-center gap-1.5"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                      >
+                        <CrmDetailLineButton
+                          className="h-8 px-2.5"
+                          onClick={() => openContractDetail(contract)}
+                          aria-label="Ver detalle"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </CrmDetailLineButton>
+                        {can("contracts.edit") ? (
+                          <CrmDetailLineButton
+                            className="h-8 px-2.5"
+                            onClick={() => openEditContract(contract)}
+                            aria-label="Editar contrato"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </CrmDetailLineButton>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <div className="border-y border-dashed border-slate-200 bg-white p-6 text-center text-sm font-normal text-slate-500">
+                No hay contratos con estos filtros.
+              </div>
+            )}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <Table className="min-w-[980px]">
+              <TableHeader className="bg-white">
                 <TableRow>
-                  <TableHead className="w-20">#</TableHead>
+                  <TableHead className="w-16">#</TableHead>
                   <TableHead className="min-w-[280px]">Asunto</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Proyecto</TableHead>
-                  <TableHead>Tipo</TableHead>
                   <TableHead>Valor</TableHead>
-                  <TableHead>Inicio</TableHead>
                   <TableHead>Fin</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Firma</TableHead>
                   <TableHead>Factura</TableHead>
                   <TableHead>Asignado</TableHead>
                   <TableHead className="w-40 text-right">Acciones</TableHead>
@@ -512,63 +664,64 @@ function ContractsPage() {
                       ? profileById.get(contract.assigned_to)
                       : null;
                     return (
-                      <TableRow key={contract.id} className="align-top hover:bg-slate-50">
-                        <TableCell className="font-semibold text-slate-500">
+                      <TableRow key={contract.id} className="align-middle hover:bg-slate-50">
+                        <TableCell className="font-normal text-slate-500">
                           {contract.contract_number || "—"}
                         </TableCell>
                         <TableCell>
                           <button
                             type="button"
                             onClick={() => openContractDetail(contract)}
-                            className="text-left font-semibold text-slate-900 hover:text-blue-700"
+                            className="text-left font-normal text-slate-950 hover:text-slate-700"
                           >
                             {contract.subject}
                           </button>
-                          <div className="mt-1 line-clamp-1 text-xs text-slate-500">
+                          <div className="mt-1 line-clamp-1 text-xs font-normal text-slate-500">
                             {contract.description || "Sin descripción"}
                           </div>
                         </TableCell>
-                        <TableCell>{client?.company_name || "—"}</TableCell>
-                        <TableCell>{project?.name || "—"}</TableCell>
-                        <TableCell>{contract.contract_type || "—"}</TableCell>
-                        <TableCell className="font-semibold">
+                        <TableCell>
+                          <div className="max-w-[150px] truncate">
+                            {client?.company_name || "—"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-[220px] truncate">{project?.name || "—"}</div>
+                        </TableCell>
+                        <TableCell className="font-normal">
                           {formatMoney(contract.contract_value)}
                         </TableCell>
-                        <TableCell>{formatDate(contract.start_date)}</TableCell>
                         <TableCell
-                          className={
-                            isExpired(contract) ? "font-semibold text-rose-700" : undefined
-                          }
+                          className={isExpired(contract) ? "font-normal text-rose-700" : undefined}
                         >
                           {formatDate(contract.end_date)}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={contract.status} />
                         </TableCell>
-                        <TableCell>
-                          <StatusBadge status={signatureStatus(contract)} />
-                        </TableCell>
                         <TableCell>{contract.invoice_id ? "Vinculada" : "—"}</TableCell>
-                        <TableCell>{assigned?.full_name || assigned?.email || "—"}</TableCell>
+                        <TableCell>
+                          <div className="max-w-[130px] truncate">
+                            {assigned?.full_name || assigned?.email || "—"}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <CrmDetailLineButton
+                              className="h-8 bg-transparent hover:bg-transparent"
+                              icon={<Eye className="h-3.5 w-3.5" />}
                               onClick={() => openContractDetail(contract)}
                             >
-                              <Eye className="mr-2 h-3.5 w-3.5" />
                               Ver
-                            </Button>
+                            </CrmDetailLineButton>
                             {can("contracts.edit") && (
-                              <Button
-                                variant="outline"
-                                size="sm"
+                              <CrmDetailLineButton
+                                className="h-8 bg-transparent hover:bg-transparent"
+                                icon={<Pencil className="h-3.5 w-3.5" />}
                                 onClick={() => openEditContract(contract)}
                               >
-                                <Pencil className="mr-2 h-3.5 w-3.5" />
                                 Editar
-                              </Button>
+                              </CrmDetailLineButton>
                             )}
                           </div>
                         </TableCell>
@@ -577,7 +730,7 @@ function ContractsPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={13} className="py-10 text-center text-sm text-slate-500">
+                    <TableCell colSpan={10} className="py-10 text-center text-sm text-slate-500">
                       No hay contratos con estos filtros.
                     </TableCell>
                   </TableRow>
@@ -586,7 +739,7 @@ function ContractsPage() {
             </Table>
           </div>
         </div>
-      </div>
+      </section>
 
       <ContractEditorDialog
         open={dialogOpen}
@@ -617,21 +770,18 @@ function ReportList({
   items: { label: string; value: number }[];
 }) {
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="mb-3 text-xs font-bold uppercase text-slate-500">{title}</div>
-      <div className="space-y-2">
+    <div className="border-b border-slate-100 pb-4">
+      <div className="mb-3 text-xs font-normal uppercase text-slate-500">{title}</div>
+      <div className="divide-y divide-slate-100 border-y border-slate-100">
         {items.length ? (
           items.map((item) => (
-            <div
-              key={item.label}
-              className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm"
-            >
-              <span className="truncate font-semibold text-slate-700">{item.label}</span>
-              <span className="font-extrabold text-slate-950">{formatMoney(item.value)}</span>
+            <div key={item.label} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <span className="truncate font-normal text-slate-700">{item.label}</span>
+              <span className="font-normal text-slate-950">{formatMoney(item.value)}</span>
             </div>
           ))
         ) : (
-          <div className="text-sm font-medium text-slate-500">Sin datos todavía.</div>
+          <div className="py-2 text-sm font-normal text-slate-500">Sin datos todavía.</div>
         )}
       </div>
     </div>

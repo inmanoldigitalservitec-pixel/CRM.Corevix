@@ -9,41 +9,31 @@ import {
   Calendar,
   CheckSquare,
   ChevronDown,
-  CircleDot,
   CreditCard,
-  Database,
   Download,
   FileCheck2,
   FileText,
   FolderOpen,
   GitBranch,
-  HelpCircle,
   Image,
   LayoutDashboard,
-  Layers,
   LifeBuoy,
-  LogOut,
   Mail,
-  Megaphone,
-  Menu,
   MessageCircle,
   Package,
-  Palette,
   Receipt,
   ReceiptText,
   RotateCcw,
   Settings,
-  ShieldCheck,
   SlidersHorizontal,
-  Target,
+  Store,
   UserCog,
   Users,
-  Zap,
+  Wrench,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -53,7 +43,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useT } from "@/i18n";
-import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 
 type SidebarItem = {
@@ -62,7 +51,6 @@ type SidebarItem = {
   url?: string;
   icon: React.ElementType;
   iconClassName?: string;
-  placeholder?: boolean;
   permission?: string;
 };
 
@@ -79,35 +67,36 @@ const mainItems: SidebarItem[] = [
     icon: LayoutDashboard,
     iconClassName: "text-blue-600",
   },
-  { titleKey: "nav.clients", url: "/clients", icon: Building2, iconClassName: "text-emerald-600" },
+  { titleKey: "nav.clients", url: "/clients", icon: Building2, iconClassName: "text-blue-600" },
 ];
 
 const salesItems: SidebarItem[] = [
-  { titleKey: "nav.leads", url: "/leads", icon: Users, iconClassName: "text-violet-600" },
-  { titleKey: "nav.pipeline", url: "/pipeline", icon: GitBranch, iconClassName: "text-amber-600" },
+  { titleKey: "nav.leads", url: "/leads", icon: Users, iconClassName: "text-blue-600" },
+  { titleKey: "nav.pipeline", url: "/pipeline", icon: GitBranch, iconClassName: "text-blue-600" },
   {
     titleKey: "nav.proposals",
     url: "/proposals",
     icon: FileText,
-    iconClassName: "text-purple-600",
+    iconClassName: "text-blue-600",
   },
-  { title: "Cotizaciones", url: "/estimates", icon: FileCheck2, iconClassName: "text-sky-600" },
-  { titleKey: "nav.invoices", url: "/invoices", icon: Receipt, iconClassName: "text-orange-600" },
-  { title: "Pagos", url: "/payments", icon: CreditCard, iconClassName: "text-emerald-600" },
+  { title: "Cotizaciones", url: "/estimates", icon: FileCheck2, iconClassName: "text-blue-600" },
+  { titleKey: "nav.invoices", url: "/invoices", icon: Receipt, iconClassName: "text-blue-600" },
+  { title: "Pagos", url: "/payments", icon: CreditCard, iconClassName: "text-blue-600" },
   {
     title: "Notas de crédito",
     url: "/credit-notes",
     icon: ReceiptText,
-    iconClassName: "text-rose-600",
+    iconClassName: "text-blue-600",
   },
-  { titleKey: "nav.products", url: "/products", icon: Package, iconClassName: "text-slate-700" },
+  { titleKey: "nav.products", url: "/products", icon: Package, iconClassName: "text-blue-600" },
   {
     title: "Suscripciones",
     url: "/subscriptions",
     icon: RotateCcw,
-    iconClassName: "text-indigo-600",
+    iconClassName: "text-blue-600",
   },
-  { title: "Gastos", url: "/expenses", icon: BadgeDollarSign, iconClassName: "text-red-600" },
+  { title: "Gastos", url: "/expenses", icon: BadgeDollarSign, iconClassName: "text-blue-600" },
+  { title: "Reportes", url: "/reports", icon: BarChart3, iconClassName: "text-blue-600" },
 ];
 
 const communicationItems: SidebarItem[] = [
@@ -115,7 +104,7 @@ const communicationItems: SidebarItem[] = [
     titleKey: "nav.whatsappInbox",
     url: "/whatsapp-web",
     icon: MessageCircle,
-    iconClassName: "text-green-600",
+    iconClassName: "text-blue-600",
   },
   { titleKey: "nav.emailInbox", url: "/email", icon: Mail, iconClassName: "text-sky-600" },
 ];
@@ -134,57 +123,25 @@ const operationsItems: SidebarItem[] = [
 
 const utilitiesItems: SidebarItem[] = [
   {
+    titleKey: "nav.aiAssistant",
+    url: "/ai-assistant",
+    icon: Bot,
+    iconClassName: "text-blue-600",
+  },
+  { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-blue-600" },
+  {
     title: "Biblioteca multimedia",
     url: "/media-library",
     icon: Image,
-    iconClassName: "text-sky-600",
+    iconClassName: "text-blue-600",
   },
-  { title: "Exportar PDFs", url: "/pdf-export", icon: Download, iconClassName: "text-slate-700" },
-  {
-    title: "Exportar e-facturas",
-    icon: ReceiptText,
-    iconClassName: "text-orange-600",
-    placeholder: true,
-  },
-  { title: "Exportar CSV", url: "/csv-export", icon: FileText, iconClassName: "text-emerald-600" },
-  { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-slate-600" },
-  { title: "Anuncios", icon: Megaphone, iconClassName: "text-amber-600", placeholder: true },
-  { title: "Metas", icon: Target, iconClassName: "text-violet-600", placeholder: true },
+  { title: "Exportar PDFs", url: "/pdf-export", icon: Download, iconClassName: "text-blue-600" },
+  { title: "Exportar CSV", url: "/csv-export", icon: FileText, iconClassName: "text-blue-600" },
   {
     title: "Registro de actividad",
     url: "/activity-log",
     icon: Activity,
-    iconClassName: "text-blue-700",
-  },
-  {
-    title: "Respaldo de datos",
-    icon: Database,
-    iconClassName: "text-slate-700",
-    placeholder: true,
-  },
-];
-
-const reportsItems: SidebarItem[] = [
-  { title: "Ventas", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
-  { title: "Gastos", icon: BadgeDollarSign, iconClassName: "text-red-600", placeholder: true },
-  {
-    title: "Gastos vs ingresos",
-    icon: BarChart3,
-    iconClassName: "text-emerald-700",
-    placeholder: true,
-  },
-  { title: "Leads", icon: Users, iconClassName: "text-violet-600", placeholder: true },
-  {
-    title: "Resumen de tiempos",
-    icon: Activity,
-    iconClassName: "text-slate-700",
-    placeholder: true,
-  },
-  {
-    title: "Artículos de ayuda",
-    icon: FileText,
-    iconClassName: "text-amber-700",
-    placeholder: true,
+    iconClassName: "text-blue-600",
   },
 ];
 
@@ -193,63 +150,24 @@ const setupItems: SidebarItem[] = [
     title: "Equipo",
     url: "/team",
     icon: UserCog,
-    iconClassName: "text-fuchsia-600",
+    iconClassName: "text-blue-600",
     permission: "team.view",
   },
-  { title: "Clientes", icon: Building2, iconClassName: "text-emerald-600", placeholder: true },
-  { title: "Soporte", icon: LifeBuoy, iconClassName: "text-cyan-600", placeholder: true },
-  { title: "Leads", icon: Users, iconClassName: "text-violet-600", placeholder: true },
-  {
-    title: "Finanzas",
-    icon: BadgeDollarSign,
-    iconClassName: "text-emerald-700",
-    placeholder: true,
-  },
-  {
-    title: "Tipos de contrato",
-    icon: FileText,
-    iconClassName: "text-slate-700",
-    placeholder: true,
-  },
-  {
-    title: "Solicitudes de cotización",
-    icon: FileCheck2,
-    iconClassName: "text-sky-600",
-    placeholder: true,
-  },
-  { title: "Módulos", icon: Layers, iconClassName: "text-indigo-600", placeholder: true },
-  { title: "Plantillas de email", icon: Mail, iconClassName: "text-sky-600", placeholder: true },
-  {
-    title: "Campos personalizados",
-    icon: SlidersHorizontal,
-    iconClassName: "text-amber-600",
-    placeholder: true,
-  },
-  { title: "GDPR", icon: ShieldCheck, iconClassName: "text-blue-700", placeholder: true },
-  { title: "Roles y permisos", icon: UserCog, iconClassName: "text-purple-600", placeholder: true },
-  { title: "Menú", icon: Menu, iconClassName: "text-slate-700", placeholder: true },
-  { title: "Apariencia", icon: Palette, iconClassName: "text-pink-600", placeholder: true },
   {
     titleKey: "nav.settings",
     url: "/settings",
-    icon: Settings,
-    iconClassName: "text-slate-700",
+    icon: SlidersHorizontal,
+    iconClassName: "text-blue-600",
     permission: "settings.view",
   },
-  { title: "Ayuda", icon: HelpCircle, iconClassName: "text-slate-600", placeholder: true },
 ];
 
 const menuButtonClass =
-  "h-10 rounded-2xl px-3 text-slate-900 transition-all hover:bg-[#f1f5ff] hover:text-slate-950 data-[active=true]:bg-[#eaf1ff] data-[active=true]:font-semibold data-[active=true]:text-slate-950 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-2xl group-data-[mobile=true]:mx-0 group-data-[mobile=true]:!h-10 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-3";
+  "h-10 rounded-lg px-3 text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-950 data-[active=true]:bg-blue-50 data-[active=true]:font-semibold data-[active=true]:text-blue-700 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[mobile=true]:mx-0 group-data-[mobile=true]:!h-10 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-3";
 const linkClass =
   "flex w-full items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[mobile=true]:justify-start group-data-[mobile=true]:gap-3";
 const childButtonClass =
-  "h-8 rounded-xl px-3 text-slate-700 transition-colors hover:bg-[#f7f9ff] data-[active=true]:bg-[#eef4ff] data-[active=true]:font-semibold data-[active=true]:text-slate-950 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:mx-0 group-data-[mobile=true]:!h-9 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-3";
-
-function initials(value: string) {
-  const parts = value.split(/\s+/).filter(Boolean).slice(0, 2);
-  return (parts.map((part) => part[0]).join("") || "U").toUpperCase();
-}
+  "h-8 rounded-lg px-3 text-slate-600 transition-colors hover:bg-slate-50 data-[active=true]:bg-blue-50 data-[active=true]:font-semibold data-[active=true]:text-blue-700 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:mx-0 group-data-[mobile=true]:!h-9 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-3";
 
 function CollapsedFlyout({ label, items, itemLabel }: CollapsedFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement | null>(null);
@@ -289,7 +207,7 @@ function CollapsedFlyout({ label, items, itemLabel }: CollapsedFlyoutProps) {
   return (
     <div
       ref={flyoutRef}
-      className="pointer-events-none invisible fixed z-50 min-w-60 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-2xl shadow-slate-900/15 transition-[opacity,visibility] duration-150 group-hover/menu-item:pointer-events-auto group-hover/menu-item:visible group-hover/menu-item:opacity-100 group-focus-within/menu-item:pointer-events-auto group-focus-within/menu-item:visible group-focus-within/menu-item:opacity-100"
+      className="pointer-events-none invisible fixed z-50 min-w-60 rounded-lg border border-slate-200 bg-white p-2 opacity-0 transition-[opacity,visibility] duration-150 group-hover/menu-item:pointer-events-auto group-hover/menu-item:visible group-hover/menu-item:opacity-100 group-focus-within/menu-item:pointer-events-auto group-focus-within/menu-item:visible group-focus-within/menu-item:opacity-100"
       style={{ top: position.top, left: position.left, maxHeight: position.maxHeight }}
     >
       <div className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -303,23 +221,7 @@ function CollapsedFlyout({ label, items, itemLabel }: CollapsedFlyoutProps) {
           const childLabel = itemLabel(item);
           const Icon = item.icon;
           const rowClass =
-            "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-[#f1f5ff] hover:text-slate-950";
-          if (item.placeholder) {
-            return (
-              <button
-                key={item.titleKey || item.title}
-                type="button"
-                disabled
-                className={rowClass + " cursor-default opacity-60 hover:bg-transparent"}
-              >
-                <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
-                <span className="min-w-0 flex-1 truncate text-left">{childLabel}</span>
-                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">
-                  Pronto
-                </span>
-              </button>
-            );
-          }
+            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950";
           return (
             <Link
               key={item.titleKey || item.title}
@@ -342,18 +244,16 @@ export function AppSidebar() {
   const isCollapsedDesktop = collapsed && !isMobile;
   const showLabels = isMobile || !collapsed;
   const { t } = useT();
-  const { profile, user, signOut } = useAuth();
   const { can } = usePermissions();
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
 
-  const profileName = profile?.full_name || user?.email || "Mi perfil";
-  const profileEmail = user?.email || "Abrir perfil";
-  const profileInitials = initials(profileName || profileEmail);
-
+  const visibleSalesItems = isMobile
+    ? salesItems.filter((item) => item.url !== "/pipeline")
+    : salesItems;
   const visibleSetupItems = setupItems.filter(
     (item) => !item.permission || can(item.permission as any),
   );
-  const isSalesPath = salesItems.some(
+  const isSalesPath = visibleSalesItems.some(
     (item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")),
   );
   const isCommunicationPath = communicationItems.some(
@@ -365,9 +265,6 @@ export function AppSidebar() {
   const isUtilitiesPath = utilitiesItems.some(
     (item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")),
   );
-  const isReportsPath = reportsItems.some(
-    (item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")),
-  );
   const isSetupPath = visibleSetupItems.some(
     (item) => item.url && (currentPath === item.url || currentPath.startsWith(item.url + "/")),
   );
@@ -375,7 +272,6 @@ export function AppSidebar() {
   const [communicationOpen, setCommunicationOpen] = useState(isCommunicationPath || isMobile);
   const [operationsOpen, setOperationsOpen] = useState(isOperationsPath || isMobile);
   const [utilitiesOpen, setUtilitiesOpen] = useState(isUtilitiesPath || isMobile);
-  const [reportsOpen, setReportsOpen] = useState(isReportsPath || isMobile);
   const [setupOpen, setSetupOpen] = useState(isSetupPath || isMobile);
 
   const isActive = (path?: string) =>
@@ -386,29 +282,6 @@ export function AppSidebar() {
     const label = itemLabel(item);
     const Icon = item.icon;
     const buttonClass = child ? childButtonClass + (showLabels ? " pl-8" : "") : menuButtonClass;
-    if (item.placeholder) {
-      return (
-        <SidebarMenuItem
-          key={item.titleKey || item.title}
-          className="group-data-[collapsible=icon]:w-full"
-        >
-          <SidebarMenuButton
-            className={buttonClass + " cursor-default opacity-70 hover:bg-transparent"}
-            disabled
-          >
-            <span className={linkClass} aria-label={`${label} placeholder`}>
-              <Icon className={"h-4 w-4 shrink-0 " + (item.iconClassName || "")} />
-              {showLabels && <span className="truncate text-sm font-medium">{label}</span>}
-              {showLabels && (
-                <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">
-                  Pronto
-                </span>
-              )}
-            </span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    }
     return (
       <SidebarMenuItem
         key={item.titleKey || item.title}
@@ -536,11 +409,11 @@ export function AppSidebar() {
             <img
               src="/corevix-logo.svg"
               alt="Corevix"
-              className="h-7 w-auto max-w-[160px] object-contain"
+              className="h-4 w-auto max-w-[96px] object-contain"
             />
           )}
           {!showLabels && (
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#eef4ff] shadow-[inset_0_0_0_1px_rgba(29,98,249,0.14)]">
+            <span className="grid h-10 w-10 place-items-center rounded-lg border border-blue-100 bg-blue-50">
               <img src="/imagotipo_corevix.svg" alt="Corevix" className="h-5 w-5 object-contain" />
             </span>
           )}
@@ -550,11 +423,11 @@ export function AppSidebar() {
         {renderGroup(mainItems)}
         {renderCollapsibleGroup({
           label: "Ventas",
-          icon: Zap,
+          icon: Store,
           open: salesOpen,
           setOpen: setSalesOpen,
           active: isSalesPath,
-          items: salesItems,
+          items: visibleSalesItems,
         })}
         {isCollapsedDesktop
           ? renderCollapsibleGroup({
@@ -578,19 +451,11 @@ export function AppSidebar() {
           : renderGroup(operationsItems)}
         {renderCollapsibleGroup({
           label: "Herramientas",
-          icon: CircleDot,
+          icon: Wrench,
           open: utilitiesOpen,
           setOpen: setUtilitiesOpen,
           active: isUtilitiesPath,
           items: utilitiesItems,
-        })}
-        {renderCollapsibleGroup({
-          label: "Reportes",
-          icon: BarChart3,
-          open: reportsOpen,
-          setOpen: setReportsOpen,
-          active: isReportsPath,
-          items: reportsItems,
         })}
         {renderCollapsibleGroup({
           label: "Configuración",
@@ -601,57 +466,6 @@ export function AppSidebar() {
           items: visibleSetupItems,
         })}
       </SidebarContent>
-      <SidebarFooter className="border-t border-[#e6eaf0] p-2 group-data-[collapsible=icon]:px-2">
-        <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center group-data-[mobile=true]:items-stretch">
-          <SidebarMenuItem className="group-data-[collapsible=icon]:w-full">
-            <SidebarMenuButton
-              asChild
-              isActive={isActive("/profile")}
-              tooltip={isMobile ? undefined : "Mi perfil"}
-              className="h-12 rounded-2xl px-2 text-slate-900 transition-all hover:bg-[#f1f5ff] data-[active=true]:bg-[#eaf1ff] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:!h-12 group-data-[mobile=true]:!w-full group-data-[mobile=true]:!justify-start group-data-[mobile=true]:!px-2"
-            >
-              <Link
-                to="/profile"
-                className="flex w-full min-w-0 items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[mobile=true]:justify-start"
-                aria-label="Mi perfil"
-                title={collapsed && !isMobile ? "Mi perfil" : undefined}
-              >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-950 text-xs font-black text-white">
-                  {profileInitials}
-                </span>
-                {showLabels && (
-                  <span className="min-w-0 flex-1 text-left">
-                    <span className="block truncate text-sm font-semibold leading-4">
-                      {profileName}
-                    </span>
-                    <span className="block truncate text-xs text-slate-500">{profileEmail}</span>
-                  </span>
-                )}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          {renderMenuItem({
-            titleKey: "nav.aiAssistant",
-            url: "/ai-assistant",
-            icon: Bot,
-            iconClassName: "text-indigo-600",
-          })}
-          {showLabels && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                type="button"
-                className="h-9 rounded-xl px-3 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
-                onClick={() => void signOut()}
-              >
-                <span className="flex w-full items-center gap-3">
-                  <LogOut className="h-4 w-4 shrink-0" />
-                  <span className="truncate text-sm font-medium">Cerrar sesión</span>
-                </span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-        </SidebarMenu>
-      </SidebarFooter>
     </Sidebar>
   );
 }

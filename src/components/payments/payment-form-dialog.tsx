@@ -2,14 +2,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
 import { supabase } from "@/integrations/supabase/client";
@@ -219,13 +212,17 @@ export function PaymentFormDialog({
       let payment: PaymentRow | null = null;
 
       if (invoiceId) {
-        if (!selectedInvoice) throw new Error("No se encontró la factura dentro de la compañía actual.");
-        const normalizedInvoiceStatus = String(selectedInvoice.status || "").trim().toLowerCase();
+        if (!selectedInvoice)
+          throw new Error("No se encontró la factura dentro de la compañía actual.");
+        const normalizedInvoiceStatus = String(selectedInvoice.status || "")
+          .trim()
+          .toLowerCase();
         if (normalizedInvoiceStatus === "cancelled" || normalizedInvoiceStatus === "canceled") {
           throw new Error("Esta factura está cancelada.");
         }
         const balance = await loadInvoicePaymentBalance(selectedInvoice, profile.company_id);
-        if (amount > balance.outstandingBalance) throw new Error("El pago supera el saldo pendiente.");
+        if (amount > balance.outstandingBalance)
+          throw new Error("El pago supera el saldo pendiente.");
         if (String(form.status || "") === "Completed") {
           if (balance.outstandingBalance <= 0) throw new Error("Esta factura ya está pagada.");
         }
@@ -247,7 +244,8 @@ export function PaymentFormDialog({
         remainingBalance = Number(result.remaining_balance || 0) || 0;
         projectId = result.project_id ? String(result.project_id) : null;
         projectCreated = Boolean(result.project_created);
-        const rawProjectError = typeof result.project_error === "string" ? result.project_error.trim() : "";
+        const rawProjectError =
+          typeof result.project_error === "string" ? result.project_error.trim() : "";
         projectError = rawProjectError || null;
         if (projectError) {
           console.error("register_invoice_payment project creation error:", projectError);
@@ -266,18 +264,18 @@ export function PaymentFormDialog({
         const { data: createdPayment, error } = await db
           .from("payments")
           .insert({
-          company_id: profile.company_id,
-          invoice_id: null,
-          client_id: normalizeOptionalId(form.client_id),
-          amount,
-          payment_date: form.payment_date || todayIso(),
-          method: form.method || "Manual",
-          status: form.status || "Completed",
-          reference: form.reference.trim() || null,
-          notes: form.notes.trim() || null,
-        })
-        .select("*")
-        .single();
+            company_id: profile.company_id,
+            invoice_id: null,
+            client_id: normalizeOptionalId(form.client_id),
+            amount,
+            payment_date: form.payment_date || todayIso(),
+            method: form.method || "Manual",
+            status: form.status || "Completed",
+            reference: form.reference.trim() || null,
+            notes: form.notes.trim() || null,
+          })
+          .select("*")
+          .single();
         if (error) throw error;
         payment = createdPayment as PaymentRow;
       }
@@ -301,7 +299,9 @@ export function PaymentFormDialog({
         }
       }
 
-      toast.success(receiptUploaded ? "Pago y comprobante guardados." : "Pago creado correctamente.");
+      toast.success(
+        receiptUploaded ? "Pago y comprobante guardados." : "Pago creado correctamente.",
+      );
       await onCreated?.({
         payment,
         receiptUploaded,
@@ -320,143 +320,185 @@ export function PaymentFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Nuevo pago</DialogTitle>
-          <DialogDescription>
-            Registra el pago y adjunta el comprobante en el mismo paso.
-          </DialogDescription>
-        </DialogHeader>
+    <CrmCreationDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nuevo pago"
+      description="Registra el pago y adjunta el comprobante en el mismo paso."
+      size="md"
+    >
+      <form className="space-y-6" onSubmit={submit}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Referencia" className="sm:col-span-2">
+            <Input
+              value={form.reference}
+              onChange={(event) => patchForm({ reference: event.target.value })}
+              className={crmFormStyles.input}
+            />
+          </Field>
 
-        <form className="space-y-4" onSubmit={submit}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Referencia" className="sm:col-span-2">
-              <Input value={form.reference} onChange={(event) => patchForm({ reference: event.target.value })} />
-            </Field>
+          <Field label="Factura">
+            <Select value={form.invoice_id} onValueChange={(value) => void selectInvoice(value)}>
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Ninguna</SelectItem>
+                {invoices.map((invoice) => (
+                  <SelectItem key={invoice.id} value={invoice.id}>
+                    {invoice.number} · ${Number(invoice.total || 0).toLocaleString()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <Field label="Factura">
-              <Select value={form.invoice_id} onValueChange={(value) => void selectInvoice(value)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Ninguna</SelectItem>
-                  {invoices.map((invoice) => (
-                    <SelectItem key={invoice.id} value={invoice.id}>
-                      {invoice.number} · ${Number(invoice.total || 0).toLocaleString()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+          <Field label="Cliente">
+            <Select value={form.client_id} onValueChange={(client_id) => patchForm({ client_id })}>
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Ninguno</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.contact_person
+                      ? `${client.company_name} · ${client.contact_person}`
+                      : client.company_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <Field label="Cliente">
-              <Select value={form.client_id} onValueChange={(client_id) => patchForm({ client_id })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Ninguno</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.contact_person ? `${client.company_name} · ${client.contact_person}` : client.company_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+          <Field label="Monto">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.amount}
+              onChange={(event) => patchForm({ amount: event.target.value })}
+              className={crmFormStyles.input}
+            />
+          </Field>
 
-            <Field label="Monto">
-              <Input type="number" min="0" step="0.01" value={form.amount} onChange={(event) => patchForm({ amount: event.target.value })} />
-            </Field>
+          <Field label="Fecha de pago">
+            <Input
+              type="date"
+              value={form.payment_date}
+              onChange={(event) => patchForm({ payment_date: event.target.value })}
+              className={crmFormStyles.input}
+            />
+          </Field>
 
-            <Field label="Fecha de pago">
-              <Input type="date" value={form.payment_date} onChange={(event) => patchForm({ payment_date: event.target.value })} />
-            </Field>
+          <Field label="Método">
+            <Select value={form.method} onValueChange={(method) => patchForm({ method })}>
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {METHODS.map((method) => (
+                  <SelectItem key={method} value={method}>
+                    {displayLabel(method)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <Field label="Método">
-              <Select value={form.method} onValueChange={(method) => patchForm({ method })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {METHODS.map((method) => (
-                    <SelectItem key={method} value={method}>{displayLabel(method)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+          <Field label="Estado">
+            <Select value={form.status} onValueChange={(status) => patchForm({ status })}>
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {displayLabel(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <Field label="Estado">
-              <Select value={form.status} onValueChange={(status) => patchForm({ status })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>{displayLabel(status)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Field label="Comprobante" className="sm:col-span-2">
-              <input
-                ref={inputRef}
-                type="file"
-                accept={PAYMENT_RECEIPT_ACCEPT}
-                className="hidden"
-                onChange={(event) => handleReceiptFile(event.target.files?.[0] || null)}
-              />
-              <div className="rounded-lg border border-dashed bg-muted/10 p-3">
-                {receiptFile ? (
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2 font-medium">
-                        <FileText className="h-4 w-4 shrink-0 text-slate-500" />
-                        <span className="truncate">{receiptFile.name}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {formatPaymentReceiptFileSize(receiptFile.size)}
-                      </div>
+          <Field label="Comprobante" className="sm:col-span-2">
+            <input
+              ref={inputRef}
+              type="file"
+              accept={PAYMENT_RECEIPT_ACCEPT}
+              className="hidden"
+              onChange={(event) => handleReceiptFile(event.target.files?.[0] || null)}
+            />
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-3">
+              {receiptFile ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2 font-medium">
+                      <FileText className="h-4 w-4 shrink-0 text-slate-500" />
+                      <span className="truncate">{receiptFile.name}</span>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setReceiptFile(null);
-                        if (inputRef.current) inputRef.current.value = "";
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Quitar
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      PDF, JPG, PNG o WebP. Máximo 3 MB por archivo.
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {formatPaymentReceiptFileSize(receiptFile.size)}
                     </div>
-                    <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
-                      <Paperclip className="mr-2 h-4 w-4" />
-                      Adjuntar archivo
-                    </Button>
                   </div>
-                )}
-              </div>
-            </Field>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setReceiptFile(null);
+                      if (inputRef.current) inputRef.current.value = "";
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Quitar
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    PDF, JPG, PNG o WebP. Máximo 3 MB por archivo.
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
+                    <Paperclip className="mr-2 h-4 w-4" />
+                    Adjuntar archivo
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Field>
 
-            <Field label="Notas" className="sm:col-span-2">
-              <Textarea rows={4} value={form.notes} onChange={(event) => patchForm({ notes: event.target.value })} />
-            </Field>
-          </div>
+          <Field label="Notas" className="sm:col-span-2">
+            <Textarea
+              rows={4}
+              value={form.notes}
+              onChange={(event) => patchForm({ notes: event.target.value })}
+              className={crmFormStyles.textarea}
+            />
+          </Field>
+        </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              {saving ? "Guardando..." : "Crear"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <div className={crmFormStyles.footer}>
+          <Button
+            type="button"
+            variant="ghost"
+            className={crmFormStyles.cancelButton}
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" className={crmFormStyles.primaryButton} disabled={saving}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 h-4 w-4" />
+            )}
+            {saving ? "Guardando..." : "Crear"}
+          </Button>
+        </div>
+      </form>
+    </CrmCreationDialog>
   );
 }
 
@@ -471,7 +513,7 @@ function Field({
 }) {
   return (
     <div className={className ? `space-y-1.5 ${className}` : "space-y-1.5"}>
-      <Label>{label}</Label>
+      <Label className={crmFormStyles.label}>{label}</Label>
       {children}
     </div>
   );

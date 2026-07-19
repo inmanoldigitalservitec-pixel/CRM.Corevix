@@ -141,7 +141,6 @@ export function extractAgentReply(data: unknown) {
   return JSON.stringify(data, null, 2);
 }
 
-
 export type RefreshAgentOperatingContextOptions = {
   cycleDate?: string | null;
   expireMissing?: boolean;
@@ -336,7 +335,6 @@ export async function syncAgentDailyPlans(
   };
 }
 
-
 export type AgentPromptPayloadRow = {
   id?: string;
   company_id?: string | null;
@@ -356,7 +354,6 @@ export type FetchAgentPromptPayloadResult = {
   row: AgentPromptPayloadRow | null;
   payload: Record<string, unknown> | null;
 };
-
 
 export async function fetchAgentPromptPayload(
   options: FetchAgentPromptPayloadOptions = {},
@@ -408,7 +405,6 @@ export async function fetchAgentPromptPayload(
   };
 }
 
-
 export type AgentWidgetContractRow = {
   id?: string;
   company_id?: string | null;
@@ -440,7 +436,9 @@ export async function fetchAgentWidgetContract(
 ): Promise<FetchAgentWidgetContractResult> {
   let query = (supabase as any)
     .from("agent_widget_contracts")
-    .select("id, company_id, user_id, cycle_date, schema_version, status, contract_json, source_context_id, generated_by, error_message, created_at, updated_at")
+    .select(
+      "id, company_id, user_id, cycle_date, schema_version, status, contract_json, source_context_id, generated_by, error_message, created_at, updated_at",
+    )
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -555,4 +553,3 @@ export async function resolveAgentActionIntent(
 
   return (payload?.data || payload) as ResolveAgentActionIntentResponse;
 }
-

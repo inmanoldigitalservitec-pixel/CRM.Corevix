@@ -62,8 +62,6 @@ export type AgentWidgetSuggestedAction = {
 	payload?: Record<string, string | number | boolean | null>;
 };
 
-
-
 export type AgentWidgetRecoveryPlan = {
 	case_key: string;
 	case_type?: string;
@@ -81,8 +79,6 @@ export type AgentWidgetRecoveryPlan = {
 	requires_confirmation: boolean;
 	success_criteria: string;
 };
-
-
 
 export type AgentWidgetContractV1 = {
 	schema_version: typeof AGENT_WIDGET_CONTRACT_VERSION;
@@ -132,7 +128,6 @@ type WriteAgentWidgetContractResult = {
 	row: unknown;
 	mode: 'inserted' | 'updated';
 };
-
 
 function isReservedAgentPlaceholder(value: unknown): boolean {
 	if (typeof value !== 'string') return false;
@@ -194,13 +189,10 @@ function normalizePayload(value: unknown): Record<string, string | number | bool
 	return Object.fromEntries(entries) as Record<string, string | number | boolean | null>;
 }
 
-
 function normalizeStringArray(value: unknown): string[] {
 	if (!Array.isArray(value)) return [];
 
-	return value
-		.map((item) => String(item || '').trim())
-		.filter(Boolean);
+	return value.map((item) => String(item || '').trim()).filter(Boolean);
 }
 
 function normalizeRiskLevel(value: unknown): AgentWidgetRiskLevel | undefined {
@@ -318,37 +310,18 @@ function buildSourceRecords(plan: AgentDailyPlanForWidget): AgentWidgetSourceRec
 
 	const record: AgentWidgetSourceRecord = {
 		type,
-		id:
-			cleanText(item.sourceId, '') ||
-			cleanText(source.id, '') ||
-			cleanText(item.id, '') ||
-			null,
+		id: cleanText(item.sourceId, '') || cleanText(source.id, '') || cleanText(item.id, '') || null,
 		label:
 			cleanWidgetText(item.sourceLabel) ||
 			cleanWidgetText(source.label) ||
 			cleanWidgetText(item.title) ||
 			cleanWidgetText(plan.case_title) ||
 			null,
-		href:
-			cleanText(item.href, '') ||
-			cleanText(source.href, '') ||
-			null,
-		status:
-			cleanText(item.status, '') ||
-			cleanText(source.status, '') ||
-			null,
-		due_at:
-			cleanText(item.dueAt, '') ||
-			cleanText(item.due_at, '') ||
-			null,
-		amount:
-			typeof item.amount === 'string' || typeof item.amount === 'number'
-				? item.amount
-				: null,
-		module:
-			cleanText(item.module, '') ||
-			cleanText(modules[0], '') ||
-			null,
+		href: cleanText(item.href, '') || cleanText(source.href, '') || null,
+		status: cleanText(item.status, '') || cleanText(source.status, '') || null,
+		due_at: cleanText(item.dueAt, '') || cleanText(item.due_at, '') || null,
+		amount: typeof item.amount === 'string' || typeof item.amount === 'number' ? item.amount : null,
+		module: cleanText(item.module, '') || cleanText(modules[0], '') || null,
 	};
 
 	if (!record.id && !record.label && !record.href) return [];
@@ -359,11 +332,7 @@ function buildSourceRecords(plan: AgentDailyPlanForWidget): AgentWidgetSourceRec
 function buildSourceContextExcerpt(plan: AgentDailyPlanForWidget): string {
 	const detectedCase = asRecord(plan.detected_case);
 	const item = asRecord(detectedCase.item);
-	const people = [
-		cleanText(item.client, ''),
-		cleanText(item.lead, ''),
-		cleanText(item.project, ''),
-	].filter(Boolean);
+	const people = [cleanText(item.client, ''), cleanText(item.lead, ''), cleanText(item.project, '')].filter(Boolean);
 
 	const lines = [
 		`Caso: ${cleanWidgetText(plan.case_title) || cleanWidgetText(detectedCase.title) || 'Caso detectado'}`,
@@ -415,9 +384,7 @@ function normalizeSuggestedActions(plan: AgentDailyPlanForWidget): AgentWidgetSu
 
 		return {
 			action_id:
-				cleanText(action.action_id, '') ||
-				cleanText(action.id, '') ||
-				`${cleanText(plan.case_key, 'case')}::${type}::${index + 1}`,
+				cleanText(action.action_id, '') || cleanText(action.id, '') || `${cleanText(plan.case_key, 'case')}::${type}::${index + 1}`,
 			type,
 			label,
 			reason: cleanText(action.reason, '') || cleanText(asRecord(plan.detected_case).summary, '') || null,
@@ -485,9 +452,10 @@ function buildRecommendedSteps(plan: AgentDailyPlanForWidget): AgentWidgetRecomm
 		cleanText(detectedCase.summary, '') ||
 		'Preparar una acción segura antes de modificar datos del CRM.';
 
-	const modules = Array.isArray(plan.source_modules) && plan.source_modules.length > 0
-		? plan.source_modules.join(', ')
-		: cleanText(detectedCase.source_module, 'CRM');
+	const modules =
+		Array.isArray(plan.source_modules) && plan.source_modules.length > 0
+			? plan.source_modules.join(', ')
+			: cleanText(detectedCase.source_module, 'CRM');
 
 	return [
 		{
@@ -656,7 +624,6 @@ export async function writeAgentWidgetContractFromDailyPlans(
 	};
 }
 
-
 export async function writeAgentWidgetContractPayload(
 	supabase: SupabaseLike,
 	contract: AgentWidgetContractV1,
@@ -735,4 +702,3 @@ export async function writeAgentWidgetContractPayload(
 		mode: 'inserted',
 	};
 }
-

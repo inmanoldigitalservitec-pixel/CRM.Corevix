@@ -21,9 +21,12 @@ function getWhatsappGrid() {
 function getRightAside() {
   const asides = Array.from(document.querySelectorAll<HTMLElement>("aside"));
   return (
-    asides.find((aside) =>
-      aside.textContent?.includes("Envío rápido") ||
-      aside.querySelector('[title="Crear propuesta"], [title="Crear lead"], [title="Tarea"], [title="Preparar mensaje"]'),
+    asides.find(
+      (aside) =>
+        aside.textContent?.includes("Envío rápido") ||
+        aside.querySelector(
+          '[title="Crear propuesta"], [title="Crear lead"], [title="Tarea"], [title="Preparar mensaje"]',
+        ),
     ) || null
   );
 }
@@ -162,10 +165,16 @@ function getSectionTitle(section: HTMLElement) {
 }
 
 function findActivitySection(aside: HTMLElement) {
-  return Array.from(aside.querySelectorAll<HTMLElement>("section")).find((section) => {
-    const title = getSectionTitle(section);
-    return title === "actividad" || section.textContent?.includes("Último mensaje:") || section.textContent?.includes("Última interacción:");
-  }) || null;
+  return (
+    Array.from(aside.querySelectorAll<HTMLElement>("section")).find((section) => {
+      const title = getSectionTitle(section);
+      return (
+        title === "actividad" ||
+        section.textContent?.includes("Último mensaje:") ||
+        section.textContent?.includes("Última interacción:")
+      );
+    }) || null
+  );
 }
 
 function ensureTaskSlot(aside: HTMLElement) {
@@ -173,7 +182,7 @@ function ensureTaskSlot(aside: HTMLElement) {
   const internalSection = taskButton?.closest("section") as HTMLElement | null;
   if (!internalSection) return;
 
-  let slot = aside.querySelector<HTMLElement>('[data-whatsapp-task-slot]');
+  let slot = aside.querySelector<HTMLElement>("[data-whatsapp-task-slot]");
   if (!slot) {
     slot = document.createElement("div");
     slot.dataset.whatsappTaskSlot = "true";
@@ -221,22 +230,38 @@ function enhanceNextAction(aside: HTMLElement) {
 }
 
 function enhanceDocuments(aside: HTMLElement) {
-  aside.querySelectorAll<HTMLElement>('[title="Crear propuesta"]').forEach((button) => addButtonLabel(button, "Propuesta"));
-  aside.querySelectorAll<HTMLElement>('[title="Crear factura"]').forEach((button) => addButtonLabel(button, "Factura"));
-  aside.querySelectorAll<HTMLElement>('[title="Preparar mensaje"]').forEach((button) => addButtonLabel(button, "Preparar", true));
-  aside.querySelectorAll<HTMLElement>('[title="Abrir documento"]').forEach((button) => addButtonLabel(button, "Abrir"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Crear propuesta"]')
+    .forEach((button) => addButtonLabel(button, "Propuesta"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Crear factura"]')
+    .forEach((button) => addButtonLabel(button, "Factura"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Preparar mensaje"]')
+    .forEach((button) => addButtonLabel(button, "Preparar", true));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Abrir documento"]')
+    .forEach((button) => addButtonLabel(button, "Abrir"));
 
-  const firstDocButton = aside.querySelector<HTMLElement>('[title="Crear propuesta"], [title="Crear factura"], [title="Preparar mensaje"]');
+  const firstDocButton = aside.querySelector<HTMLElement>(
+    '[title="Crear propuesta"], [title="Crear factura"], [title="Preparar mensaje"]',
+  );
   const actions = firstDocButton?.parentElement;
   if (actions) actions.dataset.corevixWaDocActions = "true";
 
-  const emptyDocText = Array.from(aside.querySelectorAll<HTMLElement>("p")).find((p) => p.textContent?.includes("No hay docs listos"));
+  const emptyDocText = Array.from(aside.querySelectorAll<HTMLElement>("p")).find((p) =>
+    p.textContent?.includes("No hay docs listos"),
+  );
   if (emptyDocText) emptyDocText.textContent = "No hay documentos listos";
 }
 
 function enhanceInternalWork(aside: HTMLElement) {
-  aside.querySelectorAll<HTMLElement>('[title="Tarea"]').forEach((button) => addButtonLabel(button, "Tarea"));
-  aside.querySelectorAll<HTMLElement>('[title="Nota"]').forEach((button) => addButtonLabel(button, "Nota"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Tarea"]')
+    .forEach((button) => addButtonLabel(button, "Tarea"));
+  aside
+    .querySelectorAll<HTMLElement>('[title="Nota"]')
+    .forEach((button) => addButtonLabel(button, "Nota"));
 
   const taskButton = aside.querySelector<HTMLElement>('[title="Tarea"]');
   const section = taskButton?.closest("section") as HTMLElement | null;
@@ -244,7 +269,8 @@ function enhanceInternalWork(aside: HTMLElement) {
     const title = document.createElement("div");
     title.dataset.corevixWaTitleCard = "true";
     title.className = "rounded-2xl border border-[#dce8e2] bg-white px-3 py-2 shadow-sm";
-    title.innerHTML = '<p class="text-sm font-black text-[#12231d]">Trabajo interno</p><p class="mt-0.5 text-[11px] leading-4 text-[#6c7f77]">Crea tareas o notas sin salir del chat.</p>';
+    title.innerHTML =
+      '<p class="text-sm font-black text-[#12231d]">Trabajo interno</p><p class="mt-0.5 text-[11px] leading-4 text-[#6c7f77]">Crea tareas o notas sin salir del chat.</p>';
     section.insertAdjacentElement("beforebegin", title);
   }
 

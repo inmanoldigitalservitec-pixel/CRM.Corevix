@@ -39,8 +39,14 @@ export function ProjectSalesSummaryView({ summary }: { summary: ProjectSalesSumm
           <Progress value={collectionPct} className="h-2" />
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <SummaryLine label="Pendiente" value={formatMoney(summary.pendingCollectionTotal, currency)} />
-          <SummaryLine label="Gastos" value={formatMoney(summary.confirmedExpensesTotal, currency)} />
+          <SummaryLine
+            label="Pendiente"
+            value={formatMoney(summary.pendingCollectionTotal, currency)}
+          />
+          <SummaryLine
+            label="Gastos"
+            value={formatMoney(summary.confirmedExpensesTotal, currency)}
+          />
           <SummaryLine
             label="Balance registrado"
             value={formatMoney(summary.registeredBalance, currency)}
@@ -61,7 +67,10 @@ export function ProjectSalesSummaryView({ summary }: { summary: ProjectSalesSumm
           <h4 className="text-sm font-extrabold text-slate-950">Acuerdos</h4>
         </div>
         <div className="space-y-3">
-          <SummaryLine label="Valor contratado" value={formatMoney(summary.contractedTotal, currency)} />
+          <SummaryLine
+            label="Valor contratado"
+            value={formatMoney(summary.contractedTotal, currency)}
+          />
           <SummaryLine label="Propuesto" value={formatMoney(summary.proposedTotal, currency)} />
           <SummaryLine label="Propuestas relacionadas" value={String(summary.proposalCount)} />
           <SummaryLine label="Contratos activos" value={String(summary.activeContractCount)} />
@@ -71,7 +80,9 @@ export function ProjectSalesSummaryView({ summary }: { summary: ProjectSalesSumm
           />
           <SummaryLine
             label="Firma"
-            value={summary.latestSignatureStatus ? displayStatus(summary.latestSignatureStatus) : "—"}
+            value={
+              summary.latestSignatureStatus ? displayStatus(summary.latestSignatureStatus) : "—"
+            }
           />
         </div>
       </section>
@@ -82,11 +93,20 @@ export function ProjectSalesSummaryView({ summary }: { summary: ProjectSalesSumm
           <h4 className="text-sm font-extrabold text-slate-950">Costos y tiempo</h4>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryLine label="Gastos confirmados" value={formatMoney(summary.confirmedExpensesTotal, currency)} />
-          <SummaryLine label="Gastos pendientes" value={formatMoney(summary.pendingExpensesTotal, currency)} />
+          <SummaryLine
+            label="Gastos confirmados"
+            value={formatMoney(summary.confirmedExpensesTotal, currency)}
+          />
+          <SummaryLine
+            label="Gastos pendientes"
+            value={formatMoney(summary.pendingExpensesTotal, currency)}
+          />
           <SummaryLine label="Horas totales" value={formatHours(summary.totalMinutes)} />
           <SummaryLine label="Horas facturables" value={formatHours(summary.billableMinutes)} />
-          <SummaryLine label="Horas no facturables" value={formatHours(summary.nonBillableMinutes)} />
+          <SummaryLine
+            label="Horas no facturables"
+            value={formatHours(summary.nonBillableMinutes)}
+          />
           <SummaryLine label="Registros de tiempo" value={String(summary.timeEntryCount)} />
           <SummaryLine
             label="Facturas vencidas"

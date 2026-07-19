@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  FileText,
+  FolderOpen,
+  Hash,
+  Loader2,
+  Package,
+  Plus,
+  Trash2,
+  WalletCards,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -11,14 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -40,6 +43,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/crm/page-header";
 import { LoadingTable } from "@/components/crm/loading-state";
+import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
+import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -362,11 +367,48 @@ export function SalesBasicPage({
     }
   };
 
+  const mobileKpiLabel =
+    config.module === "payments"
+      ? "Cobrado"
+      : config.module === "credit_notes"
+        ? "Crédito"
+        : config.module === "expenses"
+          ? "Gastos"
+          : config.module === "subscriptions"
+            ? "Recurrente"
+            : config.module === "estimates"
+              ? "Cotizado"
+              : "Monto total";
+  const mobileKpiTone =
+    config.module === "expenses" || config.module === "credit_notes" ? "orange" : "green";
+
+  const openRecordDetail = (row: GenericRow) => {
+    if (!row.id || typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("corevix:open-global-detail", {
+        detail: {
+          group: config.table,
+          id: String(row.id),
+          href: `/${config.table.replace(/_/g, "-")}`,
+        },
+      }),
+    );
+  };
+
   if (loading) return <LoadingTable />;
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      <PageHeader
+    <div className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
+      <div className="hidden sm:block">
+        <PageHeader title={config.routeTitle} subtitle={config.subtitle} />
+      </div>
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+          {error}
+        </div>
+      ) : null}
+
+      <GlobalKpiStrip
         title={config.routeTitle}
         subtitle={config.subtitle}
         actionLabel={
@@ -375,63 +417,112 @@ export function SalesBasicPage({
             : undefined
         }
         onAction={can(`${config.module}.create` as any) ? openCreate : undefined}
-      />
-      {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
-          {error}
+        items={[
+          {
+            key: "summary",
+            label: mobileKpiLabel,
+            value: formatMoney(kpis.totalAmount),
+            helper: `${filtered.length} visibles de ${kpis.total} registros`,
+            icon: WalletCards,
+            tone: mobileKpiTone,
+            meta: [
+              { label: "Registros", value: kpis.total, tone: "blue" },
+              { label: "Activos", value: kpis.active, tone: "green" },
+              { label: "Pendientes", value: kpis.pending, tone: "orange" },
+            ],
+          },
+        ]}
+      >
+        <div className="mt-2 w-full">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              {config.statuses.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {displayLabel(status)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      ) : null}
+      </GlobalKpiStrip>
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Kpi label="Registros" value={String(kpis.total)} />
-        <Kpi label="Monto total" value={formatMoney(kpis.totalAmount)} />
-        <Kpi label="Activos/cerrados" value={String(kpis.active)} />
-        <Kpi label="Pendientes" value={String(kpis.pending)} />
+      <div className="hidden gap-3 sm:grid sm:grid-cols-4">
+        <Kpi label="Registros" value={String(kpis.total)} tone="neutral" />
+        <Kpi
+          label="Monto total"
+          value={formatMoney(kpis.totalAmount)}
+          tone={
+            config.module === "expenses" || config.module === "credit_notes"
+              ? riskTone(kpis.totalAmount, 1000, 5000)
+              : "success"
+          }
+        />
+        <Kpi label="Activos/cerrados" value={String(kpis.active)} tone="success" />
+        <Kpi label="Pendientes" value={String(kpis.pending)} tone={riskTone(kpis.pending, 1, 6)} />
       </div>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => void fetch()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Actualizar
-            </Button>
-            {can(`${config.module}.create` as any) && (
-              <Button onClick={openCreate}>
-                <Plus className="mr-2 h-4 w-4" />
-                {config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`}
-              </Button>
-            )}
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                className="pl-9"
-                placeholder={`Buscar en ${config.routeTitle.toLowerCase()}...`}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
+      <section className="border-y border-slate-100 bg-white max-sm:border-0 max-sm:bg-transparent">
+        <div className="border-b border-slate-100 px-4 py-3 max-md:hidden sm:px-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex gap-2">
+              {can(`${config.module}.create` as any) && (
+                <Button
+                  className="hidden h-9 rounded-md bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700 sm:inline-flex"
+                  onClick={openCreate}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`}
+                </Button>
+              )}
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                {config.statuses.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {displayLabel(status)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="hidden gap-2 sm:grid sm:grid-cols-[180px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {config.statuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {displayLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
-        <div className="overflow-hidden rounded-xl border">
+        <div className="grid gap-2.5 md:hidden">
+          {filtered.length ? (
+            filtered.map((row) => (
+              <SalesMobileCard
+                key={row.id}
+                row={row}
+                config={config}
+                clientById={clientById}
+                projectById={projectById}
+                invoiceById={invoiceById}
+                productById={productById}
+                canDelete={canDelete}
+                onOpen={() => openRecordDetail(row)}
+                onDelete={() => setDeleteRow(row)}
+              />
+            ))
+          ) : (
+            <div className="rounded-[18px] border border-dashed border-slate-200 bg-white p-6 text-center text-sm font-medium text-slate-500">
+              No se encontraron registros.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden md:block">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-white">
                 <TableRow>
                   <TableHead>#</TableHead>
                   <TableHead>Nombre</TableHead>
@@ -446,12 +537,16 @@ export function SalesBasicPage({
               <TableBody>
                 {filtered.length ? (
                   filtered.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-semibold text-slate-500">
+                    <TableRow
+                      key={row.id}
+                      className="cursor-pointer"
+                      onClick={() => openRecordDetail(row)}
+                    >
+                      <TableCell className="font-normal text-slate-500">
                         {row[config.numberKey || ""] || "—"}
                       </TableCell>
                       <TableCell>
-                        <div className="font-semibold text-slate-900">
+                        <div className="font-normal text-slate-900">
                           {row[config.titleKey] || "—"}
                         </div>
                         <div className="line-clamp-1 text-xs text-slate-500">
@@ -471,7 +566,7 @@ export function SalesBasicPage({
                               : "—"}
                       </TableCell>
                       <TableCell>{formatDate(row[config.dateKey])}</TableCell>
-                      <TableCell className="font-semibold">
+                      <TableCell className="font-normal">
                         {formatMoney(row[config.amountKey])}
                       </TableCell>
                       <TableCell>
@@ -483,7 +578,11 @@ export function SalesBasicPage({
                             type="button"
                             variant="outline"
                             size="icon"
-                            onClick={() => setDeleteRow(row)}
+                            className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent shadow-none hover:bg-transparent"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setDeleteRow(row);
+                            }}
                             aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -494,7 +593,10 @@ export function SalesBasicPage({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={canDelete ? 8 : 7} className="py-10 text-center text-sm text-slate-500">
+                    <TableCell
+                      colSpan={canDelete ? 8 : 7}
+                      className="py-10 text-center text-sm text-slate-500"
+                    >
                       No se encontraron registros.
                     </TableCell>
                   </TableRow>
@@ -503,42 +605,45 @@ export function SalesBasicPage({
             </Table>
           </div>
         </div>
-      </div>
+      </section>
 
       {onCreateAction ? (
         createDialog
       ) : (
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`}</DialogTitle>
-              <DialogDescription>
-                Completa los datos del registro. Los campos preseleccionados se pueden editar antes de guardar.
-              </DialogDescription>
-            </DialogHeader>
-            <form className="space-y-4" onSubmit={submit}>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {config.fields.map((field) => (
-                  <Field
-                    key={field.key}
-                    field={field}
-                    value={form[field.key] || ""}
-                    options={fieldOptions(field)}
-                    onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))}
-                  />
-                ))}
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Guardando..." : "Crear"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <CrmCreationDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          title={config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`}
+          description="Completa los datos del registro. Los campos preseleccionados se pueden editar antes de guardar."
+          size="md"
+        >
+          <form className="space-y-6" onSubmit={submit}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {config.fields.map((field) => (
+                <Field
+                  key={field.key}
+                  field={field}
+                  value={form[field.key] || ""}
+                  options={fieldOptions(field)}
+                  onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))}
+                />
+              ))}
+            </div>
+            <div className={crmFormStyles.footer}>
+              <Button
+                type="button"
+                variant="ghost"
+                className={crmFormStyles.cancelButton}
+                onClick={() => setDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" className={crmFormStyles.primaryButton} disabled={saving}>
+                {saving ? "Guardando..." : "Crear"}
+              </Button>
+            </div>
+          </form>
+        </CrmCreationDialog>
       )}
       {canDelete ? (
         <AlertDialog open={Boolean(deleteRow)} onOpenChange={(open) => !open && setDeleteRow(null)}>
@@ -546,15 +651,19 @@ export function SalesBasicPage({
             <AlertDialogHeader>
               <AlertDialogTitle>Eliminar {config.primaryLabel.toLowerCase()}</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción eliminará el registro y sus archivos asociados cuando existan. No se puede deshacer.
+                Esta acción eliminará el registro y sus archivos asociados cuando existan. No se
+                puede deshacer.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={(event) => {
-                event.preventDefault();
-                void confirmDelete();
-              }} disabled={deleting}>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  void confirmDelete();
+                }}
+                disabled={deleting}
+              >
                 {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {deleting ? "Eliminando..." : "Eliminar"}
               </AlertDialogAction>
@@ -566,12 +675,155 @@ export function SalesBasicPage({
   );
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+type KpiTone = "neutral" | "success" | "warning" | "danger";
+
+function riskTone(value: number, warningAt: number, dangerAt: number): KpiTone {
+  if (value >= dangerAt) return "danger";
+  if (value >= warningAt) return "warning";
+  return "success";
+}
+
+function Kpi({ label, value, tone = "neutral" }: { label: string; value: string; tone?: KpiTone }) {
+  const valueClass =
+    tone === "success"
+      ? "text-emerald-600"
+      : tone === "warning"
+        ? "text-orange-500"
+        : tone === "danger"
+          ? "text-rose-600"
+          : "text-slate-950";
+
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="text-xs font-bold uppercase text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-extrabold text-slate-950">{value}</div>
+    <div className="border-b border-slate-100 bg-white pb-4">
+      <div className="text-xs font-normal uppercase text-slate-500">{label}</div>
+      <div className={`mt-1 text-2xl font-normal ${valueClass}`}>{value}</div>
     </div>
+  );
+}
+
+function SalesMobileCard({
+  row,
+  config,
+  clientById,
+  projectById,
+  invoiceById,
+  productById,
+  canDelete,
+  onOpen,
+  onDelete,
+}: {
+  row: GenericRow;
+  config: SalesConfig;
+  clientById: Map<string, ClientRow>;
+  projectById: Map<string, ProjectRow>;
+  invoiceById: Map<string, InvoiceRow>;
+  productById: Map<string, ProductRow>;
+  canDelete: boolean;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const title = row[config.titleKey] || "Sin nombre";
+  const numberValue = config.numberKey ? row[config.numberKey] : null;
+  const clientLabel = row.client_id
+    ? clientById.get(row.client_id)?.company_name || "Sin cliente"
+    : "Sin cliente";
+  const related =
+    row.project_id && projectById.get(row.project_id)
+      ? { icon: FolderOpen, label: projectById.get(row.project_id)?.name || "Proyecto" }
+      : row.invoice_id && invoiceById.get(row.invoice_id)
+        ? { icon: FileText, label: invoiceById.get(row.invoice_id)?.number || "Factura" }
+        : row.product_id && productById.get(row.product_id)
+          ? { icon: Package, label: productById.get(row.product_id)?.name || "Producto" }
+          : null;
+  const detail = row.notes || row.reason || row.vendor || row.category || "Sin notas";
+
+  return (
+    <article
+      className="cursor-pointer rounded-[18px] border border-slate-200 bg-white p-3.5 text-left transition-colors active:scale-[0.992]"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-2.5">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-blue-100 bg-blue-50 text-blue-700">
+          <FileText className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 pt-0.5">
+          <div className="truncate text-[15px] font-bold leading-5 tracking-[-0.01em] text-slate-950">
+            {title}
+          </div>
+          <div className="mt-0.5 line-clamp-1 text-[12.5px] font-medium leading-4 text-slate-500">
+            {detail}
+          </div>
+        </div>
+
+        <StatusBadge
+          status={row[config.statusKey] || "—"}
+          className="min-h-6 max-w-[92px] shrink-0 truncate rounded-full px-2.5 text-[11px] font-bold"
+        />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 pl-[50px] max-[360px]:grid-cols-1 max-[360px]:pl-0">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+            Monto
+          </div>
+          <div className="mt-1 truncate text-[13px] font-extrabold text-slate-900">
+            {formatMoney(row[config.amountKey])}
+          </div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+            Fecha
+          </div>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-slate-600">
+            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="truncate">{formatDate(row[config.dateKey])}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        <div className="grid grid-cols-[18px_minmax(0,1fr)] items-center gap-2 text-[12.5px] font-semibold text-slate-600">
+          <Building2 className="h-3.5 w-3.5 text-slate-400" />
+          <span className="truncate">{clientLabel}</span>
+        </div>
+        {related ? (
+          <div className="grid grid-cols-[18px_minmax(0,1fr)] items-center gap-2 text-[12.5px] font-semibold text-slate-600">
+            <related.icon className="h-3.5 w-3.5 text-slate-400" />
+            <span className="truncate">{related.label}</span>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-[12px] font-semibold text-slate-400">
+            <Hash className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{numberValue || "Sin número"}</span>
+          </div>
+          {canDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
+              aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -591,21 +843,22 @@ function Field({
   if (field.type === "textarea")
     return (
       <div className={cls}>
-        <Label>{field.label}</Label>
+        <Label className={crmFormStyles.label}>{field.label}</Label>
         <Textarea
           rows={4}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
+          className={crmFormStyles.textarea}
         />
       </div>
     );
   if (field.type === "select")
     return (
       <div className={cls}>
-        <Label>{field.label}</Label>
+        <Label className={crmFormStyles.label}>{field.label}</Label>
         <Select value={value || NONE} onValueChange={onChange}>
-          <SelectTrigger>
+          <SelectTrigger className={crmFormStyles.select}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -621,13 +874,14 @@ function Field({
     );
   return (
     <div className={cls}>
-      <Label>{field.label}</Label>
+      <Label className={crmFormStyles.label}>{field.label}</Label>
       <Input
         type={field.type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder}
         required={field.required}
+        className={crmFormStyles.input}
       />
     </div>
   );

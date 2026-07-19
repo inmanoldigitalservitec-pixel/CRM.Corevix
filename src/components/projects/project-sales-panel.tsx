@@ -35,7 +35,13 @@ import {
 } from "@/lib/projects/project-relations";
 import { cn } from "@/lib/utils";
 
-type SalesErrorKey = "contracts" | "expenses" | "timeEntries" | "proposals" | "invoices" | "payments";
+type SalesErrorKey =
+  | "contracts"
+  | "expenses"
+  | "timeEntries"
+  | "proposals"
+  | "invoices"
+  | "payments";
 type SalesErrors = Partial<Record<SalesErrorKey, string>>;
 
 const emptySalesData: ProjectSalesData = {
@@ -133,19 +139,29 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
 
     if (proposalIdsFromContracts.length) {
       proposalRequests.push(
-        db.from("proposals").select(proposalSelect).eq("company_id", companyId).in("id", proposalIdsFromContracts),
+        db
+          .from("proposals")
+          .select(proposalSelect)
+          .eq("company_id", companyId)
+          .in("id", proposalIdsFromContracts),
       );
     }
 
     if (project.deal_id) {
       proposalRequests.push(
-        db.from("proposals").select(proposalSelect).eq("company_id", companyId).eq("deal_id", project.deal_id),
+        db
+          .from("proposals")
+          .select(proposalSelect)
+          .eq("company_id", companyId)
+          .eq("deal_id", project.deal_id),
       );
     }
 
     const proposalResponses = await Promise.all(proposalRequests);
     const proposals = dedupeById(
-      proposalResponses.flatMap((response) => readRows<ProjectProposalRow>(response, "proposals", nextErrors)),
+      proposalResponses.flatMap((response) =>
+        readRows<ProjectProposalRow>(response, "proposals", nextErrors),
+      ),
     );
 
     const invoiceIdsFromContracts = getInvoiceIdsFromContracts(contracts);
@@ -154,7 +170,11 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
 
     if (invoiceIdsFromContracts.length) {
       invoiceRequests.push(
-        db.from("invoices").select(invoiceSelect).eq("company_id", companyId).in("id", invoiceIdsFromContracts),
+        db
+          .from("invoices")
+          .select(invoiceSelect)
+          .eq("company_id", companyId)
+          .in("id", invoiceIdsFromContracts),
       );
     }
 
@@ -170,7 +190,9 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
 
     const invoiceResponses = await Promise.all(invoiceRequests);
     const invoices = dedupeById(
-      invoiceResponses.flatMap((response) => readRows<ProjectInvoiceRow>(response, "invoices", nextErrors)),
+      invoiceResponses.flatMap((response) =>
+        readRows<ProjectInvoiceRow>(response, "invoices", nextErrors),
+      ),
     );
 
     const relatedInvoiceIds = getRelatedPaymentInvoiceIds(invoices);
@@ -229,7 +251,10 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
     [project.client_id, project.deal_id, project.lead_id, project.product_id],
   );
   const hasAnyData =
-    documents.length > 0 || data.timeEntries.length > 0 || data.expenses.length > 0 || data.contracts.length > 0;
+    documents.length > 0 ||
+    data.timeEntries.length > 0 ||
+    data.expenses.length > 0 ||
+    data.contracts.length > 0;
 
   const openDocument = (document: { link: string }) => {
     if (document.link === "/proposals") {
@@ -267,7 +292,11 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" size="sm" className="h-9 rounded-full px-3 text-xs font-semibold">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-full px-3 text-xs font-semibold"
+              >
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 Abrir módulo financiero
               </Button>
@@ -276,7 +305,9 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
               <DropdownMenuItem onSelect={() => void navigate({ to: "/invoices" })}>
                 Facturas
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void navigate({ to: "/proposals", search: proposalSearch })}>
+              <DropdownMenuItem
+                onSelect={() => void navigate({ to: "/proposals", search: proposalSearch })}
+              >
                 Propuestas
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void navigate({ to: "/payments" })}>

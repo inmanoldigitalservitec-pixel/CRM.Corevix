@@ -1,40 +1,22 @@
-import { Skeleton } from "@/components/ui/skeleton";
-
-export function LoadingTable({ rows = 5, cols = 5 }: { rows?: number; cols?: number }) {
+export function ModuleLoadingState() {
   return (
-    <div className="space-y-3 p-4">
-      <div className="flex gap-4">
-        {Array.from({ length: cols }).map((_, i) => (
-          <Skeleton key={i} className="h-4 flex-1" />
-        ))}
+    <div className="flex min-h-[calc(100dvh-5rem)] w-full items-center justify-center bg-white px-6 py-12">
+      <div className="flex flex-col items-center text-center">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+        <p className="mt-4 text-sm font-semibold text-slate-500">Cargando modulo...</p>
       </div>
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-4">
-          {Array.from({ length: cols }).map((_, j) => (
-            <Skeleton key={j} className="h-8 flex-1" />
-          ))}
-        </div>
-      ))}
     </div>
   );
 }
 
-export function LoadingCards({ count = 3 }: { count?: number }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-32 rounded-xl" />
-      ))}
-    </div>
-  );
+export function LoadingTable(_props: { rows?: number; cols?: number } = {}) {
+  return <ModuleLoadingState />;
 }
 
-export function LoadingMetrics({ count = 6 }: { count?: number }) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-20 rounded-xl" />
-      ))}
-    </div>
-  );
+export function LoadingCards(_props: { count?: number } = {}) {
+  return <ModuleLoadingState />;
+}
+
+export function LoadingMetrics(_props: { count?: number } = {}) {
+  return <ModuleLoadingState />;
 }

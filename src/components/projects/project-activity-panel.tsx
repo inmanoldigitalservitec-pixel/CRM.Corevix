@@ -124,142 +124,159 @@ export function ProjectActivityPanel({
   const [refreshing, setRefreshing] = useState(false);
   const latestRequestRef = useRef(0);
   const taskIdsKey = useMemo(
-    () => Array.from(new Set(tasks.map((task) => task.id).filter(Boolean))).sort().join(","),
+    () =>
+      Array.from(new Set(tasks.map((task) => task.id).filter(Boolean)))
+        .sort()
+        .join(","),
     [tasks],
   );
 
-  const loadActivity = useCallback(async (showLoadingState = false) => {
-    const requestId = latestRequestRef.current + 1;
-    latestRequestRef.current = requestId;
+  const loadActivity = useCallback(
+    async (showLoadingState = false) => {
+      const requestId = latestRequestRef.current + 1;
+      latestRequestRef.current = requestId;
 
-    if (!profile?.company_id) {
-      if (latestRequestRef.current === requestId) {
-        setLogs([]);
-        setNotes([]);
-        setProfilesById(new Map());
-        setLoading(false);
-        setRefreshing(false);
+      if (!profile?.company_id) {
+        if (latestRequestRef.current === requestId) {
+          setLogs([]);
+          setNotes([]);
+          setProfilesById(new Map());
+          setLoading(false);
+          setRefreshing(false);
+        }
+        return;
       }
-      return;
-    }
 
-    if (showLoadingState) {
-      setLoading(true);
-    }
-    setRefreshing(true);
+      if (showLoadingState) {
+        setLoading(true);
+      }
+      setRefreshing(true);
 
-    const activityQuery = "id,action,entity_type,entity_id,detail,metadata,created_at,user_id,company_id";
-    const taskIdSet = new Set(taskIdsKey ? taskIdsKey.split(",") : []);
-    const queries: Promise<{ data: ActivityLogRow[] | null; error: { message?: string } | null }>[] = [
-      (supabase as any)
-        .from("activity_logs")
-        .select(activityQuery)
-        .eq("company_id", profile.company_id)
-        .eq("entity_type", "projects")
-        .eq("entity_id", projectId)
-        .order("created_at", { ascending: false })
-        .limit(80),
-      (supabase as any)
-        .from("activity_logs")
-        .select(activityQuery)
-        .eq("company_id", profile.company_id)
-        .contains("metadata", { project_id: projectId })
-        .order("created_at", { ascending: false })
-        .limit(80),
-      (supabase as any)
-        .from("activity_logs")
-        .select(activityQuery)
-        .eq("company_id", profile.company_id)
-        .contains("metadata", { related_project_id: projectId })
-        .order("created_at", { ascending: false })
-        .limit(80),
-    ];
-
-    if (taskIdSet.size > 0) {
-      queries.push(
+      const activityQuery =
+        "id,action,entity_type,entity_id,detail,metadata,created_at,user_id,company_id";
+      const taskIdSet = new Set(taskIdsKey ? taskIdsKey.split(",") : []);
+      const queries: Promise<{
+        data: ActivityLogRow[] | null;
+        error: { message?: string } | null;
+      }>[] = [
         (supabase as any)
           .from("activity_logs")
           .select(activityQuery)
           .eq("company_id", profile.company_id)
-          .eq("entity_type", "tasks")
-          .in("entity_id", Array.from(taskIdSet))
+          .eq("entity_type", "projects")
+          .eq("entity_id", projectId)
           .order("created_at", { ascending: false })
-          .limit(120),
-      );
-    }
+          .limit(80),
+        (supabase as any)
+          .from("activity_logs")
+          .select(activityQuery)
+          .eq("company_id", profile.company_id)
+          .contains("metadata", { project_id: projectId })
+          .order("created_at", { ascending: false })
+          .limit(80),
+        (supabase as any)
+          .from("activity_logs")
+          .select(activityQuery)
+          .eq("company_id", profile.company_id)
+          .contains("metadata", { related_project_id: projectId })
+          .order("created_at", { ascending: false })
+          .limit(80),
+      ];
 
-    const [results, notesResult] = await Promise.all([
-      Promise.all(queries),
-      (supabase as any)
-        .from("project_notes")
-        .select(
-          "id,content,created_at,updated_at,author_profile_id,author:profiles!project_notes_author_profile_id_fkey(id,full_name,email)",
-        )
-        .eq("company_id", profile.company_id)
-        .eq("project_id", projectId)
-        .is("archived_at", null)
-        .order("updated_at", { ascending: false })
-        .limit(20),
-    ]);
-    const firstError = results.find((result) => result.error)?.error;
-
-    if (firstError) {
-      if (latestRequestRef.current === requestId) {
-        setLoading(false);
-        setRefreshing(false);
-        toast.error(firstError.message || "No se pudo cargar la actividad del proyecto.");
+      if (taskIdSet.size > 0) {
+        queries.push(
+          (supabase as any)
+            .from("activity_logs")
+            .select(activityQuery)
+            .eq("company_id", profile.company_id)
+            .eq("entity_type", "tasks")
+            .in("entity_id", Array.from(taskIdSet))
+            .order("created_at", { ascending: false })
+            .limit(120),
+        );
       }
-      return;
-    }
 
-    if (notesResult.error) {
-      if (latestRequestRef.current === requestId) {
-        setLoading(false);
-        setRefreshing(false);
-        toast.error(notesResult.error.message || "No se pudo cargar la actividad del proyecto.");
+      const [results, notesResult] = await Promise.all([
+        Promise.all(queries),
+        (supabase as any)
+          .from("project_notes")
+          .select(
+            "id,content,created_at,updated_at,author_profile_id,author:profiles!project_notes_author_profile_id_fkey(id,full_name,email)",
+          )
+          .eq("company_id", profile.company_id)
+          .eq("project_id", projectId)
+          .is("archived_at", null)
+          .order("updated_at", { ascending: false })
+          .limit(20),
+      ]);
+      const firstError = results.find((result) => result.error)?.error;
+
+      if (firstError) {
+        if (latestRequestRef.current === requestId) {
+          setLoading(false);
+          setRefreshing(false);
+          toast.error(firstError.message || "No se pudo cargar la actividad del proyecto.");
+        }
+        return;
       }
-      return;
-    }
 
-    if (latestRequestRef.current !== requestId) {
-      return;
-    }
-
-    const merged = results.flatMap((result) => result.data || []);
-    setNotes((notesResult.data || []) as ProjectNoteSnapshot[]);
-
-    const deduped = Array.from(new Map(merged.map((log: ActivityLogRow) => [log.id, log])).values())
-      .filter((log) => {
-        if (log.entity_type === "projects" && log.entity_id === projectId) return true;
-        if (log.entity_type === "tasks" && log.entity_id && taskIdSet.has(log.entity_id)) return true;
-        const metadata = toRecord(log.metadata);
-        return metadata.project_id === projectId || metadata.related_project_id === projectId;
-      })
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    setLogs(deduped);
-
-    const userIds = Array.from(new Set(deduped.map((log) => log.user_id).filter(Boolean))) as string[];
-    if (userIds.length) {
-      const { data: profilesData } = await (supabase as any)
-        .from("profiles")
-        .select("id,user_id,full_name,email")
-        .in("user_id", userIds);
+      if (notesResult.error) {
+        if (latestRequestRef.current === requestId) {
+          setLoading(false);
+          setRefreshing(false);
+          toast.error(notesResult.error.message || "No se pudo cargar la actividad del proyecto.");
+        }
+        return;
+      }
 
       if (latestRequestRef.current !== requestId) {
         return;
       }
 
-      setProfilesById(
-        new Map((profilesData || []).map((item: ProfileRow) => [String(item.user_id || item.id), item])),
-      );
-    } else {
-      setProfilesById(new Map());
-    }
+      const merged = results.flatMap((result) => result.data || []);
+      setNotes((notesResult.data || []) as ProjectNoteSnapshot[]);
 
-    setLoading(false);
-    setRefreshing(false);
-  }, [profile?.company_id, projectId, taskIdsKey]);
+      const deduped = Array.from(
+        new Map(merged.map((log: ActivityLogRow) => [log.id, log])).values(),
+      )
+        .filter((log) => {
+          if (log.entity_type === "projects" && log.entity_id === projectId) return true;
+          if (log.entity_type === "tasks" && log.entity_id && taskIdSet.has(log.entity_id))
+            return true;
+          const metadata = toRecord(log.metadata);
+          return metadata.project_id === projectId || metadata.related_project_id === projectId;
+        })
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setLogs(deduped);
+
+      const userIds = Array.from(
+        new Set(deduped.map((log) => log.user_id).filter(Boolean)),
+      ) as string[];
+      if (userIds.length) {
+        const { data: profilesData } = await (supabase as any)
+          .from("profiles")
+          .select("id,user_id,full_name,email")
+          .in("user_id", userIds);
+
+        if (latestRequestRef.current !== requestId) {
+          return;
+        }
+
+        setProfilesById(
+          new Map(
+            (profilesData || []).map((item: ProfileRow) => [String(item.user_id || item.id), item]),
+          ),
+        );
+      } else {
+        setProfilesById(new Map());
+      }
+
+      setLoading(false);
+      setRefreshing(false);
+    },
+    [profile?.company_id, projectId, taskIdsKey],
+  );
 
   useEffect(() => {
     void loadActivity(true);
@@ -285,49 +302,57 @@ export function ProjectActivityPanel({
     });
 
     const coveredTaskIds = new Set(
-      logs.filter((log) => log.entity_type === "tasks" && log.entity_id).map((log) => String(log.entity_id)),
+      logs
+        .filter((log) => log.entity_type === "tasks" && log.entity_id)
+        .map((log) => String(log.entity_id)),
     );
     const coveredNoteIds = new Set(
-      logs.filter((log) => log.entity_type === "project_notes" && log.entity_id).map((log) => String(log.entity_id)),
+      logs
+        .filter((log) => log.entity_type === "project_notes" && log.entity_id)
+        .map((log) => String(log.entity_id)),
     );
 
-    const noteItems: ProjectActivityItem[] = notes.map((note) => {
-      if (coveredNoteIds.has(note.id)) return null;
-      const activityVisual = projectActivityIconFor({
-        action: "project_note_updated",
-        entityType: "project_notes",
-      });
-      return {
-        id: `note-fallback-${note.id}`,
-        title: note.created_at === note.updated_at ? "Nota creada" : "Nota actualizada",
-        description: previewText(note.content),
-        createdAt: note.updated_at,
-        entityType: "project_notes",
-        entityLabel: "Nota",
-        actorLabel: actorLabel(note.author || null),
-        icon: activityVisual.icon,
-        toneClassName: activityVisual.toneClassName,
-      };
-    }).filter(Boolean) as ProjectActivityItem[];
+    const noteItems: ProjectActivityItem[] = notes
+      .map((note) => {
+        if (coveredNoteIds.has(note.id)) return null;
+        const activityVisual = projectActivityIconFor({
+          action: "project_note_updated",
+          entityType: "project_notes",
+        });
+        return {
+          id: `note-fallback-${note.id}`,
+          title: note.created_at === note.updated_at ? "Nota creada" : "Nota actualizada",
+          description: previewText(note.content),
+          createdAt: note.updated_at,
+          entityType: "project_notes",
+          entityLabel: "Nota",
+          actorLabel: actorLabel(note.author || null),
+          icon: activityVisual.icon,
+          toneClassName: activityVisual.toneClassName,
+        };
+      })
+      .filter(Boolean) as ProjectActivityItem[];
 
-    const taskItems: ProjectActivityItem[] = tasks.map((task) => {
-      if (coveredTaskIds.has(task.id)) return null;
-      const activityVisual = projectActivityIconFor({
-        action: task.status === "Completed" ? "task_completed" : "task_updated",
-        entityType: "tasks",
-      });
-      return {
-        id: `task-fallback-${task.id}`,
-        title: task.status === "Completed" ? "Tarea completada" : "Tarea actualizada",
-        description: task.title,
-        createdAt: task.updated_at,
-        entityType: "tasks",
-        entityLabel: "Tarea",
-        actorLabel: "Equipo Corevix",
-        icon: activityVisual.icon,
-        toneClassName: activityVisual.toneClassName,
-      };
-    }).filter(Boolean) as ProjectActivityItem[];
+    const taskItems: ProjectActivityItem[] = tasks
+      .map((task) => {
+        if (coveredTaskIds.has(task.id)) return null;
+        const activityVisual = projectActivityIconFor({
+          action: task.status === "Completed" ? "task_completed" : "task_updated",
+          entityType: "tasks",
+        });
+        return {
+          id: `task-fallback-${task.id}`,
+          title: task.status === "Completed" ? "Tarea completada" : "Tarea actualizada",
+          description: task.title,
+          createdAt: task.updated_at,
+          entityType: "tasks",
+          entityLabel: "Tarea",
+          actorLabel: "Equipo Corevix",
+          icon: activityVisual.icon,
+          toneClassName: activityVisual.toneClassName,
+        };
+      })
+      .filter(Boolean) as ProjectActivityItem[];
 
     return [...logItems, ...noteItems, ...taskItems]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -376,7 +401,9 @@ export function ProjectActivityPanel({
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className={index === 3 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"}
+              className={
+                index === 3 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"
+              }
             >
               <div className="flex gap-3.5">
                 <div className="h-10 w-10 rounded-2xl bg-slate-100" />

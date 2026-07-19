@@ -177,21 +177,6 @@ function PdfExportPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Buscar documento</CardTitle>
-          <CardDescription>Filtra por tipo, numero o estado.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Ej. PRO-001, invoice, sent..."
-            className="max-w-xl"
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Cola de exportacion</CardTitle>
           <CardDescription>
             Usa &quot;Imprimir PDF&quot; para abrir la vista publica con el dialogo de impresion

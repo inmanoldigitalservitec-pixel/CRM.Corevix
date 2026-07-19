@@ -199,15 +199,6 @@ export function WhatsappContactPanel({
   const [nextTask, setNextTask] = useState<TaskRow | null>(null);
   const [relatedLoading, setRelatedLoading] = useState(false);
 
-  const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpSaving, setFollowUpSaving] = useState(false);
-  const [followUpValues, setFollowUpValues] = useState({
-    title: "",
-    due_date: "",
-    priority: "Medium",
-    description: "",
-  });
-
   const [creatingDeal, setCreatingDeal] = useState(false);
   const [convertingClient, setConvertingClient] = useState(false);
   const [updatingAssignment, setUpdatingAssignment] = useState(false);
@@ -1267,65 +1258,26 @@ export function WhatsappContactPanel({
       lead.phone ||
       "prospecto";
     const sourceHint = lead.source_channel || lead.source || "—";
-    setFollowUpValues({
-      title: `Dar seguimiento a ${leadLabel}`,
-      due_date: dueDate,
-      priority: "Medium",
-      description: `Seguimiento creado desde WhatsApp.\nFuente: ${sourceHint}`,
-    });
-    setFollowUpOpen(true);
-  }
-
-  async function handleCreateFollowUp() {
-    if (!profile?.company_id || !lead) return;
-    if (!profile?.id) {
-      toast.error("No se pudo identificar el perfil actual");
-      return;
-    }
     if (!can("tasks.create")) {
       toast.error("No tienes permiso para crear seguimiento");
       return;
     }
     if (!enforceOwnLeadForSales("Solo puedes crear seguimiento para tus propios prospectos"))
       return;
-
-    if (!followUpValues.title.trim()) {
-      toast.error("El título es requerido");
-      return;
-    }
-    if (!followUpValues.due_date) {
-      toast.error("Selecciona una fecha de seguimiento");
-      return;
-    }
-
-    setFollowUpSaving(true);
-    try {
-      const assignedTo = lead.assigned_to || profile?.user_id || user?.id || null;
-      const { data: created, error } = await (supabase as any)
-        .from("tasks")
-        .insert({
-          company_id: profile.company_id,
-          title: followUpValues.title.trim(),
-          description: followUpValues.description.trim() || null,
-          status: "To Do",
-          priority: followUpValues.priority || "Medium",
-          due_date: followUpValues.due_date,
-          assigned_to: assignedTo,
-          related_lead_id: lead.id,
-        })
-        .select("id,title,due_date,priority,status,assigned_to")
-        .single();
-      if (error) {
-        toast.error(error.message || "No se pudo crear el seguimiento");
-        return;
-      }
-      setNextTask(created as TaskRow);
-      toast.success("Seguimiento creado correctamente.");
-      onRefreshConversations?.();
-      setFollowUpOpen(false);
-    } finally {
-      setFollowUpSaving(false);
-    }
+    window.dispatchEvent(
+      new CustomEvent("corevix:open-task-create", {
+        detail: {
+          initialValues: {
+            title: `Dar seguimiento a ${leadLabel}`,
+            dueDate,
+            priority: "Medium",
+            description: `Seguimiento creado desde WhatsApp.\nFuente: ${sourceHint}`,
+            assignedTo: lead.assigned_to || profile?.user_id || user?.id || undefined,
+            leadId: lead.id,
+          },
+        },
+      }),
+    );
   }
 
   async function handleConvertLeadToClient() {
@@ -2456,75 +2408,6 @@ export function WhatsappContactPanel({
               </div>
             </div>
           ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear seguimiento</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleCreateFollowUp();
-            }}
-          >
-            <div>
-              <Label>Título</Label>
-              <Input
-                value={followUpValues.title}
-                onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={followUpValues.due_date}
-                  onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Prioridad</Label>
-                <Select
-                  value={followUpValues.priority}
-                  onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Low">Low</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Descripción</Label>
-              <Input
-                value={followUpValues.description}
-                onChange={(e) => setFollowUpValues((p) => ({ ...p, description: e.target.value }))}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setFollowUpOpen(false)}
-                disabled={followUpSaving}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={followUpSaving}>
-                {followUpSaving ? "Guardando..." : "Crear"}
-              </Button>
-            </div>
-          </form>
         </DialogContent>
       </Dialog>
     </aside>

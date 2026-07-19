@@ -3,19 +3,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   Check,
-  ChevronDown,
-  Download,
   Eye,
   FileText,
+  FolderOpen,
   Mail,
   MessageCircle,
-  Minus,
   MoreHorizontal,
   Phone,
+  Pencil,
   Plus,
   Sidebar,
   Star,
   Target,
+  Trash2,
   Users,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -50,7 +50,14 @@ import { toast } from "sonner";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { DetailSheet } from "@/components/crm/detail-sheet";
 import { CrmDetailEmptyState, CrmDetailRow, CrmDetailSection } from "@/components/crm/crm-detail";
-import { SearchFilters } from "@/components/crm/search-filters";
+import {
+  CrmDetailActionGrid,
+  CrmDetailLineButton,
+  CrmDetailSelectTrigger,
+} from "@/components/crm/crm-detail-layout";
+import { PageHeader } from "@/components/crm/page-header";
+import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
+import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useCrud } from "@/hooks/use-crud";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -61,6 +68,9 @@ import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
 
 export const Route = createFileRoute("/leads")({
+  validateSearch: (search: Record<string, unknown>): { leadId?: string } => ({
+    leadId: typeof search.leadId === "string" ? search.leadId : undefined,
+  }),
   component: LeadsPage,
   head: () => ({
     meta: [
@@ -160,6 +170,66 @@ type LeadSignals = {
   latestDealStage: string | null;
 };
 
+type DealStageRow = {
+  id: string;
+  name: string;
+  display_order?: number | null;
+  color?: string | null;
+};
+
+type DealRow = {
+  id: string;
+  company_id: string;
+  name: string;
+  value: number | null;
+  probability: number | null;
+  expected_close: string | null;
+  stage: string;
+  lead_id: string | null;
+  assigned_to: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+type ProductRow = {
+  id: string;
+  name: string;
+  category?: string | null;
+  base_price?: number | null;
+  currency?: string | null;
+  is_active?: boolean | null;
+};
+
+type DealProductRow = {
+  id: string;
+  deal_id: string;
+  product_id: string;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+};
+
+type ProductWorkflowRow = {
+  id: string;
+  product_id: string;
+  name: string;
+  is_active: boolean | null;
+};
+
+type ProductWorkflowStepRow = {
+  id: string;
+  workflow_id: string;
+  product_id: string;
+  title: string;
+  description: string | null;
+  step_order: number;
+  default_priority: string | null;
+  default_duration_days: number | null;
+  assigned_role: string | null;
+  is_active: boolean | null;
+};
+
 function normalizePhoneForWhatsApp(phone?: string | null) {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, "");
@@ -170,6 +240,59 @@ function normalizePhoneForWhatsApp(phone?: string | null) {
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
+}
+
+type LeadKpiTone = "neutral" | "success" | "warning" | "danger" | "info";
+
+function leadRiskTone(value: number, warningAt: number, dangerAt: number): LeadKpiTone {
+  if (value >= dangerAt) return "danger";
+  if (value >= warningAt) return "warning";
+  return "success";
+}
+
+function LeadKpi({
+  label,
+  value,
+  tone = "neutral",
+  active = false,
+  onClick,
+}: {
+  label: string;
+  value: string | number;
+  tone?: LeadKpiTone;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const toneClass: Record<LeadKpiTone, string> = {
+    neutral: "text-slate-950",
+    success: "text-emerald-600",
+    warning: "text-orange-500",
+    danger: "text-rose-600",
+    info: "text-blue-600",
+  };
+
+  const content = (
+    <>
+      <div className="text-xs font-normal uppercase text-slate-500">{label}</div>
+      <div className={`mt-2 truncate text-xl font-normal ${toneClass[tone]}`}>{value}</div>
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="min-w-0 border-b border-slate-100 pb-3">{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-w-0 border-b pb-3 text-left transition hover:border-slate-300 ${
+        active ? "border-blue-500" : "border-slate-100"
+      }`}
+    >
+      {content}
+    </button>
+  );
 }
 
 function getLeadName(lead: Lead) {
@@ -385,6 +508,7 @@ function buildCsv(leads: Lead[]) {
 
 function LeadsPage() {
   const { user, profile } = useAuth();
+  const routeSearch = Route.useSearch();
   const { can, role } = usePermissions();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -400,7 +524,6 @@ function LeadsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [stageTab, setStageTab] = useState<StageTab>("all");
   const [leadChipFilter, setLeadChipFilter] = useState<LeadChipFilter>("all");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const {
@@ -417,17 +540,29 @@ function LeadsPage() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [openingWhatsapp, setOpeningWhatsapp] = useState(false);
   const [convertingClient, setConvertingClient] = useState(false);
-  const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpSaving, setFollowUpSaving] = useState(false);
-  const [followUpValues, setFollowUpValues] = useState<{
-    title: string;
-    due_date: string;
-    priority: string;
-    description: string;
-  }>({ title: "", due_date: "", priority: "Medium", description: "" });
   const [signalsLoading, setSignalsLoading] = useState(false);
   const [signalsError, setSignalsError] = useState<string | null>(null);
   const [signalsByLeadId, setSignalsByLeadId] = useState<Record<string, LeadSignals>>({});
+  const [dealStages, setDealStages] = useState<DealStageRow[]>([]);
+  const [leadDeals, setLeadDeals] = useState<DealRow[]>([]);
+  const [leadDealsLoading, setLeadDealsLoading] = useState(false);
+  const [activeProducts, setActiveProducts] = useState<ProductRow[]>([]);
+  const [dealProducts, setDealProducts] = useState<DealProductRow[]>([]);
+  const [dealProductsByProductId, setDealProductsByProductId] = useState<
+    Record<string, ProductRow | undefined>
+  >({});
+  const [editingDeal, setEditingDeal] = useState<DealRow | null>(null);
+  const [dealProductDraft, setDealProductDraft] = useState({
+    product_id: "",
+    quantity: "1",
+    unit_price: "",
+  });
+  const [savingDeal, setSavingDeal] = useState(false);
+  const [closingDeal, setClosingDeal] = useState<"won" | "lost" | null>(null);
+  const [lostDeal, setLostDeal] = useState<DealRow | null>(null);
+  const [lostReason, setLostReason] = useState("Precio");
+  const [lostNote, setLostNote] = useState("");
+  const [creatingProjectDealId, setCreatingProjectDealId] = useState<string | null>(null);
   const sendLeadNotification = async (title: string, message: string, link = "/leads") => {
     if (!profile?.company_id || !user?.id) return;
     await createAttentionNotification(
@@ -592,6 +727,112 @@ function LeadsPage() {
     },
   });
 
+  const selectedDeal = leadDeals[0] || null;
+
+  const refreshLeadDeals = useCallback(async () => {
+    if (!profile?.company_id || !selectedLeadId) {
+      setLeadDeals([]);
+      setDealProducts([]);
+      setDealProductsByProductId({});
+      return;
+    }
+
+    setLeadDealsLoading(true);
+    try {
+      const db = supabase as any;
+      const [{ data: stagesData, error: stagesError }, { data: dealsData, error: dealsError }] =
+        await Promise.all([
+          db
+            .from("deal_stages")
+            .select("id,name,display_order,color")
+            .eq("company_id", profile.company_id)
+            .order("display_order", { ascending: true }),
+          db
+            .from("deals")
+            .select(
+              "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+            )
+            .eq("company_id", profile.company_id)
+            .eq("lead_id", selectedLeadId)
+            .order("updated_at", { ascending: false }),
+        ]);
+
+      if (stagesError) throw stagesError;
+      if (dealsError) throw dealsError;
+
+      const nextDeals = (dealsData || []) as DealRow[];
+      setDealStages((stagesData || []) as DealStageRow[]);
+      setLeadDeals(nextDeals);
+
+      const deal = nextDeals[0];
+      if (!deal) {
+        setDealProducts([]);
+        setDealProductsByProductId({});
+        return;
+      }
+
+      const [{ data: productsData }, { data: dealProductsData, error: dealProductsError }] =
+        await Promise.all([
+          db
+            .from("products")
+            .select("id,name,category,base_price,currency,is_active")
+            .eq("company_id", profile.company_id)
+            .eq("is_active", true)
+            .order("name", { ascending: true })
+            .limit(200),
+          db
+            .from("deal_products")
+            .select("id,deal_id,product_id,quantity,unit_price,total_price")
+            .eq("company_id", profile.company_id)
+            .eq("deal_id", deal.id)
+            .order("created_at", { ascending: true }),
+        ]);
+
+      if (dealProductsError) throw dealProductsError;
+
+      const productsList = (productsData || []) as ProductRow[];
+      const dealProductsList = (dealProductsData || []) as DealProductRow[];
+      const productMap: Record<string, ProductRow | undefined> = {};
+      for (const product of productsList) productMap[String(product.id)] = product;
+
+      const missingProductIds = dealProductsList
+        .map((item) => String(item.product_id))
+        .filter((id) => id && !productMap[id]);
+      if (missingProductIds.length) {
+        const { data: extraProducts } = await db
+          .from("products")
+          .select("id,name,category,base_price,currency,is_active")
+          .eq("company_id", profile.company_id)
+          .in("id", Array.from(new Set(missingProductIds)));
+        for (const product of (extraProducts || []) as ProductRow[]) {
+          productMap[String(product.id)] = product;
+        }
+      }
+
+      setActiveProducts(productsList);
+      setDealProducts(dealProductsList);
+      setDealProductsByProductId(productMap);
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo cargar la oportunidad del prospecto.");
+    } finally {
+      setLeadDealsLoading(false);
+    }
+  }, [profile?.company_id, selectedLeadId]);
+
+  useEffect(() => {
+    if (!detailOpen) return;
+    void refreshLeadDeals();
+  }, [detailOpen, refreshLeadDeals]);
+
+  useRealtimeTable({
+    table: "deal_products",
+    companyId: profile?.company_id || null,
+    enabled: Boolean(profile?.company_id && detailOpen),
+    onChange: () => {
+      void refreshLeadDeals();
+    },
+  });
+
   function leadNeedsFollowUp(lead: Lead) {
     const closed = lead.status === "Won" || lead.status === "Lost";
     if (closed) return false;
@@ -737,6 +978,47 @@ function LeadsPage() {
     return currentUserId;
   }
 
+  function getAssigneeProfileId(assignedTo?: string | null) {
+    if (!assignedTo) return profile?.id || null;
+    const byProfile = assigneeByProfileId.get(assignedTo);
+    if (byProfile?.profile_id) return byProfile.profile_id;
+    const byUser = assigneeByUserId.get(assignedTo);
+    if (byUser?.profile_id) return byUser.profile_id;
+    if (assignedTo === profile?.id) return assignedTo;
+    return profile?.id || null;
+  }
+
+  function isWonStageName(name?: string | null) {
+    const value = String(name || "").toLowerCase();
+    return value.includes("won") || value.includes("ganad");
+  }
+
+  function isLostStageName(name?: string | null) {
+    const value = String(name || "").toLowerCase();
+    return value.includes("lost") || value.includes("perdid");
+  }
+
+  function findWonStageName() {
+    return (
+      dealStages.find((stage) => ["Won", "Closed Won", "Ganado"].includes(stage.name))?.name ||
+      dealStages.find((stage) => isWonStageName(stage.name))?.name ||
+      "Won"
+    );
+  }
+
+  function findLostStageName() {
+    return (
+      dealStages.find((stage) => ["Lost", "Closed Lost", "Perdido"].includes(stage.name))?.name ||
+      dealStages.find((stage) => isLostStageName(stage.name))?.name ||
+      "Lost"
+    );
+  }
+
+  function appendDealNote(existing: string | null, line: string) {
+    const base = String(existing || "").trim();
+    return base ? `${base}\n${line}` : line;
+  }
+
   function getAssigneeLabel(lead: Lead) {
     if (!lead.assigned_to) return "Sin asignar";
     const member =
@@ -786,7 +1068,7 @@ function LeadsPage() {
     }
     if (existing?.id) {
       toast.message("Este prospecto ya tiene una oportunidad creada");
-      window.location.href = "/pipeline";
+      await refreshLeadDeals();
       return;
     }
 
@@ -850,7 +1132,8 @@ function LeadsPage() {
         detail: `Oportunidad creada desde prospecto: ${dealName}`,
         metadata: { lead_id: lead.id, stage: "New Opportunity" },
       }).catch(() => {});
-      window.location.href = "/pipeline";
+      await refreshLeadDeals();
+      void loadSignals();
       return created2;
     }
 
@@ -869,8 +1152,320 @@ function LeadsPage() {
       detail: `Oportunidad creada desde prospecto: ${dealName}`,
       metadata: { lead_id: lead.id, stage: stageName },
     }).catch(() => {});
-    window.location.href = "/pipeline";
+    await refreshLeadDeals();
+    void loadSignals();
     return created;
+  }
+
+  async function updateDealStage(deal: DealRow, stage: string) {
+    if (!can("deals.edit")) {
+      toast.error("No tienes permiso para editar oportunidades.");
+      return;
+    }
+    const { error } = await (supabase as any).from("deals").update({ stage }).eq("id", deal.id);
+    if (error) {
+      toast.error(error.message || "No se pudo mover la oportunidad.");
+      return;
+    }
+    setLeadDeals((current) =>
+      current.map((item) => (item.id === deal.id ? { ...item, stage } : item)),
+    );
+    void logActivityEvent({
+      companyId: profile?.company_id ?? "",
+      userId: profile?.id || null,
+      action: "deal_moved",
+      entityType: "deals",
+      entityId: deal.id,
+      detail: `Oportunidad movida a ${stage}: ${deal.name}`,
+      metadata: { stage, source: "leads" },
+    }).catch(() => {});
+    toast.success("Etapa actualizada.");
+  }
+
+  async function saveDealEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingDeal) return;
+    if (!can("deals.edit")) {
+      toast.error("No tienes permiso para editar oportunidades.");
+      return;
+    }
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      name: String(form.get("name") || "").trim() || editingDeal.name,
+      value: Number(form.get("value") || 0) || 0,
+      probability: Number(form.get("probability") || 50) || 50,
+      expected_close: String(form.get("expected_close") || "").trim() || null,
+      stage: String(form.get("stage") || editingDeal.stage),
+    };
+
+    setSavingDeal(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("deals")
+        .update(payload)
+        .eq("id", editingDeal.id);
+      if (error) throw error;
+      setLeadDeals((current) =>
+        current.map((item) => (item.id === editingDeal.id ? { ...item, ...payload } : item)),
+      );
+      setEditingDeal(null);
+      toast.success("Oportunidad actualizada.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar la oportunidad.");
+    } finally {
+      setSavingDeal(false);
+    }
+  }
+
+  async function markDealWon(deal: DealRow) {
+    if (!can("deals.edit")) {
+      toast.error("No tienes permiso para cerrar oportunidades.");
+      return;
+    }
+    const stage = findWonStageName();
+    const note = appendDealNote(
+      deal.notes,
+      `[${new Date().toISOString()}] Oportunidad marcada como ganada desde Prospectos.`,
+    );
+    setClosingDeal("won");
+    try {
+      const { error } = await (supabase as any)
+        .from("deals")
+        .update({ stage, notes: note })
+        .eq("id", deal.id);
+      if (error) throw error;
+      if (selectedLeadId) {
+        await update(selectedLeadId, { status: "Won" } as any).catch(() => {});
+      }
+      setLeadDeals((current) =>
+        current.map((item) => (item.id === deal.id ? { ...item, stage, notes: note } : item)),
+      );
+      toast.success("Oportunidad marcada como ganada.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo marcar como ganada.");
+    } finally {
+      setClosingDeal(null);
+    }
+  }
+
+  async function markDealLost() {
+    if (!lostDeal) return;
+    if (!can("deals.edit")) {
+      toast.error("No tienes permiso para cerrar oportunidades.");
+      return;
+    }
+    const stage = findLostStageName();
+    const note = appendDealNote(
+      lostDeal.notes,
+      `[${new Date().toISOString()}] Oportunidad marcada como perdida. Razón: ${lostReason}${
+        lostNote.trim() ? `. Nota: ${lostNote.trim()}` : ""
+      }.`,
+    );
+    setClosingDeal("lost");
+    try {
+      const { error } = await (supabase as any)
+        .from("deals")
+        .update({ stage, notes: note })
+        .eq("id", lostDeal.id);
+      if (error) throw error;
+      if (selectedLeadId) {
+        await update(selectedLeadId, { status: "Lost" } as any).catch(() => {});
+      }
+      setLeadDeals((current) =>
+        current.map((item) => (item.id === lostDeal.id ? { ...item, stage, notes: note } : item)),
+      );
+      setLostDeal(null);
+      setLostNote("");
+      toast.success("Oportunidad marcada como perdida.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo marcar como perdida.");
+    } finally {
+      setClosingDeal(null);
+    }
+  }
+
+  async function addDealProduct(deal: DealRow) {
+    if (!profile?.company_id) return;
+    if (!can("deals.edit")) {
+      toast.error("No tienes permiso para editar productos de la oportunidad.");
+      return;
+    }
+    const productId = dealProductDraft.product_id;
+    if (!productId) {
+      toast.error("Selecciona un producto.");
+      return;
+    }
+    if (dealProducts.some((item) => String(item.product_id) === productId)) {
+      toast.message("Ese producto ya está asociado.");
+      return;
+    }
+    const product = activeProducts.find((item) => String(item.id) === productId);
+    const quantity = Math.max(1, Number(dealProductDraft.quantity || 1) || 1);
+    const unitPrice =
+      Number(dealProductDraft.unit_price || product?.base_price || deal.value || 0) || 0;
+
+    const { error } = await (supabase as any).from("deal_products").insert({
+      company_id: profile.company_id,
+      deal_id: deal.id,
+      product_id: productId,
+      quantity,
+      unit_price: unitPrice,
+    });
+    if (error) {
+      toast.error(error.message || "No se pudo asociar el producto.");
+      return;
+    }
+    setDealProductDraft({ product_id: "", quantity: "1", unit_price: "" });
+    await refreshLeadDeals();
+    toast.success("Producto asociado.");
+  }
+
+  async function removeDealProduct(rowId: string) {
+    if (!profile?.company_id) return;
+    if (!can("deals.edit")) {
+      toast.error("No tienes permiso para editar productos de la oportunidad.");
+      return;
+    }
+    const { error } = await (supabase as any)
+      .from("deal_products")
+      .delete()
+      .eq("company_id", profile.company_id)
+      .eq("id", rowId);
+    if (error) {
+      toast.error(error.message || "No se pudo quitar el producto.");
+      return;
+    }
+    setDealProducts((current) => current.filter((item) => item.id !== rowId));
+    toast.success("Producto removido.");
+  }
+
+  async function createProjectFromWonDeal(deal: DealRow) {
+    if (!profile?.company_id || !profile?.id) return;
+    if (!can("projects.create")) {
+      toast.error("No tienes permiso para crear proyectos.");
+      return;
+    }
+    if (!isWonStageName(deal.stage)) {
+      toast.error("Primero marca la oportunidad como ganada.");
+      return;
+    }
+    const dealProduct = dealProducts[0];
+    const product = dealProduct
+      ? dealProductsByProductId[String(dealProduct.product_id)]
+      : activeProducts[0];
+    if (!product?.id) {
+      toast.error("Asocia un producto antes de crear el proyecto.");
+      return;
+    }
+
+    setCreatingProjectDealId(deal.id);
+    try {
+      const db = supabase as any;
+      const { data: existingProject, error: existingError } = await db
+        .from("projects")
+        .select("id")
+        .eq("company_id", profile.company_id)
+        .eq("deal_id", deal.id)
+        .eq("product_id", product.id)
+        .limit(1)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existingProject?.id) {
+        toast.message("Esta oportunidad ya tiene proyecto creado.");
+        return;
+      }
+
+      const { data: workflow, error: workflowError } = await db
+        .from("product_workflows")
+        .select("id,product_id,name,is_active")
+        .eq("company_id", profile.company_id)
+        .eq("product_id", product.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (workflowError) throw workflowError;
+      if (!workflow?.id) {
+        toast.error("Este producto no tiene workflow activo.");
+        return;
+      }
+
+      const { data: steps, error: stepsError } = await db
+        .from("product_workflow_steps")
+        .select(
+          "id,workflow_id,product_id,title,description,step_order,default_priority,default_duration_days,assigned_role,is_active",
+        )
+        .eq("company_id", profile.company_id)
+        .eq("workflow_id", workflow.id)
+        .eq("product_id", product.id)
+        .eq("is_active", true)
+        .order("step_order", { ascending: true });
+      if (stepsError) throw stepsError;
+      const workflowSteps = (steps || []) as ProductWorkflowStepRow[];
+      if (!workflowSteps.length) {
+        toast.error("El workflow activo no tiene pasos.");
+        return;
+      }
+
+      const startDate = new Date();
+      const toDate = (date: Date) => date.toISOString().slice(0, 10);
+      const addDays = (days: number) => {
+        const next = new Date(startDate);
+        next.setDate(next.getDate() + days);
+        return toDate(next);
+      };
+      const totalDays = workflowSteps.reduce(
+        (sum, step) => sum + Math.max(0, Number(step.default_duration_days || 0)),
+        0,
+      );
+
+      const projectName = selectedLead?.company_name
+        ? `${product.name} - ${selectedLead.company_name}`
+        : `${product.name} - ${deal.name}`;
+      const { data: project, error: projectError } = await db
+        .from("projects")
+        .insert({
+          company_id: profile.company_id,
+          name: projectName,
+          deal_id: deal.id,
+          lead_id: deal.lead_id || selectedLeadId,
+          product_id: product.id,
+          start_date: toDate(startDate),
+          due_date: totalDays > 0 ? addDays(totalDays) : null,
+          status: "Not Started",
+          budget: Number(deal.value || 0),
+          description: `Proyecto creado desde oportunidad ganada.\nProducto: ${product.name}\nWorkflow: ${workflow.name}`,
+          progress: 0,
+          manager: null,
+        })
+        .select("id")
+        .single();
+      if (projectError) throw projectError;
+
+      let cursor = 0;
+      const tasksPayload = workflowSteps.map((step) => {
+        cursor += Math.max(1, Number(step.default_duration_days || 1));
+        return {
+          company_id: profile.company_id,
+          title: step.title,
+          description: step.description || null,
+          status: "To Do",
+          priority: step.default_priority || "Medium",
+          assigned_to: getAssigneeUserId(deal.assigned_to),
+          due_date: addDays(cursor),
+          related_project_id: project.id,
+          related_lead_id: deal.lead_id || selectedLeadId,
+          related_deal_id: deal.id,
+        };
+      });
+      const { error: tasksError } = await db.from("tasks").insert(tasksPayload);
+      if (tasksError) throw tasksError;
+      toast.success("Proyecto y tareas creados.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo crear el proyecto.");
+    } finally {
+      setCreatingProjectDealId(null);
+    }
   }
 
   async function handleOpenWhatsAppFromLead(lead: Lead) {
@@ -1034,6 +1629,12 @@ function LeadsPage() {
   }
 
   function openFollowUpDialog(lead: Lead) {
+    const canCreateFollowUp =
+      can("tasks.create") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
+    if (!canCreateFollowUp) {
+      toast.error("No tienes permiso para crear seguimiento");
+      return;
+    }
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().slice(0, 10);
@@ -1045,75 +1646,21 @@ function LeadsPage() {
       lead.whatsapp ||
       "prospecto";
     const sourceHint = lead.source_channel || lead.source || "—";
-    setFollowUpValues({
-      title: `Dar seguimiento a ${leadLabel}`,
-      due_date: dueDate,
-      priority: "Medium",
-      description: `Seguimiento creado desde Prospectos.\nFuente: ${sourceHint}`,
-    });
-    setFollowUpOpen(true);
-  }
-
-  async function handleCreateFollowUpTask(lead: Lead) {
-    if (!profile?.company_id) {
-      toast.error("No hay contexto de empresa");
-      return;
-    }
-
-    const canCreateFollowUp =
-      can("tasks.create") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
-    if (!canCreateFollowUp) {
-      toast.error("No tienes permiso para crear seguimiento");
-      return;
-    }
-
-    if (!followUpValues.title.trim()) {
-      toast.error("El título es requerido");
-      return;
-    }
-    if (!followUpValues.due_date) {
-      toast.error("Selecciona una fecha de seguimiento");
-      return;
-    }
-
-    setFollowUpSaving(true);
-    try {
-      const assignedTo = getAssigneeUserId(lead.assigned_to);
-      const { error } = await (supabase as any).from("tasks").insert({
-        company_id: profile.company_id,
-        title: followUpValues.title.trim(),
-        description: followUpValues.description.trim() || null,
-        status: "To Do",
-        priority: followUpValues.priority || "Medium",
-        due_date: followUpValues.due_date,
-        assigned_to: assignedTo,
-        related_lead_id: lead.id,
-      });
-      if (error) {
-        toast.error(error.message || "No se pudo crear el seguimiento");
-        return;
-      }
-      void sendLeadNotification(
-        "Seguimiento creado",
-        `${followUpValues.title.trim()} quedó programado para ${followUpValues.due_date}.`,
-        "/tasks",
-      );
-      void logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id,
-        action: "task_created",
-        entityType: "tasks",
-        detail: `Seguimiento creado desde prospecto: ${followUpValues.title.trim()}`,
-        metadata: { related_lead_id: lead.id, due_date: followUpValues.due_date },
-      }).catch(() => {});
-      toast.success("Seguimiento creado correctamente.");
-      setFollowUpOpen(false);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "No se pudo crear el seguimiento";
-      toast.error(message);
-    } finally {
-      setFollowUpSaving(false);
-    }
+    setSelectedLeadId(lead.id);
+    window.dispatchEvent(
+      new CustomEvent("corevix:open-task-create", {
+        detail: {
+          initialValues: {
+            title: `Dar seguimiento a ${leadLabel}`,
+            dueDate,
+            priority: "Medium",
+            description: `Seguimiento creado desde Prospectos.\nFuente: ${sourceHint}`,
+            assignedTo: getAssigneeUserId(lead.assigned_to) || undefined,
+            leadId: lead.id,
+          },
+        },
+      }),
+    );
   }
 
   const stats = useMemo(() => {
@@ -1254,10 +1801,6 @@ function LeadsPage() {
     return true;
   }
 
-  const allVisibleSelected =
-    filtered.length > 0 && filtered.every((lead) => selectedIds.includes(lead.id));
-  const someVisibleSelected = filtered.some((lead) => selectedIds.includes(lead.id));
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!can(editLead ? "leads.edit" : "leads.create")) {
@@ -1328,7 +1871,6 @@ function LeadsPage() {
       await remove(deleteId);
       toast.success("Prospecto eliminado");
       setDeleteId(null);
-      setSelectedIds((current) => current.filter((id) => id !== deleteId));
       if (selectedLeadId === deleteId) {
         setSelectedLeadId(null);
         setDetailOpen(false);
@@ -1345,26 +1887,19 @@ function LeadsPage() {
     setDialogOpen(true);
   };
 
-  const toggleSelected = (leadId: string) => {
-    setSelectedIds((current) =>
-      current.includes(leadId) ? current.filter((id) => id !== leadId) : [...current, leadId],
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (allVisibleSelected) {
-      setSelectedIds((current) => current.filter((id) => !filtered.some((lead) => lead.id === id)));
-      return;
-    }
-    setSelectedIds((current) =>
-      Array.from(new Set([...current, ...filtered.map((lead) => lead.id)])),
-    );
-  };
-
   const openDetail = (lead: Lead) => {
     setSelectedLeadId(lead.id);
     setDetailOpen(true);
   };
+
+  useEffect(() => {
+    const leadId = routeSearch.leadId;
+    if (!leadId) return;
+    const lead = leads.find((item) => item.id === leadId);
+    if (!lead) return;
+    setSelectedLeadId(lead.id);
+    setDetailOpen(true);
+  }, [leads, routeSearch.leadId]);
 
   useEffect(() => {
     const openDemoLeadFromStorage = () => {
@@ -1390,105 +1925,127 @@ function LeadsPage() {
     return () => window.removeEventListener("crm-demo-open-lead-detail", onDemoOpenLeadDetail);
   }, []);
 
-  const exportSelected = () => {
-    const selectedLeads = leads.filter((lead) => selectedIds.includes(lead.id));
-    if (selectedLeads.length < 2) return;
-    const csv = buildCsv(selectedLeads);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `corevix-leads-${selectedLeads.length}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   if (loading) return <LoadingState />;
 
+  const stageTabs = [
+    { key: "all", label: "Todos", countKey: "all" },
+    { key: "new", label: "Nuevos", countKey: "new" },
+    { key: "discovery", label: "Discovery", countKey: "discovery" },
+    { key: "qualified", label: "Calificados", countKey: "qualified" },
+    { key: "proposal_ready", label: "Propuesta lista", countKey: "proposal_ready" },
+    { key: "proposal_sent", label: "Propuesta enviada", countKey: "proposal_sent" },
+    { key: "closed", label: "Cerrados", countKey: "closed" },
+  ];
+  const quickFilters = [
+    { key: "all", label: "Todos" },
+    { key: "no_followup", label: "Sin seguimiento" },
+    { key: "today", label: "Hoy" },
+    { key: "high_intent", label: "Alta intención" },
+    { key: "no_owner", label: "Sin responsable" },
+    { key: "with_proposal", label: "Con propuesta" },
+    { key: "without_proposal", label: "Sin propuesta" },
+  ];
+  const mobileStageFilters = [
+    { key: "all", label: "Todas las etapas", countKey: "all" },
+    { key: "new", label: "Nuevos", countKey: "new" },
+    { key: "qualified", label: "Calificados", countKey: "qualified" },
+    { key: "proposal_sent", label: "Con propuesta", countKey: "proposal_sent" },
+    { key: "closed", label: "Cerrados", countKey: "closed" },
+  ];
+  const mobileQuickFilters = [
+    { key: "all", label: "Todos los focos" },
+    { key: "no_followup", label: "Sin seguimiento" },
+    { key: "today", label: "Actividad hoy" },
+    { key: "high_intent", label: "Alta intención" },
+    { key: "no_owner", label: "Sin responsable" },
+  ];
   return (
     <div data-demo="leads-main" className="min-h-[calc(100vh-72px)] bg-white text-[#101828]">
       <div className="grid min-h-[calc(100vh-72px)] grid-cols-1">
         <div className="w-full min-w-0 overflow-auto px-3 py-3 sm:px-4 lg:px-5">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="w-fit text-[26px] font-semibold leading-none tracking-[-0.03em] transition-colors duration-200 hover:text-[#1d62f9]">
-                Leads
-              </h1>
-              <p className="mt-2 lg:mt-3 text-[14px] font-[650] text-[#667085]">
-                Gestiona contactos, seguimientos y oportunidades desde una sola lista.{" "}
-                <span className="text-[#98a2b3]">({stats.total} prospectos)</span>
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                className={cn(
-                  "inline-flex h-[38px] items-center gap-2 rounded-[12px] border px-[13px] text-[13px] font-semibold shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition-all duration-200",
-                  selectedIds.length >= 2
-                    ? "border-[#1d62f9] bg-[#1d62f9] text-white shadow-[0_12px_28px_rgba(29,98,249,0.22)] hover:-translate-y-[1px]"
-                    : "hidden",
-                )}
-                onClick={exportSelected}
-                type="button"
-              >
-                <Download className="h-4 w-4" />
-                Exportar seleccionados
-                <span className="grid h-[22px] min-w-[22px] place-items-center rounded-full bg-white/20 px-[7px] text-[12px]">
-                  {selectedIds.length}
-                </span>
-              </button>
-              <button
-                className="inline-flex h-[38px] items-center gap-2 rounded-[12px] border border-[#e6eaf0] bg-white px-[13px] text-[13px] font-semibold text-[#344054] shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition-all duration-200 hover:-translate-y-[1px] hover:border-[#bdd1ff] hover:text-[#1d62f9]"
-                onClick={() => setDetailOpen((current) => !current)}
-                type="button"
-              >
-                <Sidebar className="h-4 w-4" />
-                Ver detalle
-              </button>
-              {can("leads.create") && (
-                <button
-                  data-demo="leads-new-lead-button"
-                  className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#1d62f9] px-[13px] text-[13px] font-semibold text-white shadow-[0_12px_24px_rgba(29,98,249,0.20)] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#0f52dd]"
-                  onClick={() => {
-                    setEditLead(null);
-                    setQuickLeadOpen(true);
-                  }}
-                  type="button"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nuevo prospecto
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+          <div className="mb-3 hidden md:block">
+            <PageHeader
+              title="Leads"
+              subtitle={`Gestiona contactos, seguimientos y oportunidades desde una sola lista. ${stats.total} prospectos.`}
+            />
           </div>
+
+          <GlobalKpiStrip
+            title="Leads"
+            subtitle="Prospectos, seguimientos y oportunidades"
+            actionLabel={can("leads.create") ? "Nuevo prospecto" : undefined}
+            onAction={
+              can("leads.create")
+                ? () => {
+                    setEditLead(null);
+                    setDialogOpen(true);
+                  }
+                : undefined
+            }
+            actionIcon={<Plus className="h-3.5 w-3.5" />}
+            items={[
+              {
+                key: "leads-summary",
+                label: "Potencial",
+                value: formatCurrency(stats.potentialValue),
+                helper: `${filtered.length} visibles de ${stats.total} prospectos`,
+                icon: Target,
+                tone: "purple",
+                meta: [
+                  { label: "Nuevos", value: stats.newLeads, tone: "blue" },
+                  { label: "Seguimiento", value: stats.needsFollowUp, tone: "red" },
+                  { label: "Propuesta", value: stats.readyForProposal, tone: "purple" },
+                ],
+              },
+            ]}
+          >
+            <div className="mt-2 grid w-full grid-cols-2 gap-2">
+              <Select value={stageTab} onValueChange={(value) => setStageTab(value as StageTab)}>
+                <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {mobileStageFilters.map((tab) => (
+                    <SelectItem key={tab.key} value={tab.key}>
+                      {tab.label} · {tabCounts[tab.countKey as keyof typeof tabCounts]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={leadChipFilter}
+                onValueChange={(value) => setLeadChipFilter(value as LeadChipFilter)}
+              >
+                <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {mobileQuickFilters.map((filter) => (
+                    <SelectItem key={filter.key} value={filter.key}>
+                      {filter.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </GlobalKpiStrip>
 
           <section
             data-demo="leads-insights-bar"
-            className="mb-2 flex flex-wrap items-center gap-2 border-y border-[#edf1f7] bg-white px-1 py-2 text-[12px] font-semibold text-[#667085]"
+            className="hidden grid-cols-4 gap-x-8 gap-y-4 md:grid"
           >
-            <span className="text-[#101828]">{stats.total} prospectos</span>
-            <span className="text-[#d0d5dd]">•</span>
-            <span>
-              <strong className="text-[#1d62f9]">{stats.newLeads}</strong> nuevos
-            </span>
-            <span className="text-[#d0d5dd]">•</span>
-            <span>
-              <strong className="text-[#e11d48]">{stats.needsFollowUp}</strong> requieren
-              seguimiento
-            </span>
-            <span className="text-[#d0d5dd]">•</span>
-            <span>
-              <strong className="text-[#7c3aed]">{stats.readyForProposal}</strong> listos para
-              propuesta
-            </span>
-            <span className="text-[#d0d5dd]">•</span>
-            <span>
-              <strong className="text-[#16a34a]">{formatCurrency(stats.potentialValue)}</strong>{" "}
-              potencial
-            </span>
+            <LeadKpi label="Total" value={stats.total} />
+            <LeadKpi label="Nuevos" value={stats.newLeads} tone="info" />
+            <LeadKpi
+              label="Seguimiento"
+              value={stats.needsFollowUp}
+              tone={leadRiskTone(stats.needsFollowUp, 1, 5)}
+            />
+            <LeadKpi
+              label="Potencial"
+              value={formatCurrency(stats.potentialValue)}
+              tone="success"
+            />
           </section>
 
           {false && import.meta.env.DEV && (
@@ -1503,22 +2060,44 @@ function LeadsPage() {
             </div>
           )}
 
-          <section className="overflow-hidden rounded-[18px] border border-[#edf1f7] bg-white shadow-[0_4px_14px_rgba(15,23,42,0.025)]">
-            <div className="flex flex-wrap items-center justify-between gap-3 px-[18px] pb-0 pt-[18px]">
-              {[
-                { key: "all", label: "Todos", countKey: "all" },
-                { key: "new", label: "Nuevos", countKey: "new" },
-                { key: "discovery", label: "Discovery", countKey: "discovery" },
-                { key: "qualified", label: "Calificados", countKey: "qualified" },
-                { key: "proposal_ready", label: "Propuesta lista", countKey: "proposal_ready" },
-                { key: "proposal_sent", label: "Propuesta enviada", countKey: "proposal_sent" },
-                { key: "closed", label: "Ganados / Perdidos", countKey: "closed" },
-              ].map((tab) => (
+          <section className="mt-4 border-y border-slate-100 bg-white md:mt-0 md:overflow-hidden">
+            <div className="hidden flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 md:flex">
+              <div className="flex flex-wrap items-center gap-2">
+                {can("leads.create") && (
+                  <CrmDetailLineButton
+                    data-demo="leads-new-lead-button"
+                    className="h-9 border-blue-600 bg-blue-600 px-3 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+                    icon={<Plus className="h-4 w-4" />}
+                    onClick={() => {
+                      setEditLead(null);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    Nuevo prospecto
+                  </CrmDetailLineButton>
+                )}
+                <CrmDetailLineButton
+                  icon={<Sidebar className="h-4 w-4" />}
+                  onClick={() => setDetailOpen((current) => !current)}
+                >
+                  Ver detalle
+                </CrmDetailLineButton>
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar leads..."
+                  className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+
+            <div className="hidden flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-2 md:flex">
+              {stageTabs.map((tab) => (
                 <button
                   key={tab.key}
                   className={cn(
-                    "flex h-[32px] items-center gap-1.5 rounded-[10px] px-2.5 text-[12px] font-medium text-[#475467] transition-all duration-200 hover:bg-[#f3f7ff] hover:text-[#1d62f9]",
-                    stageTab === tab.key && "bg-[#eaf1ff] text-[#1d62f9]",
+                    "flex h-8 items-center gap-1.5 border-b px-1 text-[12px] font-normal text-slate-500 transition hover:border-slate-300 hover:text-slate-950",
+                    stageTab === tab.key ? "border-blue-600 text-blue-600" : "border-transparent",
                   )}
                   onClick={() => setStageTab(tab.key as StageTab)}
                   type="button"
@@ -1536,10 +2115,10 @@ function LeadsPage() {
                     key={c.key}
                     type="button"
                     className={cn(
-                      "h-[30px] rounded-[10px] px-2.5 text-[12px] font-semibold transition-all duration-200",
+                      "h-8 border-b px-1 text-[12px] font-normal transition",
                       channelFilter === c.key
-                        ? "bg-[#111827] text-white"
-                        : "bg-[#f2f4f7] text-[#475467] hover:bg-[#eaf1ff] hover:text-[#1d62f9]",
+                        ? "border-slate-950 text-slate-950"
+                        : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950",
                     )}
                     onClick={() => setChannelFilter(c.key)}
                   >
@@ -1549,36 +2128,18 @@ function LeadsPage() {
               </div>
             </div>
 
-            <div className="border-b border-[#edf1f7] px-3 py-2">
-              <div className="flex items-center gap-2">
-                <SearchFilters
-                  searchValue={search}
-                  onSearchChange={setSearch}
-                  searchPlaceholder="Buscar leads..."
-                  filters={[]}
-                  className="flex-1"
-                />
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="text-[12px] font-semibold text-[#667085]">Filtros rápidos:</span>
-                {[
-                  { key: "all", label: "Todos" },
-                  { key: "no_followup", label: "Sin seguimiento" },
-                  { key: "today", label: "Hoy" },
-                  { key: "high_intent", label: "Alta intención" },
-                  { key: "no_owner", label: "Sin responsable" },
-                  { key: "with_proposal", label: "Con propuesta" },
-                  { key: "without_proposal", label: "Sin propuesta" },
-                ].map((c) => (
+            <div className="hidden border-b border-slate-100 px-4 py-2 md:block">
+              <div className="hidden flex-wrap items-center gap-2 md:flex">
+                <span className="text-[12px] font-normal text-slate-500">Filtros rápidos:</span>
+                {quickFilters.map((c) => (
                   <button
                     key={c.key}
                     type="button"
                     className={cn(
-                      "h-[29px] rounded-[10px] border px-2.5 text-[11.5px] font-semibold transition-all duration-200",
+                      "h-8 border-b px-1 text-[11.5px] font-normal transition",
                       leadChipFilter === c.key
-                        ? "bg-[#111827] text-white border-[#111827]"
-                        : "bg-white text-[#475467] border-[#e6eaf0] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]",
+                        ? "border-slate-950 text-slate-950"
+                        : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950",
                     )}
                     onClick={() => setLeadChipFilter(c.key as LeadChipFilter)}
                   >
@@ -1608,7 +2169,7 @@ function LeadsPage() {
                     className="mt-4 bg-[#1d62f9]"
                     onClick={() => {
                       setEditLead(null);
-                      setQuickLeadOpen(true);
+                      setDialogOpen(true);
                     }}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -1618,55 +2179,148 @@ function LeadsPage() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-[1120px] w-full border-collapse table-auto">
+                <div className="grid gap-0 md:hidden">
+                  {filtered.map((lead, index) => {
+                    const isSelected = selectedLeadId === lead.id;
+                    const interest = getInterestLabel(lead) || "Sin interés definido";
+                    const needsFollowUp = leadNeedsFollowUpUi(lead);
+                    const nextStep = getNextStepLabel(lead, needsFollowUp);
+                    const lastActivity =
+                      lead.last_interaction_at || lead.updated_at || lead.created_at;
+                    const companyLabel =
+                      (lead.company_name || "").trim() || getLeadPrimaryLabel(lead);
+                    const personLabel =
+                      getLeadName(lead) !== "Prospecto sin nombre"
+                        ? getLeadName(lead)
+                        : lead.email || lead.whatsapp || lead.phone || "—";
+                    const sourceLabel = getLeadSourceDisplay(lead);
+
+                    return (
+                      <article
+                        key={lead.id}
+                        data-demo={index === 0 ? "leads-first-mobile-card" : undefined}
+                        className={cn(
+                          "border-b border-slate-100 bg-white px-4 py-3 text-left transition-colors active:scale-[0.992] hover:bg-slate-50/40",
+                          isSelected && "bg-blue-50/30",
+                        )}
+                      >
+                        <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => openDetail(lead)}
+                            className={cn(
+                              "grid h-10 w-10 shrink-0 place-items-center rounded-[14px] text-[12px] font-semibold",
+                              getAvatarTone(index),
+                            )}
+                          >
+                            {getInitials(lead)}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDetail(lead)}
+                            className="min-w-0 pt-0.5 text-left"
+                          >
+                            <div className="truncate text-[15px] font-normal leading-5 text-slate-950">
+                              {companyLabel}
+                            </div>
+                            <div className="mt-0.5 truncate text-[12.5px] font-normal leading-4 text-slate-500">
+                              {personLabel}
+                            </div>
+                          </button>
+                          <span
+                            className={cn(
+                              "inline-flex min-h-6 max-w-[92px] shrink-0 items-center rounded-full px-2.5 text-[11px] font-bold",
+                              getStatusTone(lead.status),
+                            )}
+                          >
+                            {getStatusLabel(lead.status)}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-3 pl-[76px] max-[380px]:pl-0">
+                          <div className="min-w-0">
+                            <div className="text-[10px] font-normal uppercase text-slate-400">
+                              Interés
+                            </div>
+                            <div className="mt-1 truncate text-[12.5px] font-normal text-slate-600">
+                              {interest}
+                            </div>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] font-normal uppercase text-slate-400">
+                              Valor
+                            </div>
+                            <div className="mt-1 truncate text-[12.5px] font-normal text-slate-900">
+                              {formatCurrency(lead.estimated_value)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid gap-2">
+                          <div className="flex min-w-0 items-center justify-between gap-3">
+                            <span className="min-w-0 truncate text-[12.5px] font-normal text-slate-600">
+                              {nextStep}
+                            </span>
+                            {needsFollowUp ? (
+                              <span className="shrink-0 rounded-full bg-[#fff1f3] px-2 py-0.5 text-[10px] font-bold text-[#e11d48]">
+                                Seguimiento
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-[12px] font-normal text-slate-400">
+                            <span className="truncate">
+                              {getSourceLabel(sourceLabel)} · {getAssigneeLabel(lead)}
+                            </span>
+                            <span className="shrink-0">{formatRelativeDate(lastActivity)}</span>
+                          </div>
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              className="inline-flex h-8 items-center border-b border-slate-200 bg-transparent px-0 text-[12px] font-normal text-slate-950"
+                              onClick={() => openDetail(lead)}
+                              type="button"
+                            >
+                              Ver
+                            </button>
+                            <button
+                              className="inline-flex h-8 items-center border-b border-emerald-200 bg-transparent px-0 text-[12px] font-normal text-emerald-700"
+                              onClick={() => void handleOpenWhatsAppFromLead(lead)}
+                              type="button"
+                            >
+                              Contactar
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="min-w-[980px] w-full border-collapse table-auto">
                     <thead>
                       <tr>
-                        <th className="w-[38px] border-b border-[#edf1f7] bg-[#fbfcff] px-2 py-2 text-left text-[11px] font-semibold text-[#667085]">
-                          <button
-                            className="grid h-7 w-7 place-items-center rounded-[9px] transition-all duration-200 hover:scale-[1.08] hover:bg-[#eaf1ff]"
-                            onClick={toggleSelectAll}
-                            type="button"
-                            title="Seleccionar todos"
-                          >
-                            <span
-                              className={cn(
-                                "grid h-4 w-4 place-items-center rounded-[5px] border border-[#d8e1ee] bg-white text-white",
-                                allVisibleSelected && "border-[#1d62f9] bg-[#1d62f9]",
-                                !allVisibleSelected &&
-                                  someVisibleSelected &&
-                                  "border-[#1d62f9] bg-[#1d62f9]",
-                              )}
-                            >
-                              {allVisibleSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
-                              {!allVisibleSelected && someVisibleSelected ? (
-                                <Minus className="h-3 w-3 stroke-[3]" />
-                              ) : null}
-                            </span>
-                          </button>
-                        </th>
-                        <th className="w-[240px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="w-[260px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
                           Prospecto
                         </th>
-                        <th className="hidden 2xl:table-cell w-[180px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden 2xl:table-cell w-[180px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
                           Interés
                         </th>
-                        <th className="hidden lg:table-cell w-[165px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden lg:table-cell w-[165px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
                           Etapa
                         </th>
-                        <th className="hidden 2xl:table-cell w-[110px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden 2xl:table-cell w-[110px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
                           Valor
                         </th>
-                        <th className="hidden lg:table-cell w-[135px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden lg:table-cell w-[135px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
                           Última actividad
                         </th>
-                        <th className="hidden 2xl:table-cell w-[165px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085]">
+                        <th className="hidden 2xl:table-cell w-[165px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
                           Responsable
                         </th>
-                        <th className="w-[165px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-left text-[11px] font-semibold text-[#667085] hidden sm:table-cell">
+                        <th className="w-[165px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500 hidden sm:table-cell">
                           Próximo paso
                         </th>
-                        <th className="w-[145px] border-b border-[#edf1f7] bg-[#fbfcff] px-2.5 py-2 text-right text-[11px] font-semibold text-[#667085]">
+                        <th className="w-[145px] border-b border-slate-100 bg-white px-2.5 py-2 text-right text-[11px] font-normal text-slate-500">
                           Acciones
                         </th>
                       </tr>
@@ -1674,8 +2328,6 @@ function LeadsPage() {
                     <tbody>
                       {filtered.map((lead, index) => {
                         const isSelected = selectedLeadId === lead.id;
-                        const isMultiSelected = selectedIds.includes(lead.id);
-                        const showChecked = isSelected || isMultiSelected;
                         const interest = getInterestLabel(lead) || "Sin interés definido";
                         const needsFollowUp = leadNeedsFollowUpUi(lead);
                         const nextStep = getNextStepLabel(lead, needsFollowUp);
@@ -1693,41 +2345,17 @@ function LeadsPage() {
                           <tr
                             key={lead.id}
                             className={cn(
-                              "cursor-pointer border-b border-[#eef2f6] transition-all duration-150 hover:bg-[#f8fbff] hover:shadow-[inset_3px_0_0_rgba(29,98,249,.25)]",
-                              isSelected && "bg-[#f4f8ff] shadow-[inset_3px_0_0_#1d62f9]",
-                              isMultiSelected && "bg-[#f4f8ff] shadow-[inset_3px_0_0_#1d62f9]",
+                              "cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/40",
+                              isSelected && "bg-blue-50/30",
                             )}
                             onClick={() => {
                               setSelectedLeadId(lead.id);
                               setDetailOpen(true);
                             }}
                           >
-                            <td
-                              className="px-2 py-1.5"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <button
-                                className="grid h-7 w-7 place-items-center rounded-[9px] transition-all duration-200 hover:scale-[1.08] hover:bg-[#eaf1ff]"
-                                onClick={() => toggleSelected(lead.id)}
-                                type="button"
-                              >
-                                <span
-                                  className={cn(
-                                    "grid h-[18px] w-[18px] place-items-center rounded-[6px] border border-[#d8e1ee] bg-white text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-all duration-200",
-                                    showChecked &&
-                                      "border-[#1d62f9] bg-[#1d62f9] shadow-[0_0_0_3px_rgba(29,98,249,0.12)]",
-                                  )}
-                                >
-                                  {showChecked ? (
-                                    <Check className="h-3.5 w-3.5 stroke-[3.2]" />
-                                  ) : null}
-                                </span>
-                              </button>
-                            </td>
-
                             <td className="px-2 py-1.5">
                               <button
-                                className="flex w-full items-center gap-2.5 rounded-[12px] px-1.5 py-1 text-left transition-all duration-200 hover:bg-[#f5f9ff]"
+                                className="flex w-full items-center gap-2.5 px-1.5 py-1 text-left transition-colors hover:bg-slate-50/60"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   openDetail(lead);
@@ -1743,7 +2371,7 @@ function LeadsPage() {
                                   {getInitials(lead)}
                                 </div>
                                 <div className="min-w-0">
-                                  <strong className="mb-[2px] block truncate text-[13px] font-semibold tracking-[-0.01em] transition-colors duration-200 hover:text-[#1d62f9]">
+                                  <strong className="mb-[2px] block truncate text-[13px] font-normal transition-colors duration-200 hover:text-[#1d62f9]">
                                     {companyLabel}
                                   </strong>
                                   <span className="block truncate text-[12px] font-normal leading-[1.25] text-[#667085]">
@@ -1759,17 +2387,17 @@ function LeadsPage() {
                                       {getSourceLabel(sourceLabel)}
                                     </span>
                                   </div>
-                                  <div className="mt-1.5 text-[11px] font-semibold text-[#98a2b3] 2xl:hidden">
+                                  <div className="mt-1.5 text-[11px] font-normal text-[#98a2b3] 2xl:hidden">
                                     Responsable:{" "}
                                     <span className="text-[#667085]">{getAssigneeLabel(lead)}</span>
                                   </div>
-                                  <div className="mt-1.5 text-[11px] font-semibold text-[#98a2b3] 2xl:hidden">
+                                  <div className="mt-1.5 text-[11px] font-normal text-[#98a2b3] 2xl:hidden">
                                     Valor:{" "}
                                     <span className="text-[#667085]">
                                       {formatCurrency(lead.estimated_value)}
                                     </span>
                                   </div>
-                                  <div className="mt-1 text-[11px] font-semibold text-[#101828] sm:hidden">
+                                  <div className="mt-1 text-[11px] font-normal text-[#101828] sm:hidden">
                                     Próximo: <span className="text-[#667085]">{nextStep}</span>
                                   </div>
                                 </div>
@@ -1777,7 +2405,7 @@ function LeadsPage() {
                             </td>
 
                             <td className="hidden 2xl:table-cell px-2.5 py-1.5">
-                              <span className="block truncate text-[13px] font-medium text-[#101828]">
+                              <span className="block truncate text-[13px] font-normal text-[#101828]">
                                 {interest}
                               </span>
                             </td>
@@ -1801,22 +2429,22 @@ function LeadsPage() {
                             </td>
 
                             <td className="hidden 2xl:table-cell px-2.5 py-1.5">
-                              <span className="whitespace-nowrap text-[13px] font-semibold text-[#111827] transition-all duration-200 hover:scale-[1.02] hover:text-[#16a34a]">
+                              <span className="whitespace-nowrap text-[13px] font-normal text-[#111827] transition-colors hover:text-[#16a34a]">
                                 {formatCurrency(lead.estimated_value)}
                               </span>
                             </td>
 
                             <td className="hidden lg:table-cell px-2.5 py-1.5">
-                              <div className="text-[13px] font-medium text-[#101828] truncate">
+                              <div className="text-[13px] font-normal text-[#101828] truncate">
                                 {formatRelativeDate(lastActivity)}
                               </div>
-                              <div className="mt-0.5 text-[11px] font-semibold text-[#98a2b3]">
+                              <div className="mt-0.5 text-[11px] font-normal text-[#98a2b3]">
                                 {formatDateShort(lastActivity)}
                               </div>
                             </td>
 
                             <td className="hidden 2xl:table-cell px-2.5 py-1.5">
-                              <div className="flex items-center gap-[9px] whitespace-nowrap text-[13px] font-medium text-[#344054] min-w-0">
+                              <div className="flex items-center gap-[9px] whitespace-nowrap text-[13px] font-normal text-[#344054] min-w-0">
                                 <span className="grid h-7 w-7 shrink-0 aspect-square place-items-center rounded-full bg-[linear-gradient(135deg,#0f172a,#64748b)] text-[11px] font-semibold text-white">
                                   {getAssigneeLabel(lead).slice(0, 2).toUpperCase()}
                                 </span>
@@ -1825,11 +2453,11 @@ function LeadsPage() {
                             </td>
 
                             <td className="hidden sm:table-cell px-2.5 py-1.5">
-                              <div className="text-[13px] font-semibold text-[#101828] truncate">
+                              <div className="text-[13px] font-normal text-[#101828] truncate">
                                 {nextStep}
                               </div>
                               {needsFollowUp ? (
-                                <div className="mt-0.5 text-[11px] font-semibold text-[#e11d48]">
+                                <div className="mt-0.5 text-[11px] font-normal text-[#e11d48]">
                                   Necesita atención
                                 </div>
                               ) : null}
@@ -1838,7 +2466,7 @@ function LeadsPage() {
                             <td className="px-2 py-1.5">
                               <div className="flex items-center justify-end gap-2">
                                 <button
-                                  className="inline-flex h-7 items-center rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[11.5px] font-semibold text-[#344054] hover:border-[#bdd1ff] hover:bg-[#f3f7ff] hover:text-[#1d62f9]"
+                                  className="inline-flex h-7 items-center border-b border-slate-200 bg-transparent px-0 text-[11.5px] font-normal text-slate-950 hover:border-slate-400"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     openDetail(lead);
@@ -1848,7 +2476,7 @@ function LeadsPage() {
                                   Ver
                                 </button>
                                 <button
-                                  className="inline-flex h-7 items-center rounded-[10px] border border-[#16a34a] bg-[#ecfdf3] px-2.5 text-[11.5px] font-semibold text-[#16a34a] hover:opacity-95"
+                                  className="inline-flex h-7 items-center border-b border-emerald-200 bg-transparent px-0 text-[11.5px] font-normal text-emerald-700 hover:border-emerald-500"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     void handleOpenWhatsAppFromLead(lead);
@@ -1870,7 +2498,7 @@ function LeadsPage() {
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
-                                      className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] border border-[#e6eaf0] bg-white text-[#475467] transition-all duration-200 hover:border-[#bdd1ff] hover:bg-[#f5f9ff] hover:text-[#1d62f9]"
+                                      className="grid h-7 w-7 shrink-0 place-items-center border-b border-slate-200 bg-transparent text-[#475467] transition-colors hover:border-slate-400 hover:text-[#1d62f9]"
                                       onClick={(event) => event.stopPropagation()}
                                       type="button"
                                       aria-label="Más acciones"
@@ -1901,10 +2529,7 @@ function LeadsPage() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       disabled={!can("tasks.create")}
-                                      onClick={() => {
-                                        setSelectedLeadId(lead.id);
-                                        setFollowUpOpen(true);
-                                      }}
+                                      onClick={() => openFollowUpDialog(lead)}
                                     >
                                       Crear seguimiento
                                     </DropdownMenuItem>
@@ -1942,24 +2567,24 @@ function LeadsPage() {
                   </table>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf1f7] px-3 py-2.5 text-[12px] font-semibold text-[#667085]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-3 py-2.5 text-[12px] font-normal text-slate-500">
                   <span>
                     Mostrando {filtered.length ? 1 : 0} a {filtered.length} de {leads.length} leads
                   </span>
                   <div className="flex items-center gap-2">
-                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] text-[#475467] transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.04] hover:bg-[#eaf1ff]">
+                    <button className="grid h-[34px] w-[34px] place-items-center border-b border-transparent text-[#475467] transition hover:border-slate-300">
                       ‹
                     </button>
-                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-[#eaf1ff] font-[850] text-[#1d62f9]">
+                    <button className="grid h-[34px] w-[34px] place-items-center border-b border-blue-600 font-normal text-[#1d62f9]">
                       1
                     </button>
-                    <button className="grid h-[34px] w-[34px] place-items-center rounded-[10px] text-[#475467] transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.04] hover:bg-[#eaf1ff]">
+                    <button className="grid h-[34px] w-[34px] place-items-center border-b border-transparent text-[#475467] transition hover:border-slate-300">
                       ›
                     </button>
                   </div>
                   <label className="flex items-center gap-2">
                     Filas por página
-                    <select className="h-[38px] rounded-[11px] border border-[#e6eaf0] bg-white px-3 font-[850] text-[#475467] outline-none">
+                    <select className="h-[38px] border-0 border-b border-slate-200 bg-white px-0 font-normal text-[#475467] outline-none">
                       <option>20</option>
                       <option>50</option>
                       <option>100</option>
@@ -2034,10 +2659,10 @@ function LeadsPage() {
                   action={
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 gap-2 text-xs">
+                        <CrmDetailLineButton className="h-8">
                           <MoreHorizontal className="h-3.5 w-3.5" />
                           Más
-                        </Button>
+                        </CrmDetailLineButton>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
@@ -2057,97 +2682,78 @@ function LeadsPage() {
                     </DropdownMenu>
                   }
                 >
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-9 justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => void handleOpenWhatsAppFromLead(selectedLead)}
-                      disabled={
-                        openingWhatsapp ||
-                        !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)
-                      }
-                      title={
-                        !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)
+                  <CrmDetailActionGrid
+                    actions={[
+                      {
+                        key: "whatsapp",
+                        label: openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp",
+                        icon: <MessageCircle className="h-4 w-4" />,
+                        tone: "success",
+                        onClick: () => void handleOpenWhatsAppFromLead(selectedLead),
+                        disabled:
+                          openingWhatsapp ||
+                          !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone),
+                        title: !normalizePhoneForWhatsApp(
+                          selectedLead.whatsapp || selectedLead.phone,
+                        )
                           ? "Este prospecto no tiene teléfono o WhatsApp válido."
-                          : undefined
-                      }
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      {openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 justify-start gap-2"
-                      onClick={() => {
-                        if (!selectedLead.email) {
-                          toast.message("Este prospecto no tiene email");
-                          return;
-                        }
-                        window.location.href = `mailto:${selectedLead.email}`;
-                      }}
-                    >
-                      <Mail className="h-4 w-4" />
-                      Email
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 justify-start gap-2"
-                      onClick={() => {
-                        if (!selectedLead.phone) {
-                          toast.message("Este prospecto no tiene teléfono");
-                          return;
-                        }
-                        window.location.href = `tel:${selectedLead.phone}`;
-                      }}
-                    >
-                      <Phone className="h-4 w-4" />
-                      Llamar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 justify-start gap-2"
-                      onClick={() => openFollowUpDialog(selectedLead)}
-                      disabled={
-                        !can("tasks.create") ||
-                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                      }
-                      title={
-                        !can("tasks.create")
+                          : undefined,
+                      },
+                      {
+                        key: "email",
+                        label: "Email",
+                        icon: <Mail className="h-4 w-4" />,
+                        onClick: () => {
+                          if (!selectedLead.email) {
+                            toast.message("Este prospecto no tiene email");
+                            return;
+                          }
+                          window.location.href = `mailto:${selectedLead.email}`;
+                        },
+                      },
+                      {
+                        key: "call",
+                        label: "Llamar",
+                        icon: <Phone className="h-4 w-4" />,
+                        onClick: () => {
+                          if (!selectedLead.phone) {
+                            toast.message("Este prospecto no tiene teléfono");
+                            return;
+                          }
+                          window.location.href = `tel:${selectedLead.phone}`;
+                        },
+                      },
+                      {
+                        key: "follow-up",
+                        label: "Crear seguimiento",
+                        icon: <Calendar className="h-4 w-4" />,
+                        onClick: () => openFollowUpDialog(selectedLead),
+                        disabled:
+                          !can("tasks.create") ||
+                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
+                        title: !can("tasks.create")
                           ? "No tienes permiso para crear seguimiento."
                           : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
                             ? "Solo puedes crear seguimiento para tus propios prospectos."
-                            : undefined
-                      }
-                    >
-                      <Calendar className="h-4 w-4" />
-                      Crear seguimiento
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 justify-start gap-2"
-                      onClick={() => setQuickProposalOpen(true)}
-                      disabled={
-                        !can("deals.create") ||
-                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                      }
-                      title={
-                        !can("deals.create")
+                            : undefined,
+                      },
+                      {
+                        key: "proposal",
+                        label: "Crear propuesta",
+                        icon: <FileText className="h-4 w-4" />,
+                        onClick: () => setQuickProposalOpen(true),
+                        disabled:
+                          !can("deals.create") ||
+                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
+                        title: !can("deals.create")
                           ? "No tienes permiso para crear propuestas."
                           : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
                             ? "Solo puedes crear propuestas para tus propios prospectos."
-                            : undefined
-                      }
-                    >
-                      <FileText className="h-4 w-4" />
-                      Crear propuesta
-                    </Button>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
+                            : undefined,
+                      },
+                    ]}
+                  />
+                  <div className="pt-2 text-[11px] font-normal text-slate-500">
                     {!can("leads.edit")
                       ? "No tienes permiso para editar este prospecto."
                       : "Edita, contacta y avanza este prospecto desde aquí."}
@@ -2160,10 +2766,8 @@ function LeadsPage() {
                   title="Seguimiento"
                   icon={<Calendar className="h-3.5 w-3.5" />}
                   action={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-2 text-xs"
+                    <CrmDetailLineButton
+                      className="h-8"
                       onClick={() => openFollowUpDialog(selectedLead)}
                       disabled={
                         !can("tasks.create") ||
@@ -2172,7 +2776,7 @@ function LeadsPage() {
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Crear
-                    </Button>
+                    </CrmDetailLineButton>
                   }
                 >
                   {signalsLoading ? (
@@ -2198,57 +2802,211 @@ function LeadsPage() {
                 </CrmDetailSection>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  className="h-9 bg-[#1d62f9] hover:bg-[#0f52dd]"
-                  onClick={() => void handleConvertLeadToClient(selectedLead)}
-                  disabled={
-                    convertingClient ||
-                    !can("clients.create") ||
-                    (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                  }
-                  title={
-                    !can("clients.create")
-                      ? "No tienes permiso para convertir prospectos a cliente."
-                      : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                        ? "Solo puedes convertir tus propios prospectos."
-                        : undefined
-                  }
-                >
-                  {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
-                </Button>
-                {signalsByLeadId[selectedLead.id]?.hasDeal ? (
-                  <Button
-                    variant="outline"
-                    className="h-9"
-                    onClick={() => {
-                      window.location.href = "/pipeline";
-                    }}
-                    title="Este prospecto ya tiene una oportunidad creada."
-                  >
-                    Abrir oportunidad existente
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="h-9"
-                    onClick={() => void handleCreateDealFromLead(selectedLead)}
-                    disabled={
-                      !can("deals.create") ||
-                      (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                    }
-                    title={
-                      !can("deals.create")
-                        ? "No tienes permiso para crear oportunidades."
-                        : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                          ? "Solo puedes crear oportunidades para tus propios prospectos."
+              <CrmDetailSection
+                title="Oportunidad comercial"
+                icon={<Target className="h-3.5 w-3.5" />}
+                action={
+                  selectedDeal ? (
+                    <CrmDetailLineButton
+                      className="h-8"
+                      onClick={() => setEditingDeal(selectedDeal)}
+                      disabled={!can("deals.edit")}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Editar
+                    </CrmDetailLineButton>
+                  ) : null
+                }
+              >
+                {leadDealsLoading ? (
+                  <CrmDetailEmptyState>Cargando oportunidad...</CrmDetailEmptyState>
+                ) : selectedDeal ? (
+                  <div className="space-y-3">
+                    <div className="min-w-0 border-b border-slate-100 pb-3">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-normal text-slate-950">
+                            {selectedDeal.name}
+                          </div>
+                          <div className="mt-1 text-xs font-normal text-slate-500">
+                            {formatCurrency(selectedDeal.value)} · {selectedDeal.probability || 50}%
+                            prob.
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-[11px] font-normal text-slate-600">
+                          {selectedDeal.stage}
+                        </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <Label className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                          Etapa
+                        </Label>
+                        <Select
+                          value={selectedDeal.stage}
+                          onValueChange={(stage) => void updateDealStage(selectedDeal, stage)}
+                          disabled={!can("deals.edit")}
+                        >
+                          <CrmDetailSelectTrigger className="mt-1 text-[12px] text-slate-700">
+                            <SelectValue placeholder="Etapa" />
+                          </CrmDetailSelectTrigger>
+                          <SelectContent className="border-slate-200 bg-white shadow-none">
+                            {dealStages.map((stage) => (
+                              <SelectItem key={stage.id} value={stage.name}>
+                                {stage.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
+                      <CrmDetailLineButton
+                        onClick={() => void markDealWon(selectedDeal)}
+                        disabled={!can("deals.edit") || closingDeal === "won"}
+                      >
+                        {closingDeal === "won" ? "Guardando..." : "Ganada"}
+                      </CrmDetailLineButton>
+                      <CrmDetailLineButton
+                        tone="danger"
+                        onClick={() => setLostDeal(selectedDeal)}
+                        disabled={!can("deals.edit") || closingDeal === "lost"}
+                      >
+                        Perdida
+                      </CrmDetailLineButton>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-100 pt-3">
+                      <div className="text-xs font-extrabold uppercase tracking-[0.06em] text-slate-400">
+                        Productos
+                      </div>
+                      {dealProducts.length ? (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {dealProducts.map((row) => {
+                            const product = dealProductsByProductId[String(row.product_id)];
+                            return (
+                              <div
+                                key={row.id}
+                                className="flex min-w-0 items-center justify-between gap-3 py-2.5"
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-normal text-slate-950">
+                                    {product?.name || "Producto"}
+                                  </div>
+                                  <div className="text-xs font-normal text-slate-500">
+                                    {Number(row.quantity || 1)} x{" "}
+                                    {formatCurrency(row.unit_price || product?.base_price || 0)}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0 text-slate-400"
+                                  onClick={() => void removeDealProduct(row.id)}
+                                  disabled={!can("deals.edit")}
+                                  aria-label="Quitar producto"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <CrmDetailEmptyState>
+                          Esta oportunidad no tiene productos asociados.
+                        </CrmDetailEmptyState>
+                      )}
+
+                      <div className="grid grid-cols-[minmax(0,1fr)_76px] gap-2">
+                        <Select
+                          value={dealProductDraft.product_id}
+                          onValueChange={(value) =>
+                            setDealProductDraft((current) => ({
+                              ...current,
+                              product_id: value,
+                              unit_price:
+                                activeProducts.find((item) => String(item.id) === value)
+                                  ?.base_price != null
+                                  ? String(
+                                      activeProducts.find((item) => String(item.id) === value)
+                                        ?.base_price,
+                                    )
+                                  : current.unit_price,
+                            }))
+                          }
+                          disabled={!can("deals.edit")}
+                        >
+                          <CrmDetailSelectTrigger className="text-[12px] text-slate-700">
+                            <SelectValue placeholder="Agregar producto" />
+                          </CrmDetailSelectTrigger>
+                          <SelectContent className="border-slate-200 bg-white shadow-none">
+                            {activeProducts.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <CrmDetailLineButton
+                          onClick={() => void addDealProduct(selectedDeal)}
+                          disabled={!can("deals.edit") || !dealProductDraft.product_id}
+                        >
+                          Añadir
+                        </CrmDetailLineButton>
+                      </div>
+                    </div>
+
+                    <CrmDetailLineButton
+                      className="w-full"
+                      icon={<FolderOpen className="h-4 w-4" />}
+                      onClick={() => void createProjectFromWonDeal(selectedDeal)}
+                      disabled={
+                        !can("projects.create") ||
+                        !isWonStageName(selectedDeal.stage) ||
+                        creatingProjectDealId === selectedDeal.id
+                      }
+                      title={
+                        !isWonStageName(selectedDeal.stage)
+                          ? "Primero marca la oportunidad como ganada."
                           : undefined
-                    }
-                  >
-                    Crear oportunidad
-                  </Button>
+                      }
+                    >
+                      {creatingProjectDealId === selectedDeal.id
+                        ? "Creando proyecto..."
+                        : "Crear proyecto"}
+                    </CrmDetailLineButton>
+                  </div>
+                ) : (
+                  <div className="grid gap-2">
+                    <CrmDetailEmptyState>
+                      Este prospecto todavía no tiene oportunidad comercial.
+                    </CrmDetailEmptyState>
+                    <CrmDetailLineButton
+                      onClick={() => void handleCreateDealFromLead(selectedLead)}
+                      disabled={
+                        !can("deals.create") ||
+                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                      }
+                    >
+                      Crear oportunidad
+                    </CrmDetailLineButton>
+                  </div>
                 )}
-              </div>
+              </CrmDetailSection>
+
+              <Button
+                className="h-9 w-full bg-[#1d62f9] hover:bg-[#0f52dd]"
+                onClick={() => void handleConvertLeadToClient(selectedLead)}
+                disabled={
+                  convertingClient ||
+                  !can("clients.create") ||
+                  (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                }
+              >
+                {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
+              </Button>
 
               <div data-demo="leads-assignment">
                 <CrmDetailSection title="Asignación" icon={<Users className="h-3.5 w-3.5" />}>
@@ -2278,10 +3036,10 @@ function LeadsPage() {
                             }}
                             disabled={!can("leads.edit") || teamLoading}
                           >
-                            <SelectTrigger className="h-9 rounded-[12px] text-[13px] font-medium">
+                            <CrmDetailSelectTrigger className="text-[13px]">
                               <SelectValue placeholder="Selecciona vendedor" />
-                            </SelectTrigger>
-                            <SelectContent>
+                            </CrmDetailSelectTrigger>
+                            <SelectContent className="border-slate-200 bg-white shadow-none">
                               <SelectItem value="unassigned">Sin asignar</SelectItem>
                               {assignableUsers.map((m, index) => (
                                 <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
@@ -2383,218 +3141,253 @@ function LeadsPage() {
         }}
       />
 
-      <Dialog
+      <Dialog open={!!editingDeal} onOpenChange={(open) => !open && setEditingDeal(null)}>
+        <DialogContent className="w-screen max-w-none rounded-none sm:max-w-lg sm:rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Editar oportunidad</DialogTitle>
+          </DialogHeader>
+          {editingDeal ? (
+            <form onSubmit={saveDealEdit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nombre</Label>
+                <Input name="name" defaultValue={editingDeal.name} required />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Valor</Label>
+                  <Input name="value" type="number" defaultValue={String(editingDeal.value || 0)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Probabilidad</Label>
+                  <Input
+                    name="probability"
+                    type="number"
+                    min="0"
+                    max="100"
+                    defaultValue={String(editingDeal.probability || 50)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Cierre esperado</Label>
+                <Input
+                  name="expected_close"
+                  type="date"
+                  defaultValue={editingDeal.expected_close || ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Etapa</Label>
+                <Select
+                  value={editingDeal.stage}
+                  onValueChange={(stage) =>
+                    setEditingDeal((current) => (current ? { ...current, stage } : current))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Etapa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dealStages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.name}>
+                        {stage.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingDeal(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={savingDeal}>
+                  {savingDeal ? "Guardando..." : "Guardar"}
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!lostDeal} onOpenChange={(open) => !open && setLostDeal(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Marcar oportunidad como perdida</AlertDialogTitle>
+            <AlertDialogDescription>
+              Registra una razón para mantener claro el historial comercial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Razón</Label>
+              <Select value={lostReason} onValueChange={setLostReason}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Precio">Precio</SelectItem>
+                  <SelectItem value="Timing">Timing</SelectItem>
+                  <SelectItem value="Competencia">Competencia</SelectItem>
+                  <SelectItem value="Sin respuesta">Sin respuesta</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Nota</Label>
+              <Textarea
+                value={lostNote}
+                onChange={(event) => setLostNote(event.target.value)}
+                placeholder="Detalle opcional..."
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={closingDeal === "lost"}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void markDealLost()}
+              disabled={closingDeal === "lost"}
+            >
+              {closingDeal === "lost" ? "Guardando..." : "Marcar perdida"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <CrmCreationDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) setEditLead(null);
         }}
+        title={editLead ? "Editar prospecto" : "Nuevo prospecto"}
+        size="md"
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editLead ? "Editar prospecto" : "Nuevo prospecto"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Nombre</Label>
-                <Input
-                  name="first_name"
-                  defaultValue={editLead?.first_name}
-                  placeholder="Nombre"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Apellido</Label>
-                <Input
-                  name="last_name"
-                  defaultValue={editLead?.last_name}
-                  placeholder="Apellido"
-                  required
-                />
-              </div>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Empresa</Label>
+              <Label className={crmFormStyles.label}>Nombre</Label>
               <Input
-                name="company_name"
-                defaultValue={editLead?.company_name || ""}
-                placeholder="Empresa"
+                name="first_name"
+                defaultValue={editLead?.first_name}
+                placeholder="Nombre"
+                className={crmFormStyles.input}
+                required
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input
-                  name="email"
-                  type="email"
-                  defaultValue={editLead?.email || ""}
-                  placeholder="email@empresa.com"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Teléfono</Label>
-                <Input
-                  name="phone"
-                  defaultValue={editLead?.phone || ""}
-                  placeholder="+1 809 555 0000"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Fuente</Label>
-                <Select name="source" defaultValue={editLead?.source || "Website"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona fuente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SOURCES.map((source) => (
-                      <SelectItem key={source} value={source}>
-                        {getSourceLabel(source)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Estado</Label>
-                <Select name="status" defaultValue={editLead?.status || "New"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {getStatusLabel(status)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Valor estimado</Label>
-                <Input
-                  name="estimated_value"
-                  type="number"
-                  defaultValue={editLead?.estimated_value || ""}
-                  placeholder="0"
-                />
-              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Notas</Label>
-              <Textarea
-                name="notes"
-                defaultValue={editLead?.notes || ""}
-                placeholder="Añade notas..."
-                rows={4}
+              <Label className={crmFormStyles.label}>Apellido</Label>
+              <Input
+                name="last_name"
+                defaultValue={editLead?.last_name}
+                placeholder="Apellido"
+                className={crmFormStyles.input}
+                required
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDialogOpen(false);
-                  setEditLead(null);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit">{editLead ? "Guardar cambios" : "Crear prospecto"}</Button>
+          </div>
+          <div className="space-y-1.5">
+            <Label className={crmFormStyles.label}>Empresa</Label>
+            <Input
+              name="company_name"
+              defaultValue={editLead?.company_name || ""}
+              placeholder="Empresa"
+              className={crmFormStyles.input}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Email</Label>
+              <Input
+                name="email"
+                type="email"
+                defaultValue={editLead?.email || ""}
+                placeholder="email@empresa.com"
+                className={crmFormStyles.input}
+              />
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={followUpOpen}
-        onOpenChange={(open) => {
-          setFollowUpOpen(open);
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Crear seguimiento</DialogTitle>
-          </DialogHeader>
-          {selectedLead ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void handleCreateFollowUpTask(selectedLead);
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Teléfono</Label>
+              <Input
+                name="phone"
+                defaultValue={editLead?.phone || ""}
+                placeholder="+1 809 555 0000"
+                className={crmFormStyles.input}
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Fuente</Label>
+              <Select name="source" defaultValue={editLead?.source || "Website"}>
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Selecciona fuente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SOURCES.map((source) => (
+                    <SelectItem key={source} value={source}>
+                      {getSourceLabel(source)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Estado</Label>
+              <Select name="status" defaultValue={editLead?.status || "New"}>
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {getStatusLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Valor estimado</Label>
+              <Input
+                name="estimated_value"
+                type="number"
+                defaultValue={editLead?.estimated_value || ""}
+                placeholder="0"
+                className={crmFormStyles.input}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className={crmFormStyles.label}>Notas</Label>
+            <Textarea
+              name="notes"
+              defaultValue={editLead?.notes || ""}
+              placeholder="Añade notas..."
+              rows={4}
+              className={crmFormStyles.textarea}
+            />
+          </div>
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => {
+                setDialogOpen(false);
+                setEditLead(null);
               }}
-              className="space-y-4"
             >
-              <div className="space-y-1.5">
-                <Label>Título</Label>
-                <Input
-                  value={followUpValues.title}
-                  onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Fecha</Label>
-                  <Input
-                    type="date"
-                    value={followUpValues.due_date}
-                    onChange={(e) => setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Prioridad</Label>
-                  <Select
-                    value={followUpValues.priority}
-                    onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["Low", "Medium", "High", "Urgent"].map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Nota</Label>
-                <Textarea
-                  value={followUpValues.description}
-                  onChange={(e) =>
-                    setFollowUpValues((p) => ({ ...p, description: e.target.value }))
-                  }
-                  rows={4}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFollowUpOpen(false)}
-                  disabled={followUpSaving}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={followUpSaving || !can("tasks.create")}>
-                  {followUpSaving ? "Guardando..." : "Crear seguimiento"}
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <div className="text-sm text-muted-foreground">Selecciona un prospecto.</div>
-          )}
-        </DialogContent>
-      </Dialog>
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton}>
+              {editLead ? "Guardar cambios" : "Crear prospecto"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
 
       <AlertDialog
         open={!!deleteId}

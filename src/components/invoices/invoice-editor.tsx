@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
 import { formatInvoiceMoney } from "@/components/invoices/invoice-utils";
 
 export type InvoiceEditorItem = {
@@ -190,8 +191,12 @@ export function InvoiceEditor({
     return { subtotal, tax, discount, total: Math.max(0, subtotal + tax - discount) };
   }, [draft.discount, draft.items, draft.tax, initialDraft.items.length]);
 
-  const selectedClient = draft.client_id ? clients.find((client) => client.id === draft.client_id) : null;
-  const selectedProduct = draft.product_id ? products.find((product) => product.id === draft.product_id) : null;
+  const selectedClient = draft.client_id
+    ? clients.find((client) => client.id === draft.client_id)
+    : null;
+  const selectedProduct = draft.product_id
+    ? products.find((product) => product.id === draft.product_id)
+    : null;
   const selectedProposal = draft.proposal_id
     ? proposals.find((proposal) => proposal.id === draft.proposal_id)
     : null;
@@ -234,7 +239,8 @@ export function InvoiceEditor({
   };
 
   const applyProduct = (productId: string) => {
-    const product = productId === NONE_PRODUCT ? null : products.find((item) => item.id === productId);
+    const product =
+      productId === NONE_PRODUCT ? null : products.find((item) => item.id === productId);
     setDraft((current) => {
       if (!product) return { ...current, product_id: null };
       const description = cleanText(product.description) || product.name;
@@ -244,7 +250,13 @@ export function InvoiceEditor({
       if (!nextItems.length) {
         nextItems.push({ description, quantity: 1, unit_price: price, total: price });
       } else if (emptyIndex >= 0) {
-        nextItems[emptyIndex] = { ...nextItems[emptyIndex], description, quantity: 1, unit_price: price, total: price };
+        nextItems[emptyIndex] = {
+          ...nextItems[emptyIndex],
+          description,
+          quantity: 1,
+          unit_price: price,
+          total: price,
+        };
       }
       return {
         ...current,
@@ -276,7 +288,13 @@ export function InvoiceEditor({
       if (!nextItems.length) {
         nextItems.push({ description, quantity: 1, unit_price: price, total: price });
       } else if (emptyIndex >= 0 && price > 0) {
-        nextItems[emptyIndex] = { ...nextItems[emptyIndex], description, quantity: 1, unit_price: price, total: price };
+        nextItems[emptyIndex] = {
+          ...nextItems[emptyIndex],
+          description,
+          quantity: 1,
+          unit_price: price,
+          total: price,
+        };
       }
       return {
         ...current,
@@ -360,7 +378,8 @@ export function InvoiceEditor({
     <div className="space-y-4">
       {isIssuedStatus(draft.status) ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Esta factura ya fue emitida. Puedes editarla, pero revisa los cambios financieros antes de guardar.
+          Esta factura ya fue emitida. Puedes editarla, pero revisa los cambios financieros antes de
+          guardar.
         </div>
       ) : null}
       {error || validationError ? (
@@ -374,24 +393,37 @@ export function InvoiceEditor({
           <EditorSection title="Cliente y origen">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Número">
-                <Input value={draft.number} onChange={(event) => patchDraft({ number: event.target.value })} />
+                <Input
+                  value={draft.number}
+                  onChange={(event) => patchDraft({ number: event.target.value })}
+                />
               </Field>
               <Field label="Estado">
                 <Select value={draft.status} onValueChange={(status) => patchDraft({ status })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {statusOptions.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
               <Field label="Cliente">
                 <Select value={draft.client_id || NONE_CLIENT} onValueChange={selectClient}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar cliente" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE_CLIENT}>Sin cliente</SelectItem>
                     {clients.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
-                        {client.contact_person ? `${client.company_name} · ${client.contact_person}` : client.company_name}
+                        {client.contact_person
+                          ? `${client.company_name} · ${client.contact_person}`
+                          : client.company_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -399,12 +431,16 @@ export function InvoiceEditor({
               </Field>
               <Field label="Propuesta">
                 <Select value={draft.proposal_id || NONE_PROPOSAL} onValueChange={applyProposal}>
-                  <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Opcional" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE_PROPOSAL}>Sin propuesta</SelectItem>
                     {proposals.map((proposal) => (
                       <SelectItem key={proposal.id} value={proposal.id}>
-                        {proposal.title ? `${proposal.number} · ${proposal.title}` : proposal.number}
+                        {proposal.title
+                          ? `${proposal.number} · ${proposal.title}`
+                          : proposal.number}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -412,42 +448,103 @@ export function InvoiceEditor({
               </Field>
               <Field label="Producto / servicio">
                 <Select value={draft.product_id || NONE_PRODUCT} onValueChange={applyProduct}>
-                  <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Opcional" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE_PRODUCT}>Sin producto</SelectItem>
-                    {products.map((product) => <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>)}
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
               <Field label="Moneda">
-                <Input value={draft.currency} onChange={(event) => patchDraft({ currency: event.target.value.toUpperCase() })} />
+                <Input
+                  value={draft.currency}
+                  onChange={(event) => patchDraft({ currency: event.target.value.toUpperCase() })}
+                />
               </Field>
             </div>
           </EditorSection>
 
           <EditorSection title="Datos del cliente">
             <div className="mb-3 flex justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={useClientData} disabled={!selectedClient}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={useClientData}
+                disabled={!selectedClient}
+              >
                 Usar datos del cliente
               </Button>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombre"><Input value={draft.clientName || ""} onChange={(event) => patchDraft({ clientName: event.target.value })} /></Field>
-              <Field label="Empresa"><Input value={draft.clientCompany || ""} onChange={(event) => patchDraft({ clientCompany: event.target.value })} /></Field>
-              <Field label="Correo"><Input value={draft.clientEmail || ""} onChange={(event) => patchDraft({ clientEmail: event.target.value })} /></Field>
-              <Field label="Teléfono"><Input value={draft.clientPhone || ""} onChange={(event) => patchDraft({ clientPhone: event.target.value })} /></Field>
-              <Field label="ID fiscal / RNC"><Input value={draft.clientTaxId || ""} onChange={(event) => patchDraft({ clientTaxId: event.target.value })} /></Field>
-              <Field label="Producto visible"><Input value={draft.productName || ""} onChange={(event) => patchDraft({ productName: event.target.value })} /></Field>
+              <Field label="Nombre">
+                <Input
+                  value={draft.clientName || ""}
+                  onChange={(event) => patchDraft({ clientName: event.target.value })}
+                />
+              </Field>
+              <Field label="Empresa">
+                <Input
+                  value={draft.clientCompany || ""}
+                  onChange={(event) => patchDraft({ clientCompany: event.target.value })}
+                />
+              </Field>
+              <Field label="Correo">
+                <Input
+                  value={draft.clientEmail || ""}
+                  onChange={(event) => patchDraft({ clientEmail: event.target.value })}
+                />
+              </Field>
+              <Field label="Teléfono">
+                <Input
+                  value={draft.clientPhone || ""}
+                  onChange={(event) => patchDraft({ clientPhone: event.target.value })}
+                />
+              </Field>
+              <Field label="ID fiscal / RNC">
+                <Input
+                  value={draft.clientTaxId || ""}
+                  onChange={(event) => patchDraft({ clientTaxId: event.target.value })}
+                />
+              </Field>
+              <Field label="Producto visible">
+                <Input
+                  value={draft.productName || ""}
+                  onChange={(event) => patchDraft({ productName: event.target.value })}
+                />
+              </Field>
             </div>
             <Field label="Dirección" className="mt-4">
-              <Textarea value={draft.clientAddress || ""} onChange={(event) => patchDraft({ clientAddress: event.target.value })} rows={2} />
+              <Textarea
+                value={draft.clientAddress || ""}
+                onChange={(event) => patchDraft({ clientAddress: event.target.value })}
+                rows={2}
+              />
             </Field>
           </EditorSection>
 
           <EditorSection title="Fechas">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Fecha emitida"><Input type="date" value={draft.date_issued} onChange={(event) => patchDraft({ date_issued: event.target.value })} /></Field>
-              <Field label="Vence"><Input type="date" value={draft.due_date} onChange={(event) => patchDraft({ due_date: event.target.value })} /></Field>
+              <Field label="Fecha emitida">
+                <Input
+                  type="date"
+                  value={draft.date_issued}
+                  onChange={(event) => patchDraft({ date_issued: event.target.value })}
+                />
+              </Field>
+              <Field label="Vence">
+                <Input
+                  type="date"
+                  value={draft.due_date}
+                  onChange={(event) => patchDraft({ due_date: event.target.value })}
+                />
+              </Field>
             </div>
           </EditorSection>
 
@@ -507,7 +604,9 @@ export function InvoiceEditor({
                 ) : (
                   <Receipt className="mr-2 h-4 w-4" />
                 )}
-                {paymentFeedback?.status === "registered" ? "Registrar otro pago" : "Registrar pago"}
+                {paymentFeedback?.status === "registered"
+                  ? "Registrar otro pago"
+                  : "Registrar pago"}
               </Button>
             </div>
             {registerPaymentHint && !paymentFeedback ? (
@@ -518,18 +617,63 @@ export function InvoiceEditor({
           </EditorSection>
 
           <EditorSection title="Notas">
-            <Field label="Notas internas"><Textarea value={draft.notes || ""} onChange={(event) => patchDraft({ notes: event.target.value })} rows={3} /></Field>
+            <Field label="Notas internas">
+              <Textarea
+                value={draft.notes || ""}
+                onChange={(event) => patchDraft({ notes: event.target.value })}
+                rows={3}
+              />
+            </Field>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Propuesta #"><Input value={draft.relatedProposalNumber || ""} onChange={(event) => patchDraft({ relatedProposalNumber: event.target.value })} /></Field>
-              <Field label="Título propuesta"><Input value={draft.relatedProposalTitle || ""} onChange={(event) => patchDraft({ relatedProposalTitle: event.target.value })} /></Field>
-              <Field label="Emisor"><Input value={draft.issuerName || ""} onChange={(event) => patchDraft({ issuerName: event.target.value })} /></Field>
-              <Field label="Correo emisor"><Input value={draft.issuerEmail || ""} onChange={(event) => patchDraft({ issuerEmail: event.target.value })} /></Field>
-              <Field label="ID fiscal emisor"><Input value={draft.issuerTaxId || ""} onChange={(event) => patchDraft({ issuerTaxId: event.target.value })} /></Field>
-              <Field label="Teléfono emisor"><Input value={draft.issuerPhone || ""} onChange={(event) => patchDraft({ issuerPhone: event.target.value })} /></Field>
-              <Field label="Sitio web"><Input value={draft.issuerWebsite || ""} onChange={(event) => patchDraft({ issuerWebsite: event.target.value })} /></Field>
+              <Field label="Propuesta #">
+                <Input
+                  value={draft.relatedProposalNumber || ""}
+                  onChange={(event) => patchDraft({ relatedProposalNumber: event.target.value })}
+                />
+              </Field>
+              <Field label="Título propuesta">
+                <Input
+                  value={draft.relatedProposalTitle || ""}
+                  onChange={(event) => patchDraft({ relatedProposalTitle: event.target.value })}
+                />
+              </Field>
+              <Field label="Emisor">
+                <Input
+                  value={draft.issuerName || ""}
+                  onChange={(event) => patchDraft({ issuerName: event.target.value })}
+                />
+              </Field>
+              <Field label="Correo emisor">
+                <Input
+                  value={draft.issuerEmail || ""}
+                  onChange={(event) => patchDraft({ issuerEmail: event.target.value })}
+                />
+              </Field>
+              <Field label="ID fiscal emisor">
+                <Input
+                  value={draft.issuerTaxId || ""}
+                  onChange={(event) => patchDraft({ issuerTaxId: event.target.value })}
+                />
+              </Field>
+              <Field label="Teléfono emisor">
+                <Input
+                  value={draft.issuerPhone || ""}
+                  onChange={(event) => patchDraft({ issuerPhone: event.target.value })}
+                />
+              </Field>
+              <Field label="Sitio web">
+                <Input
+                  value={draft.issuerWebsite || ""}
+                  onChange={(event) => patchDraft({ issuerWebsite: event.target.value })}
+                />
+              </Field>
             </div>
             <Field label="Dirección emisor" className="mt-4">
-              <Textarea value={draft.issuerAddress || ""} onChange={(event) => patchDraft({ issuerAddress: event.target.value })} rows={2} />
+              <Textarea
+                value={draft.issuerAddress || ""}
+                onChange={(event) => patchDraft({ issuerAddress: event.target.value })}
+                rows={2}
+              />
             </Field>
           </EditorSection>
         </div>
@@ -545,24 +689,32 @@ export function InvoiceEditor({
             onDiscountChange={(discount) => patchDraft({ discount })}
           />
           <EditorSection title="Acciones">
-            <div className="grid gap-2">
-              <Button type="button" onClick={saveDraft} disabled={saving}>Guardar borrador</Button>
-              <Button type="button" variant="outline" onClick={openReview} disabled={saving}>
+            <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-1">
+              <CrmDetailLineButton type="button" onClick={saveDraft} disabled={saving}>
+                Guardar borrador
+              </CrmDetailLineButton>
+              <CrmDetailLineButton type="button" onClick={openReview} disabled={saving}>
                 <Send className="mr-2 h-4 w-4" /> Revisar y enviar
-              </Button>
-              <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>Cancelar</Button>
+              </CrmDetailLineButton>
+              <CrmDetailLineButton type="button" onClick={onCancel} disabled={saving}>
+                Cancelar
+              </CrmDetailLineButton>
             </div>
             {mode === "edit" ? (
-              <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                {publicUrl ? "La factura tiene enlace público disponible." : "Guarda la factura para generar o conservar su enlace público."}
+              <div className="mt-3 border-b border-slate-100 pb-3 text-xs font-normal text-slate-500">
+                {publicUrl
+                  ? "Enlace público disponible."
+                  : "Guarda la factura para generar o conservar su enlace público."}
               </div>
             ) : null}
             {publicToken ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={onCopyPublic}>
-                  <Copy className="mr-2 h-3.5 w-3.5" /> Copiar
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={onOpenPublic}>Abrir pública</Button>
+              <div className="mt-3 grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-1">
+                <CrmDetailLineButton type="button" onClick={onCopyPublic}>
+                  <Copy className="mr-2 h-3.5 w-3.5" /> Copiar enlace
+                </CrmDetailLineButton>
+                <CrmDetailLineButton type="button" onClick={onOpenPublic}>
+                  Abrir pública
+                </CrmDetailLineButton>
               </div>
             ) : null}
           </EditorSection>
@@ -607,8 +759,8 @@ function Field({
 
 function EditorSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="mb-4 text-sm font-bold text-slate-900">{title}</div>
+    <section className="border-b border-slate-100 bg-white pb-5">
+      <div className="mb-4 text-sm font-normal text-slate-900">{title}</div>
       {children}
     </section>
   );
@@ -631,9 +783,15 @@ function InvoiceLineItemsEditor({
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <Select onValueChange={onSelectProduct}>
-          <SelectTrigger className="w-full sm:w-[260px]"><SelectValue placeholder="Crear línea desde producto" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[260px]">
+            <SelectValue placeholder="Crear línea desde producto" />
+          </SelectTrigger>
           <SelectContent>
-            {products.map((product) => <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>)}
+            {products.map((product) => (
+              <SelectItem key={product.id} value={product.id}>
+                {product.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Button type="button" variant="outline" onClick={() => onChange([...items, emptyLine()])}>
@@ -648,21 +806,44 @@ function InvoiceLineItemsEditor({
       ) : null}
 
       {items.map((item, index) => (
-        <div key={item.id || index} className="grid gap-3 rounded-lg border bg-muted/10 p-3 sm:grid-cols-12">
+        <div
+          key={item.id || index}
+          className="grid gap-3 rounded-lg border bg-muted/10 p-3 sm:grid-cols-12"
+        >
           <Field label="Descripción" className="sm:col-span-5">
-            <Input value={item.description} onChange={(event) => onUpdate(index, { description: event.target.value })} />
+            <Input
+              value={item.description}
+              onChange={(event) => onUpdate(index, { description: event.target.value })}
+            />
           </Field>
           <Field label="Cantidad" className="sm:col-span-2">
-            <Input type="number" min="0" step="0.01" value={String(item.quantity)} onChange={(event) => onUpdate(index, { quantity: cleanNumber(event.target.value) })} />
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={String(item.quantity)}
+              onChange={(event) => onUpdate(index, { quantity: cleanNumber(event.target.value) })}
+            />
           </Field>
           <Field label="Precio" className="sm:col-span-2">
-            <Input type="number" min="0" step="0.01" value={String(item.unit_price)} onChange={(event) => onUpdate(index, { unit_price: cleanNumber(event.target.value) })} />
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={String(item.unit_price)}
+              onChange={(event) => onUpdate(index, { unit_price: cleanNumber(event.target.value) })}
+            />
           </Field>
           <Field label="Total" className="sm:col-span-2">
             <Input value={String(lineTotal(item))} readOnly />
           </Field>
           <div className="flex items-end justify-end sm:col-span-1">
-            <Button type="button" variant="outline" size="icon" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -694,10 +875,22 @@ function InvoiceEditorSummary({
       <div className="space-y-3">
         <SummaryRow label="Subtotal" value={formatInvoiceMoney(subtotal, currency)} />
         <Field label="Impuesto">
-          <Input type="number" min="0" step="0.01" value={String(tax)} onChange={(event) => onTaxChange(cleanNumber(event.target.value))} />
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={String(tax)}
+            onChange={(event) => onTaxChange(cleanNumber(event.target.value))}
+          />
         </Field>
         <Field label="Descuento">
-          <Input type="number" min="0" step="0.01" value={String(discount)} onChange={(event) => onDiscountChange(cleanNumber(event.target.value))} />
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={String(discount)}
+            onChange={(event) => onDiscountChange(cleanNumber(event.target.value))}
+          />
         </Field>
         <div className="border-t pt-3">
           <SummaryRow label="Total" value={formatInvoiceMoney(total, currency)} strong />
@@ -711,7 +904,11 @@ function SummaryRow({ label, value, strong }: { label: string; value: string; st
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className={strong ? "text-base font-bold text-slate-950" : "font-semibold text-slate-900"}>{value}</span>
+      <span
+        className={strong ? "text-base font-bold text-slate-950" : "font-semibold text-slate-900"}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -741,38 +938,74 @@ function InvoiceReviewDialog({
         <DialogHeader>
           <DialogTitle>Revisar factura antes de enviar</DialogTitle>
           <DialogDescription>
-            Confirma los datos. Esta acción marcará la factura como enviada, sin enviar email externo.
+            Confirma los datos. Esta acción marcará la factura como enviada, sin enviar email
+            externo.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
             <ReviewField label="Número" value={draft.number} />
-            <ReviewField label="Destinatario" value={draft.clientEmail || client?.email || "Sin correo"} />
-            <ReviewField label="Cliente" value={draft.clientCompany || client?.company_name || draft.clientName || "Sin cliente"} />
+            <ReviewField
+              label="Destinatario"
+              value={draft.clientEmail || client?.email || "Sin correo"}
+            />
+            <ReviewField
+              label="Cliente"
+              value={
+                draft.clientCompany || client?.company_name || draft.clientName || "Sin cliente"
+              }
+            />
             <ReviewField label="Fecha emitida" value={draft.date_issued} />
             <ReviewField label="Vencimiento" value={draft.due_date} />
           </div>
           <div className="min-w-0 rounded-lg border">
             {items.map((item, index) => (
-              <div key={`${item.id || index}`} className="flex min-w-0 items-start justify-between gap-3 border-b px-3 py-2 text-sm last:border-b-0">
+              <div
+                key={`${item.id || index}`}
+                className="flex min-w-0 items-start justify-between gap-3 border-b px-3 py-2 text-sm last:border-b-0"
+              >
                 <div className="min-w-0">
                   <div className="break-words font-medium leading-snug">{item.description}</div>
-                  <div className="text-xs text-muted-foreground">x{item.quantity} · {formatInvoiceMoney(item.unit_price, draft.currency)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    x{item.quantity} · {formatInvoiceMoney(item.unit_price, draft.currency)}
+                  </div>
                 </div>
-                <div className="shrink-0 whitespace-nowrap text-right font-semibold">{formatInvoiceMoney(lineTotal(item), draft.currency)}</div>
+                <div className="shrink-0 whitespace-nowrap text-right font-semibold">
+                  {formatInvoiceMoney(lineTotal(item), draft.currency)}
+                </div>
               </div>
             ))}
           </div>
           <div className="space-y-2 rounded-lg bg-muted/40 p-3">
-            <SummaryRow label="Subtotal" value={formatInvoiceMoney(totals.subtotal, draft.currency)} />
+            <SummaryRow
+              label="Subtotal"
+              value={formatInvoiceMoney(totals.subtotal, draft.currency)}
+            />
             <SummaryRow label="Impuestos" value={formatInvoiceMoney(totals.tax, draft.currency)} />
-            <SummaryRow label="Descuento" value={formatInvoiceMoney(totals.discount, draft.currency)} />
-            <SummaryRow label="Total" value={formatInvoiceMoney(totals.total, draft.currency)} strong />
+            <SummaryRow
+              label="Descuento"
+              value={formatInvoiceMoney(totals.discount, draft.currency)}
+            />
+            <SummaryRow
+              label="Total"
+              value={formatInvoiceMoney(totals.total, draft.currency)}
+              strong
+            />
           </div>
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)} disabled={saving}>Volver a editar</Button>
-          <Button type="button" className="w-full sm:w-auto" onClick={onConfirm} disabled={saving}>Confirmar como enviada</Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Volver a editar
+          </Button>
+          <Button type="button" className="w-full sm:w-auto" onClick={onConfirm} disabled={saving}>
+            Confirmar como enviada
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -782,7 +1015,9 @@ function InvoiceReviewDialog({
 function ReviewField({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
       <div className="mt-1 break-words font-medium text-slate-950">{value}</div>
     </div>
   );

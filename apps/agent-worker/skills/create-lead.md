@@ -6,6 +6,7 @@ Tool:
 create_lead
 
 Usa esta tool para frases como:
+
 - crea un lead llamado Juan Pérez
 - registra a María como prospecto
 - guarda este contacto
@@ -13,16 +14,16 @@ Usa esta tool para frases como:
 
 Campos aceptados:
 {
-  "name": "Nombre completo",
-  "first_name": "Nombre",
-  "last_name": "Apellido",
-  "phone": "Teléfono",
-  "whatsapp": "WhatsApp",
-  "email": "Email",
-  "company_name": "Empresa",
-  "source": "Origen",
-  "notes": "Notas",
-  "estimated_value": 0
+"name": "Nombre completo",
+"first_name": "Nombre",
+"last_name": "Apellido",
+"phone": "Teléfono",
+"whatsapp": "WhatsApp",
+"email": "Email",
+"company_name": "Empresa",
+"source": "Origen",
+"notes": "Notas",
+"estimated_value": 0
 }
 
 Si el usuario da nombre completo, usa name.
@@ -31,14 +32,14 @@ Si falta el nombre, pide aclaración.
 
 Formato tool_call:
 {
-  "type": "tool_call",
-  "tool": "create_lead",
-  "args": {
-    "name": "Juan Pérez",
-    "phone": "8291234567",
-    "source": "AI Assistant",
-    "notes": "Interesado en un CRM"
-  }
+"type": "tool_call",
+"tool": "create_lead",
+"args": {
+"name": "Juan Pérez",
+"phone": "8291234567",
+"source": "AI Assistant",
+"notes": "Interesado en un CRM"
+}
 }
 
 Respuesta esperada después de la tool:

@@ -112,7 +112,8 @@ const FOCUSED_TOOL_META: Partial<Record<string, FocusedToolMeta>> = {
     eyebrow: "Dashboard",
     description: "Lectura general con los indicadores reales disponibles.",
     empty: "No hay indicadores disponibles para mostrar.",
-    nextStep: "Usa este resumen para decidir si conviene revisar leads, tareas, cobros o proyectos.",
+    nextStep:
+      "Usa este resumen para decidir si conviene revisar leads, tareas, cobros o proyectos.",
     tone: "blue",
     icon: BarChart3,
   },
@@ -188,9 +189,14 @@ function toneClass(tone?: string) {
 function ContextEmptyState() {
   return (
     <div className="agent-context-empty">
-      <div className="agent-context-empty-icon"><Sparkles className="h-4 w-4" /></div>
+      <div className="agent-context-empty-icon">
+        <Sparkles className="h-4 w-4" />
+      </div>
       <h3>Contexto CRM</h3>
-      <p>Pide algo sobre leads, tareas, facturas, oportunidades, proyectos o productos. El panel mostrara datos reales cuando haya contexto util del CRM.</p>
+      <p>
+        Pide algo sobre leads, tareas, facturas, oportunidades, proyectos o productos. El panel
+        mostrara datos reales cuando haya contexto util del CRM.
+      </p>
     </div>
   );
 }
@@ -207,9 +213,13 @@ function MetricAction({ metric }: { metric: AgentWidgetMetric }) {
   );
 
   return action ? (
-    <a key={metric.id} href={action.href} className={className}>{body}</a>
+    <a key={metric.id} href={action.href} className={className}>
+      {body}
+    </a>
   ) : (
-    <div key={metric.id} className={className}>{body}</div>
+    <div key={metric.id} className={className}>
+      {body}
+    </div>
   );
 }
 
@@ -228,13 +238,21 @@ function FocusedWidgetRow({ row }: { row: AgentWidgetRow }) {
   );
 
   return action ? (
-    <a href={action.href} className="agent-focused-row is-clickable">{body}</a>
+    <a href={action.href} className="agent-focused-row is-clickable">
+      {body}
+    </a>
   ) : (
     <div className="agent-focused-row">{body}</div>
   );
 }
 
-function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta: FocusedToolMeta }) {
+function FocusedToolWidget({
+  context,
+  meta,
+}: {
+  context: AgentToolContext;
+  meta: FocusedToolMeta;
+}) {
   const Icon = meta.icon;
   const count = context.metrics?.length ? context.metrics.length : context.rows.length;
   const visibleRows = context.rows.slice(0, 6);
@@ -242,7 +260,9 @@ function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta:
   return (
     <div className="agent-focused-widget">
       <section className={`agent-focused-hero is-${meta.tone}`}>
-        <div className="agent-focused-icon"><Icon className="h-4 w-4" /></div>
+        <div className="agent-focused-icon">
+          <Icon className="h-4 w-4" />
+        </div>
         <div>
           <span>{meta.eyebrow}</span>
           <h3>{meta.title}</h3>
@@ -252,7 +272,10 @@ function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta:
       </section>
 
       {context.primaryAction ? (
-        <a href={context.primaryAction.href} className={`agent-context-primary-action is-${context.primaryAction.tone || meta.tone}`}>
+        <a
+          href={context.primaryAction.href}
+          className={`agent-context-primary-action is-${context.primaryAction.tone || meta.tone}`}
+        >
           {context.primaryAction.label}
         </a>
       ) : null}
@@ -260,7 +283,9 @@ function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta:
       {context.metrics?.length ? (
         <section className="agent-context-card agent-focused-list-card">
           <div className="agent-context-metrics">
-            {context.metrics.map((metric) => <MetricAction key={metric.id} metric={metric} />)}
+            {context.metrics.map((metric) => (
+              <MetricAction key={metric.id} metric={metric} />
+            ))}
           </div>
         </section>
       ) : null}
@@ -269,10 +294,16 @@ function FocusedToolWidget({ context, meta }: { context: AgentToolContext; meta:
         <section className="agent-context-card agent-focused-list-card">
           <div className="agent-focused-list-head">
             <span>Resultados</span>
-            {context.rows.length > visibleRows.length ? <small>Mostrando {visibleRows.length} de {context.rows.length}</small> : null}
+            {context.rows.length > visibleRows.length ? (
+              <small>
+                Mostrando {visibleRows.length} de {context.rows.length}
+              </small>
+            ) : null}
           </div>
           <div className="agent-focused-list">
-            {visibleRows.map((row) => <FocusedWidgetRow key={row.id} row={row} />)}
+            {visibleRows.map((row) => (
+              <FocusedWidgetRow key={row.id} row={row} />
+            ))}
           </div>
         </section>
       ) : null}
@@ -317,7 +348,10 @@ function ContextView({ context }: { context: AgentToolContext | null }) {
         <h3>{context.title}</h3>
         {context.summary ? <p>{context.summary}</p> : null}
         {context.primaryAction ? (
-          <a href={context.primaryAction.href} className={`agent-context-primary-action is-${context.primaryAction.tone || "blue"}`}>
+          <a
+            href={context.primaryAction.href}
+            className={`agent-context-primary-action is-${context.primaryAction.tone || "blue"}`}
+          >
             {context.primaryAction.label}
           </a>
         ) : null}
@@ -326,7 +360,9 @@ function ContextView({ context }: { context: AgentToolContext | null }) {
       {context.metrics?.length ? (
         <section className="agent-context-card">
           <div className="agent-context-metrics">
-            {context.metrics.map((metric) => <MetricAction key={metric.id} metric={metric} />)}
+            {context.metrics.map((metric) => (
+              <MetricAction key={metric.id} metric={metric} />
+            ))}
           </div>
         </section>
       ) : null}
@@ -349,9 +385,13 @@ function ContextView({ context }: { context: AgentToolContext | null }) {
               );
 
               return action ? (
-                <a key={row.id} href={action.href} className="agent-context-row is-clickable">{body}</a>
+                <a key={row.id} href={action.href} className="agent-context-row is-clickable">
+                  {body}
+                </a>
               ) : (
-                <div key={row.id} className="agent-context-row">{body}</div>
+                <div key={row.id} className="agent-context-row">
+                  {body}
+                </div>
               );
             })}
           </div>
@@ -367,14 +407,12 @@ function HistoryView({
   loadingHistory,
   historyError,
   onLoadThread,
-}: Pick<AgentContextPanelProps, "threads" | "activeThreadId" | "loadingHistory" | "historyError" | "onLoadThread">) {
+}: Pick<
+  AgentContextPanelProps,
+  "threads" | "activeThreadId" | "loadingHistory" | "historyError" | "onLoadThread"
+>) {
   return (
     <div className="agent-context-history-view">
-      <div className="agent-context-search">
-        <Search className="h-4 w-4" />
-        <input placeholder="Buscar chats" />
-      </div>
-
       <p className="agent-context-label">{loadingHistory ? "Cargando..." : "Conversaciones"}</p>
       {historyError ? <p className="agent-context-error">{historyError}</p> : null}
 
@@ -390,7 +428,9 @@ function HistoryView({
             >
               <strong>{thread.title}</strong>
               <span>{thread.preview}</span>
-              <small><Clock3 className="h-3 w-3" /> {thread.updatedAt}</small>
+              <small>
+                <Clock3 className="h-3 w-3" /> {thread.updatedAt}
+              </small>
             </button>
           );
         })}
@@ -418,8 +458,20 @@ export function AgentContextPanel({
           Nuevo chat
         </button>
         <div className="agent-context-tabs" aria-label="Panel del agente">
-          <button type="button" className={mode === "context" ? "is-active" : ""} onClick={() => setMode("context")}>Contexto</button>
-          <button type="button" className={mode === "history" ? "is-active" : ""} onClick={() => setMode("history")}><History className="h-3.5 w-3.5" /> Historial</button>
+          <button
+            type="button"
+            className={mode === "context" ? "is-active" : ""}
+            onClick={() => setMode("context")}
+          >
+            Contexto
+          </button>
+          <button
+            type="button"
+            className={mode === "history" ? "is-active" : ""}
+            onClick={() => setMode("history")}
+          >
+            <History className="h-3.5 w-3.5" /> Historial
+          </button>
         </div>
       </div>
 

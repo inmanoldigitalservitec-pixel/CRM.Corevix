@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, ListFilter, MoreHorizontal, RefreshCw, Search, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Download, ListFilter, MoreHorizontal, RefreshCw, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -51,9 +50,9 @@ function getButtonByText(root: HTMLElement, text: string) {
 }
 
 export function SearchFilters({
-  searchValue,
-  onSearchChange,
-  searchPlaceholder = "Search...",
+  searchValue: _searchValue,
+  onSearchChange: _onSearchChange,
+  searchPlaceholder: _searchPlaceholder = "Search...",
   filters = [],
   className,
   mobileCollapsible = false,
@@ -65,7 +64,6 @@ export function SearchFilters({
   const [taskActionMenuOpen, setTaskActionMenuOpen] = useState(false);
   const [taskActionsHost, setTaskActionsHost] = useState<HTMLDivElement | null>(null);
   const [taskToolbarButtons, setTaskToolbarButtons] = useState<TaskToolbarButtons>({});
-  const resolvedSearchPlaceholder = searchPlaceholder === "Search..." ? t("common.search") : searchPlaceholder;
   const activeFiltersCount = useMemo(
     () => filters.filter((filter) => filter.value && filter.value !== "all").length,
     [filters],
@@ -84,13 +82,17 @@ export function SearchFilters({
     if (typeof window === "undefined" || window.location.pathname !== "/tasks") return;
     const root = rootRef.current;
     const toolbar = root?.previousElementSibling as HTMLElement | null;
-    const actionRow = toolbar?.querySelector("div.flex.flex-wrap.items-center.gap-2") as HTMLElement | null;
+    const actionRow = toolbar?.querySelector(
+      "div.flex.flex-wrap.items-center.gap-2",
+    ) as HTMLElement | null;
     if (!root || !toolbar || !actionRow) return;
 
     const exportButton = getButtonByText(actionRow, "Exportar");
     const refreshButton = getButtonByText(actionRow, "Actualizar");
     const clearButton = getButtonByText(actionRow, "Limpiar filtros");
-    const secondaryButtons = [exportButton, refreshButton, clearButton].filter(Boolean) as HTMLButtonElement[];
+    const secondaryButtons = [exportButton, refreshButton, clearButton].filter(
+      Boolean,
+    ) as HTMLButtonElement[];
     if (!secondaryButtons.length) return;
 
     const previousDisplays = new Map<HTMLButtonElement, string>();
@@ -218,55 +220,41 @@ export function SearchFilters({
     });
   };
 
+  if (!filters.length) {
+    return <>{renderTaskToolbarMenu()}</>;
+  }
+
   return (
     <>
       {renderTaskToolbarMenu()}
 
       <div
         ref={rootRef}
-        className={[
-          "flex flex-col gap-3 sm:flex-row sm:flex-wrap",
-          filters.length ? "sm:items-center" : "",
-          className,
-        ]
+        className={["flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center", className]
           .filter(Boolean)
           .join(" ")}
       >
-        <div className="flex min-w-0 items-center gap-2 sm:flex-1">
-          <div className="relative min-w-0 flex-1 sm:min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={resolvedSearchPlaceholder}
-              value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="h-10 border-border/50 bg-muted/30 pl-9 focus-visible:ring-1 sm:h-9"
-            />
-          </div>
-
-          {filters.length ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="relative h-10 shrink-0 gap-2 border-border/60 bg-white px-3 font-semibold sm:hidden"
-              onClick={() => setFiltersOpen(true)}
-              aria-label="Abrir filtros"
-            >
-              <ListFilter className="h-4 w-4" />
-              Filtros
-              {activeFiltersCount ? (
-                <span className="ml-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-[11px] font-bold text-white">
-                  {activeFiltersCount}
-                </span>
-              ) : null}
-            </Button>
-          ) : null}
+        <div className="flex min-w-0 items-center gap-2 sm:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            className="relative h-10 shrink-0 gap-2 border-border/60 bg-white px-3 font-semibold"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Abrir filtros"
+          >
+            <ListFilter className="h-4 w-4" />
+            Filtros
+            {activeFiltersCount ? (
+              <span className="ml-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-[11px] font-bold text-white">
+                {activeFiltersCount}
+              </span>
+            ) : null}
+          </Button>
         </div>
 
-        {filters.length ? (
-          <div className="hidden flex-wrap gap-3 sm:flex">
-            {filters.map((filter) => renderSelect(filter, "desktop"))}
-          </div>
-        ) : null}
+        <div className="hidden flex-wrap gap-3 sm:flex">
+          {filters.map((filter) => renderSelect(filter, "desktop"))}
+        </div>
       </div>
 
       {filtersOpen ? (
@@ -283,7 +271,9 @@ export function SearchFilters({
 
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
               <div>
-                <h2 className="text-lg font-extrabold tracking-[-0.03em] text-slate-950">Filtros</h2>
+                <h2 className="text-lg font-extrabold tracking-[-0.03em] text-slate-950">
+                  Filtros
+                </h2>
                 <p className="mt-0.5 text-xs font-semibold text-slate-500">
                   Refina la lista sin ocupar espacio en la pantalla.
                 </p>

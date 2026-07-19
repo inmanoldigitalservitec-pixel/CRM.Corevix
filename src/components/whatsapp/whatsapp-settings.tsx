@@ -334,30 +334,30 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
   return (
     <div className={cn("space-y-6", className)}>
       <Tabs defaultValue="connection">
-        <TabsList>
-          <TabsTrigger value="connection">API Connection</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto rounded-none border border-slate-200 bg-white p-1 shadow-none">
+          <TabsTrigger value="connection">Conexión API</TabsTrigger>
           <TabsTrigger value="webhook">Webhook</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="rules">Assignment Rules</TabsTrigger>
+          <TabsTrigger value="templates">Plantillas</TabsTrigger>
+          <TabsTrigger value="rules">Reglas</TabsTrigger>
         </TabsList>
 
         {/* API Connection Tab */}
         <TabsContent value="connection" className="mt-4 space-y-4">
           {/* Status card */}
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">Connection Status</CardTitle>
-                  <CardDescription>Meta WhatsApp Cloud API integration</CardDescription>
+                  <CardTitle className="text-base">Estado de conexión</CardTitle>
+                  <CardDescription>Integración de Meta WhatsApp Cloud API</CardDescription>
                 </div>
                 {connected ? (
-                  <Badge className="gap-1 bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
-                    <CheckCircle2 className="h-3 w-3" /> Connected
+                  <Badge className="gap-1 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">
+                    <CheckCircle2 className="h-3 w-3" /> Conectado
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="gap-1 text-muted-foreground">
-                    <XCircle className="h-3 w-3" /> Not Connected
+                    <XCircle className="h-3 w-3" /> No conectado
                   </Badge>
                 )}
               </div>
@@ -365,21 +365,21 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
             {connected && (
               <CardContent className="pt-0">
                 <div className="grid grid-cols-3 gap-4 text-xs">
-                  <div className="bg-muted/40 rounded-lg p-3">
-                    <span className="text-muted-foreground">Phone Number</span>
+                  <div className="border border-slate-200 bg-white p-3">
+                    <span className="text-muted-foreground">Número</span>
                     <p className="font-semibold mt-0.5">
                       {testResult?.displayPhoneNumber || form.business_phone || "—"}
                     </p>
                   </div>
-                  <div className="bg-muted/40 rounded-lg p-3">
-                    <span className="text-muted-foreground">Display Name</span>
+                  <div className="border border-slate-200 bg-white p-3">
+                    <span className="text-muted-foreground">Nombre visible</span>
                     <p className="font-semibold mt-0.5">
                       {testResult?.verifiedName || "WhatsApp Cloud API"}
                     </p>
                   </div>
-                  <div className="bg-muted/40 rounded-lg p-3">
-                    <span className="text-muted-foreground">Quality Rating</span>
-                    <p className="font-semibold mt-0.5 text-green-600">
+                  <div className="border border-slate-200 bg-white p-3">
+                    <span className="text-muted-foreground">Calidad</span>
+                    <p className="font-semibold mt-0.5 text-blue-700">
                       {testResult?.qualityRating || "—"}
                     </p>
                   </div>
@@ -389,14 +389,14 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
           </Card>
 
           {/* API credentials */}
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Shield className="h-4 w-4 text-muted-foreground" /> API Credentials
+                <Shield className="h-4 w-4 text-muted-foreground" /> Credenciales API
               </CardTitle>
               <CardDescription>
-                Credentials are stored securely as encrypted secrets. Values are never exposed in
-                the frontend.
+                Las credenciales se guardan como secretos cifrados. Los valores no se exponen en el
+                frontend.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -439,7 +439,7 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs">Business Phone</Label>
+                  <Label className="text-xs">Teléfono del negocio</Label>
                   <Input
                     placeholder="+1 809..."
                     className="mt-1"
@@ -460,7 +460,7 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Permanent Access Token</Label>
+                <Label className="text-xs">Token permanente de acceso</Label>
                 <div className="flex gap-2 mt-1">
                   <div className="relative flex-1">
                     <Input
@@ -554,9 +554,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
 
         {/* Webhook Tab */}
         <TabsContent value="webhook" className="mt-4 space-y-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Webhook Configuration</CardTitle>
+              <CardTitle className="text-base">Configuración de Webhook</CardTitle>
               <CardDescription>
                 Configure this webhook URL in your Meta App dashboard to receive messages and status
                 updates.
@@ -566,7 +566,7 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
               <div>
                 <Label className="text-xs">Webhook Callback URL</Label>
                 <div className="flex gap-2 mt-1">
-                  <Input readOnly value={webhookUrl} className="font-mono text-xs bg-muted/40" />
+                  <Input readOnly value={webhookUrl} className="font-mono text-xs bg-white" />
                   <Button
                     variant="outline"
                     size="icon"
@@ -605,7 +605,7 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
                   {SUBSCRIBED_FIELD_OPTIONS.map((field) => (
                     <div
                       key={field}
-                      className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2"
+                      className="flex items-center gap-2 border border-slate-200 bg-white px-3 py-2"
                     >
                       <Switch
                         checked={subscribedFields.includes(field)}
@@ -640,9 +640,9 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
           </Card>
 
           {/* Setup guide */}
-          <Card className="border-0 shadow-sm border-l-4 border-l-primary">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardContent className="pt-4">
-              <h4 className="text-sm font-semibold mb-2">Quick Setup Guide</h4>
+              <h4 className="text-sm font-semibold mb-2">Guía rápida</h4>
               <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside">
                 <li>
                   Go to <span className="font-medium text-foreground">Meta for Developers</span> →
@@ -672,14 +672,14 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
 
         {/* Templates Tab */}
         <TabsContent value="templates" className="mt-4 space-y-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" /> Message Templates
+                    <FileText className="h-4 w-4 text-muted-foreground" /> Plantillas de mensaje
                   </CardTitle>
-                  <CardDescription>Manage your approved WhatsApp message templates</CardDescription>
+                  <CardDescription>Administra las plantillas aprobadas de WhatsApp</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-1 text-xs" disabled>
@@ -692,7 +692,7 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
+              <div className="border border-slate-200 bg-white px-3 py-3 text-sm text-muted-foreground">
                 La sincronización de templates con Meta se configurará en la siguiente fase.
               </div>
             </CardContent>
@@ -701,15 +701,15 @@ export function WhatsAppSettings({ className }: WhatsAppSettingsProps) {
 
         {/* Assignment Rules Tab */}
         <TabsContent value="rules" className="mt-4 space-y-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Default Assignment Rules</CardTitle>
+              <CardTitle className="text-base">Reglas de asignación</CardTitle>
               <CardDescription>
                 Configure how new incoming conversations are assigned to team members
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-md border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
+              <div className="border border-slate-200 bg-white px-3 py-3 text-sm text-muted-foreground">
                 Las automatizaciones por estado / reglas de asignación se configurarán en una fase
                 posterior.
               </div>

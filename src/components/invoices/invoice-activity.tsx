@@ -18,17 +18,17 @@ export function InvoiceActivity({ events }: { events: InvoiceActivityEvent[] }) 
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-0 border-y border-slate-100">
       {events.map((event) => (
-        <div key={event.key} className="rounded-xl border border-slate-200 bg-white p-4">
+        <div key={event.key} className="border-b border-slate-100 bg-white py-4 last:border-b-0">
           <div className="flex gap-3">
-            <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-900" />
+            <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border border-slate-900 bg-white" />
             <div className="min-w-0">
-              <div className="text-sm font-bold text-slate-950">{event.title}</div>
+              <div className="text-sm font-normal text-slate-950">{event.title}</div>
               {event.description ? (
                 <div className="mt-1 text-sm text-slate-500">{event.description}</div>
               ) : null}
-              <div className="mt-2 text-xs font-semibold text-slate-400">{event.date}</div>
+              <div className="mt-2 text-xs font-normal text-slate-500">{event.date}</div>
             </div>
           </div>
         </div>

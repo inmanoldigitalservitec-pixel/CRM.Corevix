@@ -38,6 +38,228 @@ function formatMoney(amount: number, currency: string | null | undefined) {
   return `${c} ${Number(amount || 0).toLocaleString()}`;
 }
 
+function splitProposalItems(value: string) {
+  return String(value || "")
+    .split(/\n|•/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function LetterProposalView(props: {
+  proposal: any;
+  approved: boolean;
+  approving: boolean;
+  onApprove: () => void;
+  onPrint: () => void;
+}) {
+  const { proposal, approved, approving, onApprove, onPrint } = props;
+  const data =
+    proposal?.proposal_data && typeof proposal.proposal_data === "object"
+      ? proposal.proposal_data
+      : {};
+
+  const currency = proposal?.currency || "USD";
+  const amount = Number(proposal?.amount || 0);
+  const clientName =
+    String((data as any)?.companyName || (data as any)?.clientName || "").trim() ||
+    (proposal?.client_id ? `Cliente ${String(proposal.client_id).slice(0, 8)}` : "Cliente");
+  const serviceDescription = String(
+    (data as any)?.serviceDescription || proposal?.description || proposal?.title || "",
+  ).trim();
+  const deliverables = splitProposalItems(String((data as any)?.deliverablesText || ""));
+  const features = splitProposalItems(String((data as any)?.featuresText || ""));
+  const termsText = String((data as any)?.termsText || "").trim();
+  const paymentTermsText = String((data as any)?.paymentTermsText || "").trim();
+  const estimatedTime = String((data as any)?.estimatedTime || "").trim();
+  const nextStep = String((data as any)?.nextStep || "").trim();
+  const notes = String(proposal?.content || proposal?.notes || "").trim();
+  const today = proposal?.created_at
+    ? new Date(proposal.created_at).toLocaleDateString()
+    : new Date().toLocaleDateString();
+
+  const lineItems = (
+    deliverables.length ? deliverables : features.length ? features : [serviceDescription]
+  )
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((item, index) => ({
+      name: item,
+      description:
+        index === 0 && serviceDescription && serviceDescription !== item ? serviceDescription : "",
+      qty: 1,
+      total: index === 0 ? amount : 0,
+    }));
+
+  const rows = lineItems.length
+    ? lineItems
+    : [{ name: proposal?.title || "Propuesta comercial", description: "", qty: 1, total: amount }];
+
+  return (
+    <main className="min-h-screen bg-[#eef1f6] px-4 py-6 text-slate-950 print:bg-white print:p-0">
+      <style>{`
+        @page { size: letter; margin: 0; }
+        @media print {
+          html, body { background: #fff !important; }
+          .proposal-print-toolbar { display: none !important; }
+          .proposal-letter-page { box-shadow: none !important; margin: 0 !important; }
+        }
+      `}</style>
+
+      <div className="proposal-print-toolbar sticky top-3 z-20 mx-auto mb-4 flex max-w-[8.5in] flex-wrap items-center justify-end gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9 rounded-full border-slate-200 bg-white shadow-none"
+          onClick={onPrint}
+        >
+          <Printer className="h-4 w-4" />
+          Exportar PDF
+        </Button>
+        <Button
+          type="button"
+          className="h-9 rounded-full bg-blue-600 px-4 text-white shadow-none hover:bg-blue-700"
+          onClick={onApprove}
+          disabled={approved || approving}
+        >
+          <Check className="h-4 w-4" />
+          {approved ? "Aprobada" : approving ? "Aprobando..." : "Aprobar"}
+        </Button>
+      </div>
+
+      <article className="proposal-letter-page mx-auto flex min-h-[11in] w-full max-w-[8.5in] flex-col bg-white px-[0.62in] py-[0.58in] shadow-[0_24px_70px_rgba(15,23,42,0.18)] print:h-[11in] print:w-[8.5in] print:max-w-none print:px-[0.62in] print:py-[0.58in]">
+        <header className="grid grid-cols-[1fr_auto] gap-8">
+          <div>
+            <div className="flex items-center gap-3">
+              <img src="/imagotipo_corevix.svg" alt="Corevix" className="h-14 w-14" />
+              <div>
+                <div className="text-2xl font-semibold leading-none tracking-normal text-[#1d62f9]">
+                  Corevix
+                </div>
+                <div className="mt-1 text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  CRM & Automatización
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 text-[12px] leading-5 text-slate-600">
+              <div className="font-semibold text-slate-950">Corevix</div>
+              <div>Santo Domingo, República Dominicana</div>
+              <div>hello@corevix.com</div>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <h1 className="text-[34px] font-bold uppercase leading-none tracking-normal text-[#1d62f9]">
+              Propuesta
+            </h1>
+            <div className="mt-2 text-sm font-semibold text-slate-700">{today}</div>
+            <div className="mt-8 text-[12px] leading-5 text-slate-600">
+              <div className="font-semibold uppercase tracking-wide text-slate-500">Para</div>
+              <div className="font-semibold text-slate-950">{clientName}</div>
+              <div>{proposal?.number || "Sin número"}</div>
+              <div>
+                {proposal?.valid_until
+                  ? `Válida hasta ${proposal.valid_until}`
+                  : "Validez pendiente"}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="mt-10">
+          <div className="grid grid-cols-[1fr_1.1in_0.75in_1.25in] bg-[#1d62f9] px-5 py-3 text-[12px] font-semibold text-white">
+            <div>Descripción</div>
+            <div className="text-right">Precio</div>
+            <div className="text-center">Cant.</div>
+            <div className="text-right">Total</div>
+          </div>
+
+          <div>
+            {rows.map((row, index) => (
+              <div
+                key={`${row.name}-${index}`}
+                className="grid min-h-[0.72in] grid-cols-[1fr_1.1in_0.75in_1.25in] items-start border-b border-slate-300 px-5 py-4 text-[12px]"
+              >
+                <div className="pr-6">
+                  <div className="font-bold text-slate-950">{row.name}</div>
+                  {row.description ? (
+                    <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                      {row.description}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="text-right font-semibold">
+                  {row.total ? formatMoney(row.total, currency) : "Incluido"}
+                </div>
+                <div className="text-center font-semibold">{row.qty}</div>
+                <div className="text-right font-semibold">
+                  {row.total ? formatMoney(row.total, currency) : "-"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8 grid grid-cols-[1fr_2.45in] gap-10">
+          <div className="text-[11px] leading-5 text-slate-600">
+            <div className="mb-2 font-bold text-slate-950">Nota</div>
+            <p className="m-0">
+              {notes ||
+                nextStep ||
+                "Esta propuesta resume el alcance, inversión y condiciones principales del servicio."}
+            </p>
+          </div>
+
+          <div className="text-[12px]">
+            <div className="flex justify-between border-b border-slate-200 py-2">
+              <span className="font-semibold uppercase text-[#1d62f9]">Subtotal</span>
+              <span className="font-bold">{formatMoney(amount, currency)}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-200 py-2">
+              <span className="font-semibold">Impuestos</span>
+              <span className="font-bold">{formatMoney(0, currency)}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-200 py-2">
+              <span className="font-semibold">Descuento</span>
+              <span className="font-bold">{formatMoney(0, currency)}</span>
+            </div>
+            <div className="mt-4 flex items-center justify-between bg-[#1d62f9] px-5 py-4 text-white">
+              <span className="text-[15px] font-bold uppercase">Total</span>
+              <span className="text-[18px] font-bold">{formatMoney(amount, currency)}</span>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-auto">
+          <div className="mb-7 text-[15px] font-bold text-[#1d62f9]">
+            Gracias por considerar a Corevix.
+          </div>
+
+          <footer className="grid grid-cols-3 gap-8 border-t border-[#1d62f9] pt-5 text-[9.5px] leading-4 text-slate-600">
+            <div>
+              <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">Contacto</div>
+              <div>Email: hello@corevix.com</div>
+              <div>Web: corevix.com</div>
+            </div>
+            <div>
+              <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">Condiciones</div>
+              <div>{estimatedTime ? `Tiempo: ${estimatedTime}` : "Tiempo a coordinar"}</div>
+              <div>{paymentTermsText || "Pago según acuerdo comercial."}</div>
+            </div>
+            <div>
+              <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">Términos</div>
+              <div className="line-clamp-3">
+                {termsText ||
+                  "La propuesta está sujeta a disponibilidad, alcance final y aprobación del cliente."}
+              </div>
+            </div>
+          </footer>
+        </div>
+      </article>
+    </main>
+  );
+}
+
 function PublicProposalView(props: {
   proposal: any;
   approved: boolean;

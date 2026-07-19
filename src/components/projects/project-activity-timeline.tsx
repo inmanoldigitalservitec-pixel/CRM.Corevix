@@ -48,10 +48,10 @@ function formatRelativeDate(value: string) {
   return rtf.format(days, "day");
 }
 
-export function projectActivityIconFor(item: {
-  action: string;
-  entityType: string;
-}): { icon: LucideIcon; toneClassName: string } {
+export function projectActivityIconFor(item: { action: string; entityType: string }): {
+  icon: LucideIcon;
+  toneClassName: string;
+} {
   if (item.action.includes("deleted")) {
     return { icon: Trash2, toneClassName: "bg-rose-50 text-rose-700 ring-rose-100" };
   }
@@ -77,11 +77,7 @@ export function projectActivityIconFor(item: {
   }
 }
 
-export function ProjectActivityTimeline({
-  items,
-}: {
-  items: ProjectActivityItem[];
-}) {
+export function ProjectActivityTimeline({ items }: { items: ProjectActivityItem[] }) {
   return (
     <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white">
       {items.map((item, index) => {
@@ -89,7 +85,11 @@ export function ProjectActivityTimeline({
         return (
           <article
             key={item.id}
-            className={index === items.length - 1 ? "px-4 py-4 sm:px-5" : "border-b border-slate-200/70 px-4 py-4 sm:px-5"}
+            className={
+              index === items.length - 1
+                ? "px-4 py-4 sm:px-5"
+                : "border-b border-slate-200/70 px-4 py-4 sm:px-5"
+            }
           >
             <div className="flex gap-3.5">
               <div
@@ -119,7 +119,9 @@ export function ProjectActivityTimeline({
                 <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-slate-800">
                   {item.description}
                 </p>
-                <p className="mt-2 text-[11px] text-slate-500">{formatAbsoluteDate(item.createdAt)}</p>
+                <p className="mt-2 text-[11px] text-slate-500">
+                  {formatAbsoluteDate(item.createdAt)}
+                </p>
               </div>
             </div>
           </article>

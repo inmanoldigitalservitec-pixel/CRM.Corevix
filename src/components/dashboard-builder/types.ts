@@ -16,6 +16,8 @@ export type DashboardGridLayoutItem = {
   maxW?: number;
   maxH?: number;
   static?: boolean;
+  isDraggable?: boolean;
+  isResizable?: boolean;
 };
 
 export type DashboardWidgetSettings = Record<string, unknown>;

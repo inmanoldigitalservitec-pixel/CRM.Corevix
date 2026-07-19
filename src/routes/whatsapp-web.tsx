@@ -29,7 +29,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
-import type { CrmWhatsappConversationListRow, CrmWhatsappMessageRow } from "@/lib/whatsapp/view-types";
+import type {
+  CrmWhatsappConversationListRow,
+  CrmWhatsappMessageRow,
+} from "@/lib/whatsapp/view-types";
 import type { MetaConversationListRow, MetaMessageRow } from "@/lib/meta/view-types";
 import { getServiceWindowState } from "@/lib/whatsapp/service-window";
 import { sendWhatsappMessage } from "@/lib/whatsapp/whatsapp-bot-api";
@@ -110,26 +113,36 @@ function WhatsAppWebPage() {
   const [relatedInvoices, setRelatedInvoices] = useState<RelatedInvoice[]>([]);
   const [relatedDocsLoading, setRelatedDocsLoading] = useState(false);
 
-  const [whatsappConversations, setWhatsappConversations] = useState<CrmWhatsappConversationListRow[]>([]);
+  const [whatsappConversations, setWhatsappConversations] = useState<
+    CrmWhatsappConversationListRow[]
+  >([]);
   const [whatsappMessages, setWhatsappMessages] = useState<CrmWhatsappMessageRow[]>([]);
   const [whatsappConversationsLoading, setWhatsappConversationsLoading] = useState(true);
   const [whatsappMessagesLoading, setWhatsappMessagesLoading] = useState(false);
   const [whatsappError, setWhatsappError] = useState<string | null>(null);
 
-  const [messengerConversations, setMessengerConversations] = useState<MetaConversationListRow[]>([]);
+  const [messengerConversations, setMessengerConversations] = useState<MetaConversationListRow[]>(
+    [],
+  );
   const [messengerMessages, setMessengerMessages] = useState<MetaMessageRow[]>([]);
   const [messengerConversationsLoading, setMessengerConversationsLoading] = useState(true);
   const [messengerMessagesLoading, setMessengerMessagesLoading] = useState(false);
   const [messengerError, setMessengerError] = useState<string | null>(null);
 
-  const [instagramConversations, setInstagramConversations] = useState<MetaConversationListRow[]>([]);
+  const [instagramConversations, setInstagramConversations] = useState<MetaConversationListRow[]>(
+    [],
+  );
   const [instagramMessages, setInstagramMessages] = useState<MetaMessageRow[]>([]);
   const [instagramConversationsLoading, setInstagramConversationsLoading] = useState(true);
   const [instagramMessagesLoading, setInstagramMessagesLoading] = useState(false);
   const [instagramError, setInstagramError] = useState<string | null>(null);
 
-  const canSeeUnassigned = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
-  const serviceWindow = useMemo(() => getServiceWindowState(whatsappMessages, now), [now, whatsappMessages]);
+  const canSeeUnassigned =
+    roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
+  const serviceWindow = useMemo(
+    () => getServiceWindowState(whatsappMessages, now),
+    [now, whatsappMessages],
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -145,7 +158,12 @@ function WhatsAppWebPage() {
         key: `whatsapp:${id}`,
         channel: "whatsapp",
         id,
-        displayName: row.display_name || row.contact_name || row.whatsapp_profile_name || row.phone || "Sin nombre",
+        displayName:
+          row.display_name ||
+          row.contact_name ||
+          row.whatsapp_profile_name ||
+          row.phone ||
+          "Sin nombre",
         subtitle: row.phone || row.lead_stage || row.selected_service || null,
         avatarUrl: null,
         lastMessageText: row.last_message,
@@ -212,14 +230,19 @@ function WhatsAppWebPage() {
     return (
       unifiedConversations.find(
         (conversation) =>
-          conversation.channel === selectedConversation.channel && conversation.id === selectedConversation.id,
+          conversation.channel === selectedConversation.channel &&
+          conversation.id === selectedConversation.id,
       ) ?? null
     );
   }, [selectedConversation, unifiedConversations]);
 
   const selectedWhatsappConversation = useMemo(() => {
     if (selectedConversation?.channel !== "whatsapp") return null;
-    return whatsappConversations.find((conversation) => conversation.conversation_id === selectedConversation.id) ?? null;
+    return (
+      whatsappConversations.find(
+        (conversation) => conversation.conversation_id === selectedConversation.id,
+      ) ?? null
+    );
   }, [selectedConversation, whatsappConversations]);
 
   const selectedMessages = useMemo<UnifiedMessage[]>(() => {
@@ -261,7 +284,9 @@ function WhatsAppWebPage() {
 
   const listLoading =
     selectedChannel === "all"
-      ? whatsappConversationsLoading || messengerConversationsLoading || instagramConversationsLoading
+      ? whatsappConversationsLoading ||
+        messengerConversationsLoading ||
+        instagramConversationsLoading
       : selectedChannel === "whatsapp"
         ? whatsappConversationsLoading
         : selectedChannel === "messenger"
@@ -310,7 +335,10 @@ function WhatsAppWebPage() {
     setWhatsappMessagesLoading(false);
   }
 
-  async function loadRelatedDocuments(conversation: UnifiedConversation | null, whatsapp: CrmWhatsappConversationListRow | null) {
+  async function loadRelatedDocuments(
+    conversation: UnifiedConversation | null,
+    whatsapp: CrmWhatsappConversationListRow | null,
+  ) {
     if (!profile?.company_id || !conversation) {
       setRelatedProposals([]);
       setRelatedInvoices([]);
@@ -335,14 +363,18 @@ function WhatsAppWebPage() {
       const [proposalResult, invoiceResult] = await Promise.all([
         db
           .from("proposals")
-          .select("id, number, title, amount, currency, status, public_token, valid_until, created_at")
+          .select(
+            "id, number, title, amount, currency, status, public_token, valid_until, created_at",
+          )
           .eq("company_id", profile.company_id)
           .or(proposalFilters.join(","))
           .order("created_at", { ascending: false })
           .limit(3),
         db
           .from("invoices")
-          .select("id, number, title, total, amount, currency, status, public_token, due_date, created_at")
+          .select(
+            "id, number, title, total, amount, currency, status, public_token, due_date, created_at",
+          )
           .eq("company_id", profile.company_id)
           .or(invoiceFilters.join(","))
           .order("created_at", { ascending: false })
@@ -474,7 +506,11 @@ function WhatsAppWebPage() {
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    void Promise.all([loadWhatsappConversations(), loadMessengerConversations(), loadInstagramConversations()]);
+    void Promise.all([
+      loadWhatsappConversations(),
+      loadMessengerConversations(),
+      loadInstagramConversations(),
+    ]);
   }, [profile?.company_id]);
 
   useEffect(() => {
@@ -495,14 +531,21 @@ function WhatsAppWebPage() {
       setRelatedInvoices([]);
       return;
     }
-    if (selectedConversation.channel === "whatsapp") void loadWhatsappMessages(selectedConversation.id);
-    if (selectedConversation.channel === "messenger") void loadMessengerMessages(selectedConversation.id);
-    if (selectedConversation.channel === "instagram") void loadInstagramMessages(selectedConversation.id);
+    if (selectedConversation.channel === "whatsapp")
+      void loadWhatsappMessages(selectedConversation.id);
+    if (selectedConversation.channel === "messenger")
+      void loadMessengerMessages(selectedConversation.id);
+    if (selectedConversation.channel === "instagram")
+      void loadInstagramMessages(selectedConversation.id);
   }, [selectedConversation?.channel, selectedConversation?.id]);
 
   useEffect(() => {
     void loadRelatedDocuments(selectedUnifiedConversation, selectedWhatsappConversation);
-  }, [selectedUnifiedConversation?.key, selectedWhatsappConversation?.lead_id, selectedWhatsappConversation?.contact_id]);
+  }, [
+    selectedUnifiedConversation?.key,
+    selectedWhatsappConversation?.lead_id,
+    selectedWhatsappConversation?.contact_id,
+  ]);
 
   useRealtimeTable({
     table: "whatsapp_conversations",
@@ -576,7 +619,9 @@ function WhatsAppWebPage() {
     if (selectedConversation.channel === "whatsapp") {
       if (!selectedWhatsappConversation) return;
       if (!serviceWindow.isServiceWindowOpen) {
-        setSendError("La ventana de 24h de WhatsApp está cerrada. Usa una plantilla aprobada para continuar.");
+        setSendError(
+          "La ventana de 24h de WhatsApp está cerrada. Usa una plantilla aprobada para continuar.",
+        );
         return;
       }
       setSending(true);
@@ -620,7 +665,10 @@ function WhatsAppWebPage() {
         throw new Error(String((data as any).error));
       }
       setComposerValue("");
-      await Promise.all([loadMessengerMessages(selectedConversation.id), loadMessengerConversations()]);
+      await Promise.all([
+        loadMessengerMessages(selectedConversation.id),
+        loadMessengerConversations(),
+      ]);
       toast.success("Mensaje enviado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo enviar el mensaje.");
@@ -635,10 +683,10 @@ function WhatsAppWebPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden bg-[#e9f3ef] text-[#111b21]">
+    <div className="h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden bg-white text-slate-950">
       <div className="grid h-full min-h-0 grid-cols-[76px_390px_minmax(0,1fr)_300px] max-[1460px]:grid-cols-[70px_360px_minmax(0,1fr)] max-[980px]:grid-cols-[62px_minmax(280px,360px)_minmax(0,1fr)] max-[760px]:grid-cols-[1fr]">
-        <aside className="flex min-h-0 flex-col items-center border-r border-[#d9e5df] bg-[#f4faf7] py-4 max-[760px]:hidden">
-          <div className="mb-7 grid h-11 w-11 place-items-center rounded-2xl bg-[#25d366] text-white shadow-[0_12px_30px_rgba(0,168,132,.25)]">
+        <aside className="flex min-h-0 flex-col items-center border-r border-slate-200 bg-white py-4 max-[760px]:hidden">
+          <div className="mb-7 grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-white">
             <MessageCircle className="h-6 w-6" />
           </div>
           <RailIcon active icon={<Inbox className="h-5 w-5" />} label="Inbox" />
@@ -647,37 +695,35 @@ function WhatsAppWebPage() {
           <RailIcon icon={<Archive className="h-5 w-5" />} label="Archivo" />
           <div className="mt-auto flex flex-col gap-3">
             <RailIcon icon={<Settings className="h-5 w-5" />} label="Ajustes" />
-            <div className="grid h-10 w-10 place-items-center rounded-full border border-[#c9dad2] bg-white text-sm font-bold text-[#00a884] shadow-sm">
+            <div className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-sm font-bold text-blue-700">
               C
             </div>
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col border-r border-[#d9e5df] bg-[#fbfdfc] shadow-[16px_0_35px_rgba(18,35,29,.05)] max-[760px]:hidden">
-          <div className="border-b border-[#e0ebe6] bg-[#fbfdfc] px-5 py-4">
+        <section className="flex min-h-0 flex-col border-r border-slate-200 bg-white max-[760px]:hidden">
+          <div className="border-b border-slate-200 bg-white px-5 py-4">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-[#12231d]">WhatsApp</h1>
-                <span className="rounded-full bg-[#d9fdd3] px-2.5 py-1 text-xs font-bold text-[#008069]">CRM</span>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-950">WhatsApp</h1>
+                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+                  CRM
+                </span>
               </div>
-              <div className="flex items-center gap-1 text-[#54645d]">
-                <button className="grid h-9 w-9 place-items-center rounded-full hover:bg-[#edf6f2]" type="button">
+              <div className="flex items-center gap-1 text-slate-500">
+                <button
+                  className="grid h-9 w-9 place-items-center rounded-full hover:bg-slate-100"
+                  type="button"
+                >
                   <Plus className="h-5 w-5" />
                 </button>
-                <button className="grid h-9 w-9 place-items-center rounded-full hover:bg-[#edf6f2]" type="button">
+                <button
+                  className="grid h-9 w-9 place-items-center rounded-full hover:bg-slate-100"
+                  type="button"
+                >
                   <MoreVertical className="h-5 w-5" />
                 </button>
               </div>
-            </div>
-            <div className="flex h-11 items-center gap-3 rounded-2xl border border-[#e2ece7] bg-[#f1f7f4] px-4 text-[#667a72] shadow-inner">
-              <Search className="h-4 w-4" />
-              <input
-                className="h-full flex-1 bg-transparent text-sm text-[#12231d] outline-none placeholder:text-[#7b8d86]"
-                placeholder="Buscar o iniciar un chat"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-              <Filter className="h-4 w-4" />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {CHANNELS.map((channel) => (
@@ -690,8 +736,8 @@ function WhatsAppWebPage() {
                   }}
                   className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
                     selectedChannel === channel.value
-                      ? "border-[#a8e8c3] bg-[#d9fdd3] text-[#007a5d] shadow-sm"
-                      : "border-[#dde8e3] bg-white text-[#52645d] hover:border-[#bddfd0] hover:bg-[#f4faf7]"
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
                   {channel.label}
@@ -701,14 +747,14 @@ function WhatsAppWebPage() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-            <div className="mb-2 flex items-center gap-3 rounded-2xl px-3 py-3 text-sm text-[#60736b]">
+            <div className="mb-2 flex items-center gap-3 border-b border-slate-100 px-3 py-3 text-sm text-slate-500">
               <Archive className="h-4 w-4" />
               <span>Archivados</span>
             </div>
             {listLoading ? (
               <ConversationSkeleton />
             ) : visibleConversations.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#cadbd3] bg-[#f7fbf9] p-6 text-center text-sm text-[#6c7f77]">
+              <div className="border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
                 No hay conversaciones para mostrar.
               </div>
             ) : (
@@ -716,25 +762,35 @@ function WhatsAppWebPage() {
                 <button
                   key={conversation.key}
                   type="button"
-                  onClick={() => setSelectedConversation({ channel: conversation.channel, id: conversation.id })}
-                  className={`group mb-1 flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
-                    selectedConversation?.channel === conversation.channel && selectedConversation?.id === conversation.id
-                      ? "border-[#bcebd0] bg-[#e6fbef] shadow-[0_10px_26px_rgba(0,168,132,.10)]"
-                      : "border-transparent bg-transparent hover:bg-[#f2f8f5]"
+                  onClick={() =>
+                    setSelectedConversation({ channel: conversation.channel, id: conversation.id })
+                  }
+                  className={`group flex w-full items-center gap-3 border-b border-slate-100 px-3 py-3 text-left transition ${
+                    selectedConversation?.channel === conversation.channel &&
+                    selectedConversation?.id === conversation.id
+                      ? "bg-blue-50/70"
+                      : "bg-transparent hover:bg-slate-50"
                   }`}
                 >
                   <Avatar conversation={conversation} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="truncate text-[15px] font-semibold text-[#12231d]">{conversation.displayName}</p>
-                      <span className="shrink-0 text-xs text-[#667a72]">{formatTime(conversation.lastMessageAt)}</span>
+                      <p className="truncate text-[15px] font-semibold text-slate-950">
+                        {conversation.displayName}
+                      </p>
+                      <span className="shrink-0 text-xs text-slate-400">
+                        {formatTime(conversation.lastMessageAt)}
+                      </span>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <p className="truncate text-sm text-[#667a72]">
-                        <ChannelMiniLabel channel={conversation.channel} /> {conversation.lastMessageText || conversation.subtitle || "Sin mensajes todavía"}
+                      <p className="truncate text-sm text-slate-500">
+                        <ChannelMiniLabel channel={conversation.channel} />{" "}
+                        {conversation.lastMessageText ||
+                          conversation.subtitle ||
+                          "Sin mensajes todavía"}
                       </p>
                       {conversation.unreadCount > 0 ? (
-                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#25d366] px-1.5 text-xs font-bold text-white">
+                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-blue-600 px-1.5 text-xs font-bold text-white">
                           {conversation.unreadCount}
                         </span>
                       ) : null}
@@ -746,22 +802,26 @@ function WhatsAppWebPage() {
           </div>
         </section>
 
-        <main className="flex min-h-0 flex-col bg-[#edf5f1]">
+        <main className="flex min-h-0 flex-col bg-white">
           {selectedUnifiedConversation ? (
             <>
-              <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d9e5df] bg-[#f9fcfa]/95 px-5 backdrop-blur">
+              <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5">
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar conversation={selectedUnifiedConversation} size="lg" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="truncate text-lg font-bold text-[#12231d]">{selectedUnifiedConversation.displayName}</h2>
+                      <h2 className="truncate text-lg font-bold text-slate-950">
+                        {selectedUnifiedConversation.displayName}
+                      </h2>
                     </div>
-                    <p className="truncate text-xs font-medium text-[#6b7e76]">
-                      {selectedUnifiedConversation.subtitle || selectedUnifiedConversation.status || "Conversación"}
+                    <p className="truncate text-xs font-medium text-slate-500">
+                      {selectedUnifiedConversation.subtitle ||
+                        selectedUnifiedConversation.status ||
+                        "Conversación"}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-[#1f2f29]">
+                <div className="flex items-center gap-1 text-slate-600">
                   <HeaderIcon icon={<Search className="h-5 w-5" />} />
                   <HeaderIcon icon={<Phone className="h-5 w-5" />} />
                   <HeaderIcon icon={<Video className="h-5 w-5" />} />
@@ -769,37 +829,55 @@ function WhatsAppWebPage() {
                 </div>
               </header>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+              <div className="min-h-0 flex-1 overflow-y-auto border-b border-slate-100 px-6 py-6">
                 <div className="mx-auto max-w-[980px] space-y-2">
                   <DatePill label="Hoy" />
                   {messagesLoading ? (
                     <MessageSkeleton />
                   ) : selectedMessages.length === 0 ? (
-                    <div className="mx-auto mt-14 max-w-sm rounded-3xl border border-[#dce9e3] bg-[#f9fcfa] p-6 text-center shadow-sm">
-                      <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[#d9fdd3] text-[#008069]">
+                    <div className="mx-auto mt-14 max-w-sm border border-slate-200 bg-white p-6 text-center">
+                      <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-blue-50 text-blue-700">
                         <MessageCircle className="h-6 w-6" />
                       </div>
-                      <p className="font-semibold text-[#12231d]">No hay mensajes todavía</p>
-                      <p className="mt-1 text-sm text-[#6c7f77]">Cuando llegue una conversación, aparecerá aquí.</p>
+                      <p className="font-semibold text-slate-950">No hay mensajes todavía</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Cuando llegue una conversación, aparecerá aquí.
+                      </p>
                     </div>
                   ) : (
-                    selectedMessages.map((message) => <MessageBubble key={message.id} message={message} />)
+                    selectedMessages.map((message) => (
+                      <MessageBubble key={message.id} message={message} />
+                    ))
                   )}
                 </div>
               </div>
 
-              <footer className="shrink-0 border-t border-[#d9e5df] bg-[#f7fbf9] px-5 py-3">
-                {sendError ? <div className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{sendError}</div> : null}
+              <footer className="shrink-0 border-t border-slate-200 bg-white px-5 py-3">
+                {sendError ? (
+                  <div className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {sendError}
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-3">
-                  <button className="grid h-11 w-11 place-items-center rounded-full text-[#60736b] hover:bg-[#edf6f2]" type="button">
+                  <button
+                    className="grid h-11 w-11 place-items-center rounded-full text-slate-500 hover:bg-slate-100"
+                    type="button"
+                  >
                     <Smile className="h-5 w-5" />
                   </button>
-                  <button className="grid h-11 w-11 place-items-center rounded-full text-[#60736b] hover:bg-[#edf6f2]" type="button">
+                  <button
+                    className="grid h-11 w-11 place-items-center rounded-full text-slate-500 hover:bg-slate-100"
+                    type="button"
+                  >
                     <Paperclip className="h-5 w-5" />
                   </button>
                   <input
-                    className="h-12 min-w-0 flex-1 rounded-2xl border border-[#dce8e2] bg-white px-5 text-sm text-[#12231d] shadow-sm outline-none placeholder:text-[#81918a] focus:border-[#9edebc] focus:ring-4 focus:ring-[#25d366]/10"
-                    placeholder={selectedConversation?.channel === "instagram" ? "Instagram está en modo lectura" : "Escribe un mensaje"}
+                    className="h-12 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-5 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-500/10"
+                    placeholder={
+                      selectedConversation?.channel === "instagram"
+                        ? "Instagram está en modo lectura"
+                        : "Escribe un mensaje"
+                    }
                     value={composerValue}
                     disabled={selectedConversation?.channel === "instagram" || sending}
                     onChange={(event) => setComposerValue(event.target.value)}
@@ -811,18 +889,27 @@ function WhatsAppWebPage() {
                     }}
                   />
                   <button
-                    className="grid h-12 w-12 place-items-center rounded-full bg-[#00a884] text-white shadow-[0_10px_22px_rgba(0,168,132,.22)] transition hover:bg-[#008f72] disabled:opacity-60"
+                    className="grid h-12 w-12 place-items-center rounded-full bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-60"
                     type="button"
-                    disabled={sending || !composerValue.trim() || selectedConversation?.channel === "instagram"}
+                    disabled={
+                      sending ||
+                      !composerValue.trim() ||
+                      selectedConversation?.channel === "instagram"
+                    }
                     onClick={() => void handleSend()}
                   >
-                    {composerValue.trim() ? <Send className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    {composerValue.trim() ? (
+                      <Send className="h-5 w-5" />
+                    ) : (
+                      <Mic className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
-                <div className="mt-2 flex items-center justify-center gap-1 text-xs text-[#6b7e76]">
+                <div className="mt-2 flex items-center justify-center gap-1 text-xs text-slate-500">
                   <Bot className="h-3.5 w-3.5" />
                   <span>
-                    {selectedConversation?.channel === "whatsapp" && !serviceWindow.isServiceWindowOpen
+                    {selectedConversation?.channel === "whatsapp" &&
+                    !serviceWindow.isServiceWindowOpen
                       ? "Ventana de WhatsApp cerrada: usa plantilla aprobada para continuar."
                       : "Corevix CRM mantiene el contexto del cliente mientras respondes."}
                   </span>
@@ -832,19 +919,20 @@ function WhatsAppWebPage() {
           ) : (
             <div className="grid h-full place-items-center p-10">
               <div className="max-w-md text-center">
-                <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-[28px] bg-[#d9fdd3] text-[#008069] shadow-sm">
+                <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-2xl bg-blue-50 text-blue-700">
                   <MessageCircle className="h-10 w-10" />
                 </div>
-                <h2 className="text-2xl font-bold text-[#12231d]">WhatsApp CRM</h2>
-                <p className="mt-2 text-sm leading-6 text-[#6c7f77]">
-                  Selecciona una conversación para responder, ver contexto del cliente y mantener el flujo comercial dentro del CRM.
+                <h2 className="text-2xl font-bold text-slate-950">WhatsApp CRM</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Selecciona una conversación para responder, ver contexto del cliente y mantener el
+                  flujo comercial dentro del CRM.
                 </p>
               </div>
             </div>
           )}
         </main>
 
-        <aside className="min-h-0 border-l border-[#d9e5df] bg-[#f9fcfa] px-3 py-3 max-[1460px]:hidden">
+        <aside className="min-h-0 border-l border-slate-200 bg-white px-3 py-3 max-[1460px]:hidden">
           <ContextPanel
             conversation={selectedUnifiedConversation}
             selectedWhatsappConversation={selectedWhatsappConversation}
@@ -868,8 +956,10 @@ function RailIcon({ icon, active, label }: { icon: ReactNode; active?: boolean; 
     <button
       type="button"
       title={label}
-      className={`mb-3 grid h-11 w-11 place-items-center rounded-2xl transition ${
-        active ? "bg-[#d9fdd3] text-[#008069]" : "text-[#52645d] hover:bg-[#e8f3ee] hover:text-[#008069]"
+      className={`mb-3 grid h-11 w-11 place-items-center rounded-xl transition ${
+        active
+          ? "bg-blue-50 text-blue-700"
+          : "text-slate-500 hover:bg-slate-100 hover:text-blue-700"
       }`}
     >
       {icon}
@@ -879,13 +969,22 @@ function RailIcon({ icon, active, label }: { icon: ReactNode; active?: boolean; 
 
 function HeaderIcon({ icon }: { icon: ReactNode }) {
   return (
-    <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#edf6f2]">
+    <button
+      type="button"
+      className="grid h-10 w-10 place-items-center rounded-full hover:bg-slate-100"
+    >
       {icon}
     </button>
   );
 }
 
-function Avatar({ conversation, size = "md" }: { conversation: UnifiedConversation; size?: "md" | "lg" }) {
+function Avatar({
+  conversation,
+  size = "md",
+}: {
+  conversation: UnifiedConversation;
+  size?: "md" | "lg";
+}) {
   const initials =
     conversation.displayName
       .split(/\s+/)
@@ -895,11 +994,13 @@ function Avatar({ conversation, size = "md" }: { conversation: UnifiedConversati
       .join("") || "C";
   const box = size === "lg" ? "h-12 w-12" : "h-11 w-11";
   return (
-    <div className={`relative shrink-0 overflow-hidden rounded-full border border-white bg-[#d9fdd3] shadow-sm ${box}`}>
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-full border border-slate-200 bg-blue-50 ${box}`}
+    >
       {conversation.avatarUrl ? (
         <img src={conversation.avatarUrl} alt="" className="h-full w-full object-cover" />
       ) : (
-        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#d9fdd3] to-[#b7f3cf] text-sm font-bold text-[#007a5d]">
+        <div className="grid h-full w-full place-items-center bg-blue-50 text-sm font-bold text-blue-700">
           {initials}
         </div>
       )}
@@ -908,27 +1009,30 @@ function Avatar({ conversation, size = "md" }: { conversation: UnifiedConversati
 }
 
 function ChannelMiniLabel({ channel }: { channel: ConversationChannel }) {
-  if (channel === "messenger") return <Facebook className="mr-1 inline h-3.5 w-3.5 text-[#2b6bed]" />;
-  if (channel === "instagram") return <Instagram className="mr-1 inline h-3.5 w-3.5 text-[#d53f8c]" />;
-  return <MessageCircle className="mr-1 inline h-3.5 w-3.5 text-[#00a884]" />;
+  if (channel === "messenger")
+    return <Facebook className="mr-1 inline h-3.5 w-3.5 text-[#2b6bed]" />;
+  if (channel === "instagram")
+    return <Instagram className="mr-1 inline h-3.5 w-3.5 text-[#d53f8c]" />;
+  return <MessageCircle className="mr-1 inline h-3.5 w-3.5 text-blue-600" />;
 }
 
 function MessageBubble({ message }: { message: UnifiedMessage }) {
   const outbound = message.direction === "outbound";
-  const text = message.text?.trim() || (message.type ? `[${message.type}]` : "Mensaje sin contenido");
+  const text =
+    message.text?.trim() || (message.type ? `[${message.type}]` : "Mensaje sin contenido");
   return (
     <div className={`flex ${outbound ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[68%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[15px] leading-5 shadow-sm ${
+        className={`max-w-[68%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[15px] leading-5 ${
           outbound
-            ? "rounded-br-md bg-[#d9fdd3] text-[#12231d]"
-            : "rounded-bl-md border border-[#e1ebe6] bg-white text-[#12231d]"
+            ? "rounded-br-md border border-blue-100 bg-blue-50 text-slate-950"
+            : "rounded-bl-md border border-slate-200 bg-white text-slate-950"
         }`}
       >
         <div>{text}</div>
-        <div className="mt-1 flex justify-end gap-1 text-[11px] text-[#6d7f77]">
+        <div className="mt-1 flex justify-end gap-1 text-[11px] text-slate-500">
           <span>{formatTime(message.at)}</span>
-          {outbound ? <CheckCheck className="h-3.5 w-3.5 text-[#00a884]" /> : null}
+          {outbound ? <CheckCheck className="h-3.5 w-3.5 text-blue-600" /> : null}
         </div>
       </div>
     </div>
@@ -960,9 +1064,9 @@ function ContextPanel({
 }) {
   if (!conversation) {
     return (
-      <div className="grid h-full place-items-center text-center text-sm text-[#6c7f77]">
+      <div className="grid h-full place-items-center text-center text-sm text-slate-500">
         <div>
-          <MessageCircle className="mx-auto mb-3 h-8 w-8 text-[#00a884]" />
+          <MessageCircle className="mx-auto mb-3 h-8 w-8 text-blue-600" />
           Selecciona una conversación para ver el contexto CRM.
         </div>
       </div>
@@ -975,53 +1079,71 @@ function ContextPanel({
   const conversationId = encodeURIComponent(conversation.id);
   const latestProposal = relatedProposals[0] ?? null;
   const latestInvoice = relatedInvoices[0] ?? null;
-  const proposalUrl = latestProposal?.public_token ? `/public/proposal/${latestProposal.public_token}` : `/proposals?conversationId=${conversationId}`;
-  const invoiceUrl = latestInvoice?.public_token ? `/public/invoice/${latestInvoice.public_token}` : `/invoices?conversationId=${conversationId}`;
+  const proposalUrl = latestProposal?.public_token
+    ? `/public/proposal/${latestProposal.public_token}`
+    : `/proposals?conversationId=${conversationId}`;
+  const invoiceUrl = latestInvoice?.public_token
+    ? `/public/invoice/${latestInvoice.public_token}`
+    : `/invoices?conversationId=${conversationId}`;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
-      <section className="rounded-2xl border border-[#dce8e2] bg-white p-3 shadow-sm">
+    <div className="flex h-full min-h-0 flex-col gap-0 overflow-hidden">
+      <section className="border-b border-slate-200 bg-white p-3">
         <div className="flex items-center gap-2.5">
           <Avatar conversation={conversation} />
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-black text-[#12231d]">{conversation.displayName}</h3>
-            <p className="truncate text-[11px] text-[#6c7f77]">{conversation.subtitle || conversation.channel}</p>
+            <h3 className="truncate text-sm font-black text-slate-950">
+              {conversation.displayName}
+            </h3>
+            <p className="truncate text-[11px] text-slate-500">
+              {conversation.subtitle || conversation.channel}
+            </p>
           </div>
           <a
             href="/clients"
             title="Ver perfil"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[#dce8e2] bg-[#f7fbf9] text-[#52645d] hover:bg-[#edf6f2]"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
           >
             <Users className="h-4 w-4" />
           </a>
         </div>
         <div className="mt-2 flex gap-1.5 overflow-hidden">
-          <span className="truncate rounded-full bg-[#edf6f2] px-2 py-1 text-[10px] font-bold text-[#52645d]">{conversation.channel}</span>
-          <span className="truncate rounded-full bg-[#d9fdd3] px-2 py-1 text-[10px] font-bold text-[#008069]">{contactState}</span>
+          <span className="truncate rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+            {conversation.channel}
+          </span>
+          <span className="truncate rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
+            {contactState}
+          </span>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#bcebd0] bg-[#e9fff1] p-3 shadow-sm">
+      <section className="border-b border-slate-200 bg-white p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-wide text-[#008069]">Siguiente</p>
-            <h4 className="truncate text-base font-black text-[#12231d]">{nextAction.label}</h4>
+            <p className="text-[10px] font-black uppercase tracking-wide text-blue-700">
+              Siguiente
+            </p>
+            <h4 className="truncate text-base font-black text-slate-950">{nextAction.label}</h4>
           </div>
           <a
             href={nextAction.href}
             title={nextAction.cta}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#00a884] text-white shadow-[0_10px_20px_rgba(0,168,132,.16)] hover:bg-[#008f72]"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white hover:bg-blue-700"
           >
             {nextAction.icon}
           </a>
         </div>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#52645d]">{nextAction.description}</p>
+        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
+          {nextAction.description}
+        </p>
       </section>
 
-      <section className="rounded-2xl border border-[#dce8e2] bg-white p-3 shadow-sm">
+      <section className="border-b border-slate-200 bg-white p-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-sm font-black text-[#12231d]">Envío rápido</p>
-          {relatedDocsLoading ? <span className="text-[10px] font-bold text-[#7b8d86]">...</span> : null}
+          <p className="text-sm font-black text-slate-950">Envío rápido</p>
+          {relatedDocsLoading ? (
+            <span className="text-[10px] font-bold text-slate-400">...</span>
+          ) : null}
         </div>
         {latestInvoice ? (
           <SmartDocumentCard
@@ -1031,7 +1153,9 @@ function ContextPanel({
             meta={`${latestInvoice.status || "sin estado"} · ${formatMoney(latestInvoice.total ?? latestInvoice.amount, latestInvoice.currency)}`}
             href={invoiceUrl}
             onPrepare={() =>
-              onInsertMessage(`Hola ${conversation.displayName}, te comparto la factura ${latestInvoice.number || ""}: ${invoiceUrl}`.trim())
+              onInsertMessage(
+                `Hola ${conversation.displayName}, te comparto la factura ${latestInvoice.number || ""}: ${invoiceUrl}`.trim(),
+              )
             }
           />
         ) : latestProposal ? (
@@ -1042,48 +1166,64 @@ function ContextPanel({
             meta={`${latestProposal.status || "sin estado"} · ${formatMoney(latestProposal.amount, latestProposal.currency)}`}
             href={proposalUrl}
             onPrepare={() =>
-              onInsertMessage(`Hola ${conversation.displayName}, te comparto la propuesta ${latestProposal.number || ""}: ${proposalUrl}`.trim())
+              onInsertMessage(
+                `Hola ${conversation.displayName}, te comparto la propuesta ${latestProposal.number || ""}: ${proposalUrl}`.trim(),
+              )
             }
           />
         ) : (
-          <div className="rounded-2xl border border-dashed border-[#cfe2d9] bg-[#f7fbf9] p-3">
-            <p className="text-xs font-bold text-[#12231d]">No hay docs listos</p>
+          <div className="border-t border-dashed border-slate-200 pt-3">
+            <p className="text-xs font-bold text-slate-950">No hay docs listos</p>
             <div className="mt-2 flex gap-2">
-              <IconOnlyAction href={`/proposals?conversationId=${conversationId}`} label="Crear propuesta" icon={<FileText className="h-4 w-4" />} />
-              <IconOnlyAction href={`/invoices?conversationId=${conversationId}`} label="Crear factura" icon={<Receipt className="h-4 w-4" />} />
+              <IconOnlyAction
+                href={`/proposals?conversationId=${conversationId}`}
+                label="Crear propuesta"
+                icon={<FileText className="h-4 w-4" />}
+              />
+              <IconOnlyAction
+                href={`/invoices?conversationId=${conversationId}`}
+                label="Crear factura"
+                icon={<Receipt className="h-4 w-4" />}
+              />
             </div>
           </div>
         )}
       </section>
 
       <section className="grid grid-cols-2 gap-2">
-        <IconPanelButton href={`/tasks?conversationId=${conversationId}`} label="Tarea" icon={<Clock3 className="h-4 w-4" />} />
+        <IconPanelButton
+          href={`/tasks?conversationId=${conversationId}`}
+          label="Tarea"
+          icon={<Clock3 className="h-4 w-4" />}
+        />
         <button
           type="button"
           title="Nota"
           onClick={() => toast.info("Notas rápidas: pendiente conectar modal interno.")}
-          className="grid h-12 place-items-center rounded-2xl border border-[#dce8e2] bg-white text-[#52645d] shadow-sm hover:bg-[#f7fbf9]"
+          className="grid h-12 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
         >
           <StickyNote className="h-4 w-4" />
         </button>
       </section>
 
-      <section className="rounded-2xl border border-[#dce8e2] bg-white p-3 shadow-sm">
+      <section className="border-b border-slate-200 bg-white p-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-black text-[#12231d]">Actividad</p>
-          <span className={`rounded-full px-2 py-1 text-[10px] font-black ${isServiceWindowOpen ? "bg-[#d9fdd3] text-[#008069]" : "bg-[#edf6f2] text-[#52645d]"}`}>
+          <p className="text-xs font-black text-slate-950">Actividad</p>
+          <span
+            className={`rounded-full px-2 py-1 text-[10px] font-black ${isServiceWindowOpen ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}
+          >
             {isServiceWindowOpen ? "Abierta" : "Cerrada"}
           </span>
         </div>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#60736b]">{activity}</p>
-        <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-[#7b8d86]">
+        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{activity}</p>
+        <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-slate-400">
           <span>Restante: {formatDuration(remainingServiceWindowMs)}</span>
           {canSeeUnassigned ? <span>Admin</span> : null}
         </div>
       </section>
 
       {errors.length ? (
-        <section className="rounded-2xl border border-red-100 bg-red-50 p-3 shadow-sm">
+        <section className="border-b border-red-100 bg-red-50 p-3">
           <p className="line-clamp-2 text-[11px] text-red-700">{errors[0]}</p>
         </section>
       ) : null}
@@ -1107,12 +1247,16 @@ function SmartDocumentCard({
   onPrepare: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-[#bcebd0] bg-[#f0fff6] p-2.5">
+    <div className="border-t border-slate-200 pt-2.5">
       <div className="flex items-center gap-2.5">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#d9fdd3] text-[#008069]">{icon}</div>
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-blue-700">
+          {icon}
+        </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-black text-[#12231d]">{title}: {name}</p>
-          <p className="truncate text-[11px] text-[#7b8d86]">{meta}</p>
+          <p className="truncate text-xs font-black text-slate-950">
+            {title}: {name}
+          </p>
+          <p className="truncate text-[11px] text-slate-500">{meta}</p>
         </div>
       </div>
       <div className="mt-2 flex gap-2">
@@ -1120,14 +1264,14 @@ function SmartDocumentCard({
           type="button"
           title="Preparar mensaje"
           onClick={onPrepare}
-          className="grid h-9 flex-1 place-items-center rounded-xl bg-[#00a884] text-white hover:bg-[#008f72]"
+          className="grid h-9 flex-1 place-items-center rounded-xl bg-blue-600 text-white hover:bg-blue-700"
         >
           <Send className="h-4 w-4" />
         </button>
         <a
           href={href}
           title="Abrir documento"
-          className="grid h-9 flex-1 place-items-center rounded-xl border border-[#bcebd0] bg-white text-[#008069] hover:bg-[#f7fbf9]"
+          className="grid h-9 flex-1 place-items-center rounded-xl border border-slate-200 bg-white text-blue-700 hover:bg-slate-50"
         >
           <FileText className="h-4 w-4" />
         </a>
@@ -1141,7 +1285,7 @@ function IconOnlyAction({ href, label, icon }: { href: string; label: string; ic
     <a
       href={href}
       title={label}
-      className="grid h-10 flex-1 place-items-center rounded-xl border border-[#dce8e2] bg-white text-[#52645d] hover:bg-[#edf6f2]"
+      className="grid h-10 flex-1 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
     >
       {icon}
     </a>
@@ -1153,14 +1297,17 @@ function IconPanelButton({ href, label, icon }: { href: string; label: string; i
     <a
       href={href}
       title={label}
-      className="grid h-12 place-items-center rounded-2xl border border-[#dce8e2] bg-white text-[#52645d] shadow-sm hover:bg-[#f7fbf9]"
+      className="grid h-12 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
     >
       {icon}
     </a>
   );
 }
 
-function getContactState(conversation: UnifiedConversation, whatsapp: CrmWhatsappConversationListRow | null) {
+function getContactState(
+  conversation: UnifiedConversation,
+  whatsapp: CrmWhatsappConversationListRow | null,
+) {
   if (whatsapp?.is_hot_lead) return "Lead caliente";
   if (whatsapp?.lead_stage) return whatsapp.lead_stage;
   if (whatsapp?.lead_id || whatsapp?.whatsapp_lead_id) return "Lead";
@@ -1169,7 +1316,11 @@ function getContactState(conversation: UnifiedConversation, whatsapp: CrmWhatsap
   return "Sin registrar";
 }
 
-function getNextAction(conversation: UnifiedConversation, whatsapp: CrmWhatsappConversationListRow | null, serviceWindowOpen: boolean) {
+function getNextAction(
+  conversation: UnifiedConversation,
+  whatsapp: CrmWhatsappConversationListRow | null,
+  serviceWindowOpen: boolean,
+) {
   const conversationId = encodeURIComponent(conversation.id);
   const leadId = encodeURIComponent(whatsapp?.lead_id || whatsapp?.whatsapp_lead_id || "");
   const clientId = encodeURIComponent(whatsapp?.contact_id || "");
@@ -1224,17 +1375,23 @@ function getNextAction(conversation: UnifiedConversation, whatsapp: CrmWhatsappC
   };
 }
 
-function getLatestActivity(conversation: UnifiedConversation, whatsapp: CrmWhatsappConversationListRow | null) {
+function getLatestActivity(
+  conversation: UnifiedConversation,
+  whatsapp: CrmWhatsappConversationListRow | null,
+) {
   if (whatsapp?.lead_summary) return whatsapp.lead_summary;
   if (conversation.lastMessageText) return `Último mensaje: ${conversation.lastMessageText}`;
-  if (conversation.lastMessageAt) return `Última interacción: ${formatTime(conversation.lastMessageAt)}`;
+  if (conversation.lastMessageAt)
+    return `Última interacción: ${formatTime(conversation.lastMessageAt)}`;
   return "Aún no hay actividad registrada.";
 }
 
 function DatePill({ label }: { label: string }) {
   return (
     <div className="flex justify-center py-2">
-      <span className="rounded-full bg-white/80 px-4 py-1.5 text-xs font-bold text-[#52645d] shadow-sm">{label}</span>
+      <span className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-500">
+        {label}
+      </span>
     </div>
   );
 }
@@ -1243,11 +1400,11 @@ function ConversationSkeleton() {
   return (
     <div className="space-y-2 px-2 py-2">
       {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="flex items-center gap-3 rounded-2xl p-3">
-          <div className="h-11 w-11 animate-pulse rounded-full bg-[#e4eee9]" />
+        <div key={index} className="flex items-center gap-3 border-b border-slate-100 p-3">
+          <div className="h-11 w-11 animate-pulse rounded-full bg-slate-100" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-2/3 animate-pulse rounded-full bg-[#e4eee9]" />
-            <div className="h-3 w-full animate-pulse rounded-full bg-[#edf4f1]" />
+            <div className="h-3 w-2/3 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-3 w-full animate-pulse rounded-full bg-slate-100" />
           </div>
         </div>
       ))}
@@ -1258,9 +1415,9 @@ function ConversationSkeleton() {
 function MessageSkeleton() {
   return (
     <div className="space-y-3">
-      <div className="h-14 w-80 animate-pulse rounded-2xl bg-white" />
-      <div className="ml-auto h-16 w-72 animate-pulse rounded-2xl bg-[#d9fdd3]" />
-      <div className="h-28 w-[420px] animate-pulse rounded-2xl bg-white" />
+      <div className="h-14 w-80 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+      <div className="ml-auto h-16 w-72 animate-pulse rounded-2xl border border-blue-100 bg-blue-50" />
+      <div className="h-28 w-[420px] animate-pulse rounded-2xl border border-slate-200 bg-white" />
     </div>
   );
 }

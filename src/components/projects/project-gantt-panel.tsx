@@ -146,7 +146,8 @@ function isClosedMilestone(status: string) {
 function getItemTone(item: TimelineItem) {
   if (item.isOverdue) return "border-rose-200 bg-rose-50 text-rose-700";
   if (item.isDone) return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (normalizeStatus(item.status) === "blocked") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (normalizeStatus(item.status) === "blocked")
+    return "border-amber-200 bg-amber-50 text-amber-700";
   if (item.isInProgress) return "border-blue-200 bg-blue-50 text-blue-700";
   return "border-slate-200 bg-white text-slate-600";
 }
@@ -185,7 +186,9 @@ export function ProjectGanttPanel({
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("project_milestones")
-      .select("id,title,description,target_date,status,progress_pct,sort_order,created_at,updated_at")
+      .select(
+        "id,title,description,target_date,status,progress_pct,sort_order,created_at,updated_at",
+      )
       .eq("company_id", profile.company_id)
       .eq("project_id", project.id)
       .is("archived_at", null)
@@ -277,12 +280,9 @@ export function ProjectGanttPanel({
   const unscheduledItems = visibleItems.filter((item) => !item.date);
 
   const { days, timelineStart, timelineEnd } = useMemo(() => {
-    const dates = [
-      today,
-      projectStart,
-      projectDue,
-      ...allItems.map((item) => item.date),
-    ].filter(Boolean) as Date[];
+    const dates = [today, projectStart, projectDue, ...allItems.map((item) => item.date)].filter(
+      Boolean,
+    ) as Date[];
     const baseStart = subDays(minDate(dates), 2);
     let baseEnd = addDays(maxDate(dates), 2);
 
@@ -331,7 +331,8 @@ export function ProjectGanttPanel({
     [allItems],
   );
 
-  const hasVisibleContent = projectHasWindow || datedItems.length > 0 || unscheduledItems.length > 0;
+  const hasVisibleContent =
+    projectHasWindow || datedItems.length > 0 || unscheduledItems.length > 0;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -455,7 +456,11 @@ export function ProjectGanttPanel({
                   ) : (
                     <TimelineEmptyRow label="Sin hitos fechados" gridWidth={gridWidth} />
                   )}
-                  <TimelineGroupTitle title="Tareas" labelWidth={labelWidth} gridWidth={gridWidth} />
+                  <TimelineGroupTitle
+                    title="Tareas"
+                    labelWidth={labelWidth}
+                    gridWidth={gridWidth}
+                  />
                   {datedItems.filter((item) => item.type === "task").length ? (
                     datedItems
                       .filter((item) => item.type === "task")
@@ -635,7 +640,10 @@ function ProjectTimelineRow({
       : 0;
 
   return (
-    <div className="relative flex min-h-[74px] border-b border-slate-100" style={{ width: gridWidth }}>
+    <div
+      className="relative flex min-h-[74px] border-b border-slate-100"
+      style={{ width: gridWidth }}
+    >
       <div
         className="sticky left-0 z-10 flex items-center border-r border-slate-200 bg-white px-4"
         style={{ width: labelWidth }}
@@ -643,7 +651,9 @@ function ProjectTimelineRow({
         <div className="min-w-0">
           <div className="truncate text-sm font-extrabold text-slate-950">{project.name}</div>
           <div className="mt-1 text-xs font-semibold text-slate-500">
-            {hasWindow ? `${formatDateLabel(projectStart)} - ${formatDateLabel(projectDue)}` : "Sin ventana planificada"}
+            {hasWindow
+              ? `${formatDateLabel(projectStart)} - ${formatDateLabel(projectDue)}`
+              : "Sin ventana planificada"}
           </div>
         </div>
       </div>
@@ -653,7 +663,10 @@ function ProjectTimelineRow({
             className="absolute top-5 h-8 overflow-hidden rounded-full border border-blue-200 bg-blue-100"
             style={{ left: startOffset, width }}
           >
-            <div className="h-full rounded-full bg-blue-500/80" style={{ width: `${projectProgress}%` }} />
+            <div
+              className="h-full rounded-full bg-blue-500/80"
+              style={{ width: `${projectProgress}%` }}
+            />
           </div>
         ) : (
           <div className="absolute left-4 top-5 rounded-full border border-dashed border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-500">
@@ -700,16 +713,26 @@ function TimelineItemRow({
   labelWidth: number;
   gridWidth: number;
 }) {
-  const left = item.date ? differenceInCalendarDays(item.date, timelineStart) * dayWidth + dayWidth / 2 : 0;
+  const left = item.date
+    ? differenceInCalendarDays(item.date, timelineStart) * dayWidth + dayWidth / 2
+    : 0;
   const Icon = item.type === "milestone" ? Diamond : CircleDot;
 
   return (
-    <div className="relative flex min-h-[58px] border-b border-slate-100" style={{ width: gridWidth }}>
+    <div
+      className="relative flex min-h-[58px] border-b border-slate-100"
+      style={{ width: gridWidth }}
+    >
       <div
         className="sticky left-0 z-10 flex min-w-0 items-center gap-3 border-r border-slate-200 bg-white px-4"
         style={{ width: labelWidth }}
       >
-        <Icon className={cn("h-4 w-4 shrink-0", item.type === "milestone" ? "text-indigo-500" : "text-blue-500")} />
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            item.type === "milestone" ? "text-indigo-500" : "text-blue-500",
+          )}
+        />
         <div className="min-w-0">
           <div className="truncate text-sm font-bold text-slate-900">{item.title}</div>
           <div className="mt-0.5 truncate text-xs font-semibold text-slate-500">
@@ -734,7 +757,10 @@ function TimelineItemRow({
 
 function TimelineEmptyRow({ label, gridWidth }: { label: string; gridWidth: number }) {
   return (
-    <div className="border-b border-slate-100 px-4 py-5 text-sm font-semibold text-slate-400" style={{ width: gridWidth }}>
+    <div
+      className="border-b border-slate-100 px-4 py-5 text-sm font-semibold text-slate-400"
+      style={{ width: gridWidth }}
+    >
       {label}
     </div>
   );

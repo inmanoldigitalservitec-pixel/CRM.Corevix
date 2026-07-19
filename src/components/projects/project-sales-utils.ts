@@ -1,8 +1,4 @@
-import {
-  isCancelledInvoiceStatus,
-  isPaidInvoiceStatus,
-  normalizeStatus,
-} from "@/lib/crm/status";
+import { isCancelledInvoiceStatus, isPaidInvoiceStatus, normalizeStatus } from "@/lib/crm/status";
 export { compactIds, dedupeById } from "@/lib/projects/project-relations";
 
 export type ProjectSalesProject = {
@@ -309,7 +305,8 @@ export function buildSalesSummary(data: ProjectSalesData, todayIso: string): Pro
     billableMinutes,
     nonBillableMinutes: totalMinutes - billableMinutes,
     timeEntryCount: data.timeEntries.length,
-    overdueInvoiceCount: data.invoices.filter((invoice) => isOverdueInvoice(invoice, todayIso)).length,
+    overdueInvoiceCount: data.invoices.filter((invoice) => isOverdueInvoice(invoice, todayIso))
+      .length,
     activeContractCount: data.contracts.filter((contract) => !isCancelledStatus(contract.status))
       .length,
     proposalCount: data.proposals.length,

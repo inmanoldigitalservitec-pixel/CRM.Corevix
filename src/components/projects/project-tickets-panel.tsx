@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ExternalLink, Plus, RefreshCw, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,6 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
+import { CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -117,7 +118,9 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
         .maybeSingle(),
       (supabase as any)
         .from("tickets")
-        .select("id,ticket_number,subject,description,status,priority,department,service,last_reply_at,created_at,updated_at")
+        .select(
+          "id,ticket_number,subject,description,status,priority,department,service,last_reply_at,created_at,updated_at",
+        )
         .eq("company_id", profile.company_id)
         .eq("project_id", projectId)
         .order("updated_at", { ascending: false })
@@ -185,33 +188,34 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="font-extrabold text-slate-900">Tickets del proyecto</h3>
-          <p className="text-sm font-medium text-slate-500">
+          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+            Tickets del proyecto
+          </h3>
+          <p className="mt-1 text-sm font-normal text-slate-500">
             {summary.total} total · {summary.open} abiertos · {summary.closed} cerrados
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void fetchTickets()} disabled={loading}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <CrmDetailLineButton
+            icon={<RefreshCw className="h-4 w-4" />}
+            onClick={() => void fetchTickets()}
+            disabled={loading}
+          >
             Actualizar
-          </Button>
-          <Button variant="outline" asChild>
-            <a href={ticketsUrl}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Abrir tickets
-            </a>
-          </Button>
-          <Button onClick={openNewTicket}>
-            <Plus className="mr-2 h-4 w-4" />
+          </CrmDetailLineButton>
+          <CrmDetailLineButton asChild icon={<ExternalLink className="h-4 w-4" />}>
+            <a href={ticketsUrl}>Abrir tickets</a>
+          </CrmDetailLineButton>
+          <CrmDetailLineButton icon={<Plus className="h-4 w-4" />} onClick={openNewTicket}>
             Nuevo ticket
-          </Button>
+          </CrmDetailLineButton>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-white">
+      <div className="border-y border-slate-100 bg-white">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className="bg-slate-50">
+            <TableHeader className="bg-white">
               <TableRow>
                 <TableHead className="w-16">#</TableHead>
                 <TableHead className="min-w-[280px]">Asunto</TableHead>
@@ -231,33 +235,45 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
               ) : tickets.length ? (
                 tickets.map((ticket) => (
                   <TableRow key={ticket.id} className="align-top">
-                    <TableCell className="font-semibold text-slate-500">{ticket.ticket_number || "-"}</TableCell>
+                    <TableCell className="font-normal text-slate-500">
+                      {ticket.ticket_number || "-"}
+                    </TableCell>
                     <TableCell>
-                      <div className="font-semibold text-slate-900">{ticket.subject}</div>
-                      <div className="mt-1 line-clamp-1 text-xs text-slate-500">
+                      <div className="font-normal text-slate-950">{ticket.subject}</div>
+                      <div className="mt-1 line-clamp-1 text-xs font-normal text-slate-500">
                         {ticket.description || ticket.service || "Sin descripción"}
                       </div>
                     </TableCell>
-                    <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                    <TableCell><span className={`font-bold ${priorityClass(ticket.priority)}`}>{priorityLabel(ticket.priority)}</span></TableCell>
+                    <TableCell>
+                      <StatusBadge status={ticket.status} />
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-normal ${priorityClass(ticket.priority)}`}>
+                        {priorityLabel(ticket.priority)}
+                      </span>
+                    </TableCell>
                     <TableCell>{ticket.department || "-"}</TableCell>
-                    <TableCell>{formatDateTime(ticket.last_reply_at || ticket.created_at)}</TableCell>
+                    <TableCell>
+                      {formatDateTime(ticket.last_reply_at || ticket.created_at)}
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-2 text-center">
-                      <div className="grid h-10 w-10 place-items-center rounded-xl border bg-slate-50 text-slate-500">
+                      <div className="grid h-10 w-10 place-items-center rounded-full border border-slate-100 bg-white text-slate-500">
                         <Ticket className="h-5 w-5" />
                       </div>
-                      <div className="font-bold text-slate-900">Este proyecto todavía no tiene tickets</div>
-                      <p className="text-sm font-medium text-slate-500">
+                      <div className="font-normal text-slate-950">
+                        Este proyecto todavía no tiene tickets
+                      </div>
+                      <p className="text-sm font-normal text-slate-500">
                         Crea el primer ticket relacionado a este proyecto sin salir del workspace.
                       </p>
-                      <Button size="sm" className="mt-2" onClick={openNewTicket}>
+                      <CrmDetailLineButton className="mt-2" onClick={openNewTicket}>
                         Crear ticket
-                      </Button>
+                      </CrmDetailLineButton>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -267,64 +283,91 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Nuevo ticket del proyecto</DialogTitle>
-          </DialogHeader>
-          <form className="space-y-4" onSubmit={saveTicket}>
-            <div className="space-y-1.5">
-              <Label>Asunto</Label>
+      <CrmCreationDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="Nuevo ticket del proyecto"
+        size="sm"
+      >
+        <form className="space-y-6" onSubmit={saveTicket}>
+          <div className="space-y-1.5">
+            <Label className={crmFormStyles.label}>Asunto</Label>
+            <Input
+              value={form.subject}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, subject: event.target.value }))
+              }
+              className={crmFormStyles.input}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className={crmFormStyles.label}>Descripción</Label>
+            <Textarea
+              rows={4}
+              value={form.description}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, description: event.target.value }))
+              }
+              className={crmFormStyles.textarea}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label className={crmFormStyles.label}>Prioridad</Label>
+              <Select
+                value={form.priority}
+                onValueChange={(value) => setForm((current) => ({ ...current, priority: value }))}
+              >
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priorityLabel(priority)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label className={crmFormStyles.label}>Departamento</Label>
               <Input
-                value={form.subject}
-                onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
-                required
+                value={form.department}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, department: event.target.value }))
+                }
+                className={crmFormStyles.input}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Descripción</Label>
-              <Textarea
-                rows={4}
-                value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label className={crmFormStyles.label}>Servicio</Label>
+              <Input
+                value={form.service}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, service: event.target.value }))
+                }
+                className={crmFormStyles.input}
               />
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5 sm:col-span-1">
-                <Label>Prioridad</Label>
-                <Select value={form.priority} onValueChange={(value) => setForm((current) => ({ ...current, priority: value }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priorityLabel(priority)}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 sm:col-span-1">
-                <Label>Departamento</Label>
-                <Input
-                  value={form.department}
-                  onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5 sm:col-span-1">
-                <Label>Servicio</Label>
-                <Input
-                  value={form.service}
-                  onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Creando..." : "Crear ticket"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </div>
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => setDialogOpen(false)}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton} disabled={saving}>
+              {saving ? "Creando..." : "Crear ticket"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
     </div>
   );
 }

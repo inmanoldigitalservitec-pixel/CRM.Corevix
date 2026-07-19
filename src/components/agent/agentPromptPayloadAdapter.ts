@@ -1,6 +1,9 @@
-import type { AgentRecoveryPlan,
+import type {
+  AgentRecoveryPlan,
   AgentSourceRecord,
-  AgentRiskLevel, AgentSeverity } from "./AgentCommandWidget";
+  AgentRiskLevel,
+  AgentSeverity,
+} from "./AgentCommandWidget";
 import {
   isAgentWidgetContractV1,
   type AgentWidgetContractV1,
@@ -156,7 +159,8 @@ export type AgentPromptPayload = {
 function normalizeSeverity(value?: AgentPromptSeverity | null): AgentSeverity {
   const normalized = String(value || "").toLowerCase();
 
-  if (normalized === "critical" || normalized === "crítico" || normalized === "critico") return "critical";
+  if (normalized === "critical" || normalized === "crítico" || normalized === "critico")
+    return "critical";
   if (normalized === "high" || normalized === "alta" || normalized === "alto") return "high";
   if (normalized === "medium" || normalized === "media" || normalized === "medio") return "medium";
 
@@ -199,7 +203,9 @@ function normalizeSourceRecords(records: unknown): AgentSourceRecord[] {
   if (!Array.isArray(records)) return [];
 
   return records
-    .filter((record): record is Record<string, unknown> => Boolean(record) && typeof record === "object")
+    .filter(
+      (record): record is Record<string, unknown> => Boolean(record) && typeof record === "object",
+    )
     .map((record) => ({
       id: String(record.id || record.record_id || record.uuid || "unknown"),
       type: String(record.type || record.module || record.entity_type || "record"),
@@ -273,8 +279,10 @@ function fallbackActionsFromCase(
 }
 
 function buildStepsFromDetectedCase(detectedCase: AgentPromptDetectedCase) {
-  const sourceModule = detectedCase.source?.module || detectedCase.references?.source_modules?.[0] || "CRM";
-  const recommendation = detectedCase.recommendation || "Definir el próximo paso antes de ejecutar acciones.";
+  const sourceModule =
+    detectedCase.source?.module || detectedCase.references?.source_modules?.[0] || "CRM";
+  const recommendation =
+    detectedCase.recommendation || "Definir el próximo paso antes de ejecutar acciones.";
 
   return [
     {
@@ -294,11 +302,11 @@ function buildStepsFromDetectedCase(detectedCase: AgentPromptDetectedCase) {
     },
     {
       title: "Confirmación",
-      description: "Solicitar aprobación antes de ejecutar cambios, mensajes o actualizaciones en el CRM.",
+      description:
+        "Solicitar aprobación antes de ejecutar cambios, mensajes o actualizaciones en el CRM.",
     },
   ];
 }
-
 
 function normalizeWidgetContractRecoveryPlan(plan: AgentWidgetRecoveryPlan): AgentRecoveryPlan {
   const steps = plan.plan_steps || plan.recommended_steps || [];
@@ -309,14 +317,8 @@ function normalizeWidgetContractRecoveryPlan(plan: AgentWidgetRecoveryPlan): Age
     case_type: plan.case_type,
     title: cleanText(plan.plan_title, "Caso detectado"),
     severity: normalizeSeverity(plan.severity),
-    message: cleanText(
-      plan.message,
-      "El agente detectó un caso que requiere atención.",
-    ),
-    diagnosis: cleanText(
-      plan.diagnosis,
-      "Este caso requiere revisión y una acción controlada.",
-    ),
+    message: cleanText(plan.message, "El agente detectó un caso que requiere atención."),
+    diagnosis: cleanText(plan.diagnosis, "Este caso requiere revisión y una acción controlada."),
     source_context_excerpt: plan.source_context_excerpt || "",
     source_records: normalizeSourceRecords(plan.source_records),
     context_refs: plan.context_refs,
@@ -327,9 +329,18 @@ function normalizeWidgetContractRecoveryPlan(plan: AgentWidgetRecoveryPlan): Age
             description: cleanText(step.description, "Ejecutar este paso con validación."),
           }))
         : [
-            { title: "Diagnóstico", description: "Validar el caso detectado y su nivel de prioridad." },
-            { title: "Preparación", description: "Preparar la acción recomendada antes de ejecutarla." },
-            { title: "Confirmación", description: "Solicitar aprobación antes de modificar datos o contactar clientes." },
+            {
+              title: "Diagnóstico",
+              description: "Validar el caso detectado y su nivel de prioridad.",
+            },
+            {
+              title: "Preparación",
+              description: "Preparar la acción recomendada antes de ejecutarla.",
+            },
+            {
+              title: "Confirmación",
+              description: "Solicitar aprobación antes de modificar datos o contactar clientes.",
+            },
           ],
     suggested_actions: actions.map(normalizeSuggestedAction),
     result: {
@@ -346,7 +357,10 @@ function normalizeWidgetContractRecoveryPlan(plan: AgentWidgetRecoveryPlan): Age
   };
 }
 
-function normalizeRecoveryPlan(plan: AgentPromptRecoveryPlan, payload: AgentPromptPayload): AgentRecoveryPlan {
+function normalizeRecoveryPlan(
+  plan: AgentPromptRecoveryPlan,
+  payload: AgentPromptPayload,
+): AgentRecoveryPlan {
   const caseKey = cleanText(plan.case_key, `recovery_plan_${Math.random().toString(36).slice(2)}`);
   const steps = plan.plan_steps || plan.recommended_steps || [];
 
@@ -406,7 +420,10 @@ function detectedCaseToTemporaryRecoveryPlan(
   detectedCase: AgentPromptDetectedCase,
   payload: AgentPromptPayload,
 ): AgentRecoveryPlan {
-  const caseKey = cleanText(detectedCase.case_key, `detected_case_${Math.random().toString(36).slice(2)}`);
+  const caseKey = cleanText(
+    detectedCase.case_key,
+    `detected_case_${Math.random().toString(36).slice(2)}`,
+  );
   const severity = normalizeSeverity(detectedCase.severity);
   const sourceLabel =
     detectedCase.source?.label ||
@@ -445,7 +462,10 @@ function detectedCaseToTemporaryRecoveryPlan(
       cleanText(detectedCase.summary, ""),
       cleanText(detectedCase.reason, ""),
       cleanText(detectedCase.recommendation, ""),
-    ].filter(Boolean).join("\n").slice(0, 1800),
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 1800),
     source_records: normalizeSourceRecords([
       {
         type: detectedCase.source?.type || detectedCase.source?.module || "record",
@@ -470,13 +490,16 @@ function detectedCaseToTemporaryRecoveryPlan(
     suggested_actions: fallbackActionsFromCase(payload, detectedCase),
     result: {
       title: "Plan temporal preparado",
-      message: "Este plan fue generado localmente desde detected_cases hasta conectar el agente real.",
+      message:
+        "Este plan fue generado localmente desde detected_cases hasta conectar el agente real.",
       data: resultData,
     },
   };
 }
 
-export function agentPromptPayloadToRecoveryPlans(payload?: AgentPromptPayload | null): AgentRecoveryPlan[] {
+export function agentPromptPayloadToRecoveryPlans(
+  payload?: AgentPromptPayload | null,
+): AgentRecoveryPlan[] {
   if (!payload) return [];
 
   if (isAgentWidgetContractV1(payload)) {

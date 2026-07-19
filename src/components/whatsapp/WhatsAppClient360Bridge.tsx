@@ -10,9 +10,12 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
 }
 
 function getWhatsappContextPanel() {
-  return Array.from(document.querySelectorAll<HTMLElement>("aside")).find((aside) =>
-    aside.textContent?.includes("Envío rápido") || aside.querySelector('[title="Tarea"]'),
-  ) || null;
+  return (
+    Array.from(document.querySelectorAll<HTMLElement>("aside")).find(
+      (aside) =>
+        aside.textContent?.includes("Envío rápido") || aside.querySelector('[title="Tarea"]'),
+    ) || null
+  );
 }
 
 function readWhatsappConversationId() {
@@ -37,7 +40,9 @@ function readWhatsappContactSearch() {
 function enhanceWhatsappProfileButton() {
   const panel = getWhatsappContextPanel();
   if (!panel) return;
-  const profileLink = panel.querySelector<HTMLAnchorElement>('a[href="/clients"], a[title="Ver perfil"]');
+  const profileLink = panel.querySelector<HTMLAnchorElement>(
+    'a[href="/clients"], a[title="Ver perfil"]',
+  );
   if (!profileLink) return;
   const search = readWhatsappContactSearch();
   const conversationId = readWhatsappConversationId();
@@ -63,7 +68,9 @@ function applyWhatsappSearchFromUrl() {
   const url = new URL(window.location.href);
   const search = url.searchParams.get("clientSearch") || url.searchParams.get("phone") || "";
   if (!search) return;
-  const input = document.querySelector<HTMLInputElement>('input[placeholder="Buscar o iniciar un chat"]');
+  const input = document.querySelector<HTMLInputElement>(
+    'input[placeholder="Buscar o iniciar un chat"]',
+  );
   if (!input) return;
   if (input.value.trim() === search.trim()) return;
   setNativeInputValue(input, search);
@@ -88,7 +95,10 @@ function readSelectedClientName() {
   const headings = Array.from(dialog.querySelectorAll<HTMLElement>("h1,h2,h3"))
     .map((item) => item.textContent?.trim() || "")
     .filter(Boolean);
-  return headings.find((text) => !["Cliente 360", "Contactos", "Proyectos"].includes(text)) || "este cliente";
+  return (
+    headings.find((text) => !["Cliente 360", "Contactos", "Proyectos"].includes(text)) ||
+    "este cliente"
+  );
 }
 
 function readSelectedClientSearch() {
@@ -112,7 +122,9 @@ function Client360WhatsAppCard() {
             </div>
             <div>
               <h3 className="text-sm font-black text-[#12231d]">WhatsApp 360</h3>
-              <p className="text-xs text-[#60736b]">Mensajes, tareas y notas internas conectadas al cliente.</p>
+              <p className="text-xs text-[#60736b]">
+                Mensajes, tareas y notas internas conectadas al cliente.
+              </p>
             </div>
           </div>
         </div>
@@ -148,13 +160,22 @@ function Client360WhatsAppCard() {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <a href="/tasks" className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#dce8e2] bg-white px-2.5 text-[11px] font-black text-[#52645d] hover:bg-[#f7fbf9]">
+        <a
+          href="/tasks"
+          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#dce8e2] bg-white px-2.5 text-[11px] font-black text-[#52645d] hover:bg-[#f7fbf9]"
+        >
           <Clock3 className="h-3.5 w-3.5" /> Ver tareas
         </a>
-        <a href="/proposals" className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#dce8e2] bg-white px-2.5 text-[11px] font-black text-[#52645d] hover:bg-[#f7fbf9]">
+        <a
+          href="/proposals"
+          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#dce8e2] bg-white px-2.5 text-[11px] font-black text-[#52645d] hover:bg-[#f7fbf9]"
+        >
           <FileText className="h-3.5 w-3.5" /> Propuestas
         </a>
-        <a href="/invoices" className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#dce8e2] bg-white px-2.5 text-[11px] font-black text-[#52645d] hover:bg-[#f7fbf9]">
+        <a
+          href="/invoices"
+          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#dce8e2] bg-white px-2.5 text-[11px] font-black text-[#52645d] hover:bg-[#f7fbf9]"
+        >
           <Receipt className="h-3.5 w-3.5" /> Facturas
         </a>
       </div>
@@ -183,7 +204,11 @@ export function WhatsAppClient360Bridge({ mode }: { mode: "whatsapp" | "clients"
       });
     };
     run();
-    const timers = [window.setTimeout(run, 300), window.setTimeout(run, 1000), window.setTimeout(run, 1800)];
+    const timers = [
+      window.setTimeout(run, 300),
+      window.setTimeout(run, 1000),
+      window.setTimeout(run, 1800),
+    ];
     const observer = new MutationObserver(run);
     observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("click", run, true);
@@ -196,7 +221,6 @@ export function WhatsAppClient360Bridge({ mode }: { mode: "whatsapp" | "clients"
   }, [mode]);
 
   const card = useMemo(() => {
-    version;
     return <Client360WhatsAppCard />;
   }, [version]);
 

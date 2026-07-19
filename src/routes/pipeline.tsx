@@ -1,31 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BarChart3,
   BriefcaseBusiness,
   Calendar as CalendarIcon,
   Archive,
   Grid2X2,
   List,
-  Search,
   SlidersHorizontal,
-  Tag,
   Trophy,
-  TrendingUp as TrendLine,
   DollarSign,
   Eye,
-  Filter,
   Mail,
   MessageCircle,
   Phone,
   Plus,
-  TrendingUp,
-  Package,
   Trash2,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { crmFormStyles } from "@/components/crm/crm-form-shell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,9 +39,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  CrmDetailActionGrid,
+  CrmDetailLineButton,
+  CrmDetailSelectTrigger,
+  CrmDetailSummaryGrid,
+} from "@/components/crm/crm-detail-layout";
 import { toast } from "sonner";
 import { LoadingMetrics } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
+import { PageHeader } from "@/components/crm/page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
@@ -257,6 +257,39 @@ function stageDefaults(name: string) {
   return "#1d62f9";
 }
 
+type PipelineKpiTone = "neutral" | "success" | "warning" | "danger" | "info";
+
+function pipelineRiskTone(value: number, warningAt: number, dangerAt: number): PipelineKpiTone {
+  if (value >= dangerAt) return "danger";
+  if (value >= warningAt) return "warning";
+  return "success";
+}
+
+function PipelineKpi({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  tone?: PipelineKpiTone;
+}) {
+  const toneClass: Record<PipelineKpiTone, string> = {
+    neutral: "text-slate-950",
+    success: "text-emerald-600",
+    warning: "text-orange-500",
+    danger: "text-rose-600",
+    info: "text-blue-600",
+  };
+
+  return (
+    <div className="min-w-0 border-b border-slate-100 pb-3">
+      <div className="text-xs font-normal uppercase text-slate-500">{label}</div>
+      <div className={`mt-2 truncate text-xl font-normal ${toneClass[tone]}`}>{value}</div>
+    </div>
+  );
+}
+
 function isWonStageName(name: string) {
   return isWonDealStageValue(name);
 }
@@ -366,14 +399,6 @@ function PipelinePage() {
   });
 
   const [team, setTeam] = useState<CompanyTeamMember[]>([]);
-  const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpSaving, setFollowUpSaving] = useState(false);
-  const [followUpValues, setFollowUpValues] = useState({
-    title: "",
-    due_date: "",
-    priority: "Medium",
-    description: "",
-  });
   const [closingAsWon, setClosingAsWon] = useState(false);
   const [closingAsLost, setClosingAsLost] = useState(false);
   const [lostDialogOpen, setLostDialogOpen] = useState(false);
@@ -1746,85 +1771,21 @@ function PipelinePage() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().slice(0, 10);
     const label = deal.name || "oportunidad";
-    setFollowUpValues({
-      title: `Dar seguimiento a ${label}`,
-      due_date: dueDate,
-      priority: "Medium",
-      description: `Seguimiento creado desde Pipeline.\nOportunidad: ${deal.name}`,
-    });
-    setFollowUpOpen(true);
-  }
-
-  async function handleCreateFollowUpTaskFromDeal(deal: Deal) {
-    if (!profile?.company_id) {
-      toast.error("No hay contexto de empresa");
-      return;
-    }
-    if (!profile?.id) {
-      toast.error("No se pudo identificar el perfil actual");
-      return;
-    }
-    if (!can("tasks.create")) {
-      toast.error("No tienes permiso para crear tareas");
-      return;
-    }
-    if (!canCreateTaskForDeal(deal)) {
-      toast.error("No tienes permiso para crear seguimiento en esta oportunidad.");
-      return;
-    }
-    if (!followUpValues.title.trim()) {
-      toast.error("El título es requerido");
-      return;
-    }
-    if (!followUpValues.due_date) {
-      toast.error("Selecciona una fecha de seguimiento");
-      return;
-    }
-
-    setFollowUpSaving(true);
-    try {
-      const assignedTo = resolveAssigneeUserId(deal.assigned_to);
-      const payload: Record<string, any> = {
-        company_id: profile.company_id,
-        title: followUpValues.title.trim(),
-        description: followUpValues.description.trim() || null,
-        status: "To Do",
-        priority: followUpValues.priority || "Medium",
-        due_date: followUpValues.due_date,
-        assigned_to: assignedTo,
-        related_client_id: null,
-        related_lead_id: deal.lead_id || null,
-      };
-
-      const { error } = await db.from("tasks").insert(payload);
-      if (error) {
-        toast.error(error.message || "No se pudo crear el seguimiento");
-        return;
-      }
-
-      if (deal.lead_id) {
-        const leadId = String(deal.lead_id);
-        setNextTaskByLeadId((prev) => ({
-          ...prev,
-          [leadId]: {
-            id: "new",
-            title: payload.title,
-            due_date: payload.due_date,
-            priority: payload.priority,
-            status: payload.status,
-            assigned_to: payload.assigned_to,
+    window.dispatchEvent(
+      new CustomEvent("corevix:open-task-create", {
+        detail: {
+          initialValues: {
+            title: `Dar seguimiento a ${label}`,
+            dueDate,
+            priority: "Medium",
+            description: `Seguimiento creado desde Pipeline.\nOportunidad: ${deal.name}`,
+            assignedTo: resolveAssigneeUserId(deal.assigned_to) || undefined,
+            leadId: deal.lead_id || undefined,
+            dealId: deal.id,
           },
-        }));
-      }
-
-      toast.success("Seguimiento creado correctamente.");
-      setFollowUpOpen(false);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "No se pudo crear el seguimiento";
-      toast.error(message);
-    } finally {
-      setFollowUpSaving(false);
-    }
+        },
+      }),
+    );
   }
 
   async function handleOpenWhatsAppFromLead(lead: LeadRow) {
@@ -2319,76 +2280,57 @@ function PipelinePage() {
     <div data-demo="pipeline-main" className="min-h-[calc(100vh-72px)] bg-white text-[#101828]">
       <div className="px-3 sm:px-4 lg:px-5 py-3">
         <div className="min-w-[1120px]">
-          <div className="relative z-20 mb-3 overflow-visible rounded-[22px] border border-[#edf1f7] bg-white p-3.5 shadow-[0_10px_26px_rgba(15,23,42,0.035)]">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[15px] bg-[linear-gradient(135deg,#1d62f9,#0ea5e9)] text-white shadow-[0_12px_24px_rgba(29,98,249,0.20)]">
-                  <Filter className="h-5 w-5" />
-                </div>
+          <div className="mb-3">
+            <PageHeader
+              title="Pipeline de ventas"
+              subtitle="Administra oportunidades, etapas, cierres esperados y seguimiento comercial."
+            />
+          </div>
 
-                <div className="min-w-0">
-                  <h1 className="text-[23px] leading-none tracking-[-0.04em] font-semibold text-[#101828]">
-                    Pipeline de Ventas
-                  </h1>
+          <section className="mb-4 grid grid-cols-5 gap-x-8 gap-y-4">
+            <PipelineKpi
+              label="Pipeline"
+              value={`$${pipelineTotal.toLocaleString()}`}
+              tone="info"
+            />
+            <PipelineKpi
+              label="Abiertas"
+              value={openDealsCount}
+              tone={pipelineRiskTone(openDealsCount, 8, 18)}
+            />
+            <PipelineKpi label="Ticket promedio" value={`$${avgDeal.toLocaleString()}`} />
+            <PipelineKpi
+              label="Win rate"
+              value={`${winRate}%`}
+              tone={winRate >= 50 ? "success" : winRate >= 25 ? "warning" : "danger"}
+            />
+            <PipelineKpi label="Ganado" value={`$${wonTotal.toLocaleString()}`} tone="success" />
+          </section>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
-                      <BarChart3 className="h-3.5 w-3.5 text-[#1d62f9]" />
-                      <span>Pipeline</span>
-                      <strong className="text-[#1d62f9]">${pipelineTotal.toLocaleString()}</strong>
-                    </div>
-
-                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
-                      <BriefcaseBusiness className="h-3.5 w-3.5 text-[#667085]" />
-                      <span>Abiertas</span>
-                      <strong className="text-[#101828]">{openDealsCount}</strong>
-                    </div>
-
-                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
-                      <Tag className="h-3.5 w-3.5 text-[#667085]" />
-                      <span>Ticket promedio</span>
-                      <strong className="text-[#101828]">${avgDeal.toLocaleString()}</strong>
-                    </div>
-
-                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
-                      <TrendLine className="h-3.5 w-3.5 text-[#667085]" />
-                      <span>Win rate</span>
-                      <strong className="text-[#101828]">{winRate}%</strong>
-                    </div>
-
-                    <div className="inline-flex h-7 items-center gap-1.5 rounded-[10px] border border-[#e6eaf0] bg-white px-2.5 text-[12px] font-semibold text-[#475467] shadow-[0_6px_14px_rgba(15,23,42,0.035)]">
-                      <Trophy className="h-3.5 w-3.5 text-[#16a34a]" />
-                      <span>Ganado</span>
-                      <strong className="text-[#16a34a]">${wonTotal.toLocaleString()}</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {can("deals.create") && (
-                <button
-                  data-demo="pipeline-new-deal-button"
-                  className="h-[40px] shrink-0 rounded-[13px] bg-[#1d62f9] px-4 text-[13px] font-semibold text-white shadow-[0_12px_26px_rgba(29,98,249,0.22)] transition hover:-translate-y-[1px] hover:opacity-95 flex items-center gap-2"
-                  onClick={() => {
-                    setEditDeal(null);
-                    setDialogOpen(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Nueva oportunidad
-                </button>
-              )}
-            </div>
-
-            <div className="mt-3 border-t border-[#eef2f7] pt-3">
+          <div className="relative z-20 mb-3 overflow-visible border-y border-slate-100 bg-white">
+            <div className="px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex h-[38px] overflow-hidden rounded-[13px] border border-[#e6eaf0] bg-white p-1 shadow-[0_8px_18px_rgba(15,23,42,0.045)]">
+                {can("deals.create") && (
+                  <CrmDetailLineButton
+                    data-demo="pipeline-new-deal-button"
+                    className="h-9 border-blue-600 bg-blue-600 px-3 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+                    icon={<Plus className="h-4 w-4" />}
+                    onClick={() => {
+                      setEditDeal(null);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    Nueva oportunidad
+                  </CrmDetailLineButton>
+                )}
+
+                <div className="inline-flex h-9 items-center gap-3">
                   <button
                     className={
-                      "h-full rounded-[10px] px-3 text-[12px] font-semibold flex items-center gap-1.5 transition-all " +
+                      "h-9 border-b px-1 text-[12px] font-normal flex items-center gap-1.5 transition " +
                       (viewMode === "board"
-                        ? "bg-[#1d62f9] text-white shadow-[0_10px_20px_rgba(29,98,249,0.22)]"
-                        : "text-[#344054] hover:bg-[#f6f8fb]")
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950")
                     }
                     onClick={() => setViewMode("board")}
                   >
@@ -2398,10 +2340,10 @@ function PipelinePage() {
 
                   <button
                     className={
-                      "h-full rounded-[10px] px-3 text-[12px] font-semibold flex items-center gap-1.5 transition-all " +
+                      "h-9 border-b px-1 text-[12px] font-normal flex items-center gap-1.5 transition " +
                       (viewMode === "list"
-                        ? "bg-[#1d62f9] text-white shadow-[0_10px_20px_rgba(29,98,249,0.22)]"
-                        : "text-[#344054] hover:bg-[#f6f8fb]")
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950")
                     }
                     onClick={() => setViewMode("list")}
                   >
@@ -2411,10 +2353,10 @@ function PipelinePage() {
 
                   <button
                     className={
-                      "h-full rounded-[10px] px-3 text-[12px] font-semibold flex items-center gap-1.5 transition-all " +
+                      "h-9 border-b px-1 text-[12px] font-normal flex items-center gap-1.5 transition " +
                       (archivedOpen
-                        ? "bg-[#1d62f9] text-white shadow-[0_10px_20px_rgba(29,98,249,0.22)]"
-                        : "text-[#344054] hover:bg-[#f6f8fb]")
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950")
                     }
                     onClick={() => setArchivedOpen(true)}
                     type="button"
@@ -2425,23 +2367,15 @@ function PipelinePage() {
                 </div>
 
                 <div className="ml-auto flex min-w-[360px] flex-1 items-center justify-end gap-2">
-                  <div className="relative w-full max-w-[460px]">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667085]" />
-                    <input
-                      className="h-[38px] w-full rounded-[13px] border border-[#e6eaf0] bg-white pl-10 pr-3 text-[12px] font-medium text-[#101828] shadow-[0_8px_18px_rgba(15,23,42,0.035)] outline-none transition placeholder:text-[#98a2b3] focus:border-[#bdd1ff] focus:ring-4 focus:ring-[#1d62f9]/10"
-                      placeholder="Buscar oportunidades, prospectos o empresas..."
-                    />
-                  </div>
-
                   <button
-                    className="h-[38px] shrink-0 rounded-[13px] border border-[#e6eaf0] bg-white px-3 text-[12px] font-semibold text-[#344054] shadow-[0_8px_18px_rgba(15,23,42,0.045)] transition hover:-translate-y-[1px] hover:border-[#bdd1ff] flex items-center gap-1.5"
+                    className="h-9 shrink-0 border-b border-slate-200 bg-white px-0 text-[12px] font-normal text-slate-950 transition hover:border-slate-400 flex items-center gap-1.5"
                     onClick={() => setFiltersOpen((open) => !open)}
                     type="button"
                   >
                     <SlidersHorizontal className="h-4 w-4" />
                     Filtros
                     {activeFilterCount > 0 && (
-                      <span className="ml-1 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#eaf1ff] px-2 text-[12px] font-black text-[#1d62f9]">
+                      <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-50 px-1.5 text-[11px] font-normal text-blue-600">
                         {activeFilterCount}
                       </span>
                     )}
@@ -2453,7 +2387,7 @@ function PipelinePage() {
             {filtersOpen ? (
               <div
                 data-demo="pipeline-inline-filters"
-                className="absolute right-3 top-[calc(100%+8px)] z-50 w-[270px] aspect-[3/5] overflow-y-auto rounded-[20px] border border-[#edf1f7] bg-white p-3 shadow-[0_24px_60px_rgba(15,23,42,0.16)]"
+                className="absolute right-3 top-[calc(100%+8px)] z-50 w-[270px] aspect-[3/5] overflow-y-auto border border-slate-200 bg-white p-3 shadow-none"
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
@@ -2475,16 +2409,18 @@ function PipelinePage() {
 
                 <div className="grid gap-3">
                   <div className="grid gap-1.5">
-                    <Label className="text-[11px] font-semibold text-[#667085]">Estado</Label>
+                    <Label className="text-[11px] font-normal uppercase text-slate-500">
+                      Estado
+                    </Label>
                     <Select
                       value={filters.status}
                       onValueChange={(v) =>
                         setFilters((prev) => ({ ...prev, status: v as DealStatusFilter }))
                       }
                     >
-                      <SelectTrigger className="h-9 bg-white text-xs">
+                      <CrmDetailSelectTrigger className="text-xs">
                         <SelectValue />
-                      </SelectTrigger>
+                      </CrmDetailSelectTrigger>
                       <SelectContent>
                         <SelectItem value="active">Activos</SelectItem>
                         <SelectItem value="won">Ganados</SelectItem>
@@ -2495,16 +2431,18 @@ function PipelinePage() {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <Label className="text-[11px] font-semibold text-[#667085]">Asignado</Label>
+                    <Label className="text-[11px] font-normal uppercase text-slate-500">
+                      Asignado
+                    </Label>
                     <Select
                       value={filters.assigned}
                       onValueChange={(v) =>
                         setFilters((prev) => ({ ...prev, assigned: v as AssignedFilter }))
                       }
                     >
-                      <SelectTrigger className="h-9 bg-white text-xs">
+                      <CrmDetailSelectTrigger className="text-xs">
                         <SelectValue />
-                      </SelectTrigger>
+                      </CrmDetailSelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
                         <SelectItem value="me">Solo yo</SelectItem>
@@ -2515,16 +2453,18 @@ function PipelinePage() {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <Label className="text-[11px] font-semibold text-[#667085]">Cierre</Label>
+                    <Label className="text-[11px] font-normal uppercase text-slate-500">
+                      Cierre
+                    </Label>
                     <Select
                       value={filters.closePreset}
                       onValueChange={(v) =>
                         setFilters((prev) => ({ ...prev, closePreset: v as CloseDatePreset }))
                       }
                     >
-                      <SelectTrigger className="h-9 bg-white text-xs">
+                      <CrmDetailSelectTrigger className="text-xs">
                         <SelectValue />
-                      </SelectTrigger>
+                      </CrmDetailSelectTrigger>
                       <SelectContent>
                         <SelectItem value="any">Cualquiera</SelectItem>
                         <SelectItem value="today">Hoy</SelectItem>
@@ -2537,7 +2477,9 @@ function PipelinePage() {
 
                   <div className="grid gap-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[11px] font-semibold text-[#667085]">Etapas</Label>
+                      <Label className="text-[11px] font-normal uppercase text-slate-500">
+                        Etapas
+                      </Label>
                       <Button
                         variant="ghost"
                         className="h-7 px-2 text-xs"
@@ -2573,8 +2515,8 @@ function PipelinePage() {
                               });
                             }}
                             className={
-                              "flex h-8 items-center justify-between rounded-[11px] border px-2.5 text-left text-[11px] font-semibold transition " +
-                              (checked ? "bg-white shadow-sm" : "bg-[#fbfcfe] text-[#667085]")
+                              "flex h-8 items-center justify-between border-b px-0 text-left text-[11px] font-normal transition " +
+                              (checked ? "bg-white" : "bg-white text-[#667085]")
                             }
                             style={{
                               borderColor: checked ? stageColor : "#edf1f7",
@@ -2591,7 +2533,7 @@ function PipelinePage() {
 
                   <Button
                     variant="outline"
-                    className="mt-1 h-9 text-xs"
+                    className="mt-1 h-9 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-xs font-normal shadow-none hover:bg-white"
                     onClick={() =>
                       setFilters({
                         status: "active",
@@ -2625,23 +2567,23 @@ function PipelinePage() {
           ) : (
             <>
               {viewMode === "list" ? (
-                <div className="overflow-hidden rounded-[22px] border border-[#edf1f7] bg-white shadow-[0_10px_26px_rgba(15,23,42,0.035)]">
-                  <div className="flex items-center justify-between gap-3 border-b border-[#edf1f7] px-4 py-3">
+                <div className="overflow-hidden border-y border-slate-100 bg-white">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                     <div>
-                      <div className="text-[15px] font-semibold tracking-[-0.02em] text-[#101828]">
+                      <div className="text-[15px] font-normal text-[#101828]">
                         Lista de oportunidades
                       </div>
-                      <div className="mt-0.5 text-[12px] font-medium text-[#667085]">
+                      <div className="mt-0.5 text-[12px] font-normal text-[#667085]">
                         Vista rápida para revisar, buscar y abrir oportunidades.
                       </div>
                     </div>
 
-                    <div className="rounded-full bg-[#f6f8fb] px-3 py-1 text-[12px] font-semibold text-[#475467]">
+                    <div className="border-b border-slate-200 px-0 py-1 text-[12px] font-normal text-[#475467]">
                       {deals.filter((deal) => dealMatchesFilters(deal)).length} resultados
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] gap-3 border-b border-[#edf1f7] bg-[#fbfcfe] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#667085]">
+                  <div className="grid grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] gap-3 border-b border-slate-100 bg-white px-4 py-2.5 text-[11px] font-normal uppercase text-slate-500">
                     <div>Oportunidad</div>
                     <div>Contacto</div>
                     <div>Etapa</div>
@@ -2681,13 +2623,13 @@ function PipelinePage() {
                           <button
                             key={deal.id}
                             type="button"
-                            className="grid w-full grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] items-center gap-3 border-b border-[#f0f3f8] px-4 py-3 text-left transition hover:bg-[#fbfcff]"
+                            className="grid w-full grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_150px_120px_120px_130px] items-center gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50/40"
                             onClick={() => setSelectedDeal(deal)}
                           >
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <div
-                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-[11px] text-white shadow-[0_8px_18px_rgba(15,23,42,0.10)]"
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white"
                                   style={{ background: stageColor }}
                                 >
                                   {isWon ? (
@@ -2695,14 +2637,14 @@ function PipelinePage() {
                                   ) : isLost ? (
                                     <Trash2 className="h-4 w-4" />
                                   ) : (
-                                    <span className="text-[12px] font-black">{stageInitial}</span>
+                                    <span className="text-[12px] font-normal">{stageInitial}</span>
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="truncate text-[13px] font-semibold text-[#101828]">
+                                  <div className="truncate text-[13px] font-normal text-[#101828]">
                                     {deal.name}
                                   </div>
-                                  <div className="mt-0.5 text-[11px] font-medium text-[#667085]">
+                                  <div className="mt-0.5 text-[11px] font-normal text-[#667085]">
                                     {deal.lead_id ? "Prospecto conectado" : "Oportunidad manual"}
                                   </div>
                                 </div>
@@ -2710,29 +2652,29 @@ function PipelinePage() {
                             </div>
 
                             <div className="min-w-0">
-                              <div className="truncate text-[13px] font-semibold text-[#344054]">
+                              <div className="truncate text-[13px] font-normal text-[#344054]">
                                 {contactLabel}
                               </div>
-                              <div className="mt-0.5 truncate text-[11px] font-medium text-[#98a2b3]">
+                              <div className="mt-0.5 truncate text-[11px] font-normal text-[#98a2b3]">
                                 {lead?.email || lead?.phone || "Sin datos de contacto"}
                               </div>
                             </div>
 
                             <div>
                               <span
-                                className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                                className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-normal"
                                 style={{ background: rgba(stageColor, 0.1), color: stageColor }}
                               >
                                 <span className="truncate">{deal.stage}</span>
                               </span>
                             </div>
 
-                            <div className="text-[13px] font-semibold text-[#101828]">
+                            <div className="text-[13px] font-normal text-[#101828]">
                               ${toNumber(deal.value).toLocaleString()}
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="w-8 text-[12px] font-semibold text-[#475467]">
+                              <span className="w-8 text-[12px] font-normal text-[#475467]">
                                 {prob}%
                               </span>
                               <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[#e8edf3]">
@@ -2743,7 +2685,7 @@ function PipelinePage() {
                               </div>
                             </div>
 
-                            <div className="text-[12px] font-medium text-[#475467]">
+                            <div className="text-[12px] font-normal text-[#475467]">
                               {deal.expected_close
                                 ? formatDateLabel(deal.expected_close)
                                 : "Sin fecha"}
@@ -2754,10 +2696,10 @@ function PipelinePage() {
 
                     {deals.filter((deal) => dealMatchesFilters(deal)).length === 0 ? (
                       <div className="px-4 py-10 text-center">
-                        <div className="text-[14px] font-semibold text-[#344054]">
+                        <div className="text-[14px] font-normal text-[#344054]">
                           No hay oportunidades con estos filtros.
                         </div>
-                        <div className="mt-1 text-[12px] font-medium text-[#98a2b3]">
+                        <div className="mt-1 text-[12px] font-normal text-[#98a2b3]">
                           Ajusta los filtros o crea una nueva oportunidad.
                         </div>
                       </div>
@@ -2806,7 +2748,6 @@ function PipelinePage() {
                       const stageColor =
                         normalizeHex(stage.color || "") || stageDefaults(stage.name);
                       const stageSoft = rgba(stageColor, 0.1);
-                      const stageShadow = rgba(stageColor, 0.22);
                       const stageIds = dealIdsByStage[stage.name] || [];
                       const stageDeals = stageIds
                         .map((id) => dealById.get(id))
@@ -2820,14 +2761,11 @@ function PipelinePage() {
                           data-demo={`pipeline-stage-${idx + 1}`}
                           data-stage={stage.name}
                           className={
-                            "relative overflow-hidden rounded-[14px] border border-transparent bg-transparent transition-all flex flex-col flex-none w-[272px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-218px)] " +
+                            "relative overflow-hidden border border-transparent bg-transparent transition-all flex flex-col flex-none w-[272px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-218px)] " +
                             (isDragOver ? " -translate-y-[2px]" : "")
                           }
                           style={{
                             borderColor: isDragOver ? stageColor : "transparent",
-                            boxShadow: isDragOver
-                              ? "0 18px 42px rgba(15, 23, 42, 0.08)"
-                              : undefined,
                           }}
                           onDragOver={(e) => {
                             e.preventDefault();
@@ -2855,26 +2793,25 @@ function PipelinePage() {
                             className="absolute left-2 right-2 top-0 h-1 rounded-full"
                             style={{ background: stageColor }}
                           />
-                          <div className="px-2.5 pt-2.5 pb-1.5 grid gap-1">
+                          <div className="border-b border-slate-100 px-2.5 pt-2.5 pb-2 grid gap-1">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <div
                                   className="h-6 w-6 rounded-[9px] grid place-items-center text-white text-[12px] font-black shrink-0"
                                   style={{
                                     background: stageColor,
-                                    boxShadow: `0 10px 20px ${stageShadow}`,
                                   }}
                                 >
                                   {idx + 1}
                                 </div>
                                 <div className="min-w-0">
                                   <h3
-                                    className="text-[13px] font-semibold tracking-[-0.015em] truncate"
+                                    className="text-[13px] font-normal truncate"
                                     style={{ color: stageColor }}
                                   >
                                     {stage.name}
                                   </h3>
-                                  <div className="mt-0.5 text-[11px] font-semibold text-[#667085]">
+                                  <div className="mt-0.5 text-[11px] font-normal text-[#667085]">
                                     {stageDeals.length} oportunidades · $
                                     {stageValueTotal.toLocaleString()}
                                   </div>
@@ -2884,7 +2821,7 @@ function PipelinePage() {
                               {can("deals.create") ? (
                                 <button
                                   type="button"
-                                  className="h-8 w-8 rounded-[12px] border border-[#dbe7ff] bg-white text-[#1d62f9] grid place-items-center shadow-[0_8px_18px_rgba(15,23,42,0.08)] hover:bg-[#f0f6ff] shrink-0"
+                                  className="h-8 w-8 border-b border-blue-200 bg-white text-[#1d62f9] grid place-items-center hover:border-blue-500 shrink-0"
                                   onClick={() => {
                                     setNewDealStageOverride(stage.name);
                                     setNewDeal((p) => ({ ...p, stage: stage.name }));
@@ -2897,19 +2834,19 @@ function PipelinePage() {
                                 </button>
                               ) : null}
                             </div>
-                            <div className="text-[10.5px] font-medium text-[#98a2b3] hidden lg:block">
+                            <div className="text-[10.5px] font-normal text-[#98a2b3] hidden lg:block">
                               Arrastra y suelta
                             </div>
                           </div>
 
                           <div
-                            className="px-1.5 pb-2.5 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
+                            className="px-2 py-2.5 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
                             style={{
                               background: isDragOver ? rgba(stageColor, 0.07) : "transparent",
                             }}
                           >
                             {stageDeals.length === 0 ? (
-                              <div className="rounded-[12px] border border-dashed border-[#dbe3ee] bg-white/55 px-3 py-3 text-center text-[12px] font-medium text-[#98a2b3]">
+                              <div className="border-y border-dashed border-[#dbe3ee] bg-white px-3 py-3 text-center text-[12px] font-normal text-[#98a2b3]">
                                 No hay oportunidades en esta etapa.
                               </div>
                             ) : null}
@@ -2935,7 +2872,7 @@ function PipelinePage() {
                                     setDragOverStage(null);
                                   }}
                                   className={
-                                    "group relative select-none cursor-pointer rounded-[15px] border bg-white p-3 shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-[1px] hover:shadow-[0_16px_30px_rgba(15,23,42,0.08)] " +
+                                    "group relative select-none cursor-pointer rounded-lg border bg-white p-3 transition-colors hover:bg-slate-50/40 " +
                                     (draggedDealId === deal.id
                                       ? "opacity-50 rotate-[2deg] scale-[0.98] cursor-grabbing"
                                       : "")
@@ -2952,10 +2889,10 @@ function PipelinePage() {
                                 >
                                   <div className="flex items-start justify-between gap-2 mb-2.5">
                                     <div className="min-w-0">
-                                      <strong className="block text-[13.5px] font-semibold tracking-[-0.015em] line-clamp-2">
+                                      <strong className="block text-[13.5px] font-normal line-clamp-2">
                                         {deal.name}
                                       </strong>
-                                      <span className="block text-[11px] font-medium text-[#667085] line-clamp-1">
+                                      <span className="block text-[11px] font-normal text-[#667085] line-clamp-1">
                                         {deal.lead_id ? "Prospecto conectado" : "Prospecto: —"}
                                       </span>
                                     </div>
@@ -2969,7 +2906,7 @@ function PipelinePage() {
                                       ${toNumber(deal.value).toLocaleString()}
                                     </div>
                                     <div className="flex items-center gap-2.5">
-                                      <div className="text-[12px] font-medium text-[#475467]">
+                                      <div className="text-[12px] font-normal text-[#475467]">
                                         {prob}%
                                       </div>
                                       <div className="h-1.5 w-[84px] rounded-full bg-[#e8edf3] overflow-hidden">
@@ -2982,7 +2919,7 @@ function PipelinePage() {
                                   </div>
 
                                   {deal.expected_close && (
-                                    <div className="flex items-center gap-2 text-[11px] font-medium text-[#475467] mb-2">
+                                    <div className="flex items-center gap-2 text-[11px] font-normal text-[#475467] mb-2">
                                       <CalendarIcon className="h-4 w-4" />
                                       <span>{formatDateLabel(deal.expected_close)}</span>
                                     </div>
@@ -2990,7 +2927,7 @@ function PipelinePage() {
 
                                   <div className="flex flex-wrap gap-2">
                                     <span
-                                      className="inline-flex items-center gap-1 rounded-[9px] px-2 py-1 text-[11px] font-medium"
+                                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-normal"
                                       style={{ background: stageSoft, color: stageColor }}
                                     >
                                       <DollarSign className="h-3.5 w-3.5" /> Oportunidad
@@ -3010,14 +2947,19 @@ function PipelinePage() {
           )}
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editDeal ? "Editar oportunidad" : "Nueva oportunidad"}</DialogTitle>
+            <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none sm:h-auto sm:max-h-[90vh] sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-slate-200">
+              <DialogHeader className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 pr-14 text-left sm:px-6">
+                <DialogTitle className="text-xl font-normal tracking-normal text-slate-950">
+                  {editDeal ? "Editar oportunidad" : "Nueva oportunidad"}
+                </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreateOrUpdate} className="space-y-2.5">
+              <form
+                onSubmit={handleCreateOrUpdate}
+                className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6"
+              >
                 {!editDeal ? (
-                  <div className="rounded-[14px] border bg-muted/20 p-3">
-                    <Label>Origen de la oportunidad</Label>
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                    <Label className={crmFormStyles.label}>Origen de la oportunidad</Label>
                     <Select
                       value={newDeal.source_type || undefined}
                       onValueChange={(v) =>
@@ -3029,7 +2971,7 @@ function PipelinePage() {
                         })
                       }
                     >
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
                         <SelectValue placeholder="Selecciona el origen" />
                       </SelectTrigger>
                       <SelectContent>
@@ -3041,7 +2983,7 @@ function PipelinePage() {
 
                     {newDeal.source_type === "lead" ? (
                       <div className="mt-3">
-                        <Label>Prospecto</Label>
+                        <Label className={crmFormStyles.label}>Prospecto</Label>
                         <Select
                           value={newDeal.lead_id}
                           onValueChange={(v) => {
@@ -3063,7 +3005,7 @@ function PipelinePage() {
                             });
                           }}
                         >
-                          <SelectTrigger className="mt-1">
+                          <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
                             <SelectValue
                               placeholder={
                                 dealSourceOptionsLoading
@@ -3094,7 +3036,7 @@ function PipelinePage() {
 
                     {newDeal.source_type === "client" ? (
                       <div className="mt-3">
-                        <Label>Cliente</Label>
+                        <Label className={crmFormStyles.label}>Cliente</Label>
                         <Select
                           value={newDeal.client_id}
                           onValueChange={(v) => {
@@ -3115,7 +3057,7 @@ function PipelinePage() {
                             });
                           }}
                         >
-                          <SelectTrigger className="mt-1">
+                          <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
                             <SelectValue
                               placeholder={
                                 dealSourceOptionsLoading
@@ -3146,7 +3088,7 @@ function PipelinePage() {
 
                     {!editDeal && activeProducts.length > 0 ? (
                       <div className="mt-3">
-                        <Label>Producto o servicio</Label>
+                        <Label className={crmFormStyles.label}>Producto o servicio</Label>
                         <Select
                           value=""
                           onValueChange={(v) => {
@@ -3173,7 +3115,7 @@ function PipelinePage() {
                             }));
                           }}
                         >
-                          <SelectTrigger className="mt-1">
+                          <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
                             <SelectValue
                               placeholder={
                                 activeProductsLoading
@@ -3325,8 +3267,9 @@ function PipelinePage() {
                 (newDeal.source_type === "client" && newDeal.client_id) ? (
                   <>
                     <div>
-                      <Label>Nombre de la oportunidad</Label>
+                      <Label className={crmFormStyles.label}>Nombre de la oportunidad</Label>
                       <Input
+                        className={crmFormStyles.input}
                         placeholder="Nombre de la oportunidad"
                         value={newDeal.name}
                         onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })}
@@ -3335,8 +3278,9 @@ function PipelinePage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label>Valor ($)</Label>
+                        <Label className={crmFormStyles.label}>Valor ($)</Label>
                         <Input
+                          className={crmFormStyles.input}
                           type="number"
                           placeholder="0"
                           value={newDeal.value}
@@ -3344,8 +3288,9 @@ function PipelinePage() {
                         />
                       </div>
                       <div>
-                        <Label>Probabilidad (%)</Label>
+                        <Label className={crmFormStyles.label}>Probabilidad (%)</Label>
                         <Input
+                          className={crmFormStyles.input}
                           type="number"
                           placeholder="50"
                           value={newDeal.probability}
@@ -3356,20 +3301,21 @@ function PipelinePage() {
                       </div>
                     </div>
                     <div>
-                      <Label>Cierre esperado</Label>
+                      <Label className={crmFormStyles.label}>Cierre esperado</Label>
                       <Input
+                        className={crmFormStyles.input}
                         type="date"
                         value={newDeal.expected_close}
                         onChange={(e) => setNewDeal({ ...newDeal, expected_close: e.target.value })}
                       />
                     </div>
                     <div>
-                      <Label>Etapa</Label>
+                      <Label className={crmFormStyles.label}>Etapa</Label>
                       <Select
                         value={newDeal.stage}
                         onValueChange={(v) => setNewDeal({ ...newDeal, stage: v })}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className={crmFormStyles.select}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -3381,11 +3327,18 @@ function PipelinePage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    <div className={crmFormStyles.footer}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={crmFormStyles.cancelButton}
+                        onClick={() => setDialogOpen(false)}
+                      >
                         Cancelar
                       </Button>
-                      <Button type="submit">{editDeal ? "Guardar" : "Crear oportunidad"}</Button>
+                      <Button type="submit" className={crmFormStyles.primaryButton}>
+                        {editDeal ? "Guardar" : "Crear oportunidad"}
+                      </Button>
                     </div>
                   </>
                 ) : (
@@ -3412,41 +3365,30 @@ function PipelinePage() {
               fields={[]}
               notes={selectedDeal.notes || undefined}
             >
-              <div className="space-y-2.5">
-                <div className="grid grid-cols-4 gap-2 rounded-[14px] border bg-white p-2.5 text-sm shadow-sm">
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Etapa
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">{selectedDeal.stage}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Valor
-                    </div>
-                    <div className="mt-0.5 font-semibold">
-                      ${toNumber(selectedDeal.value).toLocaleString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Prob.
-                    </div>
-                    <div className="mt-0.5 font-semibold">
-                      {clamp(selectedDeal.probability ?? 50, 0, 100)}%
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Cierre
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {selectedDeal.expected_close
+              <div className="space-y-4">
+                <CrmDetailSummaryGrid
+                  className="border-b border-slate-100 pb-4"
+                  items={[
+                    { key: "stage", label: "Etapa", value: selectedDeal.stage },
+                    {
+                      key: "value",
+                      label: "Valor",
+                      value: `$${toNumber(selectedDeal.value).toLocaleString()}`,
+                    },
+                    {
+                      key: "probability",
+                      label: "Prob.",
+                      value: `${clamp(selectedDeal.probability ?? 50, 0, 100)}%`,
+                    },
+                    {
+                      key: "close",
+                      label: "Cierre",
+                      value: selectedDeal.expected_close
                         ? formatDateLabel(selectedDeal.expected_close)
-                        : "—"}
-                    </div>
-                  </div>
-                </div>
+                        : "—",
+                    },
+                  ]}
+                />
 
                 {(() => {
                   const isWon = wonStageNames.has(selectedDeal.stage);
@@ -3468,14 +3410,14 @@ function PipelinePage() {
                     <>
                       <div
                         data-demo="pipeline-next-step"
-                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                        className="border-b border-slate-100 pb-4"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
                               Próximo paso
                             </div>
-                            <div className="mt-1 text-base font-semibold tracking-[-0.02em]">
+                            <div className="mt-1 text-base font-normal text-slate-950">
                               {isWon
                                 ? "Oportunidad ganada"
                                 : isLost
@@ -3484,7 +3426,7 @@ function PipelinePage() {
                                     ? selectedNextTask.title
                                     : "Define el siguiente seguimiento"}
                             </div>
-                            <div className="mt-1 text-sm text-muted-foreground">
+                            <div className="mt-1 text-sm font-normal text-slate-500">
                               {isWon
                                 ? "Ya puedes pasar esta venta a ejecución."
                                 : isLost
@@ -3495,31 +3437,27 @@ function PipelinePage() {
                             </div>
                           </div>
 
-                          <Button
-                            size="sm"
-                            className="h-8 shrink-0 gap-1.5 text-xs"
+                          <CrmDetailLineButton
+                            className="h-8 shrink-0"
                             disabled={!canCreateTaskForDeal(selectedDeal) || isWon || isLost}
                             onClick={() => openFollowUpDialogForDeal(selectedDeal)}
+                            icon={<CalendarIcon className="h-4 w-4" />}
                           >
-                            <CalendarIcon className="h-4 w-4" />
                             Seguimiento
-                          </Button>
+                          </CrmDetailLineButton>
                         </div>
                       </div>
 
-                      <div
-                        data-demo="pipeline-contact"
-                        className="rounded-[14px] border bg-white p-3 shadow-sm"
-                      >
+                      <div data-demo="pipeline-contact" className="border-b border-slate-100 pb-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
                               Contacto
                             </div>
-                            <div className="mt-1 text-base font-semibold truncate">
+                            <div className="mt-1 truncate text-base font-normal text-slate-950">
                               {contactName}
                             </div>
-                            <div className="mt-1 text-sm text-muted-foreground">
+                            <div className="mt-1 text-sm font-normal text-slate-500">
                               {selectedLead
                                 ? [selectedLead.email, phone].filter(Boolean).join(" · ") ||
                                   "Sin email o teléfono"
@@ -3530,126 +3468,103 @@ function PipelinePage() {
                           </div>
 
                           {selectedDeal.lead_id ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 shrink-0 text-xs"
+                            <CrmDetailLineButton
+                              className="h-8 shrink-0"
                               onClick={() => (window.location.href = "/leads")}
+                              icon={<Eye className="h-4 w-4" />}
                             >
-                              <Eye className="mr-2 h-4 w-4" />
                               Ver
-                            </Button>
+                            </CrmDetailLineButton>
                           ) : null}
                         </div>
 
-                        <div className="mt-2 grid grid-cols-3 gap-2">
-                          <Button
-                            variant="outline"
-                            className="h-8 justify-center gap-1.5 text-xs"
-                            disabled={
-                              !selectedLead || !(selectedLead.whatsapp || selectedLead.phone)
-                            }
-                            onClick={() =>
-                              selectedLead && void handleOpenWhatsAppFromLead(selectedLead)
-                            }
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                            WhatsApp
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            className="h-8 justify-center gap-1.5 text-xs"
-                            disabled={!selectedLead?.email}
-                            onClick={() => {
-                              if (!selectedLead?.email) return;
-                              window.open(`mailto:${selectedLead.email}`, "_blank");
-                            }}
-                          >
-                            <Mail className="h-4 w-4" />
-                            Email
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            className="h-8 justify-center gap-1.5 text-xs"
-                            disabled={!phone}
-                            onClick={() => {
-                              if (!phone) return;
-                              window.open(`tel:${phone}`, "_self");
-                            }}
-                          >
-                            <Phone className="h-4 w-4" />
-                            Llamar
-                          </Button>
-                        </div>
+                        <CrmDetailActionGrid
+                          className="mt-3"
+                          columns={3}
+                          actions={[
+                            {
+                              key: "whatsapp",
+                              label: "WhatsApp",
+                              icon: <MessageCircle className="h-4 w-4" />,
+                              disabled:
+                                !selectedLead || !(selectedLead.whatsapp || selectedLead.phone),
+                              tone: "success",
+                              onClick: () =>
+                                selectedLead && void handleOpenWhatsAppFromLead(selectedLead),
+                            },
+                            {
+                              key: "email",
+                              label: "Email",
+                              icon: <Mail className="h-4 w-4" />,
+                              disabled: !selectedLead?.email,
+                              onClick: () => {
+                                if (!selectedLead?.email) return;
+                                window.open(`mailto:${selectedLead.email}`, "_blank");
+                              },
+                            },
+                            {
+                              key: "call",
+                              label: "Llamar",
+                              icon: <Phone className="h-4 w-4" />,
+                              disabled: !phone,
+                              onClick: () => {
+                                if (!phone) return;
+                                window.open(`tel:${phone}`, "_self");
+                              },
+                            },
+                          ]}
+                        />
                       </div>
 
                       <div
                         data-demo="pipeline-commercial-summary"
-                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                        className="border-b border-slate-100 pb-4"
                       >
-                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                        <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
                           Resumen comercial
                         </div>
 
-                        <div className="mt-2 grid grid-cols-4 gap-2 text-sm">
-                          <div className="rounded-[12px] bg-muted/30 p-2">
-                            <div className="text-[11px] font-semibold text-muted-foreground">
-                              Valor
-                            </div>
-                            <div className="mt-0.5 text-base font-semibold tracking-[-0.03em]">
-                              ${toNumber(selectedDeal.value).toLocaleString()}
-                            </div>
-                          </div>
-
-                          <div className="rounded-[12px] bg-muted/30 p-2">
-                            <div className="text-[11px] font-semibold text-muted-foreground">
-                              Probabilidad
-                            </div>
-                            <div className="mt-0.5 text-base font-semibold tracking-[-0.03em]">
-                              {clamp(selectedDeal.probability ?? 50, 0, 100)}%
-                            </div>
-                          </div>
-
-                          <div className="rounded-[12px] bg-muted/30 p-2">
-                            <div className="text-[11px] font-semibold text-muted-foreground">
-                              Cierre estimado
-                            </div>
-                            <div className="mt-1 font-semibold">
-                              {selectedDeal.expected_close
+                        <CrmDetailSummaryGrid
+                          className="mt-3"
+                          items={[
+                            {
+                              key: "value",
+                              label: "Valor",
+                              value: `$${toNumber(selectedDeal.value).toLocaleString()}`,
+                            },
+                            {
+                              key: "probability",
+                              label: "Probabilidad",
+                              value: `${clamp(selectedDeal.probability ?? 50, 0, 100)}%`,
+                            },
+                            {
+                              key: "estimated-close",
+                              label: "Cierre estimado",
+                              value: selectedDeal.expected_close
                                 ? formatDateLabel(selectedDeal.expected_close)
-                                : "Sin fecha"}
-                            </div>
-                          </div>
-
-                          <div className="rounded-[12px] bg-muted/30 p-2">
-                            <div className="text-[11px] font-semibold text-muted-foreground">
-                              Responsable
-                            </div>
-                            <div className="mt-1 font-semibold truncate">{responsible}</div>
-                          </div>
-                        </div>
+                                : "Sin fecha",
+                            },
+                            { key: "owner", label: "Responsable", value: responsible },
+                          ]}
+                        />
                       </div>
 
                       <div
                         data-demo="pipeline-deal-management"
-                        className="rounded-[14px] border bg-white p-3 shadow-sm"
+                        className="border-b border-slate-100 pb-4"
                       >
                         <div>
-                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
                             Gestión de oportunidad
                           </div>
-                          <div className="mt-1 text-sm text-muted-foreground">
+                          <div className="mt-1 text-sm font-normal text-slate-500">
                             Cambia la etapa o administra esta oportunidad desde un solo lugar.
                           </div>
                         </div>
 
                         <div className="mt-3 grid grid-cols-1 gap-2">
                           <div>
-                            <div className="mb-1 text-[11px] font-semibold text-muted-foreground">
-                              Etapa
-                            </div>
+                            <div className="mb-1 text-[11px] font-normal text-slate-500">Etapa</div>
                             <Select
                               value={selectedDeal.stage}
                               onValueChange={(stageName) =>
@@ -3657,10 +3572,10 @@ function PipelinePage() {
                               }
                               disabled={!canEditDeal(selectedDeal)}
                             >
-                              <SelectTrigger className="h-9 bg-white">
+                              <CrmDetailSelectTrigger>
                                 <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
+                              </CrmDetailSelectTrigger>
+                              <SelectContent className="border-slate-200 bg-white shadow-none">
                                 {pipelineStages.map((stage) => (
                                   <SelectItem key={stage.id} value={stage.name}>
                                     {stage.name}
@@ -3671,10 +3586,7 @@ function PipelinePage() {
                           </div>
 
                           <div className="grid grid-cols-3 gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-9"
+                            <CrmDetailLineButton
                               disabled={!can("deals.edit")}
                               onClick={() => {
                                 setEditDeal(selectedDeal);
@@ -3692,41 +3604,33 @@ function PipelinePage() {
                               }}
                             >
                               Editar
-                            </Button>
+                            </CrmDetailLineButton>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-9"
+                            <CrmDetailLineButton
                               disabled={!canEditDeal(selectedDeal)}
                               onClick={() => void moveDealStage(selectedDeal.id, archiveStageName)}
                             >
                               Archivar
-                            </Button>
+                            </CrmDetailLineButton>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-9 text-destructive hover:text-destructive"
+                            <CrmDetailLineButton
+                              tone="danger"
                               disabled={!can("deals.delete")}
                               onClick={() => setDeleteDealId(selectedDeal.id)}
                             >
                               Eliminar
-                            </Button>
+                            </CrmDetailLineButton>
                           </div>
                         </div>
                       </div>
 
-                      <div
-                        data-demo="pipeline-close"
-                        className="rounded-[14px] border bg-white p-3 shadow-sm"
-                      >
+                      <div data-demo="pipeline-close" className="border-b border-slate-100 pb-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
                               Cierre
                             </div>
-                            <div className="mt-1 text-sm text-muted-foreground">
+                            <div className="mt-1 text-sm font-normal text-slate-500">
                               {isWon
                                 ? "Esta oportunidad está marcada como ganada."
                                 : isLost
@@ -3736,10 +3640,8 @@ function PipelinePage() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs"
+                            <CrmDetailLineButton
+                              className="h-8"
                               disabled={
                                 !canEditDeal(selectedDeal) ||
                                 isWon ||
@@ -3750,11 +3652,10 @@ function PipelinePage() {
                               onClick={() => setLostDialogOpen(true)}
                             >
                               Perdida
-                            </Button>
+                            </CrmDetailLineButton>
 
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs"
+                            <CrmDetailLineButton
+                              className="h-8"
                               disabled={
                                 !canEditDeal(selectedDeal) ||
                                 isWon ||
@@ -3765,30 +3666,28 @@ function PipelinePage() {
                               onClick={() => void handleMarkDealAsWon(selectedDeal)}
                             >
                               Ganada
-                            </Button>
+                            </CrmDetailLineButton>
                           </div>
                         </div>
                       </div>
 
-                      <details className="rounded-[14px] border bg-white p-3 shadow-sm">
-                        <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      <details className="border-b border-slate-100 pb-4">
+                        <summary className="cursor-pointer text-[11px] font-normal uppercase tracking-wide text-slate-500">
                           Más detalles
                         </summary>
 
                         <div className="mt-3 space-y-3 text-sm">
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <div className="text-[11px] font-semibold text-muted-foreground">
-                                Etapa
-                              </div>
-                              <div className="font-medium">{selectedDeal.stage}</div>
+                              <div className="text-[11px] font-normal text-slate-500">Etapa</div>
+                              <div className="font-normal text-slate-950">{selectedDeal.stage}</div>
                             </div>
 
                             <div>
-                              <div className="text-[11px] font-semibold text-muted-foreground">
+                              <div className="text-[11px] font-normal text-slate-500">
                                 Prospecto
                               </div>
-                              <div className="font-medium">
+                              <div className="font-normal text-slate-950">
                                 {selectedDeal.lead_id ? "Conectado" : "No conectado"}
                               </div>
                             </div>
@@ -3796,10 +3695,8 @@ function PipelinePage() {
 
                           {selectedDeal.notes ? (
                             <div>
-                              <div className="text-[11px] font-semibold text-muted-foreground">
-                                Notas
-                              </div>
-                              <div className="mt-1 whitespace-pre-wrap rounded-[14px] bg-muted/30 p-3 text-muted-foreground">
+                              <div className="text-[11px] font-normal text-slate-500">Notas</div>
+                              <div className="mt-1 whitespace-pre-wrap border-t border-slate-100 pt-2 text-slate-500">
                                 {selectedDeal.notes}
                               </div>
                             </div>
@@ -3807,10 +3704,10 @@ function PipelinePage() {
 
                           {dealProducts.length ? (
                             <div>
-                              <div className="text-[11px] font-semibold text-muted-foreground">
+                              <div className="text-[11px] font-normal text-slate-500">
                                 Productos asociados
                               </div>
-                              <div className="mt-1 space-y-1">
+                              <div className="mt-1 divide-y divide-slate-100">
                                 {dealProducts.map((row) => {
                                   const product = dealProductsProductById[String(row.product_id)];
                                   const qty = Math.max(1, Number(row.quantity || 1));
@@ -3823,12 +3720,12 @@ function PipelinePage() {
                                   return (
                                     <div
                                       key={row.id}
-                                      className="flex items-center justify-between rounded-[12px] bg-muted/30 px-3 py-2"
+                                      className="flex items-center justify-between py-2"
                                     >
-                                      <span className="font-medium">
+                                      <span className="font-normal text-slate-950">
                                         {product?.name || String(row.product_id)}
                                       </span>
-                                      <span className="text-muted-foreground">{money(total)}</span>
+                                      <span className="text-slate-500">{money(total)}</span>
                                     </div>
                                   );
                                 })}
@@ -3843,80 +3740,6 @@ function PipelinePage() {
               </div>
             </DetailSheet>
           )}
-
-          <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Crear seguimiento</DialogTitle>
-              </DialogHeader>
-              <form
-                className="space-y-2.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!selectedDeal) return;
-                  void handleCreateFollowUpTaskFromDeal(selectedDeal);
-                }}
-              >
-                <div>
-                  <Label>Título</Label>
-                  <Input
-                    value={followUpValues.title}
-                    onChange={(e) => setFollowUpValues((p) => ({ ...p, title: e.target.value }))}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Fecha</Label>
-                    <Input
-                      type="date"
-                      value={followUpValues.due_date}
-                      onChange={(e) =>
-                        setFollowUpValues((p) => ({ ...p, due_date: e.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Prioridad</Label>
-                    <Select
-                      value={followUpValues.priority}
-                      onValueChange={(v) => setFollowUpValues((p) => ({ ...p, priority: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Low">Low</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Descripción</Label>
-                  <Input
-                    value={followUpValues.description}
-                    onChange={(e) =>
-                      setFollowUpValues((p) => ({ ...p, description: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setFollowUpOpen(false)}
-                    disabled={followUpSaving}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={followUpSaving || !selectedDeal}>
-                    {followUpSaving ? "Guardando..." : "Crear"}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
 
           <Dialog
             open={lostDialogOpen}
@@ -4165,12 +3988,6 @@ function PipelinePage() {
               </SheetHeader>
 
               <div className="mt-5 grid gap-3">
-                <Input
-                  placeholder="Buscar archivados..."
-                  value={archivedSearch}
-                  onChange={(e) => setArchivedSearch(e.target.value)}
-                />
-
                 {archivedDeals.length === 0 ? (
                   <div className="rounded-[16px] border border-[#e6eaf0] bg-white p-4 text-sm font-normal text-[#667085]">
                     No hay oportunidades archivadas por ahora.

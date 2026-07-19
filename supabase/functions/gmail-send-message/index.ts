@@ -278,8 +278,12 @@ Deno.serve(async (req) => {
 
     if (!to.length) return jsonResponse({ error: "Agrega al menos un destinatario." }, 400);
     if (!messageBody) return jsonResponse({ error: "El mensaje no puede estar vacío." }, 400);
-    const totalAttachmentBytes = attachments.reduce((total, item) => total + attachmentSizeBytes(item), 0);
-    if (attachments.length > 10) return jsonResponse({ error: "Máximo 10 adjuntos por email." }, 400);
+    const totalAttachmentBytes = attachments.reduce(
+      (total, item) => total + attachmentSizeBytes(item),
+      0,
+    );
+    if (attachments.length > 10)
+      return jsonResponse({ error: "Máximo 10 adjuntos por email." }, 400);
     if (totalAttachmentBytes > 20 * 1024 * 1024) {
       return jsonResponse({ error: "Los adjuntos no pueden superar 20 MB en total." }, 400);
     }
@@ -324,7 +328,9 @@ Deno.serve(async (req) => {
     }
 
     let accessToken = String((account as any).access_token || "");
-    const refreshToken = (account as any).refresh_token ? String((account as any).refresh_token) : null;
+    const refreshToken = (account as any).refresh_token
+      ? String((account as any).refresh_token)
+      : null;
     const tokenExpiresAt = (account as any).token_expires_at
       ? new Date(String((account as any).token_expires_at))
       : null;
@@ -344,14 +350,18 @@ Deno.serve(async (req) => {
           token_expires_at: refreshed.expires_in
             ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
             : null,
-          scopes: refreshed.scope ? String(refreshed.scope).split(/\s+/).filter(Boolean) : undefined,
+          scopes: refreshed.scope
+            ? String(refreshed.scope).split(/\s+/).filter(Boolean)
+            : undefined,
         })
         .eq("id", account.id);
     }
 
     if (!accessToken) return jsonResponse({ error: "Conecta Gmail antes de enviar." }, 400);
 
-    const providerThreadId = conversation?.provider_thread_id ? String(conversation.provider_thread_id) : null;
+    const providerThreadId = conversation?.provider_thread_id
+      ? String(conversation.provider_thread_id)
+      : null;
     const sent = await sendGmailMessage({
       accessToken,
       from: String(account.email_address || "me"),

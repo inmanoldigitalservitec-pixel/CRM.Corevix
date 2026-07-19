@@ -2037,6 +2037,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           description: string | null;
+          description_html: string | null;
           due_date: string | null;
           id: string;
           priority: string;
@@ -2054,6 +2055,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
+          description_html?: string | null;
           due_date?: string | null;
           id?: string;
           priority?: string;
@@ -2071,6 +2073,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
+          description_html?: string | null;
           due_date?: string | null;
           id?: string;
           priority?: string;

@@ -56,14 +56,29 @@ export function InvoiceDetailsPanel({
   formatMoney: (amount: number, currency: string) => string;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">{actions}</div>
+    <div className="min-w-0 space-y-4 overflow-hidden">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:flex sm:flex-wrap">{actions}</div>
 
       <Tabs defaultValue="summary" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="summary">Resumen</TabsTrigger>
-          <TabsTrigger value="document">Documento</TabsTrigger>
-          <TabsTrigger value="activity">Actividad</TabsTrigger>
+        <TabsList className="grid h-auto w-full min-w-0 grid-cols-3 rounded-none border-b border-slate-200 bg-white p-0">
+          <TabsTrigger
+            value="summary"
+            className="rounded-none border-b border-transparent bg-white py-2 text-xs font-normal shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:shadow-none"
+          >
+            Resumen
+          </TabsTrigger>
+          <TabsTrigger
+            value="document"
+            className="rounded-none border-b border-transparent bg-white py-2 text-xs font-normal shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:shadow-none"
+          >
+            Documento
+          </TabsTrigger>
+          <TabsTrigger
+            value="activity"
+            className="rounded-none border-b border-transparent bg-white py-2 text-xs font-normal shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:shadow-none"
+          >
+            Actividad
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="summary" className="mt-0">

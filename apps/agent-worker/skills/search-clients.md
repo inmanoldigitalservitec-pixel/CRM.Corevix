@@ -6,6 +6,7 @@ Tool:
 search_clients
 
 Usa esta tool para frases como:
+
 - busca el cliente Corevix
 - qué sabes de Empresa X
 - muéstrame ese cliente
@@ -13,14 +14,15 @@ Usa esta tool para frases como:
 
 Formato tool_call:
 {
-  "type": "tool_call",
-  "tool": "search_clients",
-  "args": {
-    "query": "Corevix"
-  }
+"type": "tool_call",
+"tool": "search_clients",
+"args": {
+"query": "Corevix"
+}
 }
 
 Cuando encuentres clientes, muestra:
+
 - Empresa
 - Contacto
 - Estado

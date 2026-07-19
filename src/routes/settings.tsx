@@ -771,30 +771,49 @@ function SettingsPage() {
   if (!canViewSettings) return <NoSettingsAccess />;
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your CRM configuration</p>
+    <div data-corevix-settings className="min-h-dvh bg-white p-6 space-y-6">
+      <style>{`
+        [data-corevix-settings] [class*="shadow"] { box-shadow: none !important; }
+        [data-corevix-settings] .rounded-2xl,
+        [data-corevix-settings] .rounded-xl,
+        [data-corevix-settings] .rounded-md {
+          box-shadow: none !important;
+        }
+        [data-corevix-settings] input,
+        [data-corevix-settings] textarea,
+        [data-corevix-settings] button {
+          box-shadow: none !important;
+        }
+        [data-corevix-settings] input:not([type="checkbox"]),
+        [data-corevix-settings] textarea,
+        [data-corevix-settings] button[role="combobox"] {
+          border-color: rgb(226 232 240) !important;
+          background-color: #fff !important;
+        }
+      `}</style>
+      <div className="border-b border-slate-200 pb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950">Configuración</h1>
+        <p className="text-sm text-slate-500">Administra la configuración general del CRM.</p>
       </div>
       <Tabs defaultValue="company">
-        <TabsList>
-          <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border border-slate-200 bg-white p-1 shadow-none">
+          <TabsTrigger value="company">Empresa</TabsTrigger>
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="whatsapp">Meta</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="drive">Google Drive</TabsTrigger>
           <TabsTrigger value="ai">AI / Gemini</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="security">Seguridad</TabsTrigger>
         </TabsList>
         <TabsContent value="company" className="mt-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Company Settings</CardTitle>
+              <CardTitle className="text-base">Empresa</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Company Name</Label>
+                  <Label>Nombre de la empresa</Label>
                   <Input
                     value={companyForm.company_name}
                     onChange={(e) =>
@@ -804,7 +823,7 @@ function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label>Website</Label>
+                  <Label>Sitio web</Label>
                   <Input
                     value={companyForm.website}
                     onChange={(e) => setCompanyForm((p) => ({ ...p, website: e.target.value }))}
@@ -822,7 +841,7 @@ function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label>Phone</Label>
+                  <Label>Teléfono</Label>
                   <Input
                     value={companyForm.phone}
                     onChange={(e) => setCompanyForm((p) => ({ ...p, phone: e.target.value }))}
@@ -831,7 +850,7 @@ function SettingsPage() {
                 </div>
               </div>
               <div>
-                <Label>Address</Label>
+                <Label>Dirección</Label>
                 <Input
                   value={companyForm.address}
                   onChange={(e) => setCompanyForm((p) => ({ ...p, address: e.target.value }))}
@@ -839,7 +858,7 @@ function SettingsPage() {
                 />
               </div>
               <div>
-                <Label>Tax ID / RNC</Label>
+                <Label>RNC / Identificación fiscal</Label>
                 <Input
                   value={companyForm.tax_id}
                   onChange={(e) => setCompanyForm((p) => ({ ...p, tax_id: e.target.value }))}
@@ -848,21 +867,21 @@ function SettingsPage() {
               </div>
               {can("settings.manage") && (
                 <Button onClick={saveCompany} disabled={companyLoading}>
-                  Save Changes
+                  Guardar cambios
                 </Button>
               )}
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="profile" className="mt-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Profile Settings</CardTitle>
+              <CardTitle className="text-base">Perfil</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Full Name</Label>
+                  <Label>Nombre completo</Label>
                   <Input defaultValue="Admin User" />
                 </div>
                 <div>
@@ -872,20 +891,20 @@ function SettingsPage() {
               </div>
               <Separator />
               <div>
-                <Label>Change Password</Label>
-                <Input type="password" placeholder="New password" />
+                <Label>Cambiar contraseña</Label>
+                <Input type="password" placeholder="Nueva contraseña" />
               </div>
-              <Button>Update Profile</Button>
+              <Button>Actualizar perfil</Button>
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="whatsapp" className="mt-4">
           <div className="space-y-4">
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-none border-slate-200 shadow-none">
               <CardHeader className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="rounded-md border bg-muted/30 p-1.5">
+                    <div className="rounded-md border border-slate-200 bg-white p-1.5">
                       <MetaIcon className="h-4 w-7 text-[#0866ff]" />
                     </div>
                     <CardTitle className="text-base">Configuración de Meta</CardTitle>
@@ -898,7 +917,7 @@ function SettingsPage() {
               </CardHeader>
             </Card>
 
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-none border-slate-200 shadow-none">
               <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle className="text-base">WhatsApp Business API</CardTitle>
                 <Badge variant={metaWhatsappConfigured ? "default" : "secondary"}>
@@ -910,7 +929,7 @@ function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-none border-slate-200 shadow-none">
               <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle className="text-base">Facebook Messenger</CardTitle>
                 <Badge variant="secondary">Pendiente</Badge>
@@ -945,7 +964,7 @@ function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-none border-slate-200 shadow-none">
               <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle className="text-base">Instagram DM</CardTitle>
                 <Badge variant="secondary">Pendiente</Badge>
@@ -983,7 +1002,7 @@ function SettingsPage() {
         </TabsContent>
         <TabsContent value="email" className="mt-4">
           <div className="space-y-4">
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-none border-slate-200 shadow-none">
               <CardHeader className="pb-3">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
@@ -1025,21 +1044,21 @@ function SettingsPage() {
                 )}
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                  <div className="rounded-2xl border bg-white p-4">
+                  <div className="border border-slate-200 bg-white p-4">
                     <div className="text-xs font-medium text-muted-foreground">Estado</div>
                     <div className="mt-1 text-sm font-semibold">
                       {gmailAccount ? "Gmail conectado" : "Pendiente de conexión"}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border bg-white p-4 md:col-span-2">
+                  <div className="border border-slate-200 bg-white p-4 md:col-span-2">
                     <div className="text-xs font-medium text-muted-foreground">Cuenta</div>
                     <div className="mt-1 truncate text-sm font-semibold">
                       {gmailAccount?.email_address || "No hay cuenta conectada"}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border bg-white p-4">
+                  <div className="border border-slate-200 bg-white p-4">
                     <div className="text-xs font-medium text-muted-foreground">
                       Última sincronización
                     </div>
@@ -1051,7 +1070,7 @@ function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border bg-white p-4">
+                <div className="border border-slate-200 bg-white p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="text-sm font-semibold">Paso 1 · Credenciales de Google</div>
@@ -1126,7 +1145,7 @@ function SettingsPage() {
                     </Button>
 
                     {gmailAdvancedOpen ? (
-                      <div className="mt-3 grid grid-cols-1 gap-4 rounded-xl border bg-muted/20 p-4 md:grid-cols-2">
+                      <div className="mt-3 grid grid-cols-1 gap-4 border border-slate-200 bg-white p-4 md:grid-cols-2">
                         <div>
                           <Label>Redirect URI</Label>
                           <Input
@@ -1173,14 +1192,14 @@ function SettingsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <div className="rounded-2xl border bg-white p-4">
+                  <div className="border border-slate-200 bg-white p-4">
                     <div className="text-sm font-semibold">Paso 2 · Cuenta Gmail</div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Autoriza la cuenta que quieres usar para recibir y enviar correos dentro del
                       CRM.
                     </p>
 
-                    <div className="mt-4 rounded-xl border bg-muted/20 p-3">
+                    <div className="mt-4 border border-slate-200 bg-white p-3">
                       <div className="text-xs font-medium text-muted-foreground">Cuenta actual</div>
                       <div className="mt-1 text-sm font-semibold">
                         {gmailAccount?.email_address || "No conectada"}
@@ -1206,7 +1225,7 @@ function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border bg-white p-4">
+                  <div className="border border-slate-200 bg-white p-4">
                     <div className="text-sm font-semibold">Paso 3 · Verificar y sincronizar</div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Primero verifica que la cuenta esté conectada. Luego sincroniza para traer
@@ -1253,7 +1272,7 @@ function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border bg-muted/20 p-4">
+                <div className="border border-slate-200 bg-white p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
                       <div className="text-sm font-semibold">Microsoft Outlook</div>
@@ -1269,7 +1288,7 @@ function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-none border-slate-200 shadow-none">
               <CardHeader>
                 <CardTitle className="text-base">Firma de correo</CardTitle>
                 <p className="text-sm text-muted-foreground">
@@ -1284,7 +1303,7 @@ function SettingsPage() {
           </div>
         </TabsContent>
         <TabsContent value="drive" className="mt-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader>
               <CardTitle className="text-base">Google Drive</CardTitle>
             </CardHeader>
@@ -1294,7 +1313,7 @@ function SettingsPage() {
                 Projects.
               </p>
               {driveBanner === "connected" && (
-                <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+                <div className="border border-slate-200 bg-white px-3 py-2 text-sm">
                   Google Drive conectado correctamente.
                   <Button
                     variant="ghost"
@@ -1307,7 +1326,7 @@ function SettingsPage() {
                 </div>
               )}
               {driveBanner === "error" && (
-                <div className="rounded-md border bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <div className="border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   No se pudo conectar Google Drive. Intenta nuevamente.
                   <Button
                     variant="ghost"
@@ -1419,7 +1438,7 @@ function SettingsPage() {
                 <Label htmlFor="drive-enabled">Activar integracion</Label>
               </div>
 
-              <div className="rounded-md border px-3 py-2 text-sm">
+              <div className="border border-slate-200 px-3 py-2 text-sm">
                 <div className="font-medium">Estado de conexion</div>
                 <div className="text-muted-foreground">
                   {driveConnectionLoading
@@ -1455,7 +1474,7 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader>
               <CardTitle className="text-base">AI / Gemini</CardTitle>
             </CardHeader>
@@ -1465,7 +1484,7 @@ function SettingsPage() {
                 API Key se guarda en Supabase (no en el frontend).
               </p>
 
-              <div className="rounded-md border p-3 space-y-4">
+              <div className="border border-slate-200 p-3 space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <Label>Modelo</Label>
@@ -1540,7 +1559,7 @@ function SettingsPage() {
           </Card>
         </TabsContent>
         <TabsContent value="security" className="mt-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="rounded-none border-slate-200 shadow-none">
             <CardHeader>
               <CardTitle className="text-base">Security Settings</CardTitle>
             </CardHeader>
@@ -1590,7 +1609,7 @@ function SettingsPage() {
 
                 <div className="mt-4 overflow-x-auto rounded-md border">
                   <table className="w-full min-w-[760px] text-sm">
-                    <thead className="bg-muted/40">
+                    <thead className="border-b border-slate-200 bg-white">
                       <tr>
                         <th className="text-left px-3 py-2">Module</th>
                         <th className="text-center px-3 py-2">View</th>

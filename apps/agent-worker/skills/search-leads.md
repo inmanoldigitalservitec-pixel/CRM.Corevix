@@ -6,6 +6,7 @@ Tool:
 search_leads
 
 Usa esta tool para frases como:
+
 - busca a Juan
 - qué sabes de Ana
 - muéstrame ese lead
@@ -14,16 +15,17 @@ Usa esta tool para frases como:
 
 Formato tool_call:
 {
-  "type": "tool_call",
-  "tool": "search_leads",
-  "args": {
-    "query": "Juan"
-  }
+"type": "tool_call",
+"tool": "search_leads",
+"args": {
+"query": "Juan"
+}
 }
 
 Cuando encuentres leads, no respondas seco.
 
 Muestra:
+
 - Nombre
 - Estado
 - Empresa

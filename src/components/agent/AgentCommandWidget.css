@@ -396,9 +396,7 @@
 .agent-stream-panel {
   border: 1px solid #dbe5f3;
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(11, 92, 255, 0.06), transparent 34%),
-    #fff;
+  background: radial-gradient(circle at 12% 0%, rgba(11, 92, 255, 0.06), transparent 34%), #fff;
   padding: 24px;
   min-height: 300px;
 }
@@ -431,14 +429,7 @@
 }
 
 .agent-stream-body {
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 14px;
   line-height: 1.85;
   color: #10244d;
@@ -597,7 +588,11 @@
   background: rgba(248, 250, 252, 0.92);
   color: #0f172a;
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
 }
 
 .agent-suggested-action-btn:hover {
@@ -763,4 +758,3 @@
   line-height: 1.45;
   font-weight: 700;
 }
-

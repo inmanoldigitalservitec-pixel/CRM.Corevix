@@ -512,317 +512,364 @@ export function QuickCreateDialog({
     }
   };
 
+  const labelClass = "text-xs font-normal uppercase tracking-wide text-slate-500";
+  const inputClass =
+    "h-12 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-base font-normal shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:rounded-xl sm:border sm:px-3 sm:text-sm";
+  const selectClass =
+    "h-12 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-base font-normal shadow-none focus:ring-0 focus:ring-offset-0 sm:rounded-xl sm:border sm:px-3 sm:text-sm";
+  const textareaClass =
+    "min-h-24 resize-none rounded-none border-0 border-b border-slate-200 bg-white px-0 py-3 text-base font-normal shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:rounded-xl sm:border sm:px-3 sm:text-sm";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-[14px] bg-[#eaf1ff] text-[#1d62f9]">
+      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none sm:h-auto sm:max-h-[88vh] sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-slate-200">
+        <DialogHeader className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 pr-14 text-left sm:px-6 lg:px-7">
+          <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[#1d62f9]">
               <Icon className="h-5 w-5" />
             </div>
-            <div>
-              <DialogTitle>{title}</DialogTitle>
-              <DialogDescription>{description}</DialogDescription>
+            <div className="min-w-0">
+              <DialogTitle className="text-xl font-normal tracking-normal text-slate-950">
+                {title}
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-sm font-normal text-slate-500">
+                {description}
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {type === "lead" ? (
-            <>
-              <div className="space-y-1.5">
-                <Label>Nombre o empresa</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  placeholder="Ej: Juan Pérez / Diseño y Muebles S.A."
-                />
-              </div>
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col sm:max-h-[calc(88vh-85px)]"
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-7">
+            <div className="mx-auto w-full max-w-2xl space-y-4">
+              {type === "lead" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Nombre o empresa</Label>
+                    <Input
+                      className={inputClass}
+                      value={form.name}
+                      onChange={(e) => updateField("name", e.target.value)}
+                      placeholder="Ej: Juan Pérez / Diseño y Muebles S.A."
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>WhatsApp</Label>
-                  <Input
-                    value={form.whatsapp}
-                    onChange={(e) => updateField("whatsapp", e.target.value)}
-                    placeholder="+1 809 555 0000"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => updateField("email", e.target.value)}
-                    placeholder="cliente@empresa.com"
-                  />
-                </div>
-              </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>WhatsApp</Label>
+                      <Input
+                        className={inputClass}
+                        value={form.whatsapp}
+                        onChange={(e) => updateField("whatsapp", e.target.value)}
+                        placeholder="+1 809 555 0000"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Email</Label>
+                      <Input
+                        className={inputClass}
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => updateField("email", e.target.value)}
+                        placeholder="cliente@empresa.com"
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>Servicio de interés</Label>
-                <Input
-                  value={form.service}
-                  onChange={(e) => updateField("service", e.target.value)}
-                  placeholder="Ej: CRM, página web, automatización..."
-                />
-              </div>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Servicio de interés</Label>
+                    <Input
+                      className={inputClass}
+                      value={form.service}
+                      onChange={(e) => updateField("service", e.target.value)}
+                      placeholder="Ej: CRM, página web, automatización..."
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>Nota rápida</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={(e) => updateField("notes", e.target.value)}
-                  rows={3}
-                  placeholder="Qué necesita, de dónde vino, urgencia..."
-                />
-              </div>
-            </>
-          ) : null}
-
-          {type === "client" ? (
-            <>
-              <div className="space-y-1.5">
-                <Label>Empresa o nombre</Label>
-                <Input
-                  value={form.company_name}
-                  onChange={(e) => updateField("company_name", e.target.value)}
-                  placeholder="Ej: Diseño y Muebles S.A."
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Contacto principal</Label>
-                <Input
-                  value={form.contact_person}
-                  onChange={(e) => updateField("contact_person", e.target.value)}
-                  placeholder="Ej: Juan Pérez"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>WhatsApp / teléfono</Label>
-                  <Input
-                    value={form.whatsapp}
-                    onChange={(e) => updateField("whatsapp", e.target.value)}
-                    placeholder="+1 809 555 0000"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => updateField("email", e.target.value)}
-                    placeholder="cliente@empresa.com"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Notas</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={(e) => updateField("notes", e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </>
-          ) : null}
-
-          {type === "proposal" ? (
-            <>
-              <div className="space-y-1.5">
-                <Label>Título</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => updateField("title", e.target.value)}
-                  placeholder="Ej: Propuesta — Implementación CRM"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Cliente</Label>
-                  <Select
-                    value={form.client_id || "none"}
-                    onValueChange={(value) =>
-                      updateField("client_id", value === "none" ? "" : value)
-                    }
-                    disabled={proposalOptionsLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin cliente</SelectItem>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.contact_person
-                            ? `${client.company_name} · ${client.contact_person}`
-                            : client.company_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Producto</Label>
-                  <Select
-                    value={form.product_id || "none"}
-                    onValueChange={(value) => {
-                      if (value === "none") {
-                        updateField("product_id", "");
-                        return;
-                      }
-                      applyProductToProposal(value);
-                    }}
-                    disabled={proposalOptionsLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona producto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin producto</SelectItem>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.category
-                            ? `${product.name} · ${product.category}`
-                            : product.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Monto</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={form.amount}
-                    onChange={(e) => updateField("amount", e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Moneda</Label>
-                  <Select
-                    value={form.currency || "USD"}
-                    onValueChange={(value) => updateField("currency", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="DOP">DOP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Válida hasta</Label>
-                  <Input
-                    type="date"
-                    value={form.valid_until}
-                    onChange={(e) => updateField("valid_until", e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Descripción rápida</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => updateField("description", e.target.value)}
-                  rows={3}
-                  placeholder="Resumen corto del servicio o solución..."
-                />
-              </div>
-
-              {context?.sourceType ? (
-                <div className="rounded-[14px] border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
-                  <FileText className="mr-1 inline h-3.5 w-3.5" />
-                  Se creará vinculada a: {context.sourceType}
-                </div>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Nota rápida</Label>
+                    <Textarea
+                      className={textareaClass}
+                      value={form.notes}
+                      onChange={(e) => updateField("notes", e.target.value)}
+                      rows={3}
+                      placeholder="Qué necesita, de dónde vino, urgencia..."
+                    />
+                  </div>
+                </>
               ) : null}
-            </>
-          ) : null}
 
-          {type === "task" ? (
-            <>
-              <div className="space-y-1.5">
-                <Label>Título</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => updateField("title", e.target.value)}
-                  placeholder="Ej: Dar seguimiento al cliente"
-                  required
-                />
-              </div>
+              {type === "client" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Empresa o nombre</Label>
+                    <Input
+                      className={inputClass}
+                      value={form.company_name}
+                      onChange={(e) => updateField("company_name", e.target.value)}
+                      placeholder="Ej: Diseño y Muebles S.A."
+                      required
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Vence</Label>
-                  <Input
-                    type="date"
-                    value={form.due_date}
-                    onChange={(e) => updateField("due_date", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Prioridad</Label>
-                  <Select
-                    value={form.priority}
-                    onValueChange={(value) => updateField("priority", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Low">Low</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="High">High</SelectItem>
-                      <SelectItem value="Urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Contacto principal</Label>
+                    <Input
+                      className={inputClass}
+                      value={form.contact_person}
+                      onChange={(e) => updateField("contact_person", e.target.value)}
+                      placeholder="Ej: Juan Pérez"
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>Descripción</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => updateField("description", e.target.value)}
-                  rows={3}
-                  placeholder="Detalles del seguimiento..."
-                />
-              </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>WhatsApp / teléfono</Label>
+                      <Input
+                        className={inputClass}
+                        value={form.whatsapp}
+                        onChange={(e) => updateField("whatsapp", e.target.value)}
+                        placeholder="+1 809 555 0000"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Email</Label>
+                      <Input
+                        className={inputClass}
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => updateField("email", e.target.value)}
+                        placeholder="cliente@empresa.com"
+                      />
+                    </div>
+                  </div>
 
-              {context?.sourceType ? (
-                <div className="rounded-[14px] border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
-                  <FileText className="mr-1 inline h-3.5 w-3.5" />
-                  Se creará vinculada a: {context.sourceType}
-                </div>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Notas</Label>
+                    <Textarea
+                      className={textareaClass}
+                      value={form.notes}
+                      onChange={(e) => updateField("notes", e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                </>
               ) : null}
-            </>
-          ) : null}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Creando..." : "Crear rápido"}
-            </Button>
+              {type === "proposal" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Título</Label>
+                    <Input
+                      className={inputClass}
+                      value={form.title}
+                      onChange={(e) => updateField("title", e.target.value)}
+                      placeholder="Ej: Propuesta — Implementación CRM"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Cliente</Label>
+                      <Select
+                        value={form.client_id || "none"}
+                        onValueChange={(value) =>
+                          updateField("client_id", value === "none" ? "" : value)
+                        }
+                        disabled={proposalOptionsLoading}
+                      >
+                        <SelectTrigger className={selectClass}>
+                          <SelectValue placeholder="Selecciona cliente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin cliente</SelectItem>
+                          {clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.contact_person
+                                ? `${client.company_name} · ${client.contact_person}`
+                                : client.company_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Producto</Label>
+                      <Select
+                        value={form.product_id || "none"}
+                        onValueChange={(value) => {
+                          if (value === "none") {
+                            updateField("product_id", "");
+                            return;
+                          }
+                          applyProductToProposal(value);
+                        }}
+                        disabled={proposalOptionsLoading}
+                      >
+                        <SelectTrigger className={selectClass}>
+                          <SelectValue placeholder="Selecciona producto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin producto</SelectItem>
+                          {products.map((product) => (
+                            <SelectItem key={product.id} value={product.id}>
+                              {product.category
+                                ? `${product.name} · ${product.category}`
+                                : product.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Monto</Label>
+                      <Input
+                        className={inputClass}
+                        type="number"
+                        step="0.01"
+                        value={form.amount}
+                        onChange={(e) => updateField("amount", e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Moneda</Label>
+                      <Select
+                        value={form.currency || "USD"}
+                        onValueChange={(value) => updateField("currency", value)}
+                      >
+                        <SelectTrigger className={selectClass}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="DOP">DOP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Válida hasta</Label>
+                      <Input
+                        className={inputClass}
+                        type="date"
+                        value={form.valid_until}
+                        onChange={(e) => updateField("valid_until", e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Descripción rápida</Label>
+                    <Textarea
+                      className={textareaClass}
+                      value={form.description}
+                      onChange={(e) => updateField("description", e.target.value)}
+                      rows={3}
+                      placeholder="Resumen corto del servicio o solución..."
+                    />
+                  </div>
+
+                  {context?.sourceType ? (
+                    <div className="border-t border-slate-100 px-0 py-3 text-xs font-normal text-slate-500">
+                      <FileText className="mr-1 inline h-3.5 w-3.5" />
+                      Se creará vinculada a: {context.sourceType}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {type === "task" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Título</Label>
+                    <Input
+                      className={inputClass}
+                      value={form.title}
+                      onChange={(e) => updateField("title", e.target.value)}
+                      placeholder="Ej: Dar seguimiento al cliente"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Vence</Label>
+                      <Input
+                        className={inputClass}
+                        type="date"
+                        value={form.due_date}
+                        onChange={(e) => updateField("due_date", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={labelClass}>Prioridad</Label>
+                      <Select
+                        value={form.priority}
+                        onValueChange={(value) => updateField("priority", value)}
+                      >
+                        <SelectTrigger className={selectClass}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Descripción</Label>
+                    <Textarea
+                      className={textareaClass}
+                      value={form.description}
+                      onChange={(e) => updateField("description", e.target.value)}
+                      rows={3}
+                      placeholder="Detalles del seguimiento..."
+                    />
+                  </div>
+
+                  {context?.sourceType ? (
+                    <div className="border-t border-slate-100 px-0 py-3 text-xs font-normal text-slate-500">
+                      <FileText className="mr-1 inline h-3.5 w-3.5" />
+                      Se creará vinculada a: {context.sourceType}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-3 sm:px-6 lg:px-7">
+            <div className="mx-auto grid w-full max-w-2xl grid-cols-2 gap-2 sm:flex sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="rounded-xl border-slate-200 bg-white font-normal shadow-none"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-slate-950 font-normal shadow-none"
+              >
+                {saving ? "Creando..." : "Crear rápido"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

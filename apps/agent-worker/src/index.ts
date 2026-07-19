@@ -5,7 +5,11 @@ import { getUserContext } from './auth';
 import { parseToolCall } from './tool-parser';
 import { executeTool } from './tool-router';
 import { listTodayAgentPlans, syncDailyAgentPlans } from './agent-daily-plans';
-import { writeAgentWidgetContractFromDailyPlans, writeAgentWidgetContractPayload, type AgentWidgetContractV1 } from './agent-widget-contract';
+import {
+	writeAgentWidgetContractFromDailyPlans,
+	writeAgentWidgetContractPayload,
+	type AgentWidgetContractV1,
+} from './agent-widget-contract';
 import { getTodayAgentOperatingContext, refreshAgentOperatingContext } from './agent-operating-context';
 import { resolveAgentActionIntent } from './agent-action-intent';
 
@@ -277,7 +281,6 @@ export default {
 			return handleAgentActionResolveIntent(request);
 		}
 
-
 		return json({ error: 'Not found' }, 404);
 	},
 };
@@ -441,7 +444,6 @@ async function handleTodayAgentOperatingContext(request: Request, env: Env) {
 	}
 }
 
-
 async function handleAgentActionResolveIntent(request: Request): Promise<Response> {
 	try {
 		const body = await request.json().catch(() => ({}));
@@ -551,13 +553,8 @@ async function handleAgentChat(request: Request, env: Env) {
 	}
 }
 
-
 function extractOpenClawText(data: any, fallback = '') {
-	return (
-		data?.output?.[0]?.content?.find((item: any) => item.type === 'output_text')?.text ??
-		data?.output_text ??
-		fallback
-	);
+	return data?.output?.[0]?.content?.find((item: any) => item.type === 'output_text')?.text ?? data?.output_text ?? fallback;
 }
 
 function extractJsonObjectFromText(text: string) {
@@ -720,7 +717,6 @@ ${JSON.stringify(compactContext, null, 2)}
 `;
 }
 
-
 function normalizeWidgetRiskLevel(value: any) {
 	const normalized = String(value || '').trim();
 
@@ -745,10 +741,7 @@ function normalizeWidgetSourceRecords(value: any) {
 		href: record?.href ? String(record.href) : null,
 		status: record?.status ? String(record.status) : null,
 		due_at: record?.due_at || record?.dueAt ? String(record.due_at || record.dueAt) : null,
-		amount:
-			typeof record?.amount === 'string' || typeof record?.amount === 'number'
-				? record.amount
-				: null,
+		amount: typeof record?.amount === 'string' || typeof record?.amount === 'number' ? record.amount : null,
 		module: record?.module ? String(record.module) : null,
 	}));
 }
@@ -756,15 +749,16 @@ function normalizeWidgetSourceRecords(value: any) {
 function normalizeWidgetAction(action: any, index: number, plan: any) {
 	const type = String(action?.type || 'review_record');
 	const riskLevel = normalizeWidgetRiskLevel(action?.risk_level) || (action?.requires_confirmation === false ? 'read' : 'medium_write');
-	const target = action?.target && typeof action.target === 'object'
-		? {
-				type: action.target.type ? String(action.target.type) : null,
-				id: action.target.id ? String(action.target.id) : null,
-				label: action.target.label ? String(action.target.label) : null,
-				href: action.target.href ? String(action.target.href) : null,
-				status: action.target.status ? String(action.target.status) : null,
-			}
-		: null;
+	const target =
+		action?.target && typeof action.target === 'object'
+			? {
+					type: action.target.type ? String(action.target.type) : null,
+					id: action.target.id ? String(action.target.id) : null,
+					label: action.target.label ? String(action.target.label) : null,
+					href: action.target.href ? String(action.target.href) : null,
+					status: action.target.status ? String(action.target.status) : null,
+				}
+			: null;
 
 	return {
 		action_id: String(action?.action_id || action?.id || `${plan?.case_key || 'case'}::${type}::${index + 1}`),
@@ -773,10 +767,7 @@ function normalizeWidgetAction(action: any, index: number, plan: any) {
 		reason: action?.reason ? String(action.reason) : null,
 		module: action?.module ? String(action.module) : null,
 		priority: ['critical', 'high', 'medium', 'low'].includes(action?.priority) ? action.priority : plan?.severity || 'medium',
-		requires_confirmation:
-			typeof action?.requires_confirmation === 'boolean'
-				? action.requires_confirmation
-				: riskLevel !== 'read',
+		requires_confirmation: typeof action?.requires_confirmation === 'boolean' ? action.requires_confirmation : riskLevel !== 'read',
 		risk_level: riskLevel,
 		required_fields: normalizeWidgetStringArray(action?.required_fields),
 		tool_hint: action?.tool_hint ? String(action.tool_hint) : null,
@@ -806,11 +797,7 @@ function validateOpenClawWidgetContract(contract: any) {
 		}
 
 		const severity = ['critical', 'high', 'medium', 'low'].includes(plan?.severity) ? plan.severity : 'medium';
-		const rawActions = Array.isArray(plan?.suggested_actions)
-			? plan.suggested_actions
-			: Array.isArray(plan?.actions)
-				? plan.actions
-				: [];
+		const rawActions = Array.isArray(plan?.suggested_actions) ? plan.suggested_actions : Array.isArray(plan?.actions) ? plan.actions : [];
 		const planSteps = Array.isArray(plan?.plan_steps)
 			? plan.plan_steps
 			: Array.isArray(plan?.recommended_steps)
@@ -831,12 +818,13 @@ function validateOpenClawWidgetContract(contract: any) {
 				source_event_ids: normalizeWidgetStringArray(plan?.context_refs?.source_event_ids),
 				source_memory_keys: normalizeWidgetStringArray(plan?.context_refs?.source_memory_keys),
 				source_modules: normalizeWidgetStringArray(plan?.context_refs?.source_modules),
-				full_record_ref: plan?.context_refs?.full_record_ref && typeof plan.context_refs.full_record_ref === 'object'
-					? {
-							table: plan.context_refs.full_record_ref.table ? String(plan.context_refs.full_record_ref.table) : null,
-							id: plan.context_refs.full_record_ref.id ? String(plan.context_refs.full_record_ref.id) : null,
-						}
-					: null,
+				full_record_ref:
+					plan?.context_refs?.full_record_ref && typeof plan.context_refs.full_record_ref === 'object'
+						? {
+								table: plan.context_refs.full_record_ref.table ? String(plan.context_refs.full_record_ref.table) : null,
+								id: plan.context_refs.full_record_ref.id ? String(plan.context_refs.full_record_ref.id) : null,
+							}
+						: null,
 			},
 			plan_steps: planSteps.slice(0, 5).map((step: any, stepIndex: number) => ({
 				title: String(step?.title || `Paso ${stepIndex + 1}`),
@@ -846,16 +834,15 @@ function validateOpenClawWidgetContract(contract: any) {
 			success_criteria: String(plan?.success_criteria || 'El caso queda resuelto o con el próximo paso definido.'),
 		};
 
-		const actions = rawActions.slice(0, 2).map((action: any, actionIndex: number) =>
-			normalizeWidgetAction(action, actionIndex, normalizedPlan),
-		);
+		const actions = rawActions
+			.slice(0, 2)
+			.map((action: any, actionIndex: number) => normalizeWidgetAction(action, actionIndex, normalizedPlan));
 
 		return {
 			...normalizedPlan,
 			suggested_actions: actions,
 			actions,
-			requires_confirmation:
-				normalizedPlan.requires_confirmation || actions.some((action: any) => action.requires_confirmation),
+			requires_confirmation: normalizedPlan.requires_confirmation || actions.some((action: any) => action.requires_confirmation),
 		};
 	});
 
@@ -917,7 +904,6 @@ async function askOpenClawForWidgetContract(env: Env, context: any, debugEnabled
 		promptStats,
 	};
 }
-
 
 async function askOpenClaw(
 	env: Env,

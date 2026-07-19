@@ -962,13 +962,9 @@ export async function syncDailyAgentPlans(ctx: ToolContext, options: SyncOptions
 	const rows: WorkerPlanRow[] = cases.map((detectedCase) => {
 		const reservedAgentPlan = {
 			title: 'Reserved for future agent',
-			summary:
-				'El sistema detectó este caso, pero no generó un plan automático. El agente futuro deberá crear el plan de sanación.',
+			summary: 'El sistema detectó este caso, pero no generó un plan automático. El agente futuro deberá crear el plan de sanación.',
 			actions: detectedCase.item.actions || [],
-			rationale:
-				detectedCase.item.urgencyReason ||
-				detectedCase.item.summary ||
-				'Caso detectado por el sistema de prioridades del CRM.',
+			rationale: detectedCase.item.urgencyReason || detectedCase.item.summary || 'Caso detectado por el sistema de prioridades del CRM.',
 		};
 		return {
 			company_id: ctx.companyId,
