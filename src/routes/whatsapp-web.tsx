@@ -83,7 +83,6 @@ type RelatedProposal = {
 type RelatedInvoice = {
   id: string;
   number: string | null;
-  title: string | null;
   total: number | null;
   amount: number | null;
   currency: string | null;
@@ -372,9 +371,7 @@ function WhatsAppWebPage() {
           .limit(3),
         db
           .from("invoices")
-          .select(
-            "id, number, title, total, amount, currency, status, public_token, due_date, created_at",
-          )
+          .select("id, number, total, amount, currency, status, public_token, due_date, created_at")
           .eq("company_id", profile.company_id)
           .or(invoiceFilters.join(","))
           .order("created_at", { ascending: false })
@@ -1083,7 +1080,7 @@ function ContextPanel({
     ? `/public/proposal/${latestProposal.public_token}`
     : `/proposals?conversationId=${conversationId}`;
   const invoiceUrl = latestInvoice?.public_token
-    ? `/public/invoice/${latestInvoice.public_token}`
+    ? `/invoice/public/${latestInvoice.public_token}`
     : `/invoices?conversationId=${conversationId}`;
 
   return (
@@ -1149,7 +1146,7 @@ function ContextPanel({
           <SmartDocumentCard
             icon={<Receipt className="h-4 w-4" />}
             title="Factura"
-            name={latestInvoice.title || latestInvoice.number || "Factura"}
+            name={latestInvoice.number ? `Factura ${latestInvoice.number}` : "Factura"}
             meta={`${latestInvoice.status || "sin estado"} · ${formatMoney(latestInvoice.total ?? latestInvoice.amount, latestInvoice.currency)}`}
             href={invoiceUrl}
             onPrepare={() =>
