@@ -56,6 +56,16 @@ function buildInvitationLink(args: {
   return `${base}/login?invite=${encodeURIComponent(args.token)}&email=${encodeURIComponent(args.email)}&redirectTo=${encodeURIComponent(args.redirectTo)}`;
 }
 
+function siteUrlFromRedirect(redirectTo: string, fallbackSiteUrl: string) {
+  try {
+    const url = new URL(redirectTo);
+    if (url.protocol === "http:" || url.protocol === "https:") return url.origin;
+  } catch {
+    // Keep the configured fallback for malformed or relative redirects.
+  }
+  return fallbackSiteUrl;
+}
+
 function invitationEmailHtml(args: { role: string; invitationLink: string }) {
   return `
     <div style="font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; line-height: 1.5; color: #0f172a;">
@@ -254,6 +264,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => null);
     const action = String(body?.action || "create").trim();
     const redirectTo = body?.redirectTo ? String(body.redirectTo) : `${siteUrl}/dashboard`;
+    const invitationSiteUrl = siteUrlFromRedirect(redirectTo, siteUrl);
 
     const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
@@ -286,7 +297,7 @@ Deno.serve(async (req) => {
 
     async function sendInvitationEmail(invitation: InvitationRow) {
       const invitationLink = buildInvitationLink({
-        siteUrl,
+        siteUrl: invitationSiteUrl,
         token: invitation.token,
         email: invitation.email,
         redirectTo,

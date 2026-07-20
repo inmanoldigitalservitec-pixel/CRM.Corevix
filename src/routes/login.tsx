@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,13 +112,6 @@ function LoginPage() {
                   : "-mt-6 rounded-t-[2.25rem] pb-10 pt-8"
               }`}
             >
-              {inviteToken && (
-                <div className="mb-4 flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  Invitación detectada en este enlace.
-                </div>
-              )}
-
               <div className="flex h-full min-h-0 flex-col justify-between gap-2 lg:block lg:h-auto lg:space-y-5">
                 <div
                   key={authMode}
