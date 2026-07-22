@@ -898,7 +898,10 @@ function TasksPage() {
         formData: body,
         onProgress: setUploadProgress,
       });
-      if (result?.error) throw new Error(String(result.error));
+      if (result?.error) {
+        const detail = result?.detail ? ` Detalle: ${String(result.detail)}` : "";
+        throw new Error(`${String(result.error)}${detail}`);
+      }
       setUploadProgress(100);
       await fetchDriveFiles();
       toast.success("Archivo subido a Google Drive.");

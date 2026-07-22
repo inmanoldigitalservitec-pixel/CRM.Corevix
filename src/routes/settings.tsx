@@ -213,6 +213,7 @@ function SettingsPage() {
   const [driveBanner, setDriveBanner] = useState<"connected" | "error" | null>(null);
   const [driveLoading, setDriveLoading] = useState(false);
   const [driveConnectionLoading, setDriveConnectionLoading] = useState(false);
+  const [driveTesting, setDriveTesting] = useState(false);
   const [driveConnection, setDriveConnection] = useState<DriveConnectionRow | null>(null);
   const [driveSecretConfigured, setDriveSecretConfigured] = useState(false);
   const [driveForm, setDriveForm] = useState({
@@ -595,8 +596,21 @@ function SettingsPage() {
   };
 
   const testDriveConnection = async () => {
-    if (driveConnection?.id) toast.success("Google Drive conectado correctamente.");
-    else toast.error("No hay conexion activa de Google Drive.");
+    try {
+      setDriveTesting(true);
+      const { data, error } = await supabase.functions.invoke("drive-test-connection", {
+        body: {},
+      });
+      if (error) throw new Error(error.message || "No se pudo probar Google Drive.");
+      if ((data as any)?.error) throw new Error(String((data as any).error));
+      await loadDriveConnection();
+      toast.success("Google Drive respondió correctamente.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo probar Google Drive.";
+      toast.error(message);
+    } finally {
+      setDriveTesting(false);
+    }
   };
 
   const disconnectDrive = async () => {
@@ -1475,8 +1489,8 @@ function SettingsPage() {
                 <Button variant="outline" onClick={connectDrive}>
                   Conectar Google Drive
                 </Button>
-                <Button variant="outline" onClick={testDriveConnection}>
-                  Probar conexion
+                <Button variant="outline" onClick={testDriveConnection} disabled={driveTesting}>
+                  {driveTesting ? "Probando..." : "Probar conexion"}
                 </Button>
                 <Button
                   variant="outline"

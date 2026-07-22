@@ -384,7 +384,10 @@ function uploadTaskFileWithProgress(args: {
         payload = null;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(payload?.error || "No se pudo subir el archivo a Google Drive"));
+        const detail = payload?.detail ? ` Detalle: ${String(payload.detail)}` : "";
+        reject(
+          new Error(`${payload?.error || "No se pudo subir el archivo a Google Drive"}${detail}`),
+        );
         return;
       }
       resolve(payload);
