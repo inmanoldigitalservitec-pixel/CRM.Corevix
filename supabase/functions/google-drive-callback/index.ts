@@ -180,7 +180,14 @@ Deno.serve(async (req) => {
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
       : null;
     const googleEmail = await fetchGoogleUserEmail(tokens.access_token);
-    const effectiveScope = String(tokens.scope || settings.scopes || "").trim() || null;
+    const requestedDriveScope = String(
+      settings.scopes || "https://www.googleapis.com/auth/drive.file",
+    )
+      .split(/\s+/)
+      .filter((scope) => scope.includes("/auth/drive"))
+      .join(" ")
+      .trim();
+    const effectiveScope = requestedDriveScope || "https://www.googleapis.com/auth/drive.file";
 
     const upsertPayload: Record<string, unknown> = {
       company_id: oauthState.company_id,

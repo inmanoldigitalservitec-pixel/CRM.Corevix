@@ -112,7 +112,6 @@ Deno.serve(async (req) => {
       response_type: "code",
       access_type: "offline",
       prompt: "consent",
-      include_granted_scopes: "true",
       scope,
       state: stateRaw,
     });

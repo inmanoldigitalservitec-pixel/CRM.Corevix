@@ -44,6 +44,11 @@ import { ProjectContractsPanel } from "@/components/projects/project-contracts-p
 import { ProjectNotesPanel } from "@/components/projects/project-notes-panel";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import {
+  normalizeProfilePickerIds,
+  ProfileAvatarStack,
+  ProfileMultiPicker,
+} from "@/components/crm/profile-multi-picker";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -245,8 +250,17 @@ type ProfileRow = {
   company_id: string | null;
   full_name: string | null;
   email: string | null;
+  avatar_url: string | null;
   user_id: string | null;
   is_active: boolean;
+};
+
+type ProjectAssigneeRow = {
+  id: string;
+  company_id: string;
+  project_id: string;
+  user_id: string;
+  created_at: string;
 };
 
 type ProjectStats = {
@@ -265,6 +279,8 @@ type ProjectMeta = {
   stats: ProjectStats;
   isOverdue: boolean;
   hasRisk: boolean;
+  assigneeProfiles: ProfileRow[];
+  assigneeLabel: string;
 };
 
 type ProjectForm = {
@@ -281,6 +297,7 @@ type ProjectForm = {
   deal_id: string;
   lead_id: string;
   manager: string;
+  manager_ids: string[];
 };
 
 function isoToday() {
@@ -332,6 +349,7 @@ function defaultProjectForm(): ProjectForm {
     deal_id: NONE,
     lead_id: NONE,
     manager: NONE,
+    manager_ids: [],
   };
 }
 
@@ -585,10 +603,18 @@ function ProjectsPage() {
   });
   const { data: profiles } = useCrud<ProfileRow>({
     table: "profiles",
-    select: "id,company_id,full_name,email,user_id,is_active",
+    select: "id,company_id,full_name,email,avatar_url,user_id,is_active",
     orderBy: "full_name",
     ascending: true,
     limit: 2000,
+  });
+  const { data: projectAssignees, fetch: fetchProjectAssignees } = useCrud<ProjectAssigneeRow>({
+    table: "project_assignees",
+    select: "id,company_id,project_id,user_id,created_at",
+    orderBy: "created_at",
+    ascending: true,
+    limit: 4000,
+    enabled: projects.length > 0,
   });
 
   const loading = projectsLoading || tasksLoading;
@@ -602,6 +628,15 @@ function ProjectsPage() {
       new Map(profiles.filter((item) => item.user_id).map((item) => [String(item.user_id), item])),
     [profiles],
   );
+  const projectAssigneesByProjectId = useMemo(() => {
+    const map = new Map<string, ProjectAssigneeRow[]>();
+    for (const row of projectAssignees) {
+      const list = map.get(row.project_id) || [];
+      list.push(row);
+      map.set(row.project_id, list);
+    }
+    return map;
+  }, [projectAssignees]);
   const sendProjectNotification = async (title: string, message: string) => {
     if (!profile?.company_id || !user?.id) return;
     await createAttentionNotification(
@@ -624,6 +659,15 @@ function ProjectsPage() {
         label: String(item.full_name || item.email || item.user_id),
         value: String(item.id),
       }));
+  }, [profile?.company_id, profiles]);
+  const availableProjectProfiles = useMemo(() => {
+    const companyId = profile?.company_id ? String(profile.company_id) : null;
+    return profiles.filter(
+      (item) =>
+        item.is_active &&
+        item.user_id &&
+        (!companyId || String(item.company_id || "") === companyId),
+    );
   }, [profile?.company_id, profiles]);
 
   const clientOptions = useMemo(
@@ -697,12 +741,37 @@ function ProjectsPage() {
     return user?.id || profile?.user_id || null;
   };
 
-  const managerName = (raw: string | null | undefined) => {
-    const managerId = resolveManagerProfileId(raw);
-    if (!managerId) return "Sin asignar";
-    return (
-      profileById.get(managerId)?.full_name || profileById.get(managerId)?.email || "Sin asignar"
-    );
+  const resolveProfileUserId = (raw: string | null | undefined) => {
+    const profileId = resolveManagerProfileId(raw);
+    return profileId ? profileById.get(profileId)?.user_id || null : null;
+  };
+
+  const primaryManagerProfileId = (managerIds: string[]) => {
+    const firstUserId = normalizeProfilePickerIds(managerIds)[0];
+    if (!firstUserId) return null;
+    return profileByUserId.get(firstUserId)?.id || profileById.get(firstUserId)?.id || null;
+  };
+
+  const projectAssignedUserIds = (project: Project) => {
+    const ids = new Set<string>();
+    const primaryUserId = resolveProfileUserId(project.manager);
+    if (primaryUserId) ids.add(primaryUserId);
+    for (const row of projectAssigneesByProjectId.get(project.id) || []) {
+      if (row.user_id) ids.add(String(row.user_id));
+    }
+    return ids;
+  };
+
+  const projectAssigneeProfiles = (project: Project) =>
+    Array.from(projectAssignedUserIds(project))
+      .map((id) => profileByUserId.get(id) || profileById.get(id) || null)
+      .filter((item): item is ProfileRow => Boolean(item));
+
+  const projectAssigneeLabel = (project: Project) => {
+    const names = projectAssigneeProfiles(project)
+      .map((item) => String(item.full_name || item.email || "").trim())
+      .filter(Boolean);
+    return names.length ? names.join(", ") : "Sin asignar";
   };
 
   const projectMeta = (project: Project) => {
@@ -729,6 +798,8 @@ function ProjectsPage() {
       stats,
       isOverdue,
       hasRisk: isOverdue || stats.overdue > 0,
+      assigneeProfiles: projectAssigneeProfiles(project),
+      assigneeLabel: projectAssigneeLabel(project),
     };
   };
 
@@ -749,7 +820,8 @@ function ProjectsPage() {
           normalizeStatus(project.status) === normalizeStatus(statusFilter)) &&
         (clientFilter === "all" || String(project.client_id || "") === clientFilter) &&
         (productFilter === "all" || String(project.product_id || "") === productFilter) &&
-        (managerFilter === "all" || resolveManagerProfileId(project.manager) === managerFilter) &&
+        (managerFilter === "all" ||
+          projectAssigneeProfiles(project).some((item) => item.id === managerFilter)) &&
         matchTasks
       );
     });
@@ -762,6 +834,8 @@ function ProjectsPage() {
     statusFilter,
     statsByProjectId,
     tasksFilter,
+    projectAssigneesByProjectId,
+    profiles,
   ]);
 
   const kpis = useMemo(() => {
@@ -789,14 +863,17 @@ function ProjectsPage() {
   }, [projects, routeSearch.projectId]);
 
   useEffect(() => {
-    if (!dialogOpen || !form.client_id || form.client_id === NONE || form.manager !== NONE) return;
+    if (!dialogOpen || !form.client_id || form.client_id === NONE || form.manager_ids.length > 0)
+      return;
     const client = clientById.get(form.client_id);
-    if (client?.account_manager)
+    const userId = resolveProfileUserId(client?.account_manager);
+    if (userId)
       setForm((current) => ({
         ...current,
-        manager: resolveManagerProfileId(client.account_manager) || NONE,
+        manager: resolveManagerProfileId(client?.account_manager) || NONE,
+        manager_ids: [userId],
       }));
-  }, [clientById, dialogOpen, form.client_id, form.manager]);
+  }, [clientById, dialogOpen, form.client_id, form.manager_ids.length]);
 
   function abiertasNewProject() {
     if (!can("projects.create")) return toast.error("No tienes permiso para crear proyectos");
@@ -822,8 +899,29 @@ function ProjectsPage() {
       deal_id: project.deal_id || NONE,
       lead_id: project.lead_id || NONE,
       manager: resolveManagerProfileId(project.manager) || NONE,
+      manager_ids: Array.from(projectAssignedUserIds(project)),
     });
     setDialogOpen(true);
+  }
+
+  async function syncProjectAssignees(projectId: string, managerIds: string[]) {
+    if (!profile?.company_id) throw new Error("No se pudo identificar tu compañía.");
+    const assigneeIds = normalizeProfilePickerIds(managerIds);
+    const db = supabase as any;
+    const { error: deleteError } = await db
+      .from("project_assignees")
+      .delete()
+      .eq("project_id", projectId);
+    if (deleteError) throw deleteError;
+    if (!assigneeIds.length) return;
+    const rows = assigneeIds.map((userId) => ({
+      company_id: profile.company_id,
+      project_id: projectId,
+      user_id: userId,
+      created_by: user?.id || profile?.user_id || null,
+    }));
+    const { error: insertError } = await db.from("project_assignees").insert(rows);
+    if (insertError) throw insertError;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -845,19 +943,26 @@ function ProjectsPage() {
       product_id: form.product_id !== NONE ? form.product_id : null,
       deal_id: form.deal_id !== NONE ? form.deal_id : null,
       lead_id: form.lead_id !== NONE ? form.lead_id : null,
-      manager: form.manager !== NONE ? form.manager : null,
+      manager:
+        primaryManagerProfileId(form.manager_ids) || (form.manager !== NONE ? form.manager : null),
     };
     try {
       if (editItem) {
-        await update(editItem.id, record);
+        const saved = await update(editItem.id, record);
+        await syncProjectAssignees(editItem.id, form.manager_ids);
+        await fetchProjectAssignees();
         setSelected(null);
         void sendProjectNotification(
           "Proyecto actualizado",
-          `${record.name || "Proyecto sin nombre"} fue actualizado.`,
+          `${saved?.name || record.name || "Proyecto sin nombre"} fue actualizado.`,
         );
         toast.success("Proyecto actualizado");
       } else {
-        await create(record);
+        const saved = await create(record);
+        if (saved?.id) {
+          await syncProjectAssignees(saved.id, form.manager_ids);
+          await fetchProjectAssignees();
+        }
         void sendProjectNotification(
           "Proyecto creado",
           `${record.name || "Proyecto sin nombre"} fue creado.`,
@@ -901,6 +1006,7 @@ function ProjectsPage() {
           initialValues: {
             dueDate: isoToday(),
             assignedTo: resolveTaskAssigneeUserId(project.manager) || undefined,
+            assigneeIds: Array.from(projectAssignedUserIds(project)),
             projectId: project.id,
             clientId: project.client_id || undefined,
             leadId: project.lead_id || undefined,
@@ -1128,7 +1234,7 @@ function ProjectsPage() {
                     key={project.id}
                     project={project}
                     meta={meta}
-                    owner={managerName(project.manager)}
+                    owner={meta.assigneeLabel}
                     demo={index === 0 ? "projects-first-row" : undefined}
                     onOpen={() => setSelected(project)}
                   />
@@ -1144,7 +1250,7 @@ function ProjectsPage() {
                     <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="hidden md:table-cell">Progreso</TableHead>
-                    <TableHead className="hidden xl:table-cell">Responsable</TableHead>
+                    <TableHead className="hidden xl:table-cell">Responsables</TableHead>
                     <TableHead className="hidden lg:table-cell">Cronograma</TableHead>
                     <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">
                       Budget
@@ -1156,7 +1262,7 @@ function ProjectsPage() {
                     const meta = projectMeta(project);
                     const clientName = meta.client?.company_name || "Sin cliente";
                     const productName = meta.product?.name || "Sin producto";
-                    const owner = managerName(project.manager);
+                    const owner = meta.assigneeLabel;
                     return (
                       <TableRow
                         key={project.id}
@@ -1235,12 +1341,10 @@ function ProjectsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
-                          <div className="flex items-center gap-2">
-                            <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-                              {initials(owner)}
-                            </div>
-                            <div className="max-w-[160px] truncate text-sm">{owner}</div>
-                          </div>
+                          <ProfileAvatarStack
+                            profiles={meta.assigneeProfiles}
+                            label={meta.assigneeLabel}
+                          />
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="space-y-1 text-sm">
@@ -1293,7 +1397,7 @@ function ProjectsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="min-h-0 flex-1 bg-white">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col bg-white">
             <Tabs defaultValue="project" className="flex h-full min-h-0 flex-col">
               <TabsList className="h-auto justify-start rounded-none border-b border-slate-100 bg-transparent px-4 py-0 sm:px-6">
                 <TabsTrigger
@@ -1334,13 +1438,20 @@ function ProjectsPage() {
                       options={clientOptions}
                       noneLabel="Selecciona o deja sin cliente"
                     />
-                    <ProjectSelect
-                      label="Responsable"
-                      value={form.manager}
-                      onChange={(value) => setForm((current) => ({ ...current, manager: value }))}
-                      options={managerOptions}
-                      noneLabel="Sin asignar"
-                    />
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Responsables</Label>
+                      <ProfileMultiPicker
+                        value={form.manager_ids}
+                        profiles={availableProjectProfiles}
+                        onChange={(value) =>
+                          setForm((current) => ({
+                            ...current,
+                            manager_ids: value,
+                            manager: primaryManagerProfileId(value) || NONE,
+                          }))
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1464,7 +1575,7 @@ function ProjectsPage() {
                 </TabsContent>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <p className="text-xs font-medium text-slate-500">
                   Solo el nombre es obligatorio. Puedes completar los demás datos cuando avance el
                   proyecto.
@@ -1499,7 +1610,7 @@ function ProjectsPage() {
           productName={projectMeta(selected).product?.name || "—"}
           dealName={projectMeta(selected).deal?.name || "—"}
           leadName={projectMeta(selected).lead ? formatLeadLabel(projectMeta(selected).lead!) : "—"}
-          managerName={managerName(selected.manager)}
+          managerName={projectMeta(selected).assigneeLabel}
           canEdit={can("projects.edit")}
           canDelete={can("projects.delete")}
           canCreateTask={can("tasks.create")}

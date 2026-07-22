@@ -267,7 +267,12 @@ function SettingsPage() {
     if (gmail === "connected") setGmailBanner("connected");
     if (gmail === "error") setGmailBanner("error");
     const drive = params.get("drive");
-    if (drive === "connected") setDriveBanner("connected");
+    if (drive === "connected") {
+      setDriveBanner("connected");
+      window.setTimeout(() => {
+        void loadDriveConnection();
+      }, 500);
+    }
     if (drive === "error") setDriveBanner("error");
   }, []);
 
@@ -410,7 +415,10 @@ function SettingsPage() {
       .eq("user_id", authUserId)
       .maybeSingle();
     setDriveConnectionLoading(false);
-    if (error) return;
+    if (error) {
+      toast.error(error.message || "No se pudo verificar la conexión de Google Drive.");
+      return;
+    }
     setDriveConnection((data as DriveConnectionRow | null) || null);
   };
 
@@ -587,10 +595,7 @@ function SettingsPage() {
   };
 
   const testDriveConnection = async () => {
-    if (driveConnection?.id)
-      toast.success(
-        `Google Drive conectado${driveConnection.google_email ? `: ${driveConnection.google_email}` : ""}.`,
-      );
+    if (driveConnection?.id) toast.success("Google Drive conectado correctamente.");
     else toast.error("No hay conexion activa de Google Drive.");
   };
 
@@ -1450,10 +1455,15 @@ function SettingsPage() {
                 <div className="text-muted-foreground">
                   {driveConnectionLoading
                     ? "Verificando conexion..."
-                    : driveConnection?.google_email
-                      ? `Conectado como ${driveConnection.google_email}`
+                    : driveConnection?.id
+                      ? "Conectado"
                       : "No conectado"}
                 </div>
+                {driveConnection?.google_email ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Cuenta autorizada: {driveConnection.google_email}
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">

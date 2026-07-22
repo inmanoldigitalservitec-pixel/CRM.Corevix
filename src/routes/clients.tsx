@@ -44,6 +44,10 @@ import { SearchFilters } from "@/components/crm/search-filters";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { CrmDetailLineButton, CrmDetailSummaryGrid } from "@/components/crm/crm-detail-layout";
+import {
+  normalizeProfilePickerIds,
+  ProfileMultiPicker,
+} from "@/components/crm/profile-multi-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -277,6 +281,8 @@ interface ProfileRow {
   company_id: string | null;
   full_name: string;
   user_id: string;
+  email?: string | null;
+  avatar_url?: string | null;
   department: string | null;
   is_active: boolean;
 }
@@ -646,6 +652,7 @@ function ClientsPage() {
   const [contactIsPrimary, setContactIsPrimary] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectClientId, setProjectClientId] = useState<string | null>(null);
+  const [projectAssigneeIds, setProjectAssigneeIds] = useState<string[]>([]);
   const [quickProposalOpen, setQuickProposalOpen] = useState(false);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   const {
@@ -770,7 +777,7 @@ function ClientsPage() {
     error: managersError,
   } = useCrud<ProfileRow>({
     table: "profiles",
-    select: "id,company_id,full_name,user_id,department,is_active",
+    select: "id,company_id,full_name,email,avatar_url,user_id,department,is_active",
     orderBy: "full_name",
     ascending: true,
   });
@@ -1045,6 +1052,22 @@ function ClientsPage() {
     .reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
 
   const managerOptions = useMemo(() => managers.filter((manager) => manager.is_active), [managers]);
+  const managerByUserId = useMemo(
+    () =>
+      new Map(
+        managers.filter((manager) => manager.user_id).map((manager) => [manager.user_id, manager]),
+      ),
+    [managers],
+  );
+  const profileUserIdFromProfileId = (profileId: string | null | undefined) => {
+    if (!profileId || profileId === "none") return null;
+    return managers.find((manager) => manager.id === profileId)?.user_id || null;
+  };
+  const primaryProjectManagerProfileId = (assigneeIds: string[]) => {
+    const firstUserId = normalizeProfilePickerIds(assigneeIds)[0];
+    if (!firstUserId) return null;
+    return managerByUserId.get(firstUserId)?.id || null;
+  };
   const industryOptions = useMemo(() => {
     return Array.from(
       new Set(snapshots.map((client) => client.industry).filter(Boolean)),
@@ -1388,6 +1411,7 @@ function ClientsPage() {
   const resetProjectDialog = () => {
     setProjectDialogOpen(false);
     setProjectClientId(null);
+    setProjectAssigneeIds([]);
   };
 
   const openCreateClient = () => {
@@ -1413,6 +1437,9 @@ function ClientsPage() {
       return;
     }
     setProjectClientId(client.id);
+    setProjectAssigneeIds(
+      normalizeProfilePickerIds(profileUserIdFromProfileId(client.account_manager)),
+    );
     setProjectDialogOpen(true);
   };
 
@@ -1565,6 +1592,26 @@ function ClientsPage() {
     }
   };
 
+  const syncProjectAssignees = async (projectId: string, assigneeIds: string[]) => {
+    if (!profile?.company_id) throw new Error("No se pudo identificar tu compañía.");
+    const normalized = normalizeProfilePickerIds(assigneeIds);
+    const db = supabase as any;
+    const { error: deleteError } = await db
+      .from("project_assignees")
+      .delete()
+      .eq("project_id", projectId);
+    if (deleteError) throw deleteError;
+    if (!normalized.length) return;
+    const rows = normalized.map((userId) => ({
+      company_id: profile.company_id,
+      project_id: projectId,
+      user_id: userId,
+      created_by: user?.id || profile?.user_id || null,
+    }));
+    const { error: insertError } = await db.from("project_assignees").insert(rows);
+    if (insertError) throw insertError;
+  };
+
   const handleProjectSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!can("projects.create")) {
@@ -1590,7 +1637,7 @@ function ClientsPage() {
       due_date: String(formData.get("due_date") || "") || null,
       client_id: projectClientId,
       product_id: normalizeNullableSelectValue(formData.get("product_id")),
-      manager: normalizeNullableSelectValue(formData.get("manager")),
+      manager: primaryProjectManagerProfileId(projectAssigneeIds),
     };
 
     if (!payload.name) {
@@ -1599,7 +1646,8 @@ function ClientsPage() {
     }
 
     try {
-      await createProject(payload);
+      const created = await createProject(payload);
+      if (created?.id) await syncProjectAssignees(created.id, projectAssigneeIds);
       await fetchProjects();
       toast.success("Proyecto creado");
       resetProjectDialog();
@@ -3350,20 +3398,12 @@ function ClientsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className={crmFormStyles.label}>Responsable</Label>
-              <Select name="manager" defaultValue={projectDialogClient?.account_manager || "none"}>
-                <SelectTrigger className={crmFormStyles.select}>
-                  <SelectValue placeholder="Sin asignar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin asignar</SelectItem>
-                  {managerOptions.map((manager) => (
-                    <SelectItem key={manager.id} value={manager.id}>
-                      {manager.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className={crmFormStyles.label}>Responsables</Label>
+              <ProfileMultiPicker
+                value={projectAssigneeIds}
+                profiles={managerOptions}
+                onChange={setProjectAssigneeIds}
+              />
             </div>
 
             <div className="space-y-1.5">
