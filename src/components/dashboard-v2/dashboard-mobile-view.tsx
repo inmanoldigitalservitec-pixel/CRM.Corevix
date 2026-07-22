@@ -52,11 +52,11 @@ export type MobileSummarySlide = {
     | "calendar"
     | "messages";
   title: string;
-  value: string;
+  value?: string;
   detail: string;
-  href: string;
+  href?: string;
   tone: MobileTone;
-  ctaLabel: string;
+  ctaLabel?: string;
   previewItems?: Array<{
     label: string;
     value: string;
@@ -179,7 +179,7 @@ function MobileMetricCard({ item }: { item: KpiItem }) {
         const label = item.label.toLowerCase();
         if (label.includes("lead")) goTo("/leads");
         else if (label.includes("tarea")) goTo("/tasks");
-        else if (label.includes("mensaje")) goTo("/whatsapp");
+        else if (label.includes("mensaje") || label.includes("meta")) goTo("/whatsapp-web");
         else if (label.includes("propuesta")) goTo("/proposals");
         else if (label.includes("factura")) goTo("/invoices");
       }}
@@ -401,7 +401,7 @@ const mobileWorkTabs = [
   ["tasks", "Tareas", CheckCircle2, "/tasks"],
   ["projects", "Proyectos", Workflow, "/projects"],
   ["tickets", "Tickets", LifeBuoy, "/tickets"],
-  ["inbox", "Inbox", MessageCircle, "/whatsapp"],
+  ["inbox", "Meta Inbox", MessageCircle, "/whatsapp-web"],
   ["calendar", "Agenda", Clock3, "/calendar"],
   ["sales", "Ventas", DollarSign, "/invoices"],
 ] as const;
@@ -1174,6 +1174,8 @@ export function DashboardMobileView({
   const activeSummary =
     resolvedSummarySlides[Math.min(activeSummaryIndex, resolvedSummarySlides.length - 1)] ||
     resolvedSummarySlides[0];
+  const activeSummaryInteractive = Boolean(activeSummary.href && activeSummary.ctaLabel);
+  const activeSummaryHasValue = Boolean(activeSummary.value);
   const activeSummaryPercent = clampPercent(activeSummary?.percent);
   const activeVisualPlacement = summaryVisualPlacement(activeSummary);
   const showInlinePreview = shouldShowInlinePreview(activeSummary);
@@ -1276,10 +1278,15 @@ export function DashboardMobileView({
         ) : null}
 
         <div
-          role="button"
-          onClick={() => goTo(activeSummary.href)}
+          role={activeSummaryInteractive ? "button" : undefined}
+          tabIndex={activeSummaryInteractive ? 0 : undefined}
+          onClick={() => {
+            if (activeSummary.href) goTo(activeSummary.href);
+          }}
           onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") goTo(activeSummary.href);
+            if (activeSummary.href && (event.key === "Enter" || event.key === " ")) {
+              goTo(activeSummary.href);
+            }
           }}
           className={`grid min-h-[178px] gap-3 rounded-[28px] border bg-gradient-to-br ${mobileGradient(activeSummary.tone)} ${mobileSummaryFrame(activeSummary.tone)} p-4 text-left text-slate-950`}
         >
@@ -1303,23 +1310,27 @@ export function DashboardMobileView({
               style={{ animation: "dashboardMobileSlideIn 420ms ease both" }}
             >
               <span className="block truncate text-[16px] font-medium">{activeSummary.title}</span>
-              <strong className="mt-2 block truncate text-[40px] font-semibold leading-none tracking-normal">
-                {activeSummary.value}
-              </strong>
+              {activeSummaryHasValue ? (
+                <strong className="mt-2 block truncate text-[40px] font-semibold leading-none tracking-normal">
+                  {activeSummary.value}
+                </strong>
+              ) : null}
               <span className="mt-2 block truncate text-[13px] font-medium text-slate-600">
                 {activeSummary.detail}
               </span>
               {showInlinePreview ? <SummaryPreview slide={activeSummary} /> : null}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  goTo(activeSummary.href);
-                }}
-                className={`mt-4 inline-flex h-9 items-center justify-center rounded-full px-4 text-[12px] font-medium shadow-none transition ${mobileSummaryButton(activeSummary.tone)}`}
-              >
-                {activeSummary.ctaLabel}
-              </button>
+              {activeSummaryInteractive ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (activeSummary.href) goTo(activeSummary.href);
+                  }}
+                  className={`mt-4 inline-flex h-9 items-center justify-center rounded-full px-4 text-[12px] font-medium shadow-none transition ${mobileSummaryButton(activeSummary.tone)}`}
+                >
+                  {activeSummary.ctaLabel}
+                </button>
+              ) : null}
             </span>
             {activeVisualPlacement === "side" ? (
               <SummaryVisual slide={activeSummary} animatedPercent={animatedSummaryPercent} />

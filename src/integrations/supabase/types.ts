@@ -2809,7 +2809,7 @@ export type Database = {
       };
     };
     Enums: {
-      app_role: "super_admin" | "admin" | "manager" | "sales_agent" | "viewer";
+      app_role: "super_admin" | "admin" | "manager" | "sales_agent" | "collaborator" | "viewer";
       invitation_status: "pending" | "accepted" | "expired" | "revoked";
       lead_status:
         | "New"
@@ -2946,7 +2946,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "manager", "sales_agent", "viewer"],
+      app_role: ["super_admin", "admin", "manager", "sales_agent", "collaborator", "viewer"],
       invitation_status: ["pending", "accepted", "expired", "revoked"],
       lead_status: [
         "New",

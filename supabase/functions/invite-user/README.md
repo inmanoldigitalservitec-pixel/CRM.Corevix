@@ -18,7 +18,7 @@ Sends an email invitation to join the inviter's company.
 - `email` (string, required)
 - `full_name` (string, optional)
 - `department` (string, optional)
-- `role` (one of `super_admin|admin|manager|sales_agent|viewer`, optional, default `viewer`)
+- `role` (one of `super_admin|admin|manager|sales_agent|collaborator|viewer`, optional, default `viewer`)
 - `redirectTo` (string, optional) – where the magic link should redirect after acceptance
 
 Requires `Authorization: Bearer <user_jwt>` for an authenticated user who can manage users (admin/super_admin).

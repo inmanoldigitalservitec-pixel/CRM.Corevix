@@ -10,6 +10,7 @@ import {
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+import { TeamChatMini } from "@/components/team-chat/team-chat-mini";
 import { GlobalDetailHost } from "@/components/layout/global-detail-host";
 import { TopBar } from "@/components/layout/top-bar";
 import { GlobalSearch } from "@/components/layout/global-search";
@@ -181,6 +182,7 @@ function AppShell() {
         {currentPath === "/whatsapp-web" ? <WhatsAppPanelPhase2Safe /> : null}
         {currentPath === "/whatsapp-web" ? <WhatsAppResponsiveCompact /> : null}
         {currentPath === "/whatsapp-web" ? <WhatsAppClient360Bridge mode="whatsapp" /> : null}
+        {currentPath === "/internal-chat" ? null : <TeamChatMini />}
         <GlobalSearch launcherOnly />
         <MobileBottomNav />
         <GlobalTaskCreateHost />

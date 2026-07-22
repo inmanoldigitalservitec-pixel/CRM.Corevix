@@ -27,7 +27,7 @@ export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Corevix CRM" }] }),
 });
 
-type AppRole = "super_admin" | "admin" | "manager" | "sales_agent" | "viewer";
+type AppRole = "super_admin" | "admin" | "manager" | "sales_agent" | "collaborator" | "viewer";
 type ModuleKey =
   | "leads"
   | "clients"
@@ -164,7 +164,14 @@ function SettingsPage() {
   });
   const [companyLoading, setCompanyLoading] = useState(false);
 
-  const roleOptions: AppRole[] = ["super_admin", "admin", "manager", "sales_agent", "viewer"];
+  const roleOptions: AppRole[] = [
+    "super_admin",
+    "admin",
+    "manager",
+    "sales_agent",
+    "collaborator",
+    "viewer",
+  ];
   const modules: Array<{ key: ModuleKey; label: string }> = [
     { key: "leads", label: "Leads" },
     { key: "clients", label: "Clients" },

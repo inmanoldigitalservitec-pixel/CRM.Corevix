@@ -18,8 +18,6 @@ import {
   Image,
   LayoutDashboard,
   LifeBuoy,
-  Mail,
-  MessageCircle,
   Package,
   Receipt,
   ReceiptText,
@@ -59,6 +57,28 @@ type CollapsedFlyoutProps = {
   items: SidebarItem[];
   itemLabel: (item: SidebarItem) => string;
 };
+
+function MetaIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <img
+      src="/meta-platforms-logo.svg"
+      alt=""
+      aria-hidden="true"
+      className={`${className} object-contain`}
+    />
+  );
+}
+
+function GmailIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <img
+      src="/gmail-2026-logo.svg"
+      alt=""
+      aria-hidden="true"
+      className={`${className} object-contain`}
+    />
+  );
+}
 
 const mainItems: SidebarItem[] = [
   {
@@ -101,12 +121,18 @@ const salesItems: SidebarItem[] = [
 
 const communicationItems: SidebarItem[] = [
   {
-    titleKey: "nav.whatsappInbox",
-    url: "/whatsapp-web",
-    icon: MessageCircle,
+    title: "TeamChat",
+    url: "/internal-chat",
+    icon: Users,
     iconClassName: "text-blue-600",
   },
-  { titleKey: "nav.emailInbox", url: "/email", icon: Mail, iconClassName: "text-sky-600" },
+  {
+    title: "Meta Inbox",
+    url: "/whatsapp-web",
+    icon: MetaIcon,
+    iconClassName: "text-[#0866ff]",
+  },
+  { titleKey: "nav.emailInbox", url: "/email", icon: GmailIcon },
 ];
 
 const operationsItems: SidebarItem[] = [
@@ -432,7 +458,7 @@ export function AppSidebar() {
         {isCollapsedDesktop
           ? renderCollapsibleGroup({
               label: "Comunicación",
-              icon: MessageCircle,
+              icon: Users,
               open: communicationOpen,
               setOpen: setCommunicationOpen,
               active: isCommunicationPath,

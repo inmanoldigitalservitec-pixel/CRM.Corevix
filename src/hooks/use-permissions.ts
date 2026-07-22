@@ -2,9 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "super_admin" | "admin" | "manager" | "sales_agent" | "viewer";
+export type AppRole =
+  | "super_admin"
+  | "admin"
+  | "manager"
+  | "sales_agent"
+  | "collaborator"
+  | "viewer";
 
-const ROLE_PRIORITY: AppRole[] = ["super_admin", "admin", "manager", "sales_agent", "viewer"];
+const ROLE_PRIORITY: AppRole[] = [
+  "super_admin",
+  "admin",
+  "manager",
+  "sales_agent",
+  "collaborator",
+  "viewer",
+];
 
 export function getEffectiveRole(roles: string[] | null | undefined): AppRole {
   const set = new Set((roles || []) as string[]);
@@ -107,8 +120,10 @@ export function usePermissions() {
     if (action === "create") return row.can_create;
     if (action === "edit") return row.can_edit;
     if (action === "delete") return row.can_delete;
-    if (action === "view_all") return row.can_view && role !== "sales_agent";
-    if (action === "view_assigned") return row.can_view && role === "sales_agent";
+    if (action === "view_all")
+      return row.can_view && role !== "sales_agent" && role !== "collaborator";
+    if (action === "view_assigned")
+      return row.can_view && (role === "sales_agent" || role === "collaborator");
     return null;
   };
 
@@ -124,7 +139,8 @@ export function usePermissions() {
         // Enforce invariant roles even if the table is misconfigured.
         if (role === "viewer" && !key.endsWith(".view_all") && key !== "settings.view")
           return false;
-        if (role === "sales_agent" && key.endsWith(".delete")) return false;
+        if ((role === "sales_agent" || role === "collaborator") && key.endsWith(".delete"))
+          return false;
         return fromDb;
       }
 
@@ -135,7 +151,7 @@ export function usePermissions() {
         return true;
       }
 
-      if (role === "sales_agent") {
+      if (role === "sales_agent" || role === "collaborator") {
         if (key === "team.view" || key === "team.manage") return false;
         if (key === "settings.view" || key === "settings.manage") return false;
         if (key.endsWith(".delete")) return false;

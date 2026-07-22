@@ -954,8 +954,7 @@ export function buildAttentionFeed(input: BuildAttentionFeedInput): ScoredAttent
   const inboxPendingTotal =
     input.conversations.whatsappOpen +
     input.conversations.messengerOpen +
-    input.conversations.instagramOpen +
-    input.conversations.emailOpen;
+    input.conversations.instagramOpen;
   events.push({
     ...interpretedEvent({
       id: "inbox:pending",
@@ -964,42 +963,41 @@ export function buildAttentionFeed(input: BuildAttentionFeedInput): ScoredAttent
       source: {
         type: "conversation_inbox",
         id: null,
-        label: "Bandeja pendiente",
-        href: "/whatsapp",
+        label: "Meta Inbox pendiente",
+        href: "/whatsapp-web",
       },
       signal: {
         key: "wa_open",
-        label: "Conversaciones abiertas",
+        label: "Conversaciones Meta abiertas",
         reason:
           inboxPendingTotal > 0
-            ? "Hay conversaciones abiertas que necesitan respuesta."
-            : "No hay conversaciones pendientes.",
+            ? "Hay conversaciones de Meta que necesitan respuesta."
+            : "No hay conversaciones Meta pendientes.",
         timing: "open",
         recommendedAction: "Responder o reasignar la conversación.",
       },
       context: {
         urgencyReason:
           inboxPendingTotal > 0
-            ? "Hay conversaciones abiertas que necesitan respuesta."
-            : "No hay conversaciones pendientes.",
+            ? "Hay conversaciones de Meta que necesitan respuesta."
+            : "No hay conversaciones Meta pendientes.",
         recommendation: "Responder o reasignar la conversación.",
         metadata: {
           whatsappOpen: input.conversations.whatsappOpen,
           messengerOpen: input.conversations.messengerOpen,
           instagramOpen: input.conversations.instagramOpen,
-          emailOpen: input.conversations.emailOpen,
         },
       },
-      title: "Bandeja pendiente",
+      title: "Meta Inbox pendiente",
       summary:
         inboxPendingTotal > 0
           ? `${input.conversations.whatsappOpen} WhatsApp, ${
               input.conversations.messengerOpen + input.conversations.instagramOpen
-            } redes y ${input.conversations.emailOpen} email abiertos`
-          : "Sin mensajes pendientes",
+            } redes abiertas`
+          : "Sin mensajes Meta pendientes",
       severity: inboxPendingTotal > 0 ? "medium" : "low",
       count: inboxPendingTotal,
-      href: "/whatsapp",
+      href: "/whatsapp-web",
       unreadCount: inboxPendingTotal,
     }),
   });

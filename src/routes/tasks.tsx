@@ -1,15 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  CheckCircle2,
-  CheckSquare,
-  Download,
-  Minus,
-  MoreHorizontal,
-  Paperclip,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { CheckCircle2, CheckSquare, Download, Minus, Paperclip, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -19,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -31,13 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/crm/page-header";
 import { GlobalKpiStrip, type GlobalKpiItem } from "@/components/crm/global-kpi-strip";
@@ -149,7 +133,15 @@ type ProfileRow = {
   user_id: string | null;
   full_name: string | null;
   email: string | null;
+  avatar_url: string | null;
   is_active?: boolean | null;
+};
+type TaskAssigneeRow = {
+  id: string;
+  company_id: string;
+  task_id: string;
+  user_id: string;
+  created_at: string;
 };
 type DriveFileRow = {
   id: string;
@@ -292,13 +284,74 @@ function getInitials(value: string) {
   return (parts[0]?.[0] || "U") + (parts[1]?.[0] || "");
 }
 
-function priorityClass(priority: string | null | undefined) {
+function AssigneeAvatarStack({
+  assignees,
+  label,
+  maxVisible = 5,
+}: {
+  assignees: ProfileRow[];
+  label: string;
+  maxVisible?: number;
+}) {
+  if (!assignees.length) {
+    return (
+      <div className="flex items-center" title="Sin asignar" aria-label="Sin asignar">
+        <span className="grid h-8 w-8 place-items-center rounded-full border border-dashed border-slate-200 bg-slate-50 text-[11px] font-normal text-slate-400">
+          —
+        </span>
+      </div>
+    );
+  }
+
+  const visible = assignees.slice(0, maxVisible);
+  const hiddenCount = Math.max(0, assignees.length - visible.length);
+
+  return (
+    <div className="flex min-w-[96px] items-center pl-2" title={label} aria-label={label}>
+      {visible.map((assignee, index) => {
+        const name = String(assignee.full_name || assignee.email || "Usuario").trim();
+        return (
+          <Avatar
+            key={`${assignee.id}-${assignee.user_id || index}`}
+            className="-ml-2 h-8 w-8 border-2 border-white bg-white shadow-sm ring-1 ring-slate-100"
+            title={name}
+          >
+            {assignee.avatar_url ? (
+              <AvatarImage src={assignee.avatar_url} alt={name} className="object-cover" />
+            ) : null}
+            <AvatarFallback className="bg-slate-50 text-[11px] font-normal text-slate-600">
+              {getInitials(name).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        );
+      })}
+      {hiddenCount > 0 ? (
+        <span
+          className="-ml-2 grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-slate-100 text-[11px] font-normal text-slate-600 shadow-sm ring-1 ring-slate-100"
+          title={label}
+        >
+          +{hiddenCount}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function statusSelectClass(status: string | null | undefined) {
+  const s = String(status || "").toLowerCase();
+  if (s === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (s === "in progress") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (s === "cancelled" || s === "canceled") return "border-slate-200 bg-slate-100 text-slate-600";
+  return "border-slate-200 bg-white text-slate-700";
+}
+
+function prioritySelectClass(priority: string | null | undefined) {
   const p = String(priority || "").toLowerCase();
-  if (p === "urgent") return "text-rose-600";
-  if (p === "high") return "text-orange-600";
-  if (p === "medium") return "text-blue-600";
-  if (p === "low") return "text-slate-500";
-  return "text-slate-600";
+  if (p === "urgent") return "border-rose-200 bg-rose-50 text-rose-600";
+  if (p === "high") return "border-orange-200 bg-orange-50 text-orange-600";
+  if (p === "medium") return "border-blue-200 bg-blue-50 text-blue-600";
+  if (p === "low") return "border-slate-200 bg-white text-slate-600";
+  return "border-slate-200 bg-white text-slate-600";
 }
 
 function taskRiskTone(value: number, warningAt: number, dangerAt: number) {
@@ -359,7 +412,6 @@ function TasksPage() {
     }
   }, []);
   const handledDeepLinkTaskRef = useRef(false);
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -370,7 +422,6 @@ function TasksPage() {
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [presetProjectId, setPresetProjectId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
@@ -411,10 +462,18 @@ function TasksPage() {
   });
   const { data: profiles } = useCrud<ProfileRow>({
     table: "profiles",
-    select: "id, user_id, full_name, email, is_active",
+    select: "id, user_id, full_name, email, avatar_url, is_active",
     orderBy: "full_name",
     ascending: true,
     limit: 500,
+  });
+  const { data: taskAssignees, fetch: fetchTaskAssignees } = useCrud<TaskAssigneeRow>({
+    table: "task_assignees",
+    select: "id,company_id,task_id,user_id,created_at",
+    orderBy: "created_at",
+    ascending: true,
+    limit: 2000,
+    enabled: tasks.length > 0,
   });
   const { data: taskDriveFilesIndex } = useCrud<
     Pick<DriveFileRow, "id" | "linked_id" | "linked_type"> & {
@@ -459,6 +518,23 @@ function TasksPage() {
     }
     return map;
   }, [profiles]);
+  const taskAssigneesByTaskId = useMemo(() => {
+    const map = new Map<string, TaskAssigneeRow[]>();
+    for (const row of taskAssignees) {
+      const current = map.get(row.task_id) || [];
+      current.push(row);
+      map.set(row.task_id, current);
+    }
+    return map;
+  }, [taskAssignees]);
+  const taskAssignedUserIds = (task: Task) => {
+    const ids = new Set<string>();
+    if (task.assigned_to) ids.add(String(task.assigned_to));
+    for (const row of taskAssigneesByTaskId.get(task.id) || []) {
+      if (row.user_id) ids.add(String(row.user_id));
+    }
+    return ids;
+  };
 
   const projectOptions = useMemo(() => {
     const opts = projects
@@ -473,7 +549,6 @@ function TasksPage() {
   }, [projects]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const todayKey = isoTodayLocal();
     const weekKey = addDaysKeyLocal(7);
     const myAnyId = new Set<string>(
@@ -484,11 +559,7 @@ function TasksPage() {
 
     return tasks.filter((task) => {
       const project = task.related_project_id ? projectsById.get(task.related_project_id) : null;
-      const clientId = task.related_client_id || project?.client_id || null;
-      const client = clientId ? clientsById.get(clientId) : null;
       const projectId = task.related_project_id || NO_PROJECT;
-      const haystack =
-        `${task.title} ${task.description || ""} ${project?.name || ""} ${client?.company_name || ""}`.toLowerCase();
       const dueKey = toDateKeyLocal(task.due_date);
       const isActive = !isClosedTaskStatusValue(task.status);
 
@@ -501,14 +572,12 @@ function TasksPage() {
           !!dueKey &&
           dueKey >= todayKey &&
           dueKey <= weekKey) ||
-        (quickFilter === "unassigned" && isActive && !task.assigned_to) ||
+        (quickFilter === "unassigned" && isActive && taskAssignedUserIds(task).size === 0) ||
         (quickFilter === "mine" &&
           isActive &&
-          !!task.assigned_to &&
-          myAnyId.has(String(task.assigned_to)));
+          Array.from(taskAssignedUserIds(task)).some((id) => myAnyId.has(id)));
 
       return (
-        (!q || haystack.includes(q)) &&
         (statusFilter === "all" ||
           String(task.status || "")
             .trim()
@@ -522,16 +591,15 @@ function TasksPage() {
       );
     });
   }, [
-    clientsById,
     priorityFilter,
     profile?.id,
     profile?.user_id,
     projectFilter,
     projectsById,
     quickFilter,
-    search,
     statusFilter,
     tasks,
+    taskAssigneesByTaskId,
     user?.id,
   ]);
 
@@ -562,11 +630,11 @@ function TasksPage() {
         return !!key && key === todayKey;
       }).length,
       inProgress,
-      unassigned: active.filter((t) => !t.assigned_to).length,
+      unassigned: active.filter((t) => taskAssignedUserIds(t).size === 0).length,
       completed,
       activeProjects,
     };
-  }, [projects, tasks]);
+  }, [projects, tasks, taskAssigneesByTaskId]);
 
   const mobileKpiItems = useMemo<GlobalKpiItem[]>(
     () => [
@@ -627,10 +695,16 @@ function TasksPage() {
     const clientId = task.related_client_id || project?.client_id || null;
     const client = clientId ? clientsById.get(clientId) || null : null;
     const product = project?.product_id ? productsById.get(project.product_id) || null : null;
-    const assignee = task.assigned_to ? assigneesByAnyId.get(task.assigned_to) || null : null;
-    const assigneeLabel = assignee
-      ? String(assignee.full_name || assignee.email || "").trim() || "Sin asignar"
-      : "Sin asignar";
+    const assigneeProfiles = Array.from(taskAssignedUserIds(task))
+      .map((id) => assigneesByAnyId.get(id) || null)
+      .filter((item): item is ProfileRow => Boolean(item));
+    const assigneeLabel =
+      assigneeProfiles.length > 0
+        ? assigneeProfiles
+            .map((assignee) => String(assignee.full_name || assignee.email || "").trim())
+            .filter(Boolean)
+            .join(", ")
+        : "Sin asignar";
     const dueKey = toDateKeyLocal(task.due_date);
     const todayKey = isoTodayLocal();
     const isActive = !isClosedTaskStatusValue(task.status);
@@ -638,7 +712,9 @@ function TasksPage() {
       project,
       client,
       product,
+      assigneeProfiles,
       assigneeLabel,
+      assigneeCount: assigneeProfiles.length,
       filesCount: driveFileCountByTaskId.get(task.id) || 0,
       isOverdue: isActive && !!dueKey && dueKey < todayKey,
       isDueToday: isActive && !!dueKey && dueKey === todayKey,
@@ -685,6 +761,21 @@ function TasksPage() {
       toast.success("Estado actualizado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar la tarea.");
+    }
+  };
+
+  const updateTaskPriorityInline = async (task: Task, nextPriority: string) => {
+    if (!can("tasks.edit")) {
+      toast.error("No tienes permiso para editar tareas.");
+      return;
+    }
+    try {
+      await update(task.id, { priority: nextPriority } as Partial<Task>);
+      if (selectedTask?.id === task.id)
+        setSelectedTask((prev) => (prev ? { ...prev, priority: nextPriority } : prev));
+      toast.success("Prioridad actualizada.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar la prioridad.");
     }
   };
 
@@ -760,23 +851,6 @@ function TasksPage() {
       setDialogOpen(false);
       setEditTask(null);
       setPresetProjectId(null);
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    if (!can("tasks.delete")) {
-      toast.error("No tienes permiso para eliminar");
-      return;
-    }
-    try {
-      await remove(deleteId);
-      toast.success("Tarea eliminada.");
-      setDeleteId(null);
-      setSelectedTask(null);
-      setSelectedIds((current) => current.filter((id) => id !== deleteId));
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -940,68 +1014,6 @@ function TasksPage() {
     ? productsById.get(selectedProject.product_id) || null
     : null;
 
-  const renderTaskActions = (task: Task) => (
-    <div className="flex justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 rounded-full border-slate-200 bg-white px-2 font-normal shadow-none"
-        onClick={() => setSelectedTask(task)}
-      >
-        Abrir
-      </Button>
-      {!isClosedTaskStatusValue(task.status) ? (
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 rounded-full bg-blue-600 px-2 font-normal text-white shadow-none hover:bg-blue-700"
-          onClick={() => void updateTaskStatusInline(task, "Completed")}
-        >
-          Completar
-        </Button>
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 rounded-full border-slate-200 bg-white px-0 shadow-none"
-            aria-label="Más acciones"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onSelect={() => void updateTaskStatusInline(task, "In Progress")}
-            disabled={isInProgressTaskStatusValue(task.status)}
-          >
-            Marcar en progreso
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {can("tasks.edit") ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                setEditTask(task);
-                setPresetProjectId(null);
-                setDialogOpen(true);
-              }}
-            >
-              Editar
-            </DropdownMenuItem>
-          ) : null}
-          {can("tasks.delete") ? (
-            <DropdownMenuItem className="text-destructive" onSelect={() => setDeleteId(task.id)}>
-              Eliminar
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-
   return (
     <div className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
       <GlobalKpiStrip
@@ -1135,13 +1147,6 @@ function TasksPage() {
                   <Plus className="mr-2 h-4 w-4" /> Nueva tarea
                 </Button>
               ) : null}
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar tareas..."
-                className="h-9 w-64 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 w-[170px] shrink-0 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
                   <SelectValue placeholder="Estado" />
@@ -1289,11 +1294,10 @@ function TasksPage() {
                       <TableHead className="min-w-[140px]">Estado</TableHead>
                       <TableHead className="min-w-[115px]">Inicio</TableHead>
                       <TableHead className="min-w-[115px]">Vencimiento</TableHead>
-                      <TableHead className="min-w-[120px]">Asignada a</TableHead>
+                      <TableHead className="min-w-[115px]">Asignada a</TableHead>
                       <TableHead className="min-w-[170px]">Proyecto / Cliente</TableHead>
                       <TableHead className="min-w-[90px]">Archivos</TableHead>
                       <TableHead className="min-w-[100px]">Prioridad</TableHead>
-                      <TableHead className="w-[190px] text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1333,8 +1337,26 @@ function TasksPage() {
                               {task.description || "Sin descripción."}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <StatusBadge status={task.status} />
+                          <TableCell onClick={(event) => event.stopPropagation()}>
+                            <Select
+                              value={task.status || "To Do"}
+                              onValueChange={(value) => void updateTaskStatusInline(task, value)}
+                              disabled={!can("tasks.edit")}
+                            >
+                              <SelectTrigger
+                                className={`h-8 w-[132px] rounded-lg px-3 text-xs font-normal shadow-none ${statusSelectClass(task.status)}`}
+                                aria-label="Cambiar estado"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TASK_STATUSES.map((status) => (
+                                  <SelectItem key={status} value={status}>
+                                    {displayLabel(status)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="text-sm font-normal text-slate-600">
                             {formatShortDate(task.created_at?.slice(0, 10))}
@@ -1343,14 +1365,10 @@ function TasksPage() {
                             {formatShortDate(task.due_date)}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span className="grid h-7 w-7 place-items-center rounded-full border border-slate-100 bg-white text-[11px] font-normal text-slate-600">
-                                {getInitials(meta.assigneeLabel)}
-                              </span>
-                              <span className="max-w-[120px] truncate text-sm font-normal text-slate-700">
-                                {meta.assigneeLabel}
-                              </span>
-                            </div>
+                            <AssigneeAvatarStack
+                              assignees={meta.assigneeProfiles}
+                              label={meta.assigneeLabel}
+                            />
                           </TableCell>
                           <TableCell>
                             <div className="max-w-[180px] truncate text-sm font-normal text-slate-800">
@@ -1366,12 +1384,27 @@ function TasksPage() {
                               {meta.filesCount || "—"}
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <span className={`text-sm font-normal ${priorityClass(task.priority)}`}>
-                              {task.priority || "—"}
-                            </span>
+                          <TableCell onClick={(event) => event.stopPropagation()}>
+                            <Select
+                              value={task.priority || "Medium"}
+                              onValueChange={(value) => void updateTaskPriorityInline(task, value)}
+                              disabled={!can("tasks.edit")}
+                            >
+                              <SelectTrigger
+                                className={`h-8 w-[112px] rounded-lg px-3 text-xs font-normal shadow-none ${prioritySelectClass(task.priority)}`}
+                                aria-label="Cambiar prioridad"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PRIORITIES.map((priority) => (
+                                  <SelectItem key={priority} value={priority}>
+                                    {displayLabel(priority)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
-                          <TableCell className="text-right">{renderTaskActions(task)}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -1399,6 +1432,7 @@ function TasksPage() {
         canCreate={can("tasks.create")}
         onCreated={async (task) => {
           await fetchTasks();
+          await fetchTaskAssignees();
           void sendTaskNotification(
             "Tarea creada",
             `${task.title || "Tarea sin título"} fue creada.`,
@@ -1531,8 +1565,10 @@ function TasksPage() {
         fileInputRef={fileInputRef}
         onUpdateTask={async (taskId, patch) => {
           await update(taskId, patch as Partial<Task>);
+          await fetchTaskAssignees();
           setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...patch } : prev));
         }}
+        onAssigneesChanged={fetchTaskAssignees}
         onComplete={() => updateSelectedTaskStatus("Completed")}
         onSetInProgress={() => updateSelectedTaskStatus("In Progress")}
         onDriveUrlChange={setDriveUrlInput}
@@ -1548,26 +1584,6 @@ function TasksPage() {
           await deleteDriveFile(file as DriveFileRow);
         }}
       />
-
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar tarea</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. La tarea será eliminada permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void handleDelete()}
-              className="bg-red-600 text-white"
-            >
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>

@@ -206,7 +206,8 @@ export function WhatsappContactPanel({
   const [creatingLeadFromWhatsapp, setCreatingLeadFromWhatsapp] = useState(false);
 
   const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
-  const isSalesAgent = roles?.includes("sales_agent") ?? false;
+  const isSalesAgent =
+    roles?.some((role) => role === "sales_agent" || role === "collaborator") ?? false;
   const isViewer = roles?.includes("viewer") ?? false;
 
   const [products, setProducts] = useState<ProductRow[]>([]);
@@ -256,7 +257,7 @@ export function WhatsappContactPanel({
   }, [team]);
 
   const assignableMembers = useMemo(() => {
-    const allowed = new Set(["sales_agent", "manager", "admin", "super_admin"]);
+    const allowed = new Set(["sales_agent", "collaborator", "manager", "admin", "super_admin"]);
     return team.filter((m) => m.is_active && allowed.has(m.role));
   }, [team]);
 

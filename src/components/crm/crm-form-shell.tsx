@@ -35,7 +35,8 @@ export const crmFormStyles = {
     "h-12 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-base font-normal shadow-none focus:ring-0 focus:ring-offset-0 sm:rounded-xl sm:border sm:px-3 sm:text-sm",
   textarea:
     "min-h-24 resize-none rounded-none border-0 border-b border-slate-200 bg-white px-0 py-3 text-base font-normal shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:rounded-xl sm:border sm:px-3 sm:text-sm",
-  footer: "flex items-center justify-end gap-2 border-t border-slate-100 pt-4",
+  footer:
+    "sticky bottom-0 z-10 flex items-center justify-end gap-2 border-t border-slate-100 bg-white/95 pt-4 backdrop-blur",
   cancelButton: "font-normal",
   primaryButton: "rounded-full bg-[#1d62f9] px-5 font-normal hover:bg-[#0f52dd]",
 };
@@ -57,7 +58,7 @@ export function CrmCreationDialog({
         className={cn(
           "flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none",
           "max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none",
-          "sm:h-auto sm:max-h-[90vh] sm:w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-slate-200",
+          "sm:h-[min(760px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-slate-200",
           dialogSizeClass[size],
           contentClassName,
         )}

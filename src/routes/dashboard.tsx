@@ -141,6 +141,11 @@ type TaskRow = {
   related_project_id: string | null;
   related_deal_id: string | null;
 };
+type TaskAssigneeRow = {
+  id: string;
+  task_id: string;
+  user_id: string;
+};
 
 type ProjectRow = {
   id: string;
@@ -1504,6 +1509,7 @@ function DashboardPage() {
   const [clientsCount, setClientsCount] = useState(0);
   const [deals, setDeals] = useState<DealRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [taskAssignees, setTaskAssignees] = useState<TaskAssigneeRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
@@ -1695,6 +1701,7 @@ function DashboardPage() {
           .select("id,full_name,email,user_id,is_active")
           .eq("company_id", cid)
           .limit(250),
+        db.from("task_assignees").select("id,task_id,user_id").eq("company_id", cid).limit(2000),
       ]);
 
       const getData = <T,>(index: number): T[] => {
@@ -1738,6 +1745,7 @@ function DashboardPage() {
       setClientProducts(getData<ClientProductRow>(15));
       setProductSummaries(getData<ProductSummaryRow>(16));
       setProfileSummaries(getData<ProfileSummaryRow>(17));
+      setTaskAssignees(getData<TaskAssigneeRow>(18));
 
       const actRows = getData<ActivityLogRow>(13);
       setActivities(
@@ -1996,9 +2004,8 @@ function DashboardPage() {
   const instagramOpen = metaConversations.filter(
     (c) => String(c.platform).toLowerCase() === "instagram" && isOpenConversationStatus(c.status),
   ).length;
-  const inboxPendingTotal = waOpen + messengerOpen + instagramOpen + emailOpen;
-  const inboxConversationTotal =
-    waConversations.length + metaConversations.length + emailConversations.length;
+  const inboxPendingTotal = waOpen + messengerOpen + instagramOpen;
+  const inboxConversationTotal = waConversations.length + metaConversations.length;
 
   const projectsActiveCount = projects.filter((p) => isActiveProjectStatus(p.status)).length;
   const projectsAtRisk = projects.filter((p) => {
@@ -2323,13 +2330,13 @@ function DashboardPage() {
     priorities.push({
       key: "wa_open",
       icon: MessageCircle,
-      title: "Conversaciones sin responder",
-      description: "Atiende WhatsApp y Email abiertos para no perder intención comercial.",
+      title: "Meta Inbox pendiente",
+      description: "Atiende WhatsApp, Messenger e Instagram para no perder intención comercial.",
       urgency: "media",
       count: inboxPendingTotal,
       variant: priorityVariantFromKey("wa_open"),
-      ctaLabel: "Abrir inbox",
-      to: "/whatsapp",
+      ctaLabel: "Abrir Meta Inbox",
+      to: "/whatsapp-web",
     });
   }
   if (projectsAtRisk.length > 0) {
@@ -2490,7 +2497,7 @@ function DashboardPage() {
         channel: "WhatsApp",
         preview: c.last_message || "Sin mensaje reciente.",
         at: c.last_message_at || "",
-        to: "/whatsapp",
+        to: "/whatsapp-web",
       })),
     ...metaConversations
       .filter((c) => isOpenConversationStatus(c.status))
@@ -2505,18 +2512,7 @@ function DashboardPage() {
         channel: String(c.platform).toLowerCase() === "instagram" ? "Instagram" : "Messenger",
         preview: c.last_message_text || "Sin mensaje reciente.",
         at: c.last_message_at || c.created_at || "",
-        to: "/whatsapp",
-      })),
-    ...emailConversations
-      .filter((c) => isOpenConversationStatus(c.status))
-      .slice(0, 3)
-      .map((c) => ({
-        id: `em:${c.id}`,
-        name: "Email",
-        channel: "Email",
-        preview: c.subject || "Sin asunto.",
-        at: c.last_message_at || "",
-        to: "/email",
+        to: "/whatsapp-web",
       })),
   ].slice(0, 6);
 
@@ -2721,10 +2717,10 @@ function DashboardPage() {
       icon: FileText,
     },
     {
-      label: "Mensajes",
+      label: "Meta Inbox",
       value: dashboardKpiRatio(inboxPendingTotal, inboxConversationTotal),
       helper: "Por atender",
-      progressLabel: inboxPendingTotal ? `Faltan ${inboxPendingTotal}` : "Bandeja limpia",
+      progressLabel: inboxPendingTotal ? `Faltan ${inboxPendingTotal}` : "Meta limpio",
       progressCurrent: inboxPendingTotal,
       progressTotal: Math.max(inboxConversationTotal, inboxPendingTotal, 1),
       tone: inboxPendingTotal ? ("red" as const) : ("neutral" as const),
@@ -3128,8 +3124,26 @@ function DashboardPage() {
 
   const openTasks = tasks.filter((task) => !isCompletedTaskStatus(task.status));
   const completedTasks = tasks.filter((task) => isCompletedTaskStatus(task.status));
+  const currentUserTaskIds = new Set(
+    [user?.id, profile?.user_id, profile?.id].filter(Boolean).map((id) => String(id)),
+  );
+  const taskAssigneesByTaskId = taskAssignees.reduce((map, row) => {
+    const current = map.get(row.task_id) || [];
+    current.push(row.user_id);
+    map.set(row.task_id, current);
+    return map;
+  }, new Map<string, string[]>());
+  const isTaskAssignedToCurrentUser = (task: TaskRow) => {
+    const assignedIds = [task.assigned_to, ...(taskAssigneesByTaskId.get(task.id) || [])].filter(
+      Boolean,
+    );
+    return assignedIds.some((userId) => currentUserTaskIds.has(String(userId)));
+  };
+  const myOpenTasks = openTasks.filter(isTaskAssignedToCurrentUser);
+  const myCompletedTasks = completedTasks.filter(isTaskAssignedToCurrentUser);
+  const teamOpenTasksCount = Math.max(openTasks.length - myOpenTasks.length, 0);
   const dashboardV2TodoItems = {
-    pending: openTasks.slice(0, 8).map((task) => ({
+    pending: myOpenTasks.slice(0, 8).map((task) => ({
       id: task.id,
       title: task.title || "Tarea sin título",
       subtitle: task.due_date ? formatShortDate(task.due_date) : "Sin fecha",
@@ -3139,7 +3153,7 @@ function DashboardPage() {
       href: "/tasks",
       completed: false,
     })),
-    completed: completedTasks.slice(0, 5).map((task) => ({
+    completed: myCompletedTasks.slice(0, 5).map((task) => ({
       id: task.id,
       title: task.title || "Tarea completada",
       subtitle: task.due_date ? formatShortDate(task.due_date) : task.status || "Completada",
@@ -3147,6 +3161,7 @@ function DashboardPage() {
       href: "/tasks",
       completed: true,
     })),
+    teamPendingCount: teamOpenTasksCount,
   };
 
   const dashboardV2ReportSnapshot: [
@@ -3268,7 +3283,7 @@ function DashboardPage() {
       preview: conversation.last_message || "Sin mensaje reciente.",
       count: String(Number(conversation.unread_count ?? 0)),
       tone: Number(conversation.unread_count ?? 0) > 0 ? "green" : "neutral",
-      href: "/whatsapp",
+      href: "/whatsapp-web",
       at: conversation.last_message_at || "",
       status: conversation.status,
     })),
@@ -3291,23 +3306,11 @@ function DashboardPage() {
               ? "purple"
               : "blue"
             : "neutral",
-        href: "/whatsapp",
+        href: "/whatsapp-web",
         at: conversation.last_message_at || conversation.created_at || "",
         status: conversation.status,
       };
     }),
-    ...emailConversations.map((conversation) => ({
-      id: conversation.id,
-      channelKey: "email" as const,
-      channel: "Email",
-      name: conversation.subject || "Email sin asunto",
-      preview: conversation.status || "Correo pendiente.",
-      count: String(conversation.is_read === false ? 1 : 0),
-      tone: conversation.is_read === false ? "red" : "neutral",
-      href: "/email",
-      at: conversation.last_message_at || "",
-      status: conversation.status,
-    })),
   ]
     .filter(
       (conversation) =>
@@ -3327,6 +3330,25 @@ function DashboardPage() {
       conversation.count,
       conversation.tone,
       conversation.href,
+    ]);
+  const dashboardV2EmailRows: [string, string, string, string, string][] = emailConversations
+    .slice()
+    .sort((a, b) => {
+      if (a.is_read === false && b.is_read !== false) return -1;
+      if (a.is_read !== false && b.is_read === false) return 1;
+      const at = a.last_message_at ? Date.parse(a.last_message_at) : 0;
+      const bt = b.last_message_at ? Date.parse(b.last_message_at) : 0;
+      return bt - at;
+    })
+    .slice(0, dashboardWorkCenterFullLimit)
+    .map((conversation) => [
+      conversation.subject || "Email sin asunto",
+      conversation.last_message_at
+        ? `Recibido ${formatShortDate(conversation.last_message_at)}`
+        : "Sin fecha reciente",
+      conversation.is_read === false ? "No leído" : "Leído",
+      conversation.is_read === false ? "blue" : "neutral",
+      "/email",
     ]);
 
   const workCenterTaskItems = openTasks
@@ -4106,12 +4128,12 @@ function DashboardPage() {
     inboxPendingTotal > 0
       ? {
           type: "messages",
-          title: "Mensajes sin responder",
+          title: "Meta Inbox pendiente",
           value: String(inboxPendingTotal),
-          detail: `WA ${waOpen} · IG ${instagramOpen} · Messenger ${messengerOpen} · Email ${emailOpen}`,
-          href: "/whatsapp",
+          detail: `WA ${waOpen} · IG ${instagramOpen} · Messenger ${messengerOpen}`,
+          href: "/whatsapp-web",
           tone: "red",
-          ctaLabel: "Abrir mensajes",
+          ctaLabel: "Abrir Meta Inbox",
           chart: { kind: "chat" },
           previewItems: latestPendingConversation
             ? [
@@ -4136,12 +4158,9 @@ function DashboardPage() {
       : [
           {
             type: "tasks",
-            title: "Todo está al día",
-            value: "OK",
-            detail: "Tu CRM está limpio y listo para trabajar",
-            href: "/dashboard",
+            title: "Todo está en orden",
+            detail: "No hay pendientes importantes por atender en este momento.",
             tone: "green",
-            ctaLabel: "Abrir dashboard",
             chart: { kind: "none" },
           },
         ];
@@ -4155,6 +4174,7 @@ function DashboardPage() {
     clients: dashboardV2Clients,
     activities: dashboardV2Activities,
     communications: dashboardV2Communications,
+    emailRows: dashboardV2EmailRows,
     leadsAttention: dashboardV2LeadAttention,
     projectRisks: dashboardV2ProjectRisks,
     invoiceRows: dashboardV2InvoiceRows,
@@ -4187,6 +4207,7 @@ function DashboardPage() {
         open={!!selectedDashboardTask}
         onOpenChange={(open) => !open && setSelectedDashboardTask(null)}
         task={selectedDashboardTask}
+        profiles={profileSummaries}
         canEdit
         onUpdateTask={async (taskId, patch) => {
           if (!profile?.company_id) return;
@@ -4203,6 +4224,7 @@ function DashboardPage() {
             current?.id === taskId ? ({ ...current, ...patch } as TaskRow) : current,
           );
         }}
+        onAssigneesChanged={() => setTaskRefreshKey((key) => key + 1)}
         onComplete={async () => {
           if (!selectedDashboardTask?.id) return;
           await updateDashboardTaskStatus(selectedDashboardTask.id, "Completed");
@@ -4738,18 +4760,18 @@ function DashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-[18px] font-semibold tracking-[-0.035em]">
-                      Inbox pendiente
+                      Meta Inbox pendiente
                     </h3>
                     <p className="mt-0.5 text-[13px] font-medium text-[#667085]">
-                      WhatsApp y Email por responder.
+                      WhatsApp, Messenger e Instagram por responder.
                     </p>
                   </div>
                 </div>
                 <Link
-                  to={"/whatsapp" as any}
+                  to={"/whatsapp-web" as any}
                   className="text-[13px] font-extrabold text-[#1d62f9] hover:underline whitespace-nowrap"
                 >
-                  Abrir inbox
+                  Abrir Meta Inbox
                 </Link>
               </div>
 
@@ -4768,12 +4790,12 @@ function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-3 rounded-[16px] border border-[#cfe4ff] bg-[#f0f7ff] p-4">
                     <div className="h-[34px] w-[34px] rounded-[12px] grid place-items-center bg-[#eaf1ff] text-[#1d62f9]">
-                      <FileText className="h-[18px] w-[18px]" />
+                      <MessageCircle className="h-[18px] w-[18px]" />
                     </div>
                     <div>
-                      <strong className="block text-[18px]">{emailOpen}</strong>
+                      <strong className="block text-[18px]">{messengerOpen + instagramOpen}</strong>
                       <span className="block text-[12px] font-bold text-[#667085]">
-                        Emails pendientes
+                        Redes abiertas
                       </span>
                     </div>
                   </div>

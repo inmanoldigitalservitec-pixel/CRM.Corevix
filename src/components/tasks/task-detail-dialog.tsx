@@ -21,12 +21,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   CalendarDays,
+  ChevronDown,
   Check,
   Circle,
   Clock3,
@@ -81,6 +91,7 @@ type TaskEditorDraft = {
   priority: string;
   dueDate: string;
   assignedTo: string;
+  assigneeIds: string[];
   projectId: string;
   clientId: string;
   leadId: string;
@@ -93,6 +104,11 @@ type QuickProfile = {
   full_name: string | null;
   email: string | null;
   is_active?: boolean | null;
+};
+type TaskAssigneeRow = {
+  id: string;
+  task_id: string;
+  user_id: string;
 };
 
 type TaskChecklistItem = {
@@ -177,6 +193,7 @@ type TaskDetailDialogProps = {
   fileInputRef?: RefObject<HTMLInputElement | null>;
 
   onUpdateTask?: (taskId: string, patch: Partial<TaskRow>) => Promise<void>;
+  onAssigneesChanged?: () => void | Promise<void>;
   onComplete?: () => void | Promise<void>;
   onSetInProgress?: () => void | Promise<void>;
   onDriveUrlChange?: (value: string) => void;
@@ -386,11 +403,69 @@ function createEmptyTaskDraft(initialValues: Partial<TaskEditorDraft> = {}): Tas
     priority: initialValues.priority || "Medium",
     dueDate: initialValues.dueDate || "",
     assignedTo: initialValues.assignedTo || UNASSIGNED_VALUE,
+    assigneeIds: normalizeAssigneeIds(initialValues.assigneeIds || initialValues.assignedTo || []),
     projectId: initialValues.projectId || NO_PROJECT_VALUE,
     clientId: initialValues.clientId || NO_CLIENT_VALUE,
     leadId: initialValues.leadId || "",
     dealId: initialValues.dealId || "",
   };
+}
+
+function normalizeAssigneeIds(value: string | string[]) {
+  const raw = Array.isArray(value) ? value : [value];
+  return Array.from(
+    new Set(
+      raw
+        .map((item) => String(item || "").trim())
+        .filter((item) => item && item !== UNASSIGNED_VALUE),
+    ),
+  );
+}
+
+function primaryAssigneeId(assigneeIds: string[]) {
+  return assigneeIds[0] || null;
+}
+
+function profileUserId(profile: QuickProfile) {
+  return String(profile.user_id || profile.id);
+}
+
+function profileDisplayName(profile: QuickProfile) {
+  return String(profile.full_name || profile.email || "Usuario");
+}
+
+function assigneeNamesFromIds(ids: string[], profiles: QuickProfile[]) {
+  if (!ids.length) return "Sin asignar";
+  return ids
+    .map((id) => {
+      const profile = profiles.find((item) => item.id === id || item.user_id === id);
+      return profile ? profileDisplayName(profile) : "Usuario";
+    })
+    .join(", ");
+}
+
+async function syncTaskAssignees(args: {
+  taskId: string;
+  companyId: string;
+  assigneeIds: string[];
+}) {
+  const assigneeIds = normalizeAssigneeIds(args.assigneeIds);
+  const db = supabase as any;
+  const { error: deleteError } = await db
+    .from("task_assignees")
+    .delete()
+    .eq("task_id", args.taskId);
+  if (deleteError) throw deleteError;
+  if (!assigneeIds.length) return;
+  const { data: userData } = await supabase.auth.getUser();
+  const rows = assigneeIds.map((userId) => ({
+    company_id: args.companyId,
+    task_id: args.taskId,
+    user_id: userId,
+    created_by: userData?.user?.id || null,
+  }));
+  const { error: insertError } = await db.from("task_assignees").insert(rows);
+  if (insertError) throw insertError;
 }
 
 async function fetchTaskRelationOptions(companyId: string) {
@@ -845,6 +920,91 @@ function TaskRichTextView({ html, fallback }: { html?: string | null; fallback?:
   );
 }
 
+function TaskAssigneesPicker({
+  value,
+  profiles,
+  onChange,
+}: {
+  value: string[];
+  profiles: QuickProfile[];
+  onChange: (value: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedIds = normalizeAssigneeIds(value);
+  const selectedNames = selectedIds
+    .map((id) => profiles.find((profile) => profile.id === id || profile.user_id === id))
+    .filter((profile): profile is QuickProfile => Boolean(profile));
+  const triggerLabel =
+    selectedNames.length > 0
+      ? selectedNames.map((profile) => profileDisplayName(profile)).join(", ")
+      : "Seleccionar responsables";
+
+  const toggleAssignee = (id: string) => {
+    const checked = selectedIds.includes(id);
+    const next = !checked
+      ? normalizeAssigneeIds([...selectedIds, id])
+      : selectedIds.filter((current) => current !== id);
+    onChange(next);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm font-medium ring-offset-background transition focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <span
+            className={
+              selectedNames.length > 0
+                ? "min-w-0 flex-1 truncate text-slate-900"
+                : "min-w-0 flex-1 truncate text-slate-400"
+            }
+          >
+            {triggerLabel}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Buscar responsable..." />
+          <CommandList>
+            <CommandEmpty>No hay usuarios disponibles.</CommandEmpty>
+            <CommandGroup>
+              {profiles.map((profile) => {
+                const id = profileUserId(profile);
+                const checked = selectedIds.includes(id);
+                return (
+                  <CommandItem
+                    key={profile.id}
+                    value={`${profileDisplayName(profile)} ${profile.email || ""}`}
+                    onSelect={() => toggleAssignee(id)}
+                    className="flex cursor-pointer items-center gap-3 px-3 py-2.5"
+                  >
+                    <span className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600">
+                      {profileDisplayName(profile)
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((part) => part.charAt(0).toUpperCase())
+                        .join("") || "U"}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-semibold text-slate-900">
+                      {profileDisplayName(profile)}
+                    </span>
+                    {checked ? <Check className="h-4 w-4 shrink-0 text-slate-700" /> : null}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function TaskEditorInfoFields({
   draft,
   setDraft,
@@ -907,23 +1067,18 @@ function TaskEditorInfoFields({
         />,
       )}
       {renderEditField(
-        "Assignee",
-        <Select
-          value={draft.assignedTo}
-          onValueChange={(value) => setDraft((d) => ({ ...d, assignedTo: value }))}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Responsable" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={UNASSIGNED_VALUE}>Sin asignar</SelectItem>
-            {profiles.map((p) => (
-              <SelectItem key={p.id} value={String(p.user_id || p.id)}>
-                {String(p.full_name || p.email || "Usuario")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>,
+        "Responsables",
+        <TaskAssigneesPicker
+          value={draft.assigneeIds}
+          profiles={profiles}
+          onChange={(assigneeIds) =>
+            setDraft((d) => ({
+              ...d,
+              assigneeIds,
+              assignedTo: primaryAssigneeId(assigneeIds) || UNASSIGNED_VALUE,
+            }))
+          }
+        />,
       )}
       {renderEditField(
         "Project",
@@ -1144,12 +1299,8 @@ export function TaskCreateDialog({
     ? productsById.get(selectedProject.product_id)?.name || "—"
     : "—";
   const assigneeLabel = useMemo(() => {
-    if (draft.assignedTo === UNASSIGNED_VALUE) return "Sin asignar";
-    const profile = profiles.find(
-      (p) => p.id === draft.assignedTo || p.user_id === draft.assignedTo,
-    );
-    return String(profile?.full_name || profile?.email || "Sin asignar");
-  }, [draft.assignedTo, profiles]);
+    return assigneeNamesFromIds(draft.assigneeIds, profiles);
+  }, [draft.assigneeIds, profiles]);
 
   const resetDraft = () => {
     setDraft(
@@ -1333,7 +1484,7 @@ export function TaskCreateDialog({
         status: draft.status || "To Do",
         priority: draft.priority || "Medium",
         due_date: draft.dueDate || null,
-        assigned_to: draft.assignedTo === UNASSIGNED_VALUE ? null : draft.assignedTo,
+        assigned_to: primaryAssigneeId(draft.assigneeIds),
         related_project_id: draft.projectId === NO_PROJECT_VALUE ? null : draft.projectId,
         related_client_id:
           draft.clientId === NO_CLIENT_VALUE ? selectedProject?.client_id || null : draft.clientId,
@@ -1350,8 +1501,13 @@ export function TaskCreateDialog({
         .single();
       if (error) throw error;
 
-      toast.success("Tarea creada.");
       const createdTask = data as TaskRow;
+      await syncTaskAssignees({
+        taskId: createdTask.id,
+        companyId: createdTask.company_id || companyId,
+        assigneeIds: draft.assigneeIds,
+      });
+      toast.success("Tarea creada.");
       await attachPendingResources(createdTask);
       await onCreated?.(createdTask);
       onOpenChange(false);
@@ -1522,6 +1678,7 @@ export function TaskDetailDialog({
   canEdit = true,
   fileInputRef,
   onUpdateTask,
+  onAssigneesChanged,
   onComplete,
   onSetInProgress,
   onDriveUrlChange,
@@ -1541,6 +1698,7 @@ export function TaskDetailDialog({
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
   const [driveFiles, setDriveFiles] = useState<DriveFileRow[]>([]);
+  const [taskAssignees, setTaskAssignees] = useState<TaskAssigneeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [newChecklistTitle, setNewChecklistTitle] = useState("");
@@ -1586,12 +1744,15 @@ export function TaskDetailDialog({
     : "—";
 
   const assigneeLabel = useMemo(() => {
-    if (!task?.assigned_to) return "Sin asignar";
-    const profile = profiles.find(
-      (p) => p.id === task.assigned_to || p.user_id === task.assigned_to,
+    const assigneeIds = normalizeAssigneeIds(
+      taskAssignees.length
+        ? taskAssignees.map((row) => row.user_id)
+        : task?.assigned_to
+          ? [task.assigned_to]
+          : [],
     );
-    return String(profile?.full_name || profile?.email || "Sin asignar");
-  }, [profiles, task?.assigned_to]);
+    return assigneeNamesFromIds(assigneeIds, profiles);
+  }, [profiles, task?.assigned_to, taskAssignees]);
 
   const completedChecklist = checklist.filter((item) => item.is_completed).length;
   const checklistProgress = checklist.length
@@ -1604,6 +1765,7 @@ export function TaskDetailDialog({
     setComments([]);
     setActivity([]);
     setDriveFiles([]);
+    setTaskAssignees([]);
     setMessage(null);
     setEditing(false);
     setPreviewFile(null);
@@ -1623,35 +1785,41 @@ export function TaskDetailDialog({
   };
 
   const loadTaskDetails = async (taskId: string) => {
-    const [checklistResult, commentsResult, activityResult, driveResult] = await Promise.all([
-      (supabase as any)
-        .from("task_checklist_items")
-        .select("id,task_id,title,is_completed,order_index,created_at")
-        .eq("task_id", taskId)
-        .order("order_index", { ascending: true })
-        .order("created_at", { ascending: true }),
-      (supabase as any)
-        .from("task_comments")
-        .select("id,task_id,body,created_by,created_at")
-        .eq("task_id", taskId)
-        .order("created_at", { ascending: false })
-        .limit(8),
-      (supabase as any)
-        .from("task_activity_events")
-        .select("id,task_id,event_type,title,description,metadata,created_by,created_at")
-        .eq("task_id", taskId)
-        .order("created_at", { ascending: false })
-        .limit(12),
-      (supabase as any)
-        .from("drive_files")
-        .select(
-          "id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,created_at",
-        )
-        .eq("linked_type", "task")
-        .eq("linked_id", taskId)
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+    const [checklistResult, commentsResult, activityResult, driveResult, assigneesResult] =
+      await Promise.all([
+        (supabase as any)
+          .from("task_checklist_items")
+          .select("id,task_id,title,is_completed,order_index,created_at")
+          .eq("task_id", taskId)
+          .order("order_index", { ascending: true })
+          .order("created_at", { ascending: true }),
+        (supabase as any)
+          .from("task_comments")
+          .select("id,task_id,body,created_by,created_at")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: false })
+          .limit(8),
+        (supabase as any)
+          .from("task_activity_events")
+          .select("id,task_id,event_type,title,description,metadata,created_by,created_at")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: false })
+          .limit(12),
+        (supabase as any)
+          .from("drive_files")
+          .select(
+            "id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,created_at",
+          )
+          .eq("linked_type", "task")
+          .eq("linked_id", taskId)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        (supabase as any)
+          .from("task_assignees")
+          .select("id,task_id,user_id")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: true }),
+      ]);
 
     if (!checklistResult.error)
       setChecklist(Array.isArray(checklistResult.data) ? checklistResult.data : []);
@@ -1661,12 +1829,27 @@ export function TaskDetailDialog({
       setActivity(Array.isArray(activityResult.data) ? activityResult.data : []);
     if (!driveResult.error && !propDriveFiles)
       setDriveFiles(Array.isArray(driveResult.data) ? driveResult.data : []);
+    if (!assigneesResult.error) {
+      const rows = Array.isArray(assigneesResult.data) ? assigneesResult.data : [];
+      setTaskAssignees(rows as TaskAssigneeRow[]);
+      setDraft((current) => {
+        const assigneeIds = normalizeAssigneeIds(
+          rows.length ? rows.map((row: TaskAssigneeRow) => row.user_id) : current.assigneeIds,
+        );
+        return {
+          ...current,
+          assigneeIds,
+          assignedTo: primaryAssigneeId(assigneeIds) || UNASSIGNED_VALUE,
+        };
+      });
+    }
 
     const errors = [
       checklistResult.error,
       commentsResult.error,
       activityResult.error,
       driveResult.error,
+      assigneesResult.error,
     ].filter(Boolean);
     setMessage(errors[0]?.message || null);
   };
@@ -1687,6 +1870,7 @@ export function TaskDetailDialog({
       priority: loadedTask.priority || "Medium",
       dueDate: loadedTask.due_date || "",
       assignedTo: loadedTask.assigned_to || UNASSIGNED_VALUE,
+      assigneeIds: normalizeAssigneeIds(loadedTask.assigned_to || []),
       projectId: loadedTask.related_project_id || NO_PROJECT_VALUE,
       clientId: loadedTask.related_client_id || NO_CLIENT_VALUE,
       leadId: "",
@@ -1806,6 +1990,7 @@ export function TaskDetailDialog({
 
   const saveInlineEdit = async () => {
     if (!task?.id) return;
+    const primaryAssignee = primaryAssigneeId(draft.assigneeIds);
     await updateTask({
       title: draft.title.trim() || "Sin título",
       description: draft.description.trim() || null,
@@ -1813,10 +1998,17 @@ export function TaskDetailDialog({
       status: draft.status,
       priority: draft.priority,
       due_date: draft.dueDate || null,
-      assigned_to: draft.assignedTo === UNASSIGNED_VALUE ? null : draft.assignedTo,
+      assigned_to: primaryAssignee,
       related_project_id: draft.projectId === NO_PROJECT_VALUE ? null : draft.projectId,
       related_client_id: draft.clientId === NO_CLIENT_VALUE ? null : draft.clientId,
     });
+    await syncTaskAssignees({
+      taskId: task.id,
+      companyId: task.company_id,
+      assigneeIds: draft.assigneeIds,
+    });
+    await onAssigneesChanged?.();
+    await loadTaskDetails(task.id);
     setEditing(false);
   };
 
@@ -2264,9 +2456,9 @@ export function TaskDetailDialog({
                             <Flag className="h-4 w-4" />,
                           )}
                           {renderInfoRow(
-                            "Responsable",
+                            "Responsables",
                             assigneeLabel,
-                            <User className="h-4 w-4" />,
+                            <Users className="h-4 w-4" />,
                           )}
                           {renderInfoRow(
                             "Proyecto",

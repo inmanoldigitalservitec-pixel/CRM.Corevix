@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "super_admin" | "admin" | "manager" | "sales_agent" | "viewer";
+export type AppRole =
+  | "super_admin"
+  | "admin"
+  | "manager"
+  | "sales_agent"
+  | "collaborator"
+  | "viewer";
 
 export type TeamInvitationActionResult = {
   ok: true;

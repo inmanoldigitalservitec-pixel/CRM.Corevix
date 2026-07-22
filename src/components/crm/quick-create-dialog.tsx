@@ -522,7 +522,7 @@ export function QuickCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none sm:h-auto sm:max-h-[88vh] sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-slate-200">
+      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none sm:h-[min(720px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-slate-200">
         <DialogHeader className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 pr-14 text-left sm:px-6 lg:px-7">
           <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[#1d62f9]">
@@ -539,10 +539,7 @@ export function QuickCreateDialog({
           </div>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex min-h-0 flex-1 flex-col sm:max-h-[calc(88vh-85px)]"
-        >
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-7">
             <div className="mx-auto w-full max-w-2xl space-y-4">
               {type === "lead" ? (

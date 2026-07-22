@@ -121,6 +121,20 @@ const CLIENT_HEALTH_FILTERS = ["all", "active", "attention", "risk", "inactive"]
 const CONTACT_PRESENCE_FILTERS = ["all", "with", "without", "primary"] as const;
 const FINANCE_FILTERS = ["all", "pending", "overdue", "clear"] as const;
 const ACTIVITY_FILTERS = ["all", "recent7", "stale30", "stale60"] as const;
+const PROJECT_STATUSES = ["Not Started", "In Progress", "On Hold", "Completed", "Cancelled"];
+const PROJECT_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+
+const PROJECT_LABELS: Record<string, string> = {
+  "Not Started": "No iniciado",
+  "In Progress": "En progreso",
+  "On Hold": "En pausa",
+  Completed: "Completado",
+  Cancelled: "Cancelado",
+  Low: "Baja",
+  Medium: "Media",
+  High: "Alta",
+  Urgent: "Urgente",
+};
 
 type ClientStatus = (typeof CLIENT_STATUSES)[number];
 type ClientHealth = "active" | "attention" | "risk" | "inactive";
@@ -171,9 +185,15 @@ interface ProjectRow {
   company_id: string;
   client_id: string | null;
   name: string;
+  description?: string | null;
   status: string;
   progress: number | null;
+  start_date?: string | null;
   due_date: string | null;
+  priority?: string | null;
+  budget?: number | null;
+  product_id?: string | null;
+  manager?: string | null;
   updated_at: string;
 }
 
@@ -624,6 +644,8 @@ function ClientsPage() {
   const [editContact, setEditContact] = useState<ContactRow | null>(null);
   const [contactClientId, setContactClientId] = useState<string | null>(null);
   const [contactIsPrimary, setContactIsPrimary] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectClientId, setProjectClientId] = useState<string | null>(null);
   const [quickProposalOpen, setQuickProposalOpen] = useState(false);
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   const {
@@ -661,9 +683,12 @@ function ClientsPage() {
     data: projects,
     loading: projectsLoading,
     error: projectsError,
+    create: createProject,
+    fetch: fetchProjects,
   } = useCrud<ProjectRow>({
     table: "projects",
-    select: "id,company_id,client_id,name,status,progress,due_date,updated_at",
+    select:
+      "id,company_id,client_id,name,description,status,progress,start_date,due_date,priority,budget,product_id,manager,updated_at",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -1116,6 +1141,10 @@ function ClientsPage() {
     () => snapshots.find((client) => client.id === selectedClientId) || null,
     [selectedClientId, snapshots],
   );
+  const projectDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === projectClientId) || selectedClient,
+    [projectClientId, selectedClient, snapshots],
+  );
 
   const closeClientDetail = () => {
     openedClientSearchRef.current = null;
@@ -1142,7 +1171,7 @@ function ClientsPage() {
     if (!profile?.company_id || !profile?.id) return false;
     if (!can("tasks.create")) return false;
     if (role === "viewer") return false;
-    if (role === "sales_agent")
+    if (role === "sales_agent" || role === "collaborator")
       return Boolean(
         client.account_manager && String(client.account_manager) === String(profile.id),
       );
@@ -1356,6 +1385,11 @@ function ClientsPage() {
     setContactIsPrimary(false);
   };
 
+  const resetProjectDialog = () => {
+    setProjectDialogOpen(false);
+    setProjectClientId(null);
+  };
+
   const openCreateClient = () => {
     setEditClient(null);
     setDialogOpen(true);
@@ -1371,6 +1405,15 @@ function ClientsPage() {
     setContactClientId(clientId);
     setContactIsPrimary(false);
     setContactDialogOpen(true);
+  };
+
+  const openProjectCreator = (client: ClientSnapshot) => {
+    if (!can("projects.create")) {
+      toast.error("No tienes permiso para crear proyectos");
+      return;
+    }
+    setProjectClientId(client.id);
+    setProjectDialogOpen(true);
   };
 
   const openContactEditor = (contact: ContactRow) => {
@@ -1518,6 +1561,50 @@ function ClientsPage() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo eliminar el contacto";
+      toast.error(message);
+    }
+  };
+
+  const handleProjectSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!can("projects.create")) {
+      toast.error("No tienes permiso para crear proyectos");
+      return;
+    }
+    if (!profile?.company_id || !projectClientId) {
+      toast.error("No se pudo identificar el cliente o compañía.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      name: String(formData.get("name") || "").trim(),
+      description: String(formData.get("description") || "").trim() || null,
+      status: String(formData.get("status") || "Not Started"),
+      progress: Number(formData.get("progress") || 0) || 0,
+      priority: String(formData.get("priority") || "Medium"),
+      budget: String(formData.get("budget") || "").trim()
+        ? Number(formData.get("budget")) || 0
+        : null,
+      start_date: String(formData.get("start_date") || "") || null,
+      due_date: String(formData.get("due_date") || "") || null,
+      client_id: projectClientId,
+      product_id: normalizeNullableSelectValue(formData.get("product_id")),
+      manager: normalizeNullableSelectValue(formData.get("manager")),
+    };
+
+    if (!payload.name) {
+      toast.error("El nombre del proyecto es obligatorio.");
+      return;
+    }
+
+    try {
+      await createProject(payload);
+      await fetchProjects();
+      toast.success("Proyecto creado");
+      resetProjectDialog();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo crear el proyecto";
       toast.error(message);
     }
   };
@@ -2635,21 +2722,23 @@ function ClientsPage() {
                       value="projects"
                       className="space-y-4"
                     >
-                      <div>
-                        <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                          Proyectos
-                        </h3>
-                        <p className="mt-1 text-sm font-normal text-slate-500">
-                          Estado de los proyectos activos y en riesgo.
-                        </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Proyectos
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Estado de los proyectos activos y en riesgo.
+                          </p>
+                        </div>
                       </div>
                       {selectedClient.projects.length === 0 ? (
                         <EmptyState
                           icon={<FolderKanban className="h-6 w-6" />}
                           title="No hay proyectos vinculados"
-                          description="Cuando existan proyectos, aparecerán aquí con su progreso y estado."
-                          actionLabel="Ir a proyectos"
-                          onAction={() => navigate({ to: "/projects" })}
+                          description="Crea el primer proyecto para este cliente sin salir del panel."
+                          actionLabel={can("projects.create") ? "Nuevo proyecto" : undefined}
+                          onAction={() => openProjectCreator(selectedClient)}
                         />
                       ) : (
                         <div className="divide-y divide-slate-100 border-y border-slate-100">
@@ -3111,93 +3200,276 @@ function ClientsPage() {
         </form>
       </CrmCreationDialog>
 
-      <Dialog
+      <CrmCreationDialog
         open={contactDialogOpen}
         onOpenChange={(open) => {
           if (!open) resetContactDialog();
         }}
+        title={editContact ? "Editar contacto" : "Nuevo contacto"}
+        description={`${selectedClient?.company_name || "Selecciona un cliente"} · Completa la información del contacto operativo.`}
+        size="lg"
       >
-        <DialogContent className="max-h-[92vh] max-w-2xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>{editContact ? "Editar contacto" : "Nuevo contacto"}</DialogTitle>
-            <DialogDescription>
-              {selectedClient?.company_name || "Selecciona un cliente"} · Completa la información
-              del contacto operativo.
-            </DialogDescription>
-          </DialogHeader>
+        <form
+          key={editContact?.id || "new-contact"}
+          onSubmit={handleContactSubmit}
+          className="space-y-6"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Nombre</Label>
+              <Input
+                name="first_name"
+                defaultValue={editContact?.first_name || ""}
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Apellido</Label>
+              <Input
+                name="last_name"
+                defaultValue={editContact?.last_name || ""}
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Cargo</Label>
+              <Input
+                name="position"
+                defaultValue={editContact?.position || ""}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Departamento</Label>
+              <Input
+                name="department"
+                defaultValue={editContact?.department || ""}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Correo electrónico</Label>
+              <Input
+                name="email"
+                type="email"
+                defaultValue={editContact?.email || ""}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Teléfono</Label>
+              <Input
+                name="phone"
+                defaultValue={editContact?.phone || ""}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>WhatsApp</Label>
+              <Input
+                name="whatsapp"
+                defaultValue={editContact?.whatsapp || ""}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Etiquetas</Label>
+              <Input
+                name="tags"
+                defaultValue={(editContact?.tags || []).join(", ")}
+                placeholder="principal, finanzas"
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Notas</Label>
+              <Textarea
+                name="notes"
+                defaultValue={editContact?.notes || ""}
+                rows={4}
+                className={crmFormStyles.textarea}
+              />
+            </div>
+          </div>
 
-          <form
-            key={editContact?.id || "new-contact"}
-            onSubmit={handleContactSubmit}
-            className="space-y-4 overflow-y-auto pr-1"
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Nombre</Label>
-                <Input name="first_name" defaultValue={editContact?.first_name || ""} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Apellido</Label>
-                <Input name="last_name" defaultValue={editContact?.last_name || ""} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cargo</Label>
-                <Input name="position" defaultValue={editContact?.position || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Departamento</Label>
-                <Input name="department" defaultValue={editContact?.department || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Correo electrónico</Label>
-                <Input name="email" type="email" defaultValue={editContact?.email || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Teléfono</Label>
-                <Input name="phone" defaultValue={editContact?.phone || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>WhatsApp</Label>
-                <Input name="whatsapp" defaultValue={editContact?.whatsapp || ""} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Etiquetas</Label>
-                <Input
-                  name="tags"
-                  defaultValue={(editContact?.tags || []).join(", ")}
-                  placeholder="principal, finanzas"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Notas</Label>
-                <Textarea name="notes" defaultValue={editContact?.notes || ""} rows={4} />
-              </div>
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+            <div>
+              <p className="text-sm font-normal text-slate-950">Contacto primario</p>
+              <p className="text-sm font-normal text-slate-500">
+                Marca este contacto como el principal para la cuenta.
+              </p>
+            </div>
+            <Checkbox
+              checked={contactIsPrimary}
+              onCheckedChange={(checked) => setContactIsPrimary(Boolean(checked))}
+              aria-label="Marcar como contacto primario"
+            />
+          </label>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={resetContactDialog}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton}>
+              {editContact ? "Guardar contacto" : "Crear contacto"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
+
+      <CrmCreationDialog
+        open={projectDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) resetProjectDialog();
+        }}
+        title="Nuevo proyecto"
+        description={`${projectDialogClient?.company_name || "Cliente seleccionado"} · Crea un proyecto vinculado a esta cuenta.`}
+        size="lg"
+      >
+        <form
+          key={projectClientId || "new-client-project"}
+          onSubmit={handleProjectSubmit}
+          className="space-y-6"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Nombre del proyecto</Label>
+              <Input
+                name="name"
+                className={crmFormStyles.input}
+                placeholder={`Proyecto para ${projectDialogClient?.company_name || "cliente"}`}
+                required
+              />
             </div>
 
-            <div className="flex items-center justify-between rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Contacto primario</p>
-                <p className="text-sm text-slate-600">
-                  Marca este contacto como el principal para la cuenta.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={contactIsPrimary}
-                  onCheckedChange={(checked) => setContactIsPrimary(Boolean(checked))}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Responsable</Label>
+              <Select name="manager" defaultValue={projectDialogClient?.account_manager || "none"}>
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin asignar</SelectItem>
+                  {managerOptions.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={resetContactDialog}>
-                Cancelar
-              </Button>
-              <Button type="submit">{editContact ? "Guardar contacto" : "Crear contacto"}</Button>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Producto o servicio</Label>
+              <Select name="product_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin producto</SelectItem>
+                  {products
+                    .filter((product) => product.is_active !== false)
+                    .map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.category ? `${product.name} · ${product.category}` : product.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Fecha de inicio</Label>
+              <Input name="start_date" type="date" className={crmFormStyles.input} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Fecha de entrega</Label>
+              <Input name="due_date" type="date" className={crmFormStyles.input} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Estado inicial</Label>
+              <Select name="status" defaultValue="Not Started">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROJECT_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {PROJECT_LABELS[status] || status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Prioridad</Label>
+              <Select name="priority" defaultValue="Medium">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROJECT_PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {PROJECT_LABELS[priority] || priority}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Presupuesto</Label>
+              <Input name="budget" type="number" min="0" className={crmFormStyles.input} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Progreso inicial (%)</Label>
+              <Input
+                name="progress"
+                type="number"
+                min="0"
+                max="100"
+                defaultValue="0"
+                className={crmFormStyles.input}
+              />
+            </div>
+
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Descripción</Label>
+              <Textarea
+                name="description"
+                rows={5}
+                className={crmFormStyles.textarea}
+                placeholder="Alcance, entregables, notas del cliente o próximos pasos."
+              />
+            </div>
+          </div>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={resetProjectDialog}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton}>
+              Crear proyecto
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
 
       <Dialog
         open={!!deleteId}

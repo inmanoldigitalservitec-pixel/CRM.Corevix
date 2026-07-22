@@ -39,7 +39,7 @@ import { sendWhatsappMessage } from "@/lib/whatsapp/whatsapp-bot-api";
 
 export const Route = createFileRoute("/whatsapp-web")({
   component: WhatsAppWebPage,
-  head: () => ({ meta: [{ title: "WhatsApp Web CRM — Corevix" }] }),
+  head: () => ({ meta: [{ title: "Meta Inbox — Corevix CRM" }] }),
 });
 
 type InboxChannel = "all" | "whatsapp" | "messenger" | "instagram";
@@ -702,7 +702,7 @@ function WhatsAppWebPage() {
           <div className="border-b border-slate-200 bg-white px-5 py-4">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-950">WhatsApp</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-950">Meta Inbox</h1>
                 <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
                   CRM
                 </span>
@@ -919,7 +919,7 @@ function WhatsAppWebPage() {
                 <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-2xl bg-blue-50 text-blue-700">
                   <MessageCircle className="h-10 w-10" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-950">WhatsApp CRM</h2>
+                <h2 className="text-2xl font-bold text-slate-950">Meta Inbox</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
                   Selecciona una conversación para responder, ver contexto del cliente y mantener el
                   flujo comercial dentro del CRM.

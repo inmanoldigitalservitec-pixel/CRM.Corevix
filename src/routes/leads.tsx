@@ -150,7 +150,7 @@ interface Lead {
   last_interaction_at: string | null;
 }
 
-type AssignableRole = "sales_agent" | "manager" | "admin" | "super_admin";
+type AssignableRole = "sales_agent" | "collaborator" | "manager" | "admin" | "super_admin";
 
 type TeamMember = {
   profile_id: string;
@@ -578,10 +578,16 @@ function LeadsPage() {
 
   const canViewAllLeads = role === "super_admin" || role === "admin" || role === "manager";
   const canAssign = role === "super_admin" || role === "admin" || role === "manager";
-  const isSalesUser = role === "sales_agent";
+  const isSalesUser = role === "sales_agent" || role === "collaborator";
 
   const assignableUsers = useMemo(() => {
-    const allowed: AssignableRole[] = ["sales_agent", "manager", "admin", "super_admin"];
+    const allowed: AssignableRole[] = [
+      "sales_agent",
+      "collaborator",
+      "manager",
+      "admin",
+      "super_admin",
+    ];
     return team
       .filter((m) => m.is_active)
       .filter((m) => allowed.includes(m.role as AssignableRole))
@@ -863,7 +869,7 @@ function LeadsPage() {
 
   useEffect(() => {
     // Default sales-agent view: all assigned leads (not unassigned).
-    if (role === "sales_agent") setOwnerFilter("team");
+    if (role === "sales_agent" || role === "collaborator") setOwnerFilter("team");
   }, [role]);
 
   const isLeadAssignedToCurrentUser = (assignedTo?: string | null) => {

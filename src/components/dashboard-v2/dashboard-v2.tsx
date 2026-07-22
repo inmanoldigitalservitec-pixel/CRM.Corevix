@@ -105,6 +105,7 @@ type TodoItem = {
 type TodoWidgetData = {
   pending: TodoItem[];
   completed: TodoItem[];
+  teamPendingCount?: number;
 };
 
 export type DashboardV2Props = {
@@ -120,6 +121,7 @@ export type DashboardV2Props = {
   projectRisks?: ListWidgetItem[];
   invoiceRows?: ListWidgetItem[];
   proposalRows?: ListWidgetItem[];
+  emailRows?: ListWidgetItem[];
   reportSnapshot?: SnapshotMetricItem[];
   salesDocumentsOverview?: SalesDocumentsOverview;
   workCenter?: WorkCenterData;
@@ -312,9 +314,16 @@ const CLIENT_VISIBLE_LIMIT = 4;
 const ACTIVITY_VISIBLE_LIMIT = 4;
 
 const mockCommunications: CommunicationItem[] = [
-  ["Messenger", "Usuario de Messenger", "Mensaje reciente pendiente.", "2", "blue", "/whatsapp"],
-  ["WhatsApp", "Contacto de WhatsApp", "Hola, quiero información.", "1", "green", "/whatsapp"],
-  ["Instagram", "Usuario de Instagram", "Mensaje recibido.", "1", "purple", "/whatsapp"],
+  [
+    "Messenger",
+    "Usuario de Messenger",
+    "Mensaje reciente pendiente.",
+    "2",
+    "blue",
+    "/whatsapp-web",
+  ],
+  ["WhatsApp", "Contacto de WhatsApp", "Hola, quiero información.", "1", "green", "/whatsapp-web"],
+  ["Instagram", "Usuario de Instagram", "Mensaje recibido.", "1", "purple", "/whatsapp-web"],
 ];
 
 const mockCollectionRows: CollectionItem[] = [
@@ -562,6 +571,109 @@ function DashboardListWidget({
           <DashboardMoreButton
             href={href}
           >{`Ver ${items.length - visibleLimit} más`}</DashboardMoreButton>
+        ) : null}
+      </div>
+    </DashboardCard>
+  );
+}
+
+function DashboardEmailWidget({
+  items,
+  mode = "standard",
+}: {
+  items: ListWidgetItem[];
+  mode?: DashboardWidgetMode;
+}) {
+  const unreadCount = items.filter(([, , badge]) =>
+    badge.toLowerCase().includes("no leído"),
+  ).length;
+  const latest = items[0];
+
+  if (mode === "mini") {
+    return (
+      <MiniWidgetCard
+        title="Gmail"
+        value={String(unreadCount)}
+        helper={latest ? latest[0] : "Sin correos recientes"}
+        icon={Mail}
+        tone={unreadCount ? "blue" : "green"}
+        status={unreadCount ? "No leídos" : "Al día"}
+      />
+    );
+  }
+
+  const visibleLimit = mode === "advanced" ? 8 : 5;
+
+  return (
+    <DashboardCard
+      title="Gmail"
+      action={<DashboardTextButton href="/email">Abrir Gmail →</DashboardTextButton>}
+      bodyClassName="h-full p-3"
+    >
+      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]">
+        <div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <span className="min-w-0">
+            <strong className="block truncate text-[12px] font-semibold text-slate-900">
+              Correos recientes
+            </strong>
+            <small className="block truncate text-[10.5px] font-medium text-slate-500">
+              {unreadCount
+                ? `${unreadCount} sin leer. Revísalos cuando corresponda.`
+                : "No hay correos nuevos sin leer."}
+            </small>
+          </span>
+          <span className="rounded-md bg-blue-50 px-2 py-1 text-center">
+            <strong className="block text-[12px] leading-none text-blue-600">{unreadCount}</strong>
+            <small className="text-[9px] font-semibold text-blue-500">sin leer</small>
+          </span>
+        </div>
+
+        <div className="min-h-0 space-y-1.5 overflow-hidden">
+          {items.length === 0 ? (
+            <div className="grid h-full place-items-center rounded-xl bg-slate-50 px-4 text-center">
+              <span className="text-[12px] font-semibold text-slate-500">
+                No hay correos recientes.
+              </span>
+            </div>
+          ) : (
+            items.slice(0, visibleLimit).map(([subject, subtitle, badge, tone, href]) => (
+              <button
+                key={`${subject}-${subtitle}`}
+                type="button"
+                onClick={() => {
+                  window.location.href = href || "/email";
+                }}
+                className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left hover:border-slate-200 hover:bg-white"
+              >
+                <span
+                  className={`grid h-8 w-8 place-items-center rounded-full border ${softIcon(
+                    tone as DashboardV2Tone,
+                  )}`}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                </span>
+                <span className="min-w-0">
+                  <strong className="block truncate text-[11.7px] font-semibold text-slate-900">
+                    {subject}
+                  </strong>
+                  <small className="block truncate text-[10.5px] font-medium text-slate-500">
+                    {subtitle}
+                  </small>
+                </span>
+                <span
+                  className={`max-w-[92px] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${toneBadgeClass(
+                    tone,
+                  )}`}
+                >
+                  {badge}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+
+        {items.length > visibleLimit ? (
+          <DashboardMoreButton href="/email">{`Ver ${items.length - visibleLimit} más`}</DashboardMoreButton>
         ) : null}
       </div>
     </DashboardCard>
@@ -1073,7 +1185,7 @@ function DashboardWorkCenterWidget({
     ["tasks", "Tareas", CheckCircle2, "/tasks"],
     ["projects", "Proyectos", Workflow, "/projects"],
     ["tickets", "Tickets", LifeBuoy, "/tickets"],
-    ["inbox", "Inbox", MessageCircle, "/whatsapp"],
+    ["inbox", "Meta Inbox", MessageCircle, "/whatsapp-web"],
     ["calendar", "Agenda", Clock3, "/calendar"],
     ["sales", "Ventas", DollarSign, "/invoices"],
   ] as const;
@@ -1314,7 +1426,7 @@ function DashboardTodoItemsWidget({
   if (mode === "mini") {
     return (
       <MiniWidgetCard
-        title="To Do"
+        title="Mis tareas"
         value={String(todos.pending.length)}
         helper={todos.pending[0]?.title || `${todos.completed.length} completadas`}
         icon={CheckCircle2}
@@ -1328,8 +1440,8 @@ function DashboardTodoItemsWidget({
 
   return (
     <DashboardCard
-      title="To Do"
-      action={<DashboardTextButton href="/tasks">Ver todas</DashboardTextButton>}
+      title="Mis tareas"
+      action={<DashboardTextButton href="/tasks">Ver tareas</DashboardTextButton>}
       bodyClassName="h-full p-4"
     >
       <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
@@ -1341,16 +1453,21 @@ function DashboardTodoItemsWidget({
             {todos.completed.length} completadas
           </span>
         </div>
+        {typeof todos.teamPendingCount === "number" && todos.teamPendingCount > 0 ? (
+          <div className="-mt-1 rounded-lg bg-blue-50 px-3 py-2 text-[11.5px] font-medium text-blue-700">
+            El equipo tiene {todos.teamPendingCount} tareas abiertas fuera de tu lista.
+          </div>
+        ) : null}
 
         <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2 overflow-hidden">
           <h4 className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Checklist
+            Tu checklist
           </h4>
           <div className="min-h-0 space-y-1.5 overflow-y-auto pb-2 pr-1">
             {checklistItems.length === 0 ? (
               <p className="rounded-lg bg-slate-50 px-3 py-3 text-[12px] font-medium text-slate-400">
-                No hay tareas pendientes
+                No tienes tareas pendientes
               </p>
             ) : (
               checklistItems.map((task) => (
@@ -1819,7 +1936,7 @@ export function DashboardCommunicationsWidget({
   return (
     <DashboardCard
       title="Comunicaciones"
-      action={<DashboardTextButton href="/whatsapp">Ver bandeja</DashboardTextButton>}
+      action={<DashboardTextButton href="/whatsapp-web">Ver Meta Inbox</DashboardTextButton>}
       bodyClassName="h-full p-3"
     >
       <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
@@ -1831,7 +1948,7 @@ export function DashboardCommunicationsWidget({
                   No hay chats pendientes
                 </strong>
                 <small className="mt-1 block text-[11px] text-slate-500">
-                  WhatsApp, Messenger, Instagram y Email están al día.
+                  WhatsApp, Messenger e Instagram están al día.
                 </small>
               </div>
             </div>
@@ -1894,11 +2011,11 @@ export function DashboardCommunicationsWidget({
         <button
           type="button"
           onClick={() => {
-            window.location.href = "/whatsapp";
+            window.location.href = "/whatsapp-web";
           }}
           className="mt-1 grid h-7 w-full place-items-center rounded-lg text-[11px] font-medium text-blue-600 hover:bg-blue-50"
         >
-          Abrir bandeja unificada →
+          Abrir Meta Inbox →
         </button>
       </div>
     </DashboardCard>
@@ -1972,6 +2089,7 @@ export function DashboardV2({
   projectRisks,
   invoiceRows,
   proposalRows,
+  emailRows,
   reportSnapshot,
   salesDocumentsOverview,
   workCenter,
@@ -2118,6 +2236,7 @@ export function DashboardV2({
         ),
     );
   const resolvedProposalRows = proposalRows ?? actionListItems(actions, "/proposals", "purple");
+  const resolvedEmailRows = emailRows ?? [];
   const resolvedReportSnapshot =
     reportSnapshot ??
     ([
@@ -2401,6 +2520,10 @@ export function DashboardV2({
           render: ({ mode }) => (
             <DashboardCommunicationsWidget communications={communications} mode={mode} />
           ),
+        },
+        {
+          id: "gmail.recent",
+          render: ({ mode }) => <DashboardEmailWidget items={resolvedEmailRows} mode={mode} />,
         },
         {
           id: "activity.recent",

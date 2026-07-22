@@ -19,7 +19,6 @@ import {
   HelpCircle,
   Image,
   LifeBuoy,
-  Mail,
   Megaphone,
   MessageCircle,
   Package,
@@ -57,6 +56,28 @@ type MobileSectionGroup = {
   collapsible?: boolean;
 };
 
+function MetaIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <img
+      src="/meta-platforms-logo.svg"
+      alt=""
+      aria-hidden="true"
+      className={`${className} object-contain`}
+    />
+  );
+}
+
+function GmailIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <img
+      src="/gmail-2026-logo.svg"
+      alt=""
+      aria-hidden="true"
+      className={`${className} object-contain`}
+    />
+  );
+}
+
 const salesItems: MobileSectionItem[] = [
   { titleKey: "nav.clients", url: "/clients", icon: Building2, iconClassName: "text-emerald-600" },
   { titleKey: "nav.leads", url: "/leads", icon: Users, iconClassName: "text-violet-600" },
@@ -89,12 +110,18 @@ const financeItems: MobileSectionItem[] = [
 
 const communicationItems: MobileSectionItem[] = [
   {
-    titleKey: "nav.whatsappInbox",
-    url: "/whatsapp-web",
-    icon: MessageCircle,
-    iconClassName: "text-green-600",
+    title: "TeamChat",
+    url: "/internal-chat",
+    icon: Users,
+    iconClassName: "text-blue-600",
   },
-  { titleKey: "nav.emailInbox", url: "/email", icon: Mail, iconClassName: "text-sky-600" },
+  {
+    title: "Meta Inbox",
+    url: "/whatsapp-web",
+    icon: MetaIcon,
+    iconClassName: "text-[#0866ff]",
+  },
+  { titleKey: "nav.emailInbox", url: "/email", icon: GmailIcon },
 ];
 
 const operationsItems: MobileSectionItem[] = [

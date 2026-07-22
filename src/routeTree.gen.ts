@@ -30,6 +30,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as InvoiceBuilderTestRouteImport } from './routes/invoice-builder-test'
+import { Route as InternalChatRouteImport } from './routes/internal-chat'
 import { Route as GoogleDriveCallbackRouteImport } from './routes/google-drive-callback'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as EstimatesRouteImport } from './routes/estimates'
@@ -155,6 +156,11 @@ const InvoiceBuilderTestRoute = InvoiceBuilderTestRouteImport.update({
   path: '/invoice-builder-test',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InternalChatRoute = InternalChatRouteImport.update({
+  id: '/internal-chat',
+  path: '/internal-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GoogleDriveCallbackRoute = GoogleDriveCallbackRouteImport.update({
   id: '/google-drive-callback',
   path: '/google-drive-callback',
@@ -271,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/estimates': typeof EstimatesRoute
   '/expenses': typeof ExpensesRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
+  '/internal-chat': typeof InternalChatRoute
   '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
@@ -313,6 +320,7 @@ export interface FileRoutesByTo {
   '/estimates': typeof EstimatesRoute
   '/expenses': typeof ExpensesRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
+  '/internal-chat': typeof InternalChatRoute
   '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
@@ -356,6 +364,7 @@ export interface FileRoutesById {
   '/estimates': typeof EstimatesRoute
   '/expenses': typeof ExpensesRoute
   '/google-drive-callback': typeof GoogleDriveCallbackRoute
+  '/internal-chat': typeof InternalChatRoute
   '/invoice-builder-test': typeof InvoiceBuilderTestRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
@@ -400,6 +409,7 @@ export interface FileRouteTypes {
     | '/estimates'
     | '/expenses'
     | '/google-drive-callback'
+    | '/internal-chat'
     | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
@@ -442,6 +452,7 @@ export interface FileRouteTypes {
     | '/estimates'
     | '/expenses'
     | '/google-drive-callback'
+    | '/internal-chat'
     | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
@@ -484,6 +495,7 @@ export interface FileRouteTypes {
     | '/estimates'
     | '/expenses'
     | '/google-drive-callback'
+    | '/internal-chat'
     | '/invoice-builder-test'
     | '/invoices'
     | '/leads'
@@ -527,6 +539,7 @@ export interface RootRouteChildren {
   EstimatesRoute: typeof EstimatesRoute
   ExpensesRoute: typeof ExpensesRoute
   GoogleDriveCallbackRoute: typeof GoogleDriveCallbackRoute
+  InternalChatRoute: typeof InternalChatRoute
   InvoiceBuilderTestRoute: typeof InvoiceBuilderTestRoute
   InvoicesRoute: typeof InvoicesRoute
   LeadsRoute: typeof LeadsRoute
@@ -702,6 +715,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoiceBuilderTestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/internal-chat': {
+      id: '/internal-chat'
+      path: '/internal-chat'
+      fullPath: '/internal-chat'
+      preLoaderRoute: typeof InternalChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/google-drive-callback': {
       id: '/google-drive-callback'
       path: '/google-drive-callback'
@@ -866,6 +886,7 @@ const rootRouteChildren: RootRouteChildren = {
   EstimatesRoute: EstimatesRoute,
   ExpensesRoute: ExpensesRoute,
   GoogleDriveCallbackRoute: GoogleDriveCallbackRoute,
+  InternalChatRoute: InternalChatRoute,
   InvoiceBuilderTestRoute: InvoiceBuilderTestRoute,
   InvoicesRoute: InvoicesRoute,
   LeadsRoute: LeadsRoute,

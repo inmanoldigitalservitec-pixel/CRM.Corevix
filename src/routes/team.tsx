@@ -70,7 +70,14 @@ type InvitationRow = {
   created_at: string;
 };
 
-const ROLE_OPTIONS: AppRole[] = ["super_admin", "admin", "manager", "sales_agent", "viewer"];
+const ROLE_OPTIONS: AppRole[] = [
+  "super_admin",
+  "admin",
+  "manager",
+  "sales_agent",
+  "collaborator",
+  "viewer",
+];
 
 function initials(name: string) {
   const parts = String(name || "")
@@ -84,6 +91,7 @@ function roleTone(role: AppRole) {
   if (role === "admin") return "bg-blue-50 text-blue-700 border-blue-200";
   if (role === "manager") return "bg-amber-50 text-amber-700 border-amber-200";
   if (role === "sales_agent") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (role === "collaborator") return "bg-cyan-50 text-cyan-700 border-cyan-200";
   return "bg-slate-100 text-slate-700 border-slate-200";
 }
 
@@ -194,9 +202,10 @@ function TeamKpi({
 
 function PermissionPreview({ role }: { role: AppRole }) {
   const { t } = useT();
+  const seesAssignedOnly = role === "sales_agent" || role === "collaborator";
   const items = [
-    { label: t("team.permission.viewAllRecords"), on: role !== "sales_agent" && role !== "viewer" },
-    { label: t("team.permission.viewAssignedRecords"), on: role === "sales_agent" },
+    { label: t("team.permission.viewAllRecords"), on: !seesAssignedOnly && role !== "viewer" },
+    { label: t("team.permission.viewAssignedRecords"), on: seesAssignedOnly },
     { label: t("team.permission.createRecords"), on: role !== "viewer" },
     { label: t("team.permission.editRecords"), on: role !== "viewer" },
     {

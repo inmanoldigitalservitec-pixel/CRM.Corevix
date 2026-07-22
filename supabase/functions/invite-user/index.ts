@@ -2,7 +2,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
 
-type AppRole = "super_admin" | "admin" | "manager" | "sales_agent" | "viewer";
+type AppRole = "super_admin" | "admin" | "manager" | "sales_agent" | "collaborator" | "viewer";
 
 type InvitationRow = {
   id: string;
@@ -66,34 +66,111 @@ function siteUrlFromRedirect(redirectTo: string, fallbackSiteUrl: string) {
   return fallbackSiteUrl;
 }
 
+function roleDisplayName(role: string) {
+  const labels: Record<string, string> = {
+    super_admin: "Administrador principal",
+    admin: "Administrador",
+    manager: "Manager",
+    sales_agent: "Agente comercial",
+    collaborator: "Colaborador",
+    viewer: "Visualizador",
+  };
+  return labels[role] || role;
+}
+
+function displayUrlFromInvitationLink(invitationLink: string) {
+  try {
+    const url = new URL(invitationLink);
+    return `${url.host}/login`;
+  } catch {
+    return "crm.corevix.agency/login";
+  }
+}
+
 function invitationEmailHtml(args: { role: string; invitationLink: string }) {
+  const roleLabel = escapeHtml(roleDisplayName(args.role));
+  const displayUrl = escapeHtml(displayUrlFromInvitationLink(args.invitationLink));
   return `
-    <div style="font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; line-height: 1.5; color: #0f172a;">
-      <div style="max-width: 520px; margin: 0 auto; border: 1px solid #e5edf8; border-radius: 18px; padding: 24px; background: #ffffff;">
-        <h2 style="margin: 0 0 8px; font-size: 22px;">You're invited to Corevix CRM</h2>
-        <p style="margin: 0 0 16px; color: #475569;">You have been invited to join a company workspace.</p>
-        <p style="margin: 0 0 18px;"><strong>Role:</strong> ${args.role}</p>
-        <p style="margin: 0 0 18px;">
-          <a href="${args.invitationLink}" style="display:inline-block;background:#1d62f9;color:#fff;padding:11px 16px;border-radius:12px;text-decoration:none;font-weight:800;">
-            Accept invitation
-          </a>
-        </p>
-        <p style="color:#64748b;font-size:12px;margin: 0 0 6px;">If the button doesn't work, copy and paste this link:</p>
-        <p style="color:#64748b;font-size:12px;word-break:break-all;margin:0;">${args.invitationLink}</p>
-      </div>
+    <div style="margin:0;padding:0;background:#e5e7eb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#e5e7eb;">
+        <tr>
+          <td align="center" style="padding:48px 16px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:430px;border-collapse:collapse;background:#ffffff;border:1px solid #d9dee7;border-radius:14px;box-shadow:0 18px 44px rgba(17,24,39,0.18);">
+              <tr>
+                <td style="padding:34px 28px 28px;text-align:center;">
+                  <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6b7280;">Corevix CRM</p>
+                  <h1 style="margin:0 auto 8px;max-width:310px;font-size:25px;line-height:1.18;font-weight:800;color:#111827;">
+                    Te invitaron a unirte al workspace
+                  </h1>
+                  <p style="margin:0 auto 24px;max-width:320px;font-size:14px;line-height:1.55;color:#6b7280;">
+                    Acepta la invitación para crear tu cuenta y acceder al entorno de trabajo de Corevix CRM.
+                  </p>
+
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;">
+                    <tr>
+                      <td style="padding:0 0 14px;text-align:left;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                          <tr>
+                            <td width="34" valign="top" style="padding:0;">
+                              <div style="width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;text-align:center;line-height:24px;font-size:13px;color:#111827;font-weight:700;">1</div>
+                            </td>
+                            <td style="padding:0;">
+                              <p style="margin:0;font-size:14px;font-weight:700;color:#111827;">Acceso seguro</p>
+                              <p style="margin:2px 0 0;font-size:12px;line-height:1.45;color:#6b7280;">La invitación está vinculada a tu correo y al workspace correcto.</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0;text-align:left;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                          <tr>
+                            <td width="34" valign="top" style="padding:0;">
+                              <div style="width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;text-align:center;line-height:24px;font-size:13px;color:#111827;font-weight:700;">2</div>
+                            </td>
+                            <td style="padding:0;">
+                              <p style="margin:0;font-size:14px;font-weight:700;color:#111827;">Rol asignado</p>
+                              <p style="margin:2px 0 0;font-size:12px;line-height:1.45;color:#6b7280;">Entrarás como <strong style="color:#111827;">${roleLabel}</strong>.</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <a href="${args.invitationLink}" style="display:block;width:100%;box-sizing:border-box;background:#000000;color:#ffffff;border-radius:999px;padding:13px 18px;text-align:center;text-decoration:none;font-size:14px;font-weight:800;">
+                    Continuar
+                  </a>
+
+                  <p style="margin:18px 0 0;font-size:11px;line-height:1.45;color:#8b94a3;">
+                    Si el botón no abre, usa este enlace seguro:
+                    <a href="${args.invitationLink}" style="color:#111827;text-decoration:underline;">${displayUrl}</a>
+                  </p>
+                  <p style="margin:12px 0 0;font-size:10px;line-height:1.45;color:#9ca3af;">
+                    Si no esperabas esta invitación, puedes ignorar este mensaje.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </div>
   `;
 }
 
 function invitationEmailText(args: { role: string; invitationLink: string }) {
   return [
-    "You're invited to Corevix CRM",
+    "Te invitaron a unirte a Corevix CRM",
     "",
-    "You have been invited to join a company workspace.",
-    `Role: ${args.role}`,
+    "Acepta la invitación para crear tu cuenta y acceder al workspace.",
+    `Rol asignado: ${roleDisplayName(args.role)}`,
     "",
-    "Accept invitation:",
+    "Continuar:",
     args.invitationLink,
+    "",
+    "Si no esperabas esta invitación, puedes ignorar este mensaje.",
   ].join("\n");
 }
 
@@ -302,7 +379,7 @@ Deno.serve(async (req) => {
         email: invitation.email,
         redirectTo,
       });
-      const subject = "You're invited to Corevix CRM";
+      const subject = "Invitación para acceder a Corevix CRM";
       const html = invitationEmailHtml({ role: invitation.role, invitationLink });
       const text = invitationEmailText({ role: invitation.role, invitationLink });
       let gmailError: string | undefined;
@@ -527,7 +604,14 @@ Deno.serve(async (req) => {
     const fullName = body?.full_name ? String(body.full_name).trim() : null;
     const department = body?.department ? String(body.department).trim() : null;
     const role = String(body?.role || "viewer").trim() as AppRole;
-    const allowedRoles: AppRole[] = ["super_admin", "admin", "manager", "sales_agent", "viewer"];
+    const allowedRoles: AppRole[] = [
+      "super_admin",
+      "admin",
+      "manager",
+      "sales_agent",
+      "collaborator",
+      "viewer",
+    ];
 
     if (!email || !email.includes("@")) return jsonResponse({ error: "Invalid email" }, 400);
     if (!allowedRoles.includes(role)) return jsonResponse({ error: "Invalid role" }, 400);

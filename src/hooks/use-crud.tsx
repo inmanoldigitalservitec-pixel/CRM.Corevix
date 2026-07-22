@@ -112,8 +112,8 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
 
   const create = async (record: Partial<T>): Promise<T | null> => {
     if (!profile?.company_id) throw new Error("No company context");
-    const isSalesAgentOnly =
-      roles.includes("sales_agent") &&
+    const isAssignedScopeOnly =
+      (roles.includes("sales_agent") || roles.includes("collaborator")) &&
       !roles.some((r) => ["super_admin", "admin", "manager"].includes(r));
     const assignmentColumnByTable: Record<string, string> = {
       leads: "assigned_to",
@@ -143,7 +143,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
 
     const payload: Record<string, any> = { ...(record as any), company_id: profile.company_id };
 
-    if (isSalesAgentOnly) {
+    if (isAssignedScopeOnly) {
       const col = assignmentColumnByTable[table];
       const defaultAssignmentValue = getDefaultAssignmentValue();
       if (col && payload[col] == null && defaultAssignmentValue) {
