@@ -420,7 +420,13 @@ function SettingsPage() {
       toast.error(error.message || "No se pudo verificar la conexión de Google Drive.");
       return;
     }
-    setDriveConnection((data as DriveConnectionRow | null) || null);
+    const directConnection = (data as DriveConnectionRow | null) || null;
+    if (directConnection?.id) {
+      setDriveConnection(directConnection);
+      return;
+    }
+    const verified = await verifyDriveConnection(false);
+    if (!verified) setDriveConnection(null);
   };
 
   useEffect(() => {
@@ -595,7 +601,7 @@ function SettingsPage() {
     window.location.href = authUrl;
   };
 
-  const testDriveConnection = async () => {
+  const verifyDriveConnection = async (showToast = true) => {
     try {
       setDriveTesting(true);
       const { data, error } = await supabase.functions.invoke("drive-test-connection", {
@@ -603,14 +609,28 @@ function SettingsPage() {
       });
       if (error) throw new Error(error.message || "No se pudo probar Google Drive.");
       if ((data as any)?.error) throw new Error(String((data as any).error));
-      await loadDriveConnection();
-      toast.success("Google Drive respondió correctamente.");
+      const payload = data as any;
+      setDriveConnection({
+        id: String(payload?.connection_id || "verified"),
+        company_id: companyId || "",
+        user_id: authUserId || "",
+        google_email: payload?.google_email ? String(payload.google_email) : null,
+        connected_at: null,
+        updated_at: null,
+      });
+      if (showToast) toast.success("Google Drive respondió correctamente.");
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo probar Google Drive.";
-      toast.error(message);
+      if (showToast) toast.error(message);
+      return false;
     } finally {
       setDriveTesting(false);
     }
+  };
+
+  const testDriveConnection = async () => {
+    await verifyDriveConnection(true);
   };
 
   const disconnectDrive = async () => {

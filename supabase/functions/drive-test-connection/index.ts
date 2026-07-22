@@ -178,6 +178,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({
       connected: true,
+      connection_id: connection.id,
       google_email: connection.google_email || null,
       scope: connection.scope || null,
       visible_files: visibleFiles,

@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     if (String(task.company_id) !== companyId)
       return jsonResponse({ error: "La tarea no pertenece a esta compañía." }, 403);
 
-    const { data: connection, error: connError } = await callerClient
+    const { data: connection, error: connError } = await serviceClient
       .from("drive_connections")
       .select("id,company_id,user_id,access_token_encrypted,refresh_token_encrypted,expires_at")
       .eq("company_id", companyId)
@@ -357,7 +357,7 @@ Deno.serve(async (req) => {
           let projectFolderUrl = project.drive_folder_url ? String(project.drive_folder_url) : "";
 
           if (!projectFolderId) {
-            const { data: driveSettings } = await callerClient
+            const { data: driveSettings } = await serviceClient
               .from("drive_settings")
               .select("root_folder_id")
               .eq("company_id", companyId)
@@ -408,7 +408,7 @@ Deno.serve(async (req) => {
       }
 
       if (!folderParentId) {
-        const { data: driveSettings } = await callerClient
+        const { data: driveSettings } = await serviceClient
           .from("drive_settings")
           .select("root_folder_id")
           .eq("company_id", companyId)
