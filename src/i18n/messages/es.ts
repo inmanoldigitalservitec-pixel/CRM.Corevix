@@ -29,6 +29,7 @@ export const es = {
   "nav.proposals": "Propuestas",
   "nav.invoices": "Facturas",
   "nav.calendar": "Calendario",
+  "nav.vault": "Vault",
   "nav.automations": "Automatizaciones",
   "nav.reports": "Reportes",
   "nav.team": "Equipo",

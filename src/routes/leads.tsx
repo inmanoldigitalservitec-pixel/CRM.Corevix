@@ -46,6 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { DetailSheet } from "@/components/crm/detail-sheet";
@@ -66,6 +67,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
+import { LeadNotesPanel } from "@/components/leads/lead-notes-panel";
 
 export const Route = createFileRoute("/leads")({
   validateSearch: (search: Record<string, unknown>): { leadId?: string } => ({
@@ -2623,476 +2625,492 @@ function LeadsPage() {
               </span>
             ) : null
           }
-          fields={
-            selectedLead
-              ? [
-                  { label: "Empresa", value: selectedLead.company_name || "—" },
-                  { label: "Email", value: selectedLead.email || "—" },
-                  { label: "Teléfono", value: selectedLead.phone || "—" },
-                  { label: "WhatsApp", value: selectedLead.whatsapp || "—" },
-                  { label: "Responsable", value: getAssigneeLabel(selectedLead) },
-                  {
-                    label: "Interés",
-                    value: getInterestLabel(selectedLead) || "Sin interés definido",
-                  },
-                  {
-                    label: "Valor estimado",
-                    value: selectedLead.estimated_value || 0,
-                    type: "currency",
-                  },
-                  {
-                    label: "Última actividad",
-                    value: formatDate(
-                      selectedLead.last_interaction_at ||
-                        selectedLead.updated_at ||
-                        selectedLead.created_at,
-                    ),
-                  },
-                  {
-                    label: "Próximo paso",
-                    value: getNextStepLabel(selectedLead, leadNeedsFollowUpUi(selectedLead)),
-                  },
-                ]
-              : []
-          }
+          fields={[]}
         >
           {selectedLead ? (
-            <div className="space-y-4">
-              <div data-demo="leads-quick-actions">
+            <Tabs defaultValue="overview" className="w-full space-y-4">
+              <TabsList
+                data-demo="lead-detail-tabs"
+                className="flex h-auto w-full justify-start overflow-x-auto rounded-none border-b border-slate-100 bg-white p-0"
+              >
+                {[
+                  ["overview", "Resumen", Users],
+                  ["followup", "Seguimiento", Calendar],
+                  ["opportunity", "Oportunidad", Target],
+                  ["notes", "Notas", FileText],
+                  ["activity", "Actividad", Check],
+                ].map(([value, label, Icon]) => {
+                  const TabIcon = Icon as typeof Users;
+                  return (
+                    <TabsTrigger
+                      key={String(value)}
+                      value={String(value)}
+                      className="min-w-fit shrink-0 gap-1.5 rounded-none border-b-2 border-transparent bg-white px-3 py-2.5 text-xs font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
+                    >
+                      <TabIcon className="hidden h-3.5 w-3.5 sm:block" />
+                      {String(label)}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-4 data-[state=inactive]:hidden">
+                <div data-demo="leads-quick-actions">
+                  <CrmDetailSection
+                    title="Acciones rápidas"
+                    icon={<Target className="h-3.5 w-3.5" />}
+                    action={
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <CrmDetailLineButton className="h-8">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                            Más
+                          </CrmDetailLineButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={!can("leads.edit")}
+                            onClick={() => can("leads.edit") && openEdit(selectedLead)}
+                          >
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!can("leads.delete")}
+                            onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    }
+                  >
+                    <CrmDetailActionGrid
+                      actions={[
+                        {
+                          key: "whatsapp",
+                          label: openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp",
+                          icon: <MessageCircle className="h-4 w-4" />,
+                          tone: "success",
+                          onClick: () => void handleOpenWhatsAppFromLead(selectedLead),
+                          disabled:
+                            openingWhatsapp ||
+                            !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone),
+                          title: !normalizePhoneForWhatsApp(
+                            selectedLead.whatsapp || selectedLead.phone,
+                          )
+                            ? "Este prospecto no tiene teléfono o WhatsApp válido."
+                            : undefined,
+                        },
+                        {
+                          key: "email",
+                          label: "Email",
+                          icon: <Mail className="h-4 w-4" />,
+                          onClick: () => {
+                            if (!selectedLead.email) {
+                              toast.message("Este prospecto no tiene email");
+                              return;
+                            }
+                            window.location.href = `mailto:${selectedLead.email}`;
+                          },
+                        },
+                        {
+                          key: "call",
+                          label: "Llamar",
+                          icon: <Phone className="h-4 w-4" />,
+                          onClick: () => {
+                            if (!selectedLead.phone) {
+                              toast.message("Este prospecto no tiene teléfono");
+                              return;
+                            }
+                            window.location.href = `tel:${selectedLead.phone}`;
+                          },
+                        },
+                        {
+                          key: "follow-up",
+                          label: "Crear seguimiento",
+                          icon: <Calendar className="h-4 w-4" />,
+                          onClick: () => openFollowUpDialog(selectedLead),
+                          disabled:
+                            !can("tasks.create") ||
+                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
+                          title: !can("tasks.create")
+                            ? "No tienes permiso para crear seguimiento."
+                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                              ? "Solo puedes crear seguimiento para tus propios prospectos."
+                              : undefined,
+                        },
+                        {
+                          key: "proposal",
+                          label: "Crear propuesta",
+                          icon: <FileText className="h-4 w-4" />,
+                          onClick: () => setQuickProposalOpen(true),
+                          disabled:
+                            !can("deals.create") ||
+                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
+                          title: !can("deals.create")
+                            ? "No tienes permiso para crear propuestas."
+                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                              ? "Solo puedes crear propuestas para tus propios prospectos."
+                              : undefined,
+                        },
+                      ]}
+                    />
+                    <div className="pt-2 text-[11px] font-normal text-slate-500">
+                      {!can("leads.edit")
+                        ? "No tienes permiso para editar este prospecto."
+                        : "Edita, contacta y avanza este prospecto desde aquí."}
+                    </div>
+                  </CrmDetailSection>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="followup" className="space-y-4 data-[state=inactive]:hidden">
+                <div data-demo="leads-followup">
+                  <CrmDetailSection
+                    title="Seguimiento"
+                    icon={<Calendar className="h-3.5 w-3.5" />}
+                    action={
+                      <CrmDetailLineButton
+                        className="h-8"
+                        onClick={() => openFollowUpDialog(selectedLead)}
+                        disabled={
+                          !can("tasks.create") ||
+                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                        }
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Crear
+                      </CrmDetailLineButton>
+                    }
+                  >
+                    {signalsLoading ? (
+                      <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
+                    ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold truncate">
+                          {signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}
+                        </div>
+                        <div className="text-[13px] text-muted-foreground">
+                          {formatDateShort(signalsByLeadId[selectedLead.id]?.nextTaskDueDate)} ·{" "}
+                          {signalsByLeadId[selectedLead.id]?.nextTaskStatus || "—"}
+                        </div>
+                      </div>
+                    ) : (
+                      <CrmDetailEmptyState>
+                        Este prospecto no tiene seguimiento programado.
+                      </CrmDetailEmptyState>
+                    )}
+                    {signalsError ? (
+                      <div className="mt-2 text-xs font-medium text-destructive">
+                        {signalsError}
+                      </div>
+                    ) : null}
+                  </CrmDetailSection>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="opportunity" className="space-y-4 data-[state=inactive]:hidden">
                 <CrmDetailSection
-                  title="Acciones rápidas"
+                  title="Oportunidad comercial"
                   icon={<Target className="h-3.5 w-3.5" />}
                   action={
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <CrmDetailLineButton className="h-8">
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                          Más
-                        </CrmDetailLineButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          disabled={!can("leads.edit")}
-                          onClick={() => can("leads.edit") && openEdit(selectedLead)}
-                        >
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={!can("leads.delete")}
-                          onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    selectedDeal ? (
+                      <CrmDetailLineButton
+                        className="h-8"
+                        onClick={() => setEditingDeal(selectedDeal)}
+                        disabled={!can("deals.edit")}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Editar
+                      </CrmDetailLineButton>
+                    ) : null
                   }
                 >
-                  <CrmDetailActionGrid
-                    actions={[
-                      {
-                        key: "whatsapp",
-                        label: openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp",
-                        icon: <MessageCircle className="h-4 w-4" />,
-                        tone: "success",
-                        onClick: () => void handleOpenWhatsAppFromLead(selectedLead),
-                        disabled:
-                          openingWhatsapp ||
-                          !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone),
-                        title: !normalizePhoneForWhatsApp(
-                          selectedLead.whatsapp || selectedLead.phone,
-                        )
-                          ? "Este prospecto no tiene teléfono o WhatsApp válido."
-                          : undefined,
-                      },
-                      {
-                        key: "email",
-                        label: "Email",
-                        icon: <Mail className="h-4 w-4" />,
-                        onClick: () => {
-                          if (!selectedLead.email) {
-                            toast.message("Este prospecto no tiene email");
-                            return;
-                          }
-                          window.location.href = `mailto:${selectedLead.email}`;
-                        },
-                      },
-                      {
-                        key: "call",
-                        label: "Llamar",
-                        icon: <Phone className="h-4 w-4" />,
-                        onClick: () => {
-                          if (!selectedLead.phone) {
-                            toast.message("Este prospecto no tiene teléfono");
-                            return;
-                          }
-                          window.location.href = `tel:${selectedLead.phone}`;
-                        },
-                      },
-                      {
-                        key: "follow-up",
-                        label: "Crear seguimiento",
-                        icon: <Calendar className="h-4 w-4" />,
-                        onClick: () => openFollowUpDialog(selectedLead),
-                        disabled:
-                          !can("tasks.create") ||
-                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
-                        title: !can("tasks.create")
-                          ? "No tienes permiso para crear seguimiento."
-                          : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                            ? "Solo puedes crear seguimiento para tus propios prospectos."
-                            : undefined,
-                      },
-                      {
-                        key: "proposal",
-                        label: "Crear propuesta",
-                        icon: <FileText className="h-4 w-4" />,
-                        onClick: () => setQuickProposalOpen(true),
-                        disabled:
-                          !can("deals.create") ||
-                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
-                        title: !can("deals.create")
-                          ? "No tienes permiso para crear propuestas."
-                          : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                            ? "Solo puedes crear propuestas para tus propios prospectos."
-                            : undefined,
-                      },
-                    ]}
-                  />
-                  <div className="pt-2 text-[11px] font-normal text-slate-500">
-                    {!can("leads.edit")
-                      ? "No tienes permiso para editar este prospecto."
-                      : "Edita, contacta y avanza este prospecto desde aquí."}
-                  </div>
-                </CrmDetailSection>
-              </div>
-
-              <div data-demo="leads-followup">
-                <CrmDetailSection
-                  title="Seguimiento"
-                  icon={<Calendar className="h-3.5 w-3.5" />}
-                  action={
-                    <CrmDetailLineButton
-                      className="h-8"
-                      onClick={() => openFollowUpDialog(selectedLead)}
-                      disabled={
-                        !can("tasks.create") ||
-                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                      }
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Crear
-                    </CrmDetailLineButton>
-                  }
-                >
-                  {signalsLoading ? (
-                    <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
-                  ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold truncate">
-                        {signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}
-                      </div>
-                      <div className="text-[13px] text-muted-foreground">
-                        {formatDateShort(signalsByLeadId[selectedLead.id]?.nextTaskDueDate)} ·{" "}
-                        {signalsByLeadId[selectedLead.id]?.nextTaskStatus || "—"}
-                      </div>
-                    </div>
-                  ) : (
-                    <CrmDetailEmptyState>
-                      Este prospecto no tiene seguimiento programado.
-                    </CrmDetailEmptyState>
-                  )}
-                  {signalsError ? (
-                    <div className="mt-2 text-xs font-medium text-destructive">{signalsError}</div>
-                  ) : null}
-                </CrmDetailSection>
-              </div>
-
-              <CrmDetailSection
-                title="Oportunidad comercial"
-                icon={<Target className="h-3.5 w-3.5" />}
-                action={
-                  selectedDeal ? (
-                    <CrmDetailLineButton
-                      className="h-8"
-                      onClick={() => setEditingDeal(selectedDeal)}
-                      disabled={!can("deals.edit")}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Editar
-                    </CrmDetailLineButton>
-                  ) : null
-                }
-              >
-                {leadDealsLoading ? (
-                  <CrmDetailEmptyState>Cargando oportunidad...</CrmDetailEmptyState>
-                ) : selectedDeal ? (
-                  <div className="space-y-3">
-                    <div className="min-w-0 border-b border-slate-100 pb-3">
-                      <div className="flex min-w-0 items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-normal text-slate-950">
-                            {selectedDeal.name}
+                  {leadDealsLoading ? (
+                    <CrmDetailEmptyState>Cargando oportunidad...</CrmDetailEmptyState>
+                  ) : selectedDeal ? (
+                    <div className="space-y-3">
+                      <div className="min-w-0 border-b border-slate-100 pb-3">
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-normal text-slate-950">
+                              {selectedDeal.name}
+                            </div>
+                            <div className="mt-1 text-xs font-normal text-slate-500">
+                              {formatCurrency(selectedDeal.value)} ·{" "}
+                              {selectedDeal.probability || 50}% prob.
+                            </div>
                           </div>
-                          <div className="mt-1 text-xs font-normal text-slate-500">
-                            {formatCurrency(selectedDeal.value)} · {selectedDeal.probability || 50}%
-                            prob.
-                          </div>
+                          <span className="shrink-0 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-[11px] font-normal text-slate-600">
+                            {selectedDeal.stage}
+                          </span>
                         </div>
-                        <span className="shrink-0 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-[11px] font-normal text-slate-600">
-                          {selectedDeal.stage}
-                        </span>
-                      </div>
 
-                      <div className="mt-3">
-                        <Label className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                          Etapa
-                        </Label>
-                        <Select
-                          value={selectedDeal.stage}
-                          onValueChange={(stage) => void updateDealStage(selectedDeal, stage)}
-                          disabled={!can("deals.edit")}
-                        >
-                          <CrmDetailSelectTrigger className="mt-1 text-[12px] text-slate-700">
-                            <SelectValue placeholder="Etapa" />
-                          </CrmDetailSelectTrigger>
-                          <SelectContent className="border-slate-200 bg-white shadow-none">
-                            {dealStages.map((stage) => (
-                              <SelectItem key={stage.id} value={stage.name}>
-                                {stage.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-                      <CrmDetailLineButton
-                        onClick={() => void markDealWon(selectedDeal)}
-                        disabled={!can("deals.edit") || closingDeal === "won"}
-                      >
-                        {closingDeal === "won" ? "Guardando..." : "Ganada"}
-                      </CrmDetailLineButton>
-                      <CrmDetailLineButton
-                        tone="danger"
-                        onClick={() => setLostDeal(selectedDeal)}
-                        disabled={!can("deals.edit") || closingDeal === "lost"}
-                      >
-                        Perdida
-                      </CrmDetailLineButton>
-                    </div>
-
-                    <div className="space-y-2 border-t border-slate-100 pt-3">
-                      <div className="text-xs font-extrabold uppercase tracking-[0.06em] text-slate-400">
-                        Productos
-                      </div>
-                      {dealProducts.length ? (
-                        <div className="divide-y divide-slate-100 border-y border-slate-100">
-                          {dealProducts.map((row) => {
-                            const product = dealProductsByProductId[String(row.product_id)];
-                            return (
-                              <div
-                                key={row.id}
-                                className="flex min-w-0 items-center justify-between gap-3 py-2.5"
-                              >
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-normal text-slate-950">
-                                    {product?.name || "Producto"}
-                                  </div>
-                                  <div className="text-xs font-normal text-slate-500">
-                                    {Number(row.quantity || 1)} x{" "}
-                                    {formatCurrency(row.unit_price || product?.base_price || 0)}
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 shrink-0 text-slate-400"
-                                  onClick={() => void removeDealProduct(row.id)}
-                                  disabled={!can("deals.edit")}
-                                  aria-label="Quitar producto"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <CrmDetailEmptyState>
-                          Esta oportunidad no tiene productos asociados.
-                        </CrmDetailEmptyState>
-                      )}
-
-                      <div className="grid grid-cols-[minmax(0,1fr)_76px] gap-2">
-                        <Select
-                          value={dealProductDraft.product_id}
-                          onValueChange={(value) =>
-                            setDealProductDraft((current) => ({
-                              ...current,
-                              product_id: value,
-                              unit_price:
-                                activeProducts.find((item) => String(item.id) === value)
-                                  ?.base_price != null
-                                  ? String(
-                                      activeProducts.find((item) => String(item.id) === value)
-                                        ?.base_price,
-                                    )
-                                  : current.unit_price,
-                            }))
-                          }
-                          disabled={!can("deals.edit")}
-                        >
-                          <CrmDetailSelectTrigger className="text-[12px] text-slate-700">
-                            <SelectValue placeholder="Agregar producto" />
-                          </CrmDetailSelectTrigger>
-                          <SelectContent className="border-slate-200 bg-white shadow-none">
-                            {activeProducts.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <CrmDetailLineButton
-                          onClick={() => void addDealProduct(selectedDeal)}
-                          disabled={!can("deals.edit") || !dealProductDraft.product_id}
-                        >
-                          Añadir
-                        </CrmDetailLineButton>
-                      </div>
-                    </div>
-
-                    <CrmDetailLineButton
-                      className="w-full"
-                      icon={<FolderOpen className="h-4 w-4" />}
-                      onClick={() => void createProjectFromWonDeal(selectedDeal)}
-                      disabled={
-                        !can("projects.create") ||
-                        !isWonStageName(selectedDeal.stage) ||
-                        creatingProjectDealId === selectedDeal.id
-                      }
-                      title={
-                        !isWonStageName(selectedDeal.stage)
-                          ? "Primero marca la oportunidad como ganada."
-                          : undefined
-                      }
-                    >
-                      {creatingProjectDealId === selectedDeal.id
-                        ? "Creando proyecto..."
-                        : "Crear proyecto"}
-                    </CrmDetailLineButton>
-                  </div>
-                ) : (
-                  <div className="grid gap-2">
-                    <CrmDetailEmptyState>
-                      Este prospecto todavía no tiene oportunidad comercial.
-                    </CrmDetailEmptyState>
-                    <CrmDetailLineButton
-                      onClick={() => void handleCreateDealFromLead(selectedLead)}
-                      disabled={
-                        !can("deals.create") ||
-                        (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                      }
-                    >
-                      Crear oportunidad
-                    </CrmDetailLineButton>
-                  </div>
-                )}
-              </CrmDetailSection>
-
-              <Button
-                className="h-9 w-full bg-[#1d62f9] hover:bg-[#0f52dd]"
-                onClick={() => void handleConvertLeadToClient(selectedLead)}
-                disabled={
-                  convertingClient ||
-                  !can("clients.create") ||
-                  (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                }
-              >
-                {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
-              </Button>
-
-              <div data-demo="leads-assignment">
-                <CrmDetailSection title="Asignación" icon={<Users className="h-3.5 w-3.5" />}>
-                  <CrmDetailRow
-                    label="Responsable"
-                    value={
-                      canAssign ? (
-                        <div className="min-w-[220px]">
+                        <div className="mt-3">
+                          <Label className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Etapa
+                          </Label>
                           <Select
-                            value={selectedLead.assigned_to || "unassigned"}
-                            onValueChange={async (value) => {
-                              if (!can("leads.edit")) return;
-                              try {
-                                await update(selectedLead.id, {
-                                  assigned_to: value === "unassigned" ? null : value,
-                                });
-                                void sendLeadNotification(
-                                  "Responsable actualizado",
-                                  `${getLeadPrimaryLabel(selectedLead)} quedó asignado.`,
-                                );
-                                toast.success("Responsable actualizado");
-                              } catch (err: unknown) {
-                                const message =
-                                  err instanceof Error ? err.message : "No se pudo asignar";
-                                toast.error(message);
-                              }
-                            }}
-                            disabled={!can("leads.edit") || teamLoading}
+                            value={selectedDeal.stage}
+                            onValueChange={(stage) => void updateDealStage(selectedDeal, stage)}
+                            disabled={!can("deals.edit")}
                           >
-                            <CrmDetailSelectTrigger className="text-[13px]">
-                              <SelectValue placeholder="Selecciona vendedor" />
+                            <CrmDetailSelectTrigger className="mt-1 text-[12px] text-slate-700">
+                              <SelectValue placeholder="Etapa" />
                             </CrmDetailSelectTrigger>
                             <SelectContent className="border-slate-200 bg-white shadow-none">
-                              <SelectItem value="unassigned">Sin asignar</SelectItem>
-                              {assignableUsers.map((m, index) => (
-                                <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
-                                  {m.full_name}
+                              {dealStages.map((stage) => (
+                                <SelectItem key={stage.id} value={stage.name}>
+                                  {stage.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          {teamError ? (
-                            <small className="mt-1 block text-xs font-medium text-destructive">
-                              {teamError}
-                            </small>
-                          ) : null}
                         </div>
-                      ) : (
-                        <span className="font-medium">{getAssigneeLabel(selectedLead)}</span>
-                      )
-                    }
-                  />
-                </CrmDetailSection>
-              </div>
+                      </div>
 
-              <div data-demo="leads-contact">
-                <CrmDetailSection title="Contacto" icon={<Phone className="h-3.5 w-3.5" />}>
-                  <div className="space-y-2">
-                    <CrmDetailRow label="Teléfono" value={selectedLead.phone || "—"} />
-                    <CrmDetailRow label="WhatsApp" value={selectedLead.whatsapp || "—"} />
-                    <CrmDetailRow label="Servicio de interés" value={selectedServiceLabel || "—"} />
-                  </div>
-                </CrmDetailSection>
-              </div>
+                      <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
+                        <CrmDetailLineButton
+                          onClick={() => void markDealWon(selectedDeal)}
+                          disabled={!can("deals.edit") || closingDeal === "won"}
+                        >
+                          {closingDeal === "won" ? "Guardando..." : "Ganada"}
+                        </CrmDetailLineButton>
+                        <CrmDetailLineButton
+                          tone="danger"
+                          onClick={() => setLostDeal(selectedDeal)}
+                          disabled={!can("deals.edit") || closingDeal === "lost"}
+                        >
+                          Perdida
+                        </CrmDetailLineButton>
+                      </div>
 
-              <div data-demo="leads-last-activity">
-                <CrmDetailSection title="Última actividad" icon={<Check className="h-3.5 w-3.5" />}>
-                  <div className="text-sm">
-                    <div className="font-medium">
-                      {selectedLead.last_interaction_at
-                        ? "Interacción registrada"
-                        : "Prospecto creado"}
+                      <div className="space-y-2 border-t border-slate-100 pt-3">
+                        <div className="text-xs font-extrabold uppercase tracking-[0.06em] text-slate-400">
+                          Productos
+                        </div>
+                        {dealProducts.length ? (
+                          <div className="divide-y divide-slate-100 border-y border-slate-100">
+                            {dealProducts.map((row) => {
+                              const product = dealProductsByProductId[String(row.product_id)];
+                              return (
+                                <div
+                                  key={row.id}
+                                  className="flex min-w-0 items-center justify-between gap-3 py-2.5"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="truncate text-sm font-normal text-slate-950">
+                                      {product?.name || "Producto"}
+                                    </div>
+                                    <div className="text-xs font-normal text-slate-500">
+                                      {Number(row.quantity || 1)} x{" "}
+                                      {formatCurrency(row.unit_price || product?.base_price || 0)}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0 text-slate-400"
+                                    onClick={() => void removeDealProduct(row.id)}
+                                    disabled={!can("deals.edit")}
+                                    aria-label="Quitar producto"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <CrmDetailEmptyState>
+                            Esta oportunidad no tiene productos asociados.
+                          </CrmDetailEmptyState>
+                        )}
+
+                        <div className="grid grid-cols-[minmax(0,1fr)_76px] gap-2">
+                          <Select
+                            value={dealProductDraft.product_id}
+                            onValueChange={(value) =>
+                              setDealProductDraft((current) => ({
+                                ...current,
+                                product_id: value,
+                                unit_price:
+                                  activeProducts.find((item) => String(item.id) === value)
+                                    ?.base_price != null
+                                    ? String(
+                                        activeProducts.find((item) => String(item.id) === value)
+                                          ?.base_price,
+                                      )
+                                    : current.unit_price,
+                              }))
+                            }
+                            disabled={!can("deals.edit")}
+                          >
+                            <CrmDetailSelectTrigger className="text-[12px] text-slate-700">
+                              <SelectValue placeholder="Agregar producto" />
+                            </CrmDetailSelectTrigger>
+                            <SelectContent className="border-slate-200 bg-white shadow-none">
+                              {activeProducts.map((product) => (
+                                <SelectItem key={product.id} value={product.id}>
+                                  {product.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <CrmDetailLineButton
+                            onClick={() => void addDealProduct(selectedDeal)}
+                            disabled={!can("deals.edit") || !dealProductDraft.product_id}
+                          >
+                            Añadir
+                          </CrmDetailLineButton>
+                        </div>
+                      </div>
+
+                      <CrmDetailLineButton
+                        className="w-full"
+                        icon={<FolderOpen className="h-4 w-4" />}
+                        onClick={() => void createProjectFromWonDeal(selectedDeal)}
+                        disabled={
+                          !can("projects.create") ||
+                          !isWonStageName(selectedDeal.stage) ||
+                          creatingProjectDealId === selectedDeal.id
+                        }
+                        title={
+                          !isWonStageName(selectedDeal.stage)
+                            ? "Primero marca la oportunidad como ganada."
+                            : undefined
+                        }
+                      >
+                        {creatingProjectDealId === selectedDeal.id
+                          ? "Creando proyecto..."
+                          : "Crear proyecto"}
+                      </CrmDetailLineButton>
                     </div>
-                    <div className="mt-1 text-[13px] text-muted-foreground">
-                      {formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}
+                  ) : (
+                    <div className="grid gap-2">
+                      <CrmDetailEmptyState>
+                        Este prospecto todavía no tiene oportunidad comercial.
+                      </CrmDetailEmptyState>
+                      <CrmDetailLineButton
+                        onClick={() => void handleCreateDealFromLead(selectedLead)}
+                        disabled={
+                          !can("deals.create") ||
+                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                        }
+                      >
+                        Crear oportunidad
+                      </CrmDetailLineButton>
                     </div>
-                  </div>
+                  )}
                 </CrmDetailSection>
-              </div>
-            </div>
+
+                <Button
+                  className="h-9 w-full bg-[#1d62f9] hover:bg-[#0f52dd]"
+                  onClick={() => void handleConvertLeadToClient(selectedLead)}
+                  disabled={
+                    convertingClient ||
+                    !can("clients.create") ||
+                    (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                  }
+                >
+                  {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="overview" className="space-y-4 data-[state=inactive]:hidden">
+                <div data-demo="leads-assignment">
+                  <CrmDetailSection title="Asignación" icon={<Users className="h-3.5 w-3.5" />}>
+                    <CrmDetailRow
+                      label="Responsable"
+                      value={
+                        canAssign ? (
+                          <div className="min-w-[220px]">
+                            <Select
+                              value={selectedLead.assigned_to || "unassigned"}
+                              onValueChange={async (value) => {
+                                if (!can("leads.edit")) return;
+                                try {
+                                  await update(selectedLead.id, {
+                                    assigned_to: value === "unassigned" ? null : value,
+                                  });
+                                  void sendLeadNotification(
+                                    "Responsable actualizado",
+                                    `${getLeadPrimaryLabel(selectedLead)} quedó asignado.`,
+                                  );
+                                  toast.success("Responsable actualizado");
+                                } catch (err: unknown) {
+                                  const message =
+                                    err instanceof Error ? err.message : "No se pudo asignar";
+                                  toast.error(message);
+                                }
+                              }}
+                              disabled={!can("leads.edit") || teamLoading}
+                            >
+                              <CrmDetailSelectTrigger className="text-[13px]">
+                                <SelectValue placeholder="Selecciona vendedor" />
+                              </CrmDetailSelectTrigger>
+                              <SelectContent className="border-slate-200 bg-white shadow-none">
+                                <SelectItem value="unassigned">Sin asignar</SelectItem>
+                                {assignableUsers.map((m, index) => (
+                                  <SelectItem key={`${m.user_id}-${index}`} value={m.user_id}>
+                                    {m.full_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {teamError ? (
+                              <small className="mt-1 block text-xs font-medium text-destructive">
+                                {teamError}
+                              </small>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="font-medium">{getAssigneeLabel(selectedLead)}</span>
+                        )
+                      }
+                    />
+                  </CrmDetailSection>
+                </div>
+
+                <div data-demo="leads-contact">
+                  <CrmDetailSection title="Contacto" icon={<Phone className="h-3.5 w-3.5" />}>
+                    <div className="space-y-2">
+                      <CrmDetailRow label="Teléfono" value={selectedLead.phone || "—"} />
+                      <CrmDetailRow label="WhatsApp" value={selectedLead.whatsapp || "—"} />
+                      <CrmDetailRow
+                        label="Servicio de interés"
+                        value={selectedServiceLabel || "—"}
+                      />
+                    </div>
+                  </CrmDetailSection>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="activity" className="space-y-4 data-[state=inactive]:hidden">
+                <div data-demo="leads-last-activity">
+                  <CrmDetailSection
+                    title="Última actividad"
+                    icon={<Check className="h-3.5 w-3.5" />}
+                  >
+                    <div className="text-sm">
+                      <div className="font-medium">
+                        {selectedLead.last_interaction_at
+                          ? "Interacción registrada"
+                          : "Prospecto creado"}
+                      </div>
+                      <div className="mt-1 text-[13px] text-muted-foreground">
+                        {formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}
+                      </div>
+                    </div>
+                  </CrmDetailSection>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="notes" className="space-y-4 data-[state=inactive]:hidden">
+                <LeadNotesPanel leadId={selectedLead.id} canEdit={can("leads.edit")} />
+              </TabsContent>
+            </Tabs>
           ) : null}
         </DetailSheet>
       </div>

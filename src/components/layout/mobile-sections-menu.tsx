@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Image,
   LifeBuoy,
+  LockKeyhole,
   Megaphone,
   MessageCircle,
   Package,
@@ -152,6 +153,7 @@ const utilitiesItems: MobileSectionItem[] = [
   },
   { title: "Exportar CSV", url: "/csv-export", icon: FileText, iconClassName: "text-emerald-600" },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-slate-600" },
+  { titleKey: "nav.vault", url: "/vault", icon: LockKeyhole, iconClassName: "text-blue-700" },
   { title: "Anuncios", icon: Megaphone, iconClassName: "text-amber-600", placeholder: true },
   { title: "Metas", icon: Target, iconClassName: "text-violet-600", placeholder: true },
   {

@@ -2736,7 +2736,7 @@ function PipelinePage() {
 
                   <div
                     data-demo="pipeline-board"
-                    className="flex gap-1.5 overflow-x-auto pb-4 lg:grid lg:overflow-x-hidden lg:pb-0"
+                    className="flex min-w-0 gap-1.5 overflow-x-auto pb-4 lg:grid lg:overflow-x-hidden lg:pb-0"
                     style={{
                       gridTemplateColumns: `repeat(${visiblePipelineStages.length || 1}, minmax(0, 1fr))`,
                     }}
@@ -2764,7 +2764,7 @@ function PipelinePage() {
                           data-demo={`pipeline-stage-${idx + 1}`}
                           data-stage={stage.name}
                           className={
-                            "relative overflow-hidden border border-transparent bg-transparent transition-all flex flex-col flex-none w-[272px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-218px)] " +
+                            "relative min-w-0 overflow-hidden border border-transparent bg-transparent transition-all flex flex-col flex-none w-[272px] lg:w-auto lg:flex-1 lg:min-w-0 lg:h-[calc(100vh-218px)] " +
                             (isDragOver ? " -translate-y-[2px]" : "")
                           }
                           style={{
@@ -2843,7 +2843,7 @@ function PipelinePage() {
                           </div>
 
                           <div
-                            className="px-2 py-2.5 grid gap-2 min-h-[160px] transition-colors flex-1 overflow-y-auto"
+                            className="grid min-h-[160px] min-w-0 flex-1 gap-2 overflow-y-auto overflow-x-hidden px-2 py-2.5 transition-colors"
                             style={{
                               background: isDragOver ? rgba(stageColor, 0.07) : "transparent",
                             }}
@@ -2875,7 +2875,7 @@ function PipelinePage() {
                                     setDragOverStage(null);
                                   }}
                                   className={
-                                    "group relative select-none cursor-pointer rounded-lg border bg-white p-3 transition-colors hover:bg-slate-50/40 " +
+                                    "group relative w-full min-w-0 max-w-full select-none overflow-hidden rounded-lg border bg-white p-3 transition-colors hover:bg-slate-50/40 " +
                                     (draggedDealId === deal.id
                                       ? "opacity-50 rotate-[2deg] scale-[0.98] cursor-grabbing"
                                       : "")
@@ -2901,18 +2901,18 @@ function PipelinePage() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center justify-between gap-3 mb-2.5">
+                                  <div className="mb-2.5 flex min-w-0 flex-wrap items-center justify-between gap-2">
                                     <div
-                                      className="text-[16px] font-semibold tracking-[-0.02em]"
+                                      className="min-w-0 truncate text-[16px] font-semibold tracking-[-0.02em]"
                                       style={{ color: stageColor }}
                                     >
                                       ${toNumber(deal.value).toLocaleString()}
                                     </div>
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="text-[12px] font-normal text-[#475467]">
+                                    <div className="flex min-w-[110px] flex-1 items-center justify-end gap-2">
+                                      <div className="shrink-0 text-[12px] font-normal text-[#475467]">
                                         {prob}%
                                       </div>
-                                      <div className="h-1.5 w-[84px] rounded-full bg-[#e8edf3] overflow-hidden">
+                                      <div className="h-1.5 min-w-[48px] max-w-[84px] flex-1 overflow-hidden rounded-full bg-[#e8edf3]">
                                         <span
                                           className="block h-full rounded-full"
                                           style={{ width: `${prob}%`, background: stageColor }}

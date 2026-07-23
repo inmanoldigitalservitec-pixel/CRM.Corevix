@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatsappWebRouteImport } from './routes/whatsapp-web'
 import { Route as WhatsappRouteImport } from './routes/whatsapp'
+import { Route as VaultRouteImport } from './routes/vault'
 import { Route as TicketsRouteImport } from './routes/tickets'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
@@ -59,6 +60,11 @@ const WhatsappWebRoute = WhatsappWebRouteImport.update({
 const WhatsappRoute = WhatsappRouteImport.update({
   id: '/whatsapp',
   path: '/whatsapp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VaultRoute = VaultRouteImport.update({
+  id: '/vault',
+  path: '/vault',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TicketsRoute = TicketsRouteImport.update({
@@ -297,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/tickets': typeof TicketsRoute
+  '/vault': typeof VaultRoute
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
   '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
@@ -340,6 +347,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/tickets': typeof TicketsRoute
+  '/vault': typeof VaultRoute
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
   '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
@@ -384,6 +392,7 @@ export interface FileRoutesById {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/tickets': typeof TicketsRoute
+  '/vault': typeof VaultRoute
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
   '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
@@ -429,6 +438,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/tickets'
+    | '/vault'
     | '/whatsapp'
     | '/whatsapp-web'
     | '/proposal-builder/$proposalId'
@@ -472,6 +482,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/tickets'
+    | '/vault'
     | '/whatsapp'
     | '/whatsapp-web'
     | '/proposal-builder/$proposalId'
@@ -515,6 +526,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/tickets'
+    | '/vault'
     | '/whatsapp'
     | '/whatsapp-web'
     | '/proposal-builder/$proposalId'
@@ -559,6 +571,7 @@ export interface RootRouteChildren {
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
   TicketsRoute: typeof TicketsRoute
+  VaultRoute: typeof VaultRoute
   WhatsappRoute: typeof WhatsappRoute
   WhatsappWebRoute: typeof WhatsappWebRoute
   ProposalBuilderProposalIdRoute: typeof ProposalBuilderProposalIdRoute
@@ -580,6 +593,13 @@ declare module '@tanstack/react-router' {
       path: '/whatsapp'
       fullPath: '/whatsapp'
       preLoaderRoute: typeof WhatsappRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vault': {
+      id: '/vault'
+      path: '/vault'
+      fullPath: '/vault'
+      preLoaderRoute: typeof VaultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tickets': {
@@ -906,6 +926,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
   TicketsRoute: TicketsRoute,
+  VaultRoute: VaultRoute,
   WhatsappRoute: WhatsappRoute,
   WhatsappWebRoute: WhatsappWebRoute,
   ProposalBuilderProposalIdRoute: ProposalBuilderProposalIdRoute,

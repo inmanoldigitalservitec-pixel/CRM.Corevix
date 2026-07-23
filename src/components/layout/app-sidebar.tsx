@@ -18,6 +18,7 @@ import {
   Image,
   LayoutDashboard,
   LifeBuoy,
+  LockKeyhole,
   Package,
   Receipt,
   ReceiptText,
@@ -155,6 +156,7 @@ const utilitiesItems: SidebarItem[] = [
     iconClassName: "text-blue-600",
   },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-blue-600" },
+  { titleKey: "nav.vault", url: "/vault", icon: LockKeyhole, iconClassName: "text-blue-600" },
   {
     title: "Biblioteca multimedia",
     url: "/media-library",

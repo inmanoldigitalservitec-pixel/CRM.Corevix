@@ -9,12 +9,16 @@ import {
   CalendarClock,
   CheckCircle2,
   CircleDollarSign,
+  Copy,
   Clock3,
   Download,
+  Eye,
+  EyeOff,
   ExternalLink,
   FileText,
   FolderKanban,
   Globe,
+  KeyRound,
   Mail,
   MessageSquarePlus,
   MoreHorizontal,
@@ -103,6 +107,18 @@ import {
   normalizeStatus,
 } from "@/lib/crm/status";
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
+import { ClientNotesPanel } from "@/components/clients/client-notes-panel";
+import {
+  InvoiceEditor,
+  type InvoiceEditorDraft,
+  type InvoiceEditorItem,
+} from "@/components/invoices/invoice-editor";
+import {
+  PaymentFormDialog,
+  type PaymentFormCreatedResult,
+  type PaymentFormInitialValues,
+} from "@/components/payments/payment-form-dialog";
+import { ContractEditorDialog } from "@/components/contracts/contract-editor-dialog";
 
 export const Route = createFileRoute("/clients")({
   validateSearch: (search: Record<string, unknown>): { clientId?: string } => ({
@@ -127,6 +143,37 @@ const FINANCE_FILTERS = ["all", "pending", "overdue", "clear"] as const;
 const ACTIVITY_FILTERS = ["all", "recent7", "stale30", "stale60"] as const;
 const PROJECT_STATUSES = ["Not Started", "In Progress", "On Hold", "Completed", "Cancelled"];
 const PROJECT_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const INVOICE_STATUSES = ["Draft", "Sent", "Paid", "Overdue", "Cancelled"];
+const CREDIT_NOTE_STATUSES = ["Draft", "Issued", "Applied", "Cancelled"];
+const SUBSCRIPTION_STATUSES = ["Trial", "Active", "Paused", "Cancelled", "Expired"];
+const SUBSCRIPTION_CYCLES = ["Weekly", "Monthly", "Quarterly", "Yearly"];
+const EXPENSE_STATUSES = ["Pending", "Approved", "Paid", "Rejected"];
+const TICKET_STATUSES = ["Open", "In Progress", "Answered", "On Hold", "Closed"];
+const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const CLIENT_REMINDER_TYPES = ["reminder", "call", "meeting", "demo"] as const;
+const VAULT_CATEGORIES = [
+  { value: "login", label: "Login" },
+  { value: "api_key", label: "API key" },
+  { value: "server", label: "Servidor" },
+  { value: "domain_dns", label: "Dominio / DNS" },
+  { value: "bank_account", label: "Cuenta bancaria" },
+  { value: "document", label: "Documento" },
+  { value: "license", label: "Licencia" },
+  { value: "recovery_code", label: "Código de recuperación" },
+  { value: "secure_note", label: "Nota segura" },
+  { value: "other", label: "Otro" },
+];
+const VAULT_STATUSES = [
+  { value: "active", label: "Activo" },
+  { value: "needs_review", label: "Revisar" },
+  { value: "expired", label: "Expirado" },
+  { value: "archived", label: "Archivado" },
+];
+const VAULT_SENSITIVITY = [
+  { value: "internal", label: "Interno" },
+  { value: "restricted", label: "Restringido" },
+  { value: "critical", label: "Crítico" },
+];
 
 const PROJECT_LABELS: Record<string, string> = {
   "Not Started": "No iniciado",
@@ -138,6 +185,67 @@ const PROJECT_LABELS: Record<string, string> = {
   Medium: "Media",
   High: "Alta",
   Urgent: "Urgente",
+};
+
+const PAYMENT_LABELS: Record<string, string> = {
+  Completed: "Completado",
+  Pending: "Pendiente",
+  Failed: "Fallido",
+  Refunded: "Reembolsado",
+  Manual: "Manual",
+  Cash: "Efectivo",
+  Card: "Tarjeta",
+  "Bank Transfer": "Transferencia bancaria",
+  Check: "Cheque",
+  Other: "Otro",
+};
+
+const CREDIT_NOTE_LABELS: Record<string, string> = {
+  Draft: "Borrador",
+  Issued: "Emitida",
+  Applied: "Aplicada",
+  Cancelled: "Cancelada",
+};
+
+const SUBSCRIPTION_LABELS: Record<string, string> = {
+  Trial: "Prueba",
+  Active: "Activa",
+  Paused: "Pausada",
+  Cancelled: "Cancelada",
+  Expired: "Expirada",
+  Weekly: "Semanal",
+  Monthly: "Mensual",
+  Quarterly: "Trimestral",
+  Yearly: "Anual",
+};
+
+const EXPENSE_LABELS: Record<string, string> = {
+  Pending: "Pendiente",
+  Approved: "Aprobado",
+  Paid: "Pagado",
+  Rejected: "Rechazado",
+};
+
+const TICKET_LABELS: Record<string, string> = {
+  Open: "Abierto",
+  "In Progress": "En progreso",
+  Answered: "Respondido",
+  "On Hold": "En espera",
+  Closed: "Cerrado",
+  Low: "Baja",
+  Medium: "Media",
+  High: "Alta",
+  Urgent: "Urgente",
+};
+
+const CLIENT_REMINDER_LABELS: Record<string, string> = {
+  reminder: "Recordatorio",
+  call: "Llamada",
+  meeting: "Reunión",
+  demo: "Demo",
+  scheduled: "Programado",
+  completed: "Completado",
+  cancelled: "Cancelado",
 };
 
 type ClientStatus = (typeof CLIENT_STATUSES)[number];
@@ -238,6 +346,7 @@ interface ProductRow {
   base_price: number;
   currency: string | null;
   billing_type: string | null;
+  description?: string | null;
   is_active: boolean;
 }
 
@@ -252,6 +361,167 @@ interface InvoiceRow {
   updated_at: string;
 }
 
+interface PaymentRow {
+  id: string;
+  company_id: string;
+  payment_number: string | null;
+  reference: string | null;
+  invoice_id: string | null;
+  client_id: string | null;
+  amount: number;
+  payment_date: string;
+  method: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CreditNoteRow {
+  id: string;
+  company_id: string;
+  credit_note_number: number | null;
+  invoice_id: string | null;
+  client_id: string | null;
+  amount: number;
+  status: string;
+  date_issued: string;
+  reason: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SubscriptionRow {
+  id: string;
+  company_id: string;
+  name: string;
+  client_id: string | null;
+  product_id: string | null;
+  amount: number;
+  billing_cycle: string;
+  status: string;
+  start_date: string;
+  next_billing_date: string | null;
+  end_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ExpenseRow {
+  id: string;
+  company_id: string;
+  title: string;
+  vendor: string | null;
+  category: string;
+  amount: number;
+  status: string;
+  expense_date: string;
+  project_id: string | null;
+  client_id: string | null;
+  receipt_url: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ContractRow {
+  id: string;
+  company_id: string;
+  contract_number: number | null;
+  subject: string;
+  description: string | null;
+  status: string;
+  contract_type: string;
+  contract_value: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  client_id: string | null;
+  project_id: string | null;
+  proposal_id: string | null;
+  deal_id: string | null;
+  assigned_to: string | null;
+  created_by: string | null;
+  signed_at: string | null;
+  signature_status: string | null;
+  invoice_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TicketRow {
+  id: string;
+  ticket_number: number | null;
+  company_id: string;
+  subject: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  department: string;
+  service: string | null;
+  source: string;
+  tags: string[] | null;
+  client_id: string | null;
+  contact_id: string | null;
+  project_id: string | null;
+  lead_id: string | null;
+  assigned_to: string | null;
+  created_by: string | null;
+  last_reply_at: string | null;
+  first_response_due_at: string | null;
+  resolution_due_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CalendarEventRow {
+  id: string;
+  company_id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  type: string;
+  status: string;
+  start_at: string;
+  end_at: string | null;
+  all_day: boolean;
+  related_task_id: string | null;
+  related_lead_id: string | null;
+  related_client_id: string | null;
+  related_deal_id: string | null;
+  related_project_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface VaultItemRow {
+  id: string;
+  company_id: string;
+  title: string;
+  category: string;
+  status: string;
+  sensitivity: string;
+  client_id: string | null;
+  project_id: string | null;
+  owner_id: string | null;
+  url: string | null;
+  username: string | null;
+  email: string | null;
+  secret_value: string | null;
+  notes: string | null;
+  tags: string[] | null;
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ProposalRow {
   id: string;
   company_id: string;
@@ -260,6 +530,10 @@ interface ProposalRow {
   title: string;
   amount: number;
   status: string;
+  product_id?: string | null;
+  currency?: string | null;
+  description?: string | null;
+  notes?: string | null;
   valid_until: string | null;
   updated_at: string;
 }
@@ -301,6 +575,33 @@ interface ClientSnapshot extends ClientRow {
   invoices: InvoiceRow[];
   pendingInvoices: InvoiceRow[];
   overdueInvoices: InvoiceRow[];
+  payments: PaymentRow[];
+  completedPayments: PaymentRow[];
+  totalPaidAmount: number;
+  creditNotes: CreditNoteRow[];
+  appliedCreditNotes: CreditNoteRow[];
+  totalCreditAmount: number;
+  subscriptions: SubscriptionRow[];
+  activeSubscriptions: SubscriptionRow[];
+  recurringAmount: number;
+  expenses: ExpenseRow[];
+  paidExpenses: ExpenseRow[];
+  totalExpenseAmount: number;
+  contracts: ContractRow[];
+  activeContracts: ContractRow[];
+  expiringContracts: ContractRow[];
+  totalContractValue: number;
+  tickets: TicketRow[];
+  openTickets: TicketRow[];
+  urgentTickets: TicketRow[];
+  overdueTickets: TicketRow[];
+  reminders: CalendarEventRow[];
+  openReminders: CalendarEventRow[];
+  overdueReminders: CalendarEventRow[];
+  upcomingReminders: CalendarEventRow[];
+  vaultItems: VaultItemRow[];
+  criticalVaultItems: VaultItemRow[];
+  vaultItemsToReview: VaultItemRow[];
   proposals: ProposalRow[];
   pendingProposals: ProposalRow[];
   deals: DealRow[];
@@ -370,6 +671,15 @@ function money(value: number | null | undefined) {
   return `$${Math.round(Number(value || 0)).toLocaleString("es-DO")}`;
 }
 
+function isoDate(offsetDays = 0) {
+  return new Date(Date.now() + offsetDays * 86_400_000).toISOString().split("T")[0];
+}
+
+function cleanInvoiceText(value: unknown) {
+  const text = String(value || "").trim();
+  return text ? text : null;
+}
+
 function isOpenTaskStatus(status: string) {
   return !isCompletedTaskStatusValue(status);
 }
@@ -408,6 +718,36 @@ function formatDateTime(value: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function vaultOptionLabel(options: Array<{ value: string; label: string }>, value: string | null) {
+  return options.find((option) => option.value === value)?.label || "—";
+}
+
+function vaultStatusClass(status: string) {
+  if (status === "active") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "needs_review") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (status === "expired") return "border-rose-200 bg-rose-50 text-rose-700";
+  return "border-slate-200 bg-slate-50 text-slate-600";
+}
+
+function vaultSensitivityClass(sensitivity: string) {
+  if (sensitivity === "critical") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (sensitivity === "restricted") return "border-blue-200 bg-blue-50 text-blue-700";
+  return "border-slate-200 bg-slate-50 text-slate-600";
+}
+
+function toDateTimeLocalInputValue(value?: Date | string | null) {
+  const date = value ? new Date(value) : new Date(Date.now() + 60 * 60 * 1000);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function reminderLabel(value: string | null | undefined) {
+  const key = String(value || "").trim();
+  return CLIENT_REMINDER_LABELS[key] || key || "Recordatorio";
 }
 
 function relativeLabel(value: string | null | undefined) {
@@ -473,6 +813,31 @@ function healthTone(health: ClientHealth) {
 
 function healthLabel(health: ClientHealth) {
   return HEALTH_LABELS[health];
+}
+
+function paymentLabel(value: string | null | undefined) {
+  const key = String(value || "").trim();
+  return PAYMENT_LABELS[key] || key || "—";
+}
+
+function creditNoteLabel(value: string | null | undefined) {
+  const key = String(value || "").trim();
+  return CREDIT_NOTE_LABELS[key] || key || "—";
+}
+
+function subscriptionLabel(value: string | null | undefined) {
+  const key = String(value || "").trim();
+  return SUBSCRIPTION_LABELS[key] || key || "—";
+}
+
+function expenseLabel(value: string | null | undefined) {
+  const key = String(value || "").trim();
+  return EXPENSE_LABELS[key] || key || "—";
+}
+
+function ticketLabel(value: string | null | undefined) {
+  const key = String(value || "").trim();
+  return TICKET_LABELS[key] || key || "—";
 }
 
 function getClientHealth(args: {
@@ -632,6 +997,7 @@ function ClientsPage() {
   const openedClientSearchRef = useRef<string | null>(null);
   const { profile, user } = useAuth();
   const { can, role } = usePermissions();
+  const canManageVault = ["super_admin", "admin", "manager"].includes(String(role || ""));
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [managerFilter, setManagerFilter] = useState<AccountManagerFilter>("all");
@@ -654,6 +1020,35 @@ function ClientsPage() {
   const [projectClientId, setProjectClientId] = useState<string | null>(null);
   const [projectAssigneeIds, setProjectAssigneeIds] = useState<string[]>([]);
   const [quickProposalOpen, setQuickProposalOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceClientId, setInvoiceClientId] = useState<string | null>(null);
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentInitialValues, setPaymentInitialValues] = useState<
+    PaymentFormInitialValues | undefined
+  >();
+  const [creditNoteDialogOpen, setCreditNoteDialogOpen] = useState(false);
+  const [creditNoteClientId, setCreditNoteClientId] = useState<string | null>(null);
+  const [creditNoteSaving, setCreditNoteSaving] = useState(false);
+  const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
+  const [subscriptionClientId, setSubscriptionClientId] = useState<string | null>(null);
+  const [subscriptionSaving, setSubscriptionSaving] = useState(false);
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [expenseClientId, setExpenseClientId] = useState<string | null>(null);
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [contractClientId, setContractClientId] = useState<string | null>(null);
+  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [ticketClientId, setTicketClientId] = useState<string | null>(null);
+  const [ticketSaving, setTicketSaving] = useState(false);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [reminderClientId, setReminderClientId] = useState<string | null>(null);
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const [vaultDialogOpen, setVaultDialogOpen] = useState(false);
+  const [vaultClientId, setVaultClientId] = useState<string | null>(null);
+  const [vaultSaving, setVaultSaving] = useState(false);
+  const [revealedVaultItemIds, setRevealedVaultItemIds] = useState<Set<string>>(() => new Set());
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
   const {
     data: clients,
@@ -732,7 +1127,8 @@ function ClientsPage() {
     error: productsError,
   } = useCrud<ProductRow>({
     table: "products",
-    select: "id,company_id,name,category,type,base_price,currency,billing_type,is_active",
+    select:
+      "id,company_id,name,category,type,base_price,currency,billing_type,description,is_active",
     orderBy: "name",
     ascending: true,
     limit: 2000,
@@ -742,6 +1138,7 @@ function ClientsPage() {
     data: invoices,
     loading: invoicesLoading,
     error: invoicesError,
+    fetch: fetchInvoices,
   } = useCrud<InvoiceRow>({
     table: "invoices",
     select: "id,company_id,client_id,number,status,total,due_date,updated_at",
@@ -750,12 +1147,132 @@ function ClientsPage() {
   });
 
   const {
+    data: payments,
+    loading: paymentsLoading,
+    error: paymentsError,
+    fetch: fetchPayments,
+  } = useCrud<PaymentRow>({
+    table: "payments",
+    select:
+      "id,company_id,payment_number,reference,invoice_id,client_id,amount,payment_date,method,status,notes,created_at,updated_at",
+    orderBy: "payment_date",
+    ascending: false,
+    limit: 2000,
+  });
+
+  const {
+    data: creditNotes,
+    loading: creditNotesLoading,
+    error: creditNotesError,
+    create: createCreditNote,
+    fetch: fetchCreditNotes,
+  } = useCrud<CreditNoteRow>({
+    table: "credit_notes",
+    select:
+      "id,company_id,credit_note_number,invoice_id,client_id,amount,status,date_issued,reason,notes,created_at,updated_at",
+    orderBy: "date_issued",
+    ascending: false,
+    limit: 2000,
+  });
+
+  const {
+    data: subscriptions,
+    loading: subscriptionsLoading,
+    error: subscriptionsError,
+    create: createSubscription,
+    fetch: fetchSubscriptions,
+  } = useCrud<SubscriptionRow>({
+    table: "subscriptions",
+    select:
+      "id,company_id,name,client_id,product_id,amount,billing_cycle,status,start_date,next_billing_date,end_date,notes,created_at,updated_at",
+    orderBy: "next_billing_date",
+    ascending: true,
+    limit: 2000,
+  });
+
+  const {
+    data: expenses,
+    loading: expensesLoading,
+    error: expensesError,
+    create: createExpense,
+    fetch: fetchExpenses,
+  } = useCrud<ExpenseRow>({
+    table: "expenses",
+    select:
+      "id,company_id,title,vendor,category,amount,status,expense_date,project_id,client_id,receipt_url,notes,created_at,updated_at",
+    orderBy: "expense_date",
+    ascending: false,
+    limit: 2000,
+  });
+
+  const {
+    data: contracts,
+    loading: contractsLoading,
+    error: contractsError,
+    fetch: fetchContracts,
+  } = useCrud<ContractRow>({
+    table: "contracts",
+    select:
+      "id,company_id,contract_number,subject,description,status,contract_type,contract_value,start_date,end_date,client_id,project_id,proposal_id,deal_id,assigned_to,created_by,signed_at,signature_status,invoice_id,created_at,updated_at",
+    orderBy: "updated_at",
+    ascending: false,
+    limit: 2000,
+  });
+
+  const {
+    data: tickets,
+    loading: ticketsLoading,
+    error: ticketsError,
+    create: createTicket,
+    fetch: fetchTickets,
+  } = useCrud<TicketRow>({
+    table: "tickets",
+    select:
+      "id,ticket_number,company_id,subject,description,status,priority,department,service,source,tags,client_id,contact_id,project_id,lead_id,assigned_to,created_by,last_reply_at,first_response_due_at,resolution_due_at,closed_at,created_at,updated_at",
+    orderBy: "updated_at",
+    ascending: false,
+    limit: 2000,
+  });
+
+  const {
+    data: calendarEvents,
+    loading: calendarEventsLoading,
+    error: calendarEventsError,
+    create: createCalendarEvent,
+    fetch: fetchCalendarEvents,
+  } = useCrud<CalendarEventRow>({
+    table: "calendar_events",
+    select:
+      "id,company_id,user_id,title,description,location,type,status,start_at,end_at,all_day,related_task_id,related_lead_id,related_client_id,related_deal_id,related_project_id,metadata,created_at,updated_at",
+    orderBy: "start_at",
+    ascending: false,
+    limit: 2000,
+  });
+
+  const {
+    data: vaultItems,
+    loading: vaultItemsLoading,
+    error: vaultItemsError,
+    create: createVaultItem,
+    fetch: fetchVaultItems,
+  } = useCrud<VaultItemRow>({
+    table: "vault_items",
+    select:
+      "id,company_id,title,category,status,sensitivity,client_id,project_id,owner_id,url,username,email,secret_value,notes,tags,expires_at,last_used_at,created_by,updated_by,created_at,updated_at",
+    orderBy: "updated_at",
+    ascending: false,
+    limit: 2000,
+    enabled: canManageVault,
+  });
+
+  const {
     data: proposals,
     loading: proposalsLoading,
     error: proposalsError,
   } = useCrud<ProposalRow>({
     table: "proposals",
-    select: "id,company_id,client_id,number,title,amount,status,valid_until,updated_at",
+    select:
+      "id,company_id,client_id,number,title,amount,status,product_id,currency,description,notes,valid_until,updated_at",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -790,6 +1307,14 @@ function ClientsPage() {
     clientProductsLoading ||
     productsLoading ||
     invoicesLoading ||
+    paymentsLoading ||
+    creditNotesLoading ||
+    subscriptionsLoading ||
+    expensesLoading ||
+    contractsLoading ||
+    ticketsLoading ||
+    calendarEventsLoading ||
+    vaultItemsLoading ||
     proposalsLoading ||
     dealsLoading ||
     managersLoading;
@@ -803,6 +1328,14 @@ function ClientsPage() {
       clientProductsError,
       productsError,
       invoicesError,
+      paymentsError,
+      creditNotesError,
+      subscriptionsError,
+      expensesError,
+      contractsError,
+      ticketsError,
+      calendarEventsError,
+      vaultItemsError,
       proposalsError,
       dealsError,
       managersError,
@@ -817,6 +1350,14 @@ function ClientsPage() {
     clientProductsError,
     productsError,
     invoicesError,
+    paymentsError,
+    creditNotesError,
+    subscriptionsError,
+    expensesError,
+    contractsError,
+    ticketsError,
+    calendarEventsError,
+    vaultItemsError,
     proposalsError,
     dealsError,
     managersError,
@@ -825,6 +1366,10 @@ function ClientsPage() {
   const managerNameById = useMemo(() => {
     return new Map(managers.map((manager) => [manager.id, manager.full_name]));
   }, [managers]);
+
+  const projectById = useMemo(() => {
+    return new Map(projects.map((project) => [project.id, project]));
+  }, [projects]);
 
   const managerUserIdByProfileId = useMemo(() => {
     return new Map(
@@ -893,6 +1438,59 @@ function ClientsPage() {
     () => groupBy(invoices, (invoice) => invoice.client_id),
     [invoices],
   );
+  const paymentsByClient = useMemo(
+    () => groupBy(payments, (payment) => payment.client_id),
+    [payments],
+  );
+  const paymentsByInvoice = useMemo(
+    () => groupBy(payments, (payment) => payment.invoice_id),
+    [payments],
+  );
+  const creditNotesByClient = useMemo(
+    () => groupBy(creditNotes, (creditNote) => creditNote.client_id),
+    [creditNotes],
+  );
+  const creditNotesByInvoice = useMemo(
+    () => groupBy(creditNotes, (creditNote) => creditNote.invoice_id),
+    [creditNotes],
+  );
+  const subscriptionsByClient = useMemo(
+    () => groupBy(subscriptions, (subscription) => subscription.client_id),
+    [subscriptions],
+  );
+  const expensesByClient = useMemo(
+    () => groupBy(expenses, (expense) => expense.client_id),
+    [expenses],
+  );
+  const expensesByProject = useMemo(
+    () => groupBy(expenses, (expense) => expense.project_id),
+    [expenses],
+  );
+  const contractsByClient = useMemo(
+    () => groupBy(contracts, (contract) => contract.client_id),
+    [contracts],
+  );
+  const contractsByProject = useMemo(
+    () => groupBy(contracts, (contract) => contract.project_id),
+    [contracts],
+  );
+  const ticketsByClient = useMemo(() => groupBy(tickets, (ticket) => ticket.client_id), [tickets]);
+  const ticketsByProject = useMemo(
+    () => groupBy(tickets, (ticket) => ticket.project_id),
+    [tickets],
+  );
+  const remindersByClient = useMemo(
+    () => groupBy(calendarEvents, (event) => event.related_client_id),
+    [calendarEvents],
+  );
+  const remindersByProject = useMemo(
+    () => groupBy(calendarEvents, (event) => event.related_project_id),
+    [calendarEvents],
+  );
+  const vaultItemsByClient = useMemo(
+    () => groupBy(vaultItems, (item) => item.client_id),
+    [vaultItems],
+  );
   const proposalsByClient = useMemo(
     () => groupBy(proposals, (proposal) => proposal.client_id),
     [proposals],
@@ -903,6 +1501,10 @@ function ClientsPage() {
     [clientProducts],
   );
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const invoiceById = useMemo(
+    () => new Map(invoices.map((invoice) => [invoice.id, invoice])),
+    [invoices],
+  );
 
   const snapshots = useMemo<ClientSnapshot[]>(() => {
     return clients.map((client) => {
@@ -918,6 +1520,148 @@ function ClientsPage() {
       for (const t of [...directClientTasks, ...projectTasks]) taskById.set(String(t.id), t);
       const clientTasks = Array.from(taskById.values());
       const clientInvoices = invoicesByClient.get(client.id) || [];
+      const paymentById = new Map<string, PaymentRow>();
+      for (const payment of paymentsByClient.get(client.id) || []) {
+        paymentById.set(payment.id, payment);
+      }
+      for (const invoice of clientInvoices) {
+        for (const payment of paymentsByInvoice.get(invoice.id) || []) {
+          paymentById.set(payment.id, payment);
+        }
+      }
+      const clientPayments = Array.from(paymentById.values()).sort((a, b) =>
+        String(b.payment_date || b.created_at || "").localeCompare(
+          String(a.payment_date || a.created_at || ""),
+        ),
+      );
+      const completedPayments = clientPayments.filter(
+        (payment) => normalizeStatus(payment.status) === "completed",
+      );
+      const creditNoteById = new Map<string, CreditNoteRow>();
+      for (const creditNote of creditNotesByClient.get(client.id) || []) {
+        creditNoteById.set(creditNote.id, creditNote);
+      }
+      for (const invoice of clientInvoices) {
+        for (const creditNote of creditNotesByInvoice.get(invoice.id) || []) {
+          creditNoteById.set(creditNote.id, creditNote);
+        }
+      }
+      const clientCreditNotes = Array.from(creditNoteById.values()).sort((a, b) =>
+        String(b.date_issued || b.created_at || "").localeCompare(
+          String(a.date_issued || a.created_at || ""),
+        ),
+      );
+      const appliedCreditNotes = clientCreditNotes.filter((creditNote) =>
+        ["issued", "applied"].includes(normalizeStatus(creditNote.status)),
+      );
+      const clientSubscriptions = (subscriptionsByClient.get(client.id) || []).sort((a, b) =>
+        String(a.next_billing_date || a.start_date || "").localeCompare(
+          String(b.next_billing_date || b.start_date || ""),
+        ),
+      );
+      const activeSubscriptions = clientSubscriptions.filter((subscription) =>
+        ["trial", "active"].includes(normalizeStatus(subscription.status)),
+      );
+      const expenseById = new Map<string, ExpenseRow>();
+      for (const expense of expensesByClient.get(client.id) || []) {
+        expenseById.set(expense.id, expense);
+      }
+      for (const project of clientProjects) {
+        for (const expense of expensesByProject.get(project.id) || []) {
+          expenseById.set(expense.id, expense);
+        }
+      }
+      const clientExpenses = Array.from(expenseById.values()).sort((a, b) =>
+        String(b.expense_date || b.created_at || "").localeCompare(
+          String(a.expense_date || a.created_at || ""),
+        ),
+      );
+      const paidExpenses = clientExpenses.filter(
+        (expense) => normalizeStatus(expense.status) === "paid",
+      );
+      const contractById = new Map<string, ContractRow>();
+      for (const contract of contractsByClient.get(client.id) || []) {
+        contractById.set(contract.id, contract);
+      }
+      for (const project of clientProjects) {
+        for (const contract of contractsByProject.get(project.id) || []) {
+          contractById.set(contract.id, contract);
+        }
+      }
+      const clientContracts = Array.from(contractById.values()).sort((a, b) =>
+        String(b.updated_at || b.created_at || "").localeCompare(
+          String(a.updated_at || a.created_at || ""),
+        ),
+      );
+      const today = isoDate();
+      const in30Days = isoDate(30);
+      const activeContracts = clientContracts.filter(
+        (contract) => normalizeStatus(contract.status) === "active",
+      );
+      const expiringContracts = clientContracts.filter(
+        (contract) =>
+          contract.end_date &&
+          contract.end_date >= today &&
+          contract.end_date <= in30Days &&
+          normalizeStatus(contract.status) !== "cancelled",
+      );
+      const ticketById = new Map<string, TicketRow>();
+      for (const ticket of ticketsByClient.get(client.id) || []) {
+        ticketById.set(ticket.id, ticket);
+      }
+      for (const project of clientProjects) {
+        for (const ticket of ticketsByProject.get(project.id) || []) {
+          ticketById.set(ticket.id, ticket);
+        }
+      }
+      const clientTickets = Array.from(ticketById.values()).sort((a, b) =>
+        String(b.updated_at || b.created_at || "").localeCompare(
+          String(a.updated_at || a.created_at || ""),
+        ),
+      );
+      const openTickets = clientTickets.filter(
+        (ticket) => normalizeStatus(ticket.status) !== "closed",
+      );
+      const urgentTickets = openTickets.filter((ticket) =>
+        ["high", "urgent"].includes(normalizeStatus(ticket.priority)),
+      );
+      const nowIso = new Date().toISOString();
+      const overdueTickets = openTickets.filter((ticket) => {
+        const dueAt = ticket.resolution_due_at || ticket.first_response_due_at;
+        return Boolean(dueAt && String(dueAt) < nowIso);
+      });
+      const reminderById = new Map<string, CalendarEventRow>();
+      for (const reminder of remindersByClient.get(client.id) || []) {
+        reminderById.set(reminder.id, reminder);
+      }
+      for (const project of clientProjects) {
+        for (const reminder of remindersByProject.get(project.id) || []) {
+          reminderById.set(reminder.id, reminder);
+        }
+      }
+      const clientReminders = Array.from(reminderById.values()).sort((a, b) =>
+        String(a.start_at || "").localeCompare(String(b.start_at || "")),
+      );
+      const openReminders = clientReminders.filter(
+        (reminder) => !["completed", "cancelled"].includes(normalizeStatus(reminder.status)),
+      );
+      const overdueReminders = openReminders.filter((reminder) =>
+        Boolean(reminder.start_at && String(reminder.start_at) < nowIso),
+      );
+      const upcomingReminders = openReminders.filter((reminder) =>
+        Boolean(reminder.start_at && String(reminder.start_at) >= nowIso),
+      );
+      const clientVaultItems = (vaultItemsByClient.get(client.id) || []).sort((a, b) =>
+        String(b.updated_at || b.created_at || "").localeCompare(
+          String(a.updated_at || a.created_at || ""),
+        ),
+      );
+      const criticalVaultItems = clientVaultItems.filter(
+        (item) => normalizeStatus(item.sensitivity) === "critical",
+      );
+      const vaultItemsToReview = clientVaultItems.filter((item) =>
+        ["needs_review", "expired"].includes(normalizeStatus(item.status)),
+      );
       const clientProposals = proposalsByClient.get(client.id) || [];
       const clientDeals = dealsByClient.get(client.id) || [];
       const cps = (clientProductsByClient.get(client.id) || []) as ClientProductRow[];
@@ -959,6 +1703,13 @@ function ClientsPage() {
         ...clientProjects.map((project) => project.updated_at),
         ...clientTasks.map((task) => task.updated_at),
         ...clientInvoices.map((invoice) => invoice.updated_at),
+        ...clientCreditNotes.map((creditNote) => creditNote.updated_at),
+        ...clientSubscriptions.map((subscription) => subscription.updated_at),
+        ...clientExpenses.map((expense) => expense.updated_at),
+        ...clientContracts.map((contract) => contract.updated_at),
+        ...clientTickets.map((ticket) => ticket.updated_at),
+        ...clientReminders.map((reminder) => reminder.updated_at),
+        ...clientVaultItems.map((item) => item.updated_at),
         ...clientProposals.map((proposal) => proposal.updated_at),
         ...clientDeals.map((deal) => deal.updated_at),
       ]);
@@ -989,6 +1740,48 @@ function ClientsPage() {
         invoices: clientInvoices,
         pendingInvoices,
         overdueInvoices,
+        payments: clientPayments,
+        completedPayments,
+        totalPaidAmount: completedPayments.reduce(
+          (sum, payment) => sum + Number(payment.amount || 0),
+          0,
+        ),
+        creditNotes: clientCreditNotes,
+        appliedCreditNotes,
+        totalCreditAmount: appliedCreditNotes.reduce(
+          (sum, creditNote) => sum + Number(creditNote.amount || 0),
+          0,
+        ),
+        subscriptions: clientSubscriptions,
+        activeSubscriptions,
+        recurringAmount: activeSubscriptions.reduce(
+          (sum, subscription) => sum + Number(subscription.amount || 0),
+          0,
+        ),
+        expenses: clientExpenses,
+        paidExpenses,
+        totalExpenseAmount: clientExpenses.reduce(
+          (sum, expense) => sum + Number(expense.amount || 0),
+          0,
+        ),
+        contracts: clientContracts,
+        activeContracts,
+        expiringContracts,
+        totalContractValue: clientContracts.reduce(
+          (sum, contract) => sum + Number(contract.contract_value || 0),
+          0,
+        ),
+        tickets: clientTickets,
+        openTickets,
+        urgentTickets,
+        overdueTickets,
+        reminders: clientReminders,
+        openReminders,
+        overdueReminders,
+        upcomingReminders,
+        vaultItems: clientVaultItems,
+        criticalVaultItems,
+        vaultItemsToReview,
         proposals: clientProposals,
         pendingProposals,
         deals: clientDeals,
@@ -1008,14 +1801,28 @@ function ClientsPage() {
     clients,
     clientProductsByClient,
     contactsByClient,
+    contractsByClient,
+    contractsByProject,
+    creditNotesByClient,
+    creditNotesByInvoice,
     dealsByClient,
+    expensesByClient,
+    expensesByProject,
     invoicesByClient,
     managerNameById,
+    paymentsByClient,
+    paymentsByInvoice,
     productById,
     projectsByClient,
     proposalsByClient,
+    remindersByClient,
+    remindersByProject,
+    subscriptionsByClient,
     tasksByClient,
     tasksByProject,
+    ticketsByClient,
+    ticketsByProject,
+    vaultItemsByClient,
   ]);
 
   const activeClientsCount = useMemo(
@@ -1168,6 +1975,38 @@ function ClientsPage() {
     () => snapshots.find((client) => client.id === projectClientId) || selectedClient,
     [projectClientId, selectedClient, snapshots],
   );
+  const invoiceDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === invoiceClientId) || selectedClient,
+    [invoiceClientId, selectedClient, snapshots],
+  );
+  const creditNoteDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === creditNoteClientId) || selectedClient,
+    [creditNoteClientId, selectedClient, snapshots],
+  );
+  const subscriptionDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === subscriptionClientId) || selectedClient,
+    [subscriptionClientId, selectedClient, snapshots],
+  );
+  const expenseDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === expenseClientId) || selectedClient,
+    [expenseClientId, selectedClient, snapshots],
+  );
+  const contractDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === contractClientId) || selectedClient,
+    [contractClientId, selectedClient, snapshots],
+  );
+  const ticketDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === ticketClientId) || selectedClient,
+    [ticketClientId, selectedClient, snapshots],
+  );
+  const reminderDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === reminderClientId) || selectedClient,
+    [reminderClientId, selectedClient, snapshots],
+  );
+  const vaultDialogClient = useMemo(
+    () => snapshots.find((client) => client.id === vaultClientId) || selectedClient,
+    [vaultClientId, selectedClient, snapshots],
+  );
 
   const closeClientDetail = () => {
     openedClientSearchRef.current = null;
@@ -1220,6 +2059,742 @@ function ClientsPage() {
     );
   };
 
+  const openInvoiceCreator = (client: ClientSnapshot) => {
+    if (!can("invoices.create")) {
+      toast.error("No tienes permiso para crear facturas");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setInvoiceClientId(client.id);
+    setInvoiceError(null);
+    setInvoiceDialogOpen(true);
+  };
+
+  const openPaymentCreator = (client: ClientSnapshot, invoice?: InvoiceRow | null) => {
+    if (!can("payments.create")) {
+      toast.error("No tienes permiso para crear pagos");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setPaymentInitialValues({
+      reference: invoice?.number ? `Pago ${invoice.number}` : `Pago ${client.company_name}`,
+      invoice_id: invoice?.id || null,
+      client_id: client.id,
+      amount: invoice?.total ? String(invoice.total) : "0",
+      status: "Completed",
+      method: "Manual",
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  const openCreditNoteCreator = (client: ClientSnapshot) => {
+    if (!can("credit_notes.create")) {
+      toast.error("No tienes permiso para crear notas de crédito");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setCreditNoteClientId(client.id);
+    setCreditNoteDialogOpen(true);
+  };
+
+  const openSubscriptionCreator = (client: ClientSnapshot) => {
+    if (!can("subscriptions.create")) {
+      toast.error("No tienes permiso para crear suscripciones");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setSubscriptionClientId(client.id);
+    setSubscriptionDialogOpen(true);
+  };
+
+  const openExpenseCreator = (client: ClientSnapshot) => {
+    if (!can("expenses.create")) {
+      toast.error("No tienes permiso para crear gastos");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setExpenseClientId(client.id);
+    setExpenseDialogOpen(true);
+  };
+
+  const openContractCreator = (client: ClientSnapshot) => {
+    if (!can("contracts.create")) {
+      toast.error("No tienes permiso para crear contratos");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setContractClientId(client.id);
+    setContractDialogOpen(true);
+  };
+
+  const openTicketCreator = (client: ClientSnapshot) => {
+    if (!can("tickets.create")) {
+      toast.error("No tienes permiso para crear tickets");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setTicketClientId(client.id);
+    setTicketDialogOpen(true);
+  };
+
+  const openReminderCreator = (client: ClientSnapshot) => {
+    if (!profile?.company_id || !profile?.user_id) {
+      toast.error("No se pudo identificar tu sesión.");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setReminderClientId(client.id);
+    setReminderDialogOpen(true);
+  };
+
+  const openVaultCreator = (client: ClientSnapshot) => {
+    if (!canManageVault) {
+      toast.error("Vault está reservado para administración y gerencia.");
+      return;
+    }
+    setSelectedClientId(client.id);
+    setVaultClientId(client.id);
+    setVaultDialogOpen(true);
+  };
+
+  const toggleVaultReveal = (item: VaultItemRow) => {
+    setRevealedVaultItemIds((current) => {
+      const next = new Set(current);
+      if (next.has(item.id)) {
+        next.delete(item.id);
+      } else {
+        next.add(item.id);
+        void logActivityEvent({
+          companyId: profile?.company_id,
+          userId: profile?.id || null,
+          action: "client_vault_secret_revealed",
+          entityType: "vault_item",
+          entityId: item.id,
+          detail: `Se reveló un secreto de Vault desde Cliente 360: ${item.title}`,
+          metadata: { client_id: item.client_id, category: item.category },
+          dedupeWindowSeconds: 30,
+        }).catch(() => {});
+      }
+      return next;
+    });
+  };
+
+  const copyVaultSecret = async (item: VaultItemRow) => {
+    if (!item.secret_value) {
+      toast.info("Este acceso no tiene secreto guardado.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(item.secret_value);
+      toast.success("Secreto copiado.");
+      void logActivityEvent({
+        companyId: profile?.company_id,
+        userId: profile?.id || null,
+        action: "client_vault_secret_copied",
+        entityType: "vault_item",
+        entityId: item.id,
+        detail: `Se copió un secreto de Vault desde Cliente 360: ${item.title}`,
+        metadata: { client_id: item.client_id, category: item.category },
+        dedupeWindowSeconds: 30,
+      }).catch(() => {});
+    } catch {
+      toast.error("No se pudo copiar el secreto.");
+    }
+  };
+
+  const handleClientPaymentCreated = async (_result: PaymentFormCreatedResult) => {
+    await Promise.all([fetchPayments(), fetchInvoices()]);
+    toast.success("Pago registrado en el cliente.");
+  };
+
+  const handleCreditNoteSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!can("credit_notes.create")) {
+      toast.error("No tienes permiso para crear notas de crédito");
+      return;
+    }
+    if (!profile?.company_id) {
+      toast.error("No se pudo identificar tu compañía.");
+      return;
+    }
+
+    const client = creditNoteClientId
+      ? snapshots.find((item) => item.id === creditNoteClientId) || null
+      : selectedClient;
+    if (!client) {
+      toast.error("Selecciona un cliente antes de crear la nota.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const amount = Number(formData.get("amount") || 0);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("El monto debe ser mayor que 0.");
+      return;
+    }
+
+    const invoiceId = normalizeNullableSelectValue(formData.get("invoice_id"));
+    const payload = {
+      client_id: client.id,
+      invoice_id: invoiceId,
+      amount,
+      status: String(formData.get("status") || "Draft"),
+      date_issued: String(formData.get("date_issued") || isoDate()),
+      reason: String(formData.get("reason") || "").trim() || "Ajuste de factura",
+      notes: String(formData.get("notes") || "").trim() || null,
+      created_by: profile.id || null,
+    };
+
+    setCreditNoteSaving(true);
+    try {
+      const created = await createCreditNote(payload as Partial<CreditNoteRow>);
+      await Promise.all([fetchCreditNotes(), fetchInvoices()]);
+      setCreditNoteDialogOpen(false);
+      setCreditNoteClientId(null);
+      toast.success("Nota de crédito creada.");
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "credit_note_created_from_client",
+        entityType: "credit_notes",
+        entityId: created?.id || null,
+        detail: `Nota de crédito creada para ${client.company_name}`,
+        metadata: { client_id: client.id, invoice_id: invoiceId, amount },
+      }).catch(() => {});
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo crear la nota de crédito.";
+      toast.error(message);
+    } finally {
+      setCreditNoteSaving(false);
+    }
+  };
+
+  const handleSubscriptionSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!can("subscriptions.create")) {
+      toast.error("No tienes permiso para crear suscripciones");
+      return;
+    }
+    if (!profile?.company_id) {
+      toast.error("No se pudo identificar tu compañía.");
+      return;
+    }
+
+    const client = subscriptionClientId
+      ? snapshots.find((item) => item.id === subscriptionClientId) || null
+      : selectedClient;
+    if (!client) {
+      toast.error("Selecciona un cliente antes de crear la suscripción.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const amount = Number(formData.get("amount") || 0);
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast.error("El monto no puede ser negativo.");
+      return;
+    }
+
+    const payload = {
+      name: String(formData.get("name") || "").trim(),
+      client_id: client.id,
+      product_id: normalizeNullableSelectValue(formData.get("product_id")),
+      amount,
+      billing_cycle: String(formData.get("billing_cycle") || "Monthly"),
+      status: String(formData.get("status") || "Active"),
+      start_date: String(formData.get("start_date") || isoDate()),
+      next_billing_date: normalizeNullableSelectValue(formData.get("next_billing_date")),
+      end_date: normalizeNullableSelectValue(formData.get("end_date")),
+      notes: String(formData.get("notes") || "").trim() || null,
+      created_by: profile.id || null,
+    };
+
+    if (!payload.name) {
+      toast.error("El nombre de la suscripción es obligatorio.");
+      return;
+    }
+
+    setSubscriptionSaving(true);
+    try {
+      const created = await createSubscription(payload as Partial<SubscriptionRow>);
+      await fetchSubscriptions();
+      setSubscriptionDialogOpen(false);
+      setSubscriptionClientId(null);
+      toast.success("Suscripción creada.");
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "subscription_created_from_client",
+        entityType: "subscriptions",
+        entityId: created?.id || null,
+        detail: `Suscripción ${payload.name} creada para ${client.company_name}`,
+        metadata: { client_id: client.id, product_id: payload.product_id, amount },
+      }).catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo crear la suscripción.";
+      toast.error(message);
+    } finally {
+      setSubscriptionSaving(false);
+    }
+  };
+
+  const handleExpenseSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!can("expenses.create")) {
+      toast.error("No tienes permiso para crear gastos");
+      return;
+    }
+    if (!profile?.company_id) {
+      toast.error("No se pudo identificar tu compañía.");
+      return;
+    }
+
+    const client = expenseClientId
+      ? snapshots.find((item) => item.id === expenseClientId) || null
+      : selectedClient;
+    if (!client) {
+      toast.error("Selecciona un cliente antes de crear el gasto.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const amount = Number(formData.get("amount") || 0);
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast.error("El monto no puede ser negativo.");
+      return;
+    }
+
+    const payload = {
+      title: String(formData.get("title") || "").trim(),
+      vendor: String(formData.get("vendor") || "").trim() || null,
+      category: String(formData.get("category") || "").trim() || "General",
+      amount,
+      status: String(formData.get("status") || "Pending"),
+      expense_date: String(formData.get("expense_date") || isoDate()),
+      project_id: normalizeNullableSelectValue(formData.get("project_id")),
+      client_id: client.id,
+      receipt_url: String(formData.get("receipt_url") || "").trim() || null,
+      notes: String(formData.get("notes") || "").trim() || null,
+      created_by: profile.id || null,
+    };
+
+    if (!payload.title) {
+      toast.error("El título del gasto es obligatorio.");
+      return;
+    }
+
+    setExpenseSaving(true);
+    try {
+      const created = await createExpense(payload as Partial<ExpenseRow>);
+      await fetchExpenses();
+      setExpenseDialogOpen(false);
+      setExpenseClientId(null);
+      toast.success("Gasto creado.");
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "expense_created_from_client",
+        entityType: "expenses",
+        entityId: created?.id || null,
+        detail: `Gasto ${payload.title} creado para ${client.company_name}`,
+        metadata: { client_id: client.id, project_id: payload.project_id, amount },
+      }).catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo crear el gasto.";
+      toast.error(message);
+    } finally {
+      setExpenseSaving(false);
+    }
+  };
+
+  const handleTicketSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!can("tickets.create")) {
+      toast.error("No tienes permiso para crear tickets");
+      return;
+    }
+    if (!profile?.company_id) {
+      toast.error("No se pudo identificar tu compañía.");
+      return;
+    }
+
+    const client = ticketClientId
+      ? snapshots.find((item) => item.id === ticketClientId) || null
+      : selectedClient;
+    if (!client) {
+      toast.error("Selecciona un cliente antes de crear el ticket.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      subject: String(formData.get("subject") || "").trim(),
+      description: String(formData.get("description") || "").trim() || null,
+      status: String(formData.get("status") || "Open"),
+      priority: String(formData.get("priority") || "Medium"),
+      department: String(formData.get("department") || "").trim() || "Support",
+      service: String(formData.get("service") || "").trim() || null,
+      source: "manual",
+      tags: [],
+      client_id: client.id,
+      contact_id: normalizeNullableSelectValue(formData.get("contact_id")),
+      project_id: normalizeNullableSelectValue(formData.get("project_id")),
+      assigned_to: normalizeNullableSelectValue(formData.get("assigned_to")),
+      created_by: profile.id || null,
+    };
+
+    if (!payload.subject) {
+      toast.error("El asunto del ticket es obligatorio.");
+      return;
+    }
+
+    setTicketSaving(true);
+    try {
+      const created = await createTicket(payload as Partial<TicketRow>);
+      await fetchTickets();
+      setTicketDialogOpen(false);
+      setTicketClientId(null);
+      toast.success("Ticket creado.");
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "ticket_created_from_client",
+        entityType: "tickets",
+        entityId: created?.id || null,
+        detail: `Ticket ${payload.subject} creado para ${client.company_name}`,
+        metadata: {
+          client_id: client.id,
+          contact_id: payload.contact_id,
+          project_id: payload.project_id,
+          priority: payload.priority,
+        },
+      }).catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo crear el ticket.";
+      toast.error(message);
+    } finally {
+      setTicketSaving(false);
+    }
+  };
+
+  const handleReminderSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!profile?.company_id || !profile?.user_id) {
+      toast.error("No se pudo identificar tu sesión.");
+      return;
+    }
+
+    const client = reminderClientId
+      ? snapshots.find((item) => item.id === reminderClientId) || null
+      : selectedClient;
+    if (!client) {
+      toast.error("Selecciona un cliente antes de crear el recordatorio.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const title = String(formData.get("title") || "").trim();
+    const startAt = String(formData.get("start_at") || "").trim();
+    if (!title) {
+      toast.error("El título del recordatorio es obligatorio.");
+      return;
+    }
+    if (!startAt) {
+      toast.error("Selecciona fecha y hora para el recordatorio.");
+      return;
+    }
+
+    const payload = {
+      user_id: profile.user_id,
+      title,
+      description: String(formData.get("description") || "").trim() || null,
+      location: String(formData.get("location") || "").trim() || null,
+      type: String(formData.get("type") || "reminder"),
+      status: "scheduled",
+      start_at: startAt,
+      end_at: null,
+      all_day: false,
+      related_client_id: client.id,
+      related_project_id: normalizeNullableSelectValue(formData.get("related_project_id")),
+      metadata: { created_from: "client_360" },
+    };
+
+    setReminderSaving(true);
+    try {
+      const created = await createCalendarEvent(payload as Partial<CalendarEventRow>);
+      await fetchCalendarEvents();
+      setReminderDialogOpen(false);
+      setReminderClientId(null);
+      toast.success("Recordatorio creado.");
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "reminder_created_from_client",
+        entityType: "calendar_events",
+        entityId: created?.id || null,
+        detail: `${CLIENT_REMINDER_LABELS[payload.type] || "Recordatorio"} creado para ${client.company_name}`,
+        metadata: {
+          client_id: client.id,
+          project_id: payload.related_project_id,
+          start_at: payload.start_at,
+          type: payload.type,
+        },
+      }).catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo crear el recordatorio.";
+      toast.error(message);
+    } finally {
+      setReminderSaving(false);
+    }
+  };
+
+  const handleVaultSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canManageVault) {
+      toast.error("Vault está reservado para administración y gerencia.");
+      return;
+    }
+    if (!profile?.company_id) {
+      toast.error("No se pudo identificar tu compañía.");
+      return;
+    }
+
+    const client = vaultClientId
+      ? snapshots.find((item) => item.id === vaultClientId) || null
+      : selectedClient;
+    if (!client) {
+      toast.error("Selecciona un cliente antes de guardar en Vault.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const title = String(formData.get("title") || "").trim();
+    if (!title) {
+      toast.error("El nombre del acceso es obligatorio.");
+      return;
+    }
+
+    const payload = {
+      title,
+      category: String(formData.get("category") || "login"),
+      status: String(formData.get("status") || "active"),
+      sensitivity: String(formData.get("sensitivity") || "restricted"),
+      client_id: client.id,
+      project_id: normalizeNullableSelectValue(formData.get("project_id")),
+      owner_id: normalizeNullableSelectValue(formData.get("owner_id")),
+      url: String(formData.get("url") || "").trim() || null,
+      username: String(formData.get("username") || "").trim() || null,
+      email: String(formData.get("email") || "").trim() || null,
+      secret_value: String(formData.get("secret_value") || "").trim() || null,
+      expires_at: normalizeNullableSelectValue(formData.get("expires_at")),
+      tags: splitTags(String(formData.get("tags") || "")),
+      notes: String(formData.get("notes") || "").trim() || null,
+      created_by: profile.id || null,
+      updated_by: profile.id || null,
+    };
+
+    setVaultSaving(true);
+    try {
+      const created = await createVaultItem(payload as Partial<VaultItemRow>);
+      await fetchVaultItems();
+      setVaultDialogOpen(false);
+      setVaultClientId(null);
+      toast.success("Acceso guardado en Vault.");
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: "vault_item_created_from_client",
+        entityType: "vault_item",
+        entityId: created?.id || null,
+        detail: `Acceso de Vault creado para ${client.company_name}: ${title}`,
+        metadata: {
+          client_id: client.id,
+          project_id: payload.project_id,
+          category: payload.category,
+          sensitivity: payload.sensitivity,
+        },
+      }).catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo guardar en Vault.";
+      toast.error(message);
+    } finally {
+      setVaultSaving(false);
+    }
+  };
+
+  const invoiceInitialDraft = useMemo<InvoiceEditorDraft>(() => {
+    const client = invoiceDialogClient;
+    const primaryContact = client?.primaryContact || null;
+    const firstPurchasedProduct = client?.purchasedProducts[0]?.product || null;
+    const productDescription =
+      cleanInvoiceText(firstPurchasedProduct?.description) ||
+      cleanInvoiceText(firstPurchasedProduct?.name) ||
+      "";
+    const productPrice = Math.max(0, Number(firstPurchasedProduct?.base_price || 0) || 0);
+    const initialItems: InvoiceEditorItem[] = productDescription
+      ? [
+          {
+            description: productDescription,
+            quantity: 1,
+            unit_price: productPrice,
+            total: productPrice,
+          },
+        ]
+      : [{ description: "", quantity: 1, unit_price: 0, total: 0 }];
+
+    return {
+      number: `INV-${Date.now().toString().slice(-6)}`,
+      status: "Draft",
+      client_id: client?.id || null,
+      proposal_id: null,
+      product_id: firstPurchasedProduct?.id || null,
+      currency: cleanInvoiceText(firstPurchasedProduct?.currency) || "USD",
+      date_issued: isoDate(),
+      due_date: isoDate(30),
+      notes: null,
+      clientName: cleanInvoiceText(primaryContact ? getContactName(primaryContact) : null),
+      clientCompany: cleanInvoiceText(client?.company_name),
+      clientEmail: cleanInvoiceText(primaryContact?.email) || cleanInvoiceText(client?.email),
+      clientPhone:
+        cleanInvoiceText(primaryContact?.phone) ||
+        cleanInvoiceText(primaryContact?.whatsapp) ||
+        cleanInvoiceText(client?.phone) ||
+        cleanInvoiceText(client?.whatsapp),
+      clientAddress: cleanInvoiceText(
+        [client?.address, client?.city, client?.country].filter(Boolean).join(", "),
+      ),
+      clientTaxId: cleanInvoiceText(client?.tax_id),
+      issuerName: null,
+      issuerTaxId: null,
+      issuerEmail: null,
+      issuerPhone: null,
+      issuerAddress: null,
+      issuerWebsite: null,
+      relatedProposalNumber: null,
+      relatedProposalTitle: null,
+      productName: cleanInvoiceText(firstPurchasedProduct?.name),
+      tax: 0,
+      discount: 0,
+      legacySubtotal: 0,
+      items: initialItems,
+    };
+  }, [invoiceDialogClient]);
+
+  const saveClientInvoiceDraft = async (
+    draft: InvoiceEditorDraft,
+    nextStatus: "Draft" | "Sent",
+  ) => {
+    if (!profile?.company_id) {
+      setInvoiceError("No se pudo identificar tu compañía.");
+      toast.error("No se pudo identificar tu compañía.");
+      return;
+    }
+
+    const rows = draft.items
+      .map((item, index) => {
+        const description = String(item.description || "").trim();
+        const quantity = Number(item.quantity);
+        const unitPrice = Number(item.unit_price);
+        return {
+          description,
+          quantity: Number.isFinite(quantity) ? quantity : Number.NaN,
+          unit_price: Number.isFinite(unitPrice) ? unitPrice : Number.NaN,
+          sort_order: index,
+        };
+      })
+      .filter((item) => item.description || item.unit_price > 0);
+
+    for (const row of rows) {
+      if (!row.description) {
+        setInvoiceError("Cada línea debe tener descripción.");
+        toast.error("Cada línea debe tener descripción.");
+        return;
+      }
+      if (!Number.isFinite(row.quantity) || row.quantity <= 0) {
+        setInvoiceError("La cantidad debe ser mayor que 0.");
+        toast.error("La cantidad debe ser mayor que 0.");
+        return;
+      }
+      if (!Number.isFinite(row.unit_price) || row.unit_price < 0) {
+        setInvoiceError("El precio unitario no puede ser negativo.");
+        toast.error("El precio unitario no puede ser negativo.");
+        return;
+      }
+    }
+
+    const record = {
+      number: cleanInvoiceText(draft.number) || `INV-${Date.now().toString().slice(-6)}`,
+      client_id: draft.client_id || invoiceDialogClient?.id || null,
+      proposal_id: draft.proposal_id || null,
+      product_id: draft.product_id || null,
+      tax: Math.max(0, Number(draft.tax || 0) || 0),
+      discount: Math.max(0, Number(draft.discount || 0) || 0),
+      status: nextStatus,
+      date_issued: cleanInvoiceText(draft.date_issued) || isoDate(),
+      due_date: cleanInvoiceText(draft.due_date) || isoDate(30),
+      notes: cleanInvoiceText(draft.notes),
+      payment_link: null,
+      ...(nextStatus === "Sent" ? { sent_at: new Date().toISOString() } : {}),
+      invoice_data: {
+        clientName: cleanInvoiceText(draft.clientName),
+        clientCompany: cleanInvoiceText(draft.clientCompany),
+        clientEmail: cleanInvoiceText(draft.clientEmail),
+        clientPhone: cleanInvoiceText(draft.clientPhone),
+        clientAddress: cleanInvoiceText(draft.clientAddress),
+        clientTaxId: cleanInvoiceText(draft.clientTaxId),
+        issuerName: cleanInvoiceText(draft.issuerName),
+        issuerTaxId: cleanInvoiceText(draft.issuerTaxId),
+        issuerEmail: cleanInvoiceText(draft.issuerEmail),
+        issuerPhone: cleanInvoiceText(draft.issuerPhone),
+        issuerAddress: cleanInvoiceText(draft.issuerAddress),
+        issuerWebsite: cleanInvoiceText(draft.issuerWebsite),
+        relatedProposalNumber: cleanInvoiceText(draft.relatedProposalNumber),
+        relatedProposalTitle: cleanInvoiceText(draft.relatedProposalTitle),
+        productName: cleanInvoiceText(draft.productName),
+      },
+    };
+
+    setInvoiceSaving(true);
+    setInvoiceError(null);
+    try {
+      const db = supabase as any;
+      const { data: savedResult, error } = await db.rpc("save_invoice_with_items", {
+        p_invoice_id: null,
+        p_invoice: record,
+        p_items: rows.map((row) => ({
+          description: row.description,
+          quantity: row.quantity,
+          unit_price: row.unit_price,
+        })),
+      });
+      if (error) throw error;
+      const rpcRow = Array.isArray(savedResult) ? savedResult[0] : savedResult;
+      const invoiceId = String(rpcRow?.invoice_id || "");
+      if (!invoiceId) throw new Error("No se pudo confirmar el ID de la factura guardada.");
+
+      await fetchInvoices();
+      setInvoiceDialogOpen(false);
+      setInvoiceClientId(null);
+      toast.success(nextStatus === "Sent" ? "Factura marcada como enviada." : "Factura creada.");
+      void logActivityEvent({
+        companyId: profile.company_id,
+        userId: profile.id || null,
+        action: nextStatus === "Sent" ? "invoice_sent_from_client" : "invoice_created_from_client",
+        entityType: "invoices",
+        entityId: invoiceId,
+        detail: `Factura ${record.number} creada desde Cliente 360`,
+        metadata: { client_id: record.client_id },
+      }).catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo guardar la factura.";
+      setInvoiceError(message);
+      toast.error(message);
+    } finally {
+      setInvoiceSaving(false);
+    }
+  };
+
   const summaryNote = useMemo(() => {
     if (attentionCount === 0) {
       return "Todo está bajo control por ahora.";
@@ -1236,6 +2811,13 @@ function ClientsPage() {
     selectedClient.projects.forEach((project) => relatedEntityIds.add(project.id));
     selectedClient.tasks.forEach((task) => relatedEntityIds.add(task.id));
     selectedClient.invoices.forEach((invoice) => relatedEntityIds.add(invoice.id));
+    selectedClient.creditNotes.forEach((creditNote) => relatedEntityIds.add(creditNote.id));
+    selectedClient.subscriptions.forEach((subscription) => relatedEntityIds.add(subscription.id));
+    selectedClient.expenses.forEach((expense) => relatedEntityIds.add(expense.id));
+    selectedClient.contracts.forEach((contract) => relatedEntityIds.add(contract.id));
+    selectedClient.tickets.forEach((ticket) => relatedEntityIds.add(ticket.id));
+    selectedClient.reminders.forEach((reminder) => relatedEntityIds.add(reminder.id));
+    selectedClient.vaultItems.forEach((item) => relatedEntityIds.add(item.id));
     selectedClient.proposals.forEach((proposal) => relatedEntityIds.add(proposal.id));
     selectedClient.deals.forEach((deal) => {
       relatedEntityIds.add(deal.id);
@@ -1253,6 +2835,16 @@ function ClientsPage() {
       invoice_created: "Factura creada",
       invoice_sent: "Factura enviada",
       invoice_paid: "Factura pagada",
+      credit_note_created_from_client: "Nota de crédito creada",
+      subscription_created_from_client: "Suscripción creada",
+      expense_created_from_client: "Gasto creado",
+      contract_created_from_client: "Contrato creado",
+      contract_updated: "Contrato actualizado",
+      ticket_created_from_client: "Ticket creado",
+      reminder_created_from_client: "Recordatorio creado",
+      vault_item_created_from_client: "Acceso de Vault creado",
+      client_vault_secret_revealed: "Secreto de Vault revelado",
+      client_vault_secret_copied: "Secreto de Vault copiado",
       project_created: "Proyecto creado",
       project_updated: "Proyecto actualizado",
       task_created: "Tarea creada",
@@ -1266,6 +2858,13 @@ function ClientsPage() {
       deals: "bg-sky-50 text-sky-700",
       proposals: "bg-violet-50 text-violet-700",
       invoices: "bg-amber-50 text-amber-700",
+      credit_notes: "bg-orange-50 text-orange-700",
+      subscriptions: "bg-emerald-50 text-emerald-700",
+      expenses: "bg-orange-50 text-orange-700",
+      contracts: "bg-slate-50 text-slate-700",
+      tickets: "bg-blue-50 text-blue-700",
+      calendar_events: "bg-amber-50 text-amber-700",
+      vault_item: "bg-blue-50 text-blue-700",
       projects: "bg-emerald-50 text-emerald-700",
       tasks: "bg-rose-50 text-rose-700",
       clients: "bg-emerald-50 text-emerald-700",
@@ -1276,6 +2875,13 @@ function ClientsPage() {
       deals: BriefcaseBusiness,
       proposals: FileText,
       invoices: Receipt,
+      credit_notes: FileText,
+      subscriptions: Activity,
+      expenses: Receipt,
+      contracts: ShieldAlert,
+      tickets: MessageSquarePlus,
+      calendar_events: CalendarClock,
+      vault_item: ShieldAlert,
       projects: FolderKanban,
       tasks: Clock3,
       clients: Activity,
@@ -1301,12 +2907,6 @@ function ClientsPage() {
           tone,
         } satisfies ActivityItem;
       });
-
-    if (logItems.length > 0) {
-      return logItems
-        .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
-        .slice(0, 8);
-    }
 
     const items: ActivityItem[] = [];
 
@@ -1343,14 +2943,107 @@ function ClientsPage() {
       });
     });
 
-    selectedClient.overdueTasks.slice(0, 3).forEach((task) => {
+    selectedClient.openTasks.slice(0, 4).forEach((task) => {
+      const overdue = isOverdue(task.due_date);
       items.push({
         id: `task-${task.id}`,
-        title: `Tarea atrasada`,
-        description: `${task.title} · ${task.priority}`,
+        title: overdue ? "Tarea atrasada" : "Tarea pendiente",
+        description: `${task.title} · ${task.priority}${task.due_date ? ` · Vence ${formatDate(task.due_date)}` : ""}`,
         at: task.updated_at,
         icon: Clock3,
-        tone: "bg-rose-50 text-rose-700",
+        tone: overdue ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700",
+      });
+    });
+
+    selectedClient.payments.slice(0, 3).forEach((payment) => {
+      items.push({
+        id: `payment-${payment.id}`,
+        title: "Pago registrado",
+        description: `${money(payment.amount)} · ${paymentLabel(payment.method)} · ${paymentLabel(payment.status)}`,
+        at: payment.updated_at || payment.created_at,
+        icon: CircleDollarSign,
+        tone: "bg-emerald-50 text-emerald-700",
+      });
+    });
+
+    selectedClient.creditNotes.slice(0, 3).forEach((creditNote) => {
+      items.push({
+        id: `credit-note-${creditNote.id}`,
+        title: "Nota de crédito",
+        description: `${money(creditNote.amount)} · ${creditNote.reason || creditNoteLabel(creditNote.status)}`,
+        at: creditNote.updated_at || creditNote.created_at,
+        icon: FileText,
+        tone: "bg-orange-50 text-orange-700",
+      });
+    });
+
+    selectedClient.subscriptions.slice(0, 3).forEach((subscription) => {
+      items.push({
+        id: `subscription-${subscription.id}`,
+        title: "Suscripción",
+        description: `${subscription.name} · ${money(subscription.amount)} · ${subscriptionLabel(subscription.status)}`,
+        at: subscription.updated_at || subscription.created_at,
+        icon: Activity,
+        tone: "bg-emerald-50 text-emerald-700",
+      });
+    });
+
+    selectedClient.expenses.slice(0, 3).forEach((expense) => {
+      items.push({
+        id: `expense-${expense.id}`,
+        title: "Gasto registrado",
+        description: `${expense.title} · ${money(expense.amount)} · ${expenseLabel(expense.status)}`,
+        at: expense.updated_at || expense.created_at,
+        icon: Receipt,
+        tone: "bg-orange-50 text-orange-700",
+      });
+    });
+
+    selectedClient.contracts.slice(0, 3).forEach((contract) => {
+      items.push({
+        id: `contract-${contract.id}`,
+        title: "Contrato vinculado",
+        description: `${contract.subject} · ${contract.contract_type || contractLabel(contract.status)}`,
+        at: contract.updated_at || contract.created_at,
+        icon: ShieldAlert,
+        tone: "bg-slate-50 text-slate-700",
+      });
+    });
+
+    selectedClient.tickets.slice(0, 3).forEach((ticket) => {
+      items.push({
+        id: `ticket-${ticket.id}`,
+        title: "Ticket",
+        description: `${ticket.subject} · ${ticketLabel(ticket.status)} · ${ticketLabel(ticket.priority)}`,
+        at: ticket.updated_at || ticket.created_at,
+        icon: MessageSquarePlus,
+        tone: "bg-blue-50 text-blue-700",
+      });
+    });
+
+    selectedClient.reminders.slice(0, 3).forEach((reminder) => {
+      items.push({
+        id: `reminder-${reminder.id}`,
+        title: reminderLabel(reminder.type),
+        description: `${reminder.title} · ${formatDateTime(reminder.start_at)}`,
+        at: reminder.updated_at || reminder.created_at,
+        icon: CalendarClock,
+        tone: "bg-amber-50 text-amber-700",
+      });
+    });
+
+    selectedClient.vaultItems.slice(0, 3).forEach((item) => {
+      items.push({
+        id: `vault-${item.id}`,
+        title: `Vault: ${item.title}`,
+        description: `${vaultOptionLabel(VAULT_CATEGORIES, item.category)} · ${vaultOptionLabel(
+          VAULT_SENSITIVITY,
+          item.sensitivity,
+        )}`,
+        at: item.updated_at || item.created_at,
+        icon: ShieldAlert,
+        tone:
+          item.sensitivity === "critical" ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700",
       });
     });
 
@@ -1385,7 +3078,14 @@ function ClientsPage() {
       tone: "bg-emerald-50 text-emerald-700",
     });
 
-    return items
+    const mergedItems = [...logItems, ...items];
+    const seen = new Set<string>();
+    return mergedItems
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      })
       .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
       .slice(0, 8);
   }, [activityLogs, selectedClient]);
@@ -2181,12 +3881,12 @@ function ClientsPage() {
         <SheetContent
           data-demo="client-360-panel"
           side="right"
-          className="w-full border-l border-slate-200 bg-white p-0 shadow-none sm:max-w-3xl"
+          className="!inset-0 !h-[100dvh] !w-screen !max-w-none border-0 bg-white p-0 shadow-none"
         >
           {selectedClient && (
             <div className="flex h-full flex-col">
-              <SheetHeader className="relative border-b border-slate-100 bg-white px-4 py-4 text-left">
-                <div className="relative flex items-start justify-between gap-4">
+              <SheetHeader className="relative border-b border-slate-200 bg-white px-4 py-4 text-left lg:px-6">
+                <div className="relative flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-slate-100 bg-white text-slate-600 shadow-none">
                       <Building2 className="h-5 w-5" />
@@ -2208,152 +3908,193 @@ function ClientsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-2">
-                  <CrmDetailLineButton
-                    className="h-8"
-                    icon={<FileText className="h-3.5 w-3.5" />}
-                    data-demo="client-360-create-task"
-                    onClick={() => openCreateTaskForClient(selectedClient)}
-                    disabled={!canCreateTaskForClient(selectedClient)}
-                  >
-                    Crear tarea
-                  </CrmDetailLineButton>
-
-                  <CrmDetailLineButton
-                    className="h-8"
-                    icon={<Mail className="h-3.5 w-3.5" />}
-                    onClick={() => {
-                      const email = selectedClient.primaryContact?.email || selectedClient.email;
-                      const phone = selectedClient.whatsapp || selectedClient.phone;
-
-                      if (email) {
-                        window.location.href = `mailto:${email}`;
-                        return;
-                      }
-
-                      if (phone) {
-                        window.location.href = `tel:${phone}`;
-                        return;
-                      }
-
-                      openContactCreator(selectedClient.id);
-                    }}
-                  >
-                    Contactar
-                  </CrmDetailLineButton>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <CrmDetailLineButton
-                        className="h-8"
-                        icon={<MoreHorizontal className="h-3.5 w-3.5" />}
-                      >
-                        Más
-                      </CrmDetailLineButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-56 border-slate-200 bg-white shadow-none"
+                  <div className="flex flex-wrap items-center gap-2 pr-10 lg:justify-end">
+                    <CrmDetailLineButton
+                      className="h-8"
+                      icon={<FileText className="h-3.5 w-3.5" />}
+                      data-demo="client-360-create-task"
+                      onClick={() => openCreateTaskForClient(selectedClient)}
+                      disabled={!canCreateTaskForClient(selectedClient)}
                     >
-                      <DropdownMenuItem onClick={() => openEditClient(selectedClient)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Editar cliente
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openContactCreator(selectedClient.id)}>
-                        <MessageSquarePlus className="mr-2 h-4 w-4" />
-                        Añadir contacto
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setQuickProposalOpen(true)}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        Crear propuesta
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate({ to: "/invoices" })}>
-                        <Receipt className="mr-2 h-4 w-4" />
-                        Ir a facturas
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate({ to: "/tasks" })}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        Ir a tareas
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          navigate({
-                            to: "/proposals",
-                            search: {
-                              leadId: undefined,
-                              dealId: undefined,
-                              conversationId: undefined,
-                              productId: undefined,
-                              clientId: selectedClient.id,
-                            },
-                          })
+                      Crear tarea
+                    </CrmDetailLineButton>
+
+                    <CrmDetailLineButton
+                      className="h-8"
+                      icon={<Receipt className="h-3.5 w-3.5" />}
+                      onClick={() => openInvoiceCreator(selectedClient)}
+                      disabled={!can("invoices.create")}
+                    >
+                      Crear factura
+                    </CrmDetailLineButton>
+
+                    <CrmDetailLineButton
+                      className="h-8"
+                      icon={<Mail className="h-3.5 w-3.5" />}
+                      onClick={() => {
+                        const email = selectedClient.primaryContact?.email || selectedClient.email;
+                        const phone = selectedClient.whatsapp || selectedClient.phone;
+
+                        if (email) {
+                          window.location.href = `mailto:${email}`;
+                          return;
                         }
+
+                        if (phone) {
+                          window.location.href = `tel:${phone}`;
+                          return;
+                        }
+
+                        openContactCreator(selectedClient.id);
+                      }}
+                    >
+                      Contactar
+                    </CrmDetailLineButton>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <CrmDetailLineButton
+                          className="h-8"
+                          icon={<MoreHorizontal className="h-3.5 w-3.5" />}
+                        >
+                          Más
+                        </CrmDetailLineButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-56 border-slate-200 bg-white shadow-none"
                       >
-                        <BriefcaseBusiness className="mr-2 h-4 w-4" />
-                        Ir a propuestas
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => void handleDeactivateClient(selectedClient)}>
-                        <ShieldAlert className="mr-2 h-4 w-4" />
-                        Inactivar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-red-600 focus:text-red-600"
-                        onClick={() => setDeleteId(selectedClient.id)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem onClick={() => openEditClient(selectedClient)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar cliente
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => void handleDeactivateClient(selectedClient)}
+                        >
+                          <ShieldAlert className="mr-2 h-4 w-4" />
+                          Inactivar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={() => setDeleteId(selectedClient.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </SheetHeader>
 
-              <ScrollArea className="h-[calc(100vh-112px)] bg-white">
-                <div className="space-y-4 bg-white px-4 py-5">
-                  <Tabs defaultValue="overview" className="w-full space-y-3">
+              <Tabs
+                defaultValue="overview"
+                className="grid min-h-0 flex-1 grid-cols-1 bg-white lg:grid-cols-[280px_minmax(0,1fr)]"
+              >
+                <aside className="border-b border-slate-200 bg-slate-50/80 lg:border-b-0 lg:border-r">
+                  <ScrollArea className="max-h-[180px] lg:h-[calc(100dvh-122px)] lg:max-h-none">
                     <TabsList
                       data-demo="client-360-tabs"
-                      className="grid h-auto w-full grid-cols-5 rounded-none border-b border-slate-100 bg-white p-0"
+                      className="flex h-auto w-max min-w-full items-stretch justify-start gap-1 rounded-none bg-transparent p-3 lg:w-full lg:flex-col lg:items-stretch"
                     >
-                      <TabsTrigger
-                        data-demo="client-360-tab-summary"
-                        value="overview"
-                        className="rounded-none border-b-2 border-transparent bg-white text-xs font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
-                      >
-                        Resumen
-                      </TabsTrigger>
-                      <TabsTrigger
-                        data-demo="client-360-tab-contacts"
-                        value="contacts"
-                        className="rounded-none border-b-2 border-transparent bg-white text-xs font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
-                      >
-                        Contactos
-                      </TabsTrigger>
-                      <TabsTrigger
-                        data-demo="client-360-tab-projects"
-                        value="projects"
-                        className="rounded-none border-b-2 border-transparent bg-white text-xs font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
-                      >
-                        Proyectos
-                      </TabsTrigger>
-                      <TabsTrigger
-                        data-demo="client-360-tab-finance"
-                        value="finance"
-                        className="rounded-none border-b-2 border-transparent bg-white text-xs font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
-                      >
-                        Finanzas
-                      </TabsTrigger>
-                      <TabsTrigger
-                        data-demo="client-360-tab-activity"
-                        value="activity"
-                        className="rounded-none border-b-2 border-transparent bg-white text-xs font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
-                      >
-                        Actividad
-                      </TabsTrigger>
+                      {[
+                        {
+                          value: "overview",
+                          label: "Perfil",
+                          icon: UserCheck,
+                          demo: "client-360-tab-summary",
+                        },
+                        {
+                          value: "contacts",
+                          label: "Contactos",
+                          icon: Users,
+                          demo: "client-360-tab-contacts",
+                          count: selectedClient.contacts.length,
+                        },
+                        {
+                          value: "notes",
+                          label: "Notas",
+                          icon: FileText,
+                          count: selectedClient.notes ? 1 : undefined,
+                        },
+                        { value: "statement", label: "Estado de cuenta", icon: Receipt },
+                        {
+                          value: "finance",
+                          label: "Facturas",
+                          icon: Receipt,
+                          demo: "client-360-tab-finance",
+                          count: selectedClient.invoices.length,
+                        },
+                        { value: "payments", label: "Pagos", icon: CircleDollarSign },
+                        {
+                          value: "proposals",
+                          label: "Propuestas",
+                          icon: BriefcaseBusiness,
+                          count: selectedClient.proposals.length,
+                        },
+                        { value: "credit-notes", label: "Notas de crédito", icon: FileText },
+                        { value: "subscriptions", label: "Suscripciones", icon: Activity },
+                        { value: "expenses", label: "Gastos", icon: Receipt },
+                        { value: "contracts", label: "Contratos", icon: ShieldAlert },
+                        {
+                          value: "projects",
+                          label: "Proyectos",
+                          icon: FolderKanban,
+                          demo: "client-360-tab-projects",
+                          count: selectedClient.projects.length,
+                        },
+                        {
+                          value: "tasks",
+                          label: "Tareas",
+                          icon: CheckCircle2,
+                          count: selectedClient.tasks.length,
+                        },
+                        { value: "tickets", label: "Tickets", icon: MessageSquarePlus },
+                        { value: "files", label: "Archivos", icon: FileText },
+                        {
+                          value: "vault",
+                          label: "Vault",
+                          icon: ShieldAlert,
+                          count: selectedClient.vaultItems.length,
+                        },
+                        {
+                          value: "reminders",
+                          label: "Recordatorios",
+                          icon: CalendarClock,
+                          count: selectedClient.reminders.length,
+                        },
+                        {
+                          value: "activity",
+                          label: "Actividad",
+                          icon: Activity,
+                          demo: "client-360-tab-activity",
+                        },
+                      ].map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <TabsTrigger
+                            key={item.value}
+                            data-demo={item.demo}
+                            value={item.value}
+                            className="min-w-fit justify-start gap-2 rounded-xl border border-transparent bg-transparent px-3 py-2.5 text-sm font-semibold text-slate-600 shadow-none data-[state=active]:border-slate-200 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm lg:w-full"
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{item.label}</span>
+                            {typeof item.count === "number" ? (
+                              <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-xs font-bold text-slate-600 shadow-sm">
+                                {item.count}
+                              </span>
+                            ) : null}
+                          </TabsTrigger>
+                        );
+                      })}
                     </TabsList>
+                  </ScrollArea>
+                </aside>
 
+                <ScrollArea className="min-h-0 bg-white lg:h-[calc(100dvh-122px)]">
+                  <div className="mx-auto w-full max-w-6xl space-y-4 bg-white px-4 py-5 lg:px-7">
                     <TabsContent
                       value="overview"
                       className="space-y-3 data-[state=inactive]:hidden"
@@ -2859,14 +4600,37 @@ function ClientsPage() {
                           data-demo="client-360-invoices"
                           className="border-b border-slate-100 pb-4"
                         >
-                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                            Facturas
-                          </h3>
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                                Facturas
+                              </h3>
+                              <p className="mt-1 text-sm font-normal text-slate-500">
+                                Facturas vinculadas a esta cuenta.
+                              </p>
+                            </div>
+                            <CrmDetailLineButton
+                              className="h-8 shrink-0"
+                              icon={<Plus className="h-4 w-4" />}
+                              onClick={() => openInvoiceCreator(selectedClient)}
+                              disabled={!can("invoices.create")}
+                            >
+                              Crear factura
+                            </CrmDetailLineButton>
+                          </div>
                           <div className="mt-4 divide-y divide-slate-100 border-y border-slate-100">
                             {selectedClient.invoices.length === 0 ? (
-                              <p className="py-3 text-sm font-normal text-slate-500">
-                                No hay facturas registradas.
-                              </p>
+                              <EmptyState
+                                icon={<Receipt className="h-6 w-6" />}
+                                title="No hay facturas registradas"
+                                description="Crea la primera factura usando los datos de este cliente."
+                                actionLabel={can("invoices.create") ? "Crear factura" : undefined}
+                                onAction={
+                                  can("invoices.create")
+                                    ? () => openInvoiceCreator(selectedClient)
+                                    : undefined
+                                }
+                              />
                             ) : (
                               selectedClient.invoices.slice(0, 5).map((invoice) => (
                                 <div key={invoice.id} className="py-3">
@@ -2885,9 +4649,24 @@ function ClientsPage() {
                                     <span className="font-normal text-slate-500">
                                       {money(invoice.total)}
                                     </span>
-                                    <span className="text-slate-500">
-                                      {formatDateTime(invoice.updated_at)}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-slate-500">
+                                        {formatDateTime(invoice.updated_at)}
+                                      </span>
+                                      {can("payments.create") ? (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 rounded-full px-2 text-xs font-semibold text-emerald-700"
+                                          onClick={() =>
+                                            openPaymentCreator(selectedClient, invoice)
+                                          }
+                                        >
+                                          Registrar pago
+                                        </Button>
+                                      ) : null}
+                                    </div>
                                   </div>
                                 </div>
                               ))
@@ -2965,6 +4744,1144 @@ function ClientsPage() {
                       </div>
                     </TabsContent>
 
+                    <TabsContent value="notes" className="space-y-4">
+                      <ClientNotesPanel
+                        clientId={selectedClient.id}
+                        canEdit={can("clients.edit")}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="statement" className="space-y-4">
+                      <EmptyState
+                        icon={<Receipt className="h-6 w-6" />}
+                        title="Estado de cuenta"
+                        description="Preparado para mostrar balances, facturas pendientes, pagos y movimientos del cliente."
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="payments" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Pagos del cliente
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Pagos registrados directamente al cliente o vinculados a sus facturas.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openPaymentCreator(selectedClient)}
+                          disabled={!can("payments.create")}
+                        >
+                          Registrar pago
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "payments-count",
+                            label: "Pagos",
+                            value: selectedClient.payments.length,
+                          },
+                          {
+                            key: "payments-completed",
+                            label: "Completados",
+                            value: selectedClient.completedPayments.length,
+                          },
+                          {
+                            key: "payments-total",
+                            label: "Total cobrado",
+                            value: money(selectedClient.totalPaidAmount),
+                          },
+                          {
+                            key: "pending-invoices",
+                            label: "Facturas pendientes",
+                            value: selectedClient.pendingInvoices.length,
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.payments.length === 0 ? (
+                        <EmptyState
+                          icon={<CircleDollarSign className="h-6 w-6" />}
+                          title="No hay pagos registrados"
+                          description="Registra el primer pago de este cliente sin salir del perfil."
+                          actionLabel={can("payments.create") ? "Registrar pago" : undefined}
+                          onAction={
+                            can("payments.create")
+                              ? () => openPaymentCreator(selectedClient)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.payments.map((payment) => {
+                            const invoice = payment.invoice_id
+                              ? invoiceById.get(payment.invoice_id)
+                              : null;
+                            return (
+                              <div
+                                key={payment.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-normal text-slate-950">
+                                    {payment.reference ||
+                                      payment.payment_number ||
+                                      `Pago ${formatDate(payment.payment_date)}`}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {invoice ? `Factura ${invoice.number} · ` : ""}
+                                    {paymentLabel(payment.method)} ·{" "}
+                                    {formatDate(payment.payment_date)}
+                                  </p>
+                                  {payment.notes ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {payment.notes}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-slate-950">
+                                      {money(payment.amount)}
+                                    </p>
+                                    <StatusBadge status={payment.status} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="proposals" className="space-y-4">
+                      {selectedClient.proposals.length === 0 ? (
+                        <EmptyState
+                          icon={<BriefcaseBusiness className="h-6 w-6" />}
+                          title="No hay propuestas vinculadas"
+                          description="Las propuestas creadas para este cliente aparecerán aquí."
+                          actionLabel="Crear propuesta"
+                          onAction={() => setQuickProposalOpen(true)}
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.proposals.map((proposal) => (
+                            <div
+                              key={proposal.id}
+                              className="flex items-start justify-between gap-4 py-4"
+                            >
+                              <div>
+                                <p className="text-sm font-normal text-slate-950">
+                                  {proposal.title}
+                                </p>
+                                <p className="mt-1 text-xs font-normal text-slate-500">
+                                  Propuesta {proposal.number} · {money(proposal.amount)}
+                                </p>
+                              </div>
+                              <StatusBadge status={proposal.status} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="credit-notes" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Notas de crédito
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Ajustes y créditos vinculados al cliente o a sus facturas.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openCreditNoteCreator(selectedClient)}
+                          disabled={!can("credit_notes.create")}
+                        >
+                          Crear nota
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "credit-notes-count",
+                            label: "Notas",
+                            value: selectedClient.creditNotes.length,
+                          },
+                          {
+                            key: "credit-notes-applied",
+                            label: "Emitidas / aplicadas",
+                            value: selectedClient.appliedCreditNotes.length,
+                          },
+                          {
+                            key: "credit-notes-total",
+                            label: "Total acreditado",
+                            value: money(selectedClient.totalCreditAmount),
+                          },
+                          {
+                            key: "credit-notes-invoices",
+                            label: "Facturas vinculadas",
+                            value: new Set(
+                              selectedClient.creditNotes
+                                .map((creditNote) => creditNote.invoice_id)
+                                .filter(Boolean),
+                            ).size,
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.creditNotes.length === 0 ? (
+                        <EmptyState
+                          icon={<FileText className="h-6 w-6" />}
+                          title="No hay notas de crédito"
+                          description="Crea el primer ajuste o crédito para este cliente sin salir del perfil."
+                          actionLabel={can("credit_notes.create") ? "Crear nota" : undefined}
+                          onAction={
+                            can("credit_notes.create")
+                              ? () => openCreditNoteCreator(selectedClient)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.creditNotes.map((creditNote) => {
+                            const invoice = creditNote.invoice_id
+                              ? invoiceById.get(creditNote.invoice_id)
+                              : null;
+                            return (
+                              <div
+                                key={creditNote.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-normal text-slate-950">
+                                    {creditNote.reason || "Nota de crédito"}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {creditNote.credit_note_number
+                                      ? `Nota #${creditNote.credit_note_number} · `
+                                      : ""}
+                                    {invoice ? `Factura ${invoice.number} · ` : ""}
+                                    {formatDate(creditNote.date_issued)}
+                                  </p>
+                                  {creditNote.notes ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {creditNote.notes}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-slate-950">
+                                      {money(creditNote.amount)}
+                                    </p>
+                                    <StatusBadge status={creditNote.status} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="subscriptions" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Suscripciones
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Servicios recurrentes, ciclos activos y próximas renovaciones.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openSubscriptionCreator(selectedClient)}
+                          disabled={!can("subscriptions.create")}
+                        >
+                          Crear suscripción
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "subscriptions-count",
+                            label: "Suscripciones",
+                            value: selectedClient.subscriptions.length,
+                          },
+                          {
+                            key: "subscriptions-active",
+                            label: "Activas / prueba",
+                            value: selectedClient.activeSubscriptions.length,
+                          },
+                          {
+                            key: "subscriptions-recurring",
+                            label: "Monto recurrente",
+                            value: money(selectedClient.recurringAmount),
+                          },
+                          {
+                            key: "subscriptions-next",
+                            label: "Próximo cobro",
+                            value: selectedClient.activeSubscriptions.find((subscription) =>
+                              Boolean(subscription.next_billing_date),
+                            )?.next_billing_date
+                              ? formatDate(
+                                  selectedClient.activeSubscriptions.find((subscription) =>
+                                    Boolean(subscription.next_billing_date),
+                                  )?.next_billing_date || null,
+                                )
+                              : "—",
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.subscriptions.length === 0 ? (
+                        <EmptyState
+                          icon={<Activity className="h-6 w-6" />}
+                          title="No hay suscripciones"
+                          description="Crea el primer servicio recurrente para este cliente sin salir del perfil."
+                          actionLabel={
+                            can("subscriptions.create") ? "Crear suscripción" : undefined
+                          }
+                          onAction={
+                            can("subscriptions.create")
+                              ? () => openSubscriptionCreator(selectedClient)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.subscriptions.map((subscription) => {
+                            const product = subscription.product_id
+                              ? productById.get(subscription.product_id)
+                              : null;
+                            return (
+                              <div
+                                key={subscription.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-normal text-slate-950">
+                                    {subscription.name}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {product ? `${product.name} · ` : ""}
+                                    {subscriptionLabel(subscription.billing_cycle)}
+                                    {subscription.next_billing_date
+                                      ? ` · Próximo cobro ${formatDate(subscription.next_billing_date)}`
+                                      : ""}
+                                  </p>
+                                  {subscription.notes ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {subscription.notes}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-slate-950">
+                                      {money(subscription.amount)}
+                                    </p>
+                                    <StatusBadge status={subscription.status} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="expenses" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Gastos
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Costos operativos vinculados al cliente o a sus proyectos.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openExpenseCreator(selectedClient)}
+                          disabled={!can("expenses.create")}
+                        >
+                          Crear gasto
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "expenses-count",
+                            label: "Gastos",
+                            value: selectedClient.expenses.length,
+                          },
+                          {
+                            key: "expenses-paid",
+                            label: "Pagados",
+                            value: selectedClient.paidExpenses.length,
+                          },
+                          {
+                            key: "expenses-total",
+                            label: "Total registrado",
+                            value: money(selectedClient.totalExpenseAmount),
+                          },
+                          {
+                            key: "expenses-projects",
+                            label: "Proyectos vinculados",
+                            value: new Set(
+                              selectedClient.expenses
+                                .map((expense) => expense.project_id)
+                                .filter(Boolean),
+                            ).size,
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.expenses.length === 0 ? (
+                        <EmptyState
+                          icon={<Receipt className="h-6 w-6" />}
+                          title="No hay gastos registrados"
+                          description="Registra costos asociados a este cliente sin salir del perfil."
+                          actionLabel={can("expenses.create") ? "Crear gasto" : undefined}
+                          onAction={
+                            can("expenses.create")
+                              ? () => openExpenseCreator(selectedClient)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.expenses.map((expense) => {
+                            const project = expense.project_id
+                              ? selectedClient.projects.find(
+                                  (item) => item.id === expense.project_id,
+                                )
+                              : null;
+                            return (
+                              <div
+                                key={expense.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-normal text-slate-950">
+                                    {expense.title}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {expense.vendor ? `${expense.vendor} · ` : ""}
+                                    {expense.category || "General"} ·{" "}
+                                    {formatDate(expense.expense_date)}
+                                    {project ? ` · ${project.name}` : ""}
+                                  </p>
+                                  {expense.notes ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {expense.notes}
+                                    </p>
+                                  ) : null}
+                                  {expense.receipt_url ? (
+                                    <a
+                                      href={expense.receipt_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-2 inline-flex text-xs font-medium text-blue-600 hover:text-blue-700"
+                                    >
+                                      Ver recibo
+                                    </a>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-slate-950">
+                                      {money(expense.amount)}
+                                    </p>
+                                    <StatusBadge status={expense.status} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="contracts" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Contratos
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Acuerdos, firmas, renovaciones y vencimientos vinculados al cliente.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openContractCreator(selectedClient)}
+                          disabled={!can("contracts.create")}
+                        >
+                          Crear contrato
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "contracts-count",
+                            label: "Contratos",
+                            value: selectedClient.contracts.length,
+                          },
+                          {
+                            key: "contracts-active",
+                            label: "Activos",
+                            value: selectedClient.activeContracts.length,
+                          },
+                          {
+                            key: "contracts-value",
+                            label: "Valor contratado",
+                            value: money(selectedClient.totalContractValue),
+                          },
+                          {
+                            key: "contracts-expiring",
+                            label: "Vencen pronto",
+                            value: selectedClient.expiringContracts.length,
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.contracts.length === 0 ? (
+                        <EmptyState
+                          icon={<ShieldAlert className="h-6 w-6" />}
+                          title="No hay contratos vinculados"
+                          description="Crea el primer contrato para este cliente sin salir del perfil."
+                          actionLabel={can("contracts.create") ? "Crear contrato" : undefined}
+                          onAction={
+                            can("contracts.create")
+                              ? () => openContractCreator(selectedClient)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.contracts.map((contract) => {
+                            const project = contract.project_id
+                              ? selectedClient.projects.find(
+                                  (item) => item.id === contract.project_id,
+                                )
+                              : null;
+                            const signatureStatus = contract.signed_at
+                              ? "Signed"
+                              : contract.signature_status || "Not Signed";
+                            return (
+                              <div
+                                key={contract.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-normal text-slate-950">
+                                    {contract.subject}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {contract.contract_number
+                                      ? `Contrato #${contract.contract_number} · `
+                                      : ""}
+                                    {contract.contract_type || "Acuerdo"}
+                                    {project ? ` · ${project.name}` : ""}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {contract.start_date
+                                      ? formatDate(contract.start_date)
+                                      : "Sin inicio"}
+                                    {" - "}
+                                    {contract.end_date
+                                      ? formatDate(contract.end_date)
+                                      : "Sin vencimiento"}
+                                  </p>
+                                  {contract.description ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {contract.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-slate-950">
+                                      {money(contract.contract_value)}
+                                    </p>
+                                    <div className="mt-1 flex flex-wrap justify-end gap-1.5">
+                                      <StatusBadge status={contract.status} />
+                                      <StatusBadge status={signatureStatus} />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="tickets" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Tickets
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Solicitudes, soporte y casos abiertos vinculados al cliente.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openTicketCreator(selectedClient)}
+                          disabled={!can("tickets.create")}
+                        >
+                          Crear ticket
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "tickets-count",
+                            label: "Tickets",
+                            value: selectedClient.tickets.length,
+                          },
+                          {
+                            key: "tickets-open",
+                            label: "Abiertos",
+                            value: selectedClient.openTickets.length,
+                          },
+                          {
+                            key: "tickets-urgent",
+                            label: "Alta prioridad",
+                            value: selectedClient.urgentTickets.length,
+                          },
+                          {
+                            key: "tickets-overdue",
+                            label: "Vencidos",
+                            value: selectedClient.overdueTickets.length,
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.tickets.length === 0 ? (
+                        <EmptyState
+                          icon={<MessageSquarePlus className="h-6 w-6" />}
+                          title="No hay tickets vinculados"
+                          description="Crea el primer ticket de soporte para este cliente sin salir del perfil."
+                          actionLabel={can("tickets.create") ? "Crear ticket" : undefined}
+                          onAction={
+                            can("tickets.create")
+                              ? () => openTicketCreator(selectedClient)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.tickets.map((ticket) => {
+                            const project = ticket.project_id
+                              ? selectedClient.projects.find(
+                                  (item) => item.id === ticket.project_id,
+                                )
+                              : null;
+                            const contact = ticket.contact_id
+                              ? selectedClient.contacts.find(
+                                  (item) => item.id === ticket.contact_id,
+                                )
+                              : null;
+                            return (
+                              <div
+                                key={ticket.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-normal text-slate-950">
+                                    {ticket.subject}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {ticket.ticket_number
+                                      ? `Ticket #${ticket.ticket_number} · `
+                                      : ""}
+                                    {ticket.department || "Support"}
+                                    {ticket.service ? ` · ${ticket.service}` : ""}
+                                    {project ? ` · ${project.name}` : ""}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {contact ? `${getContactName(contact)} · ` : ""}
+                                    Última actividad {formatDateTime(ticket.updated_at)}
+                                  </p>
+                                  {ticket.description ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {ticket.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <div className="text-right">
+                                    <p
+                                      className={cn(
+                                        "text-sm font-semibold",
+                                        ["urgent", "high"].includes(
+                                          normalizeStatus(ticket.priority),
+                                        )
+                                          ? "text-rose-600"
+                                          : "text-slate-950",
+                                      )}
+                                    >
+                                      {ticketLabel(ticket.priority)}
+                                    </p>
+                                    <StatusBadge status={ticket.status} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="reminders" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Recordatorios
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Seguimientos, llamadas, demos y reuniones vinculadas a este cliente.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openReminderCreator(selectedClient)}
+                        >
+                          Crear recordatorio
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "reminders-count",
+                            label: "Recordatorios",
+                            value: selectedClient.reminders.length,
+                          },
+                          {
+                            key: "reminders-open",
+                            label: "Programados",
+                            value: selectedClient.openReminders.length,
+                          },
+                          {
+                            key: "reminders-overdue",
+                            label: "Vencidos",
+                            value: selectedClient.overdueReminders.length,
+                          },
+                          {
+                            key: "reminders-next",
+                            label: "Próximo",
+                            value: selectedClient.upcomingReminders[0]
+                              ? formatDateTime(selectedClient.upcomingReminders[0].start_at)
+                              : "—",
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.reminders.length === 0 ? (
+                        <EmptyState
+                          icon={<CalendarClock className="h-6 w-6" />}
+                          title="No hay recordatorios vinculados"
+                          description="Programa el próximo seguimiento del cliente sin salir del perfil."
+                          actionLabel="Crear recordatorio"
+                          onAction={() => openReminderCreator(selectedClient)}
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.reminders.map((reminder) => {
+                            const project = reminder.related_project_id
+                              ? selectedClient.projects.find(
+                                  (item) => item.id === reminder.related_project_id,
+                                )
+                              : null;
+                            const overdue =
+                              !["completed", "cancelled"].includes(
+                                normalizeStatus(reminder.status),
+                              ) && String(reminder.start_at) < new Date().toISOString();
+                            return (
+                              <div
+                                key={reminder.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-normal text-slate-950">
+                                      {reminder.title}
+                                    </p>
+                                    {overdue ? (
+                                      <Badge className="rounded-full bg-rose-50 text-rose-700 hover:bg-rose-50">
+                                        Vencido
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {reminderLabel(reminder.type)} ·{" "}
+                                    {formatDateTime(reminder.start_at)}
+                                    {project ? ` · ${project.name}` : ""}
+                                    {reminder.location ? ` · ${reminder.location}` : ""}
+                                  </p>
+                                  {reminder.description ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {reminder.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <StatusBadge status={reminder.status} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="vault" className="space-y-5">
+                      {!canManageVault ? (
+                        <EmptyState
+                          icon={<ShieldAlert className="h-6 w-6" />}
+                          title="Vault restringido"
+                          description="Esta información está disponible solo para administración y gerencia."
+                        />
+                      ) : selectedClient.vaultItems.length === 0 ? (
+                        <EmptyState
+                          icon={<ShieldAlert className="h-6 w-6" />}
+                          title="No hay accesos guardados"
+                          description="Guarda credenciales, llaves o notas seguras vinculadas directamente a este cliente."
+                          actionLabel="Nuevo acceso"
+                          onAction={() => openVaultCreator(selectedClient)}
+                        />
+                      ) : (
+                        <>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="text-xs font-normal uppercase tracking-wide text-slate-500">
+                                Vault del cliente
+                              </p>
+                              <h3 className="mt-1 text-lg font-semibold text-slate-950">
+                                Accesos y datos sensibles
+                              </h3>
+                              <p className="mt-1 text-sm text-slate-500">
+                                Información operativa guardada para {selectedClient.company_name}.
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              className="rounded-full"
+                              onClick={() => openVaultCreator(selectedClient)}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Nuevo acceso
+                            </Button>
+                          </div>
+
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <ClientKpi label="Guardados" value={selectedClient.vaultItems.length} />
+                            <ClientKpi
+                              label="Críticos"
+                              value={selectedClient.criticalVaultItems.length}
+                              tone={selectedClient.criticalVaultItems.length ? "danger" : "neutral"}
+                            />
+                            <ClientKpi
+                              label="Por revisar"
+                              value={selectedClient.vaultItemsToReview.length}
+                              tone={
+                                selectedClient.vaultItemsToReview.length ? "warning" : "neutral"
+                              }
+                            />
+                          </div>
+
+                          <div className="divide-y divide-slate-100 border-y border-slate-100">
+                            {selectedClient.vaultItems.map((item) => {
+                              const revealed = revealedVaultItemIds.has(item.id);
+                              const linkedProject = item.project_id
+                                ? projectById.get(item.project_id)
+                                : null;
+                              const owner = item.owner_id
+                                ? managers.find((manager) => manager.id === item.owner_id)
+                                : null;
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between"
+                                >
+                                  <div className="flex min-w-0 items-start gap-3">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                                      <KeyRound className="h-5 w-5" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <h4 className="font-semibold text-slate-950">
+                                          {item.title}
+                                        </h4>
+                                        <Badge
+                                          variant="outline"
+                                          className={vaultStatusClass(item.status)}
+                                        >
+                                          {vaultOptionLabel(VAULT_STATUSES, item.status)}
+                                        </Badge>
+                                        <Badge
+                                          variant="outline"
+                                          className={vaultSensitivityClass(item.sensitivity)}
+                                        >
+                                          {vaultOptionLabel(VAULT_SENSITIVITY, item.sensitivity)}
+                                        </Badge>
+                                      </div>
+                                      <p className="mt-1 text-sm text-slate-500">
+                                        {vaultOptionLabel(VAULT_CATEGORIES, item.category)}
+                                        {linkedProject ? ` · ${linkedProject.name}` : ""}
+                                        {owner?.full_name ? ` · ${owner.full_name}` : ""}
+                                      </p>
+                                      <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {(item.tags || []).map((tag) => (
+                                          <Badge
+                                            key={tag}
+                                            variant="secondary"
+                                            className="bg-slate-100"
+                                          >
+                                            {tag}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 text-sm lg:min-w-[360px]">
+                                    <div className="grid gap-1 sm:grid-cols-2">
+                                      <div>
+                                        <p className="text-xs uppercase text-slate-400">Usuario</p>
+                                        <p className="truncate font-medium text-slate-700">
+                                          {item.username || item.email || "—"}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs uppercase text-slate-400">Vence</p>
+                                        <p className="font-medium text-slate-700">
+                                          {formatDate(item.expires_at)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="min-w-0 flex-1 truncate font-mono text-slate-700">
+                                        {item.secret_value
+                                          ? revealed
+                                            ? item.secret_value
+                                            : "••••••••••••"
+                                          : "Sin secreto"}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-full"
+                                        onClick={() => toggleVaultReveal(item)}
+                                        disabled={!item.secret_value}
+                                        aria-label={
+                                          revealed ? "Ocultar secreto" : "Revelar secreto"
+                                        }
+                                      >
+                                        {revealed ? (
+                                          <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                          <Eye className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-full"
+                                        onClick={() => void copyVaultSecret(item)}
+                                        disabled={!item.secret_value}
+                                        aria-label="Copiar secreto"
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                      {item.url ? (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 rounded-full"
+                                          asChild
+                                        >
+                                          <a
+                                            href={
+                                              item.url.startsWith("http")
+                                                ? item.url
+                                                : `https://${item.url}`
+                                            }
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            aria-label="Abrir URL"
+                                          >
+                                            <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                        </Button>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </TabsContent>
+
+                    {[
+                      {
+                        value: "files",
+                        icon: FileText,
+                        title: "Archivos",
+                        description:
+                          "Espacio para organizar documentos, entregables y adjuntos relacionados con el cliente.",
+                      },
+                    ].map((module) => {
+                      const Icon = module.icon;
+                      return (
+                        <TabsContent key={module.value} value={module.value} className="space-y-4">
+                          <EmptyState
+                            icon={<Icon className="h-6 w-6" />}
+                            title={module.title}
+                            description={module.description}
+                          />
+                        </TabsContent>
+                      );
+                    })}
+
+                    <TabsContent value="tasks" className="space-y-5">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Tareas del cliente
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Seguimientos, pendientes y trabajo operativo vinculado a esta cuenta.
+                          </p>
+                        </div>
+                        <CrmDetailLineButton
+                          className="h-8 shrink-0"
+                          icon={<Plus className="h-4 w-4" />}
+                          onClick={() => openCreateTaskForClient(selectedClient)}
+                          disabled={!canCreateTaskForClient(selectedClient)}
+                        >
+                          Crear tarea
+                        </CrmDetailLineButton>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "tasks-total",
+                            label: "Tareas",
+                            value: selectedClient.tasks.length,
+                          },
+                          {
+                            key: "tasks-open",
+                            label: "Abiertas",
+                            value: selectedClient.openTasks.length,
+                          },
+                          {
+                            key: "tasks-overdue",
+                            label: "Vencidas",
+                            value: selectedClient.overdueTasks.length,
+                          },
+                          {
+                            key: "tasks-next",
+                            label: "Próxima",
+                            value: selectedClient.nextOpenTask?.due_date
+                              ? formatDate(selectedClient.nextOpenTask.due_date)
+                              : "—",
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.tasks.length === 0 ? (
+                        <EmptyState
+                          icon={<CheckCircle2 className="h-6 w-6" />}
+                          title="No hay tareas vinculadas"
+                          description="Las tareas del cliente aparecerán aquí para gestionarlas sin salir del perfil."
+                          actionLabel="Crear tarea"
+                          onAction={() => openCreateTaskForClient(selectedClient)}
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.tasks.map((task) => {
+                            const overdue =
+                              isOverdue(task.due_date) && isOpenTaskStatus(task.status);
+                            const project = task.related_project_id
+                              ? projectById.get(task.related_project_id)
+                              : null;
+                            return (
+                              <div
+                                key={task.id}
+                                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-normal text-slate-950">
+                                      {task.title}
+                                    </p>
+                                    {overdue ? (
+                                      <Badge className="rounded-full bg-rose-50 text-rose-700 hover:bg-rose-50">
+                                        Vencida
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                  <p className="mt-1 text-xs font-normal text-slate-500">
+                                    {task.due_date
+                                      ? `Vence ${formatDate(task.due_date)}`
+                                      : "Sin fecha"}
+                                    {" · "}
+                                    Prioridad {PROJECT_LABELS[task.priority] || task.priority}
+                                    {project ? ` · ${project.name}` : ""}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+                                  <StatusBadge status={task.status} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+
                     <TabsContent
                       data-demo="client-360-activity"
                       value="activity"
@@ -3020,13 +5937,901 @@ function ClientsPage() {
                         </div>
                       )}
                     </TabsContent>
-                  </Tabs>
-                </div>
-              </ScrollArea>
+                  </div>
+                </ScrollArea>
+              </Tabs>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        open={invoiceDialogOpen}
+        onOpenChange={(open) => {
+          if (invoiceSaving) return;
+          setInvoiceDialogOpen(open);
+          if (!open) {
+            setInvoiceClientId(null);
+            setInvoiceError(null);
+          }
+        }}
+      >
+        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-6xl flex-col overflow-hidden rounded-3xl border-slate-200 bg-white p-0 shadow-xl sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)]">
+          <DialogHeader className="shrink-0 border-b border-slate-100 px-4 py-4 text-left sm:px-6">
+            <DialogTitle className="text-xl font-normal tracking-normal text-slate-950">
+              Nueva factura
+            </DialogTitle>
+            <DialogDescription className="text-sm font-normal text-slate-500">
+              {invoiceDialogClient
+                ? `${invoiceDialogClient.company_name} · los datos del cliente ya están cargados.`
+                : "Completa los datos principales de la factura."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="px-4 py-5 sm:px-6">
+              <InvoiceEditor
+                mode="create"
+                initialDraft={invoiceInitialDraft}
+                clients={clients}
+                products={products}
+                proposals={proposals}
+                statusOptions={INVOICE_STATUSES}
+                saving={invoiceSaving}
+                error={invoiceError}
+                onCancel={() => {
+                  if (invoiceSaving) return;
+                  setInvoiceDialogOpen(false);
+                  setInvoiceClientId(null);
+                  setInvoiceError(null);
+                }}
+                onSaveDraft={async (draft) => {
+                  await saveClientInvoiceDraft(draft, "Draft");
+                }}
+                onConfirmSend={async (draft) => {
+                  await saveClientInvoiceDraft(draft, "Sent");
+                }}
+              />
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <PaymentFormDialog
+        open={paymentDialogOpen}
+        onOpenChange={(open) => {
+          setPaymentDialogOpen(open);
+          if (!open) setPaymentInitialValues(undefined);
+        }}
+        initialValues={paymentInitialValues}
+        onCreated={(result) => {
+          void handleClientPaymentCreated(result);
+        }}
+      />
+
+      <CrmCreationDialog
+        open={creditNoteDialogOpen}
+        onOpenChange={(open) => {
+          if (creditNoteSaving) return;
+          setCreditNoteDialogOpen(open);
+          if (!open) setCreditNoteClientId(null);
+        }}
+        title="Nueva nota de crédito"
+        description={`${creditNoteDialogClient?.company_name || "Cliente seleccionado"} · Registra un ajuste o crédito vinculado a esta cuenta.`}
+        size="md"
+      >
+        <form
+          key={creditNoteDialogClient?.id || "credit-note"}
+          onSubmit={handleCreditNoteSubmit}
+          className="space-y-5"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Razón</Label>
+              <Input
+                name="reason"
+                placeholder="Ajuste de factura, descuento, devolución..."
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Factura vinculada</Label>
+              <Select name="invoice_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin factura" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin factura</SelectItem>
+                  {(creditNoteDialogClient?.invoices || []).map((invoice) => (
+                    <SelectItem key={invoice.id} value={invoice.id}>
+                      {invoice.number} · {money(invoice.total)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Monto</Label>
+              <Input
+                name="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue="0"
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Fecha</Label>
+              <Input
+                name="date_issued"
+                type="date"
+                defaultValue={isoDate()}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Estado</Label>
+              <Select name="status" defaultValue="Draft">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CREDIT_NOTE_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {creditNoteLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Notas</Label>
+              <Textarea
+                name="notes"
+                rows={4}
+                placeholder="Contexto interno del ajuste."
+                className={crmFormStyles.textarea}
+              />
+            </div>
+          </div>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => {
+                if (creditNoteSaving) return;
+                setCreditNoteDialogOpen(false);
+                setCreditNoteClientId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className={crmFormStyles.primaryButton}
+              disabled={creditNoteSaving}
+            >
+              {creditNoteSaving ? "Guardando..." : "Crear nota"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
+
+      <CrmCreationDialog
+        open={subscriptionDialogOpen}
+        onOpenChange={(open) => {
+          if (subscriptionSaving) return;
+          setSubscriptionDialogOpen(open);
+          if (!open) setSubscriptionClientId(null);
+        }}
+        title="Nueva suscripción"
+        description={`${subscriptionDialogClient?.company_name || "Cliente seleccionado"} · Crea un servicio recurrente para esta cuenta.`}
+        size="md"
+      >
+        <form
+          key={subscriptionDialogClient?.id || "subscription"}
+          onSubmit={handleSubscriptionSubmit}
+          className="space-y-5"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Nombre de la suscripción</Label>
+              <Input
+                name="name"
+                placeholder={`Servicio recurrente para ${subscriptionDialogClient?.company_name || "cliente"}`}
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Producto o servicio</Label>
+              <Select name="product_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin producto</SelectItem>
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Monto recurrente</Label>
+              <Input
+                name="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue="0"
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Ciclo</Label>
+              <Select name="billing_cycle" defaultValue="Monthly">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUBSCRIPTION_CYCLES.map((cycle) => (
+                    <SelectItem key={cycle} value={cycle}>
+                      {subscriptionLabel(cycle)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Estado</Label>
+              <Select name="status" defaultValue="Active">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUBSCRIPTION_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {subscriptionLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Fecha de inicio</Label>
+              <Input
+                name="start_date"
+                type="date"
+                defaultValue={isoDate()}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Próximo cobro</Label>
+              <Input name="next_billing_date" type="date" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Fecha de finalización</Label>
+              <Input name="end_date" type="date" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Notas</Label>
+              <Textarea
+                name="notes"
+                rows={4}
+                placeholder="Condiciones, alcance o detalles internos del servicio recurrente."
+                className={crmFormStyles.textarea}
+              />
+            </div>
+          </div>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => {
+                if (subscriptionSaving) return;
+                setSubscriptionDialogOpen(false);
+                setSubscriptionClientId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className={crmFormStyles.primaryButton}
+              disabled={subscriptionSaving}
+            >
+              {subscriptionSaving ? "Guardando..." : "Crear suscripción"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
+
+      <CrmCreationDialog
+        open={expenseDialogOpen}
+        onOpenChange={(open) => {
+          if (expenseSaving) return;
+          setExpenseDialogOpen(open);
+          if (!open) setExpenseClientId(null);
+        }}
+        title="Nuevo gasto"
+        description={`${expenseDialogClient?.company_name || "Cliente seleccionado"} · Registra un costo vinculado a esta cuenta.`}
+        size="md"
+      >
+        <form
+          key={expenseDialogClient?.id || "expense"}
+          onSubmit={handleExpenseSubmit}
+          className="space-y-5"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Título del gasto</Label>
+              <Input
+                name="title"
+                placeholder="Compra, servicio externo, transporte..."
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Proveedor</Label>
+              <Input name="vendor" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Categoría</Label>
+              <Input name="category" defaultValue="General" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Proyecto vinculado</Label>
+              <Select name="project_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin proyecto</SelectItem>
+                  {(expenseDialogClient?.projects || []).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Monto</Label>
+              <Input
+                name="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue="0"
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Estado</Label>
+              <Select name="status" defaultValue="Pending">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {expenseLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Fecha del gasto</Label>
+              <Input
+                name="expense_date"
+                type="date"
+                defaultValue={isoDate()}
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>URL del recibo</Label>
+              <Input
+                name="receipt_url"
+                type="url"
+                placeholder="https://..."
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Notas</Label>
+              <Textarea
+                name="notes"
+                rows={4}
+                placeholder="Detalle interno del gasto."
+                className={crmFormStyles.textarea}
+              />
+            </div>
+          </div>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => {
+                if (expenseSaving) return;
+                setExpenseDialogOpen(false);
+                setExpenseClientId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton} disabled={expenseSaving}>
+              {expenseSaving ? "Guardando..." : "Crear gasto"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
+
+      <ContractEditorDialog
+        open={contractDialogOpen}
+        onOpenChange={(open) => {
+          setContractDialogOpen(open);
+          if (!open) setContractClientId(null);
+        }}
+        contract={null}
+        clients={clients}
+        projects={projects}
+        profiles={managers}
+        initialValues={{
+          subject: contractDialogClient ? `Contrato ${contractDialogClient.company_name}` : "",
+          client_id: contractDialogClient?.id || undefined,
+          project_id: "none",
+          assigned_to: contractDialogClient?.account_manager || profile?.id || "none",
+          status: "Draft",
+          contract_type: "Service Agreement",
+          start_date: isoDate(),
+        }}
+        onSaved={async () => {
+          await fetchContracts();
+          toast.success("Contrato vinculado al cliente.");
+        }}
+      />
+
+      <CrmCreationDialog
+        open={ticketDialogOpen}
+        onOpenChange={(open) => {
+          if (ticketSaving) return;
+          setTicketDialogOpen(open);
+          if (!open) setTicketClientId(null);
+        }}
+        title="Nuevo ticket"
+        description={`${ticketDialogClient?.company_name || "Cliente seleccionado"} · Registra una solicitud o caso de soporte.`}
+        size="md"
+      >
+        <form
+          key={ticketDialogClient?.id || "ticket"}
+          onSubmit={handleTicketSubmit}
+          className="space-y-5"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Asunto</Label>
+              <Input
+                name="subject"
+                placeholder="Describe brevemente la solicitud"
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Contacto</Label>
+              <Select name="contact_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin contacto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin contacto</SelectItem>
+                  {(ticketDialogClient?.contacts || []).map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {getContactName(contact)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Proyecto vinculado</Label>
+              <Select name="project_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin proyecto</SelectItem>
+                  {(ticketDialogClient?.projects || []).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Estado</Label>
+              <Select name="status" defaultValue="Open">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TICKET_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {ticketLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Prioridad</Label>
+              <Select name="priority" defaultValue="Medium">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TICKET_PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {ticketLabel(priority)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Departamento</Label>
+              <Input name="department" defaultValue="Support" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Servicio</Label>
+              <Input name="service" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Responsable</Label>
+              <Select
+                name="assigned_to"
+                defaultValue={ticketDialogClient?.account_manager || profile?.id || "none"}
+              >
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin asignar</SelectItem>
+                  {managers.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.full_name || manager.email || "Usuario"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Descripción</Label>
+              <Textarea
+                name="description"
+                rows={5}
+                placeholder="Contexto del caso, pasos realizados o solicitud del cliente."
+                className={crmFormStyles.textarea}
+              />
+            </div>
+          </div>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => {
+                if (ticketSaving) return;
+                setTicketDialogOpen(false);
+                setTicketClientId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton} disabled={ticketSaving}>
+              {ticketSaving ? "Guardando..." : "Crear ticket"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
+
+      <CrmCreationDialog
+        open={reminderDialogOpen}
+        onOpenChange={(open) => {
+          if (reminderSaving) return;
+          setReminderDialogOpen(open);
+          if (!open) setReminderClientId(null);
+        }}
+        title="Nuevo recordatorio"
+        description={`${reminderDialogClient?.company_name || "Cliente seleccionado"} · Programa el próximo seguimiento.`}
+        size="md"
+      >
+        <form
+          key={reminderDialogClient?.id || "reminder"}
+          onSubmit={handleReminderSubmit}
+          className="space-y-5"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Título</Label>
+              <Input
+                name="title"
+                defaultValue={
+                  reminderDialogClient
+                    ? `Dar seguimiento a ${reminderDialogClient.company_name}`
+                    : ""
+                }
+                placeholder="Seguimiento, llamada, reunión..."
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Tipo</Label>
+              <Select name="type" defaultValue="reminder">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CLIENT_REMINDER_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {reminderLabel(type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Fecha y hora</Label>
+              <Input
+                name="start_at"
+                type="datetime-local"
+                defaultValue={toDateTimeLocalInputValue()}
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Proyecto vinculado</Label>
+              <Select name="related_project_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin proyecto</SelectItem>
+                  {(reminderDialogClient?.projects || []).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Lugar</Label>
+              <Input
+                name="location"
+                placeholder="Teléfono, oficina, Google Meet..."
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Notas</Label>
+              <Textarea
+                name="description"
+                rows={5}
+                placeholder="Contexto del seguimiento, temas a tratar o próximos pasos."
+                className={crmFormStyles.textarea}
+              />
+            </div>
+          </div>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => {
+                if (reminderSaving) return;
+                setReminderDialogOpen(false);
+                setReminderClientId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton} disabled={reminderSaving}>
+              {reminderSaving ? "Guardando..." : "Crear recordatorio"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
+
+      <CrmCreationDialog
+        open={vaultDialogOpen}
+        onOpenChange={(open) => {
+          if (vaultSaving) return;
+          setVaultDialogOpen(open);
+          if (!open) setVaultClientId(null);
+        }}
+        title="Nuevo acceso seguro"
+        description={`${vaultDialogClient?.company_name || "Cliente seleccionado"} · Guarda información sensible vinculada a esta cuenta.`}
+        size="lg"
+      >
+        <form
+          key={vaultDialogClient?.id || "vault"}
+          onSubmit={handleVaultSubmit}
+          className="space-y-5"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Nombre del acceso</Label>
+              <Input
+                name="title"
+                placeholder="Ej: Hosting, dominio, portal del cliente..."
+                className={crmFormStyles.input}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Categoría</Label>
+              <Select name="category" defaultValue="login">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VAULT_CATEGORIES.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Nivel</Label>
+              <Select name="sensitivity" defaultValue="restricted">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VAULT_SENSITIVITY.map((sensitivity) => (
+                    <SelectItem key={sensitivity.value} value={sensitivity.value}>
+                      {sensitivity.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Proyecto vinculado</Label>
+              <Select name="project_id" defaultValue="none">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin proyecto</SelectItem>
+                  {(vaultDialogClient?.projects || []).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Responsable</Label>
+              <Select name="owner_id" defaultValue={vaultDialogClient?.account_manager || "none"}>
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue placeholder="Sin responsable" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin responsable</SelectItem>
+                  {managers.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.full_name || manager.email || "Usuario"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Estado</Label>
+              <Select name="status" defaultValue="active">
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VAULT_STATUSES.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Vence</Label>
+              <Input name="expires_at" type="date" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>URL</Label>
+              <Input name="url" placeholder="https://..." className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Usuario</Label>
+              <Input name="username" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Correo</Label>
+              <Input name="email" type="email" className={crmFormStyles.input} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Secreto</Label>
+              <Input
+                name="secret_value"
+                type="password"
+                placeholder="Contraseña, token o llave"
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Etiquetas</Label>
+              <Input
+                name="tags"
+                placeholder="producción, hosting, dominio..."
+                className={crmFormStyles.input}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className={crmFormStyles.label}>Notas</Label>
+              <Textarea
+                name="notes"
+                rows={4}
+                placeholder="Contexto, instrucciones o detalles operativos."
+                className={crmFormStyles.textarea}
+              />
+            </div>
+          </div>
+
+          <div className={crmFormStyles.footer}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={crmFormStyles.cancelButton}
+              onClick={() => {
+                if (vaultSaving) return;
+                setVaultDialogOpen(false);
+                setVaultClientId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className={crmFormStyles.primaryButton} disabled={vaultSaving}>
+              {vaultSaving ? "Guardando..." : "Guardar acceso"}
+            </Button>
+          </div>
+        </form>
+      </CrmCreationDialog>
 
       <QuickCreateDialog
         type="client"

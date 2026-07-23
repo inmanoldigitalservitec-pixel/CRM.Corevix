@@ -58,7 +58,7 @@ export function CrmCreationDialog({
         className={cn(
           "flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none",
           "max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none",
-          "sm:h-[min(760px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-slate-200",
+          "sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-slate-200",
           dialogSizeClass[size],
           contentClassName,
         )}

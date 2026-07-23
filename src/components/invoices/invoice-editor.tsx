@@ -221,14 +221,6 @@ export function InvoiceEditor({
     setDraft((current) => ({
       ...current,
       client_id: client?.id || null,
-    }));
-  };
-
-  const applyClientData = (clientId: string) => {
-    const client = clientId === NONE_CLIENT ? null : clients.find((item) => item.id === clientId);
-    setDraft((current) => ({
-      ...current,
-      client_id: client?.id || null,
       clientName: cleanText(client?.contact_person),
       clientCompany: cleanText(client?.company_name),
       clientEmail: cleanText(client?.email),
@@ -309,10 +301,6 @@ export function InvoiceEditor({
       };
     });
     if (proposal?.client_id) selectClient(proposal.client_id);
-  };
-
-  const useClientData = () => {
-    if (selectedClient) applyClientData(selectedClient.id);
   };
 
   const validateDraft = () => {
@@ -470,65 +458,6 @@ export function InvoiceEditor({
             </div>
           </EditorSection>
 
-          <EditorSection title="Datos del cliente">
-            <div className="mb-3 flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={useClientData}
-                disabled={!selectedClient}
-              >
-                Usar datos del cliente
-              </Button>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombre">
-                <Input
-                  value={draft.clientName || ""}
-                  onChange={(event) => patchDraft({ clientName: event.target.value })}
-                />
-              </Field>
-              <Field label="Empresa">
-                <Input
-                  value={draft.clientCompany || ""}
-                  onChange={(event) => patchDraft({ clientCompany: event.target.value })}
-                />
-              </Field>
-              <Field label="Correo">
-                <Input
-                  value={draft.clientEmail || ""}
-                  onChange={(event) => patchDraft({ clientEmail: event.target.value })}
-                />
-              </Field>
-              <Field label="Teléfono">
-                <Input
-                  value={draft.clientPhone || ""}
-                  onChange={(event) => patchDraft({ clientPhone: event.target.value })}
-                />
-              </Field>
-              <Field label="ID fiscal / RNC">
-                <Input
-                  value={draft.clientTaxId || ""}
-                  onChange={(event) => patchDraft({ clientTaxId: event.target.value })}
-                />
-              </Field>
-              <Field label="Producto visible">
-                <Input
-                  value={draft.productName || ""}
-                  onChange={(event) => patchDraft({ productName: event.target.value })}
-                />
-              </Field>
-            </div>
-            <Field label="Dirección" className="mt-4">
-              <Textarea
-                value={draft.clientAddress || ""}
-                onChange={(event) => patchDraft({ clientAddress: event.target.value })}
-                rows={2}
-              />
-            </Field>
-          </EditorSection>
-
           <EditorSection title="Fechas">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Fecha emitida">
@@ -680,6 +609,8 @@ export function InvoiceEditor({
 
         <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
           <InvoiceEditorSummary
+            draft={draft}
+            client={selectedClient}
             currency={draft.currency}
             subtotal={totals.subtotal}
             tax={draft.tax}
@@ -854,6 +785,8 @@ function InvoiceLineItemsEditor({
 }
 
 function InvoiceEditorSummary({
+  draft,
+  client,
   currency,
   subtotal,
   tax,
@@ -862,6 +795,8 @@ function InvoiceEditorSummary({
   onTaxChange,
   onDiscountChange,
 }: {
+  draft: InvoiceEditorDraft;
+  client: InvoiceEditorClient | null | undefined;
   currency: string;
   subtotal: number;
   tax: number;
@@ -870,33 +805,92 @@ function InvoiceEditorSummary({
   onTaxChange: (value: number) => void;
   onDiscountChange: (value: number) => void;
 }) {
+  const clientSummary = {
+    name: draft.clientName || client?.contact_person || "—",
+    company: draft.clientCompany || client?.company_name || "—",
+    email: draft.clientEmail || client?.email || "—",
+    phone: draft.clientPhone || client?.phone || "—",
+    taxId: draft.clientTaxId || client?.tax_id || "—",
+    address: draft.clientAddress || client?.address || "—",
+    product: draft.productName || "—",
+  };
+
   return (
     <EditorSection title="Resumen">
-      <div className="space-y-3">
-        <SummaryRow label="Subtotal" value={formatInvoiceMoney(subtotal, currency)} />
-        <Field label="Impuesto">
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={String(tax)}
-            onChange={(event) => onTaxChange(cleanNumber(event.target.value))}
-          />
-        </Field>
-        <Field label="Descuento">
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={String(discount)}
-            onChange={(event) => onDiscountChange(cleanNumber(event.target.value))}
-          />
-        </Field>
-        <div className="border-t pt-3">
-          <SummaryRow label="Total" value={formatInvoiceMoney(total, currency)} strong />
+      <div className="space-y-5">
+        <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Cliente
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
+              {clientSummary.company}
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-slate-500">{clientSummary.name}</p>
+          </div>
+          <div className="space-y-2 border-t border-slate-200 pt-3">
+            <SummaryDetail label="Correo" value={clientSummary.email} />
+            <SummaryDetail label="Teléfono" value={clientSummary.phone} />
+            <SummaryDetail label="ID fiscal / RNC" value={clientSummary.taxId} />
+            <SummaryDetail label="Producto visible" value={clientSummary.product} />
+            <SummaryDetail label="Dirección" value={clientSummary.address} multiline />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Totales
+          </p>
+          <SummaryRow label="Subtotal" value={formatInvoiceMoney(subtotal, currency)} />
+          <Field label="Impuesto">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={String(tax)}
+              onChange={(event) => onTaxChange(cleanNumber(event.target.value))}
+            />
+          </Field>
+          <Field label="Descuento">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={String(discount)}
+              onChange={(event) => onDiscountChange(cleanNumber(event.target.value))}
+            />
+          </Field>
+          <div className="border-t pt-3">
+            <SummaryRow label="Total" value={formatInvoiceMoney(total, currency)} strong />
+          </div>
         </div>
       </div>
     </EditorSection>
+  );
+}
+
+function SummaryDetail({
+  label,
+  value,
+  multiline,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+}) {
+  return (
+    <div className={multiline ? "space-y-0.5" : "flex items-start justify-between gap-3"}>
+      <span className="shrink-0 text-xs font-medium text-slate-500">{label}</span>
+      <span
+        className={
+          multiline
+            ? "block break-words text-xs leading-5 text-slate-800"
+            : "min-w-0 break-words text-right text-xs leading-5 text-slate-800"
+        }
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 

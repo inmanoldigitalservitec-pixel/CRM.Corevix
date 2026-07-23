@@ -33,6 +33,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { supabase } from "@/integrations/supabase/client";
+import { logActivityEvent } from "@/lib/activity-log";
 import { toast } from "sonner";
 import {
   CalendarDays,
@@ -1510,6 +1511,20 @@ export function TaskCreateDialog({
         companyId: createdTask.company_id || companyId,
         assigneeIds: draft.assigneeIds,
       });
+      void logActivityEvent({
+        companyId: createdTask.company_id || companyId,
+        userId: currentUserId,
+        action: "task_created",
+        entityType: "tasks",
+        entityId: createdTask.id,
+        detail: `Tarea creada: ${createdTask.title}`,
+        metadata: {
+          related_client_id: createdTask.related_client_id,
+          related_project_id: createdTask.related_project_id,
+          due_date: createdTask.due_date,
+          priority: createdTask.priority,
+        },
+      }).catch(() => {});
       toast.success("Tarea creada.");
       await attachPendingResources(createdTask);
       await onCreated?.(createdTask);
