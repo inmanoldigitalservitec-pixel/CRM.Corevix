@@ -64,6 +64,22 @@ create table if not exists public.proposal_items (
   constraint proposal_items_unit_type_check check (unit_type in ('qty', 'hours', 'qty_hours'))
 );
 
+alter table public.proposal_items
+  add column if not exists company_id uuid,
+  add column if not exists proposal_id uuid,
+  add column if not exists product_id uuid references public.products(id) on delete set null,
+  add column if not exists item_name text not null default '',
+  add column if not exists description text,
+  add column if not exists quantity numeric not null default 1,
+  add column if not exists unit_type text not null default 'qty',
+  add column if not exists rate numeric not null default 0,
+  add column if not exists tax_rate numeric not null default 0,
+  add column if not exists is_optional boolean not null default false,
+  add column if not exists sort_order integer not null default 0,
+  add column if not exists amount numeric not null default 0,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
 create index if not exists idx_proposal_items_company_proposal
   on public.proposal_items(company_id, proposal_id, sort_order);
 
