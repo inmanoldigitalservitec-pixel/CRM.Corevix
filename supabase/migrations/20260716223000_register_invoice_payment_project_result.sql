@@ -69,7 +69,7 @@ begin
     raise exception 'No se encontró la factura dentro de la compañía actual.';
   end if;
 
-  if v_invoice.status in ('Cancelled', 'Canceled') then
+  if v_invoice.status = 'Cancelled' then
     raise exception 'Esta factura está cancelada.';
   end if;
 

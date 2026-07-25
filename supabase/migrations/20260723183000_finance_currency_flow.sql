@@ -212,11 +212,11 @@ select
   greatest(coalesce(i.total, 0) - coalesce(p.paid_amount, 0) - coalesce(c.credit_amount, 0), 0)::numeric(14,2) as balance_due,
   greatest(coalesce(i.total_base, i.total, 0) - coalesce(p.paid_amount_base, p.paid_amount, 0) - coalesce(c.credit_amount_base, c.credit_amount, 0), 0)::numeric(14,2) as balance_due_base,
   case
-    when coalesce(i.total_base, i.total, 0) <= 0 then i.status
+    when coalesce(i.total_base, i.total, 0) <= 0 then i.status::text
     when coalesce(p.paid_amount_base, p.paid_amount, 0) + coalesce(c.credit_amount_base, c.credit_amount, 0) >= coalesce(i.total_base, i.total, 0) then 'Paid'
     when coalesce(p.paid_amount_base, p.paid_amount, 0) + coalesce(c.credit_amount_base, c.credit_amount, 0) > 0 then 'Partial'
     when i.due_date < current_date and i.status not in ('Paid','Cancelled') then 'Overdue'
-    else i.status
+    else i.status::text
   end as finance_status
 from public.invoices i
 left join (
@@ -404,7 +404,7 @@ begin
     raise exception 'No se encontró la factura dentro de la compañía actual.';
   end if;
 
-  if v_invoice.status in ('Cancelled', 'Canceled') then
+  if v_invoice.status = 'Cancelled' then
     raise exception 'Esta factura está cancelada.';
   end if;
 

@@ -20,11 +20,11 @@ select
   coalesce(c.credit_amount, 0)::numeric(14,2) as credit_amount,
   greatest(coalesce(i.total, 0) - coalesce(p.paid_amount, 0) - coalesce(c.credit_amount, 0), 0)::numeric(14,2) as balance_due,
   case
-    when coalesce(i.total, 0) <= 0 then i.status
+    when coalesce(i.total, 0) <= 0 then i.status::text
     when coalesce(p.paid_amount, 0) + coalesce(c.credit_amount, 0) >= coalesce(i.total, 0) then 'Paid'
     when coalesce(p.paid_amount, 0) + coalesce(c.credit_amount, 0) > 0 then 'Partial'
     when i.due_date < current_date and i.status not in ('Paid','Cancelled') then 'Overdue'
-    else i.status
+    else i.status::text
   end as finance_status
 from public.invoices i
 left join (
@@ -48,7 +48,6 @@ set search_path = public
 as $$
 declare
   v_status text;
-  v_allowed_partial boolean := false;
 begin
   if p_invoice_id is null then
     return;
@@ -62,27 +61,25 @@ begin
     return;
   end if;
 
-  select exists (
-    select 1
-    from pg_constraint con
-    join pg_class rel on rel.oid = con.conrelid
-    join pg_namespace nsp on nsp.oid = rel.relnamespace
-    where nsp.nspname = 'public'
-      and rel.relname = 'invoices'
-      and con.contype = 'c'
-      and pg_get_constraintdef(con.oid) ilike '%Partial%'
-  ) into v_allowed_partial;
 
-  if v_status = 'Partial' and not v_allowed_partial then
-    v_status := 'Sent';
-  end if;
+  -- La vista usa estados textuales; invoices.status usa invoice_status.
+  -- Normalizamos explícitamente antes de escribir el enum.
+  v_status := case v_status
+    when 'Partial' then 'Partially Paid'
+    when 'Partially Paid' then 'Partially Paid'
+    when 'Paid' then 'Paid'
+    when 'Cancelled' then 'Cancelled'
+    when 'Overdue' then 'Overdue'
+    when 'Draft' then 'Draft'
+    else 'Sent'
+  end;
 
   update public.invoices
-  set status = v_status,
+  set status = v_status::public.invoice_status,
       paid_at = case when v_status = 'Paid' then coalesce(paid_at, now()) else paid_at end
   where id = p_invoice_id
     and status not in ('Cancelled')
-    and status is distinct from v_status;
+    and status::text is distinct from v_status;
 end;
 $$;
 

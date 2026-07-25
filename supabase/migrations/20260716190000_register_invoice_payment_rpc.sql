@@ -36,7 +36,7 @@ begin
     raise exception 'No se encontró la factura dentro de la compañía actual.';
   end if;
 
-  if v_invoice.status in ('Cancelled', 'Canceled') then
+  if v_invoice.status = 'Cancelled' then
     raise exception 'Esta factura está cancelada.';
   end if;
 
@@ -91,7 +91,6 @@ set search_path = public
 as $$
 declare
   v_status text;
-  v_allowed_partial boolean := false;
 begin
   if p_invoice_id is null then
     return;
@@ -105,28 +104,26 @@ begin
     return;
   end if;
 
-  select exists (
-    select 1
-    from pg_constraint con
-    join pg_class rel on rel.oid = con.conrelid
-    join pg_namespace nsp on nsp.oid = rel.relnamespace
-    where nsp.nspname = 'public'
-      and rel.relname = 'invoices'
-      and con.contype = 'c'
-      and pg_get_constraintdef(con.oid) ilike '%Partial%'
-  ) into v_allowed_partial;
 
-  if v_status = 'Partial' and not v_allowed_partial then
-    v_status := 'Sent';
-  end if;
+  -- La vista usa estados textuales; invoices.status usa invoice_status.
+  -- Normalizamos explícitamente antes de escribir el enum.
+  v_status := case v_status
+    when 'Partial' then 'Partially Paid'
+    when 'Partially Paid' then 'Partially Paid'
+    when 'Paid' then 'Paid'
+    when 'Cancelled' then 'Cancelled'
+    when 'Overdue' then 'Overdue'
+    when 'Draft' then 'Draft'
+    else 'Sent'
+  end;
 
   update public.invoices
-  set status = v_status,
+  set status = v_status::public.invoice_status,
       paid_at = case when v_status = 'Paid' then coalesce(paid_at, now()) else null end
   where id = p_invoice_id
     and status not in ('Cancelled')
     and (
-      status is distinct from v_status
+      status::text is distinct from v_status
       or (v_status = 'Paid' and paid_at is null)
       or (v_status <> 'Paid' and paid_at is not null)
     );
@@ -191,7 +188,7 @@ begin
     raise exception 'No se encontró la factura dentro de la compañía actual.';
   end if;
 
-  if v_invoice.status in ('Cancelled', 'Canceled') then
+  if v_invoice.status = 'Cancelled' then
     raise exception 'Esta factura está cancelada.';
   end if;
 
