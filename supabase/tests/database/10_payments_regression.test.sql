@@ -55,8 +55,8 @@ select col_type_is(
   'public',
   'payments',
   'amount',
-  'numeric',
-  'payments.amount conserva el tipo numeric'
+  'numeric(14,2)',
+  'payments.amount usa precisión monetaria numeric(14,2)'
 );
 
 select * from finish();
