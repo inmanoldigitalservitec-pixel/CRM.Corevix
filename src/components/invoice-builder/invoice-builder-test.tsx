@@ -389,59 +389,86 @@ export function InvoiceBuilderTest() {
         })),
       };
 
-      const record = {
-        company_id: profile.company_id,
-        created_by: profile.user_id || null,
+      const invoicePayload = {
         number: invoiceNumber,
-        client_id: customerType === "client" ? customerId : null,
+        client_id:
+          customerType === "client"
+            ? customerId
+            : null,
         proposal_id: null,
-        product_id: primaryProduct?.catalogId || null,
-        subtotal,
-        tax,
-        discount,
-        total,
+        product_id:
+          primaryProduct?.catalogId || null,
         status: nextStatus,
         date_issued: issueDate,
         due_date: dueDate,
         notes: notes || null,
-        public_token: token,
+        tax,
+        discount,
         invoice_data: invoiceData,
+        sent_at:
+          nextStatus === "Sent"
+            ? new Date().toISOString()
+            : null,
       };
 
-      let invoice: SavedInvoice;
-      if (savedInvoice?.id) {
-        const { data, error } = await db
-          .from("invoices")
-          .update(record)
-          .eq("id", savedInvoice.id)
-          .eq("company_id", profile.company_id)
-          .select("id, public_token, number")
-          .single();
-        if (error) throw error;
-        invoice = data;
-      } else {
-        const { data, error } = await db
-          .from("invoices")
-          .insert(record)
-          .select("id, public_token, number")
-          .single();
-        if (error) throw error;
-        invoice = data;
+      const itemPayload = validRows.map(
+        (item) => ({
+          product_id:
+            item.catalogType === "product"
+              ? item.catalogId || null
+              : null,
+          item_name: item.name,
+          description:
+            item.description || item.name,
+          quantity: item.quantity,
+          unit_type: "qty",
+          unit_price: item.price,
+          is_optional: false,
+          tax_rate: 0,
+          tax_amount: 0,
+          sort_order: 0,
+        }),
+      );
+
+      const {
+        data: rpcResult,
+        error: saveError,
+      } = await db.rpc(
+        "save_invoice_with_items",
+        {
+          p_invoice_id:
+            savedInvoice?.id || null,
+          p_invoice: invoicePayload,
+          p_items: itemPayload,
+        },
+      );
+
+      if (saveError) throw saveError;
+
+      const result = Array.isArray(rpcResult)
+        ? rpcResult[0]
+        : rpcResult;
+
+      if (!result?.invoice_id) {
+        throw new Error(
+          "No se pudo confirmar la factura guardada.",
+        );
       }
 
-      const invoiceId = invoice.id;
-      await db.from("invoice_items").delete().eq("invoice_id", invoiceId);
-      const itemRows = validRows.map((item) => ({
-        invoice_id: invoiceId,
-        description: item.description || item.name,
-        quantity: item.quantity,
-        unit_price: item.price,
-        total: item.quantity * item.price,
-      }));
-      if (itemRows.length) {
-        const { error: itemsError } = await db.from("invoice_items").insert(itemRows);
-        if (itemsError) throw itemsError;
-      }
+      const {
+        data: loadedInvoice,
+        error: loadError,
+      } = await db
+        .from("invoices")
+        .select("id, public_token, number")
+        .eq("id", result.invoice_id)
+        .eq("company_id", profile.company_id)
+        .single();
+
+      if (loadError) throw loadError;
+
+      const invoice =
+        loadedInvoice as SavedInvoice;
 
       setStatus(nextStatus);
       setSavedInvoice(invoice);

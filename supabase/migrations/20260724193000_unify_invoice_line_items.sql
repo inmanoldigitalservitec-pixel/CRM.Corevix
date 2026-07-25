@@ -88,6 +88,8 @@ declare
   v_tax_rate numeric;
   v_tax_amount numeric;
 begin
+  perform public.require_permission('invoices.issue');
+
   select *
   into current_profile
   from public.profiles
@@ -136,6 +138,12 @@ begin
   v_proposal_id := nullif(p_invoice->>'proposal_id', '')::uuid;
   v_product_id := nullif(p_invoice->>'product_id', '')::uuid;
   v_status := coalesce(nullif(btrim(p_invoice->>'status'), ''), 'Draft');
+
+  if v_status not in ('Draft', 'Sent') then
+    raise exception
+      'El editor solo permite guardar Draft o emitir como Sent.'
+      using errcode = '55000';
+  end if;
   v_notes := nullif(btrim(coalesce(p_invoice->>'notes', '')), '');
   v_date_issued := coalesce(nullif(p_invoice->>'date_issued', '')::date, current_date);
   v_due_date := coalesce(nullif(p_invoice->>'due_date', '')::date, current_date + 30);
@@ -201,6 +209,14 @@ begin
   end if;
 
   v_total := greatest(v_subtotal + v_tax - v_discount, 0);
+
+  if p_invoice_id is not null
+    and coalesce(v_invoice.status::text, '') <> 'Draft'
+  then
+    raise exception
+      'Solo pueden editarse facturas en estado Draft.'
+      using errcode = '55000';
+  end if;
 
   if p_invoice_id is not null
     and coalesce(v_invoice.status::text, '') = 'Paid'

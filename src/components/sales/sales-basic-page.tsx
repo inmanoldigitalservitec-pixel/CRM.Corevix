@@ -66,6 +66,7 @@ import {
   type CompanyCurrencySettings,
   type CurrencyCode,
 } from "@/lib/currency";
+import { supabase as db } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const DISPLAY_LABELS: Record<string, string> = {
@@ -127,6 +128,7 @@ type SalesConfig = {
   subtitle: string;
   table: string;
   module: string;
+  createPermission?: string;
   numberKey?: string;
   titleKey: string;
   amountKey: string;
@@ -519,6 +521,10 @@ export function SalesBasicPage({
     statusFilter,
   ]);
 
+  const createPermission =
+    config.createPermission ||
+    `${config.module}.create`;
+
   const openCreate = () => {
     if (onCreateAction) {
       onCreateAction();
@@ -537,7 +543,7 @@ export function SalesBasicPage({
       autoOpenKeyRef.current = null;
       return;
     }
-    if (!can(`${config.module}.create` as any)) return;
+    if (!can(createPermission as any)) return;
     if (autoOpenKeyRef.current === initialFieldValuesKey) return;
 
     autoOpenKeyRef.current = initialFieldValuesKey;
@@ -561,9 +567,57 @@ export function SalesBasicPage({
     if (requiredMissing) return toast.error(`${requiredMissing.label} es obligatorio.`);
     setSaving(true);
     try {
-	      const created = await create(
-	        normalizePayload(form, currencySettings, currencyAware, salesTaxById),
-	      );
+      const normalizedPayload = normalizePayload(
+        form,
+        currencySettings,
+        currencyAware,
+        salesTaxById,
+      );
+
+      let created: GenericRow;
+
+      if (config.module === "credit_notes") {
+        const { data: result, error: rpcError } =
+          await db.rpc("save_credit_note", {
+            p_credit_note_id: null,
+            p_invoice_id:
+              normalizedPayload.invoice_id || null,
+            p_client_id:
+              normalizedPayload.client_id || null,
+            p_amount:
+              Number(normalizedPayload.amount || 0),
+            p_date_issued:
+              normalizedPayload.date_issued ||
+              new Date().toISOString().slice(0, 10),
+            p_reason:
+              normalizedPayload.reason || null,
+            p_notes:
+              normalizedPayload.notes || null,
+          });
+
+        if (rpcError) throw rpcError;
+
+        const saved = Array.isArray(result)
+          ? result[0]
+          : result;
+
+        if (!saved?.credit_note_id) {
+          throw new Error(
+            "No se pudo confirmar la nota de crédito.",
+          );
+        }
+
+        created = {
+          ...normalizedPayload,
+          id: saved.credit_note_id,
+          credit_note_number:
+            saved.credit_note_number,
+          status: saved.status,
+        };
+      } else {
+        created = await create(normalizedPayload);
+      }
+
       toast.success(`${config.primaryLabel} creado correctamente.`);
       setDialogOpen(false);
       await fetch();
@@ -636,11 +690,11 @@ export function SalesBasicPage({
         title={config.routeTitle}
         subtitle={config.subtitle}
         actionLabel={
-          can(`${config.module}.create` as any)
+          can(createPermission as any)
             ? (config.primaryActionLabel ?? `Nuevo ${config.primaryLabel}`)
             : undefined
         }
-        onAction={can(`${config.module}.create` as any) ? openCreate : undefined}
+        onAction={can(createPermission as any) ? openCreate : undefined}
         items={[
           {
             key: "summary",
@@ -693,7 +747,7 @@ export function SalesBasicPage({
         <div className="border-b border-slate-100 px-4 py-3 max-md:hidden sm:px-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex gap-2">
-              {can(`${config.module}.create` as any) && (
+              {can(createPermission as any) && (
                 <Button
                   className="hidden h-9 rounded-md bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700 sm:inline-flex"
                   onClick={openCreate}

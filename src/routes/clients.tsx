@@ -1245,7 +1245,6 @@ function ClientsPage() {
     data: creditNotes,
     loading: creditNotesLoading,
     error: creditNotesError,
-    create: createCreditNote,
     fetch: fetchCreditNotes,
   } = useCrud<CreditNoteRow>({
     table: "credit_notes",
@@ -2213,7 +2212,7 @@ function ClientsPage() {
   };
 
   const openCreditNoteCreator = (client: ClientSnapshot) => {
-    if (!can("credit_notes.create")) {
+    if (!can("credit_notes.issue")) {
       toast.error("No tienes permiso para crear notas de crédito");
       return;
     }
@@ -2363,7 +2362,7 @@ function ClientsPage() {
 
   const handleCreditNoteSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!can("credit_notes.create")) {
+    if (!can("credit_notes.issue")) {
       toast.error("No tienes permiso para crear notas de crédito");
       return;
     }
@@ -2401,8 +2400,40 @@ function ClientsPage() {
 
     setCreditNoteSaving(true);
     try {
-      const created = await createCreditNote(payload as Partial<CreditNoteRow>);
-      await Promise.all([fetchCreditNotes(), fetchInvoices()]);
+      const { data: rpcResult, error: rpcError } =
+        await db.rpc("save_credit_note", {
+          p_credit_note_id: null,
+          p_invoice_id: invoiceId,
+          p_client_id: client.id,
+          p_amount: amount,
+          p_date_issued: payload.date_issued,
+          p_reason: payload.reason,
+          p_notes: payload.notes,
+        });
+
+      if (rpcError) throw rpcError;
+
+      const saved = Array.isArray(rpcResult)
+        ? rpcResult[0]
+        : rpcResult;
+
+      if (!saved?.credit_note_id) {
+        throw new Error(
+          "No se pudo confirmar la nota de crédito.",
+        );
+      }
+
+      const created = {
+        id: saved.credit_note_id,
+        credit_note_number:
+          saved.credit_note_number,
+        status: saved.status,
+      };
+
+      await Promise.all([
+        fetchCreditNotes(),
+        fetchInvoices(),
+      ]);
       setCreditNoteDialogOpen(false);
       setCreditNoteClientId(null);
       toast.success("Nota de crédito creada.");
@@ -5163,7 +5194,7 @@ function ClientsPage() {
                           className="h-8 shrink-0"
                           icon={<Plus className="h-4 w-4" />}
                           onClick={() => openCreditNoteCreator(selectedClient)}
-                          disabled={!can("credit_notes.create")}
+                          disabled={!can("credit_notes.issue")}
                         >
                           Crear nota
                         </CrmDetailLineButton>
@@ -5207,9 +5238,9 @@ function ClientsPage() {
                           icon={<FileText className="h-6 w-6" />}
                           title="No hay notas de crédito"
                           description="Crea el primer ajuste o crédito para este cliente sin salir del perfil."
-                          actionLabel={can("credit_notes.create") ? "Crear nota" : undefined}
+                          actionLabel={can("credit_notes.issue") ? "Crear nota" : undefined}
                           onAction={
-                            can("credit_notes.create")
+                            can("credit_notes.issue")
                               ? () => openCreditNoteCreator(selectedClient)
                               : undefined
                           }
@@ -6368,7 +6399,7 @@ function ClientsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CREDIT_NOTE_STATUSES.map((status) => (
+                  {["Draft"].map((status) => (
                     <SelectItem key={status} value={status}>
                       {creditNoteLabel(status)}
                     </SelectItem>

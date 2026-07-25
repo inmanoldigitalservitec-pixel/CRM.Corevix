@@ -42,6 +42,7 @@ function displayLabel(value: string) {
 
 export const Route = createFileRoute("/credit-notes")({ component: CreditNotesPage });
 const STATUSES = ["Draft", "Issued", "Applied", "Cancelled"];
+const CREATE_STATUSES = ["Draft"];
 function CreditNotesPage() {
   return (
     <SalesBasicPage
@@ -50,6 +51,7 @@ function CreditNotesPage() {
         subtitle: "Ajustes y balances a favor del cliente.",
         table: "credit_notes",
         module: "credit_notes",
+        createPermission: "credit_notes.issue",
         numberKey: "credit_note_number",
         titleKey: "reason",
         amountKey: "amount",
@@ -76,7 +78,7 @@ function CreditNotesPage() {
             key: "status",
             label: "Estado",
             type: "select",
-            options: STATUSES.map((value) => ({
+            options: CREATE_STATUSES.map((value) => ({
               label: value,
               value,
               displayLabel: displayLabel(value),
