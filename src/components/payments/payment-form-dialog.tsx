@@ -14,8 +14,18 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { useCrud } from "@/hooks/use-crud";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  CURRENCY_OPTIONS,
+  convertCurrencyAmount,
+  formatCurrencyAmount,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+  normalizeCurrencyInput,
+} from "@/lib/currency";
 import {
   formatPaymentReceiptFileSize,
   PAYMENT_RECEIPT_ACCEPT,
@@ -47,6 +57,8 @@ type InvoiceRow = {
   total: number | null;
   client_id: string | null;
   status?: string | null;
+  currency?: string | null;
+  invoice_data?: Record<string, unknown> | null;
 };
 type PaymentRow = {
   id: string;
@@ -65,6 +77,7 @@ export type PaymentFormInitialValues = {
   invoice_id?: string | null;
   client_id?: string | null;
   amount?: string | number | null;
+  currency?: string | null;
   payment_date?: string;
   method?: string;
   status?: string;
@@ -96,12 +109,13 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function defaultForm(initial?: PaymentFormInitialValues) {
+function defaultForm(initial: PaymentFormInitialValues | undefined, fallbackCurrency = "USD") {
   return {
     reference: initial?.reference || "",
     invoice_id: initial?.invoice_id || NONE,
     client_id: initial?.client_id || NONE,
     amount: String(initial?.amount ?? "0"),
+    currency: normalizeCurrency(initial?.currency || fallbackCurrency),
     payment_date: initial?.payment_date || todayIso(),
     method: initial?.method || "Manual",
     status: initial?.status || "Completed",
@@ -113,6 +127,12 @@ function normalizeOptionalId(value: string) {
   return value && value !== NONE ? value : null;
 }
 
+function getInvoiceCurrency(invoice: InvoiceRow | null | undefined) {
+  const invoiceData =
+    invoice?.invoice_data && typeof invoice.invoice_data === "object" ? invoice.invoice_data : {};
+  return normalizeCurrency(invoice?.currency || String(invoiceData.currency || ""));
+}
+
 export function PaymentFormDialog({
   open,
   onOpenChange,
@@ -120,9 +140,10 @@ export function PaymentFormDialog({
   onCreated,
 }: PaymentFormDialogProps) {
   const { profile } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const initialKey = JSON.stringify(initialValues || {});
-  const [form, setForm] = useState(() => defaultForm(initialValues));
+  const [form, setForm] = useState(() => defaultForm(initialValues, currencySettings.baseCurrency));
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -136,7 +157,7 @@ export function PaymentFormDialog({
   });
   const { data: invoices } = useCrud<InvoiceRow>({
     table: "invoices",
-    select: "id,number,total,client_id,status",
+    select: "id,number,total,client_id,status,currency,invoice_data",
     orderBy: "updated_at",
     ascending: false,
     limit: 1000,
@@ -147,10 +168,10 @@ export function PaymentFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(defaultForm(initialValues));
+    setForm(defaultForm(initialValues, currencySettings.baseCurrency));
     setReceiptFile(null);
     if (inputRef.current) inputRef.current.value = "";
-  }, [open, initialKey]);
+  }, [currencySettings.baseCurrency, open, initialKey]);
 
   const patchForm = (patch: Partial<ReturnType<typeof defaultForm>>) => {
     setForm((current) => ({ ...current, ...patch }));
@@ -172,6 +193,7 @@ export function PaymentFormDialog({
         client_id: invoice.client_id || NONE,
         reference: form.reference || `Pago ${invoice.number}`,
         amount: String(balance.outstandingBalance || Number(invoice.total || 0) || 0),
+        currency: getInvoiceCurrency(invoice),
       });
     } catch (error: any) {
       toast.error(error?.message || "No se pudo calcular el saldo pendiente.");
@@ -190,6 +212,8 @@ export function PaymentFormDialog({
       return;
     }
     const amount = Number(form.amount || 0);
+    const currency = normalizeCurrency(form.currency || currencySettings.baseCurrency);
+    const baseCurrency = normalizeCurrency(currencySettings.baseCurrency);
     if (!Number.isFinite(amount)) {
       toast.error("El monto no es válido.");
       return;
@@ -261,6 +285,12 @@ export function PaymentFormDialog({
         if (paymentLoadError) throw paymentLoadError;
         payment = createdPayment as PaymentRow;
       } else {
+        const amountBase = convertCurrencyAmount(
+          amount,
+          currency,
+          baseCurrency,
+          currencySettings.usdToDopRate,
+        );
         const { data: createdPayment, error } = await db
           .from("payments")
           .insert({
@@ -268,6 +298,12 @@ export function PaymentFormDialog({
             invoice_id: null,
             client_id: normalizeOptionalId(form.client_id),
             amount,
+            currency,
+            base_currency: baseCurrency,
+            exchange_rate: currency === baseCurrency ? 1 : currencySettings.usdToDopRate,
+            exchange_rate_source: currencySettings.rateSource,
+            exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+            amount_base: amountBase,
             payment_date: form.payment_date || todayIso(),
             method: form.method || "Manual",
             status: form.status || "Completed",
@@ -346,7 +382,8 @@ export function PaymentFormDialog({
                 <SelectItem value={NONE}>Ninguna</SelectItem>
                 {invoices.map((invoice) => (
                   <SelectItem key={invoice.id} value={invoice.id}>
-                    {invoice.number} · ${Number(invoice.total || 0).toLocaleString()}
+                    {invoice.number} ·{" "}
+                    {formatCurrencyAmount(invoice.total || 0, getInvoiceCurrency(invoice))}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -375,11 +412,34 @@ export function PaymentFormDialog({
             <Input
               type="number"
               min="0"
-              step="0.01"
+              step={getCurrencyStep(form.currency)}
+              inputMode={getCurrencyInputMode(form.currency)}
               value={form.amount}
               onChange={(event) => patchForm({ amount: event.target.value })}
+              onBlur={(event) =>
+                patchForm({ amount: normalizeCurrencyInput(event.target.value, form.currency) })
+              }
               className={crmFormStyles.input}
             />
+          </Field>
+
+          <Field label="Moneda">
+            <Select
+              value={normalizeCurrency(form.currency)}
+              onValueChange={(currency) => patchForm({ currency: normalizeCurrency(currency) })}
+              disabled={form.invoice_id !== NONE}
+            >
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.symbol} · {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
 
           <Field label="Fecha de pago">

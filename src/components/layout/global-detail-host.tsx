@@ -37,10 +37,12 @@ import { CalendarEventDetailDialog } from "@/components/calendar/calendar-event-
 import { ProjectWorkspaceDialog } from "@/routes/projects";
 import { TicketDetailDialog } from "@/routes/tickets";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { supabase } from "@/integrations/supabase/client";
 import type { CalendarItem } from "@/lib/crm/calendar-items";
 import { getCalendarEventTone } from "@/lib/crm/calendar-items";
 import { isClosedTaskStatusValue } from "@/lib/crm/status";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 type GlobalDetailGroup =
   | "clients"
@@ -213,12 +215,7 @@ const TICKET_LABELS: Record<string, string> = {
 };
 
 function money(amount: unknown, currency = "USD") {
-  const value = Number(amount || 0);
-  return new Intl.NumberFormat("es-DO", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0);
+  return formatCurrencyAmount(Number(amount || 0), currency);
 }
 
 function text(value: unknown) {
@@ -398,20 +395,22 @@ function GlobalRecordDetailDialog({
 
   return (
     <Dialog open={!!detail} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 md:h-[90vh] md:w-[calc(100vw-24px)] md:max-w-3xl md:rounded-2xl md:border [&>button]:hidden">
+      <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 md:h-auto md:max-h-[82vh] md:w-[calc(100vw-24px)] md:max-w-4xl md:rounded-2xl md:border [&>button]:hidden">
         {detail ? (
           <div className="flex h-full min-h-0 flex-col bg-white text-slate-950">
-            <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] text-left md:px-6 md:py-5">
+            <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 pb-3 pt-[calc(0.875rem+env(safe-area-inset-top))] text-left md:px-5 md:py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-bold text-slate-500">{detail.eyebrow}</p>
-                  <DialogTitle className="mt-1 line-clamp-2 text-[24px] font-extrabold leading-tight tracking-normal text-slate-950">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    {detail.eyebrow}
+                  </p>
+                  <DialogTitle className="mt-1 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-normal text-slate-950 md:text-[24px]">
                     {detail.title}
                   </DialogTitle>
-                  <p className="mt-2 truncate text-[14px] font-semibold text-slate-500">
+                  <p className="mt-1 truncate text-[13px] font-semibold text-slate-500">
                     {detail.subtitle}
                   </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     {detail.status ? <StatusBadge status={detail.status} /> : null}
                   </div>
                 </div>
@@ -429,45 +428,55 @@ function GlobalRecordDetailDialog({
             </DialogHeader>
 
             <ScrollArea className="min-h-0 flex-1">
-              <div className="flex min-h-full flex-col gap-5 px-5 py-4 md:px-6 md:py-5">
-                {detail.sections.map((section) => (
-                  <section key={section.title}>
-                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-                      <h3 className="flex min-w-0 items-center gap-2 text-[15px] font-extrabold text-slate-900">
-                        <span className="text-slate-400">{section.icon}</span>
-                        <span className="truncate">{section.title}</span>
-                      </h3>
-                    </div>
-                    <div className="divide-y divide-slate-100">
-                      {section.rows.map((row) => (
-                        <div
-                          key={row.label}
-                          className="flex items-start justify-between gap-4 py-2.5 text-sm"
-                        >
-                          <div className="shrink-0 text-[12px] font-semibold text-slate-500">
-                            {row.label}
+              <div className="flex min-h-full flex-col gap-4 px-4 py-4 md:px-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {detail.sections.map((section) => (
+                    <section key={section.title} className="min-w-0 rounded-xl border bg-white p-3">
+                      <div className="mb-2 flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+                        <h3 className="flex min-w-0 items-center gap-2 text-[14px] font-extrabold text-slate-900">
+                          <span className="text-slate-400">{section.icon}</span>
+                          <span className="truncate">{section.title}</span>
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {section.rows.map((row) => (
+                          <div
+                            key={row.label}
+                            className="flex items-start justify-between gap-4 py-2 text-sm"
+                          >
+                            <div className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {row.label}
+                            </div>
+                            <div className="min-w-0 text-right text-[13px] font-bold text-slate-900">
+                              {row.value}
+                            </div>
                           </div>
-                          <div className="min-w-0 text-right text-[13.5px] font-bold text-slate-900">
-                            {row.value}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
 
                 {detail.body?.value ? (
-                  <section>
-                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-                      <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
+                  <section className="rounded-xl border bg-white p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+                      <h3 className="flex items-center gap-2 text-[14px] font-extrabold text-slate-900">
                         <FileText className="h-4 w-4 text-slate-400" />
                         {detail.body.label}
                       </h3>
                     </div>
-                    <div className="whitespace-pre-wrap rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[14px] font-medium leading-7 text-slate-800">
+                    <div className="whitespace-pre-wrap rounded-xl bg-slate-50 px-3 py-2.5 text-[13px] font-medium leading-6 text-slate-800">
                       {detail.body.value}
                     </div>
                   </section>
+                ) : null}
+
+                {detail.href ? (
+                  <div className="flex justify-end border-t border-slate-100 pt-3">
+                    <Button type="button" className="rounded-full" asChild>
+                      <a href={detail.href}>{detail.primaryActionLabel || "Ver más detalles"}</a>
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             </ScrollArea>
@@ -736,6 +745,7 @@ function GlobalWhatsappDetailDialog({
 
 export function GlobalDetailHost() {
   const { profile } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const [selection, setSelection] = useState<GlobalDetailEvent | null>(null);
   const [task, setTask] = useState<GlobalTask | null>(null);
   const [projectBundle, setProjectBundle] = useState<any | null>(null);
@@ -821,7 +831,7 @@ export function GlobalDetailHost() {
               .order("updated_at", { ascending: false }),
             db
               .from("invoices")
-              .select("id,number,status,total,due_date,updated_at")
+              .select("id,number,status,total,total_base,base_currency,due_date,updated_at")
               .eq("company_id", cid)
               .eq("client_id", selection.id)
               .order("updated_at", { ascending: false }),
@@ -901,9 +911,11 @@ export function GlobalDetailHost() {
                       label: "Total facturado",
                       value: money(
                         invoices.reduce(
-                          (sum: number, item: any) => sum + Number(item.total || 0),
+                          (sum: number, item: any) =>
+                            sum + Number(item.total_base ?? item.total ?? 0),
                           0,
                         ),
+                        currencySettings.baseCurrency,
                       ),
                     },
                   ],
@@ -987,7 +999,13 @@ export function GlobalDetailHost() {
                   title: "Venta",
                   icon: <CircleDollarSign className="h-3.5 w-3.5" />,
                   rows: [
-                    { label: "Valor estimado", value: money(lead.estimated_value) },
+                    {
+                      label: "Valor estimado",
+                      value: money(
+                        lead.estimated_value_base ?? lead.estimated_value,
+                        lead.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
                     { label: "Oportunidades", value: deals.length },
                     { label: "Última oportunidad", value: latestDeal?.name || "—" },
                     { label: "Etapa", value: latestDeal?.stage || "—" },
@@ -1195,8 +1213,17 @@ export function GlobalDetailHost() {
                   title: "Finanzas",
                   icon: <CircleDollarSign className="h-3.5 w-3.5" />,
                   rows: [
-                    { label: "Monto", value: money(proposal.amount, proposal.currency || "USD") },
-                    { label: "Moneda", value: proposal.currency || "USD" },
+                    {
+                      label: "Monto",
+                      value: money(
+                        proposal.amount_base ?? proposal.amount,
+                        proposal.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                    {
+                      label: "Moneda",
+                      value: proposal.base_currency || currencySettings.baseCurrency,
+                    },
                     { label: "Enviada", value: dateText(proposal.sent_at) },
                     { label: "Vista", value: dateText(proposal.viewed_at) },
                   ],
@@ -1256,9 +1283,27 @@ export function GlobalDetailHost() {
                   title: "Finanzas",
                   icon: <CircleDollarSign className="h-3.5 w-3.5" />,
                   rows: [
-                    { label: "Subtotal", value: money(estimate.subtotal) },
-                    { label: "Impuesto", value: money(estimate.tax) },
-                    { label: "Total", value: money(estimate.total) },
+                    {
+                      label: "Subtotal",
+                      value: money(
+                        estimate.subtotal_base ?? estimate.subtotal,
+                        estimate.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                    {
+                      label: "Impuesto",
+                      value: money(
+                        estimate.tax_base ?? estimate.tax,
+                        estimate.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                    {
+                      label: "Total",
+                      value: money(
+                        estimate.total_base ?? estimate.total,
+                        estimate.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
                     { label: "Emitida", value: dateText(estimate.date_issued) },
                   ],
                 },
@@ -1273,7 +1318,10 @@ export function GlobalDetailHost() {
           const [paymentRes, clientsRes, invoicesRes] = await Promise.all([
             db.from("payments").select("*").eq("company_id", cid).eq("id", selection.id).single(),
             db.from("clients").select("id,company_name,contact_person,email").eq("company_id", cid),
-            db.from("invoices").select("id,number,status,total,due_date").eq("company_id", cid),
+            db
+              .from("invoices")
+              .select("id,number,status,total,total_base,base_currency,due_date")
+              .eq("company_id", cid),
           ]);
           if (paymentRes.error) throw paymentRes.error;
           const payment = paymentRes.data;
@@ -1323,8 +1371,20 @@ export function GlobalDetailHost() {
                   title: "Finanzas",
                   icon: <CircleDollarSign className="h-3.5 w-3.5" />,
                   rows: [
-                    { label: "Monto pagado", value: money(payment.amount) },
-                    { label: "Total factura", value: money(invoice?.total) },
+                    {
+                      label: "Monto pagado",
+                      value: money(
+                        payment.amount_base ?? payment.amount,
+                        payment.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                    {
+                      label: "Total factura",
+                      value: money(
+                        invoice?.total_base ?? invoice?.total,
+                        invoice?.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
                   ],
                 },
               ],
@@ -1343,7 +1403,10 @@ export function GlobalDetailHost() {
               .eq("id", selection.id)
               .single(),
             db.from("clients").select("id,company_name,contact_person,email").eq("company_id", cid),
-            db.from("invoices").select("id,number,status,total").eq("company_id", cid),
+            db
+              .from("invoices")
+              .select("id,number,status,total,total_base,base_currency")
+              .eq("company_id", cid),
           ]);
           if (creditNoteRes.error) throw creditNoteRes.error;
           const creditNote = creditNoteRes.data;
@@ -1391,8 +1454,20 @@ export function GlobalDetailHost() {
                   title: "Finanzas",
                   icon: <CircleDollarSign className="h-3.5 w-3.5" />,
                   rows: [
-                    { label: "Monto", value: money(creditNote.amount) },
-                    { label: "Total factura", value: money(invoice?.total) },
+                    {
+                      label: "Monto",
+                      value: money(
+                        creditNote.amount_base ?? creditNote.amount,
+                        creditNote.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                    {
+                      label: "Total factura",
+                      value: money(
+                        invoice?.total_base ?? invoice?.total,
+                        invoice?.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
                   ],
                 },
               ],
@@ -1449,7 +1524,15 @@ export function GlobalDetailHost() {
                 {
                   title: "Finanzas",
                   icon: <CircleDollarSign className="h-3.5 w-3.5" />,
-                  rows: [{ label: "Monto", value: money(expense.amount) }],
+                  rows: [
+                    {
+                      label: "Monto",
+                      value: money(
+                        expense.amount_base ?? expense.amount,
+                        expense.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                  ],
                 },
               ],
               body: { label: "Notas", value: expense.notes },
@@ -1518,7 +1601,10 @@ export function GlobalDetailHost() {
                   rows: [
                     {
                       label: "Monto recurrente",
-                      value: money(subscription.amount, product?.currency || "USD"),
+                      value: money(
+                        subscription.amount_base ?? subscription.amount,
+                        subscription.base_currency || currencySettings.baseCurrency,
+                      ),
                     },
                     {
                       label: "Precio base producto",
@@ -1600,7 +1686,7 @@ export function GlobalDetailHost() {
     return () => {
       cancelled = true;
     };
-  }, [close, profile?.company_id, selection]);
+  }, [close, currencySettings.baseCurrency, profile?.company_id, selection]);
 
   const updateTask = async (taskId: string, patch: Partial<GlobalTask>) => {
     const { error } = await (supabase as any).from("tasks").update(patch).eq("id", taskId);

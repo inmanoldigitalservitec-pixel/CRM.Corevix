@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -359,23 +360,19 @@ export function MessengerContextPanel({
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().slice(0, 10);
     const lastMsg = String(conversation.last_message_text || "").trim();
-    window.dispatchEvent(
-      new CustomEvent("corevix:open-task-create", {
-        detail: {
-          initialValues: {
-            title: "Seguimiento Messenger",
-            dueDate,
-            priority: "Medium",
-            description: `Seguimiento creado desde conversación de Messenger.\nID de Messenger: ${messengerId || "—"}\nÚltimo mensaje: ${lastMsg || "—"}`,
-            assignedTo:
-              (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) ||
-              actorUserId ||
-              undefined,
-            leadId: String(conversation.linked_lead_id),
-          },
-        },
-      }),
-    );
+    openGlobalTaskCreate({
+      initialValues: {
+        title: "Seguimiento Messenger",
+        dueDate,
+        priority: "Medium",
+        description: `Seguimiento creado desde conversación de Messenger.\nID de Messenger: ${messengerId || "—"}\nÚltimo mensaje: ${lastMsg || "—"}`,
+        assignedTo:
+          (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) ||
+          actorUserId ||
+          undefined,
+        leadId: String(conversation.linked_lead_id),
+      },
+    });
   }
 
   useEffect(() => {

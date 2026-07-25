@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ProposalTemplateRenderer } from "@/components/proposals/ProposalTemplateRenderer";
+import { formatCurrencyAmount } from "@/lib/currency";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/proposal/public/$publicToken")({
@@ -34,8 +36,7 @@ export const Route = createFileRoute("/proposal/public/$publicToken")({
 });
 
 function formatMoney(amount: number, currency: string | null | undefined) {
-  const c = (currency || "USD").toUpperCase();
-  return `${c} ${Number(amount || 0).toLocaleString()}`;
+  return formatCurrencyAmount(amount, currency || "USD");
 }
 
 function splitProposalItems(value: string) {
@@ -255,6 +256,323 @@ function LetterProposalView(props: {
             </div>
           </footer>
         </div>
+      </article>
+    </main>
+  );
+}
+
+function ProposalDocumentView(props: {
+  proposal: any;
+  items?: any[];
+  approved: boolean;
+  approving: boolean;
+  onApprove: () => void;
+  onPrint: () => void;
+}) {
+  const { proposal, items = [], approved, approving, onApprove, onPrint } = props;
+  const data =
+    proposal?.proposal_data && typeof proposal.proposal_data === "object"
+      ? proposal.proposal_data
+      : {};
+  const client = proposal?.client && typeof proposal.client === "object" ? proposal.client : {};
+  const currency = proposal?.currency || "USD";
+  const subtotal = Number(proposal?.subtotal ?? proposal?.amount ?? 0);
+  const taxTotal = Number(proposal?.tax_total ?? 0);
+  const total = Number(proposal?.total ?? proposal?.amount ?? subtotal + taxTotal);
+
+  const clientName =
+    String(
+      proposal?.recipient_name ||
+        client?.company_name ||
+        client?.contact_person ||
+        (data as any)?.companyName ||
+        (data as any)?.clientName ||
+        "",
+    ).trim() || "Cliente";
+  const clientEmail = String(proposal?.recipient_email || client?.email || "").trim();
+  const clientPhone = String(proposal?.recipient_phone || client?.phone || "").trim();
+  const clientAddress = String(proposal?.recipient_address || "").trim();
+  const serviceDescription = String(
+    (data as any)?.serviceDescription || proposal?.description || proposal?.title || "",
+  ).trim();
+  const introductionText = String((data as any)?.introductionText || "").trim();
+  const objectiveText = String((data as any)?.objectiveText || "").trim();
+  const content = String(proposal?.content || proposal?.notes || "").trim();
+  const deliverables = splitProposalItems(String((data as any)?.deliverablesText || ""));
+  const features = splitProposalItems(String((data as any)?.featuresText || ""));
+  const optionalServices = splitProposalItems(String((data as any)?.optionalServicesText || ""));
+  const requirements = splitProposalItems(String((data as any)?.clientRequirementsText || ""));
+  const estimatedTime = String((data as any)?.estimatedTime || "").trim();
+  const nextStep = String((data as any)?.nextStep || "").trim();
+  const termsText = String((data as any)?.termsText || "").trim();
+  const paymentTermsText = String((data as any)?.paymentTermsText || "").trim();
+  const investmentDetailsText = String((data as any)?.investmentDetailsText || "").trim();
+  const proposalDate = proposal?.proposal_date || proposal?.created_at || null;
+
+  const documentRows = (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      name: String(item?.item_name || item?.name || item?.description || "Servicio").trim(),
+      description: String(item?.description || "").trim(),
+      qty: Number(item?.quantity || 1),
+      rate: Number(item?.rate || item?.converted_rate || 0),
+      taxRate: Number(item?.tax_rate || 0),
+      amount: Number(item?.amount || 0),
+    }))
+    .filter((item) => item.name || item.description);
+
+  const fallbackRows = (
+    deliverables.length ? deliverables : features.length ? features : [serviceDescription]
+  )
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((item, index) => ({
+      name: item,
+      description:
+        index === 0 && serviceDescription && serviceDescription !== item ? serviceDescription : "",
+      qty: 1,
+      rate: index === 0 ? total : 0,
+      taxRate: 0,
+      amount: index === 0 ? total : 0,
+    }));
+
+  const rows = documentRows.length
+    ? documentRows
+    : fallbackRows.length
+      ? fallbackRows
+      : [
+          {
+            name: proposal?.title || "Propuesta comercial",
+            description: serviceDescription,
+            qty: 1,
+            rate: total,
+            taxRate: 0,
+            amount: total,
+          },
+        ];
+
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <section className="mt-8 break-inside-avoid">
+      <h2 className="mb-3 text-[18px] font-bold tracking-normal text-slate-950">{title}</h2>
+      <div className="text-[12px] leading-5 text-slate-700">{children}</div>
+    </section>
+  );
+
+  return (
+    <main className="min-h-screen bg-[#eef1f6] px-4 py-6 text-slate-950 print:bg-white print:p-0">
+      <style>{`
+        @page { size: A4; margin: 0.48in; }
+        @media print {
+          html, body { background: #fff !important; }
+          .proposal-print-toolbar { display: none !important; }
+          .proposal-document-page { box-shadow: none !important; margin: 0 !important; width: auto !important; max-width: none !important; padding: 0 !important; }
+        }
+      `}</style>
+
+      <div className="proposal-print-toolbar sticky top-3 z-20 mx-auto mb-4 flex max-w-[8.27in] flex-wrap items-center justify-end gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9 rounded-full border-slate-200 bg-white shadow-none"
+          onClick={onPrint}
+        >
+          <Printer className="h-4 w-4" />
+          Exportar PDF
+        </Button>
+        <Button
+          type="button"
+          className="h-9 rounded-full bg-slate-950 px-4 text-white shadow-none hover:bg-slate-800"
+          onClick={onApprove}
+          disabled={approved || approving}
+        >
+          <Check className="h-4 w-4" />
+          {approved ? "Aprobada" : approving ? "Aprobando..." : "Aprobar"}
+        </Button>
+      </div>
+
+      <article className="proposal-document-page mx-auto w-full max-w-[8.27in] bg-white px-[0.45in] py-[0.42in] shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
+        <header className="grid grid-cols-[1fr_auto] gap-10">
+          <div>
+            <div className="flex items-center gap-3">
+              <img src="/imagotipo_corevix.svg" alt="Corevix" className="h-14 w-14" />
+              <div>
+                <div className="text-2xl font-semibold leading-none tracking-normal">Corevix</div>
+                <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  CRM & Automatización
+                </div>
+              </div>
+            </div>
+            <div className="mt-8 text-[12px] leading-5 text-slate-600">
+              <div className="font-semibold text-slate-950">Corevix Agency</div>
+              <div>Santo Domingo, República Dominicana</div>
+              <div>corevix.rd@gmail.com</div>
+            </div>
+          </div>
+
+          <div className="max-w-[2.8in] text-right text-[12px] leading-5 text-slate-600">
+            <div className="font-semibold uppercase tracking-wide text-slate-500">Para</div>
+            <div className="font-semibold text-slate-950">{clientName}</div>
+            {clientAddress ? <div>{clientAddress}</div> : null}
+            {clientPhone ? <div>{clientPhone}</div> : null}
+            {clientEmail ? <div>{clientEmail}</div> : null}
+          </div>
+        </header>
+
+        <section className="mt-10 grid grid-cols-[1fr_1.75in] gap-8">
+          <div>
+            <div className="text-[22px] font-bold leading-tight">
+              {proposal?.number || "PROP"} · {proposal?.title || "Propuesta comercial"}
+            </div>
+            {serviceDescription ? (
+              <p className="mt-2 max-w-[5.2in] text-[12px] leading-5 text-slate-600">
+                {serviceDescription}
+              </p>
+            ) : null}
+          </div>
+          <div className="rounded-sm border border-slate-200 text-[11px]">
+            <div className="flex justify-between border-b border-slate-200 px-3 py-2">
+              <span className="font-semibold text-slate-500">Fecha</span>
+              <span>{proposalDate ? new Date(proposalDate).toLocaleDateString() : "—"}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-200 px-3 py-2">
+              <span className="font-semibold text-slate-500">Válida hasta</span>
+              <span>{proposal?.valid_until || "—"}</span>
+            </div>
+            <div className="flex justify-between px-3 py-2">
+              <span className="font-semibold text-slate-500">Estado</span>
+              <span>{approved ? "Aprobada" : proposal?.status || "Borrador"}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 break-inside-avoid">
+          <div className="grid grid-cols-[0.34in_1fr_0.62in_1in_0.72in_1.05in] bg-slate-100 px-3 py-2 text-[11px] font-bold text-slate-700">
+            <div>#</div>
+            <div>Ítem</div>
+            <div className="text-right">Cant.</div>
+            <div className="text-right">Tarifa</div>
+            <div className="text-right">Imp.</div>
+            <div className="text-right">Importe</div>
+          </div>
+          {rows.map((row, index) => (
+            <div
+              key={`${row.name}-${index}`}
+              className="grid grid-cols-[0.34in_1fr_0.62in_1in_0.72in_1.05in] border-b border-slate-200 px-3 py-3 text-[11px] leading-4"
+            >
+              <div>{index + 1}</div>
+              <div className="pr-5">
+                <div className="font-bold text-slate-950">{row.name}</div>
+                {row.description ? (
+                  <div className="mt-1 text-[10px] leading-4 text-slate-600">{row.description}</div>
+                ) : null}
+              </div>
+              <div className="text-right">{row.qty}</div>
+              <div className="text-right">{formatMoney(row.rate, currency)}</div>
+              <div className="text-right">{row.taxRate ? `${row.taxRate}%` : "0%"}</div>
+              <div className="text-right font-semibold">{formatMoney(row.amount, currency)}</div>
+            </div>
+          ))}
+        </section>
+
+        <section className="mt-6 grid grid-cols-[1fr_2.35in] gap-8 break-inside-avoid">
+          <div className="text-[11px] leading-5 text-slate-600">
+            {introductionText || objectiveText || content ? (
+              <>
+                <div className="mb-2 font-bold text-slate-950">Resumen</div>
+                <p className="m-0 whitespace-pre-line">
+                  {introductionText || objectiveText || content}
+                </p>
+              </>
+            ) : null}
+          </div>
+          <div className="text-[12px]">
+            <div className="flex justify-between border-b border-slate-200 py-2">
+              <span className="font-semibold">Sub total</span>
+              <span className="font-bold">{formatMoney(subtotal, currency)}</span>
+            </div>
+            {taxTotal ? (
+              <div className="flex justify-between border-b border-slate-200 py-2">
+                <span className="font-semibold">Impuestos</span>
+                <span className="font-bold">{formatMoney(taxTotal, currency)}</span>
+              </div>
+            ) : null}
+            <div className="mt-3 flex items-center justify-between bg-slate-950 px-4 py-3 text-white">
+              <span className="font-bold uppercase">Total</span>
+              <span className="text-[17px] font-bold">{formatMoney(total, currency)}</span>
+            </div>
+          </div>
+        </section>
+
+        {deliverables.length || features.length ? (
+          <Section title="Servicios incluidos">
+            <div className="grid grid-cols-2 gap-5">
+              {deliverables.length ? (
+                <ul className="m-0 list-disc space-y-1 pl-5">
+                  {deliverables.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {features.length ? (
+                <ul className="m-0 list-disc space-y-1 pl-5">
+                  {features.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </Section>
+        ) : null}
+
+        {optionalServices.length ? (
+          <Section title="Servicios opcionales">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+              {optionalServices.map((item) => (
+                <div key={item}>{item}</div>
+              ))}
+            </div>
+          </Section>
+        ) : null}
+
+        <Section title="Condiciones comerciales">
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <div className="font-bold text-slate-950">Tiempo y proceso</div>
+              <p className="m-0 mt-1 whitespace-pre-line">
+                {estimatedTime ||
+                  nextStep ||
+                  "El calendario final se coordina al aprobar la propuesta."}
+              </p>
+            </div>
+            <div>
+              <div className="font-bold text-slate-950">Pago</div>
+              <p className="m-0 mt-1 whitespace-pre-line">
+                {paymentTermsText ||
+                  investmentDetailsText ||
+                  "Los pagos se coordinan según el acuerdo comercial aprobado."}
+              </p>
+            </div>
+          </div>
+        </Section>
+
+        {requirements.length ? (
+          <Section title="Requisitos del cliente">
+            <ul className="m-0 list-disc space-y-1 pl-5">
+              {requirements.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+
+        <Section title="Términos y firma">
+          <p className="m-0 whitespace-pre-line">
+            {termsText ||
+              "Esta propuesta está sujeta a validación final de alcance, disponibilidad del equipo y aprobación del cliente."}
+          </p>
+          <div className="mt-10 text-[12px] text-slate-700">
+            Firma autorizada ______________________________________
+          </div>
+        </Section>
       </article>
     </main>
   );
@@ -854,6 +1172,7 @@ function ProposalPublicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<any | null>(null);
+  const [proposalItems, setProposalItems] = useState<any[]>([]);
   const [approving, setApproving] = useState(false);
   const [approved, setApproved] = useState(false);
   const [invoicePublicToken, setInvoicePublicToken] = useState<string | null>(null);
@@ -892,6 +1211,7 @@ function ProposalPublicPage() {
 
         if (cancelled) return;
         setProposal(proposalData);
+        setProposalItems(Array.isArray(data?.items) ? data.items : []);
         setApproved(
           String(proposalData?.status || "").toLowerCase() === "approved" ||
             Boolean(proposalData?.approved_at),
@@ -995,13 +1315,26 @@ function ProposalPublicPage() {
 
   return (
     <div>
-      <PublicProposalView
-        proposal={proposal}
-        approved={approved}
-        approving={approving}
-        onApprove={() => void handleApprove()}
-        onPrint={() => window.print()}
-      />
+      {String(proposal?.template_key || "") === "custom_html" && proposal?.content ? (
+        <ProposalTemplateRenderer
+          proposal={proposal}
+          items={proposalItems}
+          mode="public"
+          approved={approved}
+          approving={approving}
+          onApprove={() => void handleApprove()}
+          onPrint={() => window.print()}
+        />
+      ) : (
+        <ProposalDocumentView
+          proposal={proposal}
+          items={proposalItems}
+          approved={approved}
+          approving={approving}
+          onApprove={() => void handleApprove()}
+          onPrint={() => window.print()}
+        />
+      )}
 
       {approved && (approveMessage || invoicePublicToken) ? (
         <div className="mx-auto w-full max-w-[430px] px-4 pb-10 -mt-6 print:hidden">

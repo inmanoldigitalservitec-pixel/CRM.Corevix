@@ -202,6 +202,187 @@ async function uploadFileMultipart(args: {
   };
 }
 
+async function getRootFolderId(serviceClient: any, companyId: string) {
+  const { data: driveSettings } = await serviceClient
+    .from("drive_settings")
+    .select("root_folder_id")
+    .eq("company_id", companyId)
+    .maybeSingle();
+  return driveSettings?.root_folder_id ? String(driveSettings.root_folder_id) : null;
+}
+
+async function getCorevixFolder(args: {
+  accessToken: string;
+  serviceClient: any;
+  companyId: string;
+}) {
+  const rootFolderId = await getRootFolderId(args.serviceClient, args.companyId);
+  return getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: "Corevix CRM",
+    parentId: rootFolderId,
+  });
+}
+
+async function ensureClientFolder(args: {
+  accessToken: string;
+  serviceClient: any;
+  companyId: string;
+  client: any;
+}) {
+  let clientFolderId = args.client.drive_folder_id ? String(args.client.drive_folder_id) : "";
+  let clientFolderUrl = args.client.drive_folder_url ? String(args.client.drive_folder_url) : "";
+
+  if (clientFolderId) return { id: clientFolderId, webViewLink: clientFolderUrl };
+
+  const corevixFolder = await getCorevixFolder({
+    accessToken: args.accessToken,
+    serviceClient: args.serviceClient,
+    companyId: args.companyId,
+  });
+  const clientsFolder = await getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: "Clients",
+    parentId: corevixFolder.id,
+  });
+  const createdClientFolder = await getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: safeName(args.client.company_name, "Client"),
+    parentId: clientsFolder.id,
+  });
+
+  clientFolderId = createdClientFolder.id;
+  clientFolderUrl = String(createdClientFolder.webViewLink || "");
+  await args.serviceClient
+    .from("clients")
+    .update({
+      drive_folder_id: clientFolderId,
+      drive_folder_url: clientFolderUrl || null,
+    })
+    .eq("id", String(args.client.id))
+    .eq("company_id", args.companyId);
+
+  return { id: clientFolderId, webViewLink: clientFolderUrl };
+}
+
+async function ensureClientChildFolder(args: {
+  accessToken: string;
+  serviceClient: any;
+  companyId: string;
+  client: any;
+  name: string;
+}) {
+  const clientFolder = await ensureClientFolder({
+    accessToken: args.accessToken,
+    serviceClient: args.serviceClient,
+    companyId: args.companyId,
+    client: args.client,
+  });
+  return getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: args.name,
+    parentId: clientFolder.id,
+  });
+}
+
+async function ensureProjectFolder(args: {
+  accessToken: string;
+  serviceClient: any;
+  companyId: string;
+  project: any;
+  client?: any | null;
+}) {
+  if (args.client?.id) {
+    const projectsFolder = await ensureClientChildFolder({
+      accessToken: args.accessToken,
+      serviceClient: args.serviceClient,
+      companyId: args.companyId,
+      client: args.client,
+      name: "Projects",
+    });
+    const projectFolder = await getOrCreateFolder({
+      accessToken: args.accessToken,
+      name: safeName(args.project.name, "Project"),
+      parentId: projectsFolder.id,
+    });
+    await args.serviceClient
+      .from("projects")
+      .update({
+        drive_folder_id: projectFolder.id,
+        drive_folder_url: projectFolder.webViewLink || null,
+      })
+      .eq("id", String(args.project.id))
+      .eq("company_id", args.companyId);
+    return projectFolder;
+  }
+
+  const existingId = args.project.drive_folder_id ? String(args.project.drive_folder_id) : "";
+  const existingUrl = args.project.drive_folder_url ? String(args.project.drive_folder_url) : "";
+  if (existingId) return { id: existingId, webViewLink: existingUrl };
+
+  const corevixFolder = await getCorevixFolder({
+    accessToken: args.accessToken,
+    serviceClient: args.serviceClient,
+    companyId: args.companyId,
+  });
+  const projectsFolder = await getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: "Projects",
+    parentId: corevixFolder.id,
+  });
+  const projectFolder = await getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: safeName(args.project.name, "Project"),
+    parentId: projectsFolder.id,
+  });
+  await args.serviceClient
+    .from("projects")
+    .update({
+      drive_folder_id: projectFolder.id,
+      drive_folder_url: projectFolder.webViewLink || null,
+    })
+    .eq("id", String(args.project.id))
+    .eq("company_id", args.companyId);
+  return projectFolder;
+}
+
+function buildDriveFilePayload(args: {
+  companyId: string;
+  uploaded: {
+    id: string;
+    name: string;
+    mimeType?: string;
+    webViewLink?: string;
+    webContentLink?: string;
+    thumbnailLink?: string;
+    iconLink?: string;
+    size?: string | number;
+  };
+  fallbackFile: File;
+  linkedType: "client" | "project" | "task";
+  linkedId: string;
+  authUserId: string;
+  filePurpose?: "resource" | "deliverable";
+}) {
+  return {
+    company_id: args.companyId,
+    drive_file_id: String(args.uploaded.id),
+    name: String(args.uploaded.name || args.fallbackFile.name),
+    mime_type: args.uploaded.mimeType
+      ? String(args.uploaded.mimeType)
+      : args.fallbackFile.type || null,
+    web_view_link: args.uploaded.webViewLink ? String(args.uploaded.webViewLink) : null,
+    web_content_link: args.uploaded.webContentLink ? String(args.uploaded.webContentLink) : null,
+    thumbnail_link: args.uploaded.thumbnailLink ? String(args.uploaded.thumbnailLink) : null,
+    icon_link: args.uploaded.iconLink ? String(args.uploaded.iconLink) : null,
+    size_bytes: args.uploaded.size != null ? Number(args.uploaded.size) : args.fallbackFile.size,
+    linked_type: args.linkedType,
+    linked_id: args.linkedId,
+    created_by: args.authUserId,
+    file_purpose: args.filePurpose || "deliverable",
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -229,8 +410,17 @@ Deno.serve(async (req) => {
 
     const formData = await req.formData();
     const taskId = String(formData.get("task_id") || "").trim();
+    const clientId = String(formData.get("client_id") || "").trim();
+    const projectId = String(formData.get("project_id") || "").trim();
+    const filePurpose =
+      String(formData.get("file_purpose") || "deliverable").trim() === "resource"
+        ? "resource"
+        : "deliverable";
     const file = formData.get("file");
-    if (!taskId) return jsonResponse({ error: "No se recibió task_id." }, 400);
+    const targetCount = [taskId, clientId, projectId].filter(Boolean).length;
+    if (targetCount === 0)
+      return jsonResponse({ error: "No se recibió task_id, client_id o project_id." }, 400);
+    if (targetCount > 1) return jsonResponse({ error: "Envía solo un destino por subida." }, 400);
     if (!(file instanceof File)) return jsonResponse({ error: "No se recibió archivo." }, 400);
 
     const { data: profile, error: profileError } = await callerClient
@@ -244,18 +434,53 @@ Deno.serve(async (req) => {
     if (profile.is_active === false) return jsonResponse({ error: "Cuenta inactiva." }, 403);
     const companyId = String(profile.company_id);
 
-    const { data: task, error: taskError } = await callerClient
-      .from("tasks")
-      .select(
-        "id,company_id,title,related_project_id,drive_folder_id,drive_folder_url,related_client_id,related_lead_id,related_deal_id",
-      )
-      .eq("id", taskId)
-      .eq("company_id", companyId)
-      .maybeSingle();
-    if (taskError) return jsonResponse({ error: taskError.message }, 400);
-    if (!task?.id) return jsonResponse({ error: "La tarea no existe." }, 404);
-    if (String(task.company_id) !== companyId)
-      return jsonResponse({ error: "La tarea no pertenece a esta compañía." }, 403);
+    let task: any = null;
+    let client: any = null;
+    let project: any = null;
+
+    if (taskId) {
+      const { data, error } = await callerClient
+        .from("tasks")
+        .select(
+          "id,company_id,title,related_project_id,drive_folder_id,drive_folder_url,related_client_id,related_lead_id,related_deal_id",
+        )
+        .eq("id", taskId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!data?.id) return jsonResponse({ error: "La tarea no existe." }, 404);
+      if (String(data.company_id) !== companyId)
+        return jsonResponse({ error: "La tarea no pertenece a esta compañía." }, 403);
+      task = data;
+    }
+
+    if (clientId) {
+      const { data, error } = await callerClient
+        .from("clients")
+        .select("id,company_id,company_name,drive_folder_id,drive_folder_url")
+        .eq("id", clientId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!data?.id) return jsonResponse({ error: "El cliente no existe." }, 404);
+      if (String(data.company_id) !== companyId)
+        return jsonResponse({ error: "El cliente no pertenece a esta compañía." }, 403);
+      client = data;
+    }
+
+    if (projectId) {
+      const { data, error } = await callerClient
+        .from("projects")
+        .select("id,company_id,name,client_id,drive_folder_id,drive_folder_url")
+        .eq("id", projectId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!data?.id) return jsonResponse({ error: "El proyecto no existe." }, 404);
+      if (String(data.company_id) !== companyId)
+        return jsonResponse({ error: "El proyecto no pertenece a esta compañía." }, 403);
+      project = data;
+    }
 
     const { data: connection, error: connError } = await serviceClient
       .from("drive_connections")
@@ -338,13 +563,269 @@ Deno.serve(async (req) => {
         .eq("id", connection.id);
     }
 
+    if (client?.id) {
+      let filesFolder: { id: string; name: string; webViewLink?: string };
+      let clientFolder: { id: string; webViewLink?: string };
+      try {
+        clientFolder = await ensureClientFolder({
+          accessToken,
+          serviceClient,
+          companyId,
+          client,
+        });
+        filesFolder = await getOrCreateFolder({
+          accessToken,
+          name: "Files",
+          parentId: clientFolder.id,
+        });
+      } catch (folderError) {
+        const detail = folderError instanceof Error ? folderError.message : "unknown";
+        return jsonResponse(
+          { error: "No se pudo crear la carpeta de archivos del cliente.", detail },
+          400,
+        );
+      }
+
+      const fileBuffer = new Uint8Array(await file.arrayBuffer());
+      let uploaded:
+        | {
+            id: string;
+            name: string;
+            mimeType?: string;
+            webViewLink?: string;
+            webContentLink?: string;
+            thumbnailLink?: string;
+            iconLink?: string;
+            size?: string | number;
+          }
+        | undefined;
+      try {
+        uploaded = await uploadFileMultipart({
+          accessToken,
+          folderId: filesFolder.id,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          bytes: fileBuffer,
+        });
+      } catch (uploadError) {
+        const detail = uploadError instanceof Error ? uploadError.message : "unknown";
+        return jsonResponse({ error: "No se pudo subir el archivo a Google Drive.", detail }, 400);
+      }
+
+      const rowPayload = buildDriveFilePayload({
+        companyId,
+        uploaded: uploaded!,
+        fallbackFile: file,
+        linkedType: "client",
+        linkedId: clientId,
+        authUserId,
+        filePurpose: "deliverable",
+      });
+
+      const { data: saved, error: saveError } = await serviceClient
+        .from("drive_files")
+        .insert(rowPayload)
+        .select("*")
+        .single();
+      if (saveError) return jsonResponse({ error: saveError.message }, 400);
+
+      return jsonResponse({ file: saved, folder_url: clientFolder.webViewLink || null });
+    }
+
+    if (project?.id) {
+      let projectClient: any = null;
+      if (project.client_id) {
+        const { data, error } = await callerClient
+          .from("clients")
+          .select("id,company_id,company_name,drive_folder_id,drive_folder_url")
+          .eq("id", String(project.client_id))
+          .eq("company_id", companyId)
+          .maybeSingle();
+        if (error) return jsonResponse({ error: error.message }, 400);
+        projectClient = data || null;
+      }
+
+      let projectFilesFolder: { id: string; name: string; webViewLink?: string };
+      try {
+        const projectFolder = await ensureProjectFolder({
+          accessToken,
+          serviceClient,
+          companyId,
+          project,
+          client: projectClient,
+        });
+        projectFilesFolder = await getOrCreateFolder({
+          accessToken,
+          name: "Files",
+          parentId: projectFolder.id,
+        });
+      } catch (folderError) {
+        const detail = folderError instanceof Error ? folderError.message : "unknown";
+        return jsonResponse(
+          { error: "No se pudo crear la carpeta del proyecto en Google Drive.", detail },
+          400,
+        );
+      }
+
+      const fileBuffer = new Uint8Array(await file.arrayBuffer());
+      let uploaded:
+        | {
+            id: string;
+            name: string;
+            mimeType?: string;
+            webViewLink?: string;
+            webContentLink?: string;
+            thumbnailLink?: string;
+            iconLink?: string;
+            size?: string | number;
+          }
+        | undefined;
+      try {
+        uploaded = await uploadFileMultipart({
+          accessToken,
+          folderId: projectFilesFolder.id,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          bytes: fileBuffer,
+        });
+      } catch (uploadError) {
+        const detail = uploadError instanceof Error ? uploadError.message : "unknown";
+        return jsonResponse({ error: "No se pudo subir el archivo a Google Drive.", detail }, 400);
+      }
+
+      const rowPayload = buildDriveFilePayload({
+        companyId,
+        uploaded: uploaded!,
+        fallbackFile: file,
+        linkedType: "project",
+        linkedId: projectId,
+        authUserId,
+        filePurpose: "deliverable",
+      });
+
+      const { data: saved, error: saveError } = await serviceClient
+        .from("drive_files")
+        .insert(rowPayload)
+        .select("*")
+        .single();
+      if (saveError) return jsonResponse({ error: saveError.message }, 400);
+
+      return jsonResponse({ file: saved });
+    }
+
     const taskName = safeName(task.title, "Task");
-    let taskFolderId = task.drive_folder_id ? String(task.drive_folder_id) : "";
-    let taskFolderUrl = task.drive_folder_url ? String(task.drive_folder_url) : "";
+    let taskFolderId = "";
+    let taskFolderUrl = "";
+
+    let taskProject: any = null;
+    let taskClient: any = null;
+
+    if (task.related_project_id) {
+      const { data, error } = await callerClient
+        .from("projects")
+        .select("id,company_id,name,client_id,drive_folder_id,drive_folder_url")
+        .eq("id", String(task.related_project_id))
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      taskProject = data || null;
+    }
+
+    const taskClientId = taskProject?.client_id || task.related_client_id || null;
+    if (taskClientId) {
+      const { data, error } = await callerClient
+        .from("clients")
+        .select("id,company_id,company_name,drive_folder_id,drive_folder_url")
+        .eq("id", String(taskClientId))
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      taskClient = data || null;
+    }
+
+    if (taskClient?.id) {
+      let folderParentId: string | null = null;
+      try {
+        if (taskProject?.id) {
+          const projectFolder = await ensureProjectFolder({
+            accessToken,
+            serviceClient,
+            companyId,
+            project: taskProject,
+            client: taskClient,
+          });
+          const projectTasksFolder = await getOrCreateFolder({
+            accessToken,
+            name: "Tasks",
+            parentId: projectFolder.id,
+          });
+          folderParentId = projectTasksFolder.id;
+        } else {
+          const clientTasksFolder = await ensureClientChildFolder({
+            accessToken,
+            serviceClient,
+            companyId,
+            client: taskClient,
+            name: "Tasks",
+          });
+          folderParentId = clientTasksFolder.id;
+        }
+
+        const createdTaskFolder = await getOrCreateFolder({
+          accessToken,
+          name: taskName,
+          parentId: folderParentId,
+        });
+        taskFolderId = createdTaskFolder.id;
+        taskFolderUrl = String(createdTaskFolder.webViewLink || "");
+        await serviceClient
+          .from("tasks")
+          .update({
+            drive_folder_id: taskFolderId,
+            drive_folder_url: taskFolderUrl || null,
+          })
+          .eq("id", taskId)
+          .eq("company_id", companyId);
+      } catch (folderError) {
+        const detail = folderError instanceof Error ? folderError.message : "unknown";
+        return jsonResponse({ error: "No se pudo crear la carpeta en Google Drive.", detail }, 400);
+      }
+    } else {
+      taskFolderId = task.drive_folder_id ? String(task.drive_folder_id) : "";
+      taskFolderUrl = task.drive_folder_url ? String(task.drive_folder_url) : "";
+    }
 
     if (!taskFolderId) {
       let folderParentId: string | null = null;
-      if (task.related_project_id) {
+      if (taskProject?.id) {
+        let projectFolderId = taskProject.drive_folder_id
+          ? String(taskProject.drive_folder_id)
+          : "";
+        let projectFolderUrl = taskProject.drive_folder_url
+          ? String(taskProject.drive_folder_url)
+          : "";
+
+        if (!projectFolderId) {
+          try {
+            const projectFolder = await ensureProjectFolder({
+              accessToken,
+              serviceClient,
+              companyId,
+              project: taskProject,
+              client: null,
+            });
+            projectFolderId = projectFolder.id;
+            projectFolderUrl = String(projectFolder.webViewLink || "");
+          } catch (folderError) {
+            const detail = folderError instanceof Error ? folderError.message : "unknown";
+            return jsonResponse(
+              { error: "No se pudo crear la carpeta en Google Drive.", detail },
+              400,
+            );
+          }
+        }
+        folderParentId = projectFolderId || null;
+      } else if (task.related_project_id) {
         const { data: project } = await callerClient
           .from("projects")
           .select("id,name,drive_folder_id,drive_folder_url")
@@ -462,6 +943,22 @@ Deno.serve(async (req) => {
         .eq("company_id", companyId);
     }
 
+    let taskFileFolderId = taskFolderId;
+    try {
+      const taskFileFolder = await getOrCreateFolder({
+        accessToken,
+        name: filePurpose === "resource" ? "Resources" : "Deliverables",
+        parentId: taskFolderId,
+      });
+      taskFileFolderId = taskFileFolder.id;
+    } catch (folderError) {
+      const detail = folderError instanceof Error ? folderError.message : "unknown";
+      return jsonResponse(
+        { error: "No se pudo crear la subcarpeta en Google Drive.", detail },
+        400,
+      );
+    }
+
     const fileBuffer = new Uint8Array(await file.arrayBuffer());
     let uploaded:
       | {
@@ -478,7 +975,7 @@ Deno.serve(async (req) => {
     try {
       uploaded = await uploadFileMultipart({
         accessToken,
-        folderId: taskFolderId,
+        folderId: taskFileFolderId,
         fileName: file.name,
         mimeType: file.type || "application/octet-stream",
         bytes: fileBuffer,
@@ -501,6 +998,7 @@ Deno.serve(async (req) => {
       linked_type: "task",
       linked_id: taskId,
       created_by: authUserId,
+      file_purpose: filePurpose,
     };
 
     const { data: saved, error: saveError } = await serviceClient

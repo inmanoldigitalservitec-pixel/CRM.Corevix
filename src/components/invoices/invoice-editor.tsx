@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Copy, Loader2, Plus, Receipt, Send, Trash2 } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, Receipt, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,13 +21,40 @@ import {
 } from "@/components/ui/dialog";
 import { CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
 import { formatInvoiceMoney } from "@/components/invoices/invoice-utils";
+import { SalesDocumentLineEditor } from "@/components/sales/sales-document-line-editor";
+import type {
+  SalesDocumentLineItem,
+  SalesDocumentTotals,
+} from "@/components/sales/sales-document-line-editor";
+import {
+  convertCurrencyAmount,
+  normalizeCurrency,
+  normalizeCurrencyAmount,
+} from "@/lib/currency";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import { normalizeTaxRate, type CompanyTax } from "@/hooks/use-company-taxes";
 
 export type InvoiceEditorItem = {
   id?: string;
+  product_id?: string | null;
+  item_name?: string | null;
   description: string;
   quantity: number;
+  unit_type?: string | null;
   unit_price: number;
   total: number;
+  is_optional?: boolean | null;
+  document_currency?: string | null;
+  original_currency?: string | null;
+  original_unit_price?: number | null;
+  converted_unit_price?: number | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  tax_id?: string | null;
+  tax_name?: string | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
 };
 
 export type InvoiceEditorClient = {
@@ -43,10 +70,13 @@ export type InvoiceEditorClient = {
 export type InvoiceEditorProduct = {
   id: string;
   name: string;
-  base_price?: number | null;
-  currency?: string | null;
-  description?: string | null;
-};
+	  base_price?: number | null;
+	  currency?: string | null;
+	  description?: string | null;
+	  default_tax_id?: string | null;
+	  default_tax_name?: string | null;
+	  default_tax_rate?: number | string | null;
+	};
 
 export type InvoiceEditorProposal = {
   id: string;
@@ -84,8 +114,11 @@ export type InvoiceEditorDraft = {
   issuerWebsite: string | null;
   relatedProposalNumber: string | null;
   relatedProposalTitle: string | null;
-  productName: string | null;
-  tax: number;
+	  productName: string | null;
+	  taxId?: string | null;
+	  taxName?: string | null;
+	  taxRate?: number | null;
+	  tax: number;
   discount: number;
   legacySubtotal?: number;
   items: InvoiceEditorItem[];
@@ -102,7 +135,8 @@ type InvoiceEditorProps = {
   initialDraft: InvoiceEditorDraft;
   clients: InvoiceEditorClient[];
   products: InvoiceEditorProduct[];
-  proposals: InvoiceEditorProposal[];
+	  proposals: InvoiceEditorProposal[];
+	  taxes?: CompanyTax[];
   statusOptions: string[];
   publicToken?: string | null;
   publicUrl?: string | null;
@@ -133,16 +167,37 @@ function cleanNumber(value: unknown) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function normalizeInvoiceCurrency(currency: string | null | undefined) {
+  return normalizeCurrency(currency);
+}
+
+function normalizeInvoiceAmount(value: unknown, currency: string | null | undefined) {
+  return normalizeCurrencyAmount(cleanNumber(value), currency);
+}
+
 function lineTotal(item: Pick<InvoiceEditorItem, "quantity" | "unit_price">) {
   return Math.max(0, cleanNumber(item.quantity)) * Math.max(0, cleanNumber(item.unit_price));
 }
 
 function emptyLine(): InvoiceEditorItem {
-  return { description: "", quantity: 1, unit_price: 0, total: 0 };
+  return {
+    product_id: null,
+    item_name: "",
+    description: "",
+    quantity: 1,
+    unit_type: "qty",
+    unit_price: 0,
+    total: 0,
+    is_optional: false,
+  };
 }
 
 function hasLineContent(item: InvoiceEditorItem) {
-  return Boolean(String(item.description || "").trim()) || cleanNumber(item.unit_price) > 0;
+  return (
+    Boolean(String(item.item_name || "").trim()) ||
+    Boolean(String(item.description || "").trim()) ||
+    cleanNumber(item.unit_price) > 0
+  );
 }
 
 function fillEmpty(current: string | null, next: string | null) {
@@ -152,10 +207,11 @@ function fillEmpty(current: string | null, next: string | null) {
 export function InvoiceEditor({
   mode,
   initialDraft,
-  clients,
-  products,
-  proposals,
-  statusOptions,
+	  clients,
+	  products,
+	  proposals,
+	  taxes = [],
+	  statusOptions,
   publicToken,
   publicUrl,
   saving = false,
@@ -170,7 +226,8 @@ export function InvoiceEditor({
   onSaveDraft,
   onConfirmSend,
 }: InvoiceEditorProps) {
-  const [draft, setDraft] = useState<InvoiceEditorDraft>(initialDraft);
+	  const { settings: currencySettings } = useCompanyCurrencySettings();
+	  const [draft, setDraft] = useState<InvoiceEditorDraft>(initialDraft);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -181,15 +238,49 @@ export function InvoiceEditor({
   }, [initialDraft]);
 
   const totals = useMemo(() => {
-    const validItems = draft.items.filter((item) => String(item.description || "").trim());
-    const subtotal =
-      validItems.length > 0
-        ? validItems.reduce((sum, item) => sum + lineTotal(item), 0)
-        : Math.max(0, cleanNumber(draft.legacySubtotal));
-    const tax = Math.max(0, cleanNumber(draft.tax));
-    const discount = Math.max(0, cleanNumber(draft.discount));
-    return { subtotal, tax, discount, total: Math.max(0, subtotal + tax - discount) };
-  }, [draft.discount, draft.items, draft.tax, initialDraft.items.length]);
+    const validItems = draft.items.filter(hasLineContent);
+    const hasLineItems = validItems.length > 0;
+    const subtotal = hasLineItems
+      ? validItems.reduce((sum, item) => sum + lineTotal(item), 0)
+      : Math.max(0, cleanNumber(draft.legacySubtotal));
+    const itemTax = validItems.reduce(
+      (sum, item) => sum + lineTotal(item) * (normalizeTaxRate(item.tax_rate) / 100),
+      0,
+    );
+    const tax = Math.max(
+      0,
+      normalizeInvoiceAmount(hasLineItems ? itemTax : draft.tax, draft.currency),
+    );
+    const discount = Math.max(0, normalizeInvoiceAmount(draft.discount, draft.currency));
+    return {
+      subtotal: normalizeInvoiceAmount(subtotal, draft.currency),
+      tax,
+      discount,
+      total: normalizeInvoiceAmount(Math.max(0, subtotal + tax - discount), draft.currency),
+    };
+  }, [draft.currency, draft.discount, draft.items, draft.tax]);
+
+	  const taxById = useMemo(() => new Map(taxes.map((tax) => [tax.id, tax])), [taxes]);
+	  const defaultTax = useMemo(() => taxes.find((tax) => tax.is_default) || null, [taxes]);
+
+	  const getProductTax = (product?: InvoiceEditorProduct | null) => {
+	    if (product?.default_tax_id) {
+	      const catalogTax = taxById.get(product.default_tax_id);
+	      if (catalogTax) return catalogTax;
+	    }
+	    if (product?.default_tax_name || product?.default_tax_rate) {
+	      return {
+	        id: product.default_tax_id || "",
+	        company_id: "",
+	        name: product.default_tax_name || "Impuesto",
+	        rate: normalizeTaxRate(product.default_tax_rate),
+	        tax_type: "sales",
+	        is_active: true,
+	        is_default: false,
+	      } satisfies CompanyTax;
+	    }
+	    return defaultTax;
+	  };
 
   const selectedClient = draft.client_id
     ? clients.find((client) => client.id === draft.client_id)
@@ -205,16 +296,53 @@ export function InvoiceEditor({
     setDraft((current) => ({ ...current, ...patch }));
   };
 
-  const updateLine = (index: number, patch: Partial<InvoiceEditorItem>) => {
+  const applyCurrency = (currency: string) => {
+    const nextCurrency = normalizeInvoiceCurrency(currency);
     setDraft((current) => ({
       ...current,
-      items: current.items.map((item, itemIndex) => {
-        if (itemIndex !== index) return item;
-        const next = { ...item, ...patch };
-        return { ...next, total: lineTotal(next) };
+      currency: nextCurrency,
+      tax: normalizeInvoiceAmount(current.tax, nextCurrency),
+      discount: normalizeInvoiceAmount(current.discount, nextCurrency),
+      items: current.items.map((item) => {
+        const originalCurrency = normalizeInvoiceCurrency(
+          item.original_currency || current.currency || nextCurrency,
+        );
+        const originalUnitPrice = normalizeInvoiceAmount(
+          item.original_unit_price ?? item.unit_price,
+          originalCurrency,
+        );
+        const unitPrice = convertCurrencyAmount(
+          originalUnitPrice,
+          originalCurrency,
+          nextCurrency,
+          currencySettings.usdToDopRate,
+        );
+        return {
+          ...item,
+          unit_price: unitPrice,
+          document_currency: nextCurrency,
+          original_currency: originalCurrency,
+          original_unit_price: originalUnitPrice,
+          converted_unit_price: unitPrice,
+          exchange_rate: originalCurrency === nextCurrency ? 1 : currencySettings.usdToDopRate,
+          exchange_rate_source: currencySettings.rateSource,
+          exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+          total: lineTotal({ ...item, unit_price: unitPrice }),
+        };
       }),
     }));
   };
+
+	  const updateLine = (index: number, patch: Partial<InvoiceEditorItem>) => {
+	    setDraft((current) => ({
+	      ...current,
+	      items: current.items.map((item, itemIndex) => {
+	        if (itemIndex !== index) return item;
+	        const next = { ...item, ...patch };
+	        return { ...next, total: lineTotal(next) };
+	      }),
+	    }));
+	  };
 
   const selectClient = (clientId: string) => {
     const client = clientId === NONE_CLIENT ? null : clients.find((item) => item.id === clientId);
@@ -236,27 +364,64 @@ export function InvoiceEditor({
     setDraft((current) => {
       if (!product) return { ...current, product_id: null };
       const description = cleanText(product.description) || product.name;
-      const price = Math.max(0, cleanNumber(product.base_price));
+      const documentCurrency = normalizeInvoiceCurrency(current.currency);
+      const productCurrency = normalizeInvoiceCurrency(
+        cleanText(product.currency) || documentCurrency,
+      );
+      const originalPrice = Math.max(
+        0,
+        normalizeInvoiceAmount(product.base_price, productCurrency),
+      );
+	      const price = convertCurrencyAmount(
+	        originalPrice,
+	        productCurrency,
+	        documentCurrency,
+	        currencySettings.usdToDopRate,
+	      );
+	      const productTax = getProductTax(product);
+      const productTaxRate = productTax ? normalizeTaxRate(productTax.rate) : 0;
+      const nextItem: InvoiceEditorItem = {
+        product_id: product.id,
+        item_name: product.name,
+        description,
+        quantity: 1,
+        unit_type: "qty",
+        unit_price: price,
+        total: price,
+        is_optional: false,
+        tax_id: productTax?.id || null,
+        tax_name: productTax?.name || null,
+	        tax_rate: productTaxRate,
+	        tax_amount: normalizeInvoiceAmount(price * (productTaxRate / 100), documentCurrency),
+	        document_currency: documentCurrency,
+        original_currency: productCurrency,
+        original_unit_price: originalPrice,
+        converted_unit_price: price,
+        exchange_rate: productCurrency === documentCurrency ? 1 : currencySettings.usdToDopRate,
+        exchange_rate_source: currencySettings.rateSource,
+        exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+      };
       const nextItems = [...current.items];
       const emptyIndex = nextItems.findIndex((item) => !hasLineContent(item));
       if (!nextItems.length) {
-        nextItems.push({ description, quantity: 1, unit_price: price, total: price });
+        nextItems.push(nextItem);
       } else if (emptyIndex >= 0) {
         nextItems[emptyIndex] = {
           ...nextItems[emptyIndex],
-          description,
-          quantity: 1,
-          unit_price: price,
-          total: price,
+          ...nextItem,
         };
       }
       return {
         ...current,
-        product_id: product.id,
-        currency: cleanText(product.currency) || current.currency,
-        productName: fillEmpty(current.productName, product.name),
-        items: nextItems,
-      };
+	        product_id: product.id,
+	        currency: documentCurrency,
+	        productName: fillEmpty(current.productName, product.name),
+	        taxId: productTax?.id || null,
+	        taxName: productTax?.name || null,
+	        taxRate: productTaxRate,
+	        tax: normalizeInvoiceAmount(price * (productTaxRate / 100), documentCurrency),
+	        items: nextItems,
+	      };
     });
   };
 
@@ -274,18 +439,51 @@ export function InvoiceEditor({
         cleanText(proposal.title) ||
         cleanText(product?.name) ||
         "Servicio";
-      const price = Math.max(0, cleanNumber(proposal.amount || product?.base_price));
+      const proposalCurrency =
+        cleanText(proposal.currency) || cleanText(product?.currency) || current.currency;
+      const documentCurrency = normalizeInvoiceCurrency(current.currency);
+      const originalCurrency = normalizeInvoiceCurrency(proposalCurrency);
+      const originalPrice = Math.max(
+        0,
+        normalizeInvoiceAmount(proposal.amount || product?.base_price, originalCurrency),
+      );
+	      const price = convertCurrencyAmount(
+	        originalPrice,
+	        originalCurrency,
+	        documentCurrency,
+	        currencySettings.usdToDopRate,
+	      );
+	      const productTax = getProductTax(product);
+      const productTaxRate = productTax ? normalizeTaxRate(productTax.rate) : 0;
+      const nextItem: InvoiceEditorItem = {
+        product_id: product?.id || null,
+        item_name: cleanText(product?.name) || cleanText(proposal.title) || description,
+        description,
+        quantity: 1,
+        unit_type: "qty",
+        unit_price: price,
+        total: price,
+        is_optional: false,
+        tax_id: productTax?.id || null,
+        tax_name: productTax?.name || null,
+	        tax_rate: productTaxRate,
+	        tax_amount: normalizeInvoiceAmount(price * (productTaxRate / 100), documentCurrency),
+	        document_currency: documentCurrency,
+        original_currency: originalCurrency,
+        original_unit_price: originalPrice,
+        converted_unit_price: price,
+        exchange_rate: originalCurrency === documentCurrency ? 1 : currencySettings.usdToDopRate,
+        exchange_rate_source: currencySettings.rateSource,
+        exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+      };
       const nextItems = [...current.items];
       const emptyIndex = nextItems.findIndex((item) => !hasLineContent(item));
       if (!nextItems.length) {
-        nextItems.push({ description, quantity: 1, unit_price: price, total: price });
+        nextItems.push(nextItem);
       } else if (emptyIndex >= 0 && price > 0) {
         nextItems[emptyIndex] = {
           ...nextItems[emptyIndex],
-          description,
-          quantity: 1,
-          unit_price: price,
-          total: price,
+          ...nextItem,
         };
       }
       return {
@@ -293,12 +491,16 @@ export function InvoiceEditor({
         proposal_id: proposal.id,
         client_id: current.client_id || proposal.client_id || null,
         product_id: current.product_id || proposal.product_id || null,
-        currency: cleanText(proposal.currency) || cleanText(product?.currency) || current.currency,
-        relatedProposalNumber: fillEmpty(current.relatedProposalNumber, proposal.number),
-        relatedProposalTitle: fillEmpty(current.relatedProposalTitle, proposal.title),
-        productName: fillEmpty(current.productName, product?.name || null),
-        items: nextItems,
-      };
+        currency: documentCurrency,
+	        relatedProposalNumber: fillEmpty(current.relatedProposalNumber, proposal.number),
+	        relatedProposalTitle: fillEmpty(current.relatedProposalTitle, proposal.title),
+	        productName: fillEmpty(current.productName, product?.name || null),
+	        taxId: productTax?.id || null,
+	        taxName: productTax?.name || null,
+	        taxRate: productTaxRate,
+	        tax: normalizeInvoiceAmount(price * (productTaxRate / 100), documentCurrency),
+	        items: nextItems,
+	      };
     });
     if (proposal?.client_id) selectClient(proposal.client_id);
   };
@@ -311,7 +513,8 @@ export function InvoiceEditor({
     if (cleanNumber(draft.discount) < 0) return "El descuento no puede ser negativo.";
     const rows = draft.items.filter((item) => hasLineContent(item));
     for (const item of rows) {
-      if (!cleanText(item.description)) return "Cada línea debe tener descripción.";
+      if (!cleanText(item.item_name) && !cleanText(item.description))
+        return "Cada línea debe tener descripción.";
       if (cleanNumber(item.quantity) <= 0) return "La cantidad debe ser mayor que 0.";
       if (cleanNumber(item.unit_price) < 0) return "El precio unitario no puede ser negativo.";
     }
@@ -320,12 +523,135 @@ export function InvoiceEditor({
   };
 
   const normalizedDraft = (status: string): InvoiceEditorDraft => ({
-    ...draft,
-    status,
-    tax: Math.max(0, cleanNumber(draft.tax)),
-    discount: Math.max(0, cleanNumber(draft.discount)),
-    items: draft.items.map((item) => ({ ...item, total: lineTotal(item) })),
+	    ...draft,
+	    status,
+	    currency: normalizeInvoiceCurrency(draft.currency),
+	    tax: Math.max(0, normalizeInvoiceAmount(totals.tax, draft.currency)),
+	    discount: Math.max(0, normalizeInvoiceAmount(draft.discount, draft.currency)),
+	    items: draft.items.map((item) => {
+	      const unitPrice = normalizeInvoiceAmount(item.unit_price, draft.currency);
+	      const taxRate = normalizeTaxRate(item.tax_rate);
+	      const taxAmount = lineTotal({ ...item, unit_price: unitPrice }) * (taxRate / 100);
+	      return {
+        ...item,
+        product_id: item.product_id || null,
+        item_name: cleanText(item.item_name) || cleanText(item.description) || "",
+        unit_type: item.unit_type || "qty",
+        is_optional: item.is_optional === true,
+        unit_price: unitPrice,
+	        tax_rate: taxRate,
+	        tax_amount: normalizeInvoiceAmount(taxAmount, draft.currency),
+	        document_currency: normalizeInvoiceCurrency(draft.currency),
+        original_currency: normalizeInvoiceCurrency(item.original_currency || draft.currency),
+        original_unit_price: normalizeInvoiceAmount(
+          item.original_unit_price ?? unitPrice,
+          item.original_currency || draft.currency,
+        ),
+        converted_unit_price: unitPrice,
+        exchange_rate: item.exchange_rate ?? 1,
+        exchange_rate_source: item.exchange_rate_source || currencySettings.rateSource,
+        exchange_rate_updated_at:
+          item.exchange_rate_updated_at || currencySettings.rateUpdatedAt || null,
+        total: lineTotal({ ...item, unit_price: unitPrice }),
+      };
+    }),
   });
+
+  const productOptions = useMemo(
+    () => products.map((product) => ({ value: product.id, label: product.name })),
+    [products],
+  );
+
+  const invoiceLineItems = useMemo<SalesDocumentLineItem[]>(
+    () =>
+      draft.items.map((item, index) => ({
+        id: item.id || `invoice-line-${index}`,
+        productId: item.product_id || null,
+        item: cleanText(item.item_name) || cleanText(item.description) || "",
+        description: String(item.description || ""),
+        quantity: String(item.quantity ?? 1),
+        rate: String(item.unit_price ?? 0),
+        tax: String(normalizeTaxRate(item.tax_rate)),
+        taxId: item.tax_id || null,
+        taxName: item.tax_name || null,
+        optional: item.is_optional === true,
+        documentCurrency: item.document_currency || draft.currency,
+        originalCurrency: item.original_currency || draft.currency,
+        originalRate:
+          item.original_unit_price === null || item.original_unit_price === undefined
+            ? String(item.unit_price || 0)
+            : String(item.original_unit_price),
+        convertedRate:
+          item.converted_unit_price === null || item.converted_unit_price === undefined
+            ? String(item.unit_price || 0)
+            : String(item.converted_unit_price),
+        exchangeRate: item.exchange_rate ?? null,
+        exchangeRateSource: item.exchange_rate_source || null,
+        exchangeRateUpdatedAt: item.exchange_rate_updated_at || null,
+      })),
+    [draft.currency, draft.items],
+  );
+
+  const invoiceLineTotals = useMemo<SalesDocumentTotals>(
+    () => ({
+      subtotal: totals.subtotal,
+      taxTotal: totals.tax,
+      discount: totals.discount,
+      adjustment: 0,
+      total: totals.total,
+    }),
+    [totals],
+  );
+
+  const findLineIndex = (lineId: string) =>
+    invoiceLineItems.findIndex((line) => line.id === lineId);
+
+  const patchInvoiceLine = (lineId: string, patch: Partial<SalesDocumentLineItem>) => {
+    const index = findLineIndex(lineId);
+    if (index < 0) return;
+
+    const nextPatch: Partial<InvoiceEditorItem> = {};
+    if ("productId" in patch) nextPatch.product_id = patch.productId || null;
+    if ("item" in patch) nextPatch.item_name = patch.item ?? "";
+    if ("description" in patch) nextPatch.description = patch.description ?? "";
+    if ("quantity" in patch) nextPatch.quantity = cleanNumber(patch.quantity);
+    if ("rate" in patch) nextPatch.unit_price = cleanNumber(patch.rate);
+    if ("tax" in patch) nextPatch.tax_rate = normalizeTaxRate(patch.tax);
+    if ("taxId" in patch) nextPatch.tax_id = patch.taxId || null;
+    if ("taxName" in patch) nextPatch.tax_name = patch.taxName || null;
+    if ("optional" in patch) nextPatch.is_optional = patch.optional === true;
+    if ("documentCurrency" in patch) nextPatch.document_currency = patch.documentCurrency || null;
+    if ("originalCurrency" in patch) nextPatch.original_currency = patch.originalCurrency || null;
+    if ("originalRate" in patch) {
+      nextPatch.original_unit_price =
+        patch.originalRate === null || patch.originalRate === undefined
+          ? null
+          : cleanNumber(patch.originalRate);
+    }
+    if ("convertedRate" in patch) {
+      nextPatch.converted_unit_price =
+        patch.convertedRate === null || patch.convertedRate === undefined
+          ? null
+          : cleanNumber(patch.convertedRate);
+    }
+    if ("exchangeRate" in patch) nextPatch.exchange_rate = patch.exchangeRate ?? null;
+    if ("exchangeRateSource" in patch) nextPatch.exchange_rate_source = patch.exchangeRateSource || null;
+    if ("exchangeRateUpdatedAt" in patch)
+      nextPatch.exchange_rate_updated_at = patch.exchangeRateUpdatedAt || null;
+
+    updateLine(index, nextPatch);
+  };
+
+  const removeInvoiceLine = (lineId: string) => {
+    const index = findLineIndex(lineId);
+    if (index < 0) return;
+    patchDraft({ items: draft.items.filter((_, itemIndex) => itemIndex !== index) });
+  };
+
+  const addBlankInvoiceLine = () => patchDraft({ items: [...draft.items, emptyLine()] });
+
+  const normalizeInvoiceMoneyText = (value: string, currency?: string | null) =>
+    String(normalizeInvoiceAmount(value, currency || draft.currency));
 
   const saveDraft = async () => {
     const message = validateDraft();
@@ -450,10 +776,18 @@ export function InvoiceEditor({
                 </Select>
               </Field>
               <Field label="Moneda">
-                <Input
-                  value={draft.currency}
-                  onChange={(event) => patchDraft({ currency: event.target.value.toUpperCase() })}
-                />
+                <Select
+                  value={normalizeInvoiceCurrency(draft.currency)}
+                  onValueChange={applyCurrency}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DOP">RD$ · Peso dominicano</SelectItem>
+                    <SelectItem value="USD">US$ · Dólares</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
           </EditorSection>
@@ -478,12 +812,39 @@ export function InvoiceEditor({
           </EditorSection>
 
           <EditorSection title="Artículos">
-            <InvoiceLineItemsEditor
-              items={draft.items}
-              onChange={(items) => patchDraft({ items })}
-              onUpdate={updateLine}
-              products={products}
-              onSelectProduct={applyProduct}
+            <SalesDocumentLineEditor
+              mode="invoice"
+              form={{
+                currency: draft.currency,
+                discountType: "fixed",
+                discountValue: String(draft.discount || 0),
+                adjustmentValue: "0",
+                quantityMode: "qty",
+              }}
+              lineItems={invoiceLineItems}
+              totals={invoiceLineTotals}
+              productOptions={productOptions}
+              taxes={taxes}
+              taxById={taxById}
+              addItemLabel="Crear línea desde producto"
+              rateSource={currencySettings.rateSource}
+              rateUpdatedAt={currencySettings.rateUpdatedAt}
+              showAdjustment={false}
+              showOptional={false}
+              showQuantityMode={false}
+              emptyMessage="Agrega productos o líneas manuales para construir la factura."
+              onAddProductLine={applyProduct}
+              onAddBlankLine={addBlankInvoiceLine}
+              onLinePatch={patchInvoiceLine}
+              onRemoveLine={removeInvoiceLine}
+              onFormPatch={(patch) => {
+                if (patch.discountValue !== undefined) {
+                  patchDraft({
+                    discount: normalizeInvoiceAmount(patch.discountValue, draft.currency),
+                  });
+                }
+              }}
+              normalizeMoneyInput={normalizeInvoiceMoneyText}
             />
           </EditorSection>
 
@@ -613,11 +974,9 @@ export function InvoiceEditor({
             client={selectedClient}
             currency={draft.currency}
             subtotal={totals.subtotal}
-            tax={draft.tax}
+            tax={totals.tax}
             discount={draft.discount}
             total={totals.total}
-            onTaxChange={(tax) => patchDraft({ tax })}
-            onDiscountChange={(discount) => patchDraft({ discount })}
           />
           <EditorSection title="Acciones">
             <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-1">
@@ -697,93 +1056,6 @@ function EditorSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function InvoiceLineItemsEditor({
-  items,
-  products,
-  onChange,
-  onUpdate,
-  onSelectProduct,
-}: {
-  items: InvoiceEditorItem[];
-  products: InvoiceEditorProduct[];
-  onChange: (items: InvoiceEditorItem[]) => void;
-  onUpdate: (index: number, patch: Partial<InvoiceEditorItem>) => void;
-  onSelectProduct: (productId: string) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        <Select onValueChange={onSelectProduct}>
-          <SelectTrigger className="w-full sm:w-[260px]">
-            <SelectValue placeholder="Crear línea desde producto" />
-          </SelectTrigger>
-          <SelectContent>
-            {products.map((product) => (
-              <SelectItem key={product.id} value={product.id}>
-                {product.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="button" variant="outline" onClick={() => onChange([...items, emptyLine()])}>
-          <Plus className="mr-2 h-4 w-4" /> Agregar artículo
-        </Button>
-      </div>
-
-      {!items.length ? (
-        <div className="rounded-lg border border-dashed bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
-          Esta factura no tiene artículos. Agrega uno cuando quieras detallar el cobro.
-        </div>
-      ) : null}
-
-      {items.map((item, index) => (
-        <div
-          key={item.id || index}
-          className="grid gap-3 rounded-lg border bg-muted/10 p-3 sm:grid-cols-12"
-        >
-          <Field label="Descripción" className="sm:col-span-5">
-            <Input
-              value={item.description}
-              onChange={(event) => onUpdate(index, { description: event.target.value })}
-            />
-          </Field>
-          <Field label="Cantidad" className="sm:col-span-2">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={String(item.quantity)}
-              onChange={(event) => onUpdate(index, { quantity: cleanNumber(event.target.value) })}
-            />
-          </Field>
-          <Field label="Precio" className="sm:col-span-2">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={String(item.unit_price)}
-              onChange={(event) => onUpdate(index, { unit_price: cleanNumber(event.target.value) })}
-            />
-          </Field>
-          <Field label="Total" className="sm:col-span-2">
-            <Input value={String(lineTotal(item))} readOnly />
-          </Field>
-          <div className="flex items-end justify-end sm:col-span-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function InvoiceEditorSummary({
   draft,
   client,
@@ -792,8 +1064,6 @@ function InvoiceEditorSummary({
   tax,
   discount,
   total,
-  onTaxChange,
-  onDiscountChange,
 }: {
   draft: InvoiceEditorDraft;
   client: InvoiceEditorClient | null | undefined;
@@ -802,8 +1072,6 @@ function InvoiceEditorSummary({
   tax: number;
   discount: number;
   total: number;
-  onTaxChange: (value: number) => void;
-  onDiscountChange: (value: number) => void;
 }) {
   const clientSummary = {
     name: draft.clientName || client?.contact_person || "—",
@@ -842,24 +1110,10 @@ function InvoiceEditorSummary({
             Totales
           </p>
           <SummaryRow label="Subtotal" value={formatInvoiceMoney(subtotal, currency)} />
-          <Field label="Impuesto">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={String(tax)}
-              onChange={(event) => onTaxChange(cleanNumber(event.target.value))}
-            />
-          </Field>
-          <Field label="Descuento">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={String(discount)}
-              onChange={(event) => onDiscountChange(cleanNumber(event.target.value))}
-            />
-          </Field>
+          <SummaryRow label="Impuestos" value={formatInvoiceMoney(tax, currency)} />
+          {discount > 0 ? (
+            <SummaryRow label="Descuento" value={`-${formatInvoiceMoney(discount, currency)}`} />
+          ) : null}
           <div className="border-t pt-3">
             <SummaryRow label="Total" value={formatInvoiceMoney(total, currency)} strong />
           </div>

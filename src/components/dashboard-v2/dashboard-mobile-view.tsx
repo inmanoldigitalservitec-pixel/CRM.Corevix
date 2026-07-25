@@ -20,6 +20,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { MobileNotificationCenter } from "@/components/notifications/mobile-notification-center";
 import { useNotifications } from "@/components/notifications/use-notifications";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import type { DashboardV2Props } from "./dashboard-v2";
 
 type MobileTone = "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral";
@@ -158,7 +159,7 @@ function goTo(path: string) {
 }
 
 function openTaskCreate() {
-  window.dispatchEvent(new CustomEvent("corevix:open-task-create"));
+  openGlobalTaskCreate();
 }
 
 function MobileCard({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -985,10 +986,10 @@ function MobileFinanceWidget({
   const primary = collectionRows[0];
   const overdue = collectionRows.find(([label]) => label.toLowerCase().includes("vencido"));
   const paid = collectionRows.find(([label]) => label.toLowerCase().includes("cobrado"));
-  const mainValue = primary?.[1] || "$0";
+  const mainValue = primary?.[1] || "US$ 0.00";
   const mainPercent = percentValue(primary?.[2]);
-  const overdueValue = overdue?.[1] || "$0";
-  const paidValue = paid?.[1] || "$0";
+  const overdueValue = overdue?.[1] || "US$ 0.00";
+  const paidValue = paid?.[1] || "US$ 0.00";
   const collectionLabel = staticLabel(collectionPeriodLabel, "Cobros");
   const pipelineLabel = staticLabel(pipelinePeriodLabel, "Ventas");
 
@@ -1152,7 +1153,7 @@ export function DashboardMobileView({
       : [
           {
             title: "Facturas por cobrar",
-            value: receivableKpi?.helper || "$0",
+            value: receivableKpi?.helper || "US$ 0.00",
             detail: receivableKpi?.progressLabel || todayLabel || "Hoy",
             href: "/invoices",
             tone: "blue" as const,

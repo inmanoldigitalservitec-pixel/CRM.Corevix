@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
+import { formatCurrencyAmount } from "@/lib/currency";
 import type {
   CrmWhatsappConversationListRow,
   CrmWhatsappMessageRow,
@@ -1442,8 +1443,5 @@ function formatDuration(value: number | null | undefined) {
 }
 
 function formatMoney(value: number | null | undefined, currency: string | null | undefined) {
-  const amount = Number(value || 0);
-  const safeCurrency = currency || "RD$";
-  if (!amount) return safeCurrency;
-  return `${safeCurrency} ${amount.toLocaleString()}`;
+  return formatCurrencyAmount(value, currency || "DOP");
 }

@@ -31,6 +31,8 @@ import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { CrmDetailLineButton, CrmDetailSelectTrigger } from "@/components/crm/crm-detail-layout";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import { useCompanyTaxes } from "@/hooks/use-company-taxes";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,14 +48,13 @@ import { isPaidInvoiceStatus, normalizeStatus } from "@/lib/crm/status";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { resolveInvoiceProjectRelations } from "@/lib/projects/project-relations";
 import { InvoiceActionsMenu } from "@/components/invoices/invoice-actions-menu";
-import { InvoiceDetailsPanel } from "@/components/invoices/invoice-details-panel";
+import { InvoiceWorkspaceDialog } from "@/components/invoices/invoice-workspace-dialog";
 import {
   InvoiceEditor,
   type InvoiceEditorDraft,
   type InvoicePaymentFeedback,
 } from "@/components/invoices/invoice-editor";
 import { InvoiceMobileCard } from "@/components/invoices/invoice-mobile-card";
-import { PaymentReceiptsPanel } from "@/components/payments/payment-receipts-panel";
 import {
   PaymentFormDialog,
   type PaymentFormCreatedResult,
@@ -83,6 +84,7 @@ import {
   type InvoiceDueFilter,
   type InvoiceOperationalFilter,
 } from "@/components/invoices/invoice-utils";
+import { convertCurrencyAmount, convertToBaseCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/invoices")({
   component: InvoicesPage,
@@ -110,6 +112,10 @@ interface Invoice {
   tax: number | null;
   discount: number | null;
   total: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  total_base?: number | null;
+  exchange_rate?: number | null;
   status: string;
   notes: string | null;
   date_issued: string;
@@ -220,19 +226,37 @@ function formatInvoiceDateTime(value?: string | null) {
 
 type InvoiceItemDraft = {
   id?: string;
+  product_id?: string | null;
+  item_name?: string | null;
   description: string;
   quantity: number;
+  unit_type?: string | null;
   unit_price: number;
   total: number;
-};
+  is_optional?: boolean | null;
+  document_currency?: string | null;
+  original_currency?: string | null;
+  original_unit_price?: number | null;
+  converted_unit_price?: number | null;
+  exchange_rate?: number | null;
+	  exchange_rate_source?: string | null;
+	  exchange_rate_updated_at?: string | null;
+	  tax_id?: string | null;
+	  tax_name?: string | null;
+	  tax_rate?: number | null;
+	  tax_amount?: number | null;
+	};
 
 type ProductOption = {
   id: string;
   name: string;
-  base_price?: number | null;
-  currency?: string | null;
-  description?: string | null;
-};
+	  base_price?: number | null;
+	  currency?: string | null;
+	  description?: string | null;
+	  default_tax_id?: string | null;
+	  default_tax_name?: string | null;
+	  default_tax_rate?: number | string | null;
+	};
 type ClientOption = {
   id: string;
   company_name: string;
@@ -258,6 +282,8 @@ function InvoicesPage() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
   const { can } = usePermissions();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
+  const { taxes: salesTaxes } = useCompanyTaxes("sales");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [operationalFilter, setOperationalFilter] = useState<InvoiceOperationalFilter>("all");
@@ -286,12 +312,12 @@ function InvoicesPage() {
     ascending: false,
   });
 
-  const { data: products } = useCrud<ProductOption>({
-    table: "products",
-    select: "id, name, base_price, currency, description",
-    orderBy: "name",
-    ascending: true,
-  });
+	  const { data: products } = useCrud<ProductOption>({
+	    table: "products",
+	    select: "id, name, base_price, currency, description, default_tax_id, default_tax_name, default_tax_rate",
+	    orderBy: "name",
+	    ascending: true,
+	  });
 
   const { data: clients } = useCrud<ClientOption>({
     table: "clients",
@@ -460,9 +486,35 @@ function InvoicesPage() {
   const getInvoiceDisplayCurrency = (inv: Invoice) => {
     const product = inv.product_id ? productsById[inv.product_id] : null;
     const proposal = inv.proposal_id ? proposalsById[inv.proposal_id] : null;
-    return getInvoiceCurrency(inv, {
-      productCurrency: product?.currency,
-      proposalCurrency: proposal?.currency,
+    return (
+      inv.currency ||
+      getInvoiceCurrency(inv, {
+        productCurrency: product?.currency,
+        proposalCurrency: proposal?.currency,
+      })
+    );
+  };
+
+  const getInvoiceBaseTotal = (inv: Invoice) => {
+    const storedBaseAmount = Number(inv.total_base);
+    const storedBaseCurrency = inv.base_currency ? String(inv.base_currency) : null;
+
+    if (Number.isFinite(storedBaseAmount) && inv.total_base != null) {
+      return storedBaseCurrency && storedBaseCurrency !== currencySettings.baseCurrency
+        ? convertCurrencyAmount(
+            storedBaseAmount,
+            storedBaseCurrency,
+            currencySettings.baseCurrency,
+            currencySettings.usdToDopRate,
+          )
+        : storedBaseAmount;
+    }
+
+    return convertToBaseCurrency(inv.total, getInvoiceDisplayCurrency(inv), {
+      baseCurrency: currencySettings.baseCurrency,
+      usdToDopRate: Number(inv.exchange_rate || currencySettings.usdToDopRate),
+      rateSource: currencySettings.rateSource,
+      rateUpdatedAt: currencySettings.rateUpdatedAt,
     });
   };
 
@@ -587,10 +639,9 @@ function InvoicesPage() {
     const paid = data.filter((invoice) => isInvoicePaid(invoice));
     const draft = data.filter((invoice) => isInvoiceDraft(invoice));
     const formatTotal = (rows: Invoice[]) => {
-      const currency = rows.length === 1 ? getInvoiceDisplayCurrency(rows[0]) : "USD";
       return formatInvoiceMoney(
-        rows.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0),
-        currency,
+        rows.reduce((sum, invoice) => sum + getInvoiceBaseTotal(invoice), 0),
+        currencySettings.baseCurrency,
       );
     };
 
@@ -627,7 +678,16 @@ function InvoicesPage() {
         tone: "muted" as const,
       },
     ];
-  }, [data, operationalFilter, productsById, proposalsById]);
+  }, [
+    currencySettings.baseCurrency,
+    currencySettings.rateSource,
+    currencySettings.rateUpdatedAt,
+    currencySettings.usdToDopRate,
+    data,
+    operationalFilter,
+    productsById,
+    proposalsById,
+  ]);
 
   const activeFilterCount = [
     search.trim() ? "search" : null,
@@ -659,7 +719,10 @@ function InvoicesPage() {
     return "Pendiente";
   };
 
-  const renderActionsMenu = (invoice: Invoice) => (
+  const renderActionsMenu = (
+    invoice: Invoice,
+    options: { viewProposalDisabled?: boolean } = {},
+  ) => (
     <InvoiceActionsMenu
       canOpenPublic={Boolean(invoice.public_token)}
       canMarkPaid={false}
@@ -674,6 +737,7 @@ function InvoicesPage() {
       }
       canViewClient={canViewClients && Boolean(invoice.client_id)}
       canViewProposal={Boolean(invoice.proposal_id)}
+      viewProposalDisabled={options.viewProposalDisabled}
       canDeleteDraft={isInvoiceDraft(invoice)}
       onView={() => openInvoiceDetail(invoice)}
       onOpenPublic={() => openPublicInvoice(invoice)}
@@ -721,8 +785,10 @@ function InvoicesPage() {
       try {
         const db = supabase as any;
         const { data: rows, error } = await db
-          .from("invoice_items")
-          .select("id, description, quantity, unit_price, total")
+	          .from("invoice_items")
+	          .select(
+	            "id, product_id, item_name, description, quantity, unit_type, unit_price, total, is_optional, document_currency, original_currency, original_unit_price, converted_unit_price, exchange_rate, exchange_rate_source, exchange_rate_updated_at, tax_id, tax_name, tax_rate, tax_amount",
+	          )
           .eq("company_id", companyId)
           .eq("invoice_id", editItem.id)
           .order("sort_order", { ascending: true })
@@ -731,11 +797,36 @@ function InvoicesPage() {
         if (error) throw error;
         const next: InvoiceItemDraft[] = (rows || []).map((r: any) => ({
           id: r.id,
+          product_id: r.product_id || null,
+          item_name: String(r.item_name || r.description || ""),
           description: String(r.description || ""),
           quantity: Number(r.quantity || 0) || 0,
+          unit_type: r.unit_type || "qty",
           unit_price: Number(r.unit_price || 0) || 0,
           total: Number(r.total || 0) || 0,
-        }));
+          is_optional: r.is_optional === true,
+          document_currency: r.document_currency || null,
+          original_currency: r.original_currency || null,
+          original_unit_price:
+            r.original_unit_price === null || r.original_unit_price === undefined
+              ? null
+              : Number(r.original_unit_price),
+          converted_unit_price:
+            r.converted_unit_price === null || r.converted_unit_price === undefined
+              ? null
+              : Number(r.converted_unit_price),
+          exchange_rate:
+            r.exchange_rate === null || r.exchange_rate === undefined
+              ? null
+              : Number(r.exchange_rate),
+	          exchange_rate_source: r.exchange_rate_source || null,
+	          exchange_rate_updated_at: r.exchange_rate_updated_at || null,
+	          tax_id: r.tax_id || null,
+	          tax_name: r.tax_name || null,
+	          tax_rate: r.tax_rate === null || r.tax_rate === undefined ? 0 : Number(r.tax_rate),
+	          tax_amount:
+	            r.tax_amount === null || r.tax_amount === undefined ? 0 : Number(r.tax_amount),
+	        }));
         if (!cancelled) {
           setItemsDraft(next);
           setLoadedInvoiceItemCount(next.length);
@@ -782,7 +873,7 @@ function InvoicesPage() {
         const db = supabase as any;
         const { data: rows, error } = await db
           .from("invoice_items")
-          .select("id, description, quantity, unit_price, total, created_at")
+          .select("id, item_name, description, quantity, unit_price, total, created_at")
           .eq("company_id", companyId)
           .eq("invoice_id", invoiceId)
           .order("sort_order", { ascending: true })
@@ -793,7 +884,7 @@ function InvoicesPage() {
         setDetailItems(
           (rows || []).map((row: any) => ({
             id: String(row.id),
-            description: String(row.description || ""),
+            description: String(row.item_name || row.description || ""),
             quantity: Number(row.quantity || 0) || 0,
             unit_price: Number(row.unit_price || 0) || 0,
             total: Number(row.total || 0) || 0,
@@ -1006,16 +1097,45 @@ function InvoicesPage() {
         const quantity = Number(item.quantity);
         const unitPrice = Number(item.unit_price);
         return {
-          description: String(item.description || "").trim(),
+          product_id: item.product_id || null,
+          item_name: String(item.item_name || item.description || "").trim(),
+          description: String(item.description || item.item_name || "").trim(),
           quantity: Number.isFinite(quantity) ? quantity : Number.NaN,
+          unit_type: item.unit_type || "qty",
           unit_price: Number.isFinite(unitPrice) ? unitPrice : Number.NaN,
+          is_optional: item.is_optional === true,
           sort_order: index,
-        };
-      })
-      .filter((item) => item.description || item.unit_price > 0);
+          document_currency: item.document_currency || draft.currency || null,
+          original_currency: item.original_currency || draft.currency || null,
+          original_unit_price:
+            item.original_unit_price === null || item.original_unit_price === undefined
+              ? unitPrice
+              : Number(item.original_unit_price),
+          converted_unit_price:
+            item.converted_unit_price === null || item.converted_unit_price === undefined
+              ? unitPrice
+              : Number(item.converted_unit_price),
+	          exchange_rate:
+	            item.exchange_rate === null || item.exchange_rate === undefined
+	              ? null
+	              : Number(item.exchange_rate),
+	          exchange_rate_source: item.exchange_rate_source || null,
+	          exchange_rate_updated_at: item.exchange_rate_updated_at || null,
+	          tax_id: item.tax_id || null,
+	          tax_name: item.tax_name || null,
+	          tax_rate:
+	            item.tax_rate === null || item.tax_rate === undefined ? 0 : Number(item.tax_rate),
+	          tax_amount:
+	            item.tax_amount === null || item.tax_amount === undefined
+	              ? 0
+	              : Number(item.tax_amount),
+	        };
+	      })
+      .filter((item) => item.item_name || item.description || item.unit_price > 0);
 
     for (const row of rows) {
-      if (!row.description) return failBeforeSave("Cada línea debe tener descripción.");
+      if (!row.item_name && !row.description)
+        return failBeforeSave("Cada línea debe tener descripción.");
       if (!Number.isFinite(row.quantity)) return failBeforeSave("La cantidad no es válida.");
       if (row.quantity <= 0) return failBeforeSave("La cantidad debe ser mayor que 0.");
       if (!Number.isFinite(row.unit_price))
@@ -1050,6 +1170,7 @@ function InvoicesPage() {
       ...(nextStatus === "Sent" ? { sent_at: new Date().toISOString() } : {}),
       invoice_data: {
         ...invoiceDataWithoutLegacyPayment,
+        currency: clean(draft.currency) || "USD",
         clientName: clean(draft.clientName),
         clientCompany: clean(draft.clientCompany),
         clientEmail: clean(draft.clientEmail),
@@ -1062,11 +1183,14 @@ function InvoicesPage() {
         issuerPhone: clean(draft.issuerPhone),
         issuerAddress: clean(draft.issuerAddress),
         issuerWebsite: clean(draft.issuerWebsite),
-        relatedProposalNumber: clean(draft.relatedProposalNumber),
-        relatedProposalTitle: clean(draft.relatedProposalTitle),
-        productName: clean(draft.productName),
-      },
-    };
+	        relatedProposalNumber: clean(draft.relatedProposalNumber),
+	        relatedProposalTitle: clean(draft.relatedProposalTitle),
+	        productName: clean(draft.productName),
+	        taxId: clean(draft.taxId),
+	        taxName: clean(draft.taxName),
+	        taxRate: draft.taxRate ?? null,
+	      },
+	    };
 
     setEditorSaving(true);
     setEditorError(null);
@@ -1076,11 +1200,26 @@ function InvoicesPage() {
         p_invoice_id: editItem?.id || null,
         p_invoice: record,
         p_items: rows.map((row) => ({
+          product_id: row.product_id,
+          item_name: row.item_name,
           description: row.description,
           quantity: row.quantity,
+          unit_type: row.unit_type,
           unit_price: row.unit_price,
-        })),
-      });
+          is_optional: row.is_optional,
+          document_currency: row.document_currency,
+          original_currency: row.original_currency,
+          original_unit_price: row.original_unit_price,
+          converted_unit_price: row.converted_unit_price,
+	          exchange_rate: row.exchange_rate,
+	          exchange_rate_source: row.exchange_rate_source,
+	          exchange_rate_updated_at: row.exchange_rate_updated_at,
+	          tax_id: row.tax_id,
+	          tax_name: row.tax_name,
+	          tax_rate: row.tax_rate,
+	          tax_amount: row.tax_amount,
+	        })),
+	      });
       if (saveError) throw saveError;
       const rpcRow = Array.isArray(savedResult) ? savedResult[0] : savedResult;
       const invoiceId = String(rpcRow?.invoice_id || "");
@@ -1095,8 +1234,10 @@ function InvoicesPage() {
       if (invoiceLoadError) throw invoiceLoadError;
 
       const { data: savedItems, error: itemsLoadError } = await db
-        .from("invoice_items")
-        .select("id, description, quantity, unit_price, total")
+	        .from("invoice_items")
+	        .select(
+	          "id, product_id, item_name, description, quantity, unit_type, unit_price, total, is_optional, document_currency, original_currency, original_unit_price, converted_unit_price, exchange_rate, exchange_rate_source, exchange_rate_updated_at, tax_id, tax_name, tax_rate, tax_amount",
+	        )
         .eq("company_id", companyId)
         .eq("invoice_id", invoiceId)
         .order("sort_order", { ascending: true })
@@ -1108,11 +1249,39 @@ function InvoicesPage() {
         (savedItems || []).length
           ? (savedItems || []).map((row: any) => ({
               id: row.id,
+              product_id: row.product_id || null,
+              item_name: String(row.item_name || row.description || ""),
               description: String(row.description || ""),
               quantity: Number(row.quantity || 0) || 0,
+              unit_type: row.unit_type || "qty",
               unit_price: Number(row.unit_price || 0) || 0,
               total: Number(row.total || 0) || 0,
-            }))
+              is_optional: row.is_optional === true,
+              document_currency: row.document_currency || null,
+              original_currency: row.original_currency || null,
+              original_unit_price:
+                row.original_unit_price === null || row.original_unit_price === undefined
+                  ? null
+                  : Number(row.original_unit_price),
+              converted_unit_price:
+                row.converted_unit_price === null || row.converted_unit_price === undefined
+                  ? null
+                  : Number(row.converted_unit_price),
+              exchange_rate:
+                row.exchange_rate === null || row.exchange_rate === undefined
+                  ? null
+                  : Number(row.exchange_rate),
+	              exchange_rate_source: row.exchange_rate_source || null,
+	              exchange_rate_updated_at: row.exchange_rate_updated_at || null,
+	              tax_id: row.tax_id || null,
+	              tax_name: row.tax_name || null,
+	              tax_rate:
+	                row.tax_rate === null || row.tax_rate === undefined ? 0 : Number(row.tax_rate),
+	              tax_amount:
+	                row.tax_amount === null || row.tax_amount === undefined
+	                  ? 0
+	                  : Number(row.tax_amount),
+	            }))
           : [],
       );
       setLoadedInvoiceItemCount((savedItems || []).length);
@@ -1198,21 +1367,39 @@ function InvoicesPage() {
       issuerWebsite: readTextValue(sourceData.issuerWebsite) || null,
       relatedProposalNumber:
         readTextValue(sourceData.relatedProposalNumber) || proposal?.number || null,
-      relatedProposalTitle:
-        readTextValue(sourceData.relatedProposalTitle) || proposal?.title || null,
-      productName: readTextValue(sourceData.productName) || product?.name || null,
-      tax: Number(editItem?.tax || 0) || 0,
+	      relatedProposalTitle:
+	        readTextValue(sourceData.relatedProposalTitle) || proposal?.title || null,
+	      productName: readTextValue(sourceData.productName) || product?.name || null,
+	      taxId: readTextValue(sourceData.taxId) || null,
+	      taxName: readTextValue(sourceData.taxName) || null,
+	      taxRate: sourceData.taxRate == null ? null : Number(sourceData.taxRate),
+	      tax: Number(editItem?.tax || 0) || 0,
       discount: Number(editItem?.discount || 0) || 0,
       legacySubtotal: Number(editItem?.subtotal || 0) || 0,
       items: itemsDraft.map((item) => ({
         id: item.id,
+        product_id: item.product_id || null,
+        item_name: item.item_name || item.description || "",
         description: item.description,
         quantity: Number(item.quantity || 0) || 0,
+        unit_type: item.unit_type || "qty",
         unit_price: Number(item.unit_price || 0) || 0,
         total: Number(item.total || 0) || 0,
-      })),
-    };
-  }, [editItem, itemsDraft, products, proposals]);
+        is_optional: item.is_optional === true,
+        document_currency: item.document_currency || currency,
+        original_currency: item.original_currency || currency,
+        original_unit_price: item.original_unit_price ?? item.unit_price ?? 0,
+        converted_unit_price: item.converted_unit_price ?? item.unit_price ?? 0,
+	        exchange_rate: item.exchange_rate ?? null,
+	        exchange_rate_source: item.exchange_rate_source || null,
+	        exchange_rate_updated_at: item.exchange_rate_updated_at || null,
+	        tax_id: item.tax_id || null,
+	        tax_name: item.tax_name || null,
+	        tax_rate: item.tax_rate ?? 0,
+	        tax_amount: item.tax_amount ?? 0,
+	      })),
+	    };
+	  }, [editItem, itemsDraft, products, proposals]);
 
   if (loading) return <LoadingState />;
 
@@ -1225,7 +1412,6 @@ function InvoicesPage() {
   const selectedClient = selected?.client_id ? clientsById[selected.client_id] : null;
   const selectedProposal = selected?.proposal_id ? proposalsById[selected.proposal_id] : null;
   const selectedProduct = selected?.product_id ? productsById[selected.product_id] : null;
-  const selectedPublicUrl = selected ? getPublicInvoiceUrl(selected) : null;
   const selectedBalance = selected ? getInvoiceBalance(selected) : 0;
   const selectedSummaryFields = selected
     ? [
@@ -1378,7 +1564,7 @@ function InvoicesPage() {
           Registrar pago
         </CrmDetailLineButton>
       ) : null}
-      {renderActionsMenu(selected)}
+      {renderActionsMenu(selected, { viewProposalDisabled: true })}
     </>
   ) : null;
 
@@ -1399,7 +1585,9 @@ function InvoicesPage() {
           {
             key: "pending",
             label: "Pendiente por cobrar",
-            value: invoiceMetrics.find((metric) => metric.key === "pending")?.value || "$0.00",
+            value:
+              invoiceMetrics.find((metric) => metric.key === "pending")?.value ||
+              formatInvoiceMoney(0, currencySettings.baseCurrency),
             helper: `${filtered.length} visibles de ${data.length} facturas`,
             icon: Receipt,
             tone: "orange",
@@ -1746,8 +1934,38 @@ function InvoicesPage() {
         </div>
       </DataCard>
 
+      {drawerMode === "view" && selected ? (
+        <InvoiceWorkspaceDialog
+          open={drawerOpen}
+          onOpenChange={(open) => {
+            setDrawerOpen(open);
+            if (!open) {
+              setSelected(null);
+            }
+          }}
+          invoice={selected}
+          actions={selectedDetailActions}
+          summaryFields={selectedSummaryFields}
+          issuerFields={selectedIssuerFields}
+          clientFields={selectedClientFields}
+          items={detailItems}
+          itemsLoading={detailItemsLoading}
+          itemsError={detailItemsError}
+          activity={selectedActivity}
+          currency={selectedCurrency}
+          total={formatInvoiceMoney(selected.total, selectedCurrency)}
+          balance={formatInvoiceMoney(selectedBalance, selectedCurrency)}
+          subtotal={formatInvoiceMoney(selected.subtotal, selectedCurrency)}
+          tax={formatInvoiceMoney(selected.tax, selectedCurrency)}
+          discount={formatInvoiceMoney(selected.discount, selectedCurrency)}
+          notes={selected.notes}
+          formatMoney={formatInvoiceMoney}
+          paymentReceiptsRefreshKey={paymentReceiptsRefreshKey}
+        />
+      ) : null}
+
       <Sheet
-        open={drawerOpen}
+        open={drawerOpen && drawerMode !== "view"}
         onOpenChange={(o) => {
           setDrawerOpen(o);
           if (!o) {
@@ -1787,44 +2005,15 @@ function InvoicesPage() {
 
           <ScrollArea className="flex-1">
             <div className="min-w-0 space-y-4 px-4 py-5 sm:px-6">
-              {drawerMode === "view" && selected ? (
-                <>
-                  <InvoiceDetailsPanel
-                    invoice={selected}
-                    actions={selectedDetailActions}
-                    summaryFields={selectedSummaryFields}
-                    issuerFields={selectedIssuerFields}
-                    clientFields={selectedClientFields}
-                    items={detailItems}
-                    itemsLoading={detailItemsLoading}
-                    itemsError={detailItemsError}
-                    activity={selectedActivity}
-                    currency={selectedCurrency}
-                    total={formatInvoiceMoney(selected.total, selectedCurrency)}
-                    balance={formatInvoiceMoney(selectedBalance, selectedCurrency)}
-                    subtotal={formatInvoiceMoney(selected.subtotal, selectedCurrency)}
-                    tax={formatInvoiceMoney(selected.tax, selectedCurrency)}
-                    discount={formatInvoiceMoney(selected.discount, selectedCurrency)}
-                    notes={selected.notes}
-                    publicUrl={selectedPublicUrl}
-                    formatMoney={formatInvoiceMoney}
-                  />
-                  <PaymentReceiptsPanel
-                    invoiceId={selected.id}
-                    compact
-                    refreshKey={paymentReceiptsRefreshKey}
-                  />
-                </>
-              ) : null}
-
               {drawerMode === "create" || drawerMode === "edit" ? (
                 <InvoiceEditor
                   mode={drawerMode}
                   initialDraft={editorInitialDraft}
-                  clients={clients}
-                  products={products}
-                  proposals={proposals}
-                  statusOptions={INVOICE_STATUSES}
+	                  clients={clients}
+	                  products={products}
+	                  proposals={proposals}
+	                  taxes={salesTaxes}
+	                  statusOptions={INVOICE_STATUSES}
                   publicToken={editItem?.public_token}
                   publicUrl={editItem ? getPublicInvoiceUrl(editItem) : null}
                   saving={editorSaving}

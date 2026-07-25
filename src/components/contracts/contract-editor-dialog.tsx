@@ -13,9 +13,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContractFileDropzone } from "@/components/contracts/contract-detail-dialog";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadContractDocument } from "@/lib/contracts/contract-documents";
+import {
+  convertToBaseCurrency,
+  CURRENCY_OPTIONS,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+  normalizeCurrencyAmount,
+  normalizeCurrencyInput,
+} from "@/lib/currency";
 import { toast } from "sonner";
 
 const STATUSES = ["Draft", "Active", "Expired", "Cancelled", "Pending Signature"];
@@ -28,6 +38,12 @@ export type ContractEditorRow = {
   status: string;
   contract_type: string;
   contract_value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  contract_value_base?: number | null;
   start_date: string | null;
   end_date: string | null;
   client_id: string | null;
@@ -63,6 +79,7 @@ function emptyForm() {
     status: "Draft",
     contract_type: "Service Agreement",
     contract_value: "",
+    currency: "USD",
     start_date: "",
     end_date: "",
     client_id: NONE,
@@ -94,6 +111,7 @@ export function ContractEditorDialog({
   onSaved,
 }: Props) {
   const { profile } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const { can } = usePermissions();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState(emptyForm());
@@ -109,6 +127,7 @@ export function ContractEditorDialog({
             status: contract.status || "Draft",
             contract_type: contract.contract_type || "Service Agreement",
             contract_value: contract.contract_value == null ? "" : String(contract.contract_value),
+            currency: normalizeCurrency(contract.currency || currencySettings.baseCurrency),
             start_date: contract.start_date || "",
             end_date: contract.end_date || "",
             client_id: contract.client_id || NONE,
@@ -118,11 +137,14 @@ export function ContractEditorDialog({
               ? "Signed"
               : contract.signature_status || "Not Signed",
           }
-        : normalizeInitialValues(initialValues),
+        : {
+            ...normalizeInitialValues(initialValues),
+            currency: normalizeCurrency(initialValues?.currency || currencySettings.baseCurrency),
+          },
     );
     setDocumentFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [contract, initialValues, open]);
+  }, [contract, currencySettings.baseCurrency, initialValues, open]);
 
   const setField = (key: keyof ContractForm, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -150,8 +172,13 @@ export function ContractEditorDialog({
     if (form.start_date && form.end_date && form.start_date > form.end_date)
       return toast.error("End date cannot be before start date.");
 
-    const value = form.contract_value.trim() ? Number(form.contract_value.replace(/,/g, "")) : null;
+    const contractCurrency = normalizeCurrency(form.currency || currencySettings.baseCurrency);
+    const value = form.contract_value.trim()
+      ? normalizeCurrencyAmount(form.contract_value.replace(/,/g, ""), contractCurrency)
+      : null;
     if (Number.isNaN(value)) return toast.error("Contract value must be numeric.");
+    const baseValue =
+      value == null ? null : convertToBaseCurrency(value, contractCurrency, currencySettings);
 
     const payload = {
       company_id: profile.company_id,
@@ -160,6 +187,13 @@ export function ContractEditorDialog({
       status: form.status,
       contract_type: form.contract_type.trim() || "Service Agreement",
       contract_value: value,
+      currency: contractCurrency,
+      base_currency: currencySettings.baseCurrency,
+      exchange_rate:
+        contractCurrency === currencySettings.baseCurrency ? 1 : currencySettings.usdToDopRate,
+      exchange_rate_source: currencySettings.rateSource,
+      exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+      contract_value_base: baseValue,
       start_date: form.start_date || null,
       end_date: form.end_date || null,
       client_id: form.client_id === NONE ? null : form.client_id,
@@ -312,10 +346,49 @@ export function ContractEditorDialog({
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>Value</Label>
             <Input
+              type="number"
               value={form.contract_value}
               onChange={(event) => setField("contract_value", event.target.value)}
+              onBlur={(event) =>
+                setField(
+                  "contract_value",
+                  normalizeCurrencyInput(
+                    event.target.value,
+                    form.currency || currencySettings.baseCurrency,
+                  ),
+                )
+              }
+              step={getCurrencyStep(form.currency || currencySettings.baseCurrency)}
+              inputMode={getCurrencyInputMode(form.currency || currencySettings.baseCurrency)}
               className={crmFormStyles.input}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className={crmFormStyles.label}>Moneda</Label>
+            <Select
+              value={form.currency || currencySettings.baseCurrency}
+              onValueChange={(value) =>
+                setForm((current) => {
+                  const nextCurrency = normalizeCurrency(value);
+                  return {
+                    ...current,
+                    currency: nextCurrency,
+                    contract_value: normalizeCurrencyInput(current.contract_value, nextCurrency),
+                  };
+                })
+              }
+            >
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCY_OPTIONS.map((currency) => (
+                  <SelectItem key={currency.value} value={currency.value}>
+                    {currency.symbol} · {currency.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>Client</Label>

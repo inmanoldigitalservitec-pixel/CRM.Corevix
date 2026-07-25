@@ -33,6 +33,7 @@ import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 type SearchGroup =
   | "clients"
@@ -165,14 +166,10 @@ function joinParts(parts: Array<string | number | null | undefined>) {
     .join(" · ");
 }
 
-function formatMoney(value: unknown) {
+function formatMoney(value: unknown, currency?: string | null) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return null;
-  return new Intl.NumberFormat("es-DO", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatCurrencyAmount(amount, currency || "USD");
 }
 
 function itemKey(item: GlobalSearchItem) {
@@ -556,7 +553,7 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
         safeData<any>(
           db
             .from("invoices")
-            .select("id,number,status,total,due_date,updated_at")
+            .select("id,number,status,total,currency,invoice_data,due_date,updated_at")
             .eq("company_id", companyId)
             .or(buildOr(["number", "status", "notes"], normalizedQuery))
             .order("updated_at", { ascending: false })
@@ -565,7 +562,7 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
         safeData<any>(
           db
             .from("proposals")
-            .select("id,number,title,status,amount,valid_until,updated_at")
+            .select("id,number,title,status,amount,currency,valid_until,updated_at")
             .eq("company_id", companyId)
             .or(buildOr(["number", "title", "description", "status"], normalizedQuery))
             .order("updated_at", { ascending: false })
@@ -574,7 +571,7 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
         safeData<any>(
           db
             .from("estimates")
-            .select("id,number,title,status,total,expiry_date,updated_at")
+            .select("id,number,title,status,total,currency,expiry_date,updated_at")
             .eq("company_id", companyId)
             .or(buildOr(["title", "status", "notes"], normalizedQuery))
             .order("updated_at", { ascending: false })
@@ -724,7 +721,7 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
           title: invoice.number ? `Factura ${invoice.number}` : "Factura",
           subtitle: joinParts([
             invoice.status,
-            formatMoney(invoice.total),
+            formatMoney(invoice.total, invoice.currency || invoice.invoice_data?.currency),
             invoice.due_date ? `vence ${invoice.due_date}` : null,
           ]),
           meta: "Factura",
@@ -736,7 +733,11 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
           id: proposal.id,
           group: "proposals" as const,
           title: proposal.title || (proposal.number ? `Propuesta ${proposal.number}` : "Propuesta"),
-          subtitle: joinParts([proposal.number, proposal.status, formatMoney(proposal.amount)]),
+          subtitle: joinParts([
+            proposal.number,
+            proposal.status,
+            formatMoney(proposal.amount, proposal.currency),
+          ]),
           meta: "Propuesta",
           href: `/proposals?proposalId=${encodeURIComponent(proposal.id)}`,
           searchText: joinParts([
@@ -753,7 +754,11 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
           group: "estimates" as const,
           title:
             estimate.title || (estimate.number ? `Cotizacion ${estimate.number}` : "Cotizacion"),
-          subtitle: joinParts([estimate.number, estimate.status, formatMoney(estimate.total)]),
+          subtitle: joinParts([
+            estimate.number,
+            estimate.status,
+            formatMoney(estimate.total, estimate.currency),
+          ]),
           meta: "Cotizacion",
           href: `/estimates?estimateId=${encodeURIComponent(estimate.id)}`,
           searchText: joinParts([

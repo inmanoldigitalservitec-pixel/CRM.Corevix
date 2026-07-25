@@ -17,6 +17,17 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import {
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+  normalizeCurrencyAmount,
+  type CurrencyCode,
+} from "@/lib/currency";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
 import {
@@ -80,6 +91,12 @@ interface Deal {
   id: string;
   name: string;
   value: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  value_base?: number | null;
   probability: number | null;
   expected_close: string | null;
   stage: string;
@@ -163,6 +180,7 @@ type LeadRow = {
   source: string | null;
   source_channel: string | null;
   estimated_value?: number | null;
+  currency?: string | null;
   notes?: string | null;
   product_interest?: string | null;
   status: string;
@@ -194,8 +212,25 @@ function toNumber(value: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function money(value: unknown) {
-  return `$${toNumber(value).toLocaleString()}`;
+function money(value: unknown, currency?: string | null) {
+  return formatCurrencyAmount(toNumber(value), currency || "USD");
+}
+
+function readDealBaseValue(deal: Deal, baseCurrency: CurrencyCode, usdToDopRate: number) {
+  return convertToBaseCurrency(deal.value || 0, deal.currency || baseCurrency, {
+    baseCurrency,
+    usdToDopRate,
+    rateSource: "manual",
+    rateUpdatedAt: null,
+  });
+}
+
+function moneyBase(deal: Deal, baseCurrency: CurrencyCode, usdToDopRate: number) {
+  return money(readDealBaseValue(deal, baseCurrency, usdToDopRate), baseCurrency);
+}
+
+function moneyDeal(deal: Deal) {
+  return money(deal.value, deal.currency || "USD");
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -344,6 +379,7 @@ function addDays(date: Date, days: number) {
 }
 
 function PipelinePage() {
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const { profile, user, roles } = useAuth();
   const { can } = usePermissions();
   const [stages, setStages] = useState<DealStage[]>([]);
@@ -363,6 +399,7 @@ function PipelinePage() {
   const [newDeal, setNewDeal] = useState({
     name: "",
     value: "",
+    currency: currencySettings.baseCurrency,
     probability: "50",
     expected_close: "",
     stage: "",
@@ -428,7 +465,7 @@ function PipelinePage() {
           db
             .from("leads")
             .select(
-              "id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,estimated_value,notes,product_interest,created_at,updated_at",
+              "id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,estimated_value,currency,notes,product_interest,created_at,updated_at",
             )
             .eq("company_id", profile.company_id)
             .order("updated_at", { ascending: false })
@@ -1234,7 +1271,7 @@ function PipelinePage() {
       db
         .from("deals")
         .select(
-          "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+          "id,company_id,name,value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,value_base,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
         )
         .eq("company_id", cid)
         .order("created_at", { ascending: false }),
@@ -1517,13 +1554,29 @@ function PipelinePage() {
   const pipelineTotal = useMemo(() => {
     return deals
       .filter((d) => !wonStageNames.has(d.stage) && !lostStageNames.has(d.stage))
-      .reduce((s, d) => s + toNumber(d.value), 0);
-  }, [deals, wonStageNames, lostStageNames]);
+      .reduce(
+        (s, d) =>
+          s + readDealBaseValue(d, currencySettings.baseCurrency, currencySettings.usdToDopRate),
+        0,
+      );
+  }, [
+    currencySettings.baseCurrency,
+    currencySettings.usdToDopRate,
+    deals,
+    wonStageNames,
+    lostStageNames,
+  ]);
 
   const wonTotal = useMemo(
     () =>
-      deals.filter((d) => wonStageNames.has(d.stage)).reduce((s, d) => s + toNumber(d.value), 0),
-    [deals, wonStageNames],
+      deals
+        .filter((d) => wonStageNames.has(d.stage))
+        .reduce(
+          (s, d) =>
+            s + readDealBaseValue(d, currencySettings.baseCurrency, currencySettings.usdToDopRate),
+          0,
+        ),
+    [currencySettings.baseCurrency, currencySettings.usdToDopRate, deals, wonStageNames],
   );
   const openDealsCount = useMemo(
     () => deals.filter((d) => !wonStageNames.has(d.stage) && !lostStageNames.has(d.stage)).length,
@@ -1594,8 +1647,13 @@ function PipelinePage() {
       }
 
       // Value range
-      if (valueMin !== null && toNumber(deal.value) < valueMin) return false;
-      if (valueMax !== null && toNumber(deal.value) > valueMax) return false;
+      const valueBase = readDealBaseValue(
+        deal,
+        currencySettings.baseCurrency,
+        currencySettings.usdToDopRate,
+      );
+      if (valueMin !== null && valueBase < valueMin) return false;
+      if (valueMax !== null && valueBase > valueMax) return false;
 
       // Probability range
       const prob = clamp(deal.probability ?? 50, 0, 100);
@@ -1654,6 +1712,8 @@ function PipelinePage() {
     wonStageNames,
     lostStageNames,
     selectedStagesSet,
+    currencySettings.baseCurrency,
+    currencySettings.usdToDopRate,
   ]);
 
   const activeFilterCount = useMemo(() => {
@@ -1731,64 +1791,22 @@ function PipelinePage() {
     return pipelineStages[idx + 1]?.name || null;
   };
 
-  const createFollowUpTask = async (deal: Deal) => {
-    if (!profile?.company_id) return;
-    if (!profile?.id) {
-      toast.error("No se pudo identificar el perfil actual");
-      return;
-    }
-    const due = new Date();
-    due.setDate(due.getDate() + 1);
-    const dueDate = due.toISOString().split("T")[0];
-    const payload = {
-      company_id: profile.company_id,
-      title: `Seguimiento: ${deal.name}`,
-      description: deal.notes
-        ? `Oportunidad: ${deal.name}\n\n${deal.notes}`
-        : `Oportunidad: ${deal.name}`,
-      due_date: dueDate,
-      status: "To Do",
-      priority: "High",
-      related_lead_id: deal.lead_id || null,
-      related_client_id: null,
-      assigned_to: resolveAssigneeUserId(deal.assigned_to),
-    };
-    const { error } = await db.from("tasks").insert(payload);
-    if (error) {
-      toast.error(error.message || "No se pudo crear la tarea");
-      return;
-    }
-    void logActivityEvent({
-      companyId: profile?.company_id ?? "",
-      userId: profile?.id || null,
-      action: "task_created",
-      entityType: "tasks",
-      detail: `Tarea creada desde pipeline: ${payload.title}`,
-      metadata: { related_deal_id: deal.id, related_lead_id: deal.lead_id || null },
-    }).catch(() => {});
-    toast.success("Tarea creada");
-  };
-
   function openFollowUpDialogForDeal(deal: Deal) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().slice(0, 10);
     const label = deal.name || "oportunidad";
-    window.dispatchEvent(
-      new CustomEvent("corevix:open-task-create", {
-        detail: {
-          initialValues: {
-            title: `Dar seguimiento a ${label}`,
-            dueDate,
-            priority: "Medium",
-            description: `Seguimiento creado desde Pipeline.\nOportunidad: ${deal.name}`,
-            assignedTo: resolveAssigneeUserId(deal.assigned_to) || undefined,
-            leadId: deal.lead_id || undefined,
-            dealId: deal.id,
-          },
-        },
-      }),
-    );
+    openGlobalTaskCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${label}`,
+        dueDate,
+        priority: "Medium",
+        description: `Seguimiento creado desde Pipeline.\nOportunidad: ${deal.name}`,
+        assignedTo: resolveAssigneeUserId(deal.assigned_to) || undefined,
+        leadId: deal.lead_id || undefined,
+        dealId: deal.id,
+      },
+    });
   }
 
   async function handleOpenWhatsAppFromLead(lead: LeadRow) {
@@ -2110,7 +2128,7 @@ function PipelinePage() {
           db
             .from("deals")
             .select(
-              "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+              "id,company_id,name,value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,value_base,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
             )
             .eq("company_id", cid)
             .order("created_at", { ascending: false }),
@@ -2154,11 +2172,16 @@ function PipelinePage() {
     }
 
     if (editDeal) {
+      const currency = normalizeCurrency(
+        newDeal.currency || editDeal.currency || currencySettings.baseCurrency,
+      );
+      const value = normalizeCurrencyAmount(newDeal.value, currency);
       const { error } = await db
         .from("deals")
         .update({
           name: newDeal.name,
-          value: Number(newDeal.value) || 0,
+          value,
+          currency,
           probability: Number(newDeal.probability) || 50,
           expected_close: newDeal.expected_close || null,
           stage: newDealStageOverride || newDeal.stage,
@@ -2181,10 +2204,13 @@ function PipelinePage() {
       setDialogOpen(false);
       setEditDeal(null);
     } else {
+      const currency = normalizeCurrency(newDeal.currency || currencySettings.baseCurrency);
+      const value = normalizeCurrencyAmount(newDeal.value, currency);
       const { error } = await db.from("deals").insert({
         company_id: profile.company_id,
         name: newDeal.name,
-        value: Number(newDeal.value) || 0,
+        value,
+        currency,
         probability: Number(newDeal.probability) || 50,
         expected_close: newDeal.expected_close || null,
         stage: newDealStageOverride || newDeal.stage,
@@ -2215,6 +2241,7 @@ function PipelinePage() {
     setNewDeal({
       name: "",
       value: "",
+      currency: currencySettings.baseCurrency,
       probability: "50",
       expected_close: "",
       stage: stages[0]?.name || "",
@@ -2228,7 +2255,7 @@ function PipelinePage() {
     const { data: d2 } = await db
       .from("deals")
       .select(
-        "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+        "id,company_id,name,value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,value_base,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
       )
       .eq("company_id", cid)
       .order("created_at", { ascending: false });
@@ -2293,7 +2320,7 @@ function PipelinePage() {
           <section className="mb-4 grid grid-cols-5 gap-x-8 gap-y-4">
             <PipelineKpi
               label="Pipeline"
-              value={`$${pipelineTotal.toLocaleString()}`}
+              value={money(pipelineTotal, currencySettings.baseCurrency)}
               tone="info"
             />
             <PipelineKpi
@@ -2301,13 +2328,20 @@ function PipelinePage() {
               value={openDealsCount}
               tone={pipelineRiskTone(openDealsCount, 8, 18)}
             />
-            <PipelineKpi label="Ticket promedio" value={`$${avgDeal.toLocaleString()}`} />
+            <PipelineKpi
+              label="Ticket promedio"
+              value={money(avgDeal, currencySettings.baseCurrency)}
+            />
             <PipelineKpi
               label="Win rate"
               value={`${winRate}%`}
               tone={winRate >= 50 ? "success" : winRate >= 25 ? "warning" : "danger"}
             />
-            <PipelineKpi label="Ganado" value={`$${wonTotal.toLocaleString()}`} tone="success" />
+            <PipelineKpi
+              label="Ganado"
+              value={money(wonTotal, currencySettings.baseCurrency)}
+              tone="success"
+            />
           </section>
 
           <div className="relative z-20 mb-3 overflow-visible border-y border-slate-100 bg-white">
@@ -2320,6 +2354,18 @@ function PipelinePage() {
                     icon={<Plus className="h-4 w-4" />}
                     onClick={() => {
                       setEditDeal(null);
+                      setNewDealStageOverride(null);
+                      setNewDeal({
+                        name: "",
+                        value: "",
+                        currency: currencySettings.baseCurrency,
+                        probability: "50",
+                        expected_close: "",
+                        stage: stages[0]?.name || "",
+                        source_type: "",
+                        lead_id: "",
+                        client_id: "",
+                      });
                       setDialogOpen(true);
                     }}
                   >
@@ -2673,7 +2719,7 @@ function PipelinePage() {
                             </div>
 
                             <div className="text-[13px] font-normal text-[#101828]">
-                              ${toNumber(deal.value).toLocaleString()}
+                              {moneyDeal(deal)}
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -2756,7 +2802,16 @@ function PipelinePage() {
                         .map((id) => dealById.get(id))
                         .filter((d): d is Deal => Boolean(d) && dealMatchesFilters(d as Deal));
                       const isDragOver = dragOverStage === stage.name;
-                      const stageValueTotal = stageDeals.reduce((s, d) => s + toNumber(d.value), 0);
+                      const stageValueTotal = stageDeals.reduce(
+                        (s, d) =>
+                          s +
+                          readDealBaseValue(
+                            d,
+                            currencySettings.baseCurrency,
+                            currencySettings.usdToDopRate,
+                          ),
+                        0,
+                      );
 
                       return (
                         <div
@@ -2815,8 +2870,8 @@ function PipelinePage() {
                                     {stage.name}
                                   </h3>
                                   <div className="mt-0.5 text-[11px] font-normal text-[#667085]">
-                                    {stageDeals.length} oportunidades · $
-                                    {stageValueTotal.toLocaleString()}
+                                    {stageDeals.length} oportunidades ·{" "}
+                                    {money(stageValueTotal, currencySettings.baseCurrency)}
                                   </div>
                                 </div>
                               </div>
@@ -2827,7 +2882,17 @@ function PipelinePage() {
                                   className="h-8 w-8 border-b border-blue-200 bg-white text-[#1d62f9] grid place-items-center hover:border-blue-500 shrink-0"
                                   onClick={() => {
                                     setNewDealStageOverride(stage.name);
-                                    setNewDeal((p) => ({ ...p, stage: stage.name }));
+                                    setNewDeal({
+                                      name: "",
+                                      value: "",
+                                      currency: currencySettings.baseCurrency,
+                                      probability: "50",
+                                      expected_close: "",
+                                      stage: stage.name,
+                                      source_type: "",
+                                      lead_id: "",
+                                      client_id: "",
+                                    });
                                     setEditDeal(null);
                                     setDialogOpen(true);
                                   }}
@@ -2906,7 +2971,7 @@ function PipelinePage() {
                                       className="min-w-0 truncate text-[16px] font-semibold tracking-[-0.02em]"
                                       style={{ color: stageColor }}
                                     >
-                                      ${toNumber(deal.value).toLocaleString()}
+                                      {moneyDeal(deal)}
                                     </div>
                                     <div className="flex min-w-[110px] flex-1 items-center justify-end gap-2">
                                       <div className="shrink-0 text-[12px] font-normal text-[#475467]">
@@ -3002,6 +3067,9 @@ function PipelinePage() {
                               ...newDeal,
                               lead_id: v,
                               name: newDeal.name || label,
+                              currency: normalizeCurrency(
+                                lead?.currency || currencySettings.baseCurrency,
+                              ),
                               value:
                                 newDeal.value ||
                                 (lead?.estimated_value ? String(lead.estimated_value) : ""),
@@ -3112,6 +3180,11 @@ function PipelinePage() {
                             setNewDeal((current) => ({
                               ...current,
                               name: suggestedName,
+                              currency: normalizeCurrency(
+                                product.currency ||
+                                  current.currency ||
+                                  currencySettings.baseCurrency,
+                              ),
                               value:
                                 current.value ||
                                 (product.base_price != null ? String(product.base_price) : ""),
@@ -3132,7 +3205,7 @@ function PipelinePage() {
                               <SelectItem key={product.id} value={product.id}>
                                 {product.name}
                                 {product.base_price != null
-                                  ? ` · ${money(product.base_price)}`
+                                  ? ` · ${money(product.base_price, product.currency)}`
                                   : ""}
                               </SelectItem>
                             ))}
@@ -3191,7 +3264,10 @@ function PipelinePage() {
                             <div>
                               <span className="font-medium text-foreground">Valor estimado:</span>{" "}
                               {selectedSourceLead.estimated_value != null
-                                ? money(selectedSourceLead.estimated_value)
+                                ? money(
+                                    selectedSourceLead.estimated_value,
+                                    selectedSourceLead.currency || currencySettings.baseCurrency,
+                                  )
                                 : "—"}
                             </div>
                             <div>
@@ -3279,16 +3355,41 @@ function PipelinePage() {
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_150px_minmax(0,1fr)]">
                       <div>
-                        <Label className={crmFormStyles.label}>Valor ($)</Label>
+                        <Label className={crmFormStyles.label}>Valor</Label>
                         <Input
                           className={crmFormStyles.input}
                           type="number"
+                          step={getCurrencyStep(newDeal.currency)}
+                          inputMode={getCurrencyInputMode(newDeal.currency)}
                           placeholder="0"
                           value={newDeal.value}
                           onChange={(e) => setNewDeal({ ...newDeal, value: e.target.value })}
                         />
+                      </div>
+                      <div>
+                        <Label className={crmFormStyles.label}>Moneda</Label>
+                        <Select
+                          value={normalizeCurrency(newDeal.currency)}
+                          onValueChange={(value) =>
+                            setNewDeal((current) => ({
+                              ...current,
+                              currency: normalizeCurrency(value),
+                              value: current.value
+                                ? String(normalizeCurrencyAmount(current.value, value))
+                                : current.value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className={crmFormStyles.select}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="DOP">RD$</SelectItem>
+                            <SelectItem value="USD">US$</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label className={crmFormStyles.label}>Probabilidad (%)</Label>
@@ -3376,7 +3477,7 @@ function PipelinePage() {
                     {
                       key: "value",
                       label: "Valor",
-                      value: `$${toNumber(selectedDeal.value).toLocaleString()}`,
+                      value: moneyDeal(selectedDeal),
                     },
                     {
                       key: "probability",
@@ -3533,7 +3634,7 @@ function PipelinePage() {
                             {
                               key: "value",
                               label: "Valor",
-                              value: `$${toNumber(selectedDeal.value).toLocaleString()}`,
+                              value: moneyDeal(selectedDeal),
                             },
                             {
                               key: "probability",
@@ -3596,6 +3697,9 @@ function PipelinePage() {
                                 setNewDeal({
                                   name: selectedDeal.name,
                                   value: String(selectedDeal.value ?? 0),
+                                  currency: normalizeCurrency(
+                                    selectedDeal.currency || currencySettings.baseCurrency,
+                                  ),
                                   probability: String(selectedDeal.probability ?? 50),
                                   expected_close: selectedDeal.expected_close || "",
                                   stage: selectedDeal.stage,
@@ -3728,7 +3832,9 @@ function PipelinePage() {
                                       <span className="font-normal text-slate-950">
                                         {product?.name || String(row.product_id)}
                                       </span>
-                                      <span className="text-slate-500">{money(total)}</span>
+                                      <span className="text-slate-500">
+                                        {money(total, currencySettings.baseCurrency)}
+                                      </span>
                                     </div>
                                   );
                                 })}

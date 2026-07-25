@@ -203,8 +203,13 @@ export function ProjectTicketsPanel({ projectId }: { projectId: string }) {
           >
             Actualizar
           </CrmDetailLineButton>
-          <CrmDetailLineButton asChild icon={<ExternalLink className="h-4 w-4" />}>
-            <a href={ticketsUrl}>Abrir tickets</a>
+          <CrmDetailLineButton
+            icon={<ExternalLink className="h-4 w-4" />}
+            onClick={() => {
+              window.location.href = ticketsUrl;
+            }}
+          >
+            Abrir tickets
           </CrmDetailLineButton>
           <CrmDetailLineButton icon={<Plus className="h-4 w-4" />} onClick={openNewTicket}>
             Nuevo ticket

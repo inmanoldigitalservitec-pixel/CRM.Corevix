@@ -1,4 +1,14 @@
-export type EventSourceType = "calendar_event" | "task" | "invoice" | "proposal" | "project";
+export type EventSourceType =
+  | "calendar_event"
+  | "task"
+  | "invoice"
+  | "proposal"
+  | "project"
+  | "estimate"
+  | "subscription"
+  | "contract"
+  | "ticket"
+  | "payment";
 export type CalendarFilter = "all" | EventSourceType;
 export type FormType = "event" | "reminder" | "call" | "meeting" | "demo" | "task";
 
@@ -16,6 +26,7 @@ export type CalendarItem = {
   description?: string | null;
   location?: string | null;
   amount?: number | null;
+  amountCurrency?: string | null;
   eventType?: string | null;
   href: string;
   context?: string | null;
@@ -49,6 +60,8 @@ export type InvoiceCalendarSourceRow = {
   due_date?: string | null;
   status?: string | null;
   total?: number | string | null;
+  currency?: string | null;
+  base_currency?: string | null;
 };
 
 export type ProposalCalendarSourceRow = {
@@ -59,6 +72,17 @@ export type ProposalCalendarSourceRow = {
   status?: string | null;
 };
 
+export type EstimateCalendarSourceRow = {
+  id: string;
+  number?: string | number | null;
+  title?: string | null;
+  expiry_date?: string | null;
+  status?: string | null;
+  total?: number | string | null;
+  currency?: string | null;
+  base_currency?: string | null;
+};
+
 export type ProjectCalendarSourceRow = {
   id: string;
   name?: string | null;
@@ -67,12 +91,60 @@ export type ProjectCalendarSourceRow = {
   status?: string | null;
 };
 
+export type SubscriptionCalendarSourceRow = {
+  id: string;
+  name?: string | null;
+  next_billing_date?: string | null;
+  status?: string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  billing_cycle?: string | null;
+};
+
+export type ContractCalendarSourceRow = {
+  id: string;
+  contract_number?: string | number | null;
+  subject?: string | null;
+  end_date?: string | null;
+  status?: string | null;
+  contract_value?: number | string | null;
+  currency?: string | null;
+  base_currency?: string | null;
+};
+
+export type TicketCalendarSourceRow = {
+  id: string;
+  ticket_number?: string | number | null;
+  subject?: string | null;
+  status?: string | null;
+  priority?: string | null;
+  first_response_due_at?: string | null;
+  resolution_due_at?: string | null;
+};
+
+export type PaymentCalendarSourceRow = {
+  id: string;
+  payment_number?: string | number | null;
+  reference?: string | null;
+  payment_date?: string | null;
+  status?: string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  base_currency?: string | null;
+};
+
 export type BuildCalendarItemsInput = {
   calendarEvents?: CalendarEventSourceRow[] | null;
   tasks?: TaskCalendarSourceRow[] | null;
   invoices?: InvoiceCalendarSourceRow[] | null;
   proposals?: ProposalCalendarSourceRow[] | null;
   projects?: ProjectCalendarSourceRow[] | null;
+  estimates?: EstimateCalendarSourceRow[] | null;
+  subscriptions?: SubscriptionCalendarSourceRow[] | null;
+  contracts?: ContractCalendarSourceRow[] | null;
+  tickets?: TicketCalendarSourceRow[] | null;
+  payments?: PaymentCalendarSourceRow[] | null;
 };
 
 export const EVENT_TYPE_LABELS: Record<EventSourceType, string> = {
@@ -81,6 +153,11 @@ export const EVENT_TYPE_LABELS: Record<EventSourceType, string> = {
   invoice: "Factura",
   proposal: "Propuesta",
   project: "Proyecto",
+  estimate: "Cotización",
+  subscription: "Suscripción",
+  contract: "Contrato",
+  ticket: "Ticket",
+  payment: "Pago",
 };
 
 export const FORM_TYPE_LABELS: Record<FormType, string> = {
@@ -123,6 +200,11 @@ export const CALENDAR_FILTER_OPTIONS: {
   { value: "invoice", label: "Facturas", tone: "orange" },
   { value: "proposal", label: "Propuestas", tone: "emerald" },
   { value: "project", label: "Proyectos", tone: "violet" },
+  { value: "estimate", label: "Cotizaciones", tone: "sky" },
+  { value: "subscription", label: "Suscripciones", tone: "violet" },
+  { value: "contract", label: "Contratos", tone: "slate" },
+  { value: "ticket", label: "Tickets", tone: "amber" },
+  { value: "payment", label: "Pagos", tone: "orange" },
 ];
 
 export function toLocalInputValue(value?: Date | string | null) {
@@ -170,6 +252,34 @@ export function getCalendarEventTone(type?: string | null): CalendarTone {
   return "slate";
 }
 
+function toAmount(value?: number | string | null) {
+  if (value == null || value === "") return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function isClosedPaymentStatus(status?: string | null) {
+  const normalized = String(status || "").trim().toLowerCase();
+  return ["completed", "paid", "pagado", "completado", "cancelled", "canceled"].includes(
+    normalized,
+  );
+}
+
+function detailHref(source: EventSourceType, id: string) {
+  const encodedId = encodeURIComponent(id);
+  if (source === "calendar_event") return `/calendar?eventId=calendar_event-${encodedId}`;
+  if (source === "task") return `/tasks?taskId=${encodedId}`;
+  if (source === "invoice") return `/invoices?invoiceId=${encodedId}`;
+  if (source === "proposal") return `/proposals?proposalId=${encodedId}`;
+  if (source === "project") return `/projects?projectId=${encodedId}`;
+  if (source === "estimate") return `/estimates?estimateId=${encodedId}`;
+  if (source === "subscription") return `/subscriptions?subscriptionId=${encodedId}`;
+  if (source === "contract") return `/contracts?contractId=${encodedId}`;
+  if (source === "ticket") return `/tickets?ticketId=${encodedId}`;
+  if (source === "payment") return `/payments?paymentId=${encodedId}`;
+  return "/";
+}
+
 export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem[] {
   return [
     ...(input.calendarEvents || []).map((event) => ({
@@ -184,7 +294,7 @@ export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem
       description: event.description,
       location: event.location,
       eventType: event.type,
-      href: "/calendar",
+      href: detailHref("calendar_event", event.id),
       context: event.type
         ? FORM_TYPE_LABELS[event.type as FormType] || event.type
         : "Evento manual",
@@ -201,7 +311,7 @@ export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem
         allDay: true,
         status: task.status,
         description: task.description,
-        href: "/tasks",
+        href: detailHref("task", task.id),
         context: task.priority ? `Prioridad ${task.priority}` : "Tarea vinculada",
         tone: "blue" as const,
       })),
@@ -216,7 +326,8 @@ export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem
         allDay: true,
         status: invoice.status,
         amount: invoice.total == null ? null : Number(invoice.total),
-        href: "/invoices",
+        amountCurrency: invoice.currency || invoice.base_currency || null,
+        href: detailHref("invoice", invoice.id),
         context: invoice.number ? `Factura ${invoice.number}` : "Factura pendiente",
         tone: "orange" as const,
       })),
@@ -230,9 +341,25 @@ export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem
         start: proposal.valid_until as string,
         allDay: true,
         status: proposal.status,
-        href: "/proposals",
+        href: detailHref("proposal", proposal.id),
         context: proposal.number ? `Propuesta ${proposal.number}` : "Propuesta comercial",
         tone: "emerald" as const,
+      })),
+    ...(input.estimates || [])
+      .filter((estimate) => Boolean(estimate.expiry_date))
+      .map((estimate) => ({
+        id: `estimate-${estimate.id}`,
+        relatedId: estimate.id,
+        source: "estimate" as const,
+        title: `Cotización vence: ${estimate.number || estimate.title || estimate.id}`,
+        start: estimate.expiry_date as string,
+        allDay: true,
+        status: estimate.status,
+        amount: toAmount(estimate.total),
+        amountCurrency: estimate.currency || estimate.base_currency || null,
+        href: detailHref("estimate", estimate.id),
+        context: estimate.title ? `Cotización ${estimate.title}` : "Cotización comercial",
+        tone: "sky" as const,
       })),
     ...(input.projects || [])
       .filter((project) => Boolean(project.due_date))
@@ -245,9 +372,94 @@ export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem
         allDay: true,
         status: project.status,
         description: project.description,
-        href: "/projects",
+        href: detailHref("project", project.id),
         context: project.name ? `Proyecto ${project.name}` : "Proyecto activo",
         tone: "violet" as const,
+      })),
+    ...(input.subscriptions || [])
+      .filter((subscription) => Boolean(subscription.next_billing_date))
+      .map((subscription) => ({
+        id: `subscription-${subscription.id}`,
+        relatedId: subscription.id,
+        source: "subscription" as const,
+        title: `Próximo cobro: ${subscription.name || subscription.id}`,
+        start: subscription.next_billing_date as string,
+        allDay: true,
+        status: subscription.status,
+        amount: toAmount(subscription.amount),
+        amountCurrency: subscription.currency || subscription.base_currency || null,
+        href: detailHref("subscription", subscription.id),
+        context: subscription.billing_cycle
+          ? `Suscripción ${subscription.billing_cycle}`
+          : "Suscripción activa",
+        tone: "violet" as const,
+      })),
+    ...(input.contracts || [])
+      .filter((contract) => Boolean(contract.end_date))
+      .map((contract) => ({
+        id: `contract-${contract.id}`,
+        relatedId: contract.id,
+        source: "contract" as const,
+        title: `Contrato vence: ${contract.contract_number || contract.subject || contract.id}`,
+        start: contract.end_date as string,
+        allDay: true,
+        status: contract.status,
+        amount: toAmount(contract.contract_value),
+        amountCurrency: contract.currency || contract.base_currency || null,
+        href: detailHref("contract", contract.id),
+        context: contract.subject ? `Contrato ${contract.subject}` : "Contrato vinculado",
+        tone: "slate" as const,
+      })),
+    ...(input.tickets || []).flatMap((ticket) => {
+      const title = ticket.subject || `Ticket ${ticket.ticket_number || ticket.id}`;
+      const items: CalendarItem[] = [];
+      if (ticket.first_response_due_at) {
+        items.push({
+          id: `ticket-first-response-${ticket.id}`,
+          relatedId: ticket.id,
+          source: "ticket",
+          title: `Primera respuesta: ${title}`,
+          start: ticket.first_response_due_at,
+          status: ticket.status,
+          href: detailHref("ticket", ticket.id),
+          context: ticket.ticket_number
+            ? `Ticket #${ticket.ticket_number} · Primera respuesta`
+            : "Primera respuesta",
+          tone: "amber",
+        });
+      }
+      if (ticket.resolution_due_at) {
+        items.push({
+          id: `ticket-resolution-${ticket.id}`,
+          relatedId: ticket.id,
+          source: "ticket",
+          title: `Resolución: ${title}`,
+          start: ticket.resolution_due_at,
+          status: ticket.status,
+          href: detailHref("ticket", ticket.id),
+          context: ticket.ticket_number
+            ? `Ticket #${ticket.ticket_number} · Resolución`
+            : "Resolución de ticket",
+          tone: "orange",
+        });
+      }
+      return items;
+    }),
+    ...(input.payments || [])
+      .filter((payment) => Boolean(payment.payment_date) && !isClosedPaymentStatus(payment.status))
+      .map((payment) => ({
+        id: `payment-${payment.id}`,
+        relatedId: payment.id,
+        source: "payment" as const,
+        title: `Pago pendiente: ${payment.reference || payment.payment_number || payment.id}`,
+        start: payment.payment_date as string,
+        allDay: true,
+        status: payment.status,
+        amount: toAmount(payment.amount),
+        amountCurrency: payment.currency || payment.base_currency || null,
+        href: detailHref("payment", payment.id),
+        context: payment.payment_number ? `Pago ${payment.payment_number}` : "Pago pendiente",
+        tone: "orange" as const,
       })),
   ];
 }

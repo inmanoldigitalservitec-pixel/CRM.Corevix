@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock3, FileSignature, ReceiptText, TrendingUp } from "lucide-react";
+import { Clock3, FileSignature, TrendingUp } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   displayStatus,
@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export function ProjectSalesSummaryView({ summary }: { summary: ProjectSalesSummary }) {
-  const currency = summary.contextualCurrency;
+  const currency = summary.baseCurrency;
   const collectionPct = summary.invoicedTotal
     ? Math.min(100, Math.round((summary.collectedTotal / summary.invoicedTotal) * 100))
     : 0;
@@ -53,12 +53,6 @@ export function ProjectSalesSummaryView({ summary }: { summary: ProjectSalesSumm
             strong
           />
         </div>
-        {summary.hasMultipleCurrencies ? (
-          <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-800">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            Hay documentos en más de una moneda; los totales no incluyen conversión.
-          </div>
-        ) : null}
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">

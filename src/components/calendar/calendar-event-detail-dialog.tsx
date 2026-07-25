@@ -25,6 +25,7 @@ import {
   formatTime,
   type CalendarItem,
 } from "@/lib/crm/calendar-items";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 export function CalendarEventDetailDialog({
   event,
@@ -142,7 +143,7 @@ export function CalendarEventDetailDialog({
                         <DetailRow
                           icon={<DollarSign className="h-4 w-4" />}
                           label="Monto"
-                          value={`$${Number(event.amount).toLocaleString()}`}
+                          value={formatCurrencyAmount(event.amount, event.amountCurrency)}
                         />
                       ) : null}
                     </div>

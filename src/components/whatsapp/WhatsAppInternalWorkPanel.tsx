@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 type Mode = "task" | "note";
@@ -140,16 +141,12 @@ export function WhatsAppInternalWorkPanel() {
       event.stopPropagation();
       event.stopImmediatePropagation();
       if (task) {
-        window.dispatchEvent(
-          new CustomEvent("corevix:open-task-create", {
-            detail: {
-              initialValues: {
-                title: "Seguimiento WhatsApp",
-                description: "Tarea creada desde WhatsApp Web.",
-              },
-            },
-          }),
-        );
+        openGlobalTaskCreate({
+          initialValues: {
+            title: "Seguimiento WhatsApp",
+            description: "Tarea creada desde WhatsApp Web.",
+          },
+        });
       } else {
         openPanel("note", conversationIdFromTaskButton());
       }

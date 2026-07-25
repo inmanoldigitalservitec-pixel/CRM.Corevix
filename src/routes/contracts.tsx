@@ -31,9 +31,11 @@ import {
   type ContractEditorRow,
 } from "@/components/contracts/contract-editor-dialog";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { convertToBaseCurrency, formatCurrencyAmount, normalizeCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/contracts")({
   component: ContractsPage,
@@ -92,6 +94,12 @@ type ContractRow = {
   status: string;
   contract_type: string;
   contract_value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  contract_value_base?: number | null;
   start_date: string | null;
   end_date: string | null;
   client_id: string | null;
@@ -130,8 +138,30 @@ function formatDate(value: string | null | undefined) {
   }
 }
 
-function formatMoney(value: number | null | undefined) {
-  return `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(value: number | null | undefined, currency?: string | null) {
+  return formatCurrencyAmount(value, currency || "USD");
+}
+
+function getContractCurrency(contract: ContractRow, fallback: string) {
+  return normalizeCurrency(contract.currency || contract.base_currency || fallback);
+}
+
+function getContractBaseValue(
+  contract: ContractRow,
+  settings: ReturnType<typeof useCompanyCurrencySettings>["settings"],
+) {
+  const storedBase = Number(contract.contract_value_base);
+  if (Number.isFinite(storedBase) && contract.contract_value_base != null) {
+    const storedBaseCurrency = normalizeCurrency(contract.base_currency || settings.baseCurrency);
+    return storedBaseCurrency === settings.baseCurrency
+      ? storedBase
+      : convertToBaseCurrency(storedBase, storedBaseCurrency, settings);
+  }
+  return convertToBaseCurrency(
+    Number(contract.contract_value || 0),
+    getContractCurrency(contract, settings.baseCurrency),
+    settings,
+  );
 }
 
 function isExpired(contract: ContractRow) {
@@ -179,6 +209,7 @@ function ContractKpi({
 
 function ContractsPage() {
   const { profile } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const { can } = usePermissions();
   const db = supabase as any;
 
@@ -288,18 +319,18 @@ function ContractsPage() {
           contract.status !== "Cancelled",
       ).length,
       totalValue: contracts.reduce(
-        (sum, contract) => sum + Number(contract.contract_value || 0),
+        (sum, contract) => sum + getContractBaseValue(contract, currencySettings),
         0,
       ),
       invoiced: contracts.filter((contract) => !!contract.invoice_id).length,
     };
-  }, [contracts]);
+  }, [contracts, currencySettings]);
 
   const valueByClient = useMemo(() => {
     return Array.from(
       contracts.reduce((map, contract) => {
         const key = contract.client_id || "No client";
-        map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
+        map.set(key, (map.get(key) || 0) + getContractBaseValue(contract, currencySettings));
         return map;
       }, new Map<string, number>()),
     )
@@ -309,13 +340,13 @@ function ContractsPage() {
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [contracts, clientById]);
+  }, [contracts, clientById, currencySettings]);
 
   const valueByProject = useMemo(() => {
     return Array.from(
       contracts.reduce((map, contract) => {
         const key = contract.project_id || "No project";
-        map.set(key, (map.get(key) || 0) + Number(contract.contract_value || 0));
+        map.set(key, (map.get(key) || 0) + getContractBaseValue(contract, currencySettings));
         return map;
       }, new Map<string, number>()),
     )
@@ -325,7 +356,7 @@ function ContractsPage() {
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [contracts, projectById]);
+  }, [contracts, projectById, currencySettings]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -383,7 +414,7 @@ function ContractsPage() {
           {
             key: "contracted-value",
             label: "Valor contratado",
-            value: formatMoney(kpis.totalValue),
+            value: formatMoney(kpis.totalValue, currencySettings.baseCurrency),
             helper: `${filtered.length} visibles de ${contracts.length} contratos`,
             icon: FileText,
             tone: "purple",
@@ -455,14 +486,22 @@ function ContractsPage() {
                 Valor contratado total
               </div>
               <div className="mt-2 text-2xl font-normal text-slate-950">
-                {formatMoney(kpis.totalValue)}
+                {formatMoney(kpis.totalValue, currencySettings.baseCurrency)}
               </div>
               <p className="mt-1 text-sm font-normal text-slate-500">
                 Valor total de contratos registrados.
               </p>
             </div>
-            <ReportList title="Clientes con mayor valor contratado" items={valueByClient} />
-            <ReportList title="Proyectos con mayor valor contratado" items={valueByProject} />
+            <ReportList
+              title="Clientes con mayor valor contratado"
+              items={valueByClient}
+              baseCurrency={currencySettings.baseCurrency}
+            />
+            <ReportList
+              title="Proyectos con mayor valor contratado"
+              items={valueByProject}
+              baseCurrency={currencySettings.baseCurrency}
+            />
           </div>
         </div>
       </section>
@@ -581,7 +620,10 @@ function ContractsPage() {
 
                     <div className="mt-3 flex min-w-0 items-center gap-3 border-t border-slate-100 pt-2.5 text-xs font-normal text-slate-500">
                       <span className="min-w-0 flex-1 truncate font-normal text-slate-950">
-                        {formatMoney(contract.contract_value)}
+                        {formatMoney(
+                          contract.contract_value,
+                          getContractCurrency(contract, currencySettings.baseCurrency),
+                        )}
                       </span>
                       <span
                         className={
@@ -689,7 +731,10 @@ function ContractsPage() {
                           <div className="max-w-[220px] truncate">{project?.name || "—"}</div>
                         </TableCell>
                         <TableCell className="font-normal">
-                          {formatMoney(contract.contract_value)}
+                          {formatMoney(
+                            contract.contract_value,
+                            getContractCurrency(contract, currencySettings.baseCurrency),
+                          )}
                         </TableCell>
                         <TableCell
                           className={isExpired(contract) ? "font-normal text-rose-700" : undefined}
@@ -765,9 +810,11 @@ function ContractsPage() {
 function ReportList({
   title,
   items,
+  baseCurrency,
 }: {
   title: string;
   items: { label: string; value: number }[];
+  baseCurrency: string;
 }) {
   return (
     <div className="border-b border-slate-100 pb-4">
@@ -777,7 +824,9 @@ function ReportList({
           items.map((item) => (
             <div key={item.label} className="flex items-center justify-between gap-3 py-2 text-sm">
               <span className="truncate font-normal text-slate-700">{item.label}</span>
-              <span className="font-normal text-slate-950">{formatMoney(item.value)}</span>
+              <span className="font-normal text-slate-950">
+                {formatMoney(item.value, baseCurrency)}
+              </span>
             </div>
           ))
         ) : (

@@ -24,6 +24,12 @@ import {
 import { icons as lucideIconMap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import {
+  formatTaxOptionLabel,
+  normalizeTaxRate,
+  useCompanyTaxes,
+} from "@/hooks/use-company-taxes";
 import { useCrud } from "@/hooks/use-crud";
 import { PageHeader } from "@/components/crm/page-header";
 import { DataCard } from "@/components/crm/data-card";
@@ -54,6 +60,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useT } from "@/i18n";
+import {
+  CURRENCY_OPTIONS,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrencyAmount,
+  normalizeCurrencyInput,
+} from "@/lib/currency";
 
 export const Route = createFileRoute("/products")({
   component: ProductsPage,
@@ -79,6 +94,9 @@ type Product = {
   image_url?: string | null;
   icon_name?: string | null;
   keywords?: string[] | string | null;
+  default_tax_id?: string | null;
+  default_tax_name?: string | null;
+  default_tax_rate?: number | string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -125,6 +143,9 @@ const BILLING_TYPES: Array<{ label: string; value: BillingType }> = [
   { label: "Personalizado", value: "custom" },
 ];
 
+const PRODUCT_CURRENCIES = CURRENCY_OPTIONS;
+const NO_TAX_VALUE = "__no_tax__";
+
 const ALL_LUCIDE_ICONS = Object.keys(lucideIconMap)
   .filter((name) => /^[A-Z]/.test(name))
   .sort((a, b) => a.localeCompare(b));
@@ -153,8 +174,11 @@ function ProductVisualIcon({
 }
 
 function formatMoney(value: number, currency: string) {
-  const n = Number.isFinite(value) ? value : 0;
-  return `${currency} ${n.toLocaleString()}`;
+  return formatCurrencyAmount(Number.isFinite(value) ? value : 0, currency);
+}
+
+function normalizeProductPrice(value: unknown, currency: string) {
+  return normalizeCurrencyAmount(Number(value || 0), currency);
 }
 
 function productTypeLabel(value: string | null | undefined, t: (key: string) => string) {
@@ -253,6 +277,8 @@ function ProductKpi({
 
 function ProductsPage() {
   const { profile, roles } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
+  const { taxes: salesTaxes, taxById: salesTaxById, defaultTax } = useCompanyTaxes("sales");
   const { t } = useT();
   const isAdminLike = roles?.some((r) => ["super_admin", "admin", "manager"].includes(r)) ?? false;
 
@@ -269,6 +295,7 @@ function ProductsPage() {
   const [selected, setSelected] = useState<Product | null>(null);
   const [productAdvancedOpen, setProductAdvancedOpen] = useState(false);
   const [productDraftType, setProductDraftType] = useState<ProductType>("service");
+  const [productDraftCurrency, setProductDraftCurrency] = useState("DOP");
   const [productDraftIcon, setProductDraftIcon] = useState("BriefcaseBusiness");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState("");
@@ -343,7 +370,19 @@ function ProductsPage() {
     const packages = data.filter((p) => String(p.type || "") === "package").length;
     const subscriptions = data.filter((p) => String(p.type || "") === "subscription").length;
     const avgPrice =
-      total > 0 ? Math.round(data.reduce((s, p) => s + Number(p.base_price || 0), 0) / total) : 0;
+      total > 0
+        ? data.reduce(
+            (sum, product) =>
+              sum +
+              convertToBaseCurrency(product.base_price || 0, product.currency || "USD", {
+                baseCurrency: currencySettings.baseCurrency,
+                usdToDopRate: currencySettings.usdToDopRate,
+                rateSource: currencySettings.rateSource,
+                rateUpdatedAt: currencySettings.rateUpdatedAt,
+              }),
+            0,
+          ) / total
+        : 0;
     return {
       total,
       active,
@@ -354,7 +393,7 @@ function ProductsPage() {
       subscriptions,
       avgPrice,
     };
-  }, [data]);
+  }, [currencySettings, data]);
 
   const filteredIconNames = useMemo(() => {
     const q = iconSearch.trim().toLowerCase();
@@ -435,8 +474,12 @@ function ProductsPage() {
     }
 
     const fd = new FormData(e.currentTarget);
-    const basePrice = Number(fd.get("base_price"));
+    const currency = (String(fd.get("currency") || "DOP") || "DOP").toUpperCase();
+    const basePrice = normalizeProductPrice(fd.get("base_price"), currency);
     const durationDays = fd.get("duration_days") ? Number(fd.get("duration_days")) : null;
+    const selectedTaxId = String(fd.get("default_tax_id") || NO_TAX_VALUE);
+    const selectedTax =
+      selectedTaxId === NO_TAX_VALUE ? null : salesTaxById.get(selectedTaxId) || null;
 
     const selectedType = (String(fd.get("type") || "service") || "service") as ProductType;
     const selectedBilling =
@@ -464,10 +507,13 @@ function ProductsPage() {
       type: selectedType,
       description: (String(fd.get("description") || "").trim() || null) as string | null,
       base_price: Number.isFinite(basePrice) ? basePrice : 0,
-      currency: (String(fd.get("currency") || "DOP") || "DOP").toUpperCase(),
+      currency,
       billing_type: selectedBilling,
       duration_days: durationDays && Number.isFinite(durationDays) ? durationDays : null,
       deliverables: (String(fd.get("deliverables") || "").trim() || null) as string | null,
+      default_tax_id: selectedTax?.id || null,
+      default_tax_name: selectedTax?.name || null,
+      default_tax_rate: selectedTax ? normalizeTaxRate(selectedTax.rate) : 0,
       image_url: selectedType === "product" ? uploadedImageUrl : null,
       icon_name:
         selectedType === "product"
@@ -822,6 +868,7 @@ function ProductsPage() {
   const openCreateProduct = () => {
     setEditItem(null);
     setProductDraftType("service");
+    setProductDraftCurrency("DOP");
     setProductDraftIcon("BriefcaseBusiness");
     setProductAdvancedOpen(false);
     resetProductDraftVisuals();
@@ -907,7 +954,7 @@ function ProductsPage() {
         />
         <ProductKpi
           label={t("products.stats.avgPrice")}
-          value={`USD ${stats.avgPrice.toLocaleString()}`}
+          value={formatMoney(stats.avgPrice, currencySettings.baseCurrency)}
           tone="neutral"
         />
       </div>
@@ -1440,9 +1487,18 @@ function ProductsPage() {
                       className={crmFormStyles.input}
                       type="number"
                       min="0"
-                      step="0.01"
+                      step={getCurrencyStep(productDraftCurrency)}
+                      inputMode={getCurrencyInputMode(productDraftCurrency)}
                       defaultValue={String(editItem?.base_price ?? "")}
-                      placeholder="0.00"
+                      placeholder={productDraftCurrency === "USD" ? "0.00" : "0"}
+                      onBlur={(event) => {
+                        const normalized = normalizeProductPrice(
+                          event.currentTarget.value,
+                          productDraftCurrency,
+                        );
+                        event.currentTarget.value =
+                          normalizeCurrencyInput(String(normalized), productDraftCurrency) || "0";
+                      }}
                     />
                   </div>
 
@@ -1469,17 +1525,56 @@ function ProductsPage() {
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                    <Label className={crmFormStyles.label}>{t("products.currency")}</Label>
-                    <Input
-                      name="currency"
-                      className={crmFormStyles.input}
-                      defaultValue={editItem?.currency || "DOP"}
-                    />
-                  </div>
-                </div>
+	                  <div className="space-y-1.5">
+	                    <Label className={crmFormStyles.label}>{t("products.currency")}</Label>
+	                    <input type="hidden" name="currency" value={productDraftCurrency} />
+	                    <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1">
+                      {PRODUCT_CURRENCIES.map((currency) => {
+                        const active = productDraftCurrency === currency.value;
+                        return (
+                          <button
+                            key={currency.value}
+                            type="button"
+                            className={`min-h-11 rounded-lg px-3 text-left transition ${
+                              active
+                                ? "bg-white text-slate-950 shadow-sm ring-1 ring-slate-200"
+                                : "text-slate-500 hover:bg-white/70 hover:text-slate-900"
+                            }`}
+                            onClick={() => setProductDraftCurrency(currency.value)}
+                            aria-pressed={active}
+                          >
+                            <span className="block text-sm font-semibold">{currency.symbol}</span>
+                            <span className="block truncate text-[11px] font-normal">
+                              {currency.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+	                    </div>
+	                  </div>
+	                </div>
 
-                {productDraftType === "service" ? (
+	                <div className="space-y-1.5">
+	                  <Label className={crmFormStyles.label}>Impuesto predeterminado</Label>
+	                  <Select
+	                    name="default_tax_id"
+	                    defaultValue={editItem?.default_tax_id || defaultTax?.id || NO_TAX_VALUE}
+	                  >
+	                    <SelectTrigger className={crmFormStyles.select}>
+	                      <SelectValue placeholder="Sin impuesto" />
+	                    </SelectTrigger>
+	                    <SelectContent>
+	                      <SelectItem value={NO_TAX_VALUE}>Sin impuesto</SelectItem>
+	                      {salesTaxes.map((tax) => (
+	                        <SelectItem key={tax.id} value={tax.id}>
+	                          {formatTaxOptionLabel(tax)}
+	                        </SelectItem>
+	                      ))}
+	                    </SelectContent>
+	                  </Select>
+	                </div>
+
+	                {productDraftType === "service" ? (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className={crmFormStyles.label}>
@@ -1890,6 +1985,11 @@ function ProductsPage() {
                           onClick={() => {
                             setEditItem(selected);
                             setProductDraftType(selected.type || "service");
+                            setProductDraftCurrency(
+                              PRODUCT_CURRENCIES.some((c) => c.value === selected.currency)
+                                ? selected.currency
+                                : "DOP",
+                            );
                             setProductDraftIcon(
                               selected.icon_name || defaultIconForType(selected.type),
                             );

@@ -27,6 +27,7 @@ export function InvoiceActionsMenu({
   canViewProject,
   canViewClient,
   canViewProposal,
+  viewProposalDisabled = false,
   canDeleteDraft,
   onView,
   onOpenPublic,
@@ -47,6 +48,7 @@ export function InvoiceActionsMenu({
   canViewProject: boolean;
   canViewClient: boolean;
   canViewProposal: boolean;
+  viewProposalDisabled?: boolean;
   canDeleteDraft: boolean;
   onView: () => void;
   onOpenPublic: () => void;
@@ -135,7 +137,7 @@ export function InvoiceActionsMenu({
               </DropdownMenuItem>
             ) : null}
             {canViewProposal ? (
-              <DropdownMenuItem onSelect={onViewProposal}>
+              <DropdownMenuItem onSelect={onViewProposal} disabled={viewProposalDisabled}>
                 <FileText className="h-4 w-4" />
                 Ver propuesta
               </DropdownMenuItem>

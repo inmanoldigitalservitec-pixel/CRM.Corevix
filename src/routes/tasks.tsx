@@ -157,6 +157,7 @@ type DriveFileRow = {
   linked_type: "project" | "task" | "client" | "proposal" | "invoice";
   linked_id: string;
   created_by: string | null;
+  file_purpose?: "resource" | "deliverable" | null;
   created_at: string;
 };
 
@@ -426,10 +427,15 @@ function TasksPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [isUploadingResourceFile, setIsUploadingResourceFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [resourceUploadProgress, setResourceUploadProgress] = useState(0);
   const [uploadingFileName, setUploadingFileName] = useState("");
+  const [uploadingResourceFileName, setUploadingResourceFileName] = useState("");
   const [driveUrlInput, setDriveUrlInput] = useState("");
+  const [resourceDriveUrlInput, setResourceDriveUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const resourceFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     data: tasks,
@@ -496,7 +502,7 @@ function TasksPage() {
   } = useCrud<DriveFileRow>({
     table: "drive_files",
     select:
-      "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,created_at",
+      "id,company_id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,linked_type,linked_id,created_by,file_purpose,created_at",
     orderBy: "created_at",
     ascending: false,
     limit: 200,
@@ -817,6 +823,13 @@ function TasksPage() {
     }
     const fd = new FormData(e.currentTarget);
     const description = (fd.get("description") as string) || "";
+    const relatedProjectId =
+      (fd.get("related_project_id") as string) === "no-project"
+        ? null
+        : (fd.get("related_project_id") as string) || null;
+    const relatedProject = relatedProjectId
+      ? projects.find((project) => project.id === relatedProjectId) || null
+      : null;
     const data = {
       title: fd.get("title") as string,
       description: description || null,
@@ -826,10 +839,8 @@ function TasksPage() {
       status: (fd.get("status") as string) || "To Do",
       priority: (fd.get("priority") as string) || "Medium",
       due_date: (fd.get("due_date") as string) || null,
-      related_project_id:
-        (fd.get("related_project_id") as string) === "no-project"
-          ? null
-          : (fd.get("related_project_id") as string) || null,
+      related_project_id: relatedProjectId,
+      related_client_id: relatedProject?.client_id || editTask?.related_client_id || null,
     };
     try {
       if (editTask) {
@@ -869,19 +880,30 @@ function TasksPage() {
     fileInputRef.current?.click();
   };
 
-  const handleFilePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.currentTarget.value = "";
-    if (!file) return;
+  const handleUploadResourceClick = () => {
     if (!selectedTask?.id || !profile?.company_id) {
       toast.error("No se pudo identificar la tarea o compañía.");
       return;
     }
+    resourceFileInputRef.current?.click();
+  };
 
+  const uploadSelectedTaskFile = async (file: File, filePurpose: "resource" | "deliverable") => {
+    if (!selectedTask?.id) {
+      toast.error("Selecciona una tarea primero.");
+      return;
+    }
     try {
-      setIsUploadingFile(true);
-      setUploadProgress(0);
-      setUploadingFileName(file.name);
+      const isResource = filePurpose === "resource";
+      if (isResource) {
+        setIsUploadingResourceFile(true);
+        setResourceUploadProgress(0);
+        setUploadingResourceFileName(file.name);
+      } else {
+        setIsUploadingFile(true);
+        setUploadProgress(0);
+        setUploadingFileName(file.name);
+      }
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) {
@@ -890,30 +912,60 @@ function TasksPage() {
       }
       const body = new FormData();
       body.append("task_id", selectedTask.id);
+      body.append("file_purpose", filePurpose);
       body.append("file", file);
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
       const result = await uploadFileWithProgress({
         url: `${supabaseUrl}/functions/v1/drive-upload-file`,
         token: accessToken,
         formData: body,
-        onProgress: setUploadProgress,
+        onProgress: isResource ? setResourceUploadProgress : setUploadProgress,
       });
       if (result?.error) {
         const detail = result?.detail ? ` Detalle: ${String(result.detail)}` : "";
         throw new Error(`${String(result.error)}${detail}`);
       }
-      setUploadProgress(100);
+      if (isResource) setResourceUploadProgress(100);
+      else setUploadProgress(100);
       await fetchDriveFiles();
-      toast.success("Archivo subido a Google Drive.");
+      toast.success(isResource ? "Recurso subido." : "Entregable subido.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo subir el archivo a Google Drive");
     } finally {
       setTimeout(() => {
-        setIsUploadingFile(false);
-        setUploadProgress(0);
-        setUploadingFileName("");
+        if (filePurpose === "resource") {
+          setIsUploadingResourceFile(false);
+          setResourceUploadProgress(0);
+          setUploadingResourceFileName("");
+        } else {
+          setIsUploadingFile(false);
+          setUploadProgress(0);
+          setUploadingFileName("");
+        }
       }, 350);
     }
+  };
+
+  const handleFilePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (!selectedTask?.id || !profile?.company_id) {
+      toast.error("No se pudo identificar la tarea o compañía.");
+      return;
+    }
+    await uploadSelectedTaskFile(file, "deliverable");
+  };
+
+  const handleResourceFilePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (!selectedTask?.id || !profile?.company_id) {
+      toast.error("No se pudo identificar la tarea o compañía.");
+      return;
+    }
+    await uploadSelectedTaskFile(file, "resource");
   };
 
   const copyFileLink = async (file: DriveFileRow) => {
@@ -927,10 +979,10 @@ function TasksPage() {
     }
   };
 
-  const attachDriveUrl = async () => {
+  const attachDriveUrl = async (filePurpose: "resource" | "deliverable" = "deliverable") => {
     if (!selectedTask?.id || !selectedTask.company_id)
       return toast.error("Selecciona una tarea primero.");
-    const rawUrl = driveUrlInput.trim();
+    const rawUrl = filePurpose === "resource" ? resourceDriveUrlInput.trim() : driveUrlInput.trim();
     if (!rawUrl) return toast.error("Pega una URL de Google Drive.");
     const parsed = extractGoogleDriveId(rawUrl);
     if (!parsed) return toast.error("La URL de Google Drive no es válida.");
@@ -950,11 +1002,13 @@ function TasksPage() {
       linked_type: "task",
       linked_id: selectedTask.id,
       created_by: authUserId,
+      file_purpose: filePurpose,
     });
     if (error) return toast.error(error.message || "No se pudo adjuntar el enlace de Drive.");
-    setDriveUrlInput("");
+    if (filePurpose === "resource") setResourceDriveUrlInput("");
+    else setDriveUrlInput("");
     await fetchDriveFiles();
-    toast.success("Enlace de Drive adjuntado.");
+    toast.success(filePurpose === "resource" ? "Recurso adjuntado." : "Entregable adjuntado.");
   };
 
   const deleteDriveFile = async (file: DriveFileRow) => {
@@ -1561,11 +1615,16 @@ function TasksPage() {
         driveFiles={driveFiles}
         driveFilesLoading={driveFilesLoading}
         driveUrlInput={driveUrlInput}
+        resourceDriveUrlInput={resourceDriveUrlInput}
         isUploadingFile={isUploadingFile}
+        isUploadingResourceFile={isUploadingResourceFile}
         uploadProgress={uploadProgress}
+        resourceUploadProgress={resourceUploadProgress}
         uploadingFileName={uploadingFileName}
+        uploadingResourceFileName={uploadingResourceFileName}
         canEdit={can("tasks.edit")}
         fileInputRef={fileInputRef}
+        resourceFileInputRef={resourceFileInputRef}
         onUpdateTask={async (taskId, patch) => {
           await update(taskId, patch as Partial<Task>);
           await fetchTaskAssignees();
@@ -1575,11 +1634,23 @@ function TasksPage() {
         onComplete={() => updateSelectedTaskStatus("Completed")}
         onSetInProgress={() => updateSelectedTaskStatus("In Progress")}
         onDriveUrlChange={setDriveUrlInput}
+        onResourceDriveUrlChange={setResourceDriveUrlInput}
         onAttachDriveUrl={async () => {
-          await attachDriveUrl();
+          await attachDriveUrl("deliverable");
+        }}
+        onAttachResourceDriveUrl={async () => {
+          await attachDriveUrl("resource");
         }}
         onUploadClick={handleUploadClick}
+        onUploadResourceClick={handleUploadResourceClick}
         onFilePicked={handleFilePicked}
+        onResourceFilePicked={handleResourceFilePicked}
+        onFileDropped={async (file) => {
+          await uploadSelectedTaskFile(file, "deliverable");
+        }}
+        onResourceFileDropped={async (file) => {
+          await uploadSelectedTaskFile(file, "resource");
+        }}
         onCopyFileLink={async (file) => {
           await copyFileLink(file as DriveFileRow);
         }}

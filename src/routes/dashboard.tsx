@@ -43,7 +43,14 @@ import {
   reconcileAttentionMemoryRemote,
 } from "@/lib/crm/attention-memory";
 import { syncAttentionNotifications } from "@/lib/crm/attention-notifications";
-import { buildCalendarItems, type CalendarItem, type CalendarTone } from "@/lib/crm/calendar-items";
+import {
+  buildCalendarItems,
+  type CalendarItem,
+  type CalendarTone,
+  type ContractCalendarSourceRow,
+  type PaymentCalendarSourceRow,
+  type SubscriptionCalendarSourceRow,
+} from "@/lib/crm/calendar-items";
 import {
   formatInvoiceDate,
   formatInvoiceDueDate,
@@ -71,6 +78,14 @@ import {
   isSentOrViewedProposalStatus,
 } from "@/lib/crm/status";
 import { ATTENTION_PRIORITY_ORDER } from "@/lib/crm/attention-rules";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import {
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  normalizeCurrency,
+  type CompanyCurrencySettings,
+} from "@/lib/currency";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -121,6 +136,10 @@ type DealRow = {
   name?: string | null;
   stage: string;
   value: number | string | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | string | null;
+  value_base?: number | string | null;
   expected_close?: string | null;
   updated_at?: string;
 };
@@ -193,6 +212,8 @@ type InvoiceRow = {
   created_by?: string | null;
   invoice_data?: Record<string, unknown> | null;
   currency?: string | null;
+  base_currency?: string | null;
+  total_base?: number | string | null;
 };
 
 type ProposalRow = {
@@ -204,6 +225,8 @@ type ProposalRow = {
   number?: string | null;
   amount?: number | string | null;
   currency?: string | null;
+  base_currency?: string | null;
+  amount_base?: number | string | null;
   client_id?: string | null;
   product_id?: string | null;
   lead_id?: string | null;
@@ -235,6 +258,9 @@ type EstimateRow = {
   subtotal?: number | string | null;
   tax?: number | string | null;
   total?: number | string | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  total_base?: number | string | null;
   date_issued?: string | null;
   expiry_date?: string | null;
   notes?: string | null;
@@ -395,8 +421,67 @@ type CalendarEventRow = {
   created_at?: string | null;
 };
 
-function formatMoney(value: number) {
-  return `$${value.toLocaleString()}`;
+function formatMoney(value: number | string | null | undefined, currency?: string | null) {
+  return formatCurrencyAmount(value, currency || "USD");
+}
+
+function baseAmount(
+  value: number | string | null | undefined,
+  currency: string | null | undefined,
+  settings: CompanyCurrencySettings,
+) {
+  return convertToBaseCurrency(value, currency, settings);
+}
+
+function invoiceCurrency(invoice: InvoiceRow) {
+  return normalizeCurrency(invoice.currency || String(invoice.invoice_data?.currency || ""));
+}
+
+function invoiceBaseAmount(invoice: InvoiceRow, settings: CompanyCurrencySettings) {
+  if (invoice.total_base != null) {
+    return convertCurrencyAmount(
+      invoice.total_base,
+      invoice.base_currency || settings.baseCurrency,
+      settings.baseCurrency,
+      settings.usdToDopRate,
+    );
+  }
+  return Number(baseAmount(invoice.total, invoiceCurrency(invoice), settings));
+}
+
+function proposalBaseAmount(proposal: ProposalRow, settings: CompanyCurrencySettings) {
+  if (proposal.amount_base != null) {
+    return convertCurrencyAmount(
+      proposal.amount_base,
+      proposal.base_currency || settings.baseCurrency,
+      settings.baseCurrency,
+      settings.usdToDopRate,
+    );
+  }
+  return Number(baseAmount(proposal.amount, proposal.currency || "USD", settings));
+}
+
+function dealBaseAmount(deal: DealRow, settings: CompanyCurrencySettings) {
+  if (deal.value_base != null) {
+    return convertCurrencyAmount(
+      deal.value_base,
+      deal.base_currency || settings.baseCurrency,
+      settings.baseCurrency,
+      settings.usdToDopRate,
+    );
+  }
+  return Number(
+    convertToBaseCurrency(deal.value, deal.currency || settings.baseCurrency, {
+      baseCurrency: settings.baseCurrency,
+      usdToDopRate: Number(deal.exchange_rate || settings.usdToDopRate),
+      rateSource: settings.rateSource,
+      rateUpdatedAt: settings.rateUpdatedAt,
+    }),
+  );
+}
+
+function convertedLabel(settings: CompanyCurrencySettings) {
+  return `Convertido a ${settings.baseCurrency}`;
 }
 
 function urgencyLabel(u: Urgency) {
@@ -1263,7 +1348,9 @@ function DashboardProposalDetailDialog({
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Monto</div>
-              <div className="font-medium">{formatMoney(toNumber(proposal.amount))}</div>
+              <div className="font-medium">
+                {formatMoney(toNumber(proposal.amount), proposal.currency)}
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Válida hasta</div>
@@ -1406,15 +1493,21 @@ function DashboardEstimateDetailDialog({
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Total</div>
-              <div className="font-medium">{formatMoney(toNumber(estimate.total))}</div>
+              <div className="font-medium">
+                {formatMoney(toNumber(estimate.total), estimate.currency)}
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Subtotal</div>
-              <div className="font-medium">{formatMoney(toNumber(estimate.subtotal))}</div>
+              <div className="font-medium">
+                {formatMoney(toNumber(estimate.subtotal), estimate.currency)}
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Impuesto</div>
-              <div className="font-medium">{formatMoney(toNumber(estimate.tax))}</div>
+              <div className="font-medium">
+                {formatMoney(toNumber(estimate.tax), estimate.currency)}
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Emitida</div>
@@ -1458,6 +1551,7 @@ function DashboardEstimateDetailDialog({
 function DashboardPage() {
   const { profile, user } = useAuth();
   const { t } = useT();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const [error, setError] = useState<string | null>(null);
   const [attentionMemoryReady, setAttentionMemoryReady] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
@@ -1515,6 +1609,11 @@ function DashboardPage() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [estimates, setEstimates] = useState<EstimateRow[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [calendarSubscriptions, setCalendarSubscriptions] = useState<
+    SubscriptionCalendarSourceRow[]
+  >([]);
+  const [calendarContracts, setCalendarContracts] = useState<ContractCalendarSourceRow[]>([]);
+  const [calendarPayments, setCalendarPayments] = useState<PaymentCalendarSourceRow[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEventRow[]>([]);
   const [waConversations, setWaConversations] = useState<WhatsAppConversationRow[]>([]);
   const [emailConversations, setEmailConversations] = useState<EmailConversationRow[]>([]);
@@ -1579,7 +1678,9 @@ function DashboardPage() {
       const loadDeals = async () =>
         db
           .from("deals")
-          .select("id,name,stage,value,expected_close,updated_at")
+          .select(
+            "id,name,stage,value,currency,base_currency,exchange_rate,value_base,expected_close,updated_at",
+          )
           .eq("company_id", cid)
           .order("updated_at", { ascending: false })
           .limit(120);
@@ -1651,6 +1752,27 @@ function DashboardPage() {
         loadProposals(),
         loadEstimates(),
         loadTickets(),
+        db
+          .from("subscriptions")
+          .select("id,name,next_billing_date,status,amount,currency,base_currency,billing_cycle")
+          .eq("company_id", cid)
+          .not("next_billing_date", "is", null)
+          .order("next_billing_date", { ascending: true })
+          .limit(120),
+        db
+          .from("contracts")
+          .select("id,contract_number,subject,end_date,status,contract_value,currency,base_currency")
+          .eq("company_id", cid)
+          .not("end_date", "is", null)
+          .order("end_date", { ascending: true })
+          .limit(120),
+        db
+          .from("payments")
+          .select("id,payment_number,reference,payment_date,status,amount,currency,base_currency")
+          .eq("company_id", cid)
+          .not("payment_date", "is", null)
+          .order("payment_date", { ascending: true })
+          .limit(120),
         db
           .from("whatsapp_conversations")
           .select(
@@ -1738,16 +1860,19 @@ function DashboardPage() {
       setTickets(
         getData<Partial<TicketRow>>(9).map((ticket) => normalizeDashboardTicket(ticket, cid)),
       );
-      setWaConversations(getData<WhatsAppConversationRow>(10));
-      setEmailConversations(getData<EmailConversationRow>(11));
-      setMetaConversations(getData<MetaConversationRow>(12));
-      setCalendarEvents(getData<CalendarEventRow>(14));
-      setClientProducts(getData<ClientProductRow>(15));
-      setProductSummaries(getData<ProductSummaryRow>(16));
-      setProfileSummaries(getData<ProfileSummaryRow>(17));
-      setTaskAssignees(getData<TaskAssigneeRow>(18));
+      setCalendarSubscriptions(getData<SubscriptionCalendarSourceRow>(10));
+      setCalendarContracts(getData<ContractCalendarSourceRow>(11));
+      setCalendarPayments(getData<PaymentCalendarSourceRow>(12));
+      setWaConversations(getData<WhatsAppConversationRow>(13));
+      setEmailConversations(getData<EmailConversationRow>(14));
+      setMetaConversations(getData<MetaConversationRow>(15));
+      setCalendarEvents(getData<CalendarEventRow>(17));
+      setClientProducts(getData<ClientProductRow>(18));
+      setProductSummaries(getData<ProductSummaryRow>(19));
+      setProfileSummaries(getData<ProfileSummaryRow>(20));
+      setTaskAssignees(getData<TaskAssigneeRow>(21));
 
-      const actRows = getData<ActivityLogRow>(13);
+      const actRows = getData<ActivityLogRow>(16);
       setActivities(
         actRows.map((a) => ({
           id: a.id,
@@ -1964,7 +2089,10 @@ function DashboardPage() {
   const projectById = new Map(projects.map((project) => [String(project.id), project]));
 
   const openDeals = deals.filter((d) => !isClosedDealStage(d.stage));
-  const pipelineValue = openDeals.reduce((s, d) => s + toNumber(d.value), 0);
+  const pipelineValue = openDeals.reduce((s, d) => s + dealBaseAmount(d, currencySettings), 0);
+  const moneyBase = (value: number | string | null | undefined) =>
+    formatMoney(value, currencySettings.baseCurrency);
+  const moneyConvertedHint = convertedLabel(currencySettings);
 
   const overdueTasks = tasks.filter((t) => {
     if (isCompletedTaskStatus(t.status)) return false;
@@ -1993,8 +2121,11 @@ function DashboardPage() {
   const invoicesSent = invoices.filter((i) => isSentInvoiceStatus(i.status));
   const paidRevenue = invoices
     .filter((i) => isPaidInvoiceStatus(i.status))
-    .reduce((s, i) => s + toNumber(i.total), 0);
-  const receivableTotal = invoicesPending.reduce((s, i) => s + toNumber(i.total), 0);
+    .reduce((s, i) => s + invoiceBaseAmount(i, currencySettings), 0);
+  const receivableTotal = invoicesPending.reduce(
+    (s, i) => s + invoiceBaseAmount(i, currencySettings),
+    0,
+  );
 
   const waOpen = waConversations.filter((c) => isOpenConversationStatus(c.status)).length;
   const emailOpen = emailConversations.filter((c) => isOpenConversationStatus(c.status)).length;
@@ -2069,6 +2200,10 @@ function DashboardPage() {
     .slice(0, 8);
   const staleDealItems = deals
     .filter((deal) => !isClosedDealStage(deal.stage) && daysSince(deal.updated_at) >= 7)
+    .map((deal) => ({
+      ...deal,
+      displayValueBase: dealBaseAmount(deal, currencySettings),
+    }))
     .sort((a, b) => daysSince(b.updated_at) - daysSince(a.updated_at))
     .slice(0, 8);
   const pendingProposalItems = pendingProposals
@@ -2385,7 +2520,7 @@ function DashboardPage() {
     },
     {
       label: "Pipeline abierto",
-      value: formatMoney(pipelineValue),
+      value: moneyBase(pipelineValue),
       icon: GitBranch,
       iconClassName: "text-[#1d62f9]",
       iconChipClassName: "bg-[#edf5ff]",
@@ -2399,7 +2534,7 @@ function DashboardPage() {
     },
     {
       label: "Facturas por cobrar",
-      value: formatMoney(receivableTotal),
+      value: moneyBase(receivableTotal),
       icon: Receipt,
       iconClassName: "text-[#f59e0b]",
       iconChipClassName: "bg-[#fff7e6]",
@@ -2425,7 +2560,10 @@ function DashboardPage() {
     (acc, d) => {
       const stage = d.stage || "New Lead";
       const prev = acc[stage] || { count: 0, value: 0 };
-      acc[stage] = { count: prev.count + 1, value: prev.value + toNumber(d.value) };
+      acc[stage] = {
+        count: prev.count + 1,
+        value: prev.value + dealBaseAmount(d, currencySettings),
+      };
       return acc;
     },
     {},
@@ -2574,7 +2712,7 @@ function DashboardPage() {
               {item.name || "Oportunidad sin nombre"}
             </div>
             <span className="text-[12px] font-extrabold text-[#1d62f9]">
-              {formatMoney(toNumber(item.value))}
+              {moneyBase(item.displayValueBase)}
             </span>
           </div>
           <div className="mt-1 text-[12px] font-medium text-[#667085]">Etapa: {item.stage}</div>
@@ -2607,7 +2745,9 @@ function DashboardPage() {
             {item.clientName || "Sin cliente vinculado"}
           </div>
           <div className="mt-1 text-[12px] font-semibold text-[#475467]">
-            {item.amount != null ? formatMoney(toNumber(item.amount)) : "Monto no disponible"}
+            {item.amount != null
+              ? formatMoney(toNumber(item.amount), item.currency)
+              : "Monto no disponible"}
           </div>
         </>
       ),
@@ -2639,7 +2779,7 @@ function DashboardPage() {
             {item.clientName || "Sin cliente vinculado"}
           </div>
           <div className="mt-1 text-[12px] font-semibold text-[#475467]">
-            {formatMoney(toNumber(item.total))} ·{" "}
+            {formatMoney(toNumber(item.total), invoiceCurrency(item))} ·{" "}
             {item.due_date ? `Vence ${formatShortDate(item.due_date)}` : "Sin vencimiento"}
           </div>
         </>
@@ -2677,7 +2817,7 @@ function DashboardPage() {
     {
       label: "Facturas por cobrar",
       value: dashboardKpiRatio(invoicesPending.length, invoices.length),
-      helper: formatMoney(receivableTotal),
+      helper: moneyBase(receivableTotal),
       progressLabel: invoicesPending.length ? `Faltan ${invoicesPending.length}` : "Todo cobrado",
       progressCurrent: invoicesPending.length,
       progressTotal: Math.max(invoices.length, invoicesPending.length, 1),
@@ -2687,7 +2827,7 @@ function DashboardPage() {
     {
       label: "Oportunidades abiertas",
       value: dashboardKpiRatio(openDeals.length, deals.length),
-      helper: formatMoney(pipelineValue),
+      helper: moneyBase(pipelineValue),
       progressLabel: openDeals.length ? `Faltan ${openDeals.length}` : "Pipeline limpio",
       progressCurrent: openDeals.length,
       progressTotal: Math.max(deals.length, openDeals.length, 1),
@@ -2856,28 +2996,33 @@ function DashboardPage() {
     invoices,
     proposals,
     projects,
+    estimates,
+    tickets,
+    subscriptions: calendarSubscriptions,
+    contracts: calendarContracts,
+    payments: calendarPayments,
   }).sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
 
   const collectionTotal = Math.max(receivableTotal + paidRevenue, 1);
   const dashboardV2CollectionRows: [string, string, string, string][] = [
     [
       "Por cobrar",
-      formatMoney(receivableTotal),
+      moneyBase(receivableTotal),
       dashboardPercent(receivableTotal, collectionTotal),
       "bg-blue-500",
     ],
     [
       "Vencido",
-      formatMoney(invoicesOverdue.reduce((s, i) => s + toNumber(i.total), 0)),
+      moneyBase(invoicesOverdue.reduce((s, i) => s + invoiceBaseAmount(i, currencySettings), 0)),
       dashboardPercent(
-        invoicesOverdue.reduce((s, i) => s + toNumber(i.total), 0),
+        invoicesOverdue.reduce((s, i) => s + invoiceBaseAmount(i, currencySettings), 0),
         collectionTotal,
       ),
       "bg-rose-500",
     ],
     [
       "Cobrado",
-      formatMoney(paidRevenue),
+      moneyBase(paidRevenue),
       dashboardPercent(paidRevenue, collectionTotal),
       "bg-emerald-500",
     ],
@@ -2888,7 +3033,7 @@ function DashboardPage() {
     (stage, index) => [
       stage.stage,
       stage.count,
-      formatMoney(stage.value),
+      moneyBase(stage.value),
       Math.max(4, Math.round((stage.value / dashboardPipelineMax) * 100)),
       index === 0
         ? "bg-blue-200"
@@ -2992,7 +3137,7 @@ function DashboardPage() {
       (invoice) =>
         [
           invoice.number ? `Factura ${invoice.number}` : "Factura pendiente",
-          `${invoice.clientName || "Sin cliente vinculado"} · ${formatMoney(toNumber(invoice.total))}`,
+          `${invoice.clientName || "Sin cliente vinculado"} · ${formatMoney(toNumber(invoice.total), invoiceCurrency(invoice))}`,
           invoice.isOverdue ? "Vencida" : invoice.status || "Pendiente",
           invoice.isOverdue ? "red" : "orange",
           "/invoices",
@@ -3006,7 +3151,9 @@ function DashboardPage() {
         [
           proposal.title || proposal.number || "Propuesta pendiente",
           `${proposal.clientName || "Sin cliente vinculado"} · ${
-            proposal.amount != null ? formatMoney(toNumber(proposal.amount)) : "Sin monto"
+            proposal.amount != null
+              ? formatMoney(toNumber(proposal.amount), proposal.currency)
+              : "Sin monto"
           }`,
           proposal.valid_until
             ? `Vence ${formatShortDate(proposal.valid_until)}`
@@ -3108,17 +3255,18 @@ function DashboardPage() {
       proposals,
     ),
     totals: [
-      [
-        "Outstanding Invoices",
-        formatMoney(receivableTotal),
-        receivableTotal ? "orange" : "neutral",
-      ],
+      ["Outstanding Invoices", moneyBase(receivableTotal), receivableTotal ? "orange" : "neutral"],
       [
         "Past Due Invoices",
-        formatMoney(invoicesOverdue.reduce((sum, invoice) => sum + toNumber(invoice.total), 0)),
+        moneyBase(
+          invoicesOverdue.reduce(
+            (sum, invoice) => sum + invoiceBaseAmount(invoice, currencySettings),
+            0,
+          ),
+        ),
         invoicesOverdue.length ? "red" : "neutral",
       ],
-      ["Paid Invoices", formatMoney(paidRevenue), paidRevenue ? "green" : "neutral"],
+      ["Paid Invoices", moneyBase(paidRevenue), paidRevenue ? "green" : "neutral"],
     ] as [string, string, "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral"][],
   };
 
@@ -3172,20 +3320,22 @@ function DashboardPage() {
   ][] = [
     [
       "Ingresos cobrados",
-      formatMoney(paidRevenue),
-      paidRevenue > 0 ? "Facturas pagadas" : "Sin pagos registrados",
+      moneyBase(paidRevenue),
+      paidRevenue > 0 ? `Facturas pagadas · ${moneyConvertedHint}` : "Sin pagos registrados",
       paidRevenue > 0 ? "green" : "neutral",
     ],
     [
       "Por cobrar",
-      formatMoney(receivableTotal),
-      invoicesOverdue.length ? `${invoicesOverdue.length} vencidas` : "Sin vencidas",
+      moneyBase(receivableTotal),
+      invoicesOverdue.length
+        ? `${invoicesOverdue.length} vencidas · ${moneyConvertedHint}`
+        : moneyConvertedHint,
       invoicesOverdue.length ? "orange" : "blue",
     ],
     [
       "Pipeline abierto",
-      formatMoney(pipelineValue),
-      `${openDeals.length} oportunidades`,
+      moneyBase(pipelineValue),
+      `${openDeals.length} oportunidades · ${moneyConvertedHint}`,
       openDeals.length ? "blue" : "neutral",
     ],
     [
@@ -3214,7 +3364,7 @@ function DashboardPage() {
             `${invoice.clientName || "Sin cliente vinculado"} · ${
               invoice.due_date ? formatShortDate(invoice.due_date) : "Sin vencimiento"
             }`,
-            formatMoney(toNumber(invoice.total)),
+            formatMoney(toNumber(invoice.total), invoiceCurrency(invoice)),
             DollarSign,
           ] as [string, string, string, typeof DollarSign],
       ),
@@ -3226,7 +3376,9 @@ function DashboardPage() {
           [
             proposal.title || proposal.number || "Propuesta pendiente",
             `${proposal.clientName || "Sin cliente vinculado"} · ${proposal.status || "Pendiente"}`,
-            proposal.amount != null ? formatMoney(toNumber(proposal.amount)) : "",
+            proposal.amount != null
+              ? formatMoney(toNumber(proposal.amount), proposal.currency)
+              : "",
             FileText,
           ] as [string, string, string, typeof DollarSign],
       ),
@@ -3252,7 +3404,7 @@ function DashboardPage() {
           [
             deal.name || "Oportunidad sin nombre",
             `${deal.stage || "Sin etapa"} · ${deal.updated_at ? formatShortDate(deal.updated_at) : "Sin fecha"}`,
-            formatMoney(toNumber(deal.value)),
+            moneyBase(deal.displayValueBase),
             TrendingUp,
           ] as [string, string, string, typeof DollarSign],
       ),
@@ -3411,7 +3563,7 @@ function DashboardPage() {
       id: invoice.id,
       type: "sales" as const,
       title: invoice.number ? `Factura ${invoice.number}` : "Factura pendiente",
-      subtitle: `${invoice.clientName || "Sin cliente vinculado"} · ${formatMoney(toNumber(invoice.total))}`,
+      subtitle: `${invoice.clientName || "Sin cliente vinculado"} · ${formatMoney(toNumber(invoice.total), invoiceCurrency(invoice))}`,
       badge: invoice.isOverdue ? "Vencida" : invoice.status || "Pendiente",
       tone: (invoice.isOverdue ? "red" : "orange") as "red" | "orange",
       href: `/invoices?invoiceId=${encodeURIComponent(invoice.id)}`,
@@ -3423,7 +3575,9 @@ function DashboardPage() {
       type: "sales" as const,
       title: proposal.title || proposal.number || "Propuesta pendiente",
       subtitle: `${proposal.clientName || "Sin cliente vinculado"} · ${
-        proposal.amount != null ? formatMoney(toNumber(proposal.amount)) : "Sin monto"
+        proposal.amount != null
+          ? formatMoney(toNumber(proposal.amount), proposal.currency)
+          : "Sin monto"
       }`,
       badge: proposal.valid_until
         ? `Vence ${formatShortDate(proposal.valid_until)}`
@@ -3443,7 +3597,7 @@ function DashboardPage() {
         title: estimate.number
           ? `Cotización #${estimate.number}`
           : estimate.title || "Cotización pendiente",
-        subtitle: `${estimate.title || "Sin título"} · ${formatMoney(toNumber(estimate.total))}`,
+        subtitle: `${estimate.title || "Sin título"} · ${formatMoney(toNumber(estimate.total), estimate.currency)}`,
         badge: estimate.expiry_date
           ? `Vence ${formatShortDate(estimate.expiry_date)}`
           : estimate.status || "Pendiente",
@@ -3942,11 +4096,11 @@ function DashboardPage() {
     setSelectedDashboardTicket(updated);
   };
   const overdueInvoiceTotal = invoicesOverdue.reduce(
-    (sum, invoice) => sum + toNumber(invoice.total),
+    (sum, invoice) => sum + invoiceBaseAmount(invoice, currencySettings),
     0,
   );
   const pendingProposalTotal = pendingProposalItems.reduce(
-    (sum, proposal) => sum + toNumber(proposal.amount),
+    (sum, proposal) => sum + proposalBaseAmount(proposal, currencySettings),
     0,
   );
   const pendingEventCount = overdueCalendarEvents.length + upcomingCalendarEvents.length;
@@ -3960,7 +4114,7 @@ function DashboardPage() {
           type: "invoice_overdue",
           title: "Facturas vencidas",
           value: String(invoicesOverdue.length),
-          detail: formatMoney(overdueInvoiceTotal),
+          detail: moneyBase(overdueInvoiceTotal),
           href: "/invoices",
           tone: "red",
           ctaLabel: "Ver vencidas",
@@ -3975,7 +4129,10 @@ function DashboardPage() {
                     ? `Factura ${pendingInvoiceItems[0].number}`
                     : "Factura pendiente",
                   value: pendingInvoiceItems[0].clientName || "Sin cliente vinculado",
-                  meta: formatMoney(toNumber(pendingInvoiceItems[0].total)),
+                  meta: formatMoney(
+                    toNumber(pendingInvoiceItems[0].total),
+                    invoiceCurrency(pendingInvoiceItems[0]),
+                  ),
                   tone: pendingInvoiceItems[0].isOverdue ? "red" : "orange",
                 },
               ]
@@ -3988,7 +4145,7 @@ function DashboardPage() {
           type: "receivable",
           title: "Facturas por cobrar",
           value: String(invoicesPending.length),
-          detail: formatMoney(receivableTotal),
+          detail: moneyBase(receivableTotal),
           href: "/invoices",
           tone: "blue",
           ctaLabel: "Ver facturas",
@@ -3997,19 +4154,19 @@ function DashboardPage() {
             segments: [
               {
                 label: "Cobrado",
-                value: formatMoney(paidRevenue),
+                value: moneyBase(paidRevenue),
                 percent: percentNumber(paidRevenue, collectionTotal),
                 tone: "green",
               },
               {
                 label: "Pendiente",
-                value: formatMoney(receivableTotal),
+                value: moneyBase(receivableTotal),
                 percent: percentNumber(receivableTotal, collectionTotal),
                 tone: "blue",
               },
               {
                 label: "Vencido",
-                value: formatMoney(overdueInvoiceTotal),
+                value: moneyBase(overdueInvoiceTotal),
                 percent: percentNumber(overdueInvoiceTotal, collectionTotal),
                 tone: "red",
               },
@@ -4042,7 +4199,7 @@ function DashboardPage() {
           type: "proposals",
           title: "Propuestas pendientes",
           value: String(pendingProposals.length),
-          detail: formatMoney(pendingProposalTotal),
+          detail: moneyBase(pendingProposalTotal),
           href: "/proposals",
           tone: "purple",
           ctaLabel: "Ver propuestas",
@@ -4055,7 +4212,10 @@ function DashboardPage() {
                   value: pendingProposalItems[0].clientName || "Sin cliente vinculado",
                   meta:
                     pendingProposalItems[0].amount != null
-                      ? formatMoney(toNumber(pendingProposalItems[0].amount))
+                      ? formatMoney(
+                          toNumber(pendingProposalItems[0].amount),
+                          pendingProposalItems[0].currency,
+                        )
                       : undefined,
                   tone: "purple",
                 },
@@ -4628,7 +4788,7 @@ function DashboardPage() {
                             </div>
                           </div>
                           <div className="text-right text-[13px] font-extrabold whitespace-nowrap">
-                            {formatMoney(s.value)}
+                            {moneyBase(s.value)}
                           </div>
                           <div className="h-7 w-[52px] rounded-full bg-[#f3f6fb] grid place-items-center text-[12px] font-extrabold text-[#667085]">
                             {pct}%
@@ -4639,7 +4799,7 @@ function DashboardPage() {
                     <div className="mt-2 pt-4 border-t border-[#e6eaf0] flex items-center justify-between font-extrabold">
                       <span>Total</span>
                       <span className="text-[18px] text-[#1d62f9]">
-                        {formatMoney(pipelineTotalValue)}
+                        {moneyBase(pipelineTotalValue)}
                       </span>
                     </div>
                   </>
@@ -4714,13 +4874,13 @@ function DashboardPage() {
                     icon: Receipt,
                     iconChip: "bg-[#f0f7ff] text-[#1d62f9]",
                     label: "Total por cobrar",
-                    value: formatMoney(receivableTotal),
+                    value: moneyBase(receivableTotal),
                   },
                   {
                     icon: TrendingUp,
                     iconChip: "bg-[#ecfdf3] text-[#16a34a]",
                     label: "Ingresos cobrados",
-                    value: formatMoney(paidRevenue),
+                    value: moneyBase(paidRevenue),
                   },
                 ].map((b) => (
                   <div

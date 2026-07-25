@@ -3,10 +3,10 @@ import { CrmCreationDialog } from "@/components/crm/crm-form-shell";
 type ProjectWorkspaceFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: string;
+  title: React.ReactNode;
   description?: string;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 };
 
 export function ProjectWorkspaceFormDialog({

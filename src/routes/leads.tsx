@@ -19,6 +19,17 @@ import {
   Users,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import {
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+  normalizeCurrencyAmount,
+  type CurrencyCode,
+} from "@/lib/currency";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,6 +145,12 @@ interface Lead {
   status: string;
   assigned_to: string | null;
   estimated_value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  estimated_value_base?: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -170,6 +188,11 @@ type LeadSignals = {
   nextTaskStatus: string | null;
   hasDeal: boolean;
   latestDealStage: string | null;
+  latestDealValue: number | null;
+  latestDealCurrency: string | null;
+  latestDealBaseCurrency: string | null;
+  latestDealExchangeRate: number | null;
+  latestDealValueBase: number | null;
 };
 
 type DealStageRow = {
@@ -184,6 +207,12 @@ type DealRow = {
   company_id: string;
   name: string;
   value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  value_base?: number | null;
   probability: number | null;
   expected_close: string | null;
   stage: string;
@@ -418,8 +447,73 @@ function getAvatarTone(index: number) {
   return tones[index % tones.length];
 }
 
-function formatCurrency(value: number | null | undefined) {
-  return `$${Number(value || 0).toLocaleString()}`;
+function formatCurrency(value: number | null | undefined, currency?: string | null) {
+  return formatCurrencyAmount(value, currency || "USD");
+}
+
+function readLeadBaseValue(lead: Lead, baseCurrency: CurrencyCode, usdToDopRate: number) {
+  return convertToBaseCurrency(lead.estimated_value || 0, lead.currency || baseCurrency, {
+    baseCurrency,
+    usdToDopRate,
+    rateSource: "manual",
+    rateUpdatedAt: null,
+  });
+}
+
+function formatLeadOriginalValue(lead: Lead) {
+  return formatCurrency(lead.estimated_value || 0, lead.currency || "USD");
+}
+
+function readLeadPipelineBaseValue(
+  lead: Lead,
+  signal: LeadSignals | undefined,
+  baseCurrency: CurrencyCode,
+  usdToDopRate: number,
+) {
+  if (signal?.hasDeal && signal.latestDealValue != null) {
+    return convertToBaseCurrency(
+      signal.latestDealValue || 0,
+      signal.latestDealCurrency || baseCurrency,
+      {
+        baseCurrency,
+        usdToDopRate,
+        rateSource: "manual",
+        rateUpdatedAt: null,
+      },
+    );
+  }
+
+  return readLeadBaseValue(lead, baseCurrency, usdToDopRate);
+}
+
+function formatLeadPipelineOriginalValue(lead: Lead, signal: LeadSignals | undefined) {
+  if (signal?.hasDeal && signal.latestDealValue != null) {
+    return formatCurrency(
+      signal.latestDealValue,
+      signal.latestDealCurrency || lead.currency || "USD",
+    );
+  }
+
+  return formatLeadOriginalValue(lead);
+}
+
+function readDealBaseValue(deal: DealRow, baseCurrency: CurrencyCode, usdToDopRate: number) {
+  const storedBaseAmount = Number(deal.value_base);
+  if (deal.value_base != null && Number.isFinite(storedBaseAmount)) {
+    return convertCurrencyAmount(
+      storedBaseAmount,
+      deal.base_currency || baseCurrency,
+      baseCurrency,
+      deal.exchange_rate || usdToDopRate,
+    );
+  }
+
+  return convertToBaseCurrency(deal.value || 0, deal.currency || baseCurrency, {
+    baseCurrency,
+    usdToDopRate,
+    rateSource: "manual",
+    rateUpdatedAt: null,
+  });
 }
 
 function formatDate(date: string | null | undefined) {
@@ -509,6 +603,7 @@ function buildCsv(leads: Lead[]) {
 }
 
 function LeadsPage() {
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const { user, profile } = useAuth();
   const routeSearch = Route.useSearch();
   const { can, role } = usePermissions();
@@ -522,11 +617,19 @@ function LeadsPage() {
   const [quickLeadOpen, setQuickLeadOpen] = useState(false);
   const [quickProposalOpen, setQuickProposalOpen] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
+  const [leadFormCurrency, setLeadFormCurrency] = useState<CurrencyCode>(
+    currencySettings.baseCurrency,
+  );
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [stageTab, setStageTab] = useState<StageTab>("all");
   const [leadChipFilter, setLeadChipFilter] = useState<LeadChipFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    setLeadFormCurrency(normalizeCurrency(editLead?.currency || currencySettings.baseCurrency));
+  }, [currencySettings.baseCurrency, dialogOpen, editLead?.currency]);
 
   const {
     data: leads,
@@ -646,7 +749,9 @@ function LeadsPage() {
         .limit(500),
       (supabase as any)
         .from("deals")
-        .select("id, lead_id, stage, created_at")
+        .select(
+          "id, lead_id, stage, value, currency, base_currency, exchange_rate, value_base, created_at",
+        )
         .eq("company_id", profile.company_id)
         .in("lead_id", leadIds)
         .order("created_at", { ascending: false })
@@ -675,6 +780,11 @@ function LeadsPage() {
         nextTaskStatus: null,
         hasDeal: false,
         latestDealStage: null,
+        latestDealValue: null,
+        latestDealCurrency: null,
+        latestDealBaseCurrency: null,
+        latestDealExchangeRate: null,
+        latestDealValueBase: null,
       };
     }
 
@@ -696,6 +806,12 @@ function LeadsPage() {
       if (!next[leadId].hasDeal) {
         next[leadId].hasDeal = true;
         next[leadId].latestDealStage = d.stage || null;
+        next[leadId].latestDealValue = d.value == null ? null : Number(d.value);
+        next[leadId].latestDealCurrency = d.currency || null;
+        next[leadId].latestDealBaseCurrency = d.base_currency || null;
+        next[leadId].latestDealExchangeRate =
+          d.exchange_rate == null ? null : Number(d.exchange_rate);
+        next[leadId].latestDealValueBase = d.value_base == null ? null : Number(d.value_base);
       }
     }
 
@@ -758,7 +874,7 @@ function LeadsPage() {
           db
             .from("deals")
             .select(
-              "id,company_id,name,value,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+              "id,company_id,name,value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,value_base,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
             )
             .eq("company_id", profile.company_id)
             .eq("lead_id", selectedLeadId)
@@ -1093,13 +1209,15 @@ function LeadsPage() {
       ? `${serviceLabel} — ${companyOrName}`
       : `Oportunidad — ${companyOrName}`;
     const assignedTo = getAssigneeUserId(lead.assigned_to);
-    const value = Number(lead.estimated_value || 0);
+    const currency = normalizeCurrency(lead.currency || currencySettings.baseCurrency);
+    const value = normalizeCurrencyAmount(lead.estimated_value || 0, currency);
 
     const payloadBase: Record<string, unknown> = {
       company_id: profile.company_id,
       lead_id: lead.id,
       name: dealName,
       value: Number.isFinite(value) ? value : 0,
+      currency,
       probability: 50,
       expected_close: null,
       stage: stageName,
@@ -1198,9 +1316,12 @@ function LeadsPage() {
       return;
     }
     const form = new FormData(event.currentTarget);
+    const currency = normalizeCurrency(editingDeal.currency || currencySettings.baseCurrency);
+    const value = normalizeCurrencyAmount(form.get("value"), currency);
     const payload = {
       name: String(form.get("name") || "").trim() || editingDeal.name,
-      value: Number(form.get("value") || 0) || 0,
+      value: Number.isFinite(value) ? value : 0,
+      currency,
       probability: Number(form.get("probability") || 50) || 50,
       expected_close: String(form.get("expected_close") || "").trim() || null,
       stage: String(form.get("stage") || editingDeal.stage),
@@ -1655,20 +1776,16 @@ function LeadsPage() {
       "prospecto";
     const sourceHint = lead.source_channel || lead.source || "—";
     setSelectedLeadId(lead.id);
-    window.dispatchEvent(
-      new CustomEvent("corevix:open-task-create", {
-        detail: {
-          initialValues: {
-            title: `Dar seguimiento a ${leadLabel}`,
-            dueDate,
-            priority: "Medium",
-            description: `Seguimiento creado desde Prospectos.\nFuente: ${sourceHint}`,
-            assignedTo: getAssigneeUserId(lead.assigned_to) || undefined,
-            leadId: lead.id,
-          },
-        },
-      }),
-    );
+    openGlobalTaskCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${leadLabel}`,
+        dueDate,
+        priority: "Medium",
+        description: `Seguimiento creado desde Prospectos.\nFuente: ${sourceHint}`,
+        assignedTo: getAssigneeUserId(lead.assigned_to) || undefined,
+        leadId: lead.id,
+      },
+    });
   }
 
   const stats = useMemo(() => {
@@ -1682,9 +1799,19 @@ function LeadsPage() {
     const readyForProposal = leads.filter((l) => l.status === "Qualified").length;
     const potentialValue = leads
       .filter((l) => !["Won", "Lost"].includes(String(l.status || "")))
-      .reduce((sum, l) => sum + Number(l.estimated_value || 0), 0);
+      .reduce(
+        (sum, l) =>
+          sum +
+          readLeadPipelineBaseValue(
+            l,
+            signalsByLeadId[l.id],
+            currencySettings.baseCurrency,
+            currencySettings.usdToDopRate,
+          ),
+        0,
+      );
     return { total, newLeads, needsFollowUp, readyForProposal, potentialValue };
-  }, [leads]);
+  }, [currencySettings.baseCurrency, currencySettings.usdToDopRate, leads, signalsByLeadId]);
 
   const tabCounts = useMemo(() => {
     const all = leads.length;
@@ -1727,7 +1854,12 @@ function LeadsPage() {
           (ownerFilter === "mine" && isOwnLead) ||
           (ownerFilter === "team" && !!lead.assigned_to) ||
           (ownerFilter === "unassigned" && !lead.assigned_to);
-      const value = Number(lead.estimated_value || 0);
+      const value = readLeadPipelineBaseValue(
+        lead,
+        signalsByLeadId[lead.id],
+        currencySettings.baseCurrency,
+        currencySettings.usdToDopRate,
+      );
       const matchValue =
         valueFilter === "all" ||
         (valueFilter === "low" && value < 5000) ||
@@ -1752,7 +1884,13 @@ function LeadsPage() {
       })();
 
       const highIntent = (() => {
-        const valueHigh = Number(lead.estimated_value || 0) >= 15000;
+        const valueHigh =
+          readLeadPipelineBaseValue(
+            lead,
+            signalsByLeadId[lead.id],
+            currencySettings.baseCurrency,
+            currencySettings.usdToDopRate,
+          ) >= 15000;
         const meta = lead.metadata && typeof lead.metadata === "object" ? lead.metadata : null;
         const hot = meta
           ? Boolean(
@@ -1792,12 +1930,15 @@ function LeadsPage() {
     leads,
     ownerFilter,
     search,
+    signalsByLeadId,
     sourceFilter,
     stageTab,
     statusFilter,
     user?.id,
     profile?.id,
     valueFilter,
+    currencySettings.baseCurrency,
+    currencySettings.usdToDopRate,
   ]);
 
   function enforceOwnLeadForSales(lead: Lead, message: string) {
@@ -1816,6 +1957,9 @@ function LeadsPage() {
       return;
     }
     const fd = new FormData(e.currentTarget);
+    const currency = normalizeCurrency(
+      String(fd.get("currency") || editLead?.currency || currencySettings.baseCurrency),
+    );
     const data = {
       first_name: fd.get("first_name") as string,
       last_name: fd.get("last_name") as string,
@@ -1824,7 +1968,8 @@ function LeadsPage() {
       phone: (fd.get("phone") as string) || null,
       source: (fd.get("source") as string) || "Website",
       status: (fd.get("status") as string) || "New",
-      estimated_value: Number(fd.get("estimated_value")) || 0,
+      estimated_value: normalizeCurrencyAmount(fd.get("estimated_value"), currency),
+      currency,
       notes: (fd.get("notes") as string) || null,
     };
 
@@ -1995,7 +2140,7 @@ function LeadsPage() {
               {
                 key: "leads-summary",
                 label: "Potencial",
-                value: formatCurrency(stats.potentialValue),
+                value: formatCurrency(stats.potentialValue, currencySettings.baseCurrency),
                 helper: `${filtered.length} visibles de ${stats.total} prospectos`,
                 icon: Target,
                 tone: "purple",
@@ -2051,7 +2196,7 @@ function LeadsPage() {
             />
             <LeadKpi
               label="Potencial"
-              value={formatCurrency(stats.potentialValue)}
+              value={formatCurrency(stats.potentialValue, currencySettings.baseCurrency)}
               tone="success"
             />
           </section>
@@ -2259,7 +2404,7 @@ function LeadsPage() {
                               Valor
                             </div>
                             <div className="mt-1 truncate text-[12.5px] font-normal text-slate-900">
-                              {formatCurrency(lead.estimated_value)}
+                              {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
                             </div>
                           </div>
                         </div>
@@ -2402,7 +2547,10 @@ function LeadsPage() {
                                   <div className="mt-1.5 text-[11px] font-normal text-[#98a2b3] 2xl:hidden">
                                     Valor:{" "}
                                     <span className="text-[#667085]">
-                                      {formatCurrency(lead.estimated_value)}
+                                      {formatLeadPipelineOriginalValue(
+                                        lead,
+                                        signalsByLeadId[lead.id],
+                                      )}
                                     </span>
                                   </div>
                                   <div className="mt-1 text-[11px] font-normal text-[#101828] sm:hidden">
@@ -2438,7 +2586,7 @@ function LeadsPage() {
 
                             <td className="hidden 2xl:table-cell px-2.5 py-1.5">
                               <span className="whitespace-nowrap text-[13px] font-normal text-[#111827] transition-colors hover:text-[#16a34a]">
-                                {formatCurrency(lead.estimated_value)}
+                                {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
                               </span>
                             </td>
 
@@ -2838,8 +2986,11 @@ function LeadsPage() {
                               {selectedDeal.name}
                             </div>
                             <div className="mt-1 text-xs font-normal text-slate-500">
-                              {formatCurrency(selectedDeal.value)} ·{" "}
-                              {selectedDeal.probability || 50}% prob.
+                              {formatCurrency(
+                                selectedDeal.value,
+                                selectedDeal.currency || currencySettings.baseCurrency,
+                              )}{" "}
+                              · {selectedDeal.probability || 50}% prob.
                             </div>
                           </div>
                           <span className="shrink-0 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-[11px] font-normal text-slate-600">
@@ -2905,7 +3056,10 @@ function LeadsPage() {
                                     </div>
                                     <div className="text-xs font-normal text-slate-500">
                                       {Number(row.quantity || 1)} x{" "}
-                                      {formatCurrency(row.unit_price || product?.base_price || 0)}
+                                      {formatCurrency(
+                                        row.unit_price || product?.base_price || 0,
+                                        product?.currency || currencySettings.baseCurrency,
+                                      )}
                                     </div>
                                   </div>
                                   <Button
@@ -3144,7 +3298,7 @@ function LeadsPage() {
                   lead_id: selectedLead.id,
                   title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
                   amount: selectedLead.estimated_value || "",
-                  currency: "USD",
+                  currency: selectedLead.currency || currencySettings.baseCurrency,
                   description: getInterestLabel(selectedLead) || selectedLead.notes || "",
                   valid_until: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
                 },
@@ -3176,10 +3330,42 @@ function LeadsPage() {
                 <Label>Nombre</Label>
                 <Input name="name" defaultValue={editingDeal.name} required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_150px]">
                 <div className="space-y-2">
                   <Label>Valor</Label>
-                  <Input name="value" type="number" defaultValue={String(editingDeal.value || 0)} />
+                  <Input
+                    name="value"
+                    type="number"
+                    step={getCurrencyStep(editingDeal.currency || currencySettings.baseCurrency)}
+                    inputMode={getCurrencyInputMode(
+                      editingDeal.currency || currencySettings.baseCurrency,
+                    )}
+                    defaultValue={String(
+                      normalizeCurrencyAmount(
+                        editingDeal.value || 0,
+                        editingDeal.currency || currencySettings.baseCurrency,
+                      ),
+                    )}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Moneda</Label>
+                  <Select
+                    value={normalizeCurrency(editingDeal.currency || currencySettings.baseCurrency)}
+                    onValueChange={(value) =>
+                      setEditingDeal((current) =>
+                        current ? { ...current, currency: normalizeCurrency(value) } : current,
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DOP">RD$</SelectItem>
+                      <SelectItem value="USD">US$</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Probabilidad</Label>
@@ -3372,16 +3558,38 @@ function LeadsPage() {
               </Select>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
             <div className="space-y-1.5">
               <Label className={crmFormStyles.label}>Valor estimado</Label>
               <Input
                 name="estimated_value"
                 type="number"
-                defaultValue={editLead?.estimated_value || ""}
+                step={getCurrencyStep(leadFormCurrency)}
+                inputMode={getCurrencyInputMode(leadFormCurrency)}
+                defaultValue={
+                  editLead?.estimated_value != null
+                    ? String(normalizeCurrencyAmount(editLead.estimated_value, leadFormCurrency))
+                    : ""
+                }
                 placeholder="0"
                 className={crmFormStyles.input}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Moneda</Label>
+              <Select
+                name="currency"
+                value={leadFormCurrency}
+                onValueChange={(value) => setLeadFormCurrency(normalizeCurrency(value))}
+              >
+                <SelectTrigger className={crmFormStyles.select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DOP">RD$ Peso dominicano</SelectItem>
+                  <SelectItem value="USD">US$ Dólares</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="space-y-1.5">

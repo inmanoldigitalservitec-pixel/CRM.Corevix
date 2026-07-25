@@ -21,6 +21,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  CURRENCY_OPTIONS,
+  DEFAULT_COMPANY_CURRENCY_SETTINGS,
+  normalizeCurrency,
+  type CurrencyCode,
+} from "@/lib/currency";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -98,6 +105,57 @@ type GeminiSettingsRow = {
   updated_at: string | null;
 };
 
+type CurrencySettingsRow = {
+  company_id: string;
+  base_currency: CurrencyCode | string | null;
+  usd_to_dop_rate: number | string | null;
+  rate_source: string | null;
+  rate_updated_at: string | null;
+  updated_at: string | null;
+};
+
+type TaxType = "sales" | "withholding" | "other";
+
+type CompanyTaxRow = {
+  id: string;
+  company_id: string;
+  name: string;
+  rate: number | string;
+  tax_type: TaxType | string;
+  is_active: boolean;
+  is_default: boolean;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type TaxFormState = {
+  id: string | null;
+  name: string;
+  rate: string;
+  tax_type: TaxType;
+  is_active: boolean;
+  is_default: boolean;
+  description: string;
+};
+
+const DEFAULT_CURRENCY_SETTINGS = {
+  base_currency: DEFAULT_COMPANY_CURRENCY_SETTINGS.baseCurrency as CurrencyCode,
+  usd_to_dop_rate: String(DEFAULT_COMPANY_CURRENCY_SETTINGS.usdToDopRate),
+  rate_source: DEFAULT_COMPANY_CURRENCY_SETTINGS.rateSource,
+  rate_updated_at: "",
+};
+
+const DEFAULT_TAX_FORM: TaxFormState = {
+  id: null,
+  name: "",
+  rate: "18",
+  tax_type: "sales",
+  is_active: true,
+  is_default: false,
+  description: "",
+};
+
 async function getEdgeFunctionErrorMessage(error: unknown, data: unknown, fallback: string) {
   let message = String(
     (data as any)?.error || (data as any)?.message || (error as any)?.message || fallback,
@@ -145,6 +203,31 @@ function NoSettingsAccess() {
   return <Navigate to="/dashboard" />;
 }
 
+function formatSettingsDate(value?: string | null) {
+  if (!value) return "Sin cambios registrados";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin cambios registrados";
+  return new Intl.DateTimeFormat("es-DO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function formatTaxTypeLabel(type?: string | null) {
+  if (type === "withholding") return "Retención";
+  if (type === "other") return "Otro";
+  return "Venta";
+}
+
+function formatTaxRate(value?: number | string | null) {
+  const parsed = Number(value ?? 0);
+  if (!Number.isFinite(parsed)) return "0%";
+  return `${parsed.toLocaleString("es-DO", {
+    minimumFractionDigits: parsed % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 4,
+  })}%`;
+}
+
 function SettingsPage() {
   const { can } = usePermissions();
   const { profile, user, loading: authLoading } = useAuth();
@@ -163,6 +246,14 @@ function SettingsPage() {
     tax_id: "",
   });
   const [companyLoading, setCompanyLoading] = useState(false);
+  const [currencyLoading, setCurrencyLoading] = useState(false);
+  const [currencySaving, setCurrencySaving] = useState(false);
+  const [currencyForm, setCurrencyForm] = useState(DEFAULT_CURRENCY_SETTINGS);
+  const [taxes, setTaxes] = useState<CompanyTaxRow[]>([]);
+  const [taxesLoading, setTaxesLoading] = useState(false);
+  const [taxSaving, setTaxSaving] = useState(false);
+  const [taxFormOpen, setTaxFormOpen] = useState(false);
+  const [taxForm, setTaxForm] = useState<TaxFormState>(DEFAULT_TAX_FORM);
 
   const roleOptions: AppRole[] = [
     "super_admin",
@@ -489,6 +580,275 @@ function SettingsPage() {
     setGeminiSecretConfigured(geminiSecretConfigured || !!newKey);
     setGeminiForm((prev) => ({ ...prev, api_key: "" }));
     toast.success("Configuración de Gemini guardada.");
+  };
+
+  const loadCurrencySettings = async () => {
+    if (!companyId) return;
+    setCurrencyLoading(true);
+    const { data, error } = await db
+      .from("company_currency_settings")
+      .select("company_id,base_currency,usd_to_dop_rate,rate_source,rate_updated_at,updated_at")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    setCurrencyLoading(false);
+    if (error) return;
+    const row = (data as CurrencySettingsRow | null) || null;
+    if (!row) {
+      setCurrencyForm(DEFAULT_CURRENCY_SETTINGS);
+      return;
+    }
+    setCurrencyForm({
+      base_currency: normalizeCurrency(row.base_currency),
+      usd_to_dop_rate:
+        row.usd_to_dop_rate === null || row.usd_to_dop_rate === undefined
+          ? DEFAULT_CURRENCY_SETTINGS.usd_to_dop_rate
+          : String(row.usd_to_dop_rate),
+      rate_source: row.rate_source || "manual",
+      rate_updated_at: row.rate_updated_at || row.updated_at || "",
+    });
+  };
+
+  useEffect(() => {
+    void loadCurrencySettings();
+  }, [companyId]);
+
+  const saveCurrencySettings = async () => {
+    if (!companyId) return;
+    if (!can("settings.manage")) {
+      toast.error("No tienes permiso para editar moneda.");
+      return;
+    }
+
+    const parsedRate = Number(currencyForm.usd_to_dop_rate);
+    if (!Number.isFinite(parsedRate) || parsedRate <= 0) {
+      toast.error("La tasa debe ser mayor que cero.");
+      return;
+    }
+
+    setCurrencySaving(true);
+    const rateUpdatedAt = new Date().toISOString();
+    const { error } = await db.from("company_currency_settings").upsert(
+      {
+        company_id: companyId,
+        base_currency: currencyForm.base_currency,
+        usd_to_dop_rate: parsedRate,
+        rate_source: "manual",
+        rate_updated_at: rateUpdatedAt,
+        updated_by: authUserId || null,
+      },
+      { onConflict: "company_id" },
+    );
+    setCurrencySaving(false);
+    if (error) {
+      toast.error(error.message || "No se pudo guardar la configuración de moneda.");
+      return;
+    }
+    setCurrencyForm((prev) => ({ ...prev, rate_updated_at: rateUpdatedAt }));
+    toast.success("Configuración de moneda guardada.");
+  };
+
+  const loadCompanyTaxes = async () => {
+    if (!companyId) return;
+    setTaxesLoading(true);
+    const { data, error } = await db
+      .from("company_taxes")
+      .select(
+        "id,company_id,name,rate,tax_type,is_active,is_default,description,created_at,updated_at",
+      )
+      .eq("company_id", companyId)
+      .order("tax_type", { ascending: true })
+      .order("is_default", { ascending: false })
+      .order("name", { ascending: true });
+    setTaxesLoading(false);
+    if (error) {
+      toast.error(error.message || "No se pudieron cargar los impuestos.");
+      return;
+    }
+    setTaxes((data as CompanyTaxRow[]) || []);
+  };
+
+  useEffect(() => {
+    void loadCompanyTaxes();
+  }, [companyId]);
+
+  const openNewTaxForm = () => {
+    setTaxForm(DEFAULT_TAX_FORM);
+    setTaxFormOpen(true);
+  };
+
+  const openEditTaxForm = (tax: CompanyTaxRow) => {
+    setTaxForm({
+      id: tax.id,
+      name: tax.name || "",
+      rate: String(tax.rate ?? 0),
+      tax_type:
+        tax.tax_type === "withholding" || tax.tax_type === "other" ? tax.tax_type : "sales",
+      is_active: Boolean(tax.is_active),
+      is_default: Boolean(tax.is_default),
+      description: tax.description || "",
+    });
+    setTaxFormOpen(true);
+  };
+
+  const saveCompanyTax = async () => {
+    if (!companyId) return;
+    if (!can("settings.manage")) {
+      toast.error("No tienes permiso para editar impuestos.");
+      return;
+    }
+
+    const name = taxForm.name.trim();
+    const rate = Number(taxForm.rate);
+    if (!name) {
+      toast.error("El nombre del impuesto es obligatorio.");
+      return;
+    }
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      toast.error("El porcentaje debe estar entre 0 y 100.");
+      return;
+    }
+    if (taxForm.is_default && !taxForm.is_active) {
+      toast.error("Un impuesto predeterminado debe estar activo.");
+      return;
+    }
+
+    setTaxSaving(true);
+    const payload = {
+      company_id: companyId,
+      name,
+      rate,
+      tax_type: taxForm.tax_type,
+      is_active: taxForm.is_active,
+      is_default: taxForm.is_default,
+      description: taxForm.description.trim() || null,
+      updated_by: authUserId || null,
+      ...(taxForm.id ? {} : { created_by: authUserId || null }),
+    };
+
+    if (taxForm.is_default) {
+      const { error: defaultError } = await db
+        .from("company_taxes")
+        .update({ is_default: false, updated_by: authUserId || null })
+        .eq("company_id", companyId)
+        .eq("tax_type", taxForm.tax_type);
+      if (defaultError) {
+        setTaxSaving(false);
+        toast.error(defaultError.message || "No se pudo actualizar el impuesto predeterminado.");
+        return;
+      }
+    }
+
+    const query = taxForm.id
+      ? db.from("company_taxes").update(payload).eq("id", taxForm.id).eq("company_id", companyId)
+      : db.from("company_taxes").insert(payload);
+    const { error } = await query;
+    setTaxSaving(false);
+    if (error) {
+      toast.error(error.message || "No se pudo guardar el impuesto.");
+      return;
+    }
+
+    setTaxFormOpen(false);
+    setTaxForm(DEFAULT_TAX_FORM);
+    await loadCompanyTaxes();
+    toast.success(taxForm.id ? "Impuesto actualizado." : "Impuesto creado.");
+  };
+
+  const toggleTaxActive = async (tax: CompanyTaxRow) => {
+    if (!companyId || !can("settings.manage")) return;
+    if (tax.is_default && tax.is_active) {
+      toast.error("No puedes desactivar el impuesto predeterminado.");
+      return;
+    }
+    const { error } = await db
+      .from("company_taxes")
+      .update({
+        is_active: !tax.is_active,
+        is_default: !tax.is_active ? tax.is_default : false,
+        updated_by: authUserId || null,
+      })
+      .eq("id", tax.id)
+      .eq("company_id", companyId);
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar el estado del impuesto.");
+      return;
+    }
+    await loadCompanyTaxes();
+  };
+
+  const markTaxAsDefault = async (tax: CompanyTaxRow) => {
+    if (!companyId || !can("settings.manage")) return;
+    if (!tax.is_active) {
+      toast.error("Activa el impuesto antes de marcarlo como predeterminado.");
+      return;
+    }
+    const { error: resetError } = await db
+      .from("company_taxes")
+      .update({ is_default: false, updated_by: authUserId || null })
+      .eq("company_id", companyId)
+      .eq("tax_type", tax.tax_type);
+    if (resetError) {
+      toast.error(resetError.message || "No se pudo actualizar el predeterminado.");
+      return;
+    }
+    const { error } = await db
+      .from("company_taxes")
+      .update({ is_default: true, updated_by: authUserId || null })
+      .eq("id", tax.id)
+      .eq("company_id", companyId);
+    if (error) {
+      toast.error(error.message || "No se pudo marcar como predeterminado.");
+      return;
+    }
+    await loadCompanyTaxes();
+  };
+
+  const hasTaxUsage = async (taxId: string) => {
+    const checks = await Promise.all([
+      db.from("invoice_items").select("id", { count: "exact", head: true }).eq("tax_id", taxId),
+      db.from("proposal_items").select("id", { count: "exact", head: true }).eq("tax_id", taxId),
+      db.from("estimates").select("id", { count: "exact", head: true }).eq("tax_id", taxId),
+    ]);
+
+    const firstError = checks.find((result) => result.error)?.error;
+    if (firstError) throw firstError;
+    return checks.some((result) => Number(result.count || 0) > 0);
+  };
+
+  const deleteOrDeactivateTax = async (tax: CompanyTaxRow) => {
+    if (!companyId || !can("settings.manage")) return;
+    if (tax.is_default) {
+      toast.error("No puedes eliminar el impuesto predeterminado.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `¿Quieres eliminar "${tax.name}"? Si ya está usado en documentos, se desactivará para conservar el historial.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      const used = await hasTaxUsage(tax.id);
+      if (used) {
+        const { error } = await db
+          .from("company_taxes")
+          .update({ is_active: false, is_default: false, updated_by: authUserId || null })
+          .eq("id", tax.id)
+          .eq("company_id", companyId);
+        if (error) throw error;
+        toast.success("Impuesto usado en documentos: fue desactivado.");
+      } else {
+        const { error } = await db
+          .from("company_taxes")
+          .delete()
+          .eq("id", tax.id)
+          .eq("company_id", companyId);
+        if (error) throw error;
+        toast.success("Impuesto eliminado.");
+      }
+      await loadCompanyTaxes();
+    } catch (error) {
+      toast.error((error as any)?.message || "No se pudo eliminar el impuesto.");
+    }
   };
 
   const connectGmail = async () => {
@@ -848,6 +1208,8 @@ function SettingsPage() {
           <TabsTrigger value="whatsapp">Meta</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="drive">Google Drive</TabsTrigger>
+          <TabsTrigger value="currency">Moneda</TabsTrigger>
+          <TabsTrigger value="taxes">Impuestos</TabsTrigger>
           <TabsTrigger value="ai">AI / Gemini</TabsTrigger>
           <TabsTrigger value="security">Seguridad</TabsTrigger>
         </TabsList>
@@ -1519,6 +1881,344 @@ function SettingsPage() {
                 >
                   Desconectar
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="currency" className="mt-4">
+          <Card className="rounded-none border-slate-200 shadow-none">
+            <CardHeader>
+              <CardTitle className="text-base">Moneda del CRM</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Define la moneda principal de trabajo y la tasa manual que usaremos para convertir
+                valores entre dólares y pesos.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Moneda base</Label>
+                  <Select
+                    value={currencyForm.base_currency}
+                    onValueChange={(value) =>
+                      setCurrencyForm((prev) => ({
+                        ...prev,
+                        base_currency: value === "DOP" ? "DOP" : "USD",
+                      }))
+                    }
+                    disabled={currencyLoading || currencySaving}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona la moneda base" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.symbol} · {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Esta será la moneda de referencia para reportes y KPIs globales.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Tasa USD a RD$</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.000001"
+                    inputMode="decimal"
+                    value={currencyForm.usd_to_dop_rate}
+                    onChange={(event) =>
+                      setCurrencyForm((prev) => ({
+                        ...prev,
+                        usd_to_dop_rate: event.target.value,
+                      }))
+                    }
+                    disabled={currencyLoading || currencySaving}
+                    placeholder="60"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Ejemplo: si 1 US$ equivale a RD$60, escribe 60.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 border border-slate-200 p-4 text-sm md:grid-cols-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Fuente</p>
+                  <Badge variant="secondary" className="mt-2">
+                    Manual
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Actualizada</p>
+                  <p className="mt-2 font-medium text-slate-900">
+                    {formatSettingsDate(currencyForm.rate_updated_at)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Equivalencia</p>
+                  <p className="mt-2 font-medium text-slate-900">
+                    1 US$ = RD${" "}
+                    {Number(currencyForm.usd_to_dop_rate || 0).toLocaleString("es-DO", {
+                      maximumFractionDigits: 6,
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {can("settings.manage") && (
+                <Button onClick={saveCurrencySettings} disabled={currencyLoading || currencySaving}>
+                  Guardar configuración
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="taxes" className="mt-4">
+          <Card className="rounded-none border-slate-200 shadow-none">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-base">Impuestos</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Centraliza los impuestos que se usan en facturas, propuestas y cotizaciones.
+                </p>
+              </div>
+              {can("settings.manage") && (
+                <Button onClick={openNewTaxForm} disabled={taxesLoading || taxSaving}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nuevo impuesto
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {taxFormOpen && (
+                <div className="border border-slate-200 bg-white p-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div className="md:col-span-2">
+                      <Label>Nombre</Label>
+                      <Input
+                        value={taxForm.name}
+                        onChange={(event) =>
+                          setTaxForm((prev) => ({ ...prev, name: event.target.value }))
+                        }
+                        disabled={taxSaving}
+                        placeholder="ITBIS 18%"
+                      />
+                    </div>
+                    <div>
+                      <Label>Porcentaje</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.0001"
+                        inputMode="decimal"
+                        value={taxForm.rate}
+                        onChange={(event) =>
+                          setTaxForm((prev) => ({ ...prev, rate: event.target.value }))
+                        }
+                        disabled={taxSaving}
+                        placeholder="18"
+                      />
+                    </div>
+                    <div>
+                      <Label>Tipo</Label>
+                      <Select
+                        value={taxForm.tax_type}
+                        onValueChange={(value) =>
+                          setTaxForm((prev) => ({
+                            ...prev,
+                            tax_type:
+                              value === "withholding" || value === "other" ? value : "sales",
+                          }))
+                        }
+                        disabled={taxSaving}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tipo de impuesto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sales">Venta</SelectItem>
+                          <SelectItem value="withholding">Retención</SelectItem>
+                          <SelectItem value="other">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="md:col-span-4">
+                      <Label>Descripción</Label>
+                      <Input
+                        value={taxForm.description}
+                        onChange={(event) =>
+                          setTaxForm((prev) => ({ ...prev, description: event.target.value }))
+                        }
+                        disabled={taxSaving}
+                        placeholder="Uso interno opcional"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={taxForm.is_active}
+                          onChange={(event) =>
+                            setTaxForm((prev) => ({ ...prev, is_active: event.target.checked }))
+                          }
+                          disabled={taxSaving}
+                        />
+                        Activo
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={taxForm.is_default}
+                          onChange={(event) =>
+                            setTaxForm((prev) => ({ ...prev, is_default: event.target.checked }))
+                          }
+                          disabled={taxSaving}
+                        />
+                        Predeterminado
+                      </label>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setTaxFormOpen(false);
+                          setTaxForm(DEFAULT_TAX_FORM);
+                        }}
+                        disabled={taxSaving}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="button" onClick={saveCompanyTax} disabled={taxSaving}>
+                        {taxSaving ? "Guardando..." : "Guardar impuesto"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto border border-slate-200">
+                <table className="w-full min-w-[860px] text-sm">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Impuesto</th>
+                      <th className="px-4 py-3 font-medium">Porcentaje</th>
+                      <th className="px-4 py-3 font-medium">Tipo</th>
+                      <th className="px-4 py-3 font-medium">Estado</th>
+                      <th className="px-4 py-3 font-medium">Uso</th>
+                      <th className="px-4 py-3 text-right font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taxesLoading ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                          Cargando impuestos...
+                        </td>
+                      </tr>
+                    ) : taxes.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                          No hay impuestos configurados.
+                        </td>
+                      </tr>
+                    ) : (
+                      taxes.map((tax) => (
+                        <tr key={tax.id} className="border-b border-slate-100 last:border-b-0">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-950">{tax.name}</div>
+                            {tax.description ? (
+                              <div className="mt-1 text-xs text-slate-500">{tax.description}</div>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-slate-900">
+                            {formatTaxRate(tax.rate)}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {formatTaxTypeLabel(tax.tax_type)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant={tax.is_active ? "default" : "secondary"}
+                              className={
+                                tax.is_active
+                                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                  : ""
+                              }
+                            >
+                              {tax.is_active ? "Activo" : "Inactivo"}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            {tax.is_default ? (
+                              <Badge variant="secondary">Predeterminado</Badge>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {can("settings.manage") ? (
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openEditTaxForm(tax)}
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Editar
+                                </Button>
+                                {tax.is_active && !tax.is_default ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => markTaxAsDefault(tax)}
+                                  >
+                                    Usar por defecto
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleTaxActive(tax)}
+                                  disabled={tax.is_default && tax.is_active}
+                                >
+                                  {tax.is_active ? "Desactivar" : "Activar"}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => deleteOrDeactivateTax(tax)}
+                                  disabled={tax.is_default}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="block text-right text-slate-400">Solo lectura</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>

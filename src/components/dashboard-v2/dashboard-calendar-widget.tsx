@@ -25,6 +25,7 @@ import {
   type CalendarItem,
   type FormType,
 } from "@/lib/crm/calendar-items";
+import { formatCurrencyAmount } from "@/lib/currency";
 import type { DashboardWidgetMode } from "@/components/dashboard-builder";
 import { DashboardCard } from "./dashboard-card";
 
@@ -225,6 +226,55 @@ export function DashboardCalendarWidget({
         const { error } = await db
           .from("invoices")
           .update({ due_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+        if (error) throw error;
+      }
+
+      if (item.source === "estimate") {
+        const { error } = await db
+          .from("estimates")
+          .update({ expiry_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+        if (error) throw error;
+      }
+
+      if (item.source === "subscription") {
+        const { error } = await db
+          .from("subscriptions")
+          .update({ next_billing_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+        if (error) throw error;
+      }
+
+      if (item.source === "contract") {
+        const { error } = await db
+          .from("contracts")
+          .update({ end_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+        if (error) throw error;
+      }
+
+      if (item.source === "ticket") {
+        const { error } = await db
+          .from("tickets")
+          .update(
+            item.id.startsWith("ticket-first-response-")
+              ? { first_response_due_at: newStart.toISOString() }
+              : { resolution_due_at: newStart.toISOString() },
+          )
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+        if (error) throw error;
+      }
+
+      if (item.source === "payment") {
+        const { error } = await db
+          .from("payments")
+          .update({ payment_date: newDate })
           .eq("id", item.relatedId)
           .eq("company_id", profile.company_id);
         if (error) throw error;
@@ -460,7 +510,7 @@ export function DashboardCalendarWidget({
 
               {selectedEvent.amount != null ? (
                 <p className="rounded-2xl bg-orange-50 p-4 text-sm font-black text-orange-700">
-                  Monto: ${Number(selectedEvent.amount).toLocaleString()}
+                  Monto: {formatCurrencyAmount(selectedEvent.amount, selectedEvent.amountCurrency)}
                 </p>
               ) : null}
 

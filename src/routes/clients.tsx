@@ -37,9 +37,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCrud } from "@/hooks/use-crud";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import { logActivityEvent } from "@/lib/activity-log";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import { LoadingMetrics, LoadingTable } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
 import { DataCard } from "@/components/crm/data-card";
@@ -107,6 +109,7 @@ import {
   normalizeStatus,
 } from "@/lib/crm/status";
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
+import { ClientFilesPanel } from "@/components/clients/client-files-panel";
 import { ClientNotesPanel } from "@/components/clients/client-notes-panel";
 import {
   InvoiceEditor,
@@ -119,6 +122,13 @@ import {
   type PaymentFormInitialValues,
 } from "@/components/payments/payment-form-dialog";
 import { ContractEditorDialog } from "@/components/contracts/contract-editor-dialog";
+import {
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  normalizeCurrency,
+  type CompanyCurrencySettings,
+} from "@/lib/currency";
 
 export const Route = createFileRoute("/clients")({
   validateSearch: (search: Record<string, unknown>): { clientId?: string } => ({
@@ -135,6 +145,18 @@ export const Route = createFileRoute("/clients")({
     ],
   }),
 });
+
+type Client360QuickDetailGroup =
+  | "tasks"
+  | "projects"
+  | "tickets"
+  | "invoices"
+  | "proposals"
+  | "payments"
+  | "credit_notes"
+  | "expenses"
+  | "subscriptions"
+  | "calendar";
 
 const CLIENT_STATUSES = ["Active", "VIP", "Pending", "Inactive", "Past Client"] as const;
 const CLIENT_HEALTH_FILTERS = ["all", "active", "attention", "risk", "inactive"] as const;
@@ -270,6 +292,8 @@ interface ClientRow {
   account_manager: string | null;
   tags: string[] | null;
   notes: string | null;
+  drive_folder_id: string | null;
+  drive_folder_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -357,6 +381,10 @@ interface InvoiceRow {
   number: string;
   status: string;
   total: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  total_base?: number | null;
+  invoice_data?: Record<string, unknown> | null;
   due_date: string | null;
   updated_at: string;
 }
@@ -369,6 +397,9 @@ interface PaymentRow {
   invoice_id: string | null;
   client_id: string | null;
   amount: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  amount_base?: number | null;
   payment_date: string;
   method: string;
   status: string;
@@ -384,6 +415,9 @@ interface CreditNoteRow {
   invoice_id: string | null;
   client_id: string | null;
   amount: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  amount_base?: number | null;
   status: string;
   date_issued: string;
   reason: string | null;
@@ -399,6 +433,9 @@ interface SubscriptionRow {
   client_id: string | null;
   product_id: string | null;
   amount: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  amount_base?: number | null;
   billing_cycle: string;
   status: string;
   start_date: string;
@@ -416,6 +453,9 @@ interface ExpenseRow {
   vendor: string | null;
   category: string;
   amount: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  amount_base?: number | null;
   status: string;
   expense_date: string;
   project_id: string | null;
@@ -435,6 +475,12 @@ interface ContractRow {
   status: string;
   contract_type: string;
   contract_value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  contract_value_base?: number | null;
   start_date: string | null;
   end_date: string | null;
   client_id: string | null;
@@ -667,8 +713,42 @@ function cnJoin(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-function money(value: number | null | undefined) {
-  return `$${Math.round(Number(value || 0)).toLocaleString("es-DO")}`;
+function money(value: number | null | undefined, currency?: string | null) {
+  return formatCurrencyAmount(value, currency || "USD");
+}
+
+function rowCurrency(row: {
+  currency?: string | null;
+  invoice_data?: Record<string, unknown> | null;
+}) {
+  return normalizeCurrency(row.currency || String(row.invoice_data?.currency || ""));
+}
+
+function rowBaseMoney(
+  value: number | string | null | undefined,
+  currency: string | null | undefined,
+  settings: CompanyCurrencySettings,
+) {
+  return convertToBaseCurrency(value, currency, settings);
+}
+
+function storedOrConvertedBaseMoney(
+  storedBaseValue: number | string | null | undefined,
+  storedBaseCurrency: string | null | undefined,
+  fallbackValue: number | string | null | undefined,
+  fallbackCurrency: string | null | undefined,
+  settings: CompanyCurrencySettings,
+) {
+  if (storedBaseValue != null) {
+    return convertCurrencyAmount(
+      storedBaseValue,
+      storedBaseCurrency || settings.baseCurrency,
+      settings.baseCurrency,
+      settings.usdToDopRate,
+    );
+  }
+
+  return rowBaseMoney(fallbackValue, fallbackCurrency, settings);
 }
 
 function isoDate(offsetDays = 0) {
@@ -910,7 +990,7 @@ function clientFinanceLabel(client: ClientSnapshot) {
   return "Al día";
 }
 
-function buildClientCsv(clients: ClientSnapshot[]) {
+function buildClientCsv(clients: ClientSnapshot[], baseCurrency = "USD") {
   const headers = [
     "Empresa",
     "Contacto principal",
@@ -933,9 +1013,9 @@ function buildClientCsv(clients: ClientSnapshot[]) {
     client.accountManagerName,
     client.industry || "",
     String(client.activeProjects.length),
-    money(client.pendingInvoiceAmount),
+    money(client.pendingInvoiceAmount, baseCurrency),
     String(client.overdueTasks.length),
-    money(client.openPipelineValue),
+    money(client.openPipelineValue, baseCurrency),
     client.notes || "",
   ]);
 
@@ -996,6 +1076,7 @@ function ClientsPage() {
   const routeSearch = Route.useSearch();
   const openedClientSearchRef = useRef<string | null>(null);
   const { profile, user } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const { can, role } = usePermissions();
   const canManageVault = ["super_admin", "admin", "manager"].includes(String(role || ""));
   const [search, setSearch] = useState("");
@@ -1060,7 +1141,7 @@ function ClientsPage() {
   } = useCrud<ClientRow>({
     table: "clients",
     select:
-      "id,company_id,company_name,contact_person,email,phone,whatsapp,address,city,country,tax_id,website,industry,status,account_manager,tags,notes,created_at,updated_at",
+      "id,company_id,company_name,contact_person,email,phone,whatsapp,address,city,country,tax_id,website,industry,status,account_manager,tags,notes,drive_folder_id,drive_folder_url,created_at,updated_at",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -1213,7 +1294,7 @@ function ClientsPage() {
   } = useCrud<ContractRow>({
     table: "contracts",
     select:
-      "id,company_id,contract_number,subject,description,status,contract_type,contract_value,start_date,end_date,client_id,project_id,proposal_id,deal_id,assigned_to,created_by,signed_at,signature_status,invoice_id,created_at,updated_at",
+      "id,company_id,contract_number,subject,description,status,contract_type,contract_value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,contract_value_base,start_date,end_date,client_id,project_id,proposal_id,deal_id,assigned_to,created_by,signed_at,signature_status,invoice_id,created_at,updated_at",
     orderBy: "updated_at",
     ascending: false,
     limit: 2000,
@@ -1693,7 +1774,15 @@ function ClientsPage() {
       const openDeals = clientDeals.filter((deal) => !isClosedDealStageValue(deal.stage));
 
       const pendingInvoiceAmount = pendingInvoices.reduce(
-        (sum, invoice) => sum + Number(invoice.total || 0),
+        (sum, invoice) =>
+          sum +
+          storedOrConvertedBaseMoney(
+            invoice.total_base,
+            invoice.base_currency,
+            invoice.total,
+            rowCurrency(invoice),
+            currencySettings,
+          ),
         0,
       );
       const openPipelineValue = openDeals.reduce((sum, deal) => sum + Number(deal.value || 0), 0);
@@ -1743,13 +1832,29 @@ function ClientsPage() {
         payments: clientPayments,
         completedPayments,
         totalPaidAmount: completedPayments.reduce(
-          (sum, payment) => sum + Number(payment.amount || 0),
+          (sum, payment) =>
+            sum +
+            storedOrConvertedBaseMoney(
+              payment.amount_base,
+              payment.base_currency,
+              payment.amount,
+              payment.currency || "USD",
+              currencySettings,
+            ),
           0,
         ),
         creditNotes: clientCreditNotes,
         appliedCreditNotes,
         totalCreditAmount: appliedCreditNotes.reduce(
-          (sum, creditNote) => sum + Number(creditNote.amount || 0),
+          (sum, creditNote) =>
+            sum +
+            storedOrConvertedBaseMoney(
+              creditNote.amount_base,
+              creditNote.base_currency,
+              creditNote.amount,
+              creditNote.currency || "USD",
+              currencySettings,
+            ),
           0,
         ),
         subscriptions: clientSubscriptions,
@@ -1761,14 +1866,30 @@ function ClientsPage() {
         expenses: clientExpenses,
         paidExpenses,
         totalExpenseAmount: clientExpenses.reduce(
-          (sum, expense) => sum + Number(expense.amount || 0),
+          (sum, expense) =>
+            sum +
+            storedOrConvertedBaseMoney(
+              expense.amount_base,
+              expense.base_currency,
+              expense.amount,
+              expense.currency || "USD",
+              currencySettings,
+            ),
           0,
         ),
         contracts: clientContracts,
         activeContracts,
         expiringContracts,
         totalContractValue: clientContracts.reduce(
-          (sum, contract) => sum + Number(contract.contract_value || 0),
+          (sum, contract) =>
+            sum +
+            storedOrConvertedBaseMoney(
+              contract.contract_value_base,
+              contract.base_currency,
+              contract.contract_value,
+              contract.currency || contract.base_currency || "USD",
+              currencySettings,
+            ),
           0,
         ),
         tickets: clientTickets,
@@ -1805,6 +1926,7 @@ function ClientsPage() {
     contractsByProject,
     creditNotesByClient,
     creditNotesByInvoice,
+    currencySettings,
     dealsByClient,
     expensesByClient,
     expensesByProject,
@@ -1856,7 +1978,14 @@ function ClientsPage() {
         isSentOrOverdueInvoiceStatus(invoice.status) ||
         normalizeStatus(invoice.status) === "partially_paid",
     )
-    .reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
+    .reduce(
+      (sum, invoice) =>
+        sum +
+        Number(
+          invoice.total_base ?? rowBaseMoney(invoice.total, rowCurrency(invoice), currencySettings),
+        ),
+      0,
+    );
 
   const managerOptions = useMemo(() => managers.filter((manager) => manager.is_active), [managers]);
   const managerByUserId = useMemo(
@@ -2042,21 +2171,17 @@ function ClientsPage() {
 
   const openCreateTaskForClient = (client: ClientSnapshot) => {
     setSelectedClientId(client.id);
-    window.dispatchEvent(
-      new CustomEvent("corevix:open-task-create", {
-        detail: {
-          initialValues: {
-            title: `Dar seguimiento a ${client.company_name}`,
-            description: `Seguimiento creado desde Cliente 360.\nCliente: ${client.company_name}`,
-            clientId: client.id,
-            assignedTo:
-              client.account_manager && managerUserIdByProfileId.get(client.account_manager)
-                ? managerUserIdByProfileId.get(client.account_manager)
-                : profile?.user_id || user?.id || undefined,
-          },
-        },
-      }),
-    );
+    openGlobalTaskCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${client.company_name}`,
+        description: `Seguimiento creado desde Cliente 360.\nCliente: ${client.company_name}`,
+        clientId: client.id,
+        assignedTo:
+          client.account_manager && managerUserIdByProfileId.get(client.account_manager)
+            ? managerUserIdByProfileId.get(client.account_manager)
+            : profile?.user_id || user?.id || undefined,
+      },
+    });
   };
 
   const openInvoiceCreator = (client: ClientSnapshot) => {
@@ -2156,6 +2281,35 @@ function ClientsPage() {
     setVaultClientId(client.id);
     setVaultDialogOpen(true);
   };
+
+  const openClient360QuickDetail = (
+    group: Client360QuickDetailGroup,
+    id: string | null | undefined,
+  ) => {
+    if (!id) return;
+    window.dispatchEvent(
+      new CustomEvent("corevix:open-global-detail", {
+        detail: { group, id },
+      }),
+    );
+  };
+
+  const renderClient360QuickDetailButton = (
+    group: Client360QuickDetailGroup,
+    id: string | null | undefined,
+    label: string,
+  ) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 shrink-0 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+      onClick={() => openClient360QuickDetail(group, id)}
+      aria-label={label}
+    >
+      <Eye className="h-4 w-4" />
+    </Button>
+  );
 
   const toggleVaultReveal = (item: VaultItemRow) => {
     setRevealedVaultItemIds((current) => {
@@ -2635,13 +2789,28 @@ function ClientsPage() {
     const initialItems: InvoiceEditorItem[] = productDescription
       ? [
           {
+            product_id: firstPurchasedProduct?.id || null,
+            item_name: cleanInvoiceText(firstPurchasedProduct?.name) || productDescription,
             description: productDescription,
             quantity: 1,
+            unit_type: "qty",
             unit_price: productPrice,
             total: productPrice,
+            is_optional: false,
           },
         ]
-      : [{ description: "", quantity: 1, unit_price: 0, total: 0 }];
+      : [
+          {
+            product_id: null,
+            item_name: "",
+            description: "",
+            quantity: 1,
+            unit_type: "qty",
+            unit_price: 0,
+            total: 0,
+            is_optional: false,
+          },
+        ];
 
     return {
       number: `INV-${Date.now().toString().slice(-6)}`,
@@ -2693,20 +2862,49 @@ function ClientsPage() {
 
     const rows = draft.items
       .map((item, index) => {
-        const description = String(item.description || "").trim();
+        const itemName = String(item.item_name || item.description || "").trim();
+        const description = String(item.description || item.item_name || "").trim();
         const quantity = Number(item.quantity);
         const unitPrice = Number(item.unit_price);
         return {
+          product_id: item.product_id || null,
+          item_name: itemName,
           description,
           quantity: Number.isFinite(quantity) ? quantity : Number.NaN,
+          unit_type: item.unit_type || "qty",
           unit_price: Number.isFinite(unitPrice) ? unitPrice : Number.NaN,
+          is_optional: item.is_optional === true,
           sort_order: index,
+          document_currency: item.document_currency || draft.currency || null,
+          original_currency: item.original_currency || draft.currency || null,
+          original_unit_price:
+            item.original_unit_price === null || item.original_unit_price === undefined
+              ? unitPrice
+              : Number(item.original_unit_price),
+          converted_unit_price:
+            item.converted_unit_price === null || item.converted_unit_price === undefined
+              ? unitPrice
+              : Number(item.converted_unit_price),
+          exchange_rate:
+            item.exchange_rate === null || item.exchange_rate === undefined
+              ? null
+              : Number(item.exchange_rate),
+          exchange_rate_source: item.exchange_rate_source || null,
+          exchange_rate_updated_at: item.exchange_rate_updated_at || null,
+          tax_id: item.tax_id || null,
+          tax_name: item.tax_name || null,
+          tax_rate:
+            item.tax_rate === null || item.tax_rate === undefined ? 0 : Number(item.tax_rate),
+          tax_amount:
+            item.tax_amount === null || item.tax_amount === undefined
+              ? 0
+              : Number(item.tax_amount),
         };
       })
-      .filter((item) => item.description || item.unit_price > 0);
+      .filter((item) => item.item_name || item.description || item.unit_price > 0);
 
     for (const row of rows) {
-      if (!row.description) {
+      if (!row.item_name && !row.description) {
         setInvoiceError("Cada línea debe tener descripción.");
         toast.error("Cada línea debe tener descripción.");
         return;
@@ -2737,6 +2935,7 @@ function ClientsPage() {
       payment_link: null,
       ...(nextStatus === "Sent" ? { sent_at: new Date().toISOString() } : {}),
       invoice_data: {
+        currency: cleanInvoiceText(draft.currency) || "USD",
         clientName: cleanInvoiceText(draft.clientName),
         clientCompany: cleanInvoiceText(draft.clientCompany),
         clientEmail: cleanInvoiceText(draft.clientEmail),
@@ -2763,9 +2962,24 @@ function ClientsPage() {
         p_invoice_id: null,
         p_invoice: record,
         p_items: rows.map((row) => ({
+          product_id: row.product_id,
+          item_name: row.item_name,
           description: row.description,
           quantity: row.quantity,
+          unit_type: row.unit_type,
           unit_price: row.unit_price,
+          is_optional: row.is_optional,
+          document_currency: row.document_currency,
+          original_currency: row.original_currency,
+          original_unit_price: row.original_unit_price,
+          converted_unit_price: row.converted_unit_price,
+          exchange_rate: row.exchange_rate,
+          exchange_rate_source: row.exchange_rate_source,
+          exchange_rate_updated_at: row.exchange_rate_updated_at,
+          tax_id: row.tax_id,
+          tax_name: row.tax_name,
+          tax_rate: row.tax_rate,
+          tax_amount: row.tax_amount,
         })),
       });
       if (error) throw error;
@@ -2925,7 +3139,7 @@ function ClientsPage() {
       items.push({
         id: `invoice-overdue-${invoice.id}`,
         title: `Factura vencida ${invoice.number}`,
-        description: `${money(invoice.total)} · Vence ${formatDate(invoice.due_date)}`,
+        description: `${money(invoice.total, rowCurrency(invoice))} · Vence ${formatDate(invoice.due_date)}`,
         at: invoice.updated_at,
         icon: Receipt,
         tone: "bg-rose-50 text-rose-700",
@@ -2936,7 +3150,7 @@ function ClientsPage() {
       items.push({
         id: `invoice-${invoice.id}`,
         title: `Factura pendiente ${invoice.number}`,
-        description: `${money(invoice.total)} · Estado ${invoice.status}`,
+        description: `${money(invoice.total, rowCurrency(invoice))} · Estado ${invoice.status}`,
         at: invoice.updated_at,
         icon: CircleDollarSign,
         tone: "bg-amber-50 text-amber-700",
@@ -2959,7 +3173,7 @@ function ClientsPage() {
       items.push({
         id: `payment-${payment.id}`,
         title: "Pago registrado",
-        description: `${money(payment.amount)} · ${paymentLabel(payment.method)} · ${paymentLabel(payment.status)}`,
+        description: `${money(payment.amount, payment.currency)} · ${paymentLabel(payment.method)} · ${paymentLabel(payment.status)}`,
         at: payment.updated_at || payment.created_at,
         icon: CircleDollarSign,
         tone: "bg-emerald-50 text-emerald-700",
@@ -2970,7 +3184,7 @@ function ClientsPage() {
       items.push({
         id: `credit-note-${creditNote.id}`,
         title: "Nota de crédito",
-        description: `${money(creditNote.amount)} · ${creditNote.reason || creditNoteLabel(creditNote.status)}`,
+        description: `${money(creditNote.amount, creditNote.currency)} · ${creditNote.reason || creditNoteLabel(creditNote.status)}`,
         at: creditNote.updated_at || creditNote.created_at,
         icon: FileText,
         tone: "bg-orange-50 text-orange-700",
@@ -2981,7 +3195,7 @@ function ClientsPage() {
       items.push({
         id: `subscription-${subscription.id}`,
         title: "Suscripción",
-        description: `${subscription.name} · ${money(subscription.amount)} · ${subscriptionLabel(subscription.status)}`,
+        description: `${subscription.name} · ${money(subscription.amount, subscription.currency)} · ${subscriptionLabel(subscription.status)}`,
         at: subscription.updated_at || subscription.created_at,
         icon: Activity,
         tone: "bg-emerald-50 text-emerald-700",
@@ -2992,7 +3206,7 @@ function ClientsPage() {
       items.push({
         id: `expense-${expense.id}`,
         title: "Gasto registrado",
-        description: `${expense.title} · ${money(expense.amount)} · ${expenseLabel(expense.status)}`,
+        description: `${expense.title} · ${money(expense.amount, expense.currency)} · ${expenseLabel(expense.status)}`,
         at: expense.updated_at || expense.created_at,
         icon: Receipt,
         tone: "bg-orange-50 text-orange-700",
@@ -3051,7 +3265,7 @@ function ClientsPage() {
       items.push({
         id: `proposal-${proposal.id}`,
         title: `Propuesta ${proposal.number}`,
-        description: `${proposal.title} · ${money(proposal.amount)}`,
+        description: `${proposal.title} · ${money(proposal.amount, proposal.currency)}`,
         at: proposal.updated_at,
         icon: FileText,
         tone: "bg-violet-50 text-violet-700",
@@ -3062,7 +3276,7 @@ function ClientsPage() {
       items.push({
         id: `deal-${deal.id}`,
         title: `Oportunidad abierta`,
-        description: `${deal.name} · ${deal.stage} · ${money(deal.value)}`,
+        description: `${deal.name} · ${deal.stage} · ${money(deal.value, currencySettings.baseCurrency)}`,
         at: deal.updated_at,
         icon: BriefcaseBusiness,
         tone: "bg-sky-50 text-sky-700",
@@ -3359,7 +3573,7 @@ function ClientsPage() {
 
   const exportVisible = () => {
     if (filteredClients.length === 0) return;
-    const csv = buildClientCsv(filteredClients);
+    const csv = buildClientCsv(filteredClients, currencySettings.baseCurrency);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -3752,7 +3966,7 @@ function ClientsPage() {
                               {clientFinanceLabel(client)}
                             </p>
                             <p className="text-xs text-[#667085]">
-                              {money(client.pendingInvoiceAmount)}
+                              {money(client.pendingInvoiceAmount, currencySettings.baseCurrency)}
                             </p>
                           </div>
                         </TableCell>
@@ -4124,7 +4338,10 @@ function ClientsPage() {
                             {
                               key: "pipeline",
                               label: "Embudo",
-                              value: money(selectedClient.openPipelineValue),
+                              value: money(
+                                selectedClient.openPipelineValue,
+                                currencySettings.baseCurrency,
+                              ),
                             },
                           ]}
                         />
@@ -4337,7 +4554,8 @@ function ClientsPage() {
                                 <div key={deal.id} className="py-3">
                                   <p className="text-sm font-normal text-slate-950">{deal.name}</p>
                                   <p className="mt-1 text-xs font-normal text-slate-500">
-                                    {deal.stage} · {money(deal.value)}{" "}
+                                    {deal.stage} ·{" "}
+                                    {money(deal.value, currencySettings.baseCurrency)}{" "}
                                     {deal.expected_close ? `· Cierre ${deal.expected_close}` : ""}
                                   </p>
                                 </div>
@@ -4365,7 +4583,7 @@ function ClientsPage() {
                                     {proposal.number} · {proposal.title}
                                   </p>
                                   <p className="mt-1 text-xs font-normal text-slate-500">
-                                    {proposal.status} · {money(proposal.amount)}{" "}
+                                    {proposal.status} · {money(proposal.amount, proposal.currency)}{" "}
                                     {proposal.valid_until ? `· Vence ${proposal.valid_until}` : ""}
                                   </p>
                                 </div>
@@ -4542,7 +4760,14 @@ function ClientsPage() {
                                     Vence {formatDate(project.due_date)}
                                   </p>
                                 </div>
-                                <StatusBadge status={project.status} />
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <StatusBadge status={project.status} />
+                                  {renderClient360QuickDetailButton(
+                                    "projects",
+                                    project.id,
+                                    "Ver proyecto",
+                                  )}
+                                </div>
                               </div>
                               <div className="mt-4 h-2 rounded-full bg-slate-100">
                                 <div
@@ -4590,7 +4815,10 @@ function ClientsPage() {
                           {
                             key: "open-pipeline",
                             label: "Embudo",
-                            value: money(selectedClient.openPipelineValue),
+                            value: money(
+                              selectedClient.openPipelineValue,
+                              currencySettings.baseCurrency,
+                            ),
                           },
                         ]}
                       />
@@ -4643,11 +4871,18 @@ function ClientsPage() {
                                         Vence {formatDate(invoice.due_date)}
                                       </p>
                                     </div>
-                                    <StatusBadge status={invoice.status} />
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      <StatusBadge status={invoice.status} />
+                                      {renderClient360QuickDetailButton(
+                                        "invoices",
+                                        invoice.id,
+                                        "Ver factura",
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="mt-2 flex items-center justify-between text-sm">
                                     <span className="font-normal text-slate-500">
-                                      {money(invoice.total)}
+                                      {money(invoice.total, rowCurrency(invoice))}
                                     </span>
                                     <div className="flex items-center gap-2">
                                       <span className="text-slate-500">
@@ -4701,11 +4936,18 @@ function ClientsPage() {
                                     </div>
                                     <div className="mt-2 flex items-center justify-between text-sm">
                                       <span className="font-normal text-slate-500">
-                                        {money(proposal.amount)}
+                                        {money(proposal.amount, proposal.currency)}
                                       </span>
-                                      <span className="text-slate-500">
-                                        {formatDateTime(proposal.updated_at)}
-                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-slate-500">
+                                          {formatDateTime(proposal.updated_at)}
+                                        </span>
+                                        {renderClient360QuickDetailButton(
+                                          "proposals",
+                                          proposal.id,
+                                          "Ver propuesta",
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -4729,7 +4971,7 @@ function ClientsPage() {
                                     </div>
                                     <div className="mt-2 flex items-center justify-between text-sm">
                                       <span className="font-normal text-slate-500">
-                                        {money(deal.value)}
+                                        {money(deal.value, currencySettings.baseCurrency)}
                                       </span>
                                       <span className="text-slate-500">
                                         {formatDateTime(deal.updated_at)}
@@ -4795,7 +5037,10 @@ function ClientsPage() {
                           {
                             key: "payments-total",
                             label: "Total cobrado",
-                            value: money(selectedClient.totalPaidAmount),
+                            value: money(
+                              selectedClient.totalPaidAmount,
+                              currencySettings.baseCurrency,
+                            ),
                           },
                           {
                             key: "pending-invoices",
@@ -4848,10 +5093,15 @@ function ClientsPage() {
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {money(payment.amount)}
+                                      {money(payment.amount, payment.currency)}
                                     </p>
                                     <StatusBadge status={payment.status} />
                                   </div>
+                                  {renderClient360QuickDetailButton(
+                                    "payments",
+                                    payment.id,
+                                    "Ver pago",
+                                  )}
                                 </div>
                               </div>
                             );
@@ -4881,10 +5131,18 @@ function ClientsPage() {
                                   {proposal.title}
                                 </p>
                                 <p className="mt-1 text-xs font-normal text-slate-500">
-                                  Propuesta {proposal.number} · {money(proposal.amount)}
+                                  Propuesta {proposal.number} ·{" "}
+                                  {money(proposal.amount, proposal.currency)}
                                 </p>
                               </div>
-                              <StatusBadge status={proposal.status} />
+                              <div className="flex shrink-0 items-center gap-2">
+                                <StatusBadge status={proposal.status} />
+                                {renderClient360QuickDetailButton(
+                                  "proposals",
+                                  proposal.id,
+                                  "Ver propuesta",
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -4927,7 +5185,10 @@ function ClientsPage() {
                           {
                             key: "credit-notes-total",
                             label: "Total acreditado",
-                            value: money(selectedClient.totalCreditAmount),
+                            value: money(
+                              selectedClient.totalCreditAmount,
+                              currencySettings.baseCurrency,
+                            ),
                           },
                           {
                             key: "credit-notes-invoices",
@@ -4984,10 +5245,15 @@ function ClientsPage() {
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {money(creditNote.amount)}
+                                      {money(creditNote.amount, creditNote.currency)}
                                     </p>
                                     <StatusBadge status={creditNote.status} />
                                   </div>
+                                  {renderClient360QuickDetailButton(
+                                    "credit_notes",
+                                    creditNote.id,
+                                    "Ver nota de crédito",
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5032,7 +5298,10 @@ function ClientsPage() {
                           {
                             key: "subscriptions-recurring",
                             label: "Monto recurrente",
-                            value: money(selectedClient.recurringAmount),
+                            value: money(
+                              selectedClient.recurringAmount,
+                              currencySettings.baseCurrency,
+                            ),
                           },
                           {
                             key: "subscriptions-next",
@@ -5095,10 +5364,15 @@ function ClientsPage() {
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {money(subscription.amount)}
+                                      {money(subscription.amount, subscription.currency)}
                                     </p>
                                     <StatusBadge status={subscription.status} />
                                   </div>
+                                  {renderClient360QuickDetailButton(
+                                    "subscriptions",
+                                    subscription.id,
+                                    "Ver suscripción",
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5143,7 +5417,10 @@ function ClientsPage() {
                           {
                             key: "expenses-total",
                             label: "Total registrado",
-                            value: money(selectedClient.totalExpenseAmount),
+                            value: money(
+                              selectedClient.totalExpenseAmount,
+                              currencySettings.baseCurrency,
+                            ),
                           },
                           {
                             key: "expenses-projects",
@@ -5211,10 +5488,15 @@ function ClientsPage() {
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {money(expense.amount)}
+                                      {money(expense.amount, expense.currency)}
                                     </p>
                                     <StatusBadge status={expense.status} />
                                   </div>
+                                  {renderClient360QuickDetailButton(
+                                    "expenses",
+                                    expense.id,
+                                    "Ver gasto",
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5259,7 +5541,10 @@ function ClientsPage() {
                           {
                             key: "contracts-value",
                             label: "Valor contratado",
-                            value: money(selectedClient.totalContractValue),
+                            value: money(
+                              selectedClient.totalContractValue,
+                              currencySettings.baseCurrency,
+                            ),
                           },
                           {
                             key: "contracts-expiring",
@@ -5326,7 +5611,12 @@ function ClientsPage() {
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {money(contract.contract_value)}
+                                      {money(
+                                        contract.contract_value,
+                                        contract.currency ||
+                                          contract.base_currency ||
+                                          currencySettings.baseCurrency,
+                                      )}
                                     </p>
                                     <div className="mt-1 flex flex-wrap justify-end gap-1.5">
                                       <StatusBadge status={contract.status} />
@@ -5455,6 +5745,11 @@ function ClientsPage() {
                                     </p>
                                     <StatusBadge status={ticket.status} />
                                   </div>
+                                  {renderClient360QuickDetailButton(
+                                    "tickets",
+                                    ticket.id,
+                                    "Ver ticket",
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5560,6 +5855,11 @@ function ClientsPage() {
                                 </div>
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <StatusBadge status={reminder.status} />
+                                  {renderClient360QuickDetailButton(
+                                    "calendar",
+                                    reminder.id,
+                                    "Ver recordatorio",
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5762,26 +6062,14 @@ function ClientsPage() {
                       )}
                     </TabsContent>
 
-                    {[
-                      {
-                        value: "files",
-                        icon: FileText,
-                        title: "Archivos",
-                        description:
-                          "Espacio para organizar documentos, entregables y adjuntos relacionados con el cliente.",
-                      },
-                    ].map((module) => {
-                      const Icon = module.icon;
-                      return (
-                        <TabsContent key={module.value} value={module.value} className="space-y-4">
-                          <EmptyState
-                            icon={<Icon className="h-6 w-6" />}
-                            title={module.title}
-                            description={module.description}
-                          />
-                        </TabsContent>
-                      );
-                    })}
+                    <TabsContent value="files" className="space-y-4">
+                      <ClientFilesPanel
+                        clientId={selectedClient.id}
+                        clientName={selectedClient.company_name}
+                        driveFolderUrl={selectedClient.drive_folder_url}
+                        canEdit={can("clients.edit")}
+                      />
+                    </TabsContent>
 
                     <TabsContent value="tasks" className="space-y-5">
                       <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -5874,6 +6162,7 @@ function ClientsPage() {
                                 </div>
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <StatusBadge status={task.status} />
+                                  {renderClient360QuickDetailButton("tasks", task.id, "Ver tarea")}
                                 </div>
                               </div>
                             );
@@ -6045,7 +6334,7 @@ function ClientsPage() {
                   <SelectItem value="none">Sin factura</SelectItem>
                   {(creditNoteDialogClient?.invoices || []).map((invoice) => (
                     <SelectItem key={invoice.id} value={invoice.id}>
-                      {invoice.number} · {money(invoice.total)}
+                      {invoice.number} · {money(invoice.total, rowCurrency(invoice))}
                     </SelectItem>
                   ))}
                 </SelectContent>

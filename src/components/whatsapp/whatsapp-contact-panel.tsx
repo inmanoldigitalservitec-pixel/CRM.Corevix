@@ -21,6 +21,7 @@ import { WhatsappAvatar } from "@/components/whatsapp/whatsapp-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CrmDetailSection } from "@/components/crm/crm-detail";
@@ -1265,20 +1266,16 @@ export function WhatsappContactPanel({
     }
     if (!enforceOwnLeadForSales("Solo puedes crear seguimiento para tus propios prospectos"))
       return;
-    window.dispatchEvent(
-      new CustomEvent("corevix:open-task-create", {
-        detail: {
-          initialValues: {
-            title: `Dar seguimiento a ${leadLabel}`,
-            dueDate,
-            priority: "Medium",
-            description: `Seguimiento creado desde WhatsApp.\nFuente: ${sourceHint}`,
-            assignedTo: lead.assigned_to || profile?.user_id || user?.id || undefined,
-            leadId: lead.id,
-          },
-        },
-      }),
-    );
+    openGlobalTaskCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${leadLabel}`,
+        dueDate,
+        priority: "Medium",
+        description: `Seguimiento creado desde WhatsApp.\nFuente: ${sourceHint}`,
+        assignedTo: lead.assigned_to || profile?.user_id || user?.id || undefined,
+        leadId: lead.id,
+      },
+    });
   }
 
   async function handleConvertLeadToClient() {

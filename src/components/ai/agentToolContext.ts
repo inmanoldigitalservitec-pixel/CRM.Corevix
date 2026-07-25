@@ -1,3 +1,5 @@
+import { formatCurrencyAmount } from "@/lib/currency";
+
 export type AgentWidgetKind =
   | "leads"
   | "clients"
@@ -310,15 +312,7 @@ function formatCurrency(value: unknown, currency = "USD") {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return value == null ? undefined : String(value);
 
-  try {
-    return new Intl.NumberFormat("es-DO", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${amount.toLocaleString("es-DO")} ${currency}`;
-  }
+  return formatCurrencyAmount(amount, currency);
 }
 
 function formatDate(value: unknown) {

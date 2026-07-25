@@ -1,6 +1,7 @@
 import { Check, CreditCard, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PayPalInvoiceButton } from "@/components/invoices/PayPalInvoiceButton";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 type InvoiceItem = {
   id?: string;
@@ -11,6 +12,7 @@ type InvoiceItem = {
 };
 
 type InvoiceData = {
+  currency?: string;
   clientName?: string;
   clientCompany?: string;
   clientEmail?: string;
@@ -32,6 +34,7 @@ type Invoice = {
   id?: string;
   number?: string | null;
   status?: string | null;
+  currency?: string | null;
   date_issued?: string | null;
   due_date?: string | null;
   subtotal?: number | string | null;
@@ -52,7 +55,7 @@ type PublicInvoiceViewProps = {
 export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceViewProps) {
   const data =
     invoice?.invoice_data && typeof invoice.invoice_data === "object" ? invoice.invoice_data : {};
-  const currency = "USD";
+  const currency = clean(invoice.currency) || clean(data.currency) || "USD";
   const statusInfo = getStatusInfo(invoice.status);
   const isPaid = clean(invoice.status).toLowerCase() === "paid";
 
@@ -311,11 +314,7 @@ function formatDate(value?: string | null) {
 }
 
 function formatMoney(value: number | string | null | undefined, currency = "USD") {
-  const number = Number(value || 0);
-  return `${currency} ${number.toLocaleString("en-US", {
-    minimumFractionDigits: number % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatCurrencyAmount(value, currency);
 }
 
 function getFirstItemTitle(description?: string | null) {

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { PaymentFormDialog } from "@/components/payments/payment-form-dialog";
 import { deletePaymentReceiptsForPayment } from "@/lib/payments/payment-receipts";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
+import { normalizeCurrency } from "@/lib/currency";
 
 const DISPLAY_LABELS: Record<string, string> = {
   "Not Started": "No iniciado",
@@ -77,7 +78,7 @@ function PaymentsPage() {
         const db = supabase as any;
         const { data: invoice, error: invoiceError } = await db
           .from("invoices")
-          .select("id, number, client_id, total")
+          .select("id, number, client_id, total, currency, invoice_data")
           .eq("company_id", profile.company_id)
           .eq("id", invoiceId)
           .maybeSingle();
@@ -94,6 +95,7 @@ function PaymentsPage() {
             invoice_id: String(invoice.id),
             client_id: invoice.client_id ? String(invoice.client_id) : "none",
             amount: String(balance.outstandingBalance || Number(invoice.total || 0) || 0),
+            currency: normalizeCurrency(invoice.currency || invoice.invoice_data?.currency),
             status: "Completed",
           });
         }

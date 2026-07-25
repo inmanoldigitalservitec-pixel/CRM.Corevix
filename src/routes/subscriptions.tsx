@@ -3,15 +3,27 @@ import { SalesBasicPage } from "@/components/sales/sales-basic-page";
 
 export const Route = createFileRoute("/subscriptions")({
   component: SubscriptionsPage,
-  head: () => ({ meta: [{ title: "Subscriptions — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Suscripciones — Corevix CRM" }] }),
 });
 const STATUSES = ["Trial", "Active", "Paused", "Cancelled", "Expired"];
 const CYCLES = ["Weekly", "Monthly", "Quarterly", "Yearly"];
+const DISPLAY_LABELS: Record<string, string> = {
+  Trial: "Prueba",
+  Active: "Activa",
+  Paused: "Pausada",
+  Cancelled: "Cancelada",
+  Expired: "Expirada",
+  Weekly: "Semanal",
+  Monthly: "Mensual",
+  Quarterly: "Trimestral",
+  Yearly: "Anual",
+};
+
 function SubscriptionsPage() {
   return (
     <SalesBasicPage
       config={{
-        routeTitle: "Subscriptions",
+        routeTitle: "Suscripciones",
         subtitle: "Ingresos recurrentes, ciclos de cobro y clientes activos.",
         table: "subscriptions",
         module: "subscriptions",
@@ -20,7 +32,8 @@ function SubscriptionsPage() {
         dateKey: "next_billing_date",
         statusKey: "status",
         statuses: STATUSES,
-        primaryLabel: "Subscription",
+        primaryLabel: "suscripción",
+        primaryActionLabel: "Nueva suscripción",
         defaultValues: {
           name: "",
           client_id: "none",
@@ -34,26 +47,34 @@ function SubscriptionsPage() {
           notes: "",
         },
         fields: [
-          { key: "name", label: "Name", type: "text", required: true, span: 2 },
-          { key: "client_id", label: "Client", type: "select" },
-          { key: "product_id", label: "Product", type: "select" },
-          { key: "amount", label: "Amount", type: "number", required: true },
+          { key: "name", label: "Nombre", type: "text", required: true, span: 2 },
+          { key: "client_id", label: "Cliente", type: "select" },
+          { key: "product_id", label: "Producto", type: "select" },
+          { key: "amount", label: "Monto", type: "number", required: true },
           {
             key: "billing_cycle",
-            label: "Billing Cycle",
+            label: "Ciclo de cobro",
             type: "select",
-            options: CYCLES.map((value) => ({ label: value, value })),
+            options: CYCLES.map((value) => ({
+              label: value,
+              value,
+              displayLabel: DISPLAY_LABELS[value] ?? value,
+            })),
           },
           {
             key: "status",
-            label: "Status",
+            label: "Estado",
             type: "select",
-            options: STATUSES.map((value) => ({ label: value, value })),
+            options: STATUSES.map((value) => ({
+              label: value,
+              value,
+              displayLabel: DISPLAY_LABELS[value] ?? value,
+            })),
           },
-          { key: "start_date", label: "Start Date", type: "date" },
-          { key: "next_billing_date", label: "Next Billing", type: "date" },
-          { key: "end_date", label: "End Date", type: "date" },
-          { key: "notes", label: "Notes", type: "textarea" },
+          { key: "start_date", label: "Fecha de inicio", type: "date" },
+          { key: "next_billing_date", label: "Próximo cobro", type: "date" },
+          { key: "end_date", label: "Fecha de cierre", type: "date" },
+          { key: "notes", label: "Notas", type: "textarea" },
         ],
       }}
     />

@@ -5,10 +5,12 @@ import { useAuth } from "@/hooks/use-auth";
 type TaskCreateInitialValues = {
   title?: string;
   description?: string;
+  descriptionHtml?: string;
   status?: string;
   priority?: string;
   dueDate?: string;
   assignedTo?: string;
+  assigneeIds?: string[];
   projectId?: string;
   clientId?: string;
   leadId?: string;

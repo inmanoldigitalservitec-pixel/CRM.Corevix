@@ -1,4 +1,5 @@
 import { isPaidInvoiceStatus, normalizeStatus } from "@/lib/crm/status";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 export type InvoiceOperationalFilter = "all" | "pending" | "overdue" | "paid" | "draft";
 export type InvoiceDueFilter = "all" | "today" | "week" | "month" | "overdue";
@@ -64,11 +65,7 @@ export function formatInvoiceMoney(
   currency = "USD",
   locale = "es-DO",
 ) {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(Number(amount || 0));
+  return formatCurrencyAmount(amount, currency, locale);
 }
 
 export function formatInvoiceDate(value?: string | null) {

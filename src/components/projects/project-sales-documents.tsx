@@ -104,7 +104,7 @@ export function ProjectSalesDocuments({
               >
                 <DocumentTitle document={document} />
                 <span className="text-sm font-bold text-slate-800">
-                  {formatMoney(document.amount, currency)}
+                  <MoneyCell document={document} currency={currency} />
                 </span>
                 <span
                   className={cn(
@@ -130,7 +130,9 @@ export function ProjectSalesDocuments({
               >
                 <DocumentTitle document={document} />
                 <div className="mt-3 flex items-center justify-between gap-3 text-xs font-bold">
-                  <span className="text-slate-900">{formatMoney(document.amount, currency)}</span>
+                  <span className="text-slate-900">
+                    <MoneyCell document={document} currency={currency} />
+                  </span>
                   <span className={document.isOverdue ? "text-rose-700" : "text-slate-500"}>
                     {displayStatus(document.status)}
                   </span>
@@ -148,6 +150,25 @@ export function ProjectSalesDocuments({
         </div>
       )}
     </section>
+  );
+}
+
+function MoneyCell({ document, currency }: { document: ProjectSalesDocument; currency?: string }) {
+  const baseCurrency = currency || document.baseCurrency || "USD";
+  const originalCurrency = document.currency || baseCurrency;
+  const originalLabel = formatMoney(document.amount, originalCurrency);
+  const baseLabel = formatMoney(document.amountBase, baseCurrency);
+  const showBase = originalCurrency !== baseCurrency;
+
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate">{originalLabel}</span>
+      {showBase ? (
+        <span className="block truncate text-[11px] font-semibold text-slate-400">
+          Base: {baseLabel}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

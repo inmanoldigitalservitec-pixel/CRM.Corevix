@@ -46,8 +46,26 @@ import { LoadingTable } from "@/components/crm/loading-state";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import {
+  formatTaxOptionLabel,
+  normalizeTaxRate,
+  useCompanyTaxes,
+} from "@/hooks/use-company-taxes";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
+import {
+  CURRENCY_OPTIONS,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+  normalizeCurrencyInput,
+  type CompanyCurrencySettings,
+  type CurrencyCode,
+} from "@/lib/currency";
 import { toast } from "sonner";
 
 const DISPLAY_LABELS: Record<string, string> = {
@@ -92,7 +110,7 @@ function displayLabel(value: string) {
 const NONE = "none";
 
 type Option = { label: string; value: string; displayLabel?: string };
-type FieldType = "text" | "number" | "date" | "textarea" | "select";
+type FieldType = "text" | "number" | "date" | "textarea" | "select" | "tax-select";
 
 type SalesField = {
   key: string;
@@ -123,8 +141,22 @@ type SalesConfig = {
 
 type ClientRow = { id: string; company_name: string; contact_person: string | null };
 type ProjectRow = { id: string; name: string };
-type InvoiceRow = { id: string; number: string; total: number | null };
-type ProductRow = { id: string; name: string; base_price: number | null };
+type InvoiceRow = {
+  id: string;
+  number: string;
+  total: number | null;
+  currency?: string | null;
+  invoice_data?: Record<string, unknown> | null;
+};
+type ProductRow = {
+  id: string;
+  name: string;
+  base_price: number | null;
+  currency?: string | null;
+  default_tax_id?: string | null;
+  default_tax_name?: string | null;
+  default_tax_rate?: number | string | null;
+};
 
 type GenericRow = Record<string, any>;
 type SalesBasicPageProps = {
@@ -139,8 +171,8 @@ type SalesBasicPageProps = {
   beforeDelete?: (row: GenericRow) => Promise<void> | void;
 };
 
-function formatMoney(value: number | string | null | undefined) {
-  return `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(value: number | string | null | undefined, currency?: string | null) {
+  return formatCurrencyAmount(value, normalizeCurrency(currency || "USD"));
 }
 
 function formatDate(value: string | null | undefined) {
@@ -156,15 +188,171 @@ function formatDate(value: string | null | undefined) {
   }
 }
 
-function normalizePayload(form: Record<string, string>) {
+const CURRENCY_AWARE_TABLES = new Set([
+  "estimates",
+  "payments",
+  "credit_notes",
+  "expenses",
+  "subscriptions",
+]);
+const MONEY_KEYS = new Set(["amount", "subtotal", "tax", "total", "discount"]);
+
+function getInvoiceCurrency(invoice: InvoiceRow | null | undefined) {
+  const invoiceData =
+    invoice?.invoice_data && typeof invoice.invoice_data === "object" ? invoice.invoice_data : {};
+  return normalizeCurrency(invoice?.currency || String(invoiceData.currency || ""));
+}
+
+function normalizePayload(
+  form: Record<string, string>,
+  settings: {
+    baseCurrency: CurrencyCode;
+    usdToDopRate: number;
+    rateSource: string;
+    rateUpdatedAt: string | null;
+  },
+  currencyAware: boolean,
+  taxById?: Map<string, { id: string; name: string; rate: number | string }>,
+) {
   const payload: Record<string, any> = {};
+  const currency = normalizeCurrency(form.currency || settings.baseCurrency);
+  const baseCurrency = normalizeCurrency(settings.baseCurrency);
   Object.entries(form).forEach(([key, value]) => {
     if (value === NONE) payload[key] = null;
-    else if (["amount", "subtotal", "tax", "total"].includes(key))
-      payload[key] = value ? Number(value) : 0;
+    else if (MONEY_KEYS.has(key)) payload[key] = value ? Number(value) : 0;
     else payload[key] = value || null;
   });
+
+  if (currencyAware) {
+    payload.currency = currency;
+    payload.base_currency = baseCurrency;
+    payload.exchange_rate = currency === baseCurrency ? 1 : settings.usdToDopRate;
+    payload.exchange_rate_source = settings.rateSource;
+    payload.exchange_rate_updated_at = settings.rateUpdatedAt;
+
+    Object.entries(form).forEach(([key, value]) => {
+      if (!MONEY_KEYS.has(key)) return;
+      const amount = value ? Number(value) : 0;
+      const baseAmount = convertCurrencyAmount(
+        amount,
+        currency,
+        baseCurrency,
+        settings.usdToDopRate,
+      );
+      if (key === "amount") payload.amount_base = baseAmount;
+      else payload[`${key}_base`] = baseAmount;
+    });
+
+    const selectedTax = form.tax_id && form.tax_id !== NONE ? taxById?.get(form.tax_id) : null;
+    if (selectedTax) {
+      const taxRate = normalizeTaxRate(selectedTax.rate);
+      const taxableBase = Number(payload.subtotal ?? payload.amount ?? 0) || 0;
+      const taxAmount = taxableBase * (taxRate / 100);
+      payload.tax_id = selectedTax.id;
+      payload.tax_name = selectedTax.name;
+      payload.tax_rate = taxRate;
+      payload.tax_amount = taxAmount;
+      payload.tax = taxAmount;
+      if ("total" in payload) {
+        const discount = Number(payload.discount || 0) || 0;
+        payload.total = Math.max(0, taxableBase + taxAmount - discount);
+      }
+      payload.tax_base = convertCurrencyAmount(taxAmount, currency, baseCurrency, settings.usdToDopRate);
+      if ("total" in payload) {
+        payload.total_base = convertCurrencyAmount(
+          payload.total,
+          currency,
+          baseCurrency,
+          settings.usdToDopRate,
+        );
+      }
+    } else if ("tax_id" in payload) {
+      payload.tax_id = null;
+      payload.tax_name = null;
+      payload.tax_rate = 0;
+      payload.tax_amount = 0;
+      payload.tax = 0;
+      payload.tax_base = 0;
+    }
+  }
+
   return payload;
+}
+
+function currencyAwareFields(config: SalesConfig): SalesField[] {
+  if (!CURRENCY_AWARE_TABLES.has(config.table)) return config.fields;
+  if (config.fields.some((field) => field.key === "currency")) return config.fields;
+  const firstMoneyIndex = config.fields.findIndex((field) => MONEY_KEYS.has(field.key));
+  const currencyField: SalesField = { key: "currency", label: "Moneda", type: "select" };
+  if (firstMoneyIndex < 0) return [...config.fields, currencyField];
+  return [
+    ...config.fields.slice(0, firstMoneyIndex),
+    currencyField,
+    ...config.fields.slice(firstMoneyIndex),
+  ];
+}
+
+function normalizeFormValue(key: string, value: string, currency: string) {
+  if (MONEY_KEYS.has(key)) return normalizeCurrencyInput(value, currency);
+  return value;
+}
+
+function readRowCurrency(
+  row: GenericRow,
+  fallback: CurrencyCode,
+  productById?: Map<string, ProductRow>,
+) {
+  const productCurrency = row.product_id ? productById?.get(row.product_id)?.currency : null;
+  return normalizeCurrency(row.currency || row.base_currency || productCurrency || fallback);
+}
+
+function readBaseMoney(
+  row: GenericRow,
+  amountKey: string,
+  settings: CompanyCurrencySettings,
+  sourceCurrency: string | null | undefined,
+) {
+  const storedBaseAmount = Number(row[`${amountKey}_base`]);
+  const storedBaseCurrency = row.base_currency ? normalizeCurrency(row.base_currency) : null;
+
+  if (Number.isFinite(storedBaseAmount) && row[`${amountKey}_base`] != null) {
+    return storedBaseCurrency && storedBaseCurrency !== settings.baseCurrency
+      ? convertCurrencyAmount(
+          storedBaseAmount,
+          storedBaseCurrency,
+          settings.baseCurrency,
+          settings.usdToDopRate,
+        )
+      : storedBaseAmount;
+  }
+
+  return convertToBaseCurrency(row[amountKey], sourceCurrency || settings.baseCurrency, {
+    baseCurrency: settings.baseCurrency,
+    usdToDopRate: Number(row.exchange_rate || settings.usdToDopRate),
+    rateSource: settings.rateSource,
+    rateUpdatedAt: settings.rateUpdatedAt,
+  });
+}
+
+function getMoneyDisplay(
+  row: GenericRow,
+  amountKey: string,
+  settings: CompanyCurrencySettings,
+  productById?: Map<string, ProductRow>,
+  currencyAware = false,
+) {
+  const sourceCurrency = readRowCurrency(row, settings.baseCurrency, productById);
+  const originalLabel = formatMoney(row[amountKey], sourceCurrency);
+  if (!currencyAware) return { originalLabel, baseLabel: null };
+
+  const baseAmount = readBaseMoney(row, amountKey, settings, sourceCurrency);
+  const hasStoredBase = row[`${amountKey}_base`] != null;
+  const shouldShowBase = sourceCurrency !== settings.baseCurrency || hasStoredBase;
+
+  return {
+    originalLabel,
+    baseLabel: shouldShowBase ? formatMoney(baseAmount, settings.baseCurrency) : null,
+  };
 }
 
 export function SalesBasicPage({
@@ -180,7 +368,11 @@ export function SalesBasicPage({
 }: SalesBasicPageProps) {
   const { profile } = useAuth();
   const { can } = usePermissions();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
+  const { taxes: salesTaxes, taxById: salesTaxById, defaultTax } = useCompanyTaxes("sales");
   const canDelete = enableDelete && can(`${config.module}.delete` as any);
+  const currencyAware = CURRENCY_AWARE_TABLES.has(config.table);
+  const fields = useMemo(() => currencyAwareFields(config), [config]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -191,9 +383,23 @@ export function SalesBasicPage({
   const defaultValuesKey = JSON.stringify(config.defaultValues);
   const initialFieldValuesKey = JSON.stringify(initialFieldValues || {});
   const initialForm = useMemo(
-    () => ({ ...config.defaultValues, ...(initialFieldValues || {}) }),
-    [defaultValuesKey, initialFieldValuesKey],
-  );
+    () => ({
+	      ...config.defaultValues,
+	      ...(currencyAware ? { currency: currencySettings.baseCurrency } : {}),
+	      ...(currencyAware && config.fields.some((field) => field.type === "tax-select")
+	        ? { tax_id: defaultTax?.id || NONE }
+	        : {}),
+	      ...(initialFieldValues || {}),
+	    }),
+	    [
+	      currencyAware,
+	      currencySettings.baseCurrency,
+	      defaultTax?.id,
+	      defaultValuesKey,
+	      initialFieldValuesKey,
+	      config.fields,
+	    ],
+	  );
   const [form, setForm] = useState<Record<string, string>>(initialForm);
 
   const { data, loading, error, fetch, create, remove } = useCrud<GenericRow>({
@@ -218,18 +424,18 @@ export function SalesBasicPage({
   });
   const { data: invoices } = useCrud<InvoiceRow>({
     table: "invoices",
-    select: "id,number,total",
+    select: "id,number,total,currency,invoice_data",
     orderBy: "updated_at",
     ascending: false,
     limit: 1000,
   });
-  const { data: products } = useCrud<ProductRow>({
-    table: "products",
-    select: "id,name,base_price",
-    orderBy: "name",
-    ascending: true,
-    limit: 1000,
-  });
+	  const { data: products } = useCrud<ProductRow>({
+	    table: "products",
+	    select: "id,name,base_price,currency,default_tax_id,default_tax_name,default_tax_rate",
+	    orderBy: "name",
+	    ascending: true,
+	    limit: 1000,
+	  });
 
   const clientById = useMemo(() => new Map(clients.map((item) => [item.id, item])), [clients]);
   const projectById = useMemo(() => new Map(projects.map((item) => [item.id, item])), [projects]);
@@ -238,13 +444,23 @@ export function SalesBasicPage({
 
   const fieldOptions = (field: SalesField): Option[] => {
     if (field.options) return field.options;
+	    if (field.key === "currency")
+	      return CURRENCY_OPTIONS.map((option) => ({
+	        label: `${option.symbol} · ${option.label}`,
+	        value: option.value,
+	      }));
+	    if (field.type === "tax-select")
+	      return salesTaxes.map((tax) => ({
+	        label: formatTaxOptionLabel(tax),
+	        value: tax.id,
+	      }));
     if (field.key === "client_id")
       return clients.map((item) => ({ label: item.company_name, value: item.id }));
     if (field.key === "project_id")
       return projects.map((item) => ({ label: item.name, value: item.id }));
     if (field.key === "invoice_id")
       return invoices.map((item) => ({
-        label: `${item.number} · ${formatMoney(item.total)}`,
+        label: `${item.number} · ${formatMoney(item.total, getInvoiceCurrency(item))}`,
         value: item.id,
       }));
     if (field.key === "product_id")
@@ -255,7 +471,15 @@ export function SalesBasicPage({
   const kpis = useMemo(
     () => ({
       total: data.length,
-      totalAmount: data.reduce((sum, row) => sum + Number(row[config.amountKey] || 0), 0),
+      totalAmount: data.reduce((sum, row) => {
+        const sourceCurrency = readRowCurrency(row, currencySettings.baseCurrency, productById);
+        return (
+          sum +
+          (currencyAware
+            ? readBaseMoney(row, config.amountKey, currencySettings, sourceCurrency)
+            : Number(row[config.amountKey] || 0))
+        );
+      }, 0),
       active: data.filter((row) =>
         ["Active", "Completed", "Paid", "Accepted", "Issued", "Approved"].includes(
           row[config.statusKey],
@@ -265,7 +489,7 @@ export function SalesBasicPage({
         ["Draft", "Pending", "Sent", "Trial"].includes(row[config.statusKey]),
       ).length,
     }),
-    [config.amountKey, config.statusKey, data],
+    [config.amountKey, config.statusKey, currencyAware, currencySettings, data, productById],
   );
 
   const filtered = useMemo(() => {
@@ -333,13 +557,13 @@ export function SalesBasicPage({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!profile?.company_id) return toast.error("No hay contexto de compañía.");
-    const requiredMissing = config.fields.find(
-      (field) => field.required && !form[field.key]?.trim(),
-    );
+    const requiredMissing = fields.find((field) => field.required && !form[field.key]?.trim());
     if (requiredMissing) return toast.error(`${requiredMissing.label} es obligatorio.`);
     setSaving(true);
     try {
-      const created = await create(normalizePayload(form));
+	      const created = await create(
+	        normalizePayload(form, currencySettings, currencyAware, salesTaxById),
+	      );
       toast.success(`${config.primaryLabel} creado correctamente.`);
       setDialogOpen(false);
       await fetch();
@@ -421,7 +645,7 @@ export function SalesBasicPage({
           {
             key: "summary",
             label: mobileKpiLabel,
-            value: formatMoney(kpis.totalAmount),
+            value: formatMoney(kpis.totalAmount, currencySettings.baseCurrency),
             helper: `${filtered.length} visibles de ${kpis.total} registros`,
             icon: WalletCards,
             tone: mobileKpiTone,
@@ -454,7 +678,7 @@ export function SalesBasicPage({
         <Kpi label="Registros" value={String(kpis.total)} tone="neutral" />
         <Kpi
           label="Monto total"
-          value={formatMoney(kpis.totalAmount)}
+          value={formatMoney(kpis.totalAmount, currencySettings.baseCurrency)}
           tone={
             config.module === "expenses" || config.module === "credit_notes"
               ? riskTone(kpis.totalAmount, 1000, 5000)
@@ -503,6 +727,8 @@ export function SalesBasicPage({
                 key={row.id}
                 row={row}
                 config={config}
+                currencySettings={currencySettings}
+                currencyAware={currencyAware}
                 clientById={clientById}
                 projectById={projectById}
                 invoiceById={invoiceById}
@@ -536,61 +762,76 @@ export function SalesBasicPage({
               </TableHeader>
               <TableBody>
                 {filtered.length ? (
-                  filtered.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className="cursor-pointer"
-                      onClick={() => openRecordDetail(row)}
-                    >
-                      <TableCell className="font-normal text-slate-500">
-                        {row[config.numberKey || ""] || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-normal text-slate-900">
-                          {row[config.titleKey] || "—"}
-                        </div>
-                        <div className="line-clamp-1 text-xs text-slate-500">
-                          {row.notes || row.reason || row.vendor || "Sin notas"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {row.client_id ? clientById.get(row.client_id)?.company_name || "—" : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {row.project_id
-                          ? projectById.get(row.project_id)?.name
-                          : row.invoice_id
-                            ? invoiceById.get(row.invoice_id)?.number
-                            : row.product_id
-                              ? productById.get(row.product_id)?.name
-                              : "—"}
-                      </TableCell>
-                      <TableCell>{formatDate(row[config.dateKey])}</TableCell>
-                      <TableCell className="font-normal">
-                        {formatMoney(row[config.amountKey])}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={row[config.statusKey] || "—"} />
-                      </TableCell>
-                      {canDelete ? (
-                        <TableCell className="text-right">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent shadow-none hover:bg-transparent"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setDeleteRow(row);
-                            }}
-                            aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                  filtered.map((row) => {
+                    const money = getMoneyDisplay(
+                      row,
+                      config.amountKey,
+                      currencySettings,
+                      productById,
+                      currencyAware,
+                    );
+
+                    return (
+                      <TableRow
+                        key={row.id}
+                        className="cursor-pointer"
+                        onClick={() => openRecordDetail(row)}
+                      >
+                        <TableCell className="font-normal text-slate-500">
+                          {row[config.numberKey || ""] || "—"}
                         </TableCell>
-                      ) : null}
-                    </TableRow>
-                  ))
+                        <TableCell>
+                          <div className="font-normal text-slate-900">
+                            {row[config.titleKey] || "—"}
+                          </div>
+                          <div className="line-clamp-1 text-xs text-slate-500">
+                            {row.notes || row.reason || row.vendor || "Sin notas"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {row.client_id ? clientById.get(row.client_id)?.company_name || "—" : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {row.project_id
+                            ? projectById.get(row.project_id)?.name
+                            : row.invoice_id
+                              ? invoiceById.get(row.invoice_id)?.number
+                              : row.product_id
+                                ? productById.get(row.product_id)?.name
+                                : "—"}
+                        </TableCell>
+                        <TableCell>{formatDate(row[config.dateKey])}</TableCell>
+                        <TableCell className="font-normal">
+                          <div>{money.originalLabel}</div>
+                          {money.baseLabel ? (
+                            <div className="mt-1 text-xs font-medium text-slate-500">
+                              Base: {money.baseLabel}
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={row[config.statusKey] || "—"} />
+                        </TableCell>
+                        {canDelete ? (
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent shadow-none hover:bg-transparent"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteRow(row);
+                              }}
+                              aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        ) : null}
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell
@@ -619,13 +860,58 @@ export function SalesBasicPage({
         >
           <form className="space-y-6" onSubmit={submit}>
             <div className="grid gap-4 sm:grid-cols-2">
-              {config.fields.map((field) => (
+              {fields.map((field) => (
                 <Field
                   key={field.key}
                   field={field}
                   value={form[field.key] || ""}
                   options={fieldOptions(field)}
-                  onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))}
+                  currency={form.currency || currencySettings.baseCurrency}
+                  onChange={(value) => {
+                    setForm((current) => {
+                      const patch: Record<string, string> = {
+                        [field.key]: normalizeFormValue(field.key, value, current.currency),
+                      };
+                      if (field.key === "currency") {
+                        const nextCurrency = normalizeCurrency(value);
+                        const currentCurrency = normalizeCurrency(
+                          current.currency || currencySettings.baseCurrency,
+                        );
+                        patch.currency = nextCurrency;
+                        MONEY_KEYS.forEach((moneyKey) => {
+                          if (current[moneyKey] === undefined) return;
+                          patch[moneyKey] = normalizeCurrencyInput(
+                            String(
+                              convertCurrencyAmount(
+                                current[moneyKey],
+                                currentCurrency,
+                                nextCurrency,
+                                currencySettings.usdToDopRate,
+                              ),
+                            ),
+                            nextCurrency,
+                          );
+                        });
+                      }
+	                      if (field.key === "invoice_id") {
+	                        const invoice = invoiceById.get(value);
+	                        if (invoice) patch.currency = getInvoiceCurrency(invoice);
+	                      }
+	                      if (field.key === "product_id") {
+	                        const product = productById.get(value);
+	                        if (product?.default_tax_id) {
+	                          patch.tax_id = product.default_tax_id;
+	                        } else if (product?.default_tax_name || product?.default_tax_rate) {
+	                          patch.tax_id = NONE;
+	                          patch.tax_name = product.default_tax_name || "";
+	                          patch.tax_rate = String(normalizeTaxRate(product.default_tax_rate));
+	                        } else if (defaultTax?.id) {
+	                          patch.tax_id = defaultTax.id;
+	                        }
+	                      }
+	                      return { ...current, ...patch };
+                    });
+                  }}
                 />
               ))}
             </div>
@@ -704,6 +990,8 @@ function Kpi({ label, value, tone = "neutral" }: { label: string; value: string;
 function SalesMobileCard({
   row,
   config,
+  currencySettings,
+  currencyAware,
   clientById,
   projectById,
   invoiceById,
@@ -714,6 +1002,8 @@ function SalesMobileCard({
 }: {
   row: GenericRow;
   config: SalesConfig;
+  currencySettings: CompanyCurrencySettings;
+  currencyAware: boolean;
   clientById: Map<string, ClientRow>;
   projectById: Map<string, ProjectRow>;
   invoiceById: Map<string, InvoiceRow>;
@@ -736,6 +1026,13 @@ function SalesMobileCard({
           ? { icon: Package, label: productById.get(row.product_id)?.name || "Producto" }
           : null;
   const detail = row.notes || row.reason || row.vendor || row.category || "Sin notas";
+  const money = getMoneyDisplay(
+    row,
+    config.amountKey,
+    currencySettings,
+    productById,
+    currencyAware,
+  );
 
   return (
     <article
@@ -776,8 +1073,13 @@ function SalesMobileCard({
             Monto
           </div>
           <div className="mt-1 truncate text-[13px] font-extrabold text-slate-900">
-            {formatMoney(row[config.amountKey])}
+            {money.originalLabel}
           </div>
+          {money.baseLabel ? (
+            <div className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">
+              Base: {money.baseLabel}
+            </div>
+          ) : null}
         </div>
         <div className="min-w-0">
           <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
@@ -831,11 +1133,13 @@ function Field({
   field,
   value,
   options,
+  currency,
   onChange,
 }: {
   field: SalesField;
   value: string;
   options: Option[];
+  currency: string;
   onChange: (value: string) => void;
 }) {
   const cls =
@@ -853,16 +1157,18 @@ function Field({
         />
       </div>
     );
-  if (field.type === "select")
-    return (
-      <div className={cls}>
-        <Label className={crmFormStyles.label}>{field.label}</Label>
-        <Select value={value || NONE} onValueChange={onChange}>
-          <SelectTrigger className={crmFormStyles.select}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE}>Ninguno</SelectItem>
+	  if (field.type === "select" || field.type === "tax-select")
+	    return (
+	      <div className={cls}>
+	        <Label className={crmFormStyles.label}>{field.label}</Label>
+	        <Select value={value || NONE} onValueChange={onChange}>
+	          <SelectTrigger className={crmFormStyles.select}>
+	            <SelectValue placeholder={field.type === "tax-select" ? "Sin impuesto" : undefined} />
+	          </SelectTrigger>
+	          <SelectContent>
+	            <SelectItem value={NONE}>
+	              {field.type === "tax-select" ? "Sin impuesto" : "Ninguno"}
+	            </SelectItem>
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.displayLabel ?? displayLabel(option.label)}
@@ -879,6 +1185,17 @@ function Field({
         type={field.type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => onChange(normalizeFormValue(field.key, e.target.value, currency))}
+        step={
+          field.type === "number" && MONEY_KEYS.has(field.key)
+            ? getCurrencyStep(currency)
+            : undefined
+        }
+        inputMode={
+          field.type === "number" && MONEY_KEYS.has(field.key)
+            ? getCurrencyInputMode(currency)
+            : undefined
+        }
         placeholder={field.placeholder}
         required={field.required}
         className={crmFormStyles.input}

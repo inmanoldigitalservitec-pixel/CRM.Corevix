@@ -28,6 +28,7 @@ import { DashboardCard, DashboardTextButton } from "./dashboard-card";
 import { DashboardKpiCard } from "./dashboard-kpi-card";
 import { DashboardBuilder } from "@/components/dashboard-builder";
 import { AgentCommandWidgetConnected } from "@/components/agent";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import type { DashboardWidgetMode } from "@/components/dashboard-builder";
 import { fetchAgentWidgetContract, refreshAgentOperatingContext } from "@/lib/agentClient";
 import { DashboardCalendarWidget } from "./dashboard-calendar-widget";
@@ -138,7 +139,7 @@ export type DashboardV2Props = {
 const mockKpis: DashboardV2Kpi[] = [
   {
     label: "Dinero por cobrar",
-    value: "$86,450",
+    value: "US$ 86,450.00",
     helper: "Requiere tu atención",
     tone: "green" as const,
     icon: DollarSign,
@@ -237,11 +238,11 @@ const mockSchedule: ScheduleItem[] = [
 ];
 
 const mockPipeline: PipelineItem[] = [
-  ["Leads nuevos", 48, "$96,000", 82, "bg-blue-200"],
-  ["Calificados", 32, "$64,000", 58, "bg-blue-300"],
-  ["Propuesta", 18, "$45,500", 35, "bg-violet-400"],
-  ["Negociación", 9, "$28,700", 20, "bg-orange-300"],
-  ["Ganado", 6, "$18,250", 13, "bg-emerald-300"],
+  ["Leads nuevos", 48, "US$ 96,000.00", 82, "bg-blue-200"],
+  ["Calificados", 32, "US$ 64,000.00", 58, "bg-blue-300"],
+  ["Propuesta", 18, "US$ 45,500.00", 35, "bg-violet-400"],
+  ["Negociación", 9, "US$ 28,700.00", 20, "bg-orange-300"],
+  ["Ganado", 6, "US$ 18,250.00", 13, "bg-emerald-300"],
 ];
 
 const mockClients: ClientReviewItem[] = [
@@ -256,7 +257,7 @@ const mockActivities: ActivityItem[] = [
   [
     "Factura FAC-1258 cobrada a Café Buen Día",
     "Hoy, 9:15 a.m. por Ana Torres",
-    "$12,450",
+    "US$ 12,450.00",
     DollarSign,
   ],
   ["Propuesta enviada a Inversiones Cantera", "Hoy, 8:47 a.m. por Ana Torres", "", Send],
@@ -327,9 +328,9 @@ const mockCommunications: CommunicationItem[] = [
 ];
 
 const mockCollectionRows: CollectionItem[] = [
-  ["Por cobrar", "$86,450", "60%", "bg-blue-500"],
-  ["Vencido", "$24,300", "25%", "bg-rose-500"],
-  ["Cobrado", "$112,800", "75%", "bg-emerald-500"],
+  ["Por cobrar", "US$ 86,450.00", "60%", "bg-blue-500"],
+  ["Vencido", "US$ 24,300.00", "25%", "bg-rose-500"],
+  ["Cobrado", "US$ 112,800.00", "75%", "bg-emerald-500"],
 ];
 
 const mockListItems: ListWidgetItem[] = [
@@ -337,9 +338,9 @@ const mockListItems: ListWidgetItem[] = [
 ];
 
 const mockReportSnapshot: SnapshotMetricItem[] = [
-  ["Ingresos cobrados", "$0", "Sin ingresos registrados", "neutral"],
-  ["Por cobrar", "$0", "Sin facturas abiertas", "neutral"],
-  ["Pipeline", "$0", "Sin oportunidades abiertas", "neutral"],
+  ["Ingresos cobrados", "US$ 0.00", "Sin ingresos registrados", "neutral"],
+  ["Por cobrar", "US$ 0.00", "Sin facturas abiertas", "neutral"],
+  ["Pipeline", "US$ 0.00", "Sin oportunidades abiertas", "neutral"],
 ];
 
 function MiniWidgetCard({
@@ -721,7 +722,7 @@ function DashboardReportSnapshotWidget({
     return (
       <MiniWidgetCard
         title="Revenue"
-        value={primary?.[1] || "$0"}
+        value={primary?.[1] || "US$ 0.00"}
         helper={primary?.[2] || "Sin datos"}
         icon={BarChart3}
         tone={primary?.[3] || "blue"}
@@ -756,8 +757,8 @@ function DashboardReportSnapshotWidget({
       key: "collections",
       label: "Cobros",
       title: "Cobros y cuentas",
-      value: receivableMetric?.[1] || "$0",
-      helper: `${overdueInvoicesCount} vencidas · ${collectedMetric?.[1] || "$0"} cobrado`,
+      value: receivableMetric?.[1] || "US$ 0.00",
+      helper: `${overdueInvoicesCount} vencidas · ${collectedMetric?.[1] || "US$ 0.00"} cobrado`,
       description: "Estado de facturas: cobrado, vencido y por cobrar.",
       href: "/invoices",
     },
@@ -765,7 +766,7 @@ function DashboardReportSnapshotWidget({
       key: "pipeline",
       label: "Pipeline",
       title: "Pipeline abierto",
-      value: pipelineMetric?.[2] || pipelineMetric?.[1] || "$0",
+      value: pipelineMetric?.[2] || pipelineMetric?.[1] || "US$ 0.00",
       helper: pipelineMetric?.[1] ? `${pipelineMetric[1]} abiertas` : "Oportunidades abiertas",
       description: "Valor y cantidad por etapa comercial.",
       href: "/pipeline",
@@ -968,8 +969,8 @@ function DashboardReportSnapshotWidget({
         <div className="min-h-0 overflow-y-auto py-3">{renderSlideContent()}</div>
 
         <div className="grid gap-2 border-t border-slate-100 pt-2 text-[11px] sm:grid-cols-3">
-          <FinancialSignal label="Cobrado" value={collectedMetric?.[1] || "$0"} />
-          <FinancialSignal label="Por cobrar" value={receivableMetric?.[1] || "$0"} />
+          <FinancialSignal label="Cobrado" value={collectedMetric?.[1] || "US$ 0.00"} />
+          <FinancialSignal label="Por cobrar" value={receivableMetric?.[1] || "US$ 0.00"} />
           <FinancialSignal
             label="Propuestas"
             value={proposalMetric?.[1] || String(proposalRows.length)}
@@ -1308,9 +1309,7 @@ function DashboardWorkCenterWidget({
             </div>
             <button
               type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent("corevix:open-task-create"));
-              }}
+              onClick={() => openGlobalTaskCreate()}
               className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-700"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -2244,13 +2243,13 @@ export function DashboardV2({
         "Dinero por cobrar",
         kpis.find((kpi) => kpi.label.toLowerCase().includes("cobrar"))?.value ||
           collectionRows[0]?.[1] ||
-          "$0",
+          "US$ 0.00",
         collectionRows[1] ? `${collectionRows[1][1]} vencido` : "Sin vencidas",
-        collectionRows[1]?.[1] && collectionRows[1][1] !== "$0" ? "orange" : "blue",
+        collectionRows[1]?.[1] && collectionRows[1][1] !== "US$ 0.00" ? "orange" : "blue",
       ],
       [
         "Pipeline abierto",
-        kpis.find((kpi) => kpi.label.toLowerCase().includes("oportun"))?.helper || "$0",
+        kpis.find((kpi) => kpi.label.toLowerCase().includes("oportun"))?.helper || "US$ 0.00",
         `${pipeline.reduce((sum, [, count]) => sum + count, 0)} oportunidades`,
         "blue",
       ],

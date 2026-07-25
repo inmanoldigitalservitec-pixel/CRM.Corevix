@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/table";
 import { ContractEditorDialog } from "@/components/contracts/contract-editor-dialog";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
+import { convertToBaseCurrency, formatCurrencyAmount, normalizeCurrency } from "@/lib/currency";
 import { toast } from "sonner";
 
 type ContractRow = {
@@ -25,6 +27,12 @@ type ContractRow = {
   status: string;
   contract_type: string;
   contract_value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  contract_value_base?: number | null;
   start_date: string | null;
   end_date: string | null;
   created_at: string;
@@ -34,8 +42,8 @@ type ProjectRow = { id: string; name: string; client_id: string | null };
 type ClientRow = { id: string; company_name: string };
 type ProfileRow = { id: string; full_name: string | null; email: string | null };
 
-function formatMoney(value: number | null | undefined) {
-  return `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(value: number | null | undefined, currency?: string | null) {
+  return formatCurrencyAmount(value, currency || "USD");
 }
 
 function formatDate(value: string | null | undefined) {
@@ -53,6 +61,7 @@ function formatDate(value: string | null | undefined) {
 
 export function ProjectContractsPanel({ projectId }: { projectId: string }) {
   const { profile } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const { can } = usePermissions();
   const db = supabase as any;
   const [loading, setLoading] = useState(true);
@@ -64,8 +73,30 @@ export function ProjectContractsPanel({ projectId }: { projectId: string }) {
   const [contracts, setContracts] = useState<ContractRow[]>([]);
 
   const totalValue = useMemo(
-    () => contracts.reduce((sum, item) => sum + Number(item.contract_value || 0), 0),
-    [contracts],
+    () =>
+      contracts.reduce((sum, item) => {
+        const storedBase = Number(item.contract_value_base);
+        if (Number.isFinite(storedBase) && item.contract_value_base != null) {
+          const storedCurrency = normalizeCurrency(
+            item.base_currency || currencySettings.baseCurrency,
+          );
+          return (
+            sum +
+            (storedCurrency === currencySettings.baseCurrency
+              ? storedBase
+              : convertToBaseCurrency(storedBase, storedCurrency, currencySettings))
+          );
+        }
+        return (
+          sum +
+          convertToBaseCurrency(
+            Number(item.contract_value || 0),
+            item.currency || item.base_currency || currencySettings.baseCurrency,
+            currencySettings,
+          )
+        );
+      }, 0),
+    [contracts, currencySettings],
   );
   const activeCount = useMemo(
     () => contracts.filter((item) => item.status === "Active").length,
@@ -86,7 +117,7 @@ export function ProjectContractsPanel({ projectId }: { projectId: string }) {
       db
         .from("contracts")
         .select(
-          "id,contract_number,subject,description,status,contract_type,contract_value,start_date,end_date,created_at,updated_at",
+          "id,contract_number,subject,description,status,contract_type,contract_value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,contract_value_base,start_date,end_date,created_at,updated_at",
         )
         .eq("company_id", cid)
         .eq("project_id", projectId)
@@ -149,7 +180,11 @@ export function ProjectContractsPanel({ projectId }: { projectId: string }) {
         items={[
           { key: "contracts", label: "Contratos", value: contracts.length },
           { key: "active", label: "Activos", value: activeCount },
-          { key: "total-value", label: "Valor total", value: formatMoney(totalValue) },
+          {
+            key: "total-value",
+            label: "Valor total",
+            value: formatMoney(totalValue, currencySettings.baseCurrency),
+          },
         ]}
       />
 
@@ -209,7 +244,12 @@ export function ProjectContractsPanel({ projectId }: { projectId: string }) {
                       </TableCell>
                       <TableCell>{contract.contract_type || "—"}</TableCell>
                       <TableCell className="font-normal">
-                        {formatMoney(contract.contract_value)}
+                        {formatMoney(
+                          contract.contract_value,
+                          contract.currency ||
+                            contract.base_currency ||
+                            currencySettings.baseCurrency,
+                        )}
                       </TableCell>
                       <TableCell>{formatDate(contract.start_date)}</TableCell>
                       <TableCell>{formatDate(contract.end_date)}</TableCell>

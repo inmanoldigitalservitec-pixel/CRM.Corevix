@@ -26,6 +26,19 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import {
+  CURRENCY_OPTIONS,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+  normalizeCurrencyAmount,
+  normalizeCurrencyInput,
+  type CompanyCurrencySettings,
+} from "@/lib/currency";
 import {
   Accordion,
   AccordionContent,
@@ -35,6 +48,7 @@ import {
 import { ProjectActivityPanel } from "@/components/projects/project-activity-panel";
 import { ProjectConversationsPanel } from "@/components/projects/project-conversations-panel";
 import { ProjectFilesPanel } from "@/components/projects/project-files-panel";
+import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import { ProjectGanttPanel } from "@/components/projects/project-gantt-panel";
 import { ProjectMilestonesPanel } from "@/components/projects/project-milestones-panel";
 import { ProjectSalesPanel } from "@/components/projects/project-sales-panel";
@@ -185,6 +199,10 @@ type Project = {
   due_date: string | null;
   priority?: string | null;
   budget: number | null;
+  budget_currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | string | null;
+  budget_base?: number | string | null;
   client_id: string | null;
   product_id: string | null;
   deal_id: string | null;
@@ -290,6 +308,7 @@ type ProjectForm = {
   progress: string;
   priority: string;
   budget: string;
+  budget_currency: string;
   start_date: string;
   due_date: string;
   client_id: string;
@@ -304,8 +323,32 @@ function isoToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatMoney(value: number | null | undefined) {
-  return `$${Number(value || 0).toLocaleString()}`;
+function projectBudgetBaseAmount(project: Project, settings: CompanyCurrencySettings) {
+  if (project.budget_base != null) {
+    return convertCurrencyAmount(
+      project.budget_base,
+      project.base_currency || settings.baseCurrency,
+      settings.baseCurrency,
+      settings.usdToDopRate,
+    );
+  }
+  return convertToBaseCurrency(project.budget, project.budget_currency || settings.baseCurrency, {
+    baseCurrency: settings.baseCurrency,
+    usdToDopRate: Number(project.exchange_rate || settings.usdToDopRate),
+    rateSource: settings.rateSource,
+    rateUpdatedAt: settings.rateUpdatedAt,
+  });
+}
+
+function projectBudgetOriginalLabel(project: Project) {
+  return formatCurrencyAmount(
+    project.budget,
+    project.budget_currency || project.base_currency || "USD",
+  );
+}
+
+function projectBudgetBaseLabel(project: Project, settings: CompanyCurrencySettings) {
+  return formatCurrencyAmount(projectBudgetBaseAmount(project, settings), settings.baseCurrency);
 }
 
 function formatDate(value: string | null | undefined) {
@@ -342,6 +385,7 @@ function defaultProjectForm(): ProjectForm {
     progress: "0",
     priority: "Medium",
     budget: "",
+    budget_currency: "USD",
     start_date: isoToday(),
     due_date: "",
     client_id: NONE,
@@ -538,6 +582,7 @@ function ProjectMobileCard({
 }
 
 function ProjectsPage() {
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const routeSearch = Route.useSearch();
   const openedProjectSearchRef = useRef<string | null>(null);
   const { profile, user } = useAuth();
@@ -878,7 +923,7 @@ function ProjectsPage() {
   function abiertasNewProject() {
     if (!can("projects.create")) return toast.error("No tienes permiso para crear proyectos");
     setEditItem(null);
-    setForm(defaultProjectForm());
+    setForm({ ...defaultProjectForm(), budget_currency: currencySettings.baseCurrency });
     setDialogOpen(true);
   }
 
@@ -892,6 +937,9 @@ function ProjectsPage() {
       progress: String(project.progress ?? 0),
       priority: String(project.priority || "Medium"),
       budget: project.budget == null ? "" : String(project.budget),
+      budget_currency: normalizeCurrency(
+        project.budget_currency || project.base_currency || currencySettings.baseCurrency,
+      ),
       start_date: project.start_date || "",
       due_date: project.due_date || "",
       client_id: project.client_id || NONE,
@@ -929,6 +977,14 @@ function ProjectsPage() {
     if (!can(editItem ? "projects.edit" : "projects.create"))
       return toast.error("No tienes permiso para realizar esta acción");
     if (!profile?.company_id) return toast.error("No se pudo identificar tu compañía.");
+    const budgetCurrency = normalizeCurrency(form.budget_currency || currencySettings.baseCurrency);
+    const budgetValue = form.budget.trim()
+      ? normalizeCurrencyAmount(form.budget, budgetCurrency)
+      : null;
+    const budgetBase =
+      budgetValue == null
+        ? null
+        : convertToBaseCurrency(budgetValue, budgetCurrency, currencySettings);
     const record = {
       company_id: profile.company_id,
       name: form.name.trim(),
@@ -936,7 +992,11 @@ function ProjectsPage() {
       status: form.status,
       progress: Number(form.progress) || 0,
       priority: form.priority,
-      budget: form.budget.trim() ? Number(form.budget) || 0 : null,
+      budget: budgetValue,
+      budget_currency: budgetCurrency,
+      base_currency: currencySettings.baseCurrency,
+      exchange_rate: currencySettings.usdToDopRate,
+      budget_base: budgetBase,
       start_date: form.start_date || null,
       due_date: form.due_date || null,
       client_id: form.client_id !== NONE ? form.client_id : null,
@@ -1000,21 +1060,17 @@ function ProjectsPage() {
   function abiertasCreateTaskForProject(project: Project) {
     if (!can("tasks.create")) return toast.error("No tienes permiso para crear tareas");
     setSelected(project);
-    window.dispatchEvent(
-      new CustomEvent("corevix:open-task-create", {
-        detail: {
-          initialValues: {
-            dueDate: isoToday(),
-            assignedTo: resolveTaskAssigneeUserId(project.manager) || undefined,
-            assigneeIds: Array.from(projectAssignedUserIds(project)),
-            projectId: project.id,
-            clientId: project.client_id || undefined,
-            leadId: project.lead_id || undefined,
-            dealId: project.deal_id || undefined,
-          },
-        },
-      }),
-    );
+    openGlobalTaskCreate({
+      initialValues: {
+        dueDate: isoToday(),
+        assignedTo: resolveTaskAssigneeUserId(project.manager) || undefined,
+        assigneeIds: Array.from(projectAssignedUserIds(project)),
+        projectId: project.id,
+        clientId: project.client_id || undefined,
+        leadId: project.lead_id || undefined,
+        dealId: project.deal_id || undefined,
+      },
+    });
   }
 
   async function completeTask(task: TaskRow) {
@@ -1365,8 +1421,15 @@ function ProjectsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5">
-                          <div className="font-normal">{formatMoney(project.budget)}</div>
-                          <div className="text-[11px] text-muted-foreground">presupuesto</div>
+                          <div className="font-normal">
+                            {projectBudgetBaseLabel(project, currencySettings)}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {normalizeCurrency(project.budget_currency) ===
+                            currencySettings.baseCurrency
+                              ? "presupuesto"
+                              : projectBudgetOriginalLabel(project)}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1547,16 +1610,60 @@ function ProjectsPage() {
                       hideNone
                     />
                     <div className="space-y-1.5">
-                      <Label className={crmFormStyles.label}>Presupuesto ($)</Label>
-                      <Input
-                        className={crmFormStyles.input}
-                        type="number"
-                        min="0"
-                        value={form.budget}
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, budget: event.target.value }))
-                        }
-                      />
+                      <Label className={crmFormStyles.label}>Presupuesto</Label>
+                      <div className="grid grid-cols-[minmax(0,1fr)_116px] gap-2">
+                        <Input
+                          className={crmFormStyles.input}
+                          type="number"
+                          min="0"
+                          step={getCurrencyStep(form.budget_currency)}
+                          inputMode={getCurrencyInputMode(form.budget_currency)}
+                          value={form.budget}
+                          onChange={(event) =>
+                            setForm((current) => ({ ...current, budget: event.target.value }))
+                          }
+                          onBlur={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              budget: normalizeCurrencyInput(
+                                event.target.value,
+                                current.budget_currency,
+                              ),
+                            }))
+                          }
+                        />
+                        <Select
+                          value={normalizeCurrency(form.budget_currency)}
+                          onValueChange={(value) => {
+                            const nextCurrency = normalizeCurrency(value);
+                            setForm((current) => ({
+                              ...current,
+                              budget_currency: nextCurrency,
+                              budget: current.budget.trim()
+                                ? String(
+                                    convertCurrencyAmount(
+                                      current.budget,
+                                      current.budget_currency,
+                                      nextCurrency,
+                                      currencySettings.usdToDopRate,
+                                    ),
+                                  )
+                                : current.budget,
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className={crmFormStyles.select}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CURRENCY_OPTIONS.map((currency) => (
+                              <SelectItem key={currency.value} value={currency.value}>
+                                {currency.symbol}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <Label className={crmFormStyles.label}>Progreso manual (%)</Label>
@@ -1602,6 +1709,7 @@ function ProjectsPage() {
       {selected ? (
         <ProjectWorkspaceDialog
           project={selected}
+          currencySettings={currencySettings}
           meta={projectMeta(selected)}
           tasks={(tasksByProjectId.get(selected.id) || [])
             .slice()
@@ -1683,6 +1791,7 @@ function ProjectSelect({
 
 export function ProjectWorkspaceDialog({
   project,
+  currencySettings,
   meta,
   tasks,
   clientName,
@@ -1701,6 +1810,7 @@ export function ProjectWorkspaceDialog({
   onCompleteTask,
 }: {
   project: Project;
+  currencySettings: CompanyCurrencySettings;
   meta: { stats: ProjectStats; isOverdue: boolean; hasRisk: boolean };
   tasks: TaskRow[];
   clientName: string;
@@ -2010,6 +2120,7 @@ export function ProjectWorkspaceDialog({
               <div className="md:hidden">
                 <ProjectMobileOverview
                   project={project}
+                  currencySettings={currencySettings}
                   meta={meta}
                   clientName={clientName}
                   productName={productName}
@@ -2021,6 +2132,7 @@ export function ProjectWorkspaceDialog({
               <div className="hidden md:block">
                 <ProjectOverviewPanel
                   project={project}
+                  currencySettings={currencySettings}
                   meta={meta}
                   clientName={clientName}
                   productName={productName}
@@ -2232,6 +2344,7 @@ export function ProjectWorkspaceDialog({
 
 function ProjectMobileOverview({
   project,
+  currencySettings,
   meta,
   clientName,
   productName,
@@ -2240,6 +2353,7 @@ function ProjectMobileOverview({
   managerName,
 }: {
   project: Project;
+  currencySettings: CompanyCurrencySettings;
   meta: { stats: ProjectStats; isOverdue: boolean; hasRisk: boolean };
   clientName: string;
   productName: string;
@@ -2274,7 +2388,12 @@ function ProjectMobileOverview({
     ],
     ["Oportunidad", safeDeal],
     ["Prospecto", safeLead],
-    ["Presupuesto", formatMoney(project.budget)],
+    [
+      "Presupuesto",
+      normalizeCurrency(project.budget_currency) === currencySettings.baseCurrency
+        ? projectBudgetBaseLabel(project, currencySettings)
+        : `${projectBudgetBaseLabel(project, currencySettings)} · ${projectBudgetOriginalLabel(project)}`,
+    ],
   ];
 
   return (
@@ -2425,6 +2544,7 @@ function getDaysLeft(dueDate: string | null | undefined) {
 
 function ProjectOverviewPanel({
   project,
+  currencySettings,
   meta,
   clientName,
   productName,
@@ -2433,6 +2553,7 @@ function ProjectOverviewPanel({
   managerName,
 }: {
   project: Project;
+  currencySettings: CompanyCurrencySettings;
   meta: { stats: ProjectStats; isOverdue: boolean; hasRisk: boolean };
   clientName: string;
   productName: string;
@@ -2471,7 +2592,15 @@ function ProjectOverviewPanel({
           <OverviewField label="Producto" value={productName} />
           <OverviewField label="Oportunidad" value={dealName} />
           <OverviewField label="Prospecto" value={leadName} />
-          <OverviewField label="Presupuesto" value={formatMoney(project.budget)} strong />
+          <OverviewField
+            label="Presupuesto"
+            value={
+              normalizeCurrency(project.budget_currency) === currencySettings.baseCurrency
+                ? projectBudgetBaseLabel(project, currencySettings)
+                : `${projectBudgetBaseLabel(project, currencySettings)} · original ${projectBudgetOriginalLabel(project)}`
+            }
+            strong
+          />
         </div>
 
         <div className="mt-5 border-t border-slate-100 pt-4">
@@ -2498,10 +2627,10 @@ function ProjectOverviewPanel({
           icon={<Clock3 className="h-4 w-4" />}
           title="Horas registradas"
           rows={[
-            ["Horas registradas", "00:00", "$0.00", "text-slate-700"],
-            ["Horas facturables", "00:00", "$0.00", "text-blue-600"],
-            ["Horas facturadas", "00:00", "$0.00", "text-emerald-600"],
-            ["Horas sin facturar", "00:00", "$0.00", "text-rose-600"],
+            ["Horas registradas", "00:00", "US$ 0.00", "text-slate-700"],
+            ["Horas facturables", "00:00", "US$ 0.00", "text-blue-600"],
+            ["Horas facturadas", "00:00", "US$ 0.00", "text-emerald-600"],
+            ["Horas sin facturar", "00:00", "US$ 0.00", "text-rose-600"],
           ]}
         />
 
@@ -2509,10 +2638,10 @@ function ProjectOverviewPanel({
           icon={<ReceiptText className="h-4 w-4" />}
           title="Gastos"
           rows={[
-            ["Gastos totales", "", "$0.00", "text-slate-700"],
-            ["Gastos facturables", "", "$0.00", "text-blue-600"],
-            ["Gastos facturados", "", "$0.00", "text-emerald-600"],
-            ["Gastos sin facturar", "", "$0.00", "text-rose-600"],
+            ["Gastos totales", "", "US$ 0.00", "text-slate-700"],
+            ["Gastos facturables", "", "US$ 0.00", "text-blue-600"],
+            ["Gastos facturados", "", "US$ 0.00", "text-emerald-600"],
+            ["Gastos sin facturar", "", "US$ 0.00", "text-rose-600"],
           ]}
         />
 

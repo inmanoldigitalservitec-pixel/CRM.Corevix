@@ -21,6 +21,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
+import {
+  normalizeTaxRate,
+  useCompanyTaxes,
+  type CompanyTax,
+} from "@/hooks/use-company-taxes";
+import {
+  CURRENCY_OPTIONS,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+  normalizeCurrencyAmount,
+  normalizeCurrencyInput,
+} from "@/lib/currency";
 
 export type QuickCreateType = "lead" | "client" | "task" | "proposal";
 
@@ -81,6 +97,9 @@ type QuickProductOption = {
   deliverables?: string | null;
   duration_days?: number | null;
   proposal_defaults?: Record<string, unknown> | null;
+  default_tax_id?: string | null;
+  default_tax_name?: string | null;
+  default_tax_rate?: number | string | null;
   is_active?: boolean | null;
 };
 
@@ -167,6 +186,8 @@ export function QuickCreateDialog({
   onCreated,
 }: QuickCreateDialogProps) {
   const { profile, user } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
+  const { taxById: salesTaxById, defaultTax } = useCompanyTaxes("sales");
   const prefill = context?.prefill || {};
 
   const [saving, setSaving] = useState(false);
@@ -191,7 +212,7 @@ export function QuickCreateDialog({
     deal_id: "",
     product_id: "",
     amount: "",
-    currency: "USD",
+    currency: currencySettings.baseCurrency,
     valid_until: dateAfterDays(15),
   });
 
@@ -233,10 +254,10 @@ export function QuickCreateDialog({
         text(prefill.product_id || prefill.related_product_id) ||
         (context?.sourceType === "product" && context?.sourceId ? String(context.sourceId) : ""),
       amount: text(prefill.amount || prefill.value),
-      currency: text(prefill.currency) || "USD",
+      currency: normalizeCurrency(text(prefill.currency) || currencySettings.baseCurrency),
       valid_until: text(prefill.valid_until) || dateAfterDays(15),
     });
-  }, [open, type, context?.sourceType, context?.sourceId]);
+  }, [open, type, context?.sourceType, context?.sourceId, currencySettings.baseCurrency]);
 
   useEffect(() => {
     if (!open || type !== "proposal" || !profile?.company_id) return;
@@ -251,7 +272,7 @@ export function QuickCreateDialog({
           db
             .from("products")
             .select(
-              "id,name,category,base_price,currency,description,deliverables,duration_days,proposal_defaults,is_active",
+              "id,name,category,base_price,currency,description,deliverables,duration_days,proposal_defaults,default_tax_id,default_tax_name,default_tax_rate,is_active",
             )
             .eq("company_id", profile.company_id)
             .order("name", { ascending: true })
@@ -300,7 +321,10 @@ export function QuickCreateDialog({
           ? product.proposal_defaults
           : {};
 
-      const price = Number(product.base_price || 0);
+      const productCurrency = normalizeCurrency(product.currency || currencySettings.baseCurrency);
+      const currentCurrency = normalizeCurrency(prev.currency || currencySettings.baseCurrency);
+      const price = normalizeCurrencyAmount(product.base_price || 0, productCurrency);
+      const hasManualAmount = Boolean(prev.amount.trim());
       const titleBase = prev.title.trim() || `Propuesta — ${product.name}`;
       const descriptionBase =
         prev.description.trim() ||
@@ -311,12 +335,36 @@ export function QuickCreateDialog({
         ...prev,
         product_id: productId,
         title: titleBase,
-        amount: prev.amount.trim() || (Number.isFinite(price) && price > 0 ? String(price) : ""),
-        currency: prev.currency.trim() || product.currency || "USD",
+        amount:
+          hasManualAmount || !Number.isFinite(price) || price <= 0
+            ? prev.amount
+            : normalizeCurrencyInput(String(price), productCurrency),
+        currency: hasManualAmount ? currentCurrency : productCurrency,
         description: descriptionBase,
         service: prev.service.trim() || product.name,
       };
     });
+  };
+
+  const getDefaultTaxForProduct = (product?: QuickProductOption | null): CompanyTax | null => {
+    if (product?.default_tax_id) {
+      const catalogTax = salesTaxById.get(product.default_tax_id);
+      if (catalogTax) return catalogTax;
+    }
+
+    if (product?.default_tax_name || product?.default_tax_rate) {
+      return {
+        id: product.default_tax_id || "",
+        company_id: profile?.company_id || "",
+        name: product.default_tax_name || "Impuesto",
+        rate: normalizeTaxRate(product.default_tax_rate),
+        tax_type: "sales",
+        is_active: true,
+        is_default: false,
+      };
+    }
+
+    return defaultTax;
   };
 
   const title = useMemo(() => {
@@ -448,7 +496,16 @@ export function QuickCreateDialog({
         }
 
         const product = products.find((p) => p.id === form.product_id);
-        const amount = Number(form.amount || 0);
+        const proposalCurrency = normalizeCurrency(
+          form.currency || product?.currency || currencySettings.baseCurrency,
+        );
+        const amount = normalizeCurrencyAmount(form.amount || 0, proposalCurrency);
+        const amountBase = convertToBaseCurrency(amount, proposalCurrency, currencySettings);
+        const exchangeRate =
+          proposalCurrency === currencySettings.baseCurrency ? 1 : currencySettings.usdToDopRate;
+        const selectedTax = getDefaultTaxForProduct(product);
+        const taxRate = selectedTax ? normalizeTaxRate(selectedTax.rate) : 0;
+        const taxAmount = normalizeCurrencyAmount(amount * (taxRate / 100), proposalCurrency);
 
         table = "proposals";
         payload = {
@@ -463,8 +520,13 @@ export function QuickCreateDialog({
             context?.sourceType === "whatsapp" && context?.sourceId
               ? String(context.sourceId)
               : null,
-          amount: Number.isFinite(amount) ? amount : 0,
-          currency: (form.currency || product?.currency || "USD").toUpperCase(),
+          amount,
+          currency: proposalCurrency,
+          base_currency: currencySettings.baseCurrency,
+          exchange_rate: exchangeRate,
+          exchange_rate_source: currencySettings.rateSource,
+          exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+          amount_base: amountBase,
           status: text(prefill.status) || "Draft",
           valid_until: form.valid_until || null,
           description: nullableText(form.description || product?.description),
@@ -480,6 +542,14 @@ export function QuickCreateDialog({
             nextStep: "Si estás de acuerdo, podemos coordinar los detalles para iniciar.",
             sourceType: context?.sourceType || "manual",
             sourceId: context?.sourceId || null,
+            taxSnapshot: selectedTax
+              ? {
+                  taxId: selectedTax.id || null,
+                  taxName: selectedTax.name,
+                  taxRate,
+                  taxAmount,
+                }
+              : null,
           },
         };
       }
@@ -731,9 +801,16 @@ export function QuickCreateDialog({
                       <Input
                         className={inputClass}
                         type="number"
-                        step="0.01"
+                        step={getCurrencyStep(form.currency)}
+                        inputMode={getCurrencyInputMode(form.currency)}
                         value={form.amount}
                         onChange={(e) => updateField("amount", e.target.value)}
+                        onBlur={(e) =>
+                          updateField(
+                            "amount",
+                            normalizeCurrencyInput(e.target.value, form.currency),
+                          )
+                        }
                         placeholder="0"
                       />
                     </div>
@@ -741,15 +818,40 @@ export function QuickCreateDialog({
                     <div className="space-y-1.5">
                       <Label className={labelClass}>Moneda</Label>
                       <Select
-                        value={form.currency || "USD"}
-                        onValueChange={(value) => updateField("currency", value)}
+                        value={normalizeCurrency(form.currency)}
+                        onValueChange={(value) => {
+                          const nextCurrency = normalizeCurrency(value);
+                          setForm((prev) => {
+                            const currentCurrency = normalizeCurrency(prev.currency);
+                            const convertedAmount = prev.amount.trim()
+                              ? convertCurrencyAmount(
+                                  prev.amount,
+                                  currentCurrency,
+                                  nextCurrency,
+                                  currencySettings.usdToDopRate,
+                                )
+                              : "";
+
+                            return {
+                              ...prev,
+                              currency: nextCurrency,
+                              amount:
+                                convertedAmount === ""
+                                  ? ""
+                                  : normalizeCurrencyInput(String(convertedAmount), nextCurrency),
+                            };
+                          });
+                        }}
                       >
                         <SelectTrigger className={selectClass}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="DOP">DOP</SelectItem>
+                          {CURRENCY_OPTIONS.map((currency) => (
+                            <SelectItem key={currency.value} value={currency.value}>
+                              {currency.symbol} · {currency.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type ClipboardEvent,
   type Dispatch,
+  type DragEvent,
   type ReactNode,
   type RefObject,
   type SetStateAction,
@@ -42,6 +43,7 @@ import {
   Circle,
   Clock3,
   Copy,
+  Eye,
   ExternalLink,
   FileText,
   Flag,
@@ -80,6 +82,7 @@ type TaskRow = {
   due_date: string | null;
   related_project_id: string | null;
   related_client_id: string | null;
+  related_proposal_id?: string | null;
   created_at: string;
   company_id: string;
 };
@@ -150,6 +153,7 @@ type DriveFileRow = {
   thumbnail_link: string | null;
   icon_link: string | null;
   size_bytes: number | null;
+  file_purpose?: "resource" | "deliverable" | null;
   created_at: string;
 };
 
@@ -187,20 +191,31 @@ type TaskDetailDialogProps = {
   driveFiles?: DriveFileRow[];
   driveFilesLoading?: boolean;
   driveUrlInput?: string;
+  resourceDriveUrlInput?: string;
   isUploadingFile?: boolean;
+  isUploadingResourceFile?: boolean;
   uploadProgress?: number;
+  resourceUploadProgress?: number;
   uploadingFileName?: string;
+  uploadingResourceFileName?: string;
   canEdit?: boolean;
   fileInputRef?: RefObject<HTMLInputElement | null>;
+  resourceFileInputRef?: RefObject<HTMLInputElement | null>;
 
   onUpdateTask?: (taskId: string, patch: Partial<TaskRow>) => Promise<void>;
   onAssigneesChanged?: () => void | Promise<void>;
   onComplete?: () => void | Promise<void>;
   onSetInProgress?: () => void | Promise<void>;
   onDriveUrlChange?: (value: string) => void;
+  onResourceDriveUrlChange?: (value: string) => void;
   onAttachDriveUrl?: () => void | Promise<void>;
+  onAttachResourceDriveUrl?: () => void | Promise<void>;
   onUploadClick?: () => void;
+  onUploadResourceClick?: () => void;
   onFilePicked?: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onResourceFilePicked?: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onFileDropped?: (file: File) => void | Promise<void>;
+  onResourceFileDropped?: (file: File) => void | Promise<void>;
   onCopyFileLink?: (file: DriveFileRow) => void | Promise<void>;
   onDeleteDriveFile?: (file: DriveFileRow) => void | Promise<void>;
 };
@@ -212,6 +227,7 @@ type TaskCreateDialogProps = {
   currentUserId?: string | null;
   profiles?: QuickProfile[];
   initialValues?: Partial<TaskEditorDraft>;
+  relatedProposalId?: string | null;
   onCreated?: (task: TaskRow) => void | Promise<void>;
   canCreate?: boolean;
 };
@@ -362,12 +378,14 @@ function uploadTaskFileWithProgress(args: {
   file: File;
   token: string;
   onProgress: (percent: number) => void;
+  filePurpose?: "resource" | "deliverable";
 }): Promise<any> {
   return new Promise((resolve, reject) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
     const xhr = new XMLHttpRequest();
     const body = new FormData();
     body.append("task_id", args.taskId);
+    body.append("file_purpose", args.filePurpose || "deliverable");
     body.append("file", args.file);
 
     xhr.open("POST", `${supabaseUrl}/functions/v1/drive-upload-file`);
@@ -591,6 +609,24 @@ function clientLabel(client: ClientOption | null | undefined) {
     : client.company_name || "—";
 }
 
+function projectBelongsToClient(project: ProjectOption | null | undefined, clientId: string) {
+  if (!project) return true;
+  if (clientId === NO_CLIENT_VALUE) return !project.client_id;
+  return project.client_id === clientId;
+}
+
+function filterProjectsForClient(projects: ProjectOption[], clientId: string) {
+  return projects.filter((project) => projectBelongsToClient(project, clientId));
+}
+
+function resolveProjectClientId(
+  project: ProjectOption | null | undefined,
+  fallbackClientId: string,
+) {
+  if (project?.client_id) return project.client_id;
+  return fallbackClientId;
+}
+
 function eventIcon(type: string) {
   if (type.includes("comment")) return <MessageSquare className="h-4 w-4" />;
   if (type.includes("checklist")) return <Check className="h-4 w-4" />;
@@ -614,6 +650,205 @@ function renderEditField(label: string, control: ReactNode) {
       </span>
       {control}
     </label>
+  );
+}
+
+function TaskFileDropZone({
+  fileInputRef,
+  linkValue,
+  uploadingName,
+  uploadProgress,
+  disabled = false,
+  compact = false,
+  dropLabel = "Arrastra archivos aquí",
+  uploadLabel = "Subir archivo",
+  onLinkChange,
+  onAddLink,
+  onPickFile,
+  onFileDrop,
+  onUploadClick,
+}: {
+  fileInputRef?: RefObject<HTMLInputElement | null>;
+  linkValue: string;
+  uploadingName: string;
+  uploadProgress: number;
+  disabled?: boolean;
+  compact?: boolean;
+  dropLabel?: string;
+  uploadLabel?: string;
+  onLinkChange: (value: string) => void;
+  onAddLink: () => void;
+  onPickFile?: (event: ChangeEvent<HTMLInputElement>) => void;
+  onFileDrop?: (file: File) => void;
+  onUploadClick: () => void;
+}) {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!disabled) setDragActive(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragActive(false);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragActive(false);
+    if (disabled) return;
+    const file = event.dataTransfer.files?.[0];
+    if (file) onFileDrop?.(file);
+  };
+
+  if (compact) {
+    return (
+      <div className="mb-2">
+        {fileInputRef ? (
+          <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
+        ) : null}
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            onClick={onUploadClick}
+            disabled={disabled}
+            aria-label={uploadLabel}
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            onClick={() => setLinkOpen((current) => !current)}
+            disabled={disabled}
+            aria-label="Agregar enlace"
+          >
+            <Link2 className="h-4 w-4" />
+          </Button>
+        </div>
+        {linkOpen ? (
+          <div className="mt-2 flex gap-2">
+            <Input
+              value={linkValue}
+              onChange={(event) => onLinkChange(event.target.value)}
+              placeholder="Pega URL de Google Drive"
+              className="h-9"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onAddLink();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={onAddLink}
+              disabled={disabled || !linkValue.trim()}
+              aria-label="Adjuntar enlace"
+            >
+              <Link2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : null}
+        {uploadingName ? (
+          <div className="mt-2 rounded-lg border bg-slate-50 px-3 py-2">
+            <div className="mb-1 flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-600">
+              <span className="truncate">Subiendo {uploadingName}</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <Progress value={uploadProgress} className="h-1.5" />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={
+        "mb-3 rounded-2xl border border-dashed px-4 py-6 text-center transition " +
+        (dragActive
+          ? "border-blue-400 bg-blue-50/70"
+          : "border-slate-300 bg-slate-50/60 hover:bg-slate-50")
+      }
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {fileInputRef ? (
+        <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
+      ) : null}
+      <div className="mx-auto grid h-10 w-10 place-items-center rounded-full border bg-white text-slate-500 shadow-sm">
+        <Upload className="h-5 w-5" />
+      </div>
+      <p className="mt-3 text-sm font-extrabold text-slate-700">{dropLabel}</p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onUploadClick}
+          disabled={disabled}
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          {uploadLabel}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setLinkOpen((current) => !current)}
+          disabled={disabled}
+        >
+          <Link2 className="mr-2 h-4 w-4" />
+          Agregar enlace
+        </Button>
+      </div>
+      {linkOpen ? (
+        <div className="mx-auto mt-4 flex max-w-xl gap-2">
+          <Input
+            value={linkValue}
+            onChange={(event) => onLinkChange(event.target.value)}
+            placeholder="Pega URL de Google Drive"
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                onAddLink();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={onAddLink}
+            disabled={disabled || !linkValue.trim()}
+            aria-label="Adjuntar enlace"
+          >
+            <Link2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : null}
+      {uploadingName ? (
+        <div className="mx-auto mt-4 max-w-xl rounded-xl border bg-white p-3 text-left">
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+            <span className="truncate">Subiendo {uploadingName}</span>
+            <span>{uploadProgress}%</span>
+          </div>
+          <Progress value={uploadProgress} className="h-2" />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1024,6 +1259,41 @@ function TaskEditorInfoFields({
   clients: ClientOption[];
   draftProductName: string;
 }) {
+  const availableProjects = useMemo(
+    () => filterProjectsForClient(projects, draft.clientId),
+    [projects, draft.clientId],
+  );
+
+  const updateClientId = (clientId: string) => {
+    setDraft((current) => {
+      const selectedProject =
+        current.projectId !== NO_PROJECT_VALUE
+          ? projects.find((project) => project.id === current.projectId)
+          : null;
+      return {
+        ...current,
+        clientId,
+        projectId: projectBelongsToClient(selectedProject, clientId)
+          ? current.projectId
+          : NO_PROJECT_VALUE,
+      };
+    });
+  };
+
+  const updateProjectId = (projectId: string) => {
+    setDraft((current) => {
+      const selectedProject =
+        projectId !== NO_PROJECT_VALUE
+          ? projects.find((project) => project.id === projectId)
+          : null;
+      return {
+        ...current,
+        projectId,
+        clientId: resolveProjectClientId(selectedProject, current.clientId),
+      };
+    });
+  };
+
   return (
     <div className="space-y-3">
       {renderEditField(
@@ -1085,30 +1355,8 @@ function TaskEditorInfoFields({
         />,
       )}
       {renderEditField(
-        "Project",
-        <Select
-          value={draft.projectId}
-          onValueChange={(value) => setDraft((d) => ({ ...d, projectId: value }))}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Proyecto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>,
-      )}
-      {renderEditField(
         "Client",
-        <Select
-          value={draft.clientId}
-          onValueChange={(value) => setDraft((d) => ({ ...d, clientId: value }))}
-        >
+        <Select value={draft.clientId} onValueChange={updateClientId}>
           <SelectTrigger>
             <SelectValue placeholder="Cliente" />
           </SelectTrigger>
@@ -1117,6 +1365,22 @@ function TaskEditorInfoFields({
             {clients.map((client) => (
               <SelectItem key={client.id} value={client.id}>
                 {clientLabel(client)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      )}
+      {renderEditField(
+        "Project",
+        <Select value={draft.projectId} onValueChange={updateProjectId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>
+            {availableProjects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -1139,6 +1403,7 @@ function TaskCreateResourcesPanel({
   onLinkChange,
   onAddLink,
   onPickFile,
+  onFileDrop,
   onUploadClick,
   onRemove,
 }: {
@@ -1150,12 +1415,13 @@ function TaskCreateResourcesPanel({
   onLinkChange: (value: string) => void;
   onAddLink: () => void;
   onPickFile: (event: ChangeEvent<HTMLInputElement>) => void;
+  onFileDrop: (file: File) => void;
   onUploadClick: () => void;
   onRemove: (resourceId: string) => void;
 }) {
   return (
     <section className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3">
         <div>
           <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
             <Paperclip className="h-4 w-4 text-slate-400" /> Recursos
@@ -1164,57 +1430,29 @@ function TaskCreateResourcesPanel({
             Se adjuntan al crear la tarea.
           </p>
         </div>
-        <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
-        <Button type="button" size="sm" variant="outline" onClick={onUploadClick}>
-          <Upload className="mr-2 h-4 w-4" />
-          Archivo
-        </Button>
       </div>
 
-      <div className="mb-3 flex gap-2">
-        <Input
-          value={linkValue}
-          onChange={(event) => onLinkChange(event.target.value)}
-          placeholder="Pega URL de Google Drive"
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              onAddLink();
-            }
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={onAddLink}
-          disabled={!linkValue.trim()}
-          aria-label="Adjuntar enlace"
-        >
-          <Link2 className="h-4 w-4" />
-        </Button>
-      </div>
+      <TaskFileDropZone
+        fileInputRef={fileInputRef}
+        linkValue={linkValue}
+        uploadingName={uploadingName}
+        uploadProgress={uploadProgress}
+        compact={resources.length > 0}
+        dropLabel="Arrastra recursos aquí"
+        uploadLabel="Subir archivo"
+        onLinkChange={onLinkChange}
+        onAddLink={onAddLink}
+        onPickFile={onPickFile}
+        onFileDrop={onFileDrop}
+        onUploadClick={onUploadClick}
+      />
 
-      {uploadingName ? (
-        <div className="mb-3 rounded-xl border bg-slate-50 p-3">
-          <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
-            <span className="truncate">Subiendo {uploadingName}</span>
-            <span>{uploadProgress}%</span>
-          </div>
-          <Progress value={uploadProgress} className="h-2" />
-        </div>
-      ) : null}
-
-      {resources.length === 0 ? (
-        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
-          No hay recursos agregados todavía.
-        </div>
-      ) : (
-        <div className="space-y-2">
+      {resources.length > 0 ? (
+        <div className="divide-y divide-slate-100">
           {resources.map((resource) => (
             <div
               key={resource.id}
-              className="flex items-center gap-2 rounded-xl border bg-slate-50 p-2.5"
+              className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 last:border-b-0"
             >
               <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border bg-white text-slate-500">
                 {resource.type === "file" ? (
@@ -1235,7 +1473,7 @@ function TaskCreateResourcesPanel({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-slate-400 hover:text-red-600"
+                className="h-8 w-8 rounded-full text-slate-400 hover:text-red-600"
                 onClick={() => onRemove(resource.id)}
                 aria-label="Quitar recurso"
               >
@@ -1244,7 +1482,7 @@ function TaskCreateResourcesPanel({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -1256,6 +1494,7 @@ export function TaskCreateDialog({
   currentUserId,
   profiles: propProfiles = EMPTY_PROFILES,
   initialValues,
+  relatedProposalId,
   onCreated,
   canCreate = true,
 }: TaskCreateDialogProps) {
@@ -1305,6 +1544,12 @@ export function TaskCreateDialog({
   const assigneeLabel = useMemo(() => {
     return assigneeNamesFromIds(draft.assigneeIds, profiles);
   }, [draft.assigneeIds, profiles]);
+
+  useEffect(() => {
+    if (!selectedProject?.client_id) return;
+    if (draft.clientId === selectedProject.client_id) return;
+    setDraft((current) => ({ ...current, clientId: selectedProject.client_id || NO_CLIENT_VALUE }));
+  }, [draft.clientId, selectedProject?.client_id]);
 
   const resetDraft = () => {
     setDraft(
@@ -1375,6 +1620,10 @@ export function TaskCreateDialog({
     const file = event.target.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
+    addPendingDroppedFile(file);
+  };
+
+  const addPendingDroppedFile = (file: File) => {
     setPendingResources((current) => [
       ...current,
       {
@@ -1432,6 +1681,7 @@ export function TaskCreateDialog({
             linked_type: "task",
             linked_id: createdTask.id,
             created_by: authUserId,
+            file_purpose: "resource",
           });
           if (error) throw error;
           continue;
@@ -1445,6 +1695,7 @@ export function TaskCreateDialog({
           file: resource.file,
           token: accessToken,
           onProgress: setResourceUploadProgress,
+          filePurpose: "resource",
         });
         if (result?.error) throw new Error(String(result.error));
         setResourceUploadProgress(100);
@@ -1494,13 +1745,14 @@ export function TaskCreateDialog({
           draft.clientId === NO_CLIENT_VALUE ? selectedProject?.client_id || null : draft.clientId,
         related_lead_id: draft.leadId || null,
         related_deal_id: draft.dealId || null,
+        related_proposal_id: relatedProposalId || null,
       };
 
       const { data, error } = await (supabase as any)
         .from("tasks")
         .insert(payload)
         .select(
-          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,created_at,company_id",
+          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_proposal_id,created_at,company_id",
         )
         .single();
       if (error) throw error;
@@ -1521,6 +1773,7 @@ export function TaskCreateDialog({
         metadata: {
           related_client_id: createdTask.related_client_id,
           related_project_id: createdTask.related_project_id,
+          related_proposal_id: createdTask.related_proposal_id,
           due_date: createdTask.due_date,
           priority: createdTask.priority,
         },
@@ -1647,6 +1900,7 @@ export function TaskCreateDialog({
                   onLinkChange={setResourceUrlInput}
                   onAddLink={addPendingDriveLink}
                   onPickFile={addPendingFile}
+                  onFileDrop={addPendingDroppedFile}
                   onUploadClick={() => resourceFileInputRef.current?.click()}
                   onRemove={(resourceId) =>
                     setPendingResources((current) =>
@@ -1690,19 +1944,30 @@ export function TaskDetailDialog({
   driveFiles: propDriveFiles,
   driveFilesLoading = false,
   driveUrlInput = "",
+  resourceDriveUrlInput = "",
   isUploadingFile = false,
+  isUploadingResourceFile = false,
   uploadProgress = 0,
+  resourceUploadProgress = 0,
   uploadingFileName = "",
+  uploadingResourceFileName = "",
   canEdit = true,
   fileInputRef,
+  resourceFileInputRef,
   onUpdateTask,
   onAssigneesChanged,
   onComplete,
   onSetInProgress,
   onDriveUrlChange,
+  onResourceDriveUrlChange,
   onAttachDriveUrl,
+  onAttachResourceDriveUrl,
   onUploadClick,
+  onUploadResourceClick,
   onFilePicked,
+  onResourceFilePicked,
+  onFileDropped,
+  onResourceFileDropped,
   onCopyFileLink,
   onDeleteDriveFile,
 }: TaskDetailDialogProps) {
@@ -1723,6 +1988,7 @@ export function TaskDetailDialog({
   const [newCommentBody, setNewCommentBody] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [resourceUploaderOpen, setResourceUploaderOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<{ url: string; title: string } | null>(null);
   const [draft, setDraft] = useState<TaskEditorDraft>(() => createEmptyTaskDraft());
 
@@ -1760,6 +2026,12 @@ export function TaskDetailDialog({
   const draftProductName = draftProject?.product_id
     ? productsById.get(draftProject.product_id)?.name || "—"
     : "—";
+
+  useEffect(() => {
+    if (!draftProject?.client_id) return;
+    if (draft.clientId === draftProject.client_id) return;
+    setDraft((current) => ({ ...current, clientId: draftProject.client_id || NO_CLIENT_VALUE }));
+  }, [draft.clientId, draftProject?.client_id]);
 
   const assigneeLabel = useMemo(() => {
     const assigneeIds = normalizeAssigneeIds(
@@ -1826,7 +2098,7 @@ export function TaskDetailDialog({
         (supabase as any)
           .from("drive_files")
           .select(
-            "id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,created_at",
+            "id,drive_file_id,name,mime_type,web_view_link,web_content_link,thumbnail_link,icon_link,size_bytes,file_purpose,created_at",
           )
           .eq("linked_type", "task")
           .eq("linked_id", taskId)
@@ -2009,6 +2281,8 @@ export function TaskDetailDialog({
   const saveInlineEdit = async () => {
     if (!task?.id) return;
     const primaryAssignee = primaryAssigneeId(draft.assigneeIds);
+    const draftProjectForSave =
+      draft.projectId !== NO_PROJECT_VALUE ? projectsById.get(draft.projectId) || null : null;
     await updateTask({
       title: draft.title.trim() || "Sin título",
       description: draft.description.trim() || null,
@@ -2018,7 +2292,10 @@ export function TaskDetailDialog({
       due_date: draft.dueDate || null,
       assigned_to: primaryAssignee,
       related_project_id: draft.projectId === NO_PROJECT_VALUE ? null : draft.projectId,
-      related_client_id: draft.clientId === NO_CLIENT_VALUE ? null : draft.clientId,
+      related_client_id:
+        draft.clientId === NO_CLIENT_VALUE
+          ? draftProjectForSave?.client_id || null
+          : draft.clientId,
     });
     await syncTaskAssignees({
       taskId: task.id,
@@ -2106,6 +2383,90 @@ export function TaskDetailDialog({
     } catch {
       toast.error("No se pudo copiar el enlace.");
     }
+  };
+
+  const resourceFiles = driveFiles.filter((file) => file.file_purpose === "resource");
+  const deliverableFiles = driveFiles.filter((file) => file.file_purpose !== "resource");
+  const showResourceUploader =
+    resourceFiles.length > 0 || resourceUploaderOpen || isUploadingResourceFile;
+
+  useEffect(() => {
+    setResourceUploaderOpen(false);
+  }, [propTask?.id]);
+
+  const renderFileCard = (file: DriveFileRow) => {
+    const url = file.web_view_link || file.web_content_link;
+    const previewUrl = getGoogleDrivePreviewUrl(url, file.drive_file_id);
+    return (
+      <div
+        key={file.id}
+        className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-100 py-2.5 last:border-b-0"
+      >
+        <div className="grid h-8 w-8 place-items-center rounded-lg border bg-white text-slate-500">
+          {file.icon_link ? (
+            <img src={file.icon_link} alt="" className="h-5 w-5" />
+          ) : (
+            <Paperclip className="h-4 w-4" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-extrabold text-slate-900">{file.name}</div>
+          <div className="text-xs font-semibold text-slate-500">
+            {formatBytes(file.size_bytes)} · {formatDate(file.created_at)}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {previewUrl ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-full text-slate-500"
+              onClick={() => setPreviewFile({ url: previewUrl, title: file.name })}
+              aria-label="Preview"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          ) : null}
+          {url ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-full text-slate-500"
+              asChild
+            >
+              <a href={url} target="_blank" rel="noreferrer">
+                <ExternalLink className="h-4 w-4" />
+                <span className="sr-only">Open</span>
+              </a>
+            </Button>
+          ) : null}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full text-slate-500"
+            onClick={() => void copyFileLink(file)}
+            aria-label="Copiar enlace"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          {onDeleteDriveFile ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-full text-red-600"
+              onClick={() => void onDeleteDriveFile(file)}
+              aria-label="Eliminar archivo"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const renderInfoRow = (label: string, value: ReactNode, icon: ReactNode) => (
@@ -2286,7 +2647,54 @@ export function TaskDetailDialog({
                       ) : null}
                     </section>
 
-                    <section className="order-3">
+                    <section
+                      className={
+                        resourceFiles.length > 0
+                          ? "order-3 rounded-xl border bg-white p-4 shadow-sm"
+                          : "order-3"
+                      }
+                    >
+                      {showResourceUploader ? (
+                        <TaskFileDropZone
+                          fileInputRef={resourceFileInputRef}
+                          linkValue={resourceDriveUrlInput}
+                          uploadingName={uploadingResourceFileName}
+                          uploadProgress={resourceUploadProgress}
+                          disabled={!canEdit || isUploadingResourceFile}
+                          compact={resourceFiles.length > 0}
+                          dropLabel="Arrastra recursos aquí"
+                          uploadLabel="Subir archivo"
+                          onLinkChange={(value) => onResourceDriveUrlChange?.(value)}
+                          onAddLink={() => void onAttachResourceDriveUrl?.()}
+                          onPickFile={(event) => void onResourceFilePicked?.(event)}
+                          onFileDrop={(file) => void onResourceFileDropped?.(file)}
+                          onUploadClick={() => onUploadResourceClick?.()}
+                        />
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={() => setResourceUploaderOpen(true)}
+                          disabled={!canEdit}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Agregar recurso
+                        </Button>
+                      )}
+                      {driveFilesLoading ? (
+                        <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
+                          Cargando recursos...
+                        </div>
+                      ) : resourceFiles.length > 0 ? (
+                        <div className="divide-y divide-slate-100">
+                          {resourceFiles.map(renderFileCard)}
+                        </div>
+                      ) : null}
+                    </section>
+
+                    <section className="order-4">
                       <div className="mb-3 flex items-end justify-between gap-3 border-b pb-2">
                         <div>
                           <h3 className="text-[15px] font-extrabold text-slate-900">Checklist</h3>
@@ -2548,141 +2956,37 @@ export function TaskDetailDialog({
                       )}
                     </section>
 
-                    <section className="order-4 rounded-xl border bg-white p-4 shadow-sm">
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
-                            <Paperclip className="h-4 w-4 text-slate-400" /> Archivos
-                          </h3>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Archivos de trabajo.
-                          </p>
-                        </div>
-                        {fileInputRef ? (
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            className="hidden"
-                            onChange={(event) => void onFilePicked?.(event)}
-                          />
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={onUploadClick}
-                          disabled={!canEdit || isUploadingFile}
-                        >
-                          <Upload className="mr-2 h-4 w-4" />
-                          {isUploadingFile ? `${uploadProgress}%` : "Upload"}
-                        </Button>
-                      </div>
-                      {uploadingFileName ? (
-                        <div className="mb-3 rounded-xl border bg-slate-50 p-3">
-                          <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
-                            <span className="truncate">Subiendo {uploadingFileName}</span>
-                            <span>{uploadProgress}%</span>
-                          </div>
-                          <Progress value={uploadProgress} className="h-2" />
-                        </div>
-                      ) : null}
-                      {onAttachDriveUrl ? (
-                        <div className="mb-3 flex gap-2">
-                          <Input
-                            value={driveUrlInput}
-                            onChange={(event) => onDriveUrlChange?.(event.target.value)}
-                            placeholder="Pega URL de Google Drive"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => void onAttachDriveUrl()}
-                            disabled={!canEdit || !driveUrlInput.trim()}
-                          >
-                            <Link2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : null}
+                    <section
+                      className={
+                        deliverableFiles.length > 0
+                          ? "order-7 rounded-xl border bg-white p-4 shadow-sm md:order-4"
+                          : "order-7 md:order-4"
+                      }
+                    >
+                      <TaskFileDropZone
+                        fileInputRef={fileInputRef}
+                        linkValue={driveUrlInput}
+                        uploadingName={uploadingFileName}
+                        uploadProgress={uploadProgress}
+                        disabled={!canEdit || isUploadingFile}
+                        compact={deliverableFiles.length > 0}
+                        dropLabel="Arrastra entregables aquí"
+                        uploadLabel="Subir archivo"
+                        onLinkChange={(value) => onDriveUrlChange?.(value)}
+                        onAddLink={() => void onAttachDriveUrl?.()}
+                        onPickFile={(event) => void onFilePicked?.(event)}
+                        onFileDrop={(file) => void onFileDropped?.(file)}
+                        onUploadClick={() => onUploadClick?.()}
+                      />
                       {driveFilesLoading ? (
                         <div className="rounded-xl border border-dashed px-4 py-3 text-sm font-medium text-slate-500">
                           Cargando archivos...
                         </div>
-                      ) : driveFiles.length === 0 ? (
-                        <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm font-semibold text-slate-500">
-                          Drop files here to upload
+                      ) : deliverableFiles.length > 0 ? (
+                        <div className="divide-y divide-slate-100">
+                          {deliverableFiles.map(renderFileCard)}
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {driveFiles.map((file) => {
-                            const url = file.web_view_link || file.web_content_link;
-                            const previewUrl = getGoogleDrivePreviewUrl(url, file.drive_file_id);
-                            return (
-                              <div key={file.id} className="rounded-xl border bg-slate-50 p-2.5">
-                                <div className="grid grid-cols-[32px_minmax(0,1fr)] items-center gap-2">
-                                  <div className="grid h-8 w-8 place-items-center rounded-lg border bg-white text-slate-500">
-                                    {file.icon_link ? (
-                                      <img src={file.icon_link} alt="" className="h-5 w-5" />
-                                    ) : (
-                                      <Paperclip className="h-4 w-4" />
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="truncate text-sm font-extrabold text-slate-900">
-                                      {file.name}
-                                    </div>
-                                    <div className="text-xs font-semibold text-slate-500">
-                                      {formatBytes(file.size_bytes)} · {formatDate(file.created_at)}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                  {previewUrl ? (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() =>
-                                        setPreviewFile({ url: previewUrl, title: file.name })
-                                      }
-                                    >
-                                      Preview
-                                    </Button>
-                                  ) : null}
-                                  {url ? (
-                                    <Button size="sm" variant="outline" asChild>
-                                      <a href={url} target="_blank" rel="noreferrer">
-                                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                                        Open
-                                      </a>
-                                    </Button>
-                                  ) : null}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => void copyFileLink(file)}
-                                  >
-                                    <Copy className="mr-1.5 h-3.5 w-3.5" />
-                                    Copy
-                                  </Button>
-                                  {onDeleteDriveFile ? (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-8 w-8 text-red-600"
-                                      onClick={() => void onDeleteDriveFile(file)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  ) : (
-                                    <Button size="icon" variant="ghost" className="h-8 w-8">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                      ) : null}
                     </section>
                   </aside>
                 </div>

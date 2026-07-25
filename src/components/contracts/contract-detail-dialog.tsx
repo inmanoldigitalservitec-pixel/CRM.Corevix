@@ -33,6 +33,7 @@ import {
   uploadContractDocument,
   type ContractDocumentRow,
 } from "@/lib/contracts/contract-documents";
+import { formatCurrencyAmount, normalizeCurrency } from "@/lib/currency";
 import { toast } from "sonner";
 
 export type ContractDetailRow = {
@@ -44,6 +45,12 @@ export type ContractDetailRow = {
   status: string;
   contract_type: string;
   contract_value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  contract_value_base?: number | null;
   start_date: string | null;
   end_date: string | null;
   client_id: string | null;
@@ -88,8 +95,8 @@ function formatDate(value: string | null | undefined) {
   }
 }
 
-function formatMoney(value: number | null | undefined) {
-  return `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(value: number | null | undefined, currency?: string | null) {
+  return formatCurrencyAmount(value, normalizeCurrency(currency || "USD"));
 }
 
 function signatureStatus(contract: ContractDetailRow) {
@@ -263,7 +270,14 @@ export function ContractDetailDialog({
             <CrmDetailSummaryGrid
               className="border-b border-slate-100 pb-4"
               items={[
-                { key: "value", label: "Value", value: formatMoney(contract.contract_value) },
+                {
+                  key: "value",
+                  label: "Value",
+                  value: formatMoney(
+                    contract.contract_value,
+                    contract.currency || contract.base_currency,
+                  ),
+                },
                 { key: "type", label: "Type", value: contract.contract_type || "—" },
                 { key: "start-date", label: "Start Date", value: formatDate(contract.start_date) },
                 { key: "end-date", label: "End Date", value: formatDate(contract.end_date) },

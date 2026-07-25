@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -31,7 +32,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  normalizeCurrency,
+  type CompanyCurrencySettings,
+  type CurrencyCode,
+} from "@/lib/currency";
 import { toast } from "sonner";
 
 const REPORTS = [
@@ -40,49 +50,49 @@ const REPORTS = [
     label: "Reporte de facturas",
     table: "invoice_finance_summary",
     dateKey: "date_issued",
-    amountKey: "total",
+    amountKey: "total_base",
   },
   {
     id: "payments",
     label: "Pagos recibidos",
     table: "payments",
     dateKey: "payment_date",
-    amountKey: "amount",
+    amountKey: "amount_base",
   },
   {
     id: "credit_notes",
     label: "Reporte de notas de crédito",
     table: "credit_notes",
     dateKey: "date_issued",
-    amountKey: "amount",
+    amountKey: "amount_base",
   },
   {
     id: "estimates",
     label: "Reporte de cotizaciones",
     table: "estimates",
     dateKey: "date_issued",
-    amountKey: "total",
+    amountKey: "total_base",
   },
   {
     id: "proposals",
     label: "Reporte de propuestas",
     table: "proposals",
     dateKey: "created_at",
-    amountKey: "total",
+    amountKey: "total_base",
   },
   {
     id: "expenses",
     label: "Reporte de gastos",
     table: "expenses",
     dateKey: "expense_date",
-    amountKey: "amount",
+    amountKey: "amount_base",
   },
   {
     id: "subscriptions",
     label: "Subscriptions / MRR",
     table: "subscriptions",
     dateKey: "start_date",
-    amountKey: "amount",
+    amountKey: "amount_base",
   },
   {
     id: "customers",
@@ -115,8 +125,60 @@ type ReportInvoiceRow = {
   client_id?: string | null;
 };
 
-function money(value: number | string | null | undefined) {
-  return `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function money(value: number | string | null | undefined, currency: CurrencyCode = "USD") {
+  return formatCurrencyAmount(value, currency);
+}
+
+function rowCurrency(row: Row, fallback: CurrencyCode) {
+  return normalizeCurrency(row.currency || row.base_currency || fallback);
+}
+
+function rowBaseCurrency(row: Row, fallback: CurrencyCode) {
+  return normalizeCurrency(row.base_currency || fallback);
+}
+
+function sourceKeyForBaseAmount(key: string) {
+  const map: Record<string, string> = {
+    total_base: "total",
+    subtotal_base: "subtotal",
+    amount_base: "amount",
+    paid_amount_base: "paid_amount",
+    credit_amount_base: "credit_amount",
+    balance_due_base: "balance_due",
+  };
+  return map[key] || key.replace(/_base$/, "");
+}
+
+function readReportBaseAmount(row: Row, amountKey: string, settings: CompanyCurrencySettings) {
+  if (!amountKey) return 0;
+
+  const storedValue = Number(row[amountKey] || 0);
+  if (amountKey.endsWith("_base") && row[amountKey] != null && Number.isFinite(storedValue)) {
+    return convertCurrencyAmount(
+      storedValue,
+      rowBaseCurrency(row, settings.baseCurrency),
+      settings.baseCurrency,
+      settings.usdToDopRate,
+    );
+  }
+
+  const sourceKey = sourceKeyForBaseAmount(amountKey);
+  const originalValue = row[sourceKey];
+
+  if (originalValue != null && originalValue !== "") {
+    return convertToBaseCurrency(originalValue, rowCurrency(row, settings.baseCurrency), settings);
+  }
+
+  if (!Number.isFinite(storedValue)) return 0;
+
+  return convertCurrencyAmount(
+    storedValue,
+    amountKey.endsWith("_base")
+      ? rowBaseCurrency(row, settings.baseCurrency)
+      : rowCurrency(row, settings.baseCurrency),
+    settings.baseCurrency,
+    settings.usdToDopRate,
+  );
 }
 
 function dateLabel(value: string | null | undefined) {
@@ -249,6 +311,7 @@ function chartGroupKey(reportId: ReportId, row: Row) {
 
 export function SalesReportCenter() {
   const { profile } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const [activeReport, setActiveReport] = useState<ReportId>("invoices");
   const [period, setPeriod] = useState("this_month");
   const [status, setStatus] = useState("all");
@@ -350,7 +413,10 @@ export function SalesReportCenter() {
     });
   }, [columns, config.dateKey, period, rows, search, status]);
 
-  const totalAmount = filtered.reduce((sum, row) => sum + Number(row[config.amountKey] || 0), 0);
+  const totalAmount = filtered.reduce(
+    (sum, row) => sum + readReportBaseAmount(row, config.amountKey, currencySettings),
+    0,
+  );
   const paidOrClosed = filtered.filter((row) =>
     ["Paid", "Completed", "Accepted", "Converted", "Applied", "Issued", "Active"].includes(
       row.finance_status || row.status,
@@ -365,16 +431,16 @@ export function SalesReportCenter() {
     filtered.forEach((row) => {
       const name = chartGroupKey(activeReport, row);
       const current = map.get(name) || { name, amount: 0, count: 0, paid: 0, balance: 0 };
-      current.amount += Number(row[config.amountKey] || 0);
-      current.paid += Number(row.paid_amount || 0);
-      current.balance += Number(row.balance_due || 0);
+      current.amount += readReportBaseAmount(row, config.amountKey, currencySettings);
+      current.paid += readReportBaseAmount(row, "paid_amount_base", currencySettings);
+      current.balance += readReportBaseAmount(row, "balance_due_base", currencySettings);
       current.count += 1;
       map.set(name, current);
     });
     return Array.from(map.values())
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 8);
-  }, [activeReport, config.amountKey, filtered]);
+  }, [activeReport, config.amountKey, currencySettings, filtered]);
 
   return (
     <div className="border-y border-slate-100 bg-white">
@@ -450,7 +516,10 @@ export function SalesReportCenter() {
 
           <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-3">
             <Summary label="Filas" value={String(filtered.length)} />
-            <Summary label="Total" value={config.amountKey ? money(totalAmount) : "—"} />
+            <Summary
+              label="Total"
+              value={config.amountKey ? money(totalAmount, currencySettings.baseCurrency) : "—"}
+            />
             <Summary label="Cerrados/pagados" value={String(paidOrClosed)} />
           </div>
 
@@ -467,7 +536,7 @@ export function SalesReportCenter() {
                     <YAxis fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip
                       formatter={(value: number, name: string) =>
-                        name === "count" ? value : money(value)
+                        name === "count" ? value : money(value, currencySettings.baseCurrency)
                       }
                     />
                     <Bar
@@ -494,15 +563,24 @@ export function SalesReportCenter() {
                       data={chartData}
                       dataKey={config.amountKey ? "amount" : "count"}
                       nameKey="name"
-                      outerRadius={88}
-                      label={({ name }) => name}
+                      outerRadius={82}
+                      label={false}
+                      labelLine={false}
                     >
                       {chartData.map((_, index) => (
                         <Cell key={index} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
+                    <Legend
+                      verticalAlign="bottom"
+                      height={28}
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: 12 }}
+                    />
                     <Tooltip
-                      formatter={(value: number) => (config.amountKey ? money(value) : value)}
+                      formatter={(value: number) =>
+                        config.amountKey ? money(value, currencySettings.baseCurrency) : value
+                      }
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -561,7 +639,12 @@ export function SalesReportCenter() {
                       <TableRow key={row.id || index}>
                         {columns.map((column) => (
                           <TableCell key={column.key} className="font-normal text-slate-700">
-                            {renderCell(column.key, row[column.key])}
+                            {renderCell(
+                              column.key,
+                              row[column.key],
+                              row,
+                              currencySettings.baseCurrency,
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -586,9 +669,26 @@ export function SalesReportCenter() {
   );
 }
 
-function renderCell(key: string, value: any) {
-  if (["total", "amount", "paid_amount", "credit_amount", "balance_due"].includes(key))
-    return money(value);
+function renderCell(key: string, value: any, row: Row, baseCurrency: CurrencyCode) {
+  if (
+    [
+      "total",
+      "amount",
+      "paid_amount",
+      "credit_amount",
+      "balance_due",
+      "total_base",
+      "amount_base",
+      "paid_amount_base",
+      "credit_amount_base",
+      "balance_due_base",
+    ].includes(key)
+  ) {
+    return money(
+      value,
+      key.endsWith("_base") ? rowBaseCurrency(row, baseCurrency) : rowCurrency(row, baseCurrency),
+    );
+  }
   if (
     key.includes("date") ||
     key === "created_at" ||

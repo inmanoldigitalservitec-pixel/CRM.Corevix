@@ -206,6 +206,11 @@ function CalendarPage() {
       { data: invoices },
       { data: proposals },
       { data: projects },
+      { data: estimates },
+      { data: subscriptions },
+      { data: contracts },
+      { data: tickets },
+      { data: payments },
     ] = await Promise.all([
       db
         .from("calendar_events")
@@ -222,7 +227,7 @@ function CalendarPage() {
         .order("due_date", { ascending: true }),
       db
         .from("invoices")
-        .select("id,number,due_date,status,total")
+        .select("id,number,due_date,status,total,currency,base_currency")
         .eq("company_id", cid)
         .not("due_date", "is", null)
         .order("due_date", { ascending: true }),
@@ -238,6 +243,35 @@ function CalendarPage() {
         .eq("company_id", cid)
         .not("due_date", "is", null)
         .order("due_date", { ascending: true }),
+      db
+        .from("estimates")
+        .select("id,number,title,expiry_date,status,total,currency,base_currency")
+        .eq("company_id", cid)
+        .not("expiry_date", "is", null)
+        .order("expiry_date", { ascending: true }),
+      db
+        .from("subscriptions")
+        .select("id,name,next_billing_date,status,amount,currency,base_currency,billing_cycle")
+        .eq("company_id", cid)
+        .not("next_billing_date", "is", null)
+        .order("next_billing_date", { ascending: true }),
+      db
+        .from("contracts")
+        .select("id,contract_number,subject,end_date,status,contract_value,currency,base_currency")
+        .eq("company_id", cid)
+        .not("end_date", "is", null)
+        .order("end_date", { ascending: true }),
+      db
+        .from("tickets")
+        .select("id,ticket_number,subject,status,priority,first_response_due_at,resolution_due_at")
+        .eq("company_id", cid)
+        .limit(500),
+      db
+        .from("payments")
+        .select("id,payment_number,reference,payment_date,status,amount,currency,base_currency")
+        .eq("company_id", cid)
+        .not("payment_date", "is", null)
+        .order("payment_date", { ascending: true }),
     ]);
 
     const combined: CalendarItem[] = buildCalendarItems({
@@ -246,6 +280,11 @@ function CalendarPage() {
       invoices,
       proposals,
       projects,
+      estimates,
+      subscriptions,
+      contracts,
+      tickets,
+      payments,
     });
 
     setEvents(combined);
@@ -416,6 +455,50 @@ function CalendarPage() {
         await db
           .from("invoices")
           .update({ due_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+      }
+
+      if (item.source === "estimate") {
+        await db
+          .from("estimates")
+          .update({ expiry_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+      }
+
+      if (item.source === "subscription") {
+        await db
+          .from("subscriptions")
+          .update({ next_billing_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+      }
+
+      if (item.source === "contract") {
+        await db
+          .from("contracts")
+          .update({ end_date: newDate })
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+      }
+
+      if (item.source === "ticket") {
+        await db
+          .from("tickets")
+          .update(
+            item.id.startsWith("ticket-first-response-")
+              ? { first_response_due_at: newStart.toISOString() }
+              : { resolution_due_at: newStart.toISOString() },
+          )
+          .eq("id", item.relatedId)
+          .eq("company_id", profile.company_id);
+      }
+
+      if (item.source === "payment") {
+        await db
+          .from("payments")
+          .update({ payment_date: newDate })
           .eq("id", item.relatedId)
           .eq("company_id", profile.company_id);
       }

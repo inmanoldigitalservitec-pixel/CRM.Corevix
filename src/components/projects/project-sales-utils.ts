@@ -1,4 +1,11 @@
 import { isCancelledInvoiceStatus, isPaidInvoiceStatus, normalizeStatus } from "@/lib/crm/status";
+import {
+  DEFAULT_COMPANY_CURRENCY_SETTINGS,
+  convertToBaseCurrency,
+  formatCurrencyAmount,
+  normalizeCurrency,
+  type CompanyCurrencySettings,
+} from "@/lib/currency";
 export { compactIds, dedupeById } from "@/lib/projects/project-relations";
 
 export type ProjectSalesProject = {
@@ -20,6 +27,10 @@ export type ProjectContractRow = {
   status: string;
   contract_type: string | null;
   contract_value: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | string | null;
+  contract_value_base?: number | null;
   start_date: string | null;
   end_date: string | null;
   client_id: string | null;
@@ -43,6 +54,9 @@ export type ProjectProposalRow = {
   deal_id: string | null;
   amount: number | null;
   currency: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | string | null;
+  amount_base?: number | null;
   status: string;
   valid_until: string | null;
   description: string | null;
@@ -65,6 +79,10 @@ export type ProjectInvoiceRow = {
   tax: number | null;
   discount: number | null;
   total: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | string | null;
+  total_base?: number | null;
   status: string;
   notes: string | null;
   date_issued: string | null;
@@ -85,6 +103,10 @@ export type ProjectPaymentRow = {
   invoice_id: string | null;
   client_id: string | null;
   amount: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | string | null;
+  amount_base?: number | null;
   payment_date: string | null;
   method: string | null;
   status: string;
@@ -99,6 +121,10 @@ export type ProjectExpenseRow = {
   vendor: string | null;
   category: string | null;
   amount: number | null;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | string | null;
+  amount_base?: number | null;
   status: string;
   expense_date: string | null;
   project_id: string | null;
@@ -144,6 +170,9 @@ export type ProjectSalesDocument = {
   title: string;
   subtitle: string;
   amount: number | null;
+  amountBase: number | null;
+  currency: string | null;
+  baseCurrency: string | null;
   status: string;
   date: string | null;
   secondaryDate: string | null;
@@ -169,16 +198,11 @@ export type ProjectSalesSummary = {
   proposalCount: number;
   latestProposal: ProjectProposalRow | null;
   latestSignatureStatus: string | null;
-  contextualCurrency: string | undefined;
-  hasMultipleCurrencies: boolean;
+  baseCurrency: string;
 };
 
 export function formatMoney(amount: number | null | undefined, currency?: string) {
-  return new Intl.NumberFormat("es-DO", {
-    style: "currency",
-    currency: currency || "USD",
-    maximumFractionDigits: 2,
-  }).format(Number(amount || 0));
+  return formatCurrencyAmount(amount, currency || "USD");
 }
 
 export function formatDate(value: string | null | undefined) {
@@ -228,6 +252,28 @@ function amountSum<T>(rows: T[], getter: (row: T) => number | null | undefined) 
   return rows.reduce((sum, row) => sum + Number(getter(row) || 0), 0);
 }
 
+function readBaseAmount(
+  amount: number | string | null | undefined,
+  amountBase: number | string | null | undefined,
+  currency: string | null | undefined,
+  baseCurrency: string | null | undefined,
+  exchangeRate: number | string | null | undefined,
+  settings: CompanyCurrencySettings,
+) {
+  const storedBase = Number(amountBase);
+  const storedBaseCurrency = normalizeCurrency(baseCurrency || settings.baseCurrency);
+  if (Number.isFinite(storedBase) && amountBase != null) {
+    return storedBaseCurrency === settings.baseCurrency
+      ? storedBase
+      : convertToBaseCurrency(storedBase, storedBaseCurrency, settings);
+  }
+
+  return convertToBaseCurrency(amount, currency || settings.baseCurrency, {
+    ...settings,
+    usdToDopRate: Number(exchangeRate || settings.usdToDopRate),
+  });
+}
+
 function documentDateValue(value: string | null | undefined) {
   if (!value) return 0;
   const date = new Date(`${value.slice(0, 10)}T00:00:00`);
@@ -258,23 +304,48 @@ function isOverdueInvoice(invoice: ProjectInvoiceRow, todayIso: string) {
   return invoice.due_date < todayIso;
 }
 
-export function buildSalesSummary(data: ProjectSalesData, todayIso: string): ProjectSalesSummary {
-  const currencies = Array.from(
-    new Set(data.proposals.map((proposal) => proposal.currency).filter(Boolean) as string[]),
-  );
+export function buildSalesSummary(
+  data: ProjectSalesData,
+  todayIso: string,
+  settings: CompanyCurrencySettings = DEFAULT_COMPANY_CURRENCY_SETTINGS,
+): ProjectSalesSummary {
   const confirmedExpenses = data.expenses.filter((expense) => isConfirmedExpense(expense.status));
   const pendingExpenses = data.expenses.filter((expense) => isPendingExpense(expense.status));
   const contractedTotal = amountSum(
     data.contracts.filter((contract) => !isCancelledStatus(contract.status)),
-    (contract) => contract.contract_value,
+    (contract) =>
+      readBaseAmount(
+        contract.contract_value,
+        contract.contract_value_base,
+        contract.currency,
+        contract.base_currency,
+        contract.exchange_rate,
+        settings,
+      ),
   );
   const invoicedTotal = amountSum(
     data.invoices.filter((invoice) => !isCancelledInvoiceStatus(invoice.status)),
-    (invoice) => invoice.total,
+    (invoice) =>
+      readBaseAmount(
+        invoice.total,
+        invoice.total_base,
+        invoice.currency,
+        invoice.base_currency,
+        invoice.exchange_rate,
+        settings,
+      ),
   );
   const collectedTotal = amountSum(
     data.payments.filter((payment) => isCompletedPayment(payment.status)),
-    (payment) => payment.amount,
+    (payment) =>
+      readBaseAmount(
+        payment.amount,
+        payment.amount_base,
+        payment.currency,
+        payment.base_currency,
+        payment.exchange_rate,
+        settings,
+      ),
   );
   const totalMinutes = data.timeEntries.reduce(
     (sum, entry) => sum + Number(entry.duration_minutes || 0),
@@ -293,14 +364,52 @@ export function buildSalesSummary(data: ProjectSalesData, todayIso: string): Pro
     [...data.contracts].find((contract) => contract.signature_status)?.signature_status || null;
 
   return {
-    proposedTotal: amountSum(data.proposals, (proposal) => proposal.amount),
+    proposedTotal: amountSum(data.proposals, (proposal) =>
+      readBaseAmount(
+        proposal.amount,
+        proposal.amount_base,
+        proposal.currency,
+        proposal.base_currency,
+        proposal.exchange_rate,
+        settings,
+      ),
+    ),
     contractedTotal,
     invoicedTotal,
     collectedTotal,
     pendingCollectionTotal: Math.max(0, invoicedTotal - collectedTotal),
-    confirmedExpensesTotal: amountSum(confirmedExpenses, (expense) => expense.amount),
-    pendingExpensesTotal: amountSum(pendingExpenses, (expense) => expense.amount),
-    registeredBalance: collectedTotal - amountSum(confirmedExpenses, (expense) => expense.amount),
+    confirmedExpensesTotal: amountSum(confirmedExpenses, (expense) =>
+      readBaseAmount(
+        expense.amount,
+        expense.amount_base,
+        expense.currency,
+        expense.base_currency,
+        expense.exchange_rate,
+        settings,
+      ),
+    ),
+    pendingExpensesTotal: amountSum(pendingExpenses, (expense) =>
+      readBaseAmount(
+        expense.amount,
+        expense.amount_base,
+        expense.currency,
+        expense.base_currency,
+        expense.exchange_rate,
+        settings,
+      ),
+    ),
+    registeredBalance:
+      collectedTotal -
+      amountSum(confirmedExpenses, (expense) =>
+        readBaseAmount(
+          expense.amount,
+          expense.amount_base,
+          expense.currency,
+          expense.base_currency,
+          expense.exchange_rate,
+          settings,
+        ),
+      ),
     totalMinutes,
     billableMinutes,
     nonBillableMinutes: totalMinutes - billableMinutes,
@@ -312,12 +421,15 @@ export function buildSalesSummary(data: ProjectSalesData, todayIso: string): Pro
     proposalCount: data.proposals.length,
     latestProposal,
     latestSignatureStatus,
-    contextualCurrency: currencies.length === 1 ? currencies[0] : undefined,
-    hasMultipleCurrencies: currencies.length > 1,
+    baseCurrency: settings.baseCurrency,
   };
 }
 
-export function buildSalesDocuments(data: ProjectSalesData, todayIso: string) {
+export function buildSalesDocuments(
+  data: ProjectSalesData,
+  todayIso: string,
+  settings: CompanyCurrencySettings = DEFAULT_COMPANY_CURRENCY_SETTINGS,
+) {
   const documents: ProjectSalesDocument[] = [
     ...data.contracts.map((contract) => ({
       id: contract.id,
@@ -325,6 +437,16 @@ export function buildSalesDocuments(data: ProjectSalesData, todayIso: string) {
       title: contract.subject || `Contrato ${contract.contract_number || ""}`.trim(),
       subtitle: `Contrato ${contract.contract_number || "sin número"}`,
       amount: contract.contract_value,
+      amountBase: readBaseAmount(
+        contract.contract_value,
+        contract.contract_value_base,
+        contract.currency,
+        contract.base_currency,
+        contract.exchange_rate,
+        settings,
+      ),
+      currency: contract.currency || contract.base_currency || settings.baseCurrency,
+      baseCurrency: contract.base_currency || settings.baseCurrency,
       status: contract.status,
       date: contract.updated_at || contract.signed_at || contract.created_at,
       secondaryDate: contract.signed_at,
@@ -337,6 +459,16 @@ export function buildSalesDocuments(data: ProjectSalesData, todayIso: string) {
       title: proposal.title || `Propuesta ${proposal.number || ""}`.trim(),
       subtitle: `Propuesta ${proposal.number || "sin número"}`,
       amount: proposal.amount,
+      amountBase: readBaseAmount(
+        proposal.amount,
+        proposal.amount_base,
+        proposal.currency,
+        proposal.base_currency,
+        proposal.exchange_rate,
+        settings,
+      ),
+      currency: proposal.currency || proposal.base_currency || settings.baseCurrency,
+      baseCurrency: proposal.base_currency || settings.baseCurrency,
       status: proposal.status,
       date: proposal.updated_at || proposal.sent_at || proposal.created_at,
       secondaryDate: proposal.valid_until,
@@ -353,6 +485,16 @@ export function buildSalesDocuments(data: ProjectSalesData, todayIso: string) {
       title: `Factura ${invoice.number || "sin número"}`,
       subtitle: invoice.notes || "Documento de facturación",
       amount: invoice.total,
+      amountBase: readBaseAmount(
+        invoice.total,
+        invoice.total_base,
+        invoice.currency,
+        invoice.base_currency,
+        invoice.exchange_rate,
+        settings,
+      ),
+      currency: invoice.currency || invoice.base_currency || settings.baseCurrency,
+      baseCurrency: invoice.base_currency || settings.baseCurrency,
       status: invoice.status,
       date: invoice.date_issued || invoice.created_at,
       secondaryDate: invoice.due_date,
@@ -365,6 +507,16 @@ export function buildSalesDocuments(data: ProjectSalesData, todayIso: string) {
       title: `Pago ${payment.payment_number || payment.reference || "sin referencia"}`,
       subtitle: payment.method || "Pago registrado",
       amount: payment.amount,
+      amountBase: readBaseAmount(
+        payment.amount,
+        payment.amount_base,
+        payment.currency,
+        payment.base_currency,
+        payment.exchange_rate,
+        settings,
+      ),
+      currency: payment.currency || payment.base_currency || settings.baseCurrency,
+      baseCurrency: payment.base_currency || settings.baseCurrency,
       status: payment.status,
       date: payment.payment_date || payment.created_at,
       secondaryDate: null,
@@ -377,6 +529,16 @@ export function buildSalesDocuments(data: ProjectSalesData, todayIso: string) {
       title: expense.title || "Gasto sin título",
       subtitle: [expense.vendor, expense.category].filter(Boolean).join(" · ") || "Gasto",
       amount: expense.amount,
+      amountBase: readBaseAmount(
+        expense.amount,
+        expense.amount_base,
+        expense.currency,
+        expense.base_currency,
+        expense.exchange_rate,
+        settings,
+      ),
+      currency: expense.currency || expense.base_currency || settings.baseCurrency,
+      baseCurrency: expense.base_currency || settings.baseCurrency,
       status: expense.status,
       date: expense.expense_date || expense.created_at,
       secondaryDate: null,

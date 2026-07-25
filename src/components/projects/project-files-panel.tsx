@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ExternalLink, Link2, Paperclip, RefreshCw, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ExternalLink, Link2, Paperclip, RefreshCw, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/crm/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
@@ -95,6 +96,46 @@ function sourceLabel(file: ProjectDriveFileRow, taskTitleById: Map<string, strin
   return taskTitle ? `Tarea · ${taskTitle}` : "Tarea";
 }
 
+function uploadProjectFileWithProgress(args: {
+  projectId: string;
+  file: File;
+  token: string;
+  onProgress: (percent: number) => void;
+}): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+    const xhr = new XMLHttpRequest();
+    const body = new FormData();
+    body.append("project_id", args.projectId);
+    body.append("file", args.file);
+
+    xhr.open("POST", `${supabaseUrl}/functions/v1/drive-upload-file`);
+    xhr.setRequestHeader("Authorization", `Bearer ${args.token}`);
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      args.onProgress(Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))));
+    };
+    xhr.onerror = () => reject(new Error("No se pudo subir el archivo a Google Drive."));
+    xhr.onload = () => {
+      let payload: any = null;
+      try {
+        payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        payload = null;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const detail = payload?.detail ? ` Detalle: ${String(payload.detail)}` : "";
+        reject(
+          new Error(`${payload?.error || "No se pudo subir el archivo a Google Drive."}${detail}`),
+        );
+        return;
+      }
+      resolve(payload);
+    };
+    xhr.send(body);
+  });
+}
+
 export function ProjectFilesPanel({
   projectId,
   canEdit,
@@ -105,9 +146,12 @@ export function ProjectFilesPanel({
   tasks: ProjectTaskFileSnapshot[];
 }) {
   const { profile } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<ProjectDriveFileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [driveUrlInput, setDriveUrlInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const taskIds = useMemo(
@@ -215,6 +259,34 @@ export function ProjectFilesPanel({
     toast.success("Enlace de Drive adjuntado.");
   }
 
+  async function uploadFile(file: File) {
+    if (!canEdit) return toast.error("No tienes permiso para subir archivos.");
+    if (!file) return;
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return toast.error("Tu sesión expiró. Vuelve a iniciar sesión.");
+
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      await uploadProjectFileWithProgress({
+        projectId,
+        file,
+        token,
+        onProgress: setUploadProgress,
+      });
+      await loadFiles();
+      toast.success("Archivo subido al proyecto.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo subir el archivo.");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   async function deleteDriveFile(file: ProjectDriveFileRow) {
     if (!canEdit) return toast.error("No tienes permiso para borrar archivos.");
     if (!window.confirm(`¿Eliminar "${file.name}" de este proyecto?`)) return;
@@ -228,6 +300,16 @@ export function ProjectFilesPanel({
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void uploadFile(file);
+        }}
+      />
+
       <div className="border-b border-slate-200/80 pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -245,10 +327,22 @@ export function ProjectFilesPanel({
             {canEdit ? (
               <Button
                 type="button"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={saving || uploading}
+                className="h-8 rounded-full bg-blue-600 px-3 text-xs font-semibold text-white shadow-none hover:bg-blue-700"
+              >
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Subir archivo
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setDialogOpen(true)}
-                disabled={saving}
+                disabled={saving || uploading}
                 className="h-8 rounded-full border-slate-200 px-3 text-xs font-semibold shadow-none"
               >
                 <Link2 className="mr-1.5 h-3.5 w-3.5" />
@@ -260,7 +354,7 @@ export function ProjectFilesPanel({
               variant="ghost"
               size="sm"
               onClick={() => void loadFiles()}
-              disabled={loading || saving}
+              disabled={loading || saving || uploading}
               className="h-8 rounded-full px-3 text-xs font-semibold text-slate-500"
             >
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -268,6 +362,15 @@ export function ProjectFilesPanel({
             </Button>
           </div>
         </div>
+        {uploading ? (
+          <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/50 p-3">
+            <div className="mb-2 flex items-center justify-between text-xs font-semibold text-blue-700">
+              <span>Subiendo archivo</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <Progress value={uploadProgress} className="h-2" />
+          </div>
+        ) : null}
       </div>
 
       <ProjectWorkspaceFormDialog

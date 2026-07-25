@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { supabase } from "@/integrations/supabase/client";
 import { ProjectSalesDocuments } from "@/components/projects/project-sales-documents";
 import { ProjectSalesSummaryView } from "@/components/projects/project-sales-summary";
@@ -54,13 +55,14 @@ const emptySalesData: ProjectSalesData = {
 };
 
 const proposalSelect =
-  "id,number,title,product_id,client_id,lead_id,deal_id,amount,currency,status,valid_until,description,notes,sent_at,created_at,updated_at,public_token,viewed_at,approved_at";
+  "id,number,title,product_id,client_id,lead_id,deal_id,amount,currency,base_currency,exchange_rate,amount_base,status,valid_until,description,notes,sent_at,created_at,updated_at,public_token,viewed_at,approved_at";
 
 const invoiceSelect =
-  "id,number,client_id,proposal_id,product_id,subtotal,tax,discount,total,status,notes,date_issued,due_date,created_at,updated_at,public_token,payment_link,paid_at,sent_at,viewed_at";
+  "id,number,client_id,proposal_id,product_id,subtotal,tax,discount,total,currency,base_currency,exchange_rate,total_base,status,notes,date_issued,due_date,created_at,updated_at,public_token,payment_link,paid_at,sent_at,viewed_at";
 
 export function ProjectSalesPanel({ project }: { project: ProjectSalesProject }) {
   const { profile } = useAuth();
+  const { settings: currencySettings } = useCompanyCurrencySettings();
   const navigate = useNavigate();
   const requestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
@@ -94,7 +96,7 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
     const contractsQuery = db
       .from("contracts")
       .select(
-        "id,contract_number,subject,status,contract_type,contract_value,start_date,end_date,client_id,project_id,proposal_id,deal_id,signed_at,signature_status,invoice_id,created_at,updated_at",
+        "id,contract_number,subject,status,contract_type,contract_value,currency,base_currency,exchange_rate,contract_value_base,start_date,end_date,client_id,project_id,proposal_id,deal_id,signed_at,signature_status,invoice_id,created_at,updated_at",
       )
       .eq("company_id", companyId)
       .eq("project_id", project.id)
@@ -104,7 +106,7 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
     const expensesQuery = db
       .from("expenses")
       .select(
-        "id,title,vendor,category,amount,status,expense_date,project_id,client_id,receipt_url,notes,created_at,updated_at",
+        "id,title,vendor,category,amount,currency,base_currency,exchange_rate,amount_base,status,expense_date,project_id,client_id,receipt_url,notes,created_at,updated_at",
       )
       .eq("company_id", companyId)
       .eq("project_id", project.id)
@@ -202,7 +204,7 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
       const paymentsRes = await db
         .from("payments")
         .select(
-          "id,payment_number,reference,invoice_id,client_id,amount,payment_date,method,status,notes,created_at,updated_at",
+          "id,payment_number,reference,invoice_id,client_id,amount,currency,base_currency,exchange_rate,amount_base,payment_date,method,status,notes,created_at,updated_at",
         )
         .eq("company_id", companyId)
         .in("invoice_id", relatedInvoiceIds)
@@ -238,8 +240,14 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
     void loadSalesData();
   }, [loadSalesData]);
 
-  const summary = useMemo(() => buildSalesSummary(data, todayIso), [data, todayIso]);
-  const documents = useMemo(() => buildSalesDocuments(data, todayIso), [data, todayIso]);
+  const summary = useMemo(
+    () => buildSalesSummary(data, todayIso, currencySettings),
+    [currencySettings, data, todayIso],
+  );
+  const documents = useMemo(
+    () => buildSalesDocuments(data, todayIso, currencySettings),
+    [currencySettings, data, todayIso],
+  );
   const proposalSearch = useMemo(
     () => ({
       leadId: project.lead_id || undefined,
@@ -337,7 +345,7 @@ export function ProjectSalesPanel({ project }: { project: ProjectSalesProject })
               <ProjectSalesSummaryView summary={summary} />
               <ProjectSalesDocuments
                 documents={documents}
-                currency={summary.contextualCurrency}
+                currency={summary.baseCurrency}
                 onOpenDocument={openDocument}
               />
             </>
