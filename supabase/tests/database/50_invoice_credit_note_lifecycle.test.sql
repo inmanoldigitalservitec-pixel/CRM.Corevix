@@ -139,7 +139,7 @@ values (
   'Draft',
   current_date,
   current_date + 30,
-  '41000000-0000-0000-0000-000000000001'
+  '31000000-0000-0000-0000-000000000001'
 );
 
 insert into public.invoice_items (

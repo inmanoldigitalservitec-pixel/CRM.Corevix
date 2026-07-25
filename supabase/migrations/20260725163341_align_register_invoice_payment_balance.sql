@@ -81,7 +81,7 @@ begin
       'No se encontró la factura dentro de la compañía actual.';
   end if;
 
-  if v_invoice.status = 'Cancelled'::public.invoice_status then
+  if v_invoice.status = 'Cancelled' then
     raise exception 'Esta factura está cancelada.';
   end if;
 
@@ -170,7 +170,7 @@ begin
 
   v_became_paid :=
     v_previous_status is distinct from 'Paid'
-    and v_invoice.status = 'Paid'::public.invoice_status;
+    and v_invoice.status = 'Paid';
 
   -- Preserve existing project creation behavior.
   if v_became_paid then

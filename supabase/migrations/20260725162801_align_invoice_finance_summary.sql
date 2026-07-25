@@ -62,8 +62,8 @@ select
 
     when i.due_date < current_date
       and i.status not in (
-        'Paid'::public.invoice_status,
-        'Cancelled'::public.invoice_status
+        'Paid',
+        'Cancelled'
       )
       then 'Overdue'::text
 

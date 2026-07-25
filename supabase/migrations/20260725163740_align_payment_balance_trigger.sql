@@ -51,7 +51,7 @@ begin
       'El pago y la factura deben pertenecer a la misma compañía.';
   end if;
 
-  if v_invoice.status = 'Cancelled'::public.invoice_status then
+  if v_invoice.status = 'Cancelled' then
     raise exception 'Esta factura está cancelada.';
   end if;
 

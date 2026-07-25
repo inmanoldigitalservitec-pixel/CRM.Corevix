@@ -596,8 +596,8 @@ select throws_matching(
       '20000000-0000-0000-0000-000000000001'
     )
   $$,
-  '.*No se encontró la factura dentro de la compañía actual.*',
-  'Un usuario de otra compañía no puede registrar pagos en esta factura'
+  '.*No hay una compañía activa asociada al usuario.*',
+  'Un usuario sin compañía activa no puede registrar pagos'
 );
 
 -- Volver al usuario autorizado.
