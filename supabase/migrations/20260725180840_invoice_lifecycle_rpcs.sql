@@ -154,9 +154,11 @@ begin
       using errcode = '55000';
   end if;
 
-  select coalesce(sum(public.get_payment_net_balance(p.id)), 0)
+  select coalesce(sum(b.net_amount), 0)
   into v_net_paid
   from public.payments p
+  cross join lateral
+    public.get_payment_net_balance(p.id) as b
   where p.invoice_id = v_invoice.id
     and p.company_id = v_profile.company_id
     and p.status = 'Completed';
