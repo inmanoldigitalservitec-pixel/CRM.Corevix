@@ -1,6 +1,8 @@
 -- Normalize existing payment numbers chronologically per company,
 -- prevent duplicates, and advance the identity sequence safely.
 
+begin;
+
 lock table public.payments in access exclusive mode;
 
 alter table public.payments disable trigger user;
@@ -42,3 +44,5 @@ begin
   end if;
 end;
 $$;
+
+commit;
