@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { formatCurrencyAmount } from "@/lib/currency";
 import type { PaymentNetBalance } from "@/lib/payments/payment-net-balance";
 
@@ -10,6 +13,20 @@ type ReceiptParty = {
   phone?: string | null;
   address?: string | null;
   taxId?: string | null;
+  website?: string | null;
+  logoUrl?: string | null;
+};
+
+type CompanyRow = {
+  company_name: string | null;
+  tax_id: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  website: string | null;
+  logo_url: string | null;
 };
 
 export type PaymentReceiptPreviewData = {
@@ -30,6 +47,27 @@ export type PaymentReceiptPreviewData = {
 
 function clean(value: unknown) {
   return String(value || "").trim();
+}
+
+function joinAddress(company: CompanyRow | null) {
+  if (!company) return "";
+
+  const parts: string[] = [];
+  const appendUnique = (value: unknown) => {
+    const next = clean(value);
+    if (!next) return;
+
+    const normalized = parts.join(", ").toLocaleLowerCase("es");
+    if (!normalized.includes(next.toLocaleLowerCase("es"))) {
+      parts.push(next);
+    }
+  };
+
+  appendUnique(company.address);
+  appendUnique(company.city);
+  appendUnique(company.country);
+
+  return parts.join(", ");
 }
 
 function formatDate(value?: string | null) {
@@ -59,6 +97,7 @@ function PartyBlock({
     clean(party?.address),
     clean(party?.email),
     clean(party?.phone),
+    clean(party?.website),
     clean(party?.taxId) ? `RNC / ID: ${clean(party?.taxId)}` : "",
   ].filter(Boolean);
 
@@ -87,7 +126,54 @@ export function PaymentReceiptPreview({
 }: {
   data: PaymentReceiptPreviewData;
 }) {
+  const { profile } = useAuth();
+  const [company, setCompany] = useState<CompanyRow | null>(null);
   const currency = clean(data.currency).toUpperCase() || "USD";
+
+  useEffect(() => {
+    const companyId = profile?.company_id;
+
+    if (!companyId) {
+      setCompany(null);
+      return;
+    }
+
+    let active = true;
+
+    void supabase
+      .from("companies")
+      .select(
+        "company_name,tax_id,email,phone,address,city,country,website,logo_url",
+      )
+      .eq("id", companyId)
+      .maybeSingle()
+      .then(({ data: companyData, error }) => {
+        if (!active) return;
+
+        if (error) {
+          console.error("No se pudo cargar el emisor del recibo:", error);
+          setCompany(null);
+          return;
+        }
+
+        setCompany(companyData as CompanyRow | null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [profile?.company_id]);
+
+  const issuer: ReceiptParty = {
+    name: clean(data.issuer?.name) || company?.company_name || null,
+    company: clean(data.issuer?.company) || company?.company_name || null,
+    email: clean(data.issuer?.email) || company?.email || null,
+    phone: clean(data.issuer?.phone) || company?.phone || null,
+    address: clean(data.issuer?.address) || joinAddress(company) || null,
+    taxId: clean(data.issuer?.taxId) || company?.tax_id || null,
+    website: clean(data.issuer?.website) || company?.website || null,
+    logoUrl: clean(data.issuer?.logoUrl) || company?.logo_url || null,
+  };
 
   return (
     <div className="min-w-0">
@@ -105,13 +191,22 @@ export function PaymentReceiptPreview({
 
       <article className="mx-auto min-h-[720px] max-w-[850px] border border-slate-200 bg-white px-6 py-7 shadow-sm md:px-10 md:py-9 print:min-h-0 print:max-w-none print:border-0 print:p-0 print:shadow-none">
         <header className="grid gap-6 border-b border-slate-200 pb-6 sm:grid-cols-[1fr_auto]">
-          <div>
-            <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-              Documento comercial
+          <div className="flex min-w-0 items-start gap-4">
+            {issuer.logoUrl ? (
+              <img
+                src={issuer.logoUrl}
+                alt={clean(issuer.company) || clean(issuer.name) || "Empresa"}
+                className="h-12 w-12 shrink-0 rounded-md object-contain"
+              />
+            ) : null}
+            <div className="min-w-0">
+              <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                Documento comercial
+              </div>
+              <h2 className="mt-2 text-2xl font-normal tracking-normal text-slate-950">
+                Recibo de pago
+              </h2>
             </div>
-            <h2 className="mt-2 text-2xl font-normal tracking-normal text-slate-950">
-              Recibo de pago
-            </h2>
           </div>
 
           <div className="sm:text-right">
@@ -128,7 +223,7 @@ export function PaymentReceiptPreview({
         </header>
 
         <section className="grid gap-6 border-b border-slate-200 py-6 sm:grid-cols-2">
-          <PartyBlock title="Emitido por" party={data.issuer} />
+          <PartyBlock title="Emitido por" party={issuer} />
           <PartyBlock title="Cliente" party={data.client} />
         </section>
 
