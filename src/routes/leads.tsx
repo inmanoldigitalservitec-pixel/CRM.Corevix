@@ -632,6 +632,7 @@ function LeadsPage() {
   const [stageTab, setStageTab] = useState<StageTab>("all");
   const [leadChipFilter, setLeadChipFilter] = useState<LeadChipFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
+  const [updatingLeadStatusId, setUpdatingLeadStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!dialogOpen) return;
