@@ -1,5 +1,17 @@
 import { formatCurrencyAmount } from "@/lib/currency";
 
+export type ProposalCompanyProfile = {
+  company_name?: string | null;
+  tax_id?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+  logo_url?: string | null;
+};
+
 function escapeHtml(value: unknown) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -35,9 +47,47 @@ function formatMoney(amount: unknown, currency: unknown) {
   return formatCurrencyAmount(Number(amount || 0), String(currency || "USD"));
 }
 
+function clean(value: unknown) {
+  return String(value || "").trim();
+}
+
 function getClientValue(proposal: any, key: string) {
   const client = proposal?.client && typeof proposal.client === "object" ? proposal.client : {};
   return client?.[key] ?? "";
+}
+
+function getCompanyValue(
+  proposal: any,
+  company: ProposalCompanyProfile | null | undefined,
+  key: keyof ProposalCompanyProfile,
+  snapshotKey: string,
+) {
+  const data =
+    proposal?.proposal_data && typeof proposal.proposal_data === "object"
+      ? proposal.proposal_data
+      : {};
+  return clean(data?.[snapshotKey]) || clean(company?.[key]);
+}
+
+function buildCompanyAddress(
+  proposal: any,
+  company: ProposalCompanyProfile | null | undefined,
+) {
+  const snapshot = getCompanyValue(proposal, company, "address", "companyAddress");
+  const city = getCompanyValue(proposal, company, "city", "companyCity");
+  const country = getCompanyValue(proposal, company, "country", "companyCountry");
+  const parts: string[] = [];
+
+  const appendUnique = (value: string) => {
+    if (!value) return;
+    const current = parts.join(", ").toLocaleLowerCase("es");
+    if (!current.includes(value.toLocaleLowerCase("es"))) parts.push(value);
+  };
+
+  appendUnique(snapshot);
+  appendUnique(city);
+  appendUnique(country);
+  return parts.join(", ");
 }
 
 function renderItemsTable(items: any[], currency: string) {
@@ -87,7 +137,11 @@ function renderItemsTable(items: any[], currency: string) {
   `;
 }
 
-function buildMergeFields(proposal: any, items: any[]) {
+function buildMergeFields(
+  proposal: any,
+  items: any[],
+  company?: ProposalCompanyProfile | null,
+) {
   const data =
     proposal?.proposal_data && typeof proposal.proposal_data === "object"
       ? proposal.proposal_data
@@ -100,6 +154,12 @@ function buildMergeFields(proposal: any, items: any[]) {
     data?.companyName ||
     data?.clientName ||
     "Cliente";
+  const companyName = getCompanyValue(proposal, company, "company_name", "companyName");
+  const companyTaxId = getCompanyValue(proposal, company, "tax_id", "companyTaxId");
+  const companyEmail = getCompanyValue(proposal, company, "email", "companyEmail");
+  const companyPhone = getCompanyValue(proposal, company, "phone", "companyPhone");
+  const companyWebsite = getCompanyValue(proposal, company, "website", "companyWebsite");
+  const companyLogo = getCompanyValue(proposal, company, "logo_url", "companyLogoUrl");
 
   return {
     proposal_number: proposal?.number || "PROP",
@@ -123,13 +183,24 @@ function buildMergeFields(proposal: any, items: any[]) {
     client_email: proposal?.recipient_email || getClientValue(proposal, "email"),
     client_phone: proposal?.recipient_phone || getClientValue(proposal, "phone"),
     client_address: proposal?.recipient_address || "",
-    company_name: "Corevix Agency",
-    company_email: "corevix.rd@gmail.com",
+    company_name: companyName,
+    company_tax_id: companyTaxId,
+    company_email: companyEmail,
+    company_phone: companyPhone,
+    company_address: buildCompanyAddress(proposal, company),
+    company_city: getCompanyValue(proposal, company, "city", "companyCity"),
+    company_country: getCompanyValue(proposal, company, "country", "companyCountry"),
+    company_website: companyWebsite,
+    company_logo: companyLogo,
   } as Record<string, string>;
 }
 
-export function renderProposalTemplateHtml(proposal: any, items: any[]) {
-  const fields = buildMergeFields(proposal, items);
+export function renderProposalTemplateHtml(
+  proposal: any,
+  items: any[],
+  company?: ProposalCompanyProfile | null,
+) {
+  const fields = buildMergeFields(proposal, items, company);
   let html = String(proposal?.content || "");
 
   Object.entries(fields).forEach(([key, value]) => {
