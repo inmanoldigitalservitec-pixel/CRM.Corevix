@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SalesBasicPage } from "@/components/sales/sales-basic-page";
+import { toast } from "sonner";
 
 const DISPLAY_LABELS: Record<string, string> = {
   "Not Started": "No iniciado",
@@ -43,12 +44,28 @@ function displayLabel(value: string) {
 export const Route = createFileRoute("/credit-notes")({ component: CreditNotesPage });
 const STATUSES = ["Draft", "Issued", "Applied", "Cancelled"];
 const CREATE_STATUSES = ["Draft"];
+
+function openPublicCreditNote(row: Record<string, any>) {
+  const token = String(row.public_token || "").trim();
+  if (!token || typeof window === "undefined") {
+    toast.error("Esta nota de crédito todavía no tiene un enlace público.");
+    return;
+  }
+
+  window.open(
+    `${window.location.origin}/credit-note/public/${token}`,
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
 function CreditNotesPage() {
   return (
     <SalesBasicPage
+      onOpenRow={openPublicCreditNote}
       config={{
         routeTitle: "Notas de crédito",
-        subtitle: "Ajustes y balances a favor del cliente.",
+        subtitle: "Ajustes a favor del cliente con documento fiscal imprimible.",
         table: "credit_notes",
         module: "credit_notes",
         createPermission: "credit_notes.issue",
