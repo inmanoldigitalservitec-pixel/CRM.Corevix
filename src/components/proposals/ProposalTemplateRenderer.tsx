@@ -1,6 +1,12 @@
+import { useEffect, useState } from "react";
 import { SocialMediaProposalTemplate } from "@/components/proposals/templates/SocialMediaProposalTemplate";
-import { renderProposalTemplateHtml } from "@/components/proposals/proposal-template-rendering";
+import {
+  renderProposalTemplateHtml,
+  type ProposalCompanyProfile,
+} from "@/components/proposals/proposal-template-rendering";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { Check, Printer } from "lucide-react";
 
 export function ProposalTemplateRenderer({
@@ -20,8 +26,42 @@ export function ProposalTemplateRenderer({
   onApprove?: () => void | Promise<void>;
   onPrint?: () => void;
 }) {
+  const { profile } = useAuth();
+  const [company, setCompany] = useState<ProposalCompanyProfile | null>(null);
   const templateKey = String(proposal?.template_key || "");
   const proposalData = (proposal?.proposal_data ?? null) as any;
+
+  useEffect(() => {
+    const companyId = profile?.company_id || proposal?.company_id;
+
+    if (!companyId) {
+      setCompany(null);
+      return;
+    }
+
+    let active = true;
+
+    void supabase
+      .from("companies")
+      .select(
+        "company_name,tax_id,email,phone,address,city,country,website,logo_url",
+      )
+      .eq("id", companyId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.error("No se pudo cargar la empresa de la propuesta:", error);
+          setCompany(null);
+          return;
+        }
+        setCompany(data as ProposalCompanyProfile | null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [profile?.company_id, proposal?.company_id]);
 
   if (templateKey === "social_media_mobile") {
     return (
@@ -36,7 +76,7 @@ export function ProposalTemplateRenderer({
   }
 
   if (templateKey === "custom_html" && proposal?.content) {
-    const html = renderProposalTemplateHtml(proposal, items);
+    const html = renderProposalTemplateHtml(proposal, items, company);
 
     return (
       <main className="min-h-screen bg-[#eef1f6] px-4 py-6 text-slate-950 print:bg-white print:p-0">
