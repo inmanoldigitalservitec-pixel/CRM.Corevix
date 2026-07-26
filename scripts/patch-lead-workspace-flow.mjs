@@ -63,7 +63,7 @@ if (!source.includes('value="proposals"')) {
   );
 }
 
-const finalDialogAnchor = `      <AlertDialog open={!!deleteId}`;
+const finalDialogAnchor = `      <AlertDialog open={!!lostDeal}`;
 if (!source.includes('open={convertReviewOpen}')) {
   replaceOnce(
     finalDialogAnchor,
