@@ -80,10 +80,11 @@ source = source.replaceAll(
   `className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"`,
 );
 
-replaceOnce(
-  `<Button\n                         type="button"\n                         variant="ghost"\n                         size="icon"\n                         className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"\n                         onClick={() => openEditBuilder(estimate)}\n                         title="Editar cotización"\n                         aria-label="Editar cotización"\n                       >\n                         <Pencil className="h-4 w-4" />\n                       </Button>`,
+// El botón Editar puede variar levemente según parches anteriores. Lo transformamos
+// con una expresión regular flexible y no detenemos el resto del parche si ya cambió.
+source = source.replace(
+  /<Button\s+type="button"\s+variant="(?:ghost|outline)"\s+size="(?:icon|sm)"\s+className="[^"]*"\s+onClick=\{\(\) => openEditBuilder\(estimate\)\}\s+title="Editar cotización"\s+aria-label="Editar cotización"\s*>\s*<Pencil className="h-4 w-4" \/>\s*<\/Button>/m,
   `<Button\n                         type="button"\n                         variant="outline"\n                         size="sm"\n                         className="h-8 rounded-full bg-blue-600 px-3 text-xs font-normal text-white shadow-none hover:bg-blue-700"\n                         onClick={() => openEditBuilder(estimate)}\n                         title="Editar cotización"\n                         aria-label="Editar cotización"\n                       >\n                         <Pencil className="h-3.5 w-3.5" />\n                         Editar\n                       </Button>`,
-  "botón editar",
 );
 
 replaceOnce(
