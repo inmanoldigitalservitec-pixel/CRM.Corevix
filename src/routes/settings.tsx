@@ -243,7 +243,10 @@ function SettingsPage() {
     email: "",
     phone: "",
     address: "",
+    city: "",
+    country: "",
     tax_id: "",
+    logo_url: "",
   });
   const [companyLoading, setCompanyLoading] = useState(false);
   const [currencyLoading, setCurrencyLoading] = useState(false);
@@ -1019,7 +1022,7 @@ function SettingsPage() {
       setCompanyLoading(true);
       const { data, error } = await db
         .from("companies")
-        .select("company_name, tax_id")
+        .select("company_name,tax_id,email,phone,address,city,country,website,logo_url")
         .eq("id", companyId)
         .maybeSingle();
       if (cancelled) return;
@@ -1033,18 +1036,24 @@ function SettingsPage() {
           email: "",
           phone: "",
           address: "",
+          city: "",
+          country: "",
           tax_id: "",
+          logo_url: "",
         });
         setCompanyLoading(false);
         return;
       }
       setCompanyForm({
         company_name: data?.company_name || "",
-        website: "",
-        email: "",
-        phone: "",
-        address: "",
+        website: data?.website || "",
+        email: data?.email || "",
+        phone: data?.phone || "",
+        address: data?.address || "",
+        city: data?.city || "",
+        country: data?.country || "",
         tax_id: data?.tax_id || "",
+        logo_url: data?.logo_url || "",
       });
       setCompanyLoading(false);
     };
@@ -1108,8 +1117,15 @@ function SettingsPage() {
     const { error } = await db
       .from("companies")
       .update({
-        company_name: companyForm.company_name || null,
-        tax_id: companyForm.tax_id || null,
+        company_name: companyForm.company_name.trim(),
+        tax_id: companyForm.tax_id.trim() || null,
+        email: companyForm.email.trim() || null,
+        phone: companyForm.phone.trim() || null,
+        address: companyForm.address.trim() || null,
+        city: companyForm.city.trim() || null,
+        country: companyForm.country.trim() || null,
+        website: companyForm.website.trim() || null,
+        logo_url: companyForm.logo_url.trim() || null,
       })
       .eq("id", companyId);
     if (error) toast.error(error.message || "No se pudo guardar");
@@ -1265,11 +1281,42 @@ function SettingsPage() {
                   disabled={companyLoading}
                 />
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Ciudad</Label>
+                  <Input
+                    value={companyForm.city}
+                    onChange={(e) => setCompanyForm((p) => ({ ...p, city: e.target.value }))}
+                    disabled={companyLoading}
+                  />
+                </div>
+
+                <div>
+                  <Label>País</Label>
+                  <Input
+                    value={companyForm.country}
+                    onChange={(e) => setCompanyForm((p) => ({ ...p, country: e.target.value }))}
+                    disabled={companyLoading}
+                  />
+                </div>
+              </div>
+
               <div>
                 <Label>RNC / Identificación fiscal</Label>
                 <Input
                   value={companyForm.tax_id}
                   onChange={(e) => setCompanyForm((p) => ({ ...p, tax_id: e.target.value }))}
+                  disabled={companyLoading}
+                />
+              </div>
+
+              <div>
+                <Label>Logo</Label>
+                <Input
+                  value={companyForm.logo_url}
+                  onChange={(e) => setCompanyForm((p) => ({ ...p, logo_url: e.target.value }))}
+                  placeholder="URL o ruta del logo"
                   disabled={companyLoading}
                 />
               </div>
