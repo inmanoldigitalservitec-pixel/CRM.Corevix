@@ -292,6 +292,17 @@ function InvoicesPage() {
   const [amountFilter, setAmountFilter] = useState<InvoiceAmountFilter>("all");
   const [editItem, setEditItem] = useState<Invoice | null>(null);
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const [issuerCompany, setIssuerCompany] = useState<{
+    company_name: string;
+    tax_id: string | null;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    city: string | null;
+    country: string | null;
+    website: string | null;
+    logo_url: string | null;
+  } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>("view");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -396,6 +407,40 @@ function InvoicesPage() {
       active = false;
     };
   }, [data, profile?.company_id, paymentReceiptsRefreshKey]);
+
+  useEffect(() => {
+    const companyId = profile?.company_id;
+
+    if (!companyId) {
+      setIssuerCompany(null);
+      return;
+    }
+
+    let active = true;
+
+    void supabase
+      .from("companies")
+      .select(
+        "company_name,tax_id,email,phone,address,city,country,website,logo_url",
+      )
+      .eq("id", companyId)
+      .maybeSingle()
+      .then(({ data: company, error }) => {
+        if (!active) return;
+
+        if (error) {
+          console.error("No se pudo cargar la información del emisor:", error);
+          setIssuerCompany(null);
+          return;
+        }
+
+        setIssuerCompany(company);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [profile?.company_id]);
 
   const financialBalancesReady =
     data.length === 0 ||
@@ -1602,13 +1647,58 @@ function InvoicesPage() {
         },
       ]
     : [];
+  const issuerCompanyAddress = [
+    issuerCompany?.address,
+    issuerCompany?.city,
+    issuerCompany?.country,
+  ]
+    .map((value) => readTextValue(value))
+    .filter(Boolean)
+    .join(", ");
+
   const selectedIssuerFields = [
-    { label: "Nombre", value: readTextValue(selectedInvoiceData.issuerName) },
-    { label: "ID fiscal", value: readTextValue(selectedInvoiceData.issuerTaxId) },
-    { label: "Correo", value: readTextValue(selectedInvoiceData.issuerEmail) },
-    { label: "Teléfono", value: readTextValue(selectedInvoiceData.issuerPhone) },
-    { label: "Dirección", value: readTextValue(selectedInvoiceData.issuerAddress) },
-    { label: "Sitio web", value: readTextValue(selectedInvoiceData.issuerWebsite) },
+    {
+      label: "Nombre",
+      value:
+        readTextValue(selectedInvoiceData.issuerName) ||
+        issuerCompany?.company_name ||
+        null,
+    },
+    {
+      label: "ID fiscal",
+      value:
+        readTextValue(selectedInvoiceData.issuerTaxId) ||
+        issuerCompany?.tax_id ||
+        null,
+    },
+    {
+      label: "Correo",
+      value:
+        readTextValue(selectedInvoiceData.issuerEmail) ||
+        issuerCompany?.email ||
+        null,
+    },
+    {
+      label: "Teléfono",
+      value:
+        readTextValue(selectedInvoiceData.issuerPhone) ||
+        issuerCompany?.phone ||
+        null,
+    },
+    {
+      label: "Dirección",
+      value:
+        readTextValue(selectedInvoiceData.issuerAddress) ||
+        issuerCompanyAddress ||
+        null,
+    },
+    {
+      label: "Sitio web",
+      value:
+        readTextValue(selectedInvoiceData.issuerWebsite) ||
+        issuerCompany?.website ||
+        null,
+    },
   ];
   const selectedClientFields = selected
     ? [
