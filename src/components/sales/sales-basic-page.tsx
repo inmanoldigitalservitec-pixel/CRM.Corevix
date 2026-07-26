@@ -177,6 +177,7 @@ type SalesBasicPageProps = {
   summaryLabel?: string;
   canDeleteRow?: (row: GenericRow) => boolean;
   onOpenRow?: (row: GenericRow) => void;
+  renderRowActions?: (row: GenericRow) => ReactNode;
 };
 
 function formatMoney(value: number | string | null | undefined, currency?: string | null) {
@@ -379,6 +380,7 @@ export function SalesBasicPage({
   summaryLabel,
   canDeleteRow,
   onOpenRow,
+  renderRowActions,
 }: SalesBasicPageProps) {
   const { profile } = useAuth();
   const { can } = usePermissions();
@@ -887,6 +889,7 @@ export function SalesBasicPage({
                 displayStatusKey={effectiveStatusKey}
                 onOpen={() => openRecordDetail(row)}
                 onDelete={() => setDeleteRow(row)}
+                rowActions={renderRowActions?.(row)}
               />
             ))
           ) : (
@@ -908,7 +911,9 @@ export function SalesBasicPage({
                   <TableHead>Fecha</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Estado</TableHead>
-                  {canDelete ? <TableHead className="w-[72px] text-right">Acción</TableHead> : null}
+                  {canDelete || renderRowActions ? (
+                    <TableHead className="w-[160px] text-right">Acciones</TableHead>
+                  ) : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -963,9 +968,14 @@ export function SalesBasicPage({
                         <TableCell>
                           <StatusBadge status={row[effectiveStatusKey] || "—"} />
                         </TableCell>
-                        {canDelete ? (
+                        {canDelete || renderRowActions ? (
                           <TableCell className="text-right">
-                            {!canDeleteRow || canDeleteRow(row) ? (
+                            <div
+                              className="flex justify-end gap-1"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              {renderRowActions?.(row)}
+                              {canDelete && (!canDeleteRow || canDeleteRow(row)) ? (
                             <Button
                               type="button"
                               variant="outline"
@@ -979,7 +989,8 @@ export function SalesBasicPage({
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
-                            ) : null}
+                              ) : null}
+                            </div>
                           </TableCell>
                         ) : null}
                       </TableRow>
@@ -988,7 +999,7 @@ export function SalesBasicPage({
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={canDelete ? 8 : 7}
+                      colSpan={canDelete || renderRowActions ? 8 : 7}
                       className="py-10 text-center text-sm text-slate-500"
                     >
                       No se encontraron registros.
@@ -1154,6 +1165,7 @@ function SalesMobileCard({
   displayStatusKey,
   onOpen,
   onDelete,
+  rowActions,
 }: {
   row: GenericRow;
   config: SalesConfig;
@@ -1168,6 +1180,7 @@ function SalesMobileCard({
   displayStatusKey: string;
   onOpen: () => void;
   onDelete: () => void;
+  rowActions?: ReactNode;
 }) {
   const title = row[config.titleKey] || "Sin nombre";
   const numberValue = config.numberKey ? row[config.numberKey] : null;
@@ -1265,6 +1278,11 @@ function SalesMobileCard({
             <Hash className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{numberValue || "Sin número"}</span>
           </div>
+          <div
+            className="flex shrink-0 items-center gap-1"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {rowActions}
           {canDelete ? (
             <Button
               type="button"
@@ -1280,6 +1298,7 @@ function SalesMobileCard({
               <Trash2 className="h-4 w-4" />
             </Button>
           ) : null}
+          </div>
         </div>
       </div>
     </article>
