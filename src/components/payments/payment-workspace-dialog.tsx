@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CreditCard, FileText, Loader2, Paperclip } from "lucide-react";
+import { CreditCard, FileText, Loader2, Paperclip, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
@@ -9,6 +9,7 @@ import {
   type SalesDocumentWorkspaceTab,
 } from "@/components/sales/sales-document-workspace-dialog";
 import { PaymentReceiptsPanel } from "@/components/payments/payment-receipts-panel";
+import { PaymentMovementsPanel } from "@/components/payments/payment-movements-panel";
 import {
   PaymentReceiptPreview,
   type PaymentReceiptPreviewData,
@@ -25,7 +26,7 @@ import {
   type PaymentNetBalance,
 } from "@/lib/payments/payment-net-balance";
 
-type PaymentWorkspaceTab = "receipt" | "details" | "receipts";
+type PaymentWorkspaceTab = "receipt" | "details" | "movements" | "receipts";
 
 type PaymentRow = {
   id: string;
@@ -74,6 +75,7 @@ type CompanyRow = {
 const workspaceTabs: SalesDocumentWorkspaceTab[] = [
   { value: "receipt", label: "Recibo", icon: FileText },
   { value: "details", label: "Detalles", icon: CreditCard },
+  { value: "movements", label: "Movimientos", icon: RotateCcw },
   { value: "receipts", label: "Comprobantes", icon: Paperclip },
 ];
 
@@ -137,6 +139,7 @@ export function PaymentWorkspaceDialog({
   const [financial, setFinancial] = useState<PaymentNetBalance | null>(null);
   const [invoiceBalance, setInvoiceBalance] = useState<number | null>(null);
   const [invoiceFinancialStatus, setInvoiceFinancialStatus] = useState<string | null>(null);
+  const [movementRefresh, setMovementRefresh] = useState(0);
 
   useEffect(() => {
     if (open) setActiveTab(initialTab);
@@ -242,7 +245,7 @@ export function PaymentWorkspaceDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, paymentId, profile?.company_id, onOpenChange]);
+  }, [open, paymentId, profile?.company_id, onOpenChange, movementRefresh]);
 
   const receiptData = useMemo<PaymentReceiptPreviewData | null>(() => {
     if (!payment || !financial) return null;
@@ -484,6 +487,17 @@ export function PaymentWorkspaceDialog({
                 </section>
               ) : null}
             </div>
+          </TabsContent>
+
+          <TabsContent value="movements" className="mt-0">
+            <PaymentMovementsPanel
+              paymentId={payment.id}
+              paymentStatus={payment.status}
+              invoiceId={payment.invoice_id}
+              currency={payment.currency || "USD"}
+              availableAmount={financial.netAmount}
+              onChanged={() => setMovementRefresh((value) => value + 1)}
+            />
           </TabsContent>
 
           <TabsContent value="receipts" className="mt-0">
