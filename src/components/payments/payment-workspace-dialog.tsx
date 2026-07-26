@@ -15,7 +15,10 @@ import {
 } from "@/components/payments/payment-receipt-preview";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrencyAmount } from "@/lib/currency";
+import {
+  convertCurrencyAmount,
+  formatCurrencyAmount,
+} from "@/lib/currency";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
 import {
   loadPaymentNetBalance,
@@ -47,6 +50,8 @@ type InvoiceRow = {
   number: string | null;
   total: number | null;
   currency: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
   status: string | null;
   invoice_data: Record<string, any> | null;
 };
@@ -172,7 +177,7 @@ export function PaymentWorkspaceDialog({
               ? db
                   .from("invoices")
                   .select(
-                    "id,number,total,currency,status,invoice_data",
+                    "id,number,total,currency,base_currency,exchange_rate,status,invoice_data",
                   )
                   .eq("company_id", profile.company_id)
                   .eq("id", paymentRow.invoice_id)
@@ -261,6 +266,22 @@ export function PaymentWorkspaceDialog({
       invoiceTotal: Number(invoice?.total || 0),
       invoiceBalance,
       invoiceStatus: invoiceFinancialStatus,
+      invoiceCurrency: invoice?.currency || null,
+      appliedAmount:
+        invoice && payment
+          ? convertCurrencyAmount(
+              financial.netAmountBase,
+              payment.base_currency ||
+                invoice.base_currency ||
+                "DOP",
+              invoice.currency || "USD",
+              Number(
+                payment.exchange_rate ||
+                  invoice.exchange_rate ||
+                  1,
+              ),
+            )
+          : null,
       financial,
       issuer: {
         name:

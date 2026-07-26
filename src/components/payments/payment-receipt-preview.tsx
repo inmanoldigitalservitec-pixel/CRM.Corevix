@@ -40,6 +40,8 @@ export type PaymentReceiptPreviewData = {
   invoiceTotal?: number | null;
   invoiceBalance?: number | null;
   invoiceStatus?: string | null;
+  invoiceCurrency?: string | null;
+  appliedAmount?: number | null;
   issuer?: ReceiptParty;
   client?: ReceiptParty;
   financial: PaymentNetBalance;
@@ -129,6 +131,8 @@ export function PaymentReceiptPreview({
   const { profile } = useAuth();
   const [company, setCompany] = useState<CompanyRow | null>(null);
   const currency = clean(data.currency).toUpperCase() || "USD";
+  const invoiceCurrency =
+    clean(data.invoiceCurrency).toUpperCase() || currency;
 
   useEffect(() => {
     const companyId = profile?.company_id;
@@ -331,6 +335,20 @@ export function PaymentReceiptPreview({
               </span>
             </div>
 
+            {data.invoiceNumber && invoiceCurrency !== currency ? (
+              <div className="flex justify-between gap-5 text-sm">
+                <span className="text-slate-500">
+                  Aplicado a factura
+                </span>
+                <span className="font-normal text-slate-950">
+                  {formatCurrencyAmount(
+                    data.appliedAmount || 0,
+                    invoiceCurrency,
+                  )}
+                </span>
+              </div>
+            ) : null}
+
             <div className="flex justify-between gap-5 border-t border-slate-200 pt-4">
               <span className="text-base font-normal text-slate-950">
                 Cobrado neto
@@ -352,7 +370,7 @@ export function PaymentReceiptPreview({
                 Total factura
               </div>
               <div className="mt-1 text-sm font-normal text-slate-950">
-                {formatCurrencyAmount(data.invoiceTotal || 0, currency)}
+                {formatCurrencyAmount(data.invoiceTotal || 0, invoiceCurrency)}
               </div>
             </div>
 
@@ -361,7 +379,7 @@ export function PaymentReceiptPreview({
                 Saldo pendiente
               </div>
               <div className="mt-1 text-sm font-normal text-slate-950">
-                {formatCurrencyAmount(data.invoiceBalance || 0, currency)}
+                {formatCurrencyAmount(data.invoiceBalance || 0, invoiceCurrency)}
               </div>
             </div>
 

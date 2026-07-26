@@ -52,6 +52,10 @@ type InvoiceRow = {
   client_id: string | null;
   status?: string | null;
   currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate?: number | null;
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
   invoice_data?: Record<string, unknown> | null;
 };
 type PaymentRow = {
@@ -153,7 +157,7 @@ export function PaymentFormDialog({
   });
   const { data: invoices } = useCrud<InvoiceRow>({
     table: "invoices",
-    select: "id,number,total,client_id,status,currency,invoice_data",
+    select: "id,number,total,client_id,status,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,invoice_data",
     orderBy: "updated_at",
     ascending: false,
     limit: 1000,
@@ -225,9 +229,38 @@ export function PaymentFormDialog({
         if (normalizedInvoiceStatus === "cancelled" || normalizedInvoiceStatus === "canceled") {
           throw new Error("Esta factura está cancelada.");
         }
-        const balance = await loadInvoicePaymentBalance(selectedInvoice, profile.company_id);
-        if (amount > balance.outstandingBalance)
+        const balance = await loadInvoicePaymentBalance(
+          selectedInvoice,
+          profile.company_id,
+        );
+
+        const invoiceBaseCurrency = normalizeCurrency(
+          selectedInvoice.base_currency ||
+            balance.baseCurrency ||
+            currencySettings.baseCurrency,
+        );
+
+        const effectiveRate = Number(
+          selectedInvoice.exchange_rate ||
+            currencySettings.usdToDopRate ||
+            1,
+        );
+
+        const paymentAmountBase =
+          currency === invoiceBaseCurrency
+            ? amount
+            : currency === "USD" && invoiceBaseCurrency === "DOP"
+              ? amount * effectiveRate
+              : currency === "DOP" && invoiceBaseCurrency === "USD"
+                ? amount / effectiveRate
+                : amount;
+
+        if (
+          String(form.status || "") === "Completed" &&
+          paymentAmountBase > balance.outstandingBalanceBase + 0.000001
+        ) {
           throw new Error("El pago supera el saldo pendiente.");
+        }
         if (String(form.status || "") === "Completed") {
           if (balance.outstandingBalance <= 0) throw new Error("Esta factura ya está pagada.");
         }
@@ -242,6 +275,18 @@ export function PaymentFormDialog({
           p_notes: form.notes.trim() || null,
           p_client_id: normalizeOptionalId(form.client_id),
           p_idempotency_key: paymentRequestKeyRef.current,
+          p_currency: currency,
+          p_exchange_rate: Number(
+            selectedInvoice.exchange_rate ||
+              currencySettings.usdToDopRate ||
+              1,
+          ),
+          p_exchange_rate_source:
+            selectedInvoice.exchange_rate_source ||
+            currencySettings.rateSource,
+          p_exchange_rate_updated_at:
+            selectedInvoice.exchange_rate_updated_at ||
+            currencySettings.rateUpdatedAt,
         });
         if (error) throw error;
         const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
@@ -443,6 +488,28 @@ export function PaymentFormDialog({
               </SelectContent>
             </Select>
           </Field>
+
+          {isInvoiceMode && selectedInvoice ? (
+            <div className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+              {normalizeCurrency(form.currency) ===
+              getInvoiceCurrency(selectedInvoice) ? (
+                <span>
+                  El pago se aplicará directamente en la moneda de la factura.
+                </span>
+              ) : (
+                <span>
+                  Pago recibido en {normalizeCurrency(form.currency)}. Se
+                  convertirá a {getInvoiceCurrency(selectedInvoice)} usando una
+                  tasa de{" "}
+                  {Number(
+                    selectedInvoice.exchange_rate ||
+                      currencySettings.usdToDopRate ||
+                      1,
+                  ).toLocaleString("es-DO")}.
+                </span>
+              )}
+            </div>
+          ) : null}
 
           <Field label="Fecha de pago">
             <Input
