@@ -8,7 +8,7 @@ import {
   type SalesDocumentTotals,
 } from "@/components/sales/sales-document-builder";
 import { PageHeader } from "@/components/crm/page-header";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -810,48 +810,58 @@ function EstimatesPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden border border-slate-200 bg-white">
+        <section className="border-y border-slate-100 bg-white">
+          <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-white">
               <TableRow>
-                <TableHead>Número</TableHead>
+                <TableHead className="pl-4 sm:pl-5">Número</TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Monto</TableHead>
-                <TableHead>Vence</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="hidden md:table-cell">Monto</TableHead>
+                <TableHead className="hidden lg:table-cell">Vence</TableHead>
+                <TableHead className="pr-4 text-right sm:pr-5">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredEstimates.map((estimate) => (
                 <TableRow
                   key={estimate.id}
-                  className="cursor-pointer transition-colors hover:bg-slate-50"
+                  className="cursor-pointer transition-colors hover:bg-slate-50/70"
                   onClick={() => openEstimatePreview(estimate)}
                 >
-                  <TableCell className="font-semibold text-slate-600">
+                  <TableCell className="pl-4 font-normal text-slate-500 sm:pl-5">
                     EST-{estimate.number || "—"}
                   </TableCell>
-                  <TableCell className="font-bold text-slate-950">{estimate.title}</TableCell>
-                  <TableCell>{estimate.client_id ? clientById.get(estimate.client_id)?.company_name || "—" : "—"}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{displayLabel(estimate.status)}</Badge>
+                    <div className="font-normal text-slate-900">{estimate.title}</div>
+                    <div className="text-xs text-slate-500">
+                      {estimate.reference || "Sin referencia"}
+                    </div>
                   </TableCell>
-                  <TableCell className="font-semibold">
+                  <TableCell className="text-slate-600">
+                    {estimate.client_id ? clientById.get(estimate.client_id)?.company_name || "—" : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={estimate.status} />
+                  </TableCell>
+                  <TableCell className="hidden font-normal md:table-cell">
                     {formatCurrencyAmount(estimate.total || 0, estimate.currency || currencySettings.baseCurrency)}
                   </TableCell>
-                  <TableCell>{estimate.expiry_date || "—"}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="hidden text-sm text-slate-500 lg:table-cell">
+                    {estimate.expiry_date || "—"}
+                  </TableCell>
+                  <TableCell className="pr-4 text-right sm:pr-5">
                     <div
-                        className="flex justify-end gap-2"
+                        className="flex justify-end gap-1.5"
                         onClick={(event) => event.stopPropagation()}
                       >
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
+                        className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
                         onClick={() => openPublicEstimate(estimate)}
                         disabled={!estimate.public_token}
                         title="Ver cotización"
@@ -864,7 +874,7 @@ function EstimatesPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
+                        className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
                         onClick={() => void copyPublicEstimateLink(estimate)}
                         disabled={!estimate.public_token}
                         title="Copiar enlace"
@@ -874,22 +884,23 @@ function EstimatesPage() {
                       </Button>
 
                       <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
-                        onClick={() => openEditBuilder(estimate)}
-                        title="Editar cotización"
-                        aria-label="Editar cotización"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                         type="button"
+                         variant="outline"
+                         size="sm"
+                         className="h-8 rounded-full bg-blue-600 px-3 text-xs font-normal text-white shadow-none hover:bg-blue-700"
+                         onClick={() => openEditBuilder(estimate)}
+                         title="Editar cotización"
+                         aria-label="Editar cotización"
+                       >
+                         <Pencil className="h-3.5 w-3.5" />
+                         Editar
+                       </Button>
 
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
+                        className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
                         onClick={() => void convertEstimate(estimate)}
                         title="Convertir en factura"
                         aria-label="Convertir en factura"
@@ -909,7 +920,8 @@ function EstimatesPage() {
               ) : null}
             </TableBody>
           </Table>
-        </div>
+          </div>
+        </section>
       </div>
 
       <Dialog
