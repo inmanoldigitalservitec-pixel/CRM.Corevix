@@ -1,5 +1,3 @@
-import { EmptyState } from "@/components/crm/empty-state";
-
 export type InvoiceDetailItem = {
   id: string;
   description: string;
@@ -71,10 +69,9 @@ export function InvoiceItemsView({
           </div>
         </div>
       ) : error ? null : (
-        <EmptyState
-          title="Sin artículos"
-          description="Esta factura no tiene artículos registrados."
-        />
+        <div className="flex min-h-10 items-center border-y border-slate-100 bg-white py-2.5 text-sm font-normal text-slate-500">
+          Sin artículos
+        </div>
       )}
     </div>
   );
