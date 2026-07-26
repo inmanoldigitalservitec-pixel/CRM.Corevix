@@ -73,25 +73,10 @@ before insert or update of company_id, assigned_to, metadata
 on public.contracts
 for each row execute function public.snapshot_contract_document_profile();
 
-update public.contracts ct
-set metadata = coalesce(ct.metadata, '{}'::jsonb) || jsonb_strip_nulls(jsonb_build_object(
-  'issuerName', coalesce(nullif(btrim(ct.metadata->>'issuerName'), ''), c.company_name),
-  'issuerTaxId', coalesce(nullif(btrim(ct.metadata->>'issuerTaxId'), ''), c.tax_id),
-  'issuerEmail', coalesce(nullif(btrim(ct.metadata->>'issuerEmail'), ''), c.email),
-  'issuerPhone', coalesce(nullif(btrim(ct.metadata->>'issuerPhone'), ''), c.phone),
-  'issuerAddress', coalesce(nullif(btrim(ct.metadata->>'issuerAddress'), ''), c.address),
-  'issuerCity', coalesce(nullif(btrim(ct.metadata->>'issuerCity'), ''), c.city),
-  'issuerCountry', coalesce(nullif(btrim(ct.metadata->>'issuerCountry'), ''), c.country),
-  'issuerWebsite', coalesce(nullif(btrim(ct.metadata->>'issuerWebsite'), ''), c.website),
-  'issuerLogoUrl', coalesce(nullif(btrim(ct.metadata->>'issuerLogoUrl'), ''), c.logo_url),
-  'representativeName', coalesce(nullif(btrim(ct.metadata->>'representativeName'), ''), p.full_name),
-  'representativeTitle', coalesce(nullif(btrim(ct.metadata->>'representativeTitle'), ''), p.department),
-  'representativeEmail', coalesce(nullif(btrim(ct.metadata->>'representativeEmail'), ''), p.email),
-  'representativePhone', coalesce(nullif(btrim(ct.metadata->>'representativePhone'), ''), p.phone)
-))
-from public.companies c
-left join public.profiles p on p.id = ct.assigned_to and p.company_id = ct.company_id
-where c.id = ct.company_id;
+-- Ejecuta el trigger para completar snapshots históricos sin sobrescribir
+-- valores que ya estaban guardados en metadata.
+update public.contracts
+set metadata = coalesce(metadata, '{}'::jsonb);
 
 create or replace function public.get_contract_public(p_public_token text)
 returns jsonb
