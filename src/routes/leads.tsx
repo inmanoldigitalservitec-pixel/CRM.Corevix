@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Calendar,
@@ -168,6 +168,21 @@ interface Lead {
   external_id: string | null;
   metadata: Record<string, unknown> | null;
   last_interaction_at: string | null;
+  position?: string | null;
+  department?: string | null;
+  website?: string | null;
+  industry?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  postal_code?: string | null;
+  default_language?: string | null;
+  tags?: string[] | null;
+  is_public?: boolean;
+  converted_client_id?: string | null;
+  converted_contact_id?: string | null;
+  converted_at?: string | null;
 }
 
 type AssignableRole = "sales_agent" | "collaborator" | "manager" | "admin" | "super_admin";
@@ -613,6 +628,7 @@ function LeadsPage() {
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { user, profile } = useAuth();
   const routeSearch = Route.useSearch();
+  const navigate = useNavigate();
   const { can, role } = usePermissions();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -653,6 +669,11 @@ function LeadsPage() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [openingWhatsapp, setOpeningWhatsapp] = useState(false);
   const [convertingClient, setConvertingClient] = useState(false);
+  const [convertReviewOpen, setConvertReviewOpen] = useState(false);
+  const [leadProposals, setLeadProposals] = useState<any[]>([]);
+  const [leadTasks, setLeadTasks] = useState<any[]>([]);
+  const [leadReminders, setLeadReminders] = useState<any[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
   const [signalsLoading, setSignalsLoading] = useState(false);
   const [signalsError, setSignalsError] = useState<string | null>(null);
   const [signalsByLeadId, setSignalsByLeadId] = useState<Record<string, LeadSignals>>({});
@@ -688,6 +709,53 @@ function LeadsPage() {
   const selectedLead = useMemo(() => {
     return leads.find((lead) => lead.id === selectedLeadId) || null;
   }, [leads, selectedLeadId]);
+
+  const loadLeadWorkspaceRelations = useCallback(async () => {
+    if (!profile?.company_id || !selectedLeadId) {
+      setLeadProposals([]);
+      setLeadTasks([]);
+      setLeadReminders([]);
+      return;
+    }
+    setRelatedLoading(true);
+    try {
+      const [proposalsRes, tasksRes, remindersRes] = await Promise.all([
+        (supabase as any)
+          .from("proposals")
+          .select("id,number,title,status,total,amount,currency,valid_until,public_token,updated_at")
+          .eq("company_id", profile.company_id)
+          .eq("lead_id", selectedLeadId)
+          .order("updated_at", { ascending: false }),
+        (supabase as any)
+          .from("tasks")
+          .select("id,title,status,priority,due_date,assigned_to,updated_at")
+          .eq("company_id", profile.company_id)
+          .eq("related_lead_id", selectedLeadId)
+          .order("due_date", { ascending: true, nullsFirst: false }),
+        (supabase as any)
+          .from("calendar_events")
+          .select("id,title,type,status,start_at,location,updated_at")
+          .eq("company_id", profile.company_id)
+          .eq("related_lead_id", selectedLeadId)
+          .order("start_at", { ascending: true }),
+      ]);
+      if (proposalsRes.error) throw proposalsRes.error;
+      if (tasksRes.error) throw tasksRes.error;
+      if (remindersRes.error) throw remindersRes.error;
+      setLeadProposals(proposalsRes.data || []);
+      setLeadTasks(tasksRes.data || []);
+      setLeadReminders(remindersRes.data || []);
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo cargar el expediente del prospecto");
+    } finally {
+      setRelatedLoading(false);
+    }
+  }, [profile?.company_id, selectedLeadId]);
+
+  useEffect(() => {
+    if (!detailOpen) return;
+    void loadLeadWorkspaceRelations();
+  }, [detailOpen, loadLeadWorkspaceRelations]);
 
   const canViewAllLeads = role === "super_admin" || role === "admin" || role === "manager";
   const canAssign = role === "super_admin" || role === "admin" || role === "manager";
@@ -1663,103 +1731,27 @@ function LeadsPage() {
 
     setConvertingClient(true);
     try {
-      const companyId = profile.company_id;
+      const { data, error } = await (supabase as any).rpc("convert_lead_to_client", {
+        p_lead_id: lead.id,
+        p_existing_client_id: null,
+      });
+      if (error) throw error;
 
-      // Duplicate check: prefer email, then phone (clients has no lead_id column in this repo).
-      if (lead.email) {
-        const { data: existingByEmail, error: emailErr } = await (supabase as any)
-          .from("clients")
-          .select("id")
-          .eq("company_id", companyId)
-          .eq("email", lead.email)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (emailErr) {
-          toast.error(emailErr.message || "No se pudo validar duplicados");
-          return;
-        }
-        if (existingByEmail?.id) {
-          toast.message("Este prospecto ya fue convertido en cliente.");
-          window.location.href = "/clients";
-          return;
-        }
-      } else {
-        const phoneCandidate = lead.phone || lead.whatsapp;
-        if (phoneCandidate) {
-          const digits = phoneCandidate.replace(/\D/g, "");
-          const phoneMatch = digits.length ? digits : phoneCandidate;
-          const { data: existingByPhone, error: phoneErr } = await (supabase as any)
-            .from("clients")
-            .select("id")
-            .eq("company_id", companyId)
-            .or(`phone.eq.${phoneMatch},whatsapp.eq.${phoneMatch}`)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (phoneErr) {
-            toast.error(phoneErr.message || "No se pudo validar duplicados");
-            return;
-          }
-          if (existingByPhone?.id) {
-            toast.message("Este prospecto ya fue convertido en cliente.");
-            window.location.href = "/clients";
-            return;
-          }
-        }
-      }
+      const clientId = data?.client_id;
+      if (!clientId) throw new Error("La conversión no devolvió el cliente creado");
 
-      const leadName = getLeadName(lead);
-      const companyName =
-        lead.company_name?.trim() ||
-        leadName ||
-        lead.email ||
-        lead.phone ||
-        lead.whatsapp ||
-        "Cliente sin nombre";
-
-      const contactPerson = leadName || null;
-      const phone = lead.phone || lead.whatsapp || null;
-      const whatsapp = lead.whatsapp || lead.phone || null;
-
-      const accountManagerProfileId = lead.assigned_to || profile.id || null;
-
-      const { data: created, error: createErr } = await (supabase as any)
-        .from("clients")
-        .insert({
-          company_id: companyId,
-          company_name: companyName,
-          contact_person: contactPerson,
-          email: lead.email || null,
-          phone,
-          whatsapp,
-          status: "Active",
-          account_manager: accountManagerProfileId,
-          notes: lead.notes || null,
-        })
-        .select("id")
-        .single();
-
-      if (createErr) {
-        toast.error(createErr.message || "No se pudo convertir a cliente");
-        return;
-      }
-
-      toast.success("Cliente creado correctamente.");
-      await logActivityEvent({
-        companyId: profile.company_id,
-        userId: profile.id,
-        action: "client_created",
-        entityType: "clients",
-        entityId: created?.id ? String(created.id) : null,
-        detail: `Cliente creado desde prospecto: ${companyName}`,
-        metadata: { lead_id: lead.id },
-      }).catch(() => {});
-      window.location.href = "/clients";
-      return created;
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "No se pudo convertir a cliente";
-      toast.error(message);
+      toast.success(
+        data?.already_converted
+          ? "Este prospecto ya estaba convertido"
+          : "Prospecto convertido en cliente",
+      );
+      setConvertReviewOpen(false);
+      setDetailOpen(false);
+      await fetchLeads();
+      void navigate({ to: "/clients", search: { clientId } });
+      return data;
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo convertir el prospecto");
     } finally {
       setConvertingClient(false);
     }
@@ -2651,9 +2643,12 @@ function LeadsPage() {
                 className="flex h-auto w-full justify-start overflow-x-auto rounded-none border-b border-slate-100 bg-white p-0"
               >
                 {[
-                  ["overview", "Resumen", Users],
-                  ["followup", "Seguimiento", Calendar],
+                  ["overview", "Perfil", Users],
                   ["opportunity", "Oportunidad", Target],
+                  ["proposals", "Propuestas " + (leadProposals.length || ""), FileText],
+                  ["tasks", "Tareas " + (leadTasks.length || ""), Check],
+                  ["files", "Archivos", FolderOpen],
+                  ["reminders", "Recordatorios " + (leadReminders.length || ""), Calendar],
                   ["notes", "Notas", FileText],
                   ["activity", "Actividad", Check],
                 ].map(([value, label, Icon]) => {
@@ -2704,6 +2699,19 @@ function LeadsPage() {
                   >
                     <CrmDetailActionGrid
                       actions={[
+                        {
+                          key: "convert-client",
+                          label: selectedLead.converted_client_id ? "Abrir cliente" : "Convertir en cliente",
+                          icon: <Users className="h-4 w-4" />,
+                          onClick: () => {
+                            if (selectedLead.converted_client_id) {
+                              void navigate({ to: "/clients", search: { clientId: selectedLead.converted_client_id } });
+                              return;
+                            }
+                            setConvertReviewOpen(true);
+                          },
+                          disabled: convertingClient,
+                        },
                         {
                           key: "whatsapp",
                           label: openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp",
@@ -3130,6 +3138,39 @@ function LeadsPage() {
                 </div>
               </TabsContent>
 
+              <TabsContent value="proposals" className="space-y-4 data-[state=inactive]:hidden">
+                <CrmDetailSection title="Propuestas" icon={<FileText className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => setQuickProposalOpen(true)}><Plus className="h-3.5 w-3.5" />Nueva</CrmDetailLineButton>}>
+                  {relatedLoading ? <CrmDetailEmptyState>Cargando propuestas...</CrmDetailEmptyState> : leadProposals.length ? (
+                    <div className="divide-y divide-slate-100 border-y border-slate-100">
+                      {leadProposals.map((proposal) => (
+                        <div key={proposal.id} className="flex items-center justify-between gap-4 py-3">
+                          <div className="min-w-0"><div className="truncate text-sm text-slate-950">{proposal.title}</div><div className="mt-1 text-xs text-slate-500">{proposal.number} · {proposal.status} · {formatCurrencyAmount(proposal.total || proposal.amount || 0, proposal.currency || currencySettings.baseCurrency)}</div></div>
+                          {proposal.public_token ? <Button variant="ghost" size="sm" onClick={() => window.open("/proposal/public/" + proposal.public_token, "_blank", "noopener,noreferrer")}>Abrir</Button> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : <CrmDetailEmptyState>No hay propuestas asociadas.</CrmDetailEmptyState>}
+                </CrmDetailSection>
+              </TabsContent>
+
+              <TabsContent value="tasks" className="space-y-4 data-[state=inactive]:hidden">
+                <CrmDetailSection title="Tareas" icon={<Check className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => openFollowUpDialog(selectedLead)}><Plus className="h-3.5 w-3.5" />Nueva</CrmDetailLineButton>}>
+                  {relatedLoading ? <CrmDetailEmptyState>Cargando tareas...</CrmDetailEmptyState> : leadTasks.length ? leadTasks.map((task) => <CrmDetailRow key={task.id} label={task.title} value={task.status + " · " + task.priority + " · " + formatDateShort(task.due_date)} />) : <CrmDetailEmptyState>No hay tareas asociadas.</CrmDetailEmptyState>}
+                </CrmDetailSection>
+              </TabsContent>
+
+              <TabsContent value="files" className="space-y-4 data-[state=inactive]:hidden">
+                <CrmDetailSection title="Archivos" icon={<FolderOpen className="h-3.5 w-3.5" />}>
+                  <CrmDetailEmptyState>El expediente documental quedará vinculado aquí. La relación de archivos se habilitará sobre el almacenamiento unificado del CRM.</CrmDetailEmptyState>
+                </CrmDetailSection>
+              </TabsContent>
+
+              <TabsContent value="reminders" className="space-y-4 data-[state=inactive]:hidden">
+                <CrmDetailSection title="Recordatorios" icon={<Calendar className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => openFollowUpDialog(selectedLead)}><Plus className="h-3.5 w-3.5" />Nuevo</CrmDetailLineButton>}>
+                  {relatedLoading ? <CrmDetailEmptyState>Cargando recordatorios...</CrmDetailEmptyState> : leadReminders.length ? leadReminders.map((event) => <CrmDetailRow key={event.id} label={event.title} value={event.status + " · " + formatDateShort(event.start_at)} />) : <CrmDetailEmptyState>No hay recordatorios asociados.</CrmDetailEmptyState>}
+                </CrmDetailSection>
+              </TabsContent>
+
               <TabsContent value="notes" className="space-y-4 data-[state=inactive]:hidden">
                 <LeadNotesPanel leadId={selectedLead.id} canEdit={can("leads.edit")} />
               </TabsContent>
@@ -3284,6 +3325,35 @@ function LeadsPage() {
                 </Button>
               </div>
             </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={convertReviewOpen} onOpenChange={setConvertReviewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Convertir prospecto en cliente</DialogTitle>
+          </DialogHeader>
+          {selectedLead ? (
+            <div className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="border border-slate-200 p-4"><div className="text-xs uppercase text-slate-500">Empresa</div><div className="mt-1 font-medium text-slate-950">{selectedLead.company_name || getLeadName(selectedLead)}</div><div className="mt-1 text-sm text-slate-500">{selectedLead.website || selectedLead.industry || "Sin datos corporativos adicionales"}</div></div>
+                <div className="border border-slate-200 p-4"><div className="text-xs uppercase text-slate-500">Contacto principal</div><div className="mt-1 font-medium text-slate-950">{getLeadName(selectedLead)}</div><div className="mt-1 text-sm text-slate-500">{selectedLead.email || selectedLead.phone || selectedLead.whatsapp || "Sin contacto"}</div></div>
+              </div>
+              <div className="border-y border-slate-100 py-4">
+                <div className="text-sm font-medium text-slate-950">Se transferirá al Cliente 360</div>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div><div className="text-2xl font-normal">{leadDeals.length}</div><div className="text-xs text-slate-500">Oportunidades</div></div>
+                  <div><div className="text-2xl font-normal">{leadProposals.length}</div><div className="text-xs text-slate-500">Propuestas</div></div>
+                  <div><div className="text-2xl font-normal">{leadTasks.length}</div><div className="text-xs text-slate-500">Tareas</div></div>
+                  <div><div className="text-2xl font-normal">{leadReminders.length}</div><div className="text-xs text-slate-500">Recordatorios</div></div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setConvertReviewOpen(false)}>Cancelar</Button>
+                <Button onClick={() => void handleConvertLeadToClient()} disabled={convertingClient}>{convertingClient ? "Convirtiendo..." : "Convertir y abrir Cliente 360"}</Button>
+              </div>
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>
