@@ -75,13 +75,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -4117,36 +4110,35 @@ function ClientsPage() {
         </DataCard>
       </div>
 
-      <Sheet
+      <Dialog
         open={!!selectedClient}
         onOpenChange={(open) => {
           if (!open) closeClientDetail();
         }}
       >
-        <SheetContent
+        <DialogContent
           data-demo="client-360-panel"
-          side="right"
-          className="!inset-0 !h-[100dvh] !w-screen !max-w-none border-0 bg-white p-0 shadow-none"
+          className="flex h-[94dvh] w-[calc(100vw-24px)] max-w-[1180px] flex-col gap-0 overflow-hidden rounded-none border border-slate-200 bg-white p-0 shadow-2xl sm:rounded-xl [&>button.absolute.right-4.top-4]:z-20 [&>button.absolute.right-4.top-4]:rounded-none [&>button.absolute.right-4.top-4]:border-b [&>button.absolute.right-4.top-4]:border-slate-200 [&>button.absolute.right-4.top-4]:bg-white"
         >
           {selectedClient && (
             <div className="flex h-full flex-col">
-              <SheetHeader className="relative border-b border-slate-200 bg-white px-4 py-4 text-left lg:px-6">
+              <DialogHeader className="relative border-b border-slate-200 bg-white px-4 py-4 text-left lg:px-6">
                 <div className="relative flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-slate-100 bg-white text-slate-600 shadow-none">
                       <Building2 className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <SheetTitle className="truncate text-xl font-normal tracking-normal text-slate-950">
+                      <DialogTitle className="truncate text-xl font-normal tracking-normal text-slate-950">
                         {selectedClient.company_name}
-                      </SheetTitle>
-                      <SheetDescription className="mt-1 truncate text-sm font-normal text-slate-500">
+                      </DialogTitle>
+                      <DialogDescription className="mt-1 truncate text-sm font-normal text-slate-500">
                         {selectedClient.primaryContact
                           ? getContactName(selectedClient.primaryContact)
                           : selectedClient.contact_person || "Sin contacto principal"}{" "}
                         · {selectedClient.contacts.length} contacto
                         {selectedClient.contacts.length === 1 ? "" : "s"}
-                      </SheetDescription>
+                      </DialogDescription>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge status={selectedClient.status} />
                         <HealthBadge health={selectedClient.health} />
@@ -4231,14 +4223,14 @@ function ClientsPage() {
                     </DropdownMenu>
                   </div>
                 </div>
-              </SheetHeader>
+              </DialogHeader>
 
               <Tabs
                 defaultValue="overview"
                 className="grid min-h-0 flex-1 grid-cols-1 bg-white lg:grid-cols-[280px_minmax(0,1fr)]"
               >
                 <aside className="border-b border-slate-200 bg-slate-50/80 lg:border-b-0 lg:border-r">
-                  <ScrollArea className="max-h-[180px] lg:h-[calc(100dvh-122px)] lg:max-h-none">
+                  <ScrollArea className="max-h-[180px] lg:h-[calc(94dvh-122px)] lg:max-h-none">
                     <TabsList
                       data-demo="client-360-tabs"
                       className="flex h-auto w-max min-w-full items-stretch justify-start gap-1 rounded-none bg-transparent p-3 lg:w-full lg:flex-col lg:items-stretch"
@@ -4338,7 +4330,7 @@ function ClientsPage() {
                   </ScrollArea>
                 </aside>
 
-                <ScrollArea className="min-h-0 bg-white lg:h-[calc(100dvh-122px)]">
+                <ScrollArea className="min-h-0 bg-white lg:h-[calc(94dvh-122px)]">
                   <div className="mx-auto w-full max-w-6xl space-y-4 bg-white px-4 py-5 lg:px-7">
                     <TabsContent
                       value="overview"
@@ -6262,8 +6254,8 @@ function ClientsPage() {
               </Tabs>
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={invoiceDialogOpen}
