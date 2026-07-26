@@ -171,6 +171,12 @@ type SalesBasicPageProps = {
   refreshSignal?: number | string;
   enableDelete?: boolean;
   beforeDelete?: (row: GenericRow) => Promise<void> | void;
+  enrichRows?: (rows: GenericRow[]) => Promise<GenericRow[]>;
+  displayAmountKey?: string;
+  displayStatusKey?: string;
+  summaryLabel?: string;
+  canDeleteRow?: (row: GenericRow) => boolean;
+  onOpenRow?: (row: GenericRow) => void;
 };
 
 function formatMoney(value: number | string | null | undefined, currency?: string | null) {
@@ -367,6 +373,12 @@ export function SalesBasicPage({
   refreshSignal,
   enableDelete = false,
   beforeDelete,
+  enrichRows,
+  displayAmountKey,
+  displayStatusKey,
+  summaryLabel,
+  canDeleteRow,
+  onOpenRow,
 }: SalesBasicPageProps) {
   const { profile } = useAuth();
   const { can } = usePermissions();
@@ -381,6 +393,8 @@ export function SalesBasicPage({
   const [saving, setSaving] = useState(false);
   const [deleteRow, setDeleteRow] = useState<GenericRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [enrichedRows, setEnrichedRows] = useState<GenericRow[]>([]);
+  const [enrichingRows, setEnrichingRows] = useState(false);
   const autoOpenKeyRef = useRef<string | null>(null);
   const defaultValuesKey = JSON.stringify(config.defaultValues);
   const initialFieldValuesKey = JSON.stringify(initialFieldValues || {});
@@ -439,6 +453,37 @@ export function SalesBasicPage({
 	    limit: 1000,
 	  });
 
+  useEffect(() => {
+    if (!enrichRows) {
+      setEnrichedRows(data);
+      setEnrichingRows(false);
+      return;
+    }
+
+    let active = true;
+    setEnrichingRows(true);
+
+    void enrichRows(data)
+      .then((rows) => {
+        if (active) setEnrichedRows(rows);
+      })
+      .catch((error) => {
+        console.error("No se pudieron enriquecer los registros:", error);
+        if (active) setEnrichedRows(data);
+      })
+      .finally(() => {
+        if (active) setEnrichingRows(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [data, enrichRows]);
+
+  const displayData = enrichRows ? enrichedRows : data;
+  const effectiveAmountKey = displayAmountKey || config.amountKey;
+  const effectiveStatusKey = displayStatusKey || config.statusKey;
+
   const clientById = useMemo(() => new Map(clients.map((item) => [item.id, item])), [clients]);
   const projectById = useMemo(() => new Map(projects.map((item) => [item.id, item])), [projects]);
   const invoiceById = useMemo(() => new Map(invoices.map((item) => [item.id, item])), [invoices]);
@@ -472,31 +517,41 @@ export function SalesBasicPage({
 
   const kpis = useMemo(
     () => ({
-      total: data.length,
-      totalAmount: data.reduce((sum, row) => {
+      total: displayData.length,
+      totalAmount: displayData.reduce((sum, row) => {
         const sourceCurrency = readRowCurrency(row, currencySettings.baseCurrency, productById);
         return (
           sum +
           (currencyAware
-            ? readBaseMoney(row, config.amountKey, currencySettings, sourceCurrency)
-            : Number(row[config.amountKey] || 0))
+            ? readBaseMoney(row, effectiveAmountKey, currencySettings, sourceCurrency)
+            : Number(row[effectiveAmountKey] || 0))
         );
       }, 0),
-      active: data.filter((row) =>
+      active: displayData.filter((row) =>
         ["Active", "Completed", "Paid", "Accepted", "Issued", "Approved"].includes(
-          row[config.statusKey],
+          row[effectiveStatusKey],
         ),
       ).length,
-      pending: data.filter((row) =>
-        ["Draft", "Pending", "Sent", "Trial"].includes(row[config.statusKey]),
+      pending: displayData.filter((row) =>
+        ["Draft", "Pending", "Sent", "Trial"].includes(row[effectiveStatusKey]),
+      ).length,
+      refunded: displayData.filter((row) =>
+        ["Refunded", "Partially Refunded"].includes(row[effectiveStatusKey]),
       ).length,
     }),
-    [config.amountKey, config.statusKey, currencyAware, currencySettings, data, productById],
+    [
+      currencyAware,
+      currencySettings,
+      displayData,
+      effectiveAmountKey,
+      effectiveStatusKey,
+      productById,
+    ],
   );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.filter((row) => {
+    return displayData.filter((row) => {
       const client = row.client_id ? clientById.get(row.client_id) : null;
       const project = row.project_id ? projectById.get(row.project_id) : null;
       const invoice = row.invoice_id ? invoiceById.get(row.invoice_id) : null;
@@ -505,15 +560,15 @@ export function SalesBasicPage({
         `${row[config.numberKey || ""] || ""} ${row[config.titleKey] || ""} ${row.notes || ""} ${row.reason || ""} ${row.vendor || ""} ${row.category || ""} ${client?.company_name || ""} ${project?.name || ""} ${invoice?.number || ""} ${product?.name || ""}`.toLowerCase();
       return (
         (!q || haystack.includes(q)) &&
-        (statusFilter === "all" || row[config.statusKey] === statusFilter)
+        (statusFilter === "all" || row[effectiveStatusKey] === statusFilter)
       );
     });
   }, [
     clientById,
     config.numberKey,
-    config.statusKey,
     config.titleKey,
-    data,
+    displayData,
+    effectiveStatusKey,
     invoiceById,
     productById,
     projectById,
@@ -646,7 +701,8 @@ export function SalesBasicPage({
   };
 
   const mobileKpiLabel =
-    config.module === "payments"
+    summaryLabel ||
+    (config.module === "payments"
       ? "Cobrado"
       : config.module === "credit_notes"
         ? "Crédito"
@@ -656,12 +712,20 @@ export function SalesBasicPage({
             ? "Recurrente"
             : config.module === "estimates"
               ? "Cotizado"
-              : "Monto total";
+              : "Monto total");
   const mobileKpiTone =
     config.module === "expenses" || config.module === "credit_notes" ? "orange" : "green";
 
   const openRecordDetail = (row: GenericRow) => {
-    if (!row.id || typeof window === "undefined") return;
+    if (!row.id) return;
+
+    if (onOpenRow) {
+      onOpenRow(row);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+
     window.dispatchEvent(
       new CustomEvent("corevix:open-global-detail", {
         detail: {
@@ -673,7 +737,7 @@ export function SalesBasicPage({
     );
   };
 
-  if (loading) return <LoadingTable />;
+  if (loading || enrichingRows) return <LoadingTable />;
 
   return (
     <div className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
@@ -703,11 +767,19 @@ export function SalesBasicPage({
             helper: `${filtered.length} visibles de ${kpis.total} registros`,
             icon: WalletCards,
             tone: mobileKpiTone,
-            meta: [
-              { label: "Registros", value: kpis.total, tone: "blue" },
-              { label: "Activos", value: kpis.active, tone: "green" },
-              { label: "Pendientes", value: kpis.pending, tone: "orange" },
-            ],
+            meta:
+              config.module === "payments"
+                ? [
+                    { label: "Registros", value: kpis.total, tone: "blue" },
+                    { label: "Completados", value: kpis.active, tone: "green" },
+                    { label: "Con reembolsos", value: kpis.refunded, tone: "orange" },
+                    { label: "Pendientes", value: kpis.pending, tone: "orange" },
+                  ]
+                : [
+                    { label: "Registros", value: kpis.total, tone: "blue" },
+                    { label: "Activos", value: kpis.active, tone: "green" },
+                    { label: "Pendientes", value: kpis.pending, tone: "orange" },
+                  ],
           },
         ]}
       >
@@ -728,10 +800,16 @@ export function SalesBasicPage({
         </div>
       </GlobalKpiStrip>
 
-      <div className="hidden gap-3 sm:grid sm:grid-cols-4">
+      <div
+        className={
+          config.module === "payments"
+            ? "hidden gap-3 sm:grid sm:grid-cols-5"
+            : "hidden gap-3 sm:grid sm:grid-cols-4"
+        }
+      >
         <Kpi label="Registros" value={String(kpis.total)} tone="neutral" />
         <Kpi
-          label="Monto total"
+          label={summaryLabel || "Monto total"}
           value={formatMoney(kpis.totalAmount, currencySettings.baseCurrency)}
           tone={
             config.module === "expenses" || config.module === "credit_notes"
@@ -739,8 +817,23 @@ export function SalesBasicPage({
               : "success"
           }
         />
-        <Kpi label="Activos/cerrados" value={String(kpis.active)} tone="success" />
-        <Kpi label="Pendientes" value={String(kpis.pending)} tone={riskTone(kpis.pending, 1, 6)} />
+        <Kpi
+          label={config.module === "payments" ? "Pagos completados" : "Activos/cerrados"}
+          value={String(kpis.active)}
+          tone="success"
+        />
+        {config.module === "payments" ? (
+          <Kpi
+            label="Con reembolsos"
+            value={String(kpis.refunded)}
+            tone={riskTone(kpis.refunded, 1, 6)}
+          />
+        ) : null}
+        <Kpi
+          label="Pendientes"
+          value={String(kpis.pending)}
+          tone={riskTone(kpis.pending, 1, 6)}
+        />
       </div>
 
       <section className="border-y border-slate-100 bg-white max-sm:border-0 max-sm:bg-transparent">
@@ -787,7 +880,11 @@ export function SalesBasicPage({
                 projectById={projectById}
                 invoiceById={invoiceById}
                 productById={productById}
-                canDelete={canDelete}
+                canDelete={
+                  canDelete && (!canDeleteRow || canDeleteRow(row))
+                }
+                displayAmountKey={effectiveAmountKey}
+                displayStatusKey={effectiveStatusKey}
                 onOpen={() => openRecordDetail(row)}
                 onDelete={() => setDeleteRow(row)}
               />
@@ -819,7 +916,7 @@ export function SalesBasicPage({
                   filtered.map((row) => {
                     const money = getMoneyDisplay(
                       row,
-                      config.amountKey,
+                      effectiveAmountKey,
                       currencySettings,
                       productById,
                       currencyAware,
@@ -864,10 +961,11 @@ export function SalesBasicPage({
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={row[config.statusKey] || "—"} />
+                          <StatusBadge status={row[effectiveStatusKey] || "—"} />
                         </TableCell>
                         {canDelete ? (
                           <TableCell className="text-right">
+                            {!canDeleteRow || canDeleteRow(row) ? (
                             <Button
                               type="button"
                               variant="outline"
@@ -881,6 +979,7 @@ export function SalesBasicPage({
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
+                            ) : null}
                           </TableCell>
                         ) : null}
                       </TableRow>
@@ -1051,6 +1150,8 @@ function SalesMobileCard({
   invoiceById,
   productById,
   canDelete,
+  displayAmountKey,
+  displayStatusKey,
   onOpen,
   onDelete,
 }: {
@@ -1063,6 +1164,8 @@ function SalesMobileCard({
   invoiceById: Map<string, InvoiceRow>;
   productById: Map<string, ProductRow>;
   canDelete: boolean;
+  displayAmountKey: string;
+  displayStatusKey: string;
   onOpen: () => void;
   onDelete: () => void;
 }) {
@@ -1082,7 +1185,7 @@ function SalesMobileCard({
   const detail = row.notes || row.reason || row.vendor || row.category || "Sin notas";
   const money = getMoneyDisplay(
     row,
-    config.amountKey,
+    displayAmountKey,
     currencySettings,
     productById,
     currencyAware,
@@ -1116,7 +1219,7 @@ function SalesMobileCard({
         </div>
 
         <StatusBadge
-          status={row[config.statusKey] || "—"}
+          status={row[displayStatusKey] || "—"}
           className="min-h-6 max-w-[92px] shrink-0 truncate rounded-full px-2.5 text-[11px] font-bold"
         />
       </div>

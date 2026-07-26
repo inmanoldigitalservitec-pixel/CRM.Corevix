@@ -301,6 +301,10 @@ function InvoicesPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentInitialValues, setPaymentInitialValues] = useState<PaymentFormInitialValues>();
   const [paymentReceiptsRefreshKey, setPaymentReceiptsRefreshKey] = useState(0);
+  const [selectedFinancialBalance, setSelectedFinancialBalance] = useState<number | null>(null);
+  const [invoiceFinancialById, setInvoiceFinancialById] = useState<
+    Record<string, Awaited<ReturnType<typeof loadInvoicePaymentBalance>> | null>
+  >({});
   const [editorPaymentFeedback, setEditorPaymentFeedback] = useState<InvoicePaymentFeedback | null>(
     null,
   );
@@ -333,6 +337,125 @@ function InvoicesPage() {
     ascending: false,
     limit: 200,
   });
+
+  useEffect(() => {
+    if (!selected || !profile?.company_id) {
+      setSelectedFinancialBalance(null);
+      return;
+    }
+
+    let active = true;
+    setSelectedFinancialBalance(null);
+
+    void loadInvoicePaymentBalance(selected, profile.company_id)
+      .then((balance) => {
+        if (active) {
+          setSelectedFinancialBalance(balance.outstandingBalance);
+        }
+      })
+      .catch((error) => {
+        console.error("No se pudo cargar el saldo financiero de la factura:", error);
+        if (active) {
+          setSelectedFinancialBalance(getInvoiceBalance(selected));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selected, profile?.company_id, paymentReceiptsRefreshKey]);
+
+  useEffect(() => {
+    if (!profile?.company_id || data.length === 0) {
+      setInvoiceFinancialById({});
+      return;
+    }
+
+    let active = true;
+
+    void Promise.all(
+      data.map(async (invoice) => {
+        try {
+          const balance = await loadInvoicePaymentBalance(invoice, profile.company_id);
+          return [invoice.id, balance] as const;
+        } catch (error) {
+          console.error(
+            `No se pudo cargar el balance financiero de ${invoice.number}:`,
+            error,
+          );
+          return [invoice.id, null] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!active) return;
+
+      setInvoiceFinancialById(Object.fromEntries(entries));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [data, profile?.company_id, paymentReceiptsRefreshKey]);
+
+  const financialBalancesReady =
+    data.length === 0 ||
+    data.every((invoice) =>
+      Object.prototype.hasOwnProperty.call(invoiceFinancialById, invoice.id),
+    );
+
+  const getFinancialBalance = (invoice: Invoice) =>
+    invoiceFinancialById[invoice.id] || null;
+
+  const isFinanciallyPaid = (invoice: Invoice) => {
+    if (isInvoiceDraft(invoice) || isInvoiceCancelled(invoice)) return false;
+    const balance = getFinancialBalance(invoice);
+    return balance ? balance.outstandingBalance <= 0 : isInvoicePaid(invoice);
+  };
+
+  const isFinanciallyPending = (invoice: Invoice) => {
+    if (isInvoiceDraft(invoice) || isInvoiceCancelled(invoice)) return false;
+    const balance = getFinancialBalance(invoice);
+    return balance ? balance.outstandingBalance > 0 : isInvoicePending(invoice);
+  };
+
+  const isFinanciallyPartiallyPaid = (invoice: Invoice) => {
+    const balance = getFinancialBalance(invoice);
+    return Boolean(
+      balance &&
+        balance.outstandingBalance > 0 &&
+        balance.completedAmount > 0,
+    );
+  };
+
+  const getFinancialInvoiceStatus = (invoice: Invoice) => {
+    if (isInvoiceDraft(invoice) || isInvoiceCancelled(invoice)) {
+      return invoice.status;
+    }
+
+    if (isFinanciallyPaid(invoice)) return "Paid";
+    if (isFinanciallyPartiallyPaid(invoice)) return "Partially Paid";
+    if (isInvoiceOverdue(invoice, isoToday())) return "Overdue";
+
+    return invoice.status === "Paid" ? "Sent" : invoice.status;
+  };
+
+  const matchesFinancialOperationalFilter = (
+    invoice: Invoice,
+    filter: InvoiceOperationalFilter,
+    todayIsoValue = isoToday(),
+  ) => {
+    if (filter === "all") return true;
+    if (filter === "draft") return isInvoiceDraft(invoice);
+    if (filter === "paid") return isFinanciallyPaid(invoice);
+    if (filter === "pending") return isFinanciallyPending(invoice);
+    if (filter === "overdue") {
+      return (
+        isFinanciallyPending(invoice) &&
+        isInvoiceOverdue(invoice, todayIsoValue)
+      );
+    }
+    return true;
+  };
 
   const canCreatePayment = can("payments.create");
   const canCreateProjectRecord = can("projects.create");
@@ -435,7 +558,7 @@ function InvoicesPage() {
         matchSearch &&
         matchStatus &&
         matchClient &&
-        matchesOperationalFilter(i, operationalFilter, today) &&
+        matchesFinancialOperationalFilter(i, operationalFilter, today) &&
         matchesDueFilter(i, dueFilter, today) &&
         matchesAmountFilter(i, amountFilter)
       );
@@ -445,6 +568,7 @@ function InvoicesPage() {
     clientFilter,
     data,
     dueFilter,
+    invoiceFinancialById,
     operationalFilter,
     search,
     statusFilter,
@@ -543,7 +667,7 @@ function InvoicesPage() {
     try {
       if (!profile?.company_id) throw new Error("Contexto de compañía no disponible.");
       const balance = await loadInvoicePaymentBalance(invoice, profile.company_id);
-      if (isInvoicePaid(invoice) || balance.outstandingBalance <= 0) {
+      if (balance.outstandingBalance <= 0) {
         toast.error("Esta factura ya está pagada.");
         return;
       }
@@ -556,6 +680,7 @@ function InvoicesPage() {
         invoice_id: invoice.id,
         client_id: invoice.client_id || null,
         amount: String(balance.outstandingBalance),
+        currency: balance.currency || invoice.currency || currencySettings.baseCurrency,
         status: "Completed",
       });
       paymentCreatedRef.current = false;
@@ -634,29 +759,53 @@ function InvoicesPage() {
 
   const invoiceMetrics = useMemo(() => {
     const today = isoToday();
-    const pending = data.filter((invoice) => isInvoicePending(invoice));
-    const overdue = data.filter((invoice) => isInvoiceOverdue(invoice, today));
-    const paid = data.filter((invoice) => isInvoicePaid(invoice));
+    const pending = data.filter((invoice) => isFinanciallyPending(invoice));
+    const overdue = data.filter(
+      (invoice) =>
+        isFinanciallyPending(invoice) && isInvoiceOverdue(invoice, today),
+    );
+    const paid = data.filter((invoice) => isFinanciallyPaid(invoice));
+    const collected = data.filter((invoice) => {
+      const balance = getFinancialBalance(invoice);
+      return Boolean(balance && balance.completedAmountBase > 0);
+    });
     const draft = data.filter((invoice) => isInvoiceDraft(invoice));
-    const formatTotal = (rows: Invoice[]) => {
-      return formatInvoiceMoney(
-        rows.reduce((sum, invoice) => sum + getInvoiceBaseTotal(invoice), 0),
+
+    const formatPendingTotal = (rows: Invoice[]) =>
+      formatInvoiceMoney(
+        rows.reduce((sum, invoice) => {
+          const balance = getFinancialBalance(invoice);
+          return (
+            sum +
+            (balance
+              ? balance.outstandingBalanceBase
+              : getInvoiceBaseTotal(invoice))
+          );
+        }, 0),
         currencySettings.baseCurrency,
       );
-    };
+
+    const formatCollectedTotal = (rows: Invoice[]) =>
+      formatInvoiceMoney(
+        rows.reduce((sum, invoice) => {
+          const balance = getFinancialBalance(invoice);
+          return sum + (balance?.completedAmountBase || 0);
+        }, 0),
+        currencySettings.baseCurrency,
+      );
 
     return [
       {
         key: "pending",
         label: "Pendiente por cobrar",
-        value: formatTotal(pending),
+        value: formatPendingTotal(pending),
         hint: `${pending.length} factura${pending.length === 1 ? "" : "s"}`,
         active: operationalFilter === "pending",
       },
       {
         key: "overdue",
         label: "Vencido",
-        value: formatTotal(overdue),
+        value: formatPendingTotal(overdue),
         hint: `${overdue.length} vencida${overdue.length === 1 ? "" : "s"}`,
         active: operationalFilter === "overdue",
         tone: "danger" as const,
@@ -664,8 +813,8 @@ function InvoicesPage() {
       {
         key: "paid",
         label: "Cobrado",
-        value: formatTotal(paid),
-        hint: `${paid.length} pagada${paid.length === 1 ? "" : "s"}`,
+        value: formatCollectedTotal(collected),
+        hint: `${collected.length} con cobros`,
         active: operationalFilter === "paid",
         tone: "success" as const,
       },
@@ -684,6 +833,7 @@ function InvoicesPage() {
     currencySettings.rateUpdatedAt,
     currencySettings.usdToDopRate,
     data,
+    invoiceFinancialById,
     operationalFilter,
     productsById,
     proposalsById,
@@ -699,7 +849,7 @@ function InvoicesPage() {
   ].filter(Boolean).length;
 
   const runPrimaryInvoiceAction = (invoice: Invoice) => {
-    if (isInvoicePaid(invoice) && projectByInvoiceId[invoice.id]) {
+    if (isFinanciallyPaid(invoice) && projectByInvoiceId[invoice.id]) {
       viewProject(projectByInvoiceId[invoice.id]);
       return;
     }
@@ -711,11 +861,11 @@ function InvoicesPage() {
   };
 
   const collectionLabel = (invoice: Invoice) => {
-    const status = getInvoiceOperationalStatus(invoice);
-    if (status === "paid") return "Cobrado";
-    if (status === "overdue") return "Vencido";
-    if (status === "draft") return "Borrador";
-    if (status === "cancelled") return "Cancelada";
+    if (isInvoiceDraft(invoice)) return "Borrador";
+    if (isInvoiceCancelled(invoice)) return "Cancelada";
+    if (isFinanciallyPaid(invoice)) return "Cobrado";
+    if (isFinanciallyPartiallyPaid(invoice)) return "Parcial";
+    if (isInvoiceOverdue(invoice, isoToday())) return "Vencido";
     return "Pendiente";
   };
 
@@ -727,13 +877,17 @@ function InvoicesPage() {
       canOpenPublic={Boolean(invoice.public_token)}
       canMarkPaid={false}
       canRegisterPayment={
-        canCreatePayment && !isInvoicePaid(invoice) && !isInvoiceCancelled(invoice)
+        canCreatePayment && isFinanciallyPending(invoice)
       }
       canCreateProject={
-        canCreateProjectRecord && isInvoicePaid(invoice) && !projectByInvoiceId[invoice.id]
+        canCreateProjectRecord &&
+        isFinanciallyPaid(invoice) &&
+        !projectByInvoiceId[invoice.id]
       }
       canViewProject={
-        canViewProjects && isInvoicePaid(invoice) && Boolean(projectByInvoiceId[invoice.id])
+        canViewProjects &&
+        isFinanciallyPaid(invoice) &&
+        Boolean(projectByInvoiceId[invoice.id])
       }
       canViewClient={canViewClients && Boolean(invoice.client_id)}
       canViewProposal={Boolean(invoice.proposal_id)}
@@ -1401,7 +1555,7 @@ function InvoicesPage() {
 	    };
 	  }, [editItem, itemsDraft, products, proposals]);
 
-  if (loading) return <LoadingState />;
+  if (loading || !financialBalancesReady) return <LoadingState />;
 
   const invData =
     editItem?.invoice_data && typeof editItem.invoice_data === "object"
@@ -1412,7 +1566,8 @@ function InvoicesPage() {
   const selectedClient = selected?.client_id ? clientsById[selected.client_id] : null;
   const selectedProposal = selected?.proposal_id ? proposalsById[selected.proposal_id] : null;
   const selectedProduct = selected?.product_id ? productsById[selected.product_id] : null;
-  const selectedBalance = selected ? getInvoiceBalance(selected) : 0;
+  const selectedBalance =
+    selectedFinancialBalance ?? (selected ? getInvoiceBalance(selected) : 0);
   const selectedSummaryFields = selected
     ? [
         { label: "Número", value: selected.number, mono: true },
@@ -1439,7 +1594,12 @@ function InvoicesPage() {
         { label: "Vencimiento", value: formatInvoiceDueDate(selected.due_date) },
         { label: "Enviada", value: formatInvoiceDateTime(selected.sent_at) },
         { label: "Vista", value: formatInvoiceDateTime(selected.viewed_at) },
-        { label: "Pagada", value: formatInvoiceDateTime(selected.paid_at) },
+        {
+          label: "Pagada",
+          value: isFinanciallyPaid(selected)
+            ? formatInvoiceDateTime(selected.paid_at)
+            : null,
+        },
       ]
     : [];
   const selectedIssuerFields = [
@@ -1513,7 +1673,7 @@ function InvoicesPage() {
           key: "paid",
           title: "Factura pagada",
           description: "La factura tiene fecha de pago registrada.",
-          rawDate: selected.paid_at,
+          rawDate: isFinanciallyPaid(selected) ? selected.paid_at : null,
         },
       ]
         .filter((event) => event.rawDate)
@@ -1529,7 +1689,7 @@ function InvoicesPage() {
     : [];
   const selectedDetailActions = selected ? (
     <>
-      {isInvoicePaid(selected) ? (
+      {isFinanciallyPaid(selected) ? (
         linkedProjectId ? (
           <CrmDetailLineButton
             type="button"
@@ -1559,7 +1719,7 @@ function InvoicesPage() {
           Editar
         </CrmDetailLineButton>
       ) : null}
-      {canCreatePayment && !isInvoicePaid(selected) && !isInvoiceCancelled(selected) ? (
+      {canCreatePayment && isFinanciallyPending(selected) ? (
         <CrmDetailLineButton type="button" onClick={() => void registerPayment(selected)}>
           Registrar pago
         </CrmDetailLineButton>
@@ -1603,7 +1763,7 @@ function InvoicesPage() {
               },
               {
                 label: "Pagadas",
-                value: data.filter((invoice) => isInvoicePaid(invoice)).length,
+                value: data.filter((invoice) => isFinanciallyPaid(invoice)).length,
                 tone: "green",
               },
               {
@@ -1867,7 +2027,7 @@ function InvoicesPage() {
                             </div>
                           </TableCell>
                           <TableCell data-demo={index === 0 ? "invoice-status" : undefined}>
-                            <StatusBadge status={invoice.status} />
+                            <StatusBadge status={getFinancialInvoiceStatus(invoice)} />
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {formatInvoiceDate(invoice.date_issued)}
@@ -1916,7 +2076,7 @@ function InvoicesPage() {
                       client={getClientLabel(invoice)}
                       service={getProductName(invoice)}
                       proposal={getProposalNumber(invoice)}
-                      status={invoice.status}
+                      status={getFinancialInvoiceStatus(invoice)}
                       total={formatInvoiceMoney(invoice.total, getInvoiceDisplayCurrency(invoice))}
                       dueLabel={formatInvoiceDueDate(invoice.due_date)}
                       collectionLabel={collectionLabel(invoice)}
@@ -1944,6 +2104,7 @@ function InvoicesPage() {
             }
           }}
           invoice={selected}
+          financialStatus={getFinancialInvoiceStatus(selected)}
           actions={selectedDetailActions}
           summaryFields={selectedSummaryFields}
           issuerFields={selectedIssuerFields}
@@ -1993,7 +2154,7 @@ function InvoicesPage() {
                   <>
                     Estado:{" "}
                     <span className="font-medium text-slate-900">
-                      {displayInvoiceStatus(selected.status)}
+                      {displayInvoiceStatus(getFinancialInvoiceStatus(selected))}
                     </span>
                   </>
                 ) : (
@@ -2084,6 +2245,7 @@ function InvoicesPage() {
 
       <PaymentFormDialog
         open={paymentDialogOpen}
+        mode="invoice"
         onOpenChange={(open) => {
           setPaymentDialogOpen(open);
           if (

@@ -451,6 +451,13 @@ function EstimatesPage() {
     };
   };
 
+  const closeBuilder = () => {
+    setBuilderOpen(false);
+    setEditingEstimate(null);
+    setLineItems([]);
+    setForm(createEmptyForm(currencySettings.baseCurrency));
+  };
+
   const openNewBuilder = () => {
     const baseCurrency = currencySettings.baseCurrency;
     setEditingEstimate(null);
@@ -814,7 +821,16 @@ function EstimatesPage() {
         </div>
       </div>
 
-      <Dialog open={builderOpen} onOpenChange={setBuilderOpen}>
+      <Dialog
+        open={builderOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setBuilderOpen(true);
+          } else {
+            closeBuilder();
+          }
+        }}
+      >
         <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-none [&>button]:hidden">
           <DialogHeader className="border-b border-slate-200 bg-white px-4 py-4 sm:px-8">
             <div className="flex items-center justify-between gap-4">
@@ -826,7 +842,7 @@ function EstimatesPage() {
                   Productos, impuestos y moneda quedan guardados como snapshot del documento.
                 </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setBuilderOpen(false)}>
+              <Button variant="ghost" size="icon" onClick={closeBuilder}>
                 <X className="h-5 w-5" />
               </Button>
             </div>

@@ -332,7 +332,7 @@ export const es = {
   "status.revoked": "Revocado",
   "status.expired": "Vencido",
   "status.paid": "Pagado",
-  "status.partially_paid": "Parcialmente pagado",
+  "status.partially_paid": "Parcialmente pagada",
   "status.overdue": "Vencido",
   "status.open": "Abierto",
   "status.answered": "Respondido",

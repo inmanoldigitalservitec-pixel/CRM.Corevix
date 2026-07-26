@@ -272,11 +272,14 @@ export function DashboardCalendarWidget({
       }
 
       if (item.source === "payment") {
-        const { error } = await db
-          .from("payments")
-          .update({ payment_date: newDate })
-          .eq("id", item.relatedId)
-          .eq("company_id", profile.company_id);
+        const { error } = await db.rpc(
+          "reschedule_pending_payment",
+          {
+            p_payment_id: item.relatedId,
+            p_payment_date: newDate,
+          },
+        );
+
         if (error) throw error;
       }
 

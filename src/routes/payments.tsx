@@ -1,12 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SalesBasicPage } from "@/components/sales/sales-basic-page";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PaymentFormDialog } from "@/components/payments/payment-form-dialog";
+import { PaymentWorkspaceDialog } from "@/components/payments/payment-workspace-dialog";
 import { deletePaymentReceiptsForPayment } from "@/lib/payments/payment-receipts";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
+import { loadPaymentNetBalance } from "@/lib/payments/payment-net-balance";
 import { normalizeCurrency } from "@/lib/currency";
 
 const DISPLAY_LABELS: Record<string, string> = {
@@ -60,11 +62,38 @@ const METHODS = ["Manual", "Cash", "Card", "Bank Transfer", "Check", "Other"];
 
 function PaymentsPage() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const { invoiceId } = Route.useSearch();
   const [invoiceDefaults, setInvoiceDefaults] = useState<Record<string, string> | undefined>();
   const [invoiceParamError, setInvoiceParamError] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [refreshSignal, setRefreshSignal] = useState(0);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [paymentWorkspaceOpen, setPaymentWorkspaceOpen] = useState(false);
+
+  const enrichPaymentRows = useCallback(
+    async (rows: Record<string, any>[]) =>
+      Promise.all(
+        rows.map(async (payment) => {
+          const balance = await loadPaymentNetBalance(
+            payment,
+            profile?.company_id,
+          );
+
+          return {
+            ...payment,
+            original_amount: balance.originalAmount,
+            original_amount_base: balance.originalAmountBase,
+            movement_amount: balance.movementAmount,
+            movement_amount_base: balance.movementAmountBase,
+            net_amount: balance.netAmount,
+            net_amount_base: balance.netAmountBase,
+            display_status: balance.displayStatus,
+          };
+        }),
+      ),
+    [profile?.company_id],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +153,16 @@ function PaymentsPage() {
         autoOpenCreate={Boolean(invoiceId && paymentInitialValues)}
         onCreateAction={() => setPaymentDialogOpen(true)}
         refreshSignal={refreshSignal}
+        enrichRows={enrichPaymentRows}
+        displayAmountKey="net_amount"
+        displayStatusKey="display_status"
+        summaryLabel="Cobrado neto"
         enableDelete
+        canDeleteRow={(payment) => payment.status === "Pending"}
+        onOpenRow={(payment) => {
+          setSelectedPaymentId(String(payment.id));
+          setPaymentWorkspaceOpen(true);
+        }}
         beforeDelete={async (payment) => {
           if (!profile?.company_id) throw new Error("No hay contexto de compañía.");
           await deletePaymentReceiptsForPayment(String(payment.id), profile.company_id);
@@ -134,6 +172,7 @@ function PaymentsPage() {
             open={paymentDialogOpen}
             onOpenChange={setPaymentDialogOpen}
             initialValues={paymentInitialValues}
+            mode={invoiceId ? "invoice" : "unapplied"}
             onCreated={() => {
               setRefreshSignal((current) => current + 1);
               if (invoiceId)
@@ -143,7 +182,7 @@ function PaymentsPage() {
         }
         config={{
           routeTitle: "Pagos",
-          subtitle: "Registro de pagos recibidos y relacionados a facturas o clientes.",
+          subtitle: "Consulta pagos registrados, reembolsos y anticipos recibidos.",
           table: "payments",
           module: "payments",
           numberKey: "payment_number",
@@ -152,7 +191,7 @@ function PaymentsPage() {
           dateKey: "payment_date",
           statusKey: "status",
           statuses: STATUSES,
-          primaryLabel: "pago",
+          primaryLabel: "pago sin aplicar",
           defaultValues: {
             reference: "",
             invoice_id: "none",
@@ -191,6 +230,19 @@ function PaymentsPage() {
             },
             { key: "notes", label: "Notas", type: "textarea" },
           ],
+        }}
+      />
+
+      <PaymentWorkspaceDialog
+        paymentId={selectedPaymentId}
+        open={paymentWorkspaceOpen}
+        onOpenChange={setPaymentWorkspaceOpen}
+        onOpenInvoice={(nextInvoiceId) => {
+          setPaymentWorkspaceOpen(false);
+          void navigate({
+            to: "/invoices",
+            search: { invoiceId: nextInvoiceId } as any,
+          });
         }}
       />
     </>

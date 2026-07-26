@@ -27,6 +27,7 @@ function DetailField({ label, value, mono }: SummaryField) {
 
 export function InvoiceDetailsSummary({
   invoice,
+  financialStatus,
   fields,
   items,
   itemsLoading,
@@ -41,6 +42,7 @@ export function InvoiceDetailsSummary({
   formatMoney,
 }: {
   invoice: { status: string };
+  financialStatus: string;
   fields: SummaryField[];
   items: InvoiceDetailItem[];
   itemsLoading: boolean;
@@ -64,7 +66,7 @@ export function InvoiceDetailsSummary({
               Estado
             </div>
             <div className="mt-2">
-              <StatusBadge status={invoice.status} />
+              <StatusBadge status={financialStatus} />
             </div>
           </div>
           <div className="min-w-0 sm:text-right">
@@ -75,7 +77,7 @@ export function InvoiceDetailsSummary({
               {total}
             </div>
             <div className="mt-1 break-words text-sm font-normal text-slate-500">
-              Saldo: {balance}
+              Saldo pendiente: {balance}
             </div>
           </div>
         </div>

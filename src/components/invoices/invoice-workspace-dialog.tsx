@@ -5,7 +5,7 @@ import { InvoiceActivity, type InvoiceActivityEvent } from "@/components/invoice
 import { InvoiceDetailsSummary } from "@/components/invoices/invoice-details-summary";
 import { InvoiceDocumentPreview } from "@/components/invoices/invoice-document-preview";
 import type { InvoiceDetailItem } from "@/components/invoices/invoice-items-view";
-import { PaymentReceiptsPanel } from "@/components/payments/payment-receipts-panel";
+import { InvoicePaymentsPanel } from "@/components/invoices/invoice-payments-panel";
 import {
   SalesDocumentWorkspaceDialog,
   type SalesDocumentWorkspaceTab,
@@ -32,6 +32,7 @@ export function InvoiceWorkspaceDialog({
   open,
   onOpenChange,
   invoice,
+  financialStatus,
   actions,
   summaryFields,
   issuerFields,
@@ -59,6 +60,7 @@ export function InvoiceWorkspaceDialog({
     date_issued?: string | null;
     due_date?: string | null;
   } | null;
+  financialStatus: string;
   actions: ReactNode;
   summaryFields: DetailField[];
   issuerFields: DetailField[];
@@ -87,11 +89,11 @@ export function InvoiceWorkspaceDialog({
       onOpenChange={onOpenChange}
       title={invoice.number || "Factura"}
       srTitle={`Factura ${invoice.number || ""}`.trim()}
-      status={<StatusBadge status={invoice.status} />}
+      status={<StatusBadge status={financialStatus} />}
       meta={
         <>
           <span>{total}</span>
-          <span>Saldo {balance}</span>
+          <span>Saldo pendiente {balance}</span>
         </>
       }
       actions={actions}
@@ -118,6 +120,7 @@ export function InvoiceWorkspaceDialog({
           />
           <InvoiceDetailsSummary
             invoice={invoice}
+            financialStatus={financialStatus}
             fields={summaryFields}
             items={items}
             itemsLoading={itemsLoading}
@@ -135,9 +138,8 @@ export function InvoiceWorkspaceDialog({
       </TabsContent>
 
       <TabsContent value="payments" className="mt-0">
-        <PaymentReceiptsPanel
+        <InvoicePaymentsPanel
           invoiceId={invoice.id}
-          compact
           refreshKey={paymentReceiptsRefreshKey}
         />
       </TabsContent>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -117,6 +118,13 @@ export function SalesDocumentLineEditor({
   const moneyStep = getCurrencyStep(form.currency);
   const moneyMode = getCurrencyInputMode(form.currency);
   const moneyUnitLabel = normalizeCurrency(form.currency) === "DOP" ? "RD$" : "US$";
+  const [adjustmentOpen, setAdjustmentOpen] = useState(
+    () => Math.abs(Number(form.adjustmentValue) || 0) > 0,
+  );
+
+  useEffect(() => {
+    setAdjustmentOpen(Math.abs(Number(form.adjustmentValue) || 0) > 0);
+  }, [form.adjustmentValue]);
 
   return (
     <div className="space-y-5">
@@ -343,34 +351,75 @@ export function SalesDocumentLineEditor({
             {formatCurrencyAmount(totals.subtotal, form.currency)}
           </div>
         </div>
-        <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
-          <div />
-          <div className="text-right font-semibold text-slate-700">Descuento</div>
-          <div className="flex items-center justify-end gap-2">
-            <Input
-              className="h-10 max-w-[120px] text-right"
-              type="number"
-              step={form.discountType === "percent" ? "0.01" : moneyStep}
-              inputMode={form.discountType === "percent" ? "decimal" : moneyMode}
-              value={form.discountValue}
-              disabled={form.discountType === "none"}
-              onChange={(event) => onFormPatch({ discountValue: event.target.value })}
-              onBlur={(event) => {
-                if (form.discountType === "percent") return;
-                onFormPatch({
-                  discountValue: normalizeMoneyInput(event.target.value, form.currency),
-                });
-              }}
-            />
-            <span className="w-10 text-right text-slate-500">
-              {form.discountType === "percent" ? "%" : moneyUnitLabel}
-            </span>
-          </div>
-        </div>
-        {showAdjustment ? (
+
+        {totals.taxTotal > 0 ? (
           <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
             <div />
+            <div className="text-right font-semibold text-slate-700">ITBIS:</div>
+            <div className="text-right text-slate-700">
+              {formatCurrencyAmount(totals.taxTotal, form.currency)}
+            </div>
+          </div>
+        ) : null}
+
+        {form.discountType !== "none" ? (
+          <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
+            <div />
+            <div className="text-right font-semibold text-slate-700">Descuento</div>
+            <div className="flex items-center justify-end gap-2">
+              <Input
+                className="h-10 max-w-[120px] text-right"
+                type="number"
+                step={form.discountType === "percent" ? "0.01" : moneyStep}
+                inputMode={form.discountType === "percent" ? "decimal" : moneyMode}
+                value={form.discountValue}
+                onChange={(event) => onFormPatch({ discountValue: event.target.value })}
+                onBlur={(event) => {
+                  if (form.discountType === "percent") return;
+                  onFormPatch({
+                    discountValue: normalizeMoneyInput(event.target.value, form.currency),
+                  });
+                }}
+              />
+              <span className="w-10 text-right text-slate-500">
+                {form.discountType === "percent" ? "%" : moneyUnitLabel}
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {showAdjustment && !adjustmentOpen ? (
+          <div className="flex justify-end border-b border-slate-200 py-3">
+            <Button
+              type="button"
+              variant="ghost"
+              className="gap-2 text-sm font-semibold text-slate-600"
+              onClick={() => setAdjustmentOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Agregar ajuste
+            </Button>
+          </div>
+        ) : null}
+
+        {showAdjustment && adjustmentOpen ? (
+          <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-sm text-rose-600"
+                onClick={() => {
+                  onFormPatch({ adjustmentValue: "" });
+                  setAdjustmentOpen(false);
+                }}
+              >
+                Quitar ajuste
+              </Button>
+            </div>
+
             <div className="text-right font-semibold text-slate-700">Ajuste</div>
+
             <Input
               className="ml-auto h-10 max-w-[150px] text-right"
               type="number"
@@ -386,6 +435,7 @@ export function SalesDocumentLineEditor({
             />
           </div>
         ) : null}
+
         <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 py-4">
           <div />
           <div className="text-right text-base font-bold text-slate-800">Total:</div>

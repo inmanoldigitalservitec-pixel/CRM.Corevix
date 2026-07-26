@@ -17,6 +17,11 @@ import type {
   SalesDocumentTotals,
 } from "@/components/sales/sales-document-line-editor";
 import type { CompanyTax } from "@/hooks/use-company-taxes";
+import {
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+} from "@/lib/currency";
 
 export type { SalesDocumentLineItem, SalesDocumentTotals } from "@/components/sales/sales-document-line-editor";
 
