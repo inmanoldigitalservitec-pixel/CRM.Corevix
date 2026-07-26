@@ -175,21 +175,74 @@ export function PaymentReceiptPreview({
     logoUrl: clean(data.issuer?.logoUrl) || company?.logo_url || null,
   };
 
+  const printReceipt = () => {
+    const body = document.body;
+    const cleanup = () => body.classList.remove("printing-payment-receipt");
+
+    body.classList.add("printing-payment-receipt");
+    window.addEventListener("afterprint", cleanup, { once: true });
+    window.print();
+    window.setTimeout(cleanup, 1500);
+  };
+
   return (
     <div className="min-w-0">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 16mm 14mm 16mm;
+          }
+
+          body.printing-payment-receipt {
+            background: #fff !important;
+          }
+
+          body.printing-payment-receipt * {
+            visibility: hidden !important;
+          }
+
+          body.printing-payment-receipt .payment-receipt-print-root,
+          body.printing-payment-receipt .payment-receipt-print-root * {
+            visibility: visible !important;
+          }
+
+          body.printing-payment-receipt .payment-receipt-print-root {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            background: #fff !important;
+          }
+
+          body.printing-payment-receipt .payment-receipt-print-root section,
+          body.printing-payment-receipt .payment-receipt-print-root header {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+
       <div className="mb-4 flex justify-end print:hidden">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => window.print()}
+          onClick={printReceipt}
         >
           <Printer className="mr-2 h-4 w-4" />
           Imprimir / PDF
         </Button>
       </div>
 
-      <article className="mx-auto min-h-[720px] max-w-[850px] border border-slate-200 bg-white px-6 py-7 shadow-sm md:px-10 md:py-9 print:min-h-0 print:max-w-none print:border-0 print:p-0 print:shadow-none">
+      <article className="payment-receipt-print-root mx-auto min-h-[720px] max-w-[850px] border border-slate-200 bg-white px-6 py-7 shadow-sm md:px-10 md:py-9 print:min-h-0 print:max-w-none print:border-0 print:p-0 print:shadow-none">
         <header className="grid gap-6 border-b border-slate-200 pb-6 sm:grid-cols-[1fr_auto]">
           <div className="flex min-w-0 items-start gap-4">
             {issuer.logoUrl ? (
