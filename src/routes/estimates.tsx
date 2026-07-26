@@ -284,6 +284,7 @@ function EstimatesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
+  const [previewEstimate, setPreviewEstimate] = useState<Estimate | null>(null);
   const [form, setForm] = useState<SalesDocumentBuilderForm>(() =>
     createEmptyForm(currencySettings.baseCurrency),
   );
@@ -685,6 +686,15 @@ function EstimatesPage() {
     return `${window.location.origin}/estimate/public/${token}`;
   };
 
+  const openEstimatePreview = (estimate: Estimate) => {
+    if (!estimate.public_token) {
+      toast.error("Esta cotización todavía no tiene una vista previa disponible.");
+      return;
+    }
+
+    setPreviewEstimate(estimate);
+  };
+
   const openPublicEstimate = (estimate: Estimate) => {
     const url = getEstimatePublicUrl(estimate);
     if (!url) {
@@ -815,7 +825,11 @@ function EstimatesPage() {
             </TableHeader>
             <TableBody>
               {filteredEstimates.map((estimate) => (
-                <TableRow key={estimate.id}>
+                <TableRow
+                  key={estimate.id}
+                  className="cursor-pointer transition-colors hover:bg-slate-50"
+                  onClick={() => openEstimatePreview(estimate)}
+                >
                   <TableCell className="font-semibold text-slate-600">
                     EST-{estimate.number || "—"}
                   </TableCell>
@@ -829,7 +843,10 @@ function EstimatesPage() {
                   </TableCell>
                   <TableCell>{estimate.expiry_date || "—"}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    <div
+                        className="flex justify-end gap-2"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                       <Button
                         type="button"
                         variant="ghost"
@@ -894,6 +911,53 @@ function EstimatesPage() {
           </Table>
         </div>
       </div>
+
+      <Dialog
+        open={Boolean(previewEstimate)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewEstimate(null);
+        }}
+      >
+        <DialogContent className="flex h-[94dvh] w-[96vw] max-w-[1180px] flex-col overflow-hidden p-0">
+          <DialogHeader className="border-b border-slate-200 px-5 py-4">
+            <div className="flex items-center justify-between gap-4 pr-8">
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-xl font-semibold text-slate-950">
+                  {previewEstimate?.title || "Vista previa de cotización"}
+                </DialogTitle>
+                <p className="mt-1 text-sm text-slate-500">
+                  EST-{previewEstimate?.number || "—"} · {displayLabel(previewEstimate?.status || "Draft")}
+                </p>
+              </div>
+              {previewEstimate ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openPublicEstimate(previewEstimate)}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Abrir en otra pestaña
+                </Button>
+              ) : null}
+            </div>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 bg-slate-100">
+            {previewEstimate?.public_token ? (
+              <iframe
+                title={`Vista previa de la cotización EST-${previewEstimate.number || "—"}`}
+                src={`/estimate/public/${previewEstimate.public_token}`}
+                className="h-full w-full border-0 bg-white"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-8 text-sm text-slate-500">
+                Esta cotización todavía no tiene una vista previa disponible.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={builderOpen}
