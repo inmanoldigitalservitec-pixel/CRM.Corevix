@@ -51,6 +51,24 @@ function clean(value: unknown) {
   return String(value || "").trim();
 }
 
+
+function translateInvoiceStatus(value?: string | null) {
+  const normalized = clean(value).toLowerCase();
+
+  const labels: Record<string, string> = {
+    paid: "Pagada",
+    sent: "Enviada",
+    draft: "Borrador",
+    overdue: "Vencida",
+    cancelled: "Cancelada",
+    canceled: "Cancelada",
+    "partially paid": "Parcialmente pagada",
+    partial: "Parcialmente pagada",
+  };
+
+  return labels[normalized] || clean(value) || "—";
+}
+
 function joinAddress(company: CompanyRow | null) {
   if (!company) return "";
 
@@ -388,7 +406,7 @@ export function PaymentReceiptPreview({
                 Estado factura
               </div>
               <div className="mt-1 text-sm font-normal text-slate-950">
-                {data.invoiceStatus || "—"}
+                {translateInvoiceStatus(data.invoiceStatus)}
               </div>
             </div>
           </section>
