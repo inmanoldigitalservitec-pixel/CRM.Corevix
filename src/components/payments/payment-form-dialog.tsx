@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -140,6 +140,7 @@ export function PaymentFormDialog({
   const initialKey = JSON.stringify(initialValues || {});
   const [form, setForm] = useState(() => defaultForm(initialValues, currencySettings.baseCurrency));
   const [saving, setSaving] = useState(false);
+  const paymentRequestKeyRef = useRef<string | null>(null);
   const isInvoiceMode = mode === "invoice";
 
   const { data: clients } = useCrud<ClientRow>({
@@ -168,7 +169,16 @@ export function PaymentFormDialog({
     form.client_id && form.client_id !== NONE ? clientById.get(form.client_id) : null;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      paymentRequestKeyRef.current = null;
+      return;
+    }
+
+    paymentRequestKeyRef.current =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `payment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
     setForm(defaultForm(initialValues, currencySettings.baseCurrency));
   }, [currencySettings.baseCurrency, open, initialKey]);
 
@@ -231,6 +241,7 @@ export function PaymentFormDialog({
           p_reference: form.reference.trim() || null,
           p_notes: form.notes.trim() || null,
           p_client_id: normalizeOptionalId(form.client_id),
+          p_idempotency_key: paymentRequestKeyRef.current,
         });
         if (error) throw error;
         const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
@@ -307,6 +318,7 @@ export function PaymentFormDialog({
       if (!payment?.id) throw new Error("No se pudo confirmar el pago creado.");
 
       toast.success("Pago creado correctamente.");
+      paymentRequestKeyRef.current = null;
       await onCreated?.({
         payment,
         receiptUploaded: false,
