@@ -581,6 +581,13 @@ function getSourceTone(source: string) {
   return randomTones[hash % randomTones.length];
 }
 
+function getLeadTags(lead: Lead) {
+  const meta = lead.metadata && typeof lead.metadata === "object" ? lead.metadata : null;
+  const raw = meta ? (meta as any).tags : null;
+  if (!Array.isArray(raw)) return [] as string[];
+  return raw.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 3);
+}
+
 function getOwnerLabel(lead: Lead, currentUserId?: string) {
   if (!lead.assigned_to) return "Sin asignar";
   if (currentUserId && lead.assigned_to === currentUserId) return "Tú";
@@ -2447,52 +2454,30 @@ function LeadsPage() {
                     );
                   })}
                 </div>
-
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="min-w-[980px] w-full border-collapse table-auto">
+                  <table className="min-w-[1500px] w-full border-collapse table-auto">
                     <thead>
                       <tr>
-                        <th className="w-[260px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
-                          Prospecto
-                        </th>
-                        <th className="hidden 2xl:table-cell w-[180px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
-                          Interés
-                        </th>
-                        <th className="hidden lg:table-cell w-[165px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
-                          Etapa
-                        </th>
-                        <th className="hidden 2xl:table-cell w-[110px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
-                          Valor
-                        </th>
-                        <th className="hidden lg:table-cell w-[135px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
-                          Última actividad
-                        </th>
-                        <th className="hidden 2xl:table-cell w-[165px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500">
-                          Responsable
-                        </th>
-                        <th className="w-[165px] border-b border-slate-100 bg-white px-2.5 py-2 text-left text-[11px] font-normal text-slate-500 hidden sm:table-cell">
-                          Próximo paso
-                        </th>
-                        <th className="w-[145px] border-b border-slate-100 bg-white px-2.5 py-2 text-right text-[11px] font-normal text-slate-500">
-                          Acciones
-                        </th>
+                        <th className="w-[210px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Nombre</th>
+                        <th className="w-[190px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Empresa</th>
+                        <th className="w-[220px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Email</th>
+                        <th className="w-[150px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Teléfono</th>
+                        <th className="w-[120px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Valor</th>
+                        <th className="w-[170px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Etiquetas</th>
+                        <th className="w-[170px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Responsable</th>
+                        <th className="w-[165px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Estado</th>
+                        <th className="w-[135px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Fuente</th>
+                        <th className="w-[145px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Último contacto</th>
+                        <th className="w-[130px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Creado</th>
+                        <th className="w-[145px] border-b border-slate-100 bg-white px-3 py-2 text-right text-[11px] font-normal text-slate-500">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.map((lead, index) => {
                         const isSelected = selectedLeadId === lead.id;
-                        const interest = getInterestLabel(lead) || "Sin interés definido";
-                        const needsFollowUp = leadNeedsFollowUpUi(lead);
-                        const nextStep = getNextStepLabel(lead, needsFollowUp);
-                        const lastActivity =
-                          lead.last_interaction_at || lead.updated_at || lead.created_at;
-                        const companyLabel =
-                          (lead.company_name || "").trim() || getLeadPrimaryLabel(lead);
-                        const personLabel =
-                          getLeadName(lead) !== "Prospecto sin nombre"
-                            ? getLeadName(lead)
-                            : lead.email || lead.whatsapp || lead.phone || "—";
+                        const lastActivity = lead.last_interaction_at || lead.updated_at || lead.created_at;
                         const sourceLabel = getLeadSourceDisplay(lead);
+                        const tags = getLeadTags(lead);
 
                         return (
                           <tr
@@ -2501,217 +2486,99 @@ function LeadsPage() {
                               "cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/40",
                               isSelected && "bg-blue-50/30",
                             )}
-                            onClick={() => {
-                              setSelectedLeadId(lead.id);
-                              setDetailOpen(true);
-                            }}
+                            onClick={() => openDetail(lead)}
                           >
-                            <td className="px-2 py-1.5">
-                              <button
-                                className="flex w-full items-center gap-2.5 px-1.5 py-1 text-left transition-colors hover:bg-slate-50/60"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openDetail(lead);
-                                }}
-                                type="button"
-                              >
-                                <div
-                                  className={cn(
-                                    "grid h-[34px] w-[34px] shrink-0 aspect-square place-items-center rounded-full text-[12px] font-semibold transition-all duration-200",
-                                    getAvatarTone(index),
-                                  )}
-                                >
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className={cn(
+                                  "grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-[12px] font-semibold",
+                                  getAvatarTone(index),
+                                )}>
                                   {getInitials(lead)}
                                 </div>
-                                <div className="min-w-0">
-                                  <strong className="mb-[2px] block truncate text-[13px] font-normal transition-colors duration-200 hover:text-[#1d62f9]">
-                                    {companyLabel}
-                                  </strong>
-                                  <span className="block truncate text-[12px] font-normal leading-[1.25] text-[#667085]">
-                                    {personLabel}
-                                  </span>
-                                  <div className="mt-[6px] flex flex-wrap items-center gap-2">
-                                    <span
-                                      className={cn(
-                                        "inline-flex w-max items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
-                                        getSourceTone(sourceLabel),
-                                      )}
-                                    >
-                                      {getSourceLabel(sourceLabel)}
-                                    </span>
-                                  </div>
-                                  <div className="mt-1.5 text-[11px] font-normal text-[#98a2b3] 2xl:hidden">
-                                    Responsable:{" "}
-                                    <span className="text-[#667085]">{getAssigneeLabel(lead)}</span>
-                                  </div>
-                                  <div className="mt-1.5 text-[11px] font-normal text-[#98a2b3] 2xl:hidden">
-                                    Valor:{" "}
-                                    <span className="text-[#667085]">
-                                      {formatLeadPipelineOriginalValue(
-                                        lead,
-                                        signalsByLeadId[lead.id],
-                                      )}
-                                    </span>
-                                  </div>
-                                  <div className="mt-1 text-[11px] font-normal text-[#101828] sm:hidden">
-                                    Próximo: <span className="text-[#667085]">{nextStep}</span>
-                                  </div>
-                                </div>
-                              </button>
-                            </td>
-
-                            <td className="hidden 2xl:table-cell px-2.5 py-1.5">
-                              <span className="block truncate text-[13px] font-normal text-[#101828]">
-                                {interest}
-                              </span>
-                            </td>
-
-                            <td className="hidden lg:table-cell px-2.5 py-1.5">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={cn(
-                                    "inline-flex w-max items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
-                                    getStatusTone(lead.status),
-                                  )}
-                                >
-                                  {getStatusLabel(lead.status)}
-                                </span>
-                                {needsFollowUp ? (
-                                  <span className="inline-flex w-max items-center rounded-full bg-[#fff1f3] px-2 py-0.5 text-[10px] font-semibold text-[#e11d48]">
-                                    Seguimiento
-                                  </span>
-                                ) : null}
+                                <span className="truncate text-[13px] font-normal text-slate-900">{getLeadName(lead)}</span>
                               </div>
                             </td>
-
-                            <td className="hidden 2xl:table-cell px-2.5 py-1.5">
-                              <span className="whitespace-nowrap text-[13px] font-normal text-[#111827] transition-colors hover:text-[#16a34a]">
-                                {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
-                              </span>
+                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{lead.company_name || "—"}</td>
+                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{lead.email || "—"}</td>
+                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{lead.phone || lead.whatsapp || "—"}</td>
+                            <td className="px-3 py-2 text-[13px] font-normal text-slate-900">
+                              {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
                             </td>
-
-                            <td className="hidden lg:table-cell px-2.5 py-1.5">
-                              <div className="text-[13px] font-normal text-[#101828] truncate">
-                                {formatRelativeDate(lastActivity)}
-                              </div>
-                              <div className="mt-0.5 text-[11px] font-normal text-[#98a2b3]">
-                                {formatDateShort(lastActivity)}
+                            <td className="px-3 py-2">
+                              <div className="flex flex-wrap gap-1">
+                                {tags.length ? tags.map((tag) => (
+                                  <span key={tag} className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{tag}</span>
+                                )) : <span className="text-[12px] text-slate-400">—</span>}
                               </div>
                             </td>
-
-                            <td className="hidden 2xl:table-cell px-2.5 py-1.5">
-                              <div className="flex items-center gap-[9px] whitespace-nowrap text-[13px] font-normal text-[#344054] min-w-0">
-                                <span className="grid h-7 w-7 shrink-0 aspect-square place-items-center rounded-full bg-[linear-gradient(135deg,#0f172a,#64748b)] text-[11px] font-semibold text-white">
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2 text-[13px] font-normal text-slate-600">
+                                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#0f172a,#64748b)] text-[10px] font-semibold text-white">
                                   {getAssigneeLabel(lead).slice(0, 2).toUpperCase()}
                                 </span>
                                 <span className="truncate">{getAssigneeLabel(lead)}</span>
                               </div>
                             </td>
-
-                            <td className="hidden sm:table-cell px-2.5 py-1.5">
-                              <div className="text-[13px] font-normal text-[#101828] truncate">
-                                {nextStep}
-                              </div>
-                              {needsFollowUp ? (
-                                <div className="mt-0.5 text-[11px] font-normal text-[#e11d48]">
-                                  Necesita atención
-                                </div>
-                              ) : null}
+                            <td className="px-3 py-2" onClick={(event) => event.stopPropagation()}>
+                              <Select
+                                value={lead.status}
+                                onValueChange={(value) => void handleInlineStatusChange(lead, value)}
+                                disabled={updatingLeadStatusId === lead.id || !can("leads.edit")}
+                              >
+                                <SelectTrigger className={cn(
+                                  "h-7 w-[150px] rounded-md border px-2 text-[11px] font-medium shadow-none focus:ring-0 focus:ring-offset-0",
+                                  getStatusTone(lead.status),
+                                )}>
+                                  <SelectValue>{getStatusLabel(lead.status)}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {STATUSES.map((status) => (
+                                    <SelectItem key={status} value={status}>{getStatusLabel(status)}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </td>
-
-                            <td className="px-2 py-1.5">
+                            <td className="px-3 py-2">
+                              <span className={cn(
+                                "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
+                                getSourceTone(sourceLabel),
+                              )}>
+                                {getSourceLabel(sourceLabel)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="text-[13px] font-normal text-slate-700">{formatRelativeDate(lastActivity)}</div>
+                              <div className="mt-0.5 text-[11px] text-slate-400">{formatDateShort(lastActivity)}</div>
+                            </td>
+                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{formatDateShort(lead.created_at)}</td>
+                            <td className="px-3 py-2">
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   className="inline-flex h-7 items-center border-b border-slate-200 bg-transparent px-0 text-[11.5px] font-normal text-slate-950 hover:border-slate-400"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openDetail(lead);
-                                  }}
+                                  onClick={(event) => { event.stopPropagation(); openDetail(lead); }}
                                   type="button"
-                                >
-                                  Ver
-                                </button>
+                                >Ver</button>
                                 <button
                                   className="inline-flex h-7 items-center border-b border-emerald-200 bg-transparent px-0 text-[11.5px] font-normal text-emerald-700 hover:border-emerald-500"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    void handleOpenWhatsAppFromLead(lead);
-                                  }}
+                                  onClick={(event) => { event.stopPropagation(); void handleOpenWhatsAppFromLead(lead); }}
                                   type="button"
-                                >
-                                  Contactar
-                                </button>
-                                <button
-                                  className="hidden"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    toast.message("Crear propuesta próximamente");
-                                  }}
-                                  type="button"
-                                >
-                                  Crear propuesta
-                                </button>
+                                >Contactar</button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
-                                      className="grid h-7 w-7 shrink-0 place-items-center border-b border-slate-200 bg-transparent text-[#475467] transition-colors hover:border-slate-400 hover:text-[#1d62f9]"
+                                      className="grid h-7 w-7 shrink-0 place-items-center border-b border-slate-200 bg-transparent text-slate-500 hover:border-slate-400"
                                       onClick={(event) => event.stopPropagation()}
                                       type="button"
-                                      aria-label="Más acciones"
                                     >
                                       <MoreHorizontal className="h-4 w-4" />
                                     </button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => openDetail(lead)}>
-                                      Ver
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => toast.message("Crear propuesta próximamente")}
-                                    >
-                                      Crear propuesta
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      disabled={!can("leads.edit")}
-                                      onClick={() => can("leads.edit") && openEdit(lead)}
-                                    >
-                                      Editar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      disabled={!can("deals.create")}
-                                      onClick={() => void handleCreateDealFromLead(lead)}
-                                    >
-                                      Crear oportunidad
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      disabled={!can("tasks.create")}
-                                      onClick={() => openFollowUpDialog(lead)}
-                                    >
-                                      Crear seguimiento
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      disabled={!can("leads.edit")}
-                                      onClick={() => {
-                                        if (
-                                          !enforceOwnLeadForSales(
-                                            lead,
-                                            "Solo puedes modificar tus propios prospectos",
-                                          )
-                                        )
-                                          return;
-                                        if (!can("leads.edit")) return;
-                                        void update(lead.id, { status: "Lost" } as any);
-                                      }}
-                                    >
-                                      Marcar perdido
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      disabled={!can("leads.delete")}
-                                      onClick={() => can("leads.delete") && setDeleteId(lead.id)}
-                                      className="text-destructive focus:text-destructive"
-                                    >
-                                      Eliminar
-                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openDetail(lead)}>Ver</DropdownMenuItem>
+                                    <DropdownMenuItem disabled={!can("leads.edit")} onClick={() => can("leads.edit") && openEdit(lead)}>Editar</DropdownMenuItem>
+                                    <DropdownMenuItem disabled={!can("deals.create")} onClick={() => void handleCreateDealFromLead(lead)}>Crear oportunidad</DropdownMenuItem>
+                                    <DropdownMenuItem disabled={!can("tasks.create")} onClick={() => openFollowUpDialog(lead)}>Crear seguimiento</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
