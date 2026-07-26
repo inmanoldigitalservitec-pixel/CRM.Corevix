@@ -10,39 +10,152 @@ function replaceOnce(search, replacement, label) {
 }
 
 replaceOnce(
-  `  Plus,\n  Receipt,`,
-  `  Plus,\n  Printer,\n  Receipt,`,
+  "  Plus,\n  Receipt,",
+  "  Plus,\n  Printer,\n  Receipt,",
   "icono imprimir",
 );
 
 replaceOnce(
-  `interface ActivityItem {`,
-  `type AccountStatementMovement = {\n  id: string;\n  date: string;\n  type: "invoice" | "payment" | "credit_note";\n  reference: string;\n  description: string;\n  debit: number;\n  credit: number;\n  balance: number;\n  currency: string;\n  status: string;\n};\n\ninterface ActivityItem {`,
+  "interface ActivityItem {",
+  [
+    "type AccountStatementMovement = {",
+    "  id: string;",
+    "  date: string;",
+    '  type: "invoice" | "payment" | "credit_note";',
+    "  reference: string;",
+    "  description: string;",
+    "  debit: number;",
+    "  credit: number;",
+    "  balance: number;",
+    "  currency: string;",
+    "  status: string;",
+    "};",
+    "",
+    "interface ActivityItem {",
+  ].join("\n"),
   "tipo de movimiento",
 );
 
 replaceOnce(
-  `  const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);`,
-  `  const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);\n  const [statementFrom, setStatementFrom] = useState(() => isoDate(-90));\n  const [statementTo, setStatementTo] = useState(() => isoDate());\n  const [statementCurrency, setStatementCurrency] = useState("all");`,
+  "  const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);",
+  [
+    "  const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);",
+    "  const [statementFrom, setStatementFrom] = useState(() => isoDate(-90));",
+    "  const [statementTo, setStatementTo] = useState(() => isoDate());",
+    '  const [statementCurrency, setStatementCurrency] = useState("all");',
+  ].join("\n"),
   "filtros de estado de cuenta",
 );
 
-const selectedAnchor = `  const projectDialogClient = useMemo(`;
+const selectedAnchor = "  const projectDialogClient = useMemo(";
 if (!source.includes("const accountStatement = useMemo")) {
-  replaceOnce(
+  const calculationBlock = [
+    "  const accountStatement = useMemo(() => {",
+    "    if (!selectedClient) {",
+    "      return { currencies: [] as string[], movements: [] as AccountStatementMovement[], openingBalance: 0, invoiced: 0, paid: 0, credited: 0, closingBalance: 0, overdueBalance: 0, displayCurrency: currencySettings.baseCurrency };",
+    "    }",
+    "",
+    "    const useBase = statementCurrency === \"all\";",
+    "    const displayCurrency = useBase ? currencySettings.baseCurrency : normalizeCurrency(statementCurrency);",
+    "    const currencyOf = (row: any) => normalizeCurrency(row.currency || String(row.invoice_data?.currency || \"\") || currencySettings.baseCurrency);",
+    "    const currencies = Array.from(new Set([",
+    "      ...selectedClient.invoices.map(currencyOf),",
+    "      ...selectedClient.payments.map(currencyOf),",
+    "      ...selectedClient.creditNotes.map(currencyOf),",
+    "    ])).sort();",
+    "    const amount = (row: any, raw: number) => {",
+    "      const rowCurrencyValue = currencyOf(row);",
+    "      if (!useBase && rowCurrencyValue !== displayCurrency) return null;",
+    "      return useBase",
+    "        ? storedOrConvertedBaseMoney(row.total_base ?? row.amount_base, row.base_currency, raw, rowCurrencyValue, currencySettings)",
+    "        : Number(raw || 0);",
+    "    };",
+    "",
+    "    const raw = [",
+    "      ...selectedClient.invoices.filter((row) => normalizeStatus(row.status) !== \"cancelled\").map((row) => {",
+    "        const value = amount(row, row.total);",
+    "        return value == null ? null : { id: \"invoice-\" + row.id, date: String(row.updated_at || row.due_date || \"\").slice(0, 10), type: \"invoice\" as const, reference: row.number || \"Factura\", description: \"Factura emitida\", debit: value, credit: 0, currency: displayCurrency, status: row.status };",
+    "      }),",
+    "      ...selectedClient.completedPayments.map((row) => {",
+    "        const value = amount(row, row.amount);",
+    "        return value == null ? null : { id: \"payment-\" + row.id, date: String(row.payment_date || row.created_at || \"\").slice(0, 10), type: \"payment\" as const, reference: row.payment_number || row.reference || \"Pago\", description: \"Pago recibido · \" + paymentLabel(row.method), debit: 0, credit: value, currency: displayCurrency, status: row.status };",
+    "      }),",
+    "      ...selectedClient.appliedCreditNotes.map((row) => {",
+    "        const value = amount(row, row.amount);",
+    "        return value == null ? null : { id: \"credit-\" + row.id, date: String(row.date_issued || row.created_at || \"\").slice(0, 10), type: \"credit_note\" as const, reference: row.credit_note_number ? \"NC-\" + row.credit_note_number : \"Nota de crédito\", description: row.reason || \"Nota de crédito aplicada\", debit: 0, credit: value, currency: displayCurrency, status: row.status };",
+    "      }),",
+    "    ].filter(Boolean) as Array<Omit<AccountStatementMovement, \"balance\">>;",
+    "",
+    "    raw.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));",
+    "    const openingBalance = raw.filter((row) => statementFrom && row.date < statementFrom).reduce((sum, row) => sum + row.debit - row.credit, 0);",
+    "    const period = raw.filter((row) => (!statementFrom || row.date >= statementFrom) && (!statementTo || row.date <= statementTo));",
+    "    let running = openingBalance;",
+    "    const movements = period.map((row) => ({ ...row, balance: (running += row.debit - row.credit) }));",
+    "    const invoiced = period.reduce((sum, row) => sum + row.debit, 0);",
+    "    const paid = period.filter((row) => row.type === \"payment\").reduce((sum, row) => sum + row.credit, 0);",
+    "    const credited = period.filter((row) => row.type === \"credit_note\").reduce((sum, row) => sum + row.credit, 0);",
+    "    const overdueBalance = selectedClient.overdueInvoices.reduce((sum, invoice) => sum + Number(amount(invoice, invoice.total) || 0), 0);",
+    "    return { currencies, movements, openingBalance, invoiced, paid, credited, closingBalance: openingBalance + invoiced - paid - credited, overdueBalance, displayCurrency };",
+    "  }, [currencySettings, selectedClient, statementCurrency, statementFrom, statementTo]);",
+    "",
+    "  const exportAccountStatement = () => {",
+    "    if (!selectedClient) return;",
+    "    const rows = [[\"Fecha\", \"Tipo\", \"Referencia\", \"Descripción\", \"Débito\", \"Crédito\", \"Saldo\", \"Moneda\", \"Estado\"], ...accountStatement.movements.map((row) => [row.date, row.type, row.reference, row.description, row.debit, row.credit, row.balance, row.currency, row.status])];",
+    "    const csv = rows.map((row) => row.map((value) => '\"' + String(value ?? \"\").replaceAll('\"', '\"\"') + '\"').join(\",\")).join(\"\\n\");",
+    "    const blob = new Blob([csv], { type: \"text/csv;charset=utf-8;\" });",
+    "    const url = URL.createObjectURL(blob);",
+    "    const link = document.createElement(\"a\");",
+    "    link.href = url;",
+    "    link.download = \"estado-cuenta-\" + selectedClient.company_name.replace(/[^a-z0-9]+/gi, \"-\").toLowerCase() + \".csv\";",
+    "    link.click();",
+    "    URL.revokeObjectURL(url);",
+    "  };",
+    "",
+    "  const printAccountStatement = () => {",
+    "    window.print();",
+    "  };",
+    "",
     selectedAnchor,
-    `  const accountStatement = useMemo(() => {\n    if (!selectedClient) {\n      return {\n        currencies: [] as string[],\n        movements: [] as AccountStatementMovement[],\n        openingBalance: 0,\n        invoiced: 0,\n        paid: 0,\n        credited: 0,\n        closingBalance: 0,\n        overdueBalance: 0,\n      };\n    }\n\n    const currencyOf = (row: { currency?: string | null; invoice_data?: Record<string, unknown> | null }) =>\n      normalizeCurrency(row.currency || String(row.invoice_data?.currency || "") || currencySettings.baseCurrency);\n    const currencies = Array.from(\n      new Set([\n        ...selectedClient.invoices.map((row) => currencyOf(row)),\n        ...selectedClient.payments.map((row) => normalizeCurrency(row.currency || currencySettings.baseCurrency)),\n        ...selectedClient.creditNotes.map((row) => normalizeCurrency(row.currency || currencySettings.baseCurrency)),\n      ]),\n    ).sort();\n    const useBase = statementCurrency === "all";\n    const displayCurrency = useBase ? currencySettings.baseCurrency : normalizeCurrency(statementCurrency);\n    const amount = (row: any, raw: number) => {\n      const rowCurrencyValue = currencyOf(row);\n      if (!useBase && rowCurrencyValue !== displayCurrency) return null;\n      return useBase\n        ? storedOrConvertedBaseMoney(\n            row.total_base ?? row.amount_base,\n            row.base_currency,\n            raw,\n            rowCurrencyValue,\n            currencySettings,\n          )\n        : Number(raw || 0);\n    };\n\n    const raw = [\n      ...selectedClient.invoices\n        .filter((row) => normalizeStatus(row.status) !== "cancelled")\n        .map((row) => {\n          const value = amount(row, row.total);\n          if (value == null) return null;\n          return {\n            id: `invoice-\\${row.id}`,\n            date: String(row.updated_at || row.due_date || "").slice(0, 10),\n            type: "invoice" as const,\n            reference: row.number || "Factura",\n            description: "Factura emitida",\n            debit: value,\n            credit: 0,\n            currency: displayCurrency,\n            status: row.status,\n          };\n        }),\n      ...selectedClient.completedPayments.map((row) => {\n        const value = amount(row, row.amount);\n        if (value == null) return null;\n        return {\n          id: `payment-\\${row.id}`,\n          date: String(row.payment_date || row.created_at || "").slice(0, 10),\n          type: "payment" as const,\n          reference: row.payment_number || row.reference || "Pago",\n          description: `Pago recibido · \\${paymentLabel(row.method)}`,\n          debit: 0,\n          credit: value,\n          currency: displayCurrency,\n          status: row.status,\n        };\n      }),\n      ...selectedClient.appliedCreditNotes.map((row) => {\n        const value = amount(row, row.amount);\n        if (value == null) return null;\n        return {\n          id: `credit-\\${row.id}`,\n          date: String(row.date_issued || row.created_at || "").slice(0, 10),\n          type: "credit_note" as const,\n          reference: row.credit_note_number ? `NC-\\${row.credit_note_number}` : "Nota de crédito",\n          description: row.reason || "Nota de crédito aplicada",\n          debit: 0,\n          credit: value,\n          currency: displayCurrency,\n          status: row.status,\n        };\n      }),\n    ].filter(Boolean) as Array<Omit<AccountStatementMovement, "balance">>;\n\n    raw.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));\n    const before = raw.filter((row) => statementFrom && row.date < statementFrom);\n    const openingBalance = before.reduce((sum, row) => sum + row.debit - row.credit, 0);\n    const period = raw.filter(\n      (row) => (!statementFrom || row.date >= statementFrom) && (!statementTo || row.date <= statementTo),\n    );\n    let running = openingBalance;\n    const movements = period.map((row) => {\n      running += row.debit - row.credit;\n      return { ...row, balance: running };\n    });\n    const invoiced = period.reduce((sum, row) => sum + row.debit, 0);\n    const credits = period.reduce((sum, row) => sum + row.credit, 0);\n    const paid = period.filter((row) => row.type === "payment").reduce((sum, row) => sum + row.credit, 0);\n    const credited = period\n      .filter((row) => row.type === "credit_note")\n      .reduce((sum, row) => sum + row.credit, 0);\n    const overdueBalance = selectedClient.overdueInvoices.reduce((sum, invoice) => {\n      const value = amount(invoice, invoice.total);\n      return sum + Number(value || 0);\n    }, 0);\n\n    return {\n      currencies,\n      movements,\n      openingBalance,\n      invoiced,\n      paid,\n      credited,\n      closingBalance: openingBalance + invoiced - credits,\n      overdueBalance,\n      displayCurrency,\n    };\n  }, [currencySettings, selectedClient, statementCurrency, statementFrom, statementTo]);\n\n  const exportAccountStatement = () => {\n    if (!selectedClient) return;\n    const rows = [\n      ["Fecha", "Tipo", "Referencia", "Descripción", "Débito", "Crédito", "Saldo", "Moneda", "Estado"],\n      ...accountStatement.movements.map((row) => [\n        row.date,\n        row.type === "invoice" ? "Factura" : row.type === "payment" ? "Pago" : "Nota de crédito",\n        row.reference,\n        row.description,\n        row.debit,\n        row.credit,\n        row.balance,\n        row.currency,\n        row.status,\n      ]),\n    ];\n    const csv = rows\n      .map((row) => row.map((value) => `"\\${String(value ?? "").replaceAll('"', '""')}"`).join(","))\n      .join("\\n");\n    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });\n    const url = URL.createObjectURL(blob);\n    const link = document.createElement("a");\n    link.href = url;\n    link.download = `estado-cuenta-\\${selectedClient.company_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.csv`;\n    link.click();\n    URL.revokeObjectURL(url);\n  };\n\n  const printAccountStatement = () => {\n    if (!selectedClient) return;\n    const currency = accountStatement.displayCurrency || currencySettings.baseCurrency;\n    const rows = accountStatement.movements\n      .map((row) => `\n        <tr><td>\\${row.date}</td><td>\\${row.reference}</td><td>\\${row.description}</td><td style="text-align:right">\\${money(row.debit, currency)}</td><td style="text-align:right">\\${money(row.credit, currency)}</td><td style="text-align:right">\\${money(row.balance, currency)}</td></tr>`)\n      .join("");\n    const popup = window.open("", "_blank", "noopener,noreferrer");\n    if (!popup) return;\n    popup.document.write(`<!doctype html><html><head><title>Estado de cuenta</title><style>body{font-family:Arial,sans-serif;padding:32px;color:#0f172a}h1{font-size:22px;margin:0}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:24px;font-size:12px}th,td{border-bottom:1px solid #e2e8f0;padding:9px;text-align:left}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}.box{border:1px solid #e2e8f0;padding:12px}.label{font-size:10px;text-transform:uppercase;color:#64748b}.value{font-size:18px;margin-top:6px}</style></head><body><h1>Estado de cuenta</h1><p>\\${selectedClient.company_name} · \\${statementFrom || "Inicio"} al \\${statementTo || "Hoy"}</p><div class="summary"><div class="box"><div class="label">Saldo inicial</div><div class="value">\\${money(accountStatement.openingBalance,currency)}</div></div><div class="box"><div class="label">Facturado</div><div class="value">\\${money(accountStatement.invoiced,currency)}</div></div><div class="box"><div class="label">Pagos y créditos</div><div class="value">\\${money(accountStatement.paid+accountStatement.credited,currency)}</div></div><div class="box"><div class="label">Saldo final</div><div class="value">\\${money(accountStatement.closingBalance,currency)}</div></div></div><table><thead><tr><th>Fecha</th><th>Referencia</th><th>Descripción</th><th>Débito</th><th>Crédito</th><th>Saldo</th></tr></thead><tbody>\\${rows || '<tr><td colspan="6">Sin movimientos</td></tr>'}</tbody></table><script>window.print();</script></body></html>`);\n    popup.document.close();\n  };\n\n${selectedAnchor}`,
-    "cálculo del estado de cuenta",
-  );
+  ].join("\n");
+
+  replaceOnce(selectedAnchor, calculationBlock, "cálculo del estado de cuenta");
 }
 
-const contactsAnchor = `                    <TabsContent\n                      data-demo="client-360-contacts-section"`;
+const contactsAnchor = '                    <TabsContent\n                      data-demo="client-360-contacts-section"';
 if (!source.includes('data-demo="client-360-statement"')) {
-  replaceOnce(
+  const statementBlock = [
+    '                    <TabsContent data-demo="client-360-statement" value="statement" className="space-y-5">',
+    '                      <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 xl:flex-row xl:items-end xl:justify-between">',
+    '                        <div><h3 className="text-base font-semibold text-slate-950">Estado de cuenta</h3><p className="mt-1 text-sm text-slate-500">Facturas, pagos y notas de crédito con saldo acumulado.</p></div>',
+    '                        <div className="flex flex-wrap items-end gap-2">',
+    '                          <div className="space-y-1"><Label className="text-xs text-slate-500">Desde</Label><Input type="date" value={statementFrom} onChange={(event) => setStatementFrom(event.target.value)} className="h-9 w-[150px]" /></div>',
+    '                          <div className="space-y-1"><Label className="text-xs text-slate-500">Hasta</Label><Input type="date" value={statementTo} onChange={(event) => setStatementTo(event.target.value)} className="h-9 w-[150px]" /></div>',
+    '                          <div className="space-y-1"><Label className="text-xs text-slate-500">Moneda</Label><Select value={statementCurrency} onValueChange={setStatementCurrency}><SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Moneda base</SelectItem>{accountStatement.currencies.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}</SelectContent></Select></div>',
+    '                          <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportAccountStatement}><Download className="mr-2 h-4 w-4" />CSV</Button>',
+    '                          <Button type="button" variant="outline" size="sm" className="h-9" onClick={printAccountStatement}><Printer className="mr-2 h-4 w-4" />Imprimir / PDF</Button>',
+    '                        </div>',
+    '                      </div>',
+    '                      <CrmDetailSummaryGrid columns={4} items={[',
+    '                        { key: "opening", label: "Saldo inicial", value: money(accountStatement.openingBalance, accountStatement.displayCurrency) },',
+    '                        { key: "invoiced", label: "Facturado", value: money(accountStatement.invoiced, accountStatement.displayCurrency) },',
+    '                        { key: "paid", label: "Pagos recibidos", value: money(accountStatement.paid, accountStatement.displayCurrency) },',
+    '                        { key: "credits", label: "Notas de crédito", value: money(accountStatement.credited, accountStatement.displayCurrency) },',
+    '                        { key: "overdue", label: "Monto vencido", value: money(accountStatement.overdueBalance, accountStatement.displayCurrency) },',
+    '                        { key: "closing", label: "Saldo pendiente", value: money(accountStatement.closingBalance, accountStatement.displayCurrency) },',
+    '                      ]} />',
+    '                      <div className="overflow-x-auto border-y border-slate-100">',
+    '                        <Table className="min-w-[860px]">',
+    '                          <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Movimiento</TableHead><TableHead>Referencia</TableHead><TableHead>Descripción</TableHead><TableHead className="text-right">Débito</TableHead><TableHead className="text-right">Crédito</TableHead><TableHead className="text-right">Saldo</TableHead></TableRow></TableHeader>',
+    '                          <TableBody>{accountStatement.movements.length === 0 ? <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-slate-500">No hay movimientos en el período seleccionado.</TableCell></TableRow> : accountStatement.movements.map((row) => <TableRow key={row.id}><TableCell>{formatDate(row.date)}</TableCell><TableCell>{row.type === "invoice" ? "Factura" : row.type === "payment" ? "Pago" : "Nota de crédito"}</TableCell><TableCell className="font-medium text-slate-950">{row.reference}</TableCell><TableCell className="max-w-[260px] truncate text-slate-500">{row.description}</TableCell><TableCell className="text-right">{row.debit ? money(row.debit, row.currency) : "—"}</TableCell><TableCell className="text-right text-emerald-700">{row.credit ? money(row.credit, row.currency) : "—"}</TableCell><TableCell className="text-right font-semibold text-slate-950">{money(row.balance, row.currency)}</TableCell></TableRow>)}</TableBody>',
+    '                        </Table>',
+    '                      </div>',
+    '                      <p className="text-xs text-slate-500">El saldo se calcula con facturas no canceladas menos pagos completados y notas de crédito emitidas o aplicadas.</p>',
+    '                    </TabsContent>',
+    '',
     contactsAnchor,
-    `                    <TabsContent\n                      data-demo="client-360-statement"\n                      value="statement"\n                      className="space-y-5"\n                    >\n                      <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 xl:flex-row xl:items-end xl:justify-between">\n                        <div>\n                          <h3 className="text-base font-semibold text-slate-950">Estado de cuenta</h3>\n                          <p className="mt-1 text-sm text-slate-500">Facturas, pagos y notas de crédito con saldo acumulado.</p>\n                        </div>\n                        <div className="flex flex-wrap items-end gap-2">\n                          <div className="space-y-1"><Label className="text-xs text-slate-500">Desde</Label><Input type="date" value={statementFrom} onChange={(event) => setStatementFrom(event.target.value)} className="h-9 w-[150px]" /></div>\n                          <div className="space-y-1"><Label className="text-xs text-slate-500">Hasta</Label><Input type="date" value={statementTo} onChange={(event) => setStatementTo(event.target.value)} className="h-9 w-[150px]" /></div>\n                          <div className="space-y-1"><Label className="text-xs text-slate-500">Moneda</Label><Select value={statementCurrency} onValueChange={setStatementCurrency}><SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Moneda base</SelectItem>{accountStatement.currencies.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}</SelectContent></Select></div>\n                          <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportAccountStatement}><Download className="mr-2 h-4 w-4" />CSV</Button>\n                          <Button type="button" variant="outline" size="sm" className="h-9" onClick={printAccountStatement}><Printer className="mr-2 h-4 w-4" />Imprimir / PDF</Button>\n                        </div>\n                      </div>\n\n                      <CrmDetailSummaryGrid\n                        columns={4}\n                        items={[\n                          { key: "opening", label: "Saldo inicial", value: money(accountStatement.openingBalance, accountStatement.displayCurrency) },\n                          { key: "invoiced", label: "Facturado", value: money(accountStatement.invoiced, accountStatement.displayCurrency) },\n                          { key: "received", label: "Pagos recibidos", value: money(accountStatement.paid, accountStatement.displayCurrency) },\n                          { key: "credits", label: "Notas de crédito", value: money(accountStatement.credited, accountStatement.displayCurrency) },\n                          { key: "overdue", label: "Monto vencido", value: money(accountStatement.overdueBalance, accountStatement.displayCurrency) },\n                          { key: "closing", label: "Saldo pendiente", value: money(accountStatement.closingBalance, accountStatement.displayCurrency) },\n                        ]}\n                      />\n\n                      <div className="overflow-x-auto border-y border-slate-100">\n                        <Table className="min-w-[860px]">\n                          <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Movimiento</TableHead><TableHead>Referencia</TableHead><TableHead>Descripción</TableHead><TableHead className="text-right">Débito</TableHead><TableHead className="text-right">Crédito</TableHead><TableHead className="text-right">Saldo</TableHead></TableRow></TableHeader>\n                          <TableBody>\n                            {accountStatement.movements.length === 0 ? (\n                              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-slate-500">No hay movimientos en el período seleccionado.</TableCell></TableRow>\n                            ) : accountStatement.movements.map((row) => (\n                              <TableRow key={row.id}>\n                                <TableCell>{formatDate(row.date)}</TableCell>\n                                <TableCell><StatusBadge status={row.type === "invoice" ? "Factura" : row.type === "payment" ? "Pago" : "Nota de crédito"} /></TableCell>\n                                <TableCell className="font-medium text-slate-950">{row.reference}</TableCell>\n                                <TableCell className="max-w-[260px] truncate text-slate-500">{row.description}</TableCell>\n                                <TableCell className="text-right">{row.debit ? money(row.debit, row.currency) : "—"}</TableCell>\n                                <TableCell className="text-right text-emerald-700">{row.credit ? money(row.credit, row.currency) : "—"}</TableCell>\n                                <TableCell className="text-right font-semibold text-slate-950">{money(row.balance, row.currency)}</TableCell>\n                              </TableRow>\n                            ))}\n                          </TableBody>\n                        </Table>\n                      </div>\n\n                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">\n                        <p className="text-xs text-slate-500">El saldo se calcula con facturas no canceladas menos pagos completados y notas de crédito emitidas o aplicadas.</p>\n                        <div className="flex gap-2">\n                          <Button type="button" variant="outline" size="sm" onClick={() => { const email = selectedClient.primaryContact?.email || selectedClient.email; if (!email) { toast.info("El cliente no tiene correo registrado."); return; } const subject = encodeURIComponent(`Estado de cuenta - \\${selectedClient.company_name}`); const body = encodeURIComponent(`Hola, adjuntamos el estado de cuenta de \\${selectedClient.company_name}. Saldo pendiente: \\${money(accountStatement.closingBalance, accountStatement.displayCurrency)}.`); window.location.href = `mailto:\\${email}?subject=\\${subject}&body=\\${body}`; }}><Mail className="mr-2 h-4 w-4" />Enviar por email</Button>\n                          <Button type="button" variant="outline" size="sm" onClick={() => { const phone = selectedClient.whatsapp || selectedClient.phone; if (!phone) { toast.info("El cliente no tiene WhatsApp registrado."); return; } const text = encodeURIComponent(`Estado de cuenta de \\${selectedClient.company_name}. Saldo pendiente: \\${money(accountStatement.closingBalance, accountStatement.displayCurrency)}.`); window.open(`https://wa.me/\\${String(phone).replace(/\\D/g, "")}?text=\\${text}`, "_blank", "noopener,noreferrer"); }}><Globe className="mr-2 h-4 w-4" />WhatsApp</Button>\n                        </div>\n                      </div>\n                    </TabsContent>\n\n${contactsAnchor}`,
-    "contenido estado de cuenta",
-  );
+  ].join("\n");
+
+  replaceOnce(contactsAnchor, statementBlock, "contenido estado de cuenta");
 }
 
 fs.writeFileSync(file, source);
