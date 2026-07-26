@@ -56,26 +56,52 @@ function getClientValue(proposal: any, key: string) {
   return client?.[key] ?? "";
 }
 
+function proposalData(proposal: any) {
+  return proposal?.proposal_data && typeof proposal.proposal_data === "object"
+    ? proposal.proposal_data
+    : {};
+}
+
 function getCompanyValue(
   proposal: any,
   company: ProposalCompanyProfile | null | undefined,
   key: keyof ProposalCompanyProfile,
-  snapshotKey: string,
+  issuerSnapshotKey: string,
+  legacySnapshotKey: string,
 ) {
-  const data =
-    proposal?.proposal_data && typeof proposal.proposal_data === "object"
-      ? proposal.proposal_data
-      : {};
-  return clean(data?.[snapshotKey]) || clean(company?.[key]);
+  const data = proposalData(proposal);
+  return (
+    clean(data?.[issuerSnapshotKey]) ||
+    clean(data?.[legacySnapshotKey]) ||
+    clean(company?.[key])
+  );
 }
 
 function buildCompanyAddress(
   proposal: any,
   company: ProposalCompanyProfile | null | undefined,
 ) {
-  const snapshot = getCompanyValue(proposal, company, "address", "companyAddress");
-  const city = getCompanyValue(proposal, company, "city", "companyCity");
-  const country = getCompanyValue(proposal, company, "country", "companyCountry");
+  const address = getCompanyValue(
+    proposal,
+    company,
+    "address",
+    "issuerAddress",
+    "companyAddress",
+  );
+  const city = getCompanyValue(
+    proposal,
+    company,
+    "city",
+    "issuerCity",
+    "companyCity",
+  );
+  const country = getCompanyValue(
+    proposal,
+    company,
+    "country",
+    "issuerCountry",
+    "companyCountry",
+  );
   const parts: string[] = [];
 
   const appendUnique = (value: string) => {
@@ -84,7 +110,7 @@ function buildCompanyAddress(
     if (!current.includes(value.toLocaleLowerCase("es"))) parts.push(value);
   };
 
-  appendUnique(snapshot);
+  appendUnique(address);
   appendUnique(city);
   appendUnique(country);
   return parts.join(", ");
@@ -142,10 +168,7 @@ function buildMergeFields(
   items: any[],
   company?: ProposalCompanyProfile | null,
 ) {
-  const data =
-    proposal?.proposal_data && typeof proposal.proposal_data === "object"
-      ? proposal.proposal_data
-      : {};
+  const data = proposalData(proposal);
   const currency = String(proposal?.currency || "USD");
   const clientName =
     proposal?.recipient_name ||
@@ -154,12 +177,48 @@ function buildMergeFields(
     data?.companyName ||
     data?.clientName ||
     "Cliente";
-  const companyName = getCompanyValue(proposal, company, "company_name", "companyName");
-  const companyTaxId = getCompanyValue(proposal, company, "tax_id", "companyTaxId");
-  const companyEmail = getCompanyValue(proposal, company, "email", "companyEmail");
-  const companyPhone = getCompanyValue(proposal, company, "phone", "companyPhone");
-  const companyWebsite = getCompanyValue(proposal, company, "website", "companyWebsite");
-  const companyLogo = getCompanyValue(proposal, company, "logo_url", "companyLogoUrl");
+  const companyName = getCompanyValue(
+    proposal,
+    company,
+    "company_name",
+    "issuerName",
+    "companyName",
+  );
+  const companyTaxId = getCompanyValue(
+    proposal,
+    company,
+    "tax_id",
+    "issuerTaxId",
+    "companyTaxId",
+  );
+  const companyEmail = getCompanyValue(
+    proposal,
+    company,
+    "email",
+    "issuerEmail",
+    "companyEmail",
+  );
+  const companyPhone = getCompanyValue(
+    proposal,
+    company,
+    "phone",
+    "issuerPhone",
+    "companyPhone",
+  );
+  const companyWebsite = getCompanyValue(
+    proposal,
+    company,
+    "website",
+    "issuerWebsite",
+    "companyWebsite",
+  );
+  const companyLogo = getCompanyValue(
+    proposal,
+    company,
+    "logo_url",
+    "issuerLogoUrl",
+    "companyLogoUrl",
+  );
 
   return {
     proposal_number: proposal?.number || "PROP",
@@ -188,8 +247,20 @@ function buildMergeFields(
     company_email: companyEmail,
     company_phone: companyPhone,
     company_address: buildCompanyAddress(proposal, company),
-    company_city: getCompanyValue(proposal, company, "city", "companyCity"),
-    company_country: getCompanyValue(proposal, company, "country", "companyCountry"),
+    company_city: getCompanyValue(
+      proposal,
+      company,
+      "city",
+      "issuerCity",
+      "companyCity",
+    ),
+    company_country: getCompanyValue(
+      proposal,
+      company,
+      "country",
+      "issuerCountry",
+      "companyCountry",
+    ),
     company_website: companyWebsite,
     company_logo: companyLogo,
   } as Record<string, string>;
