@@ -2644,7 +2644,6 @@ function LeadsPage() {
               >
                 {[
                   ["overview", "Perfil", Users],
-                  ["opportunity", "Oportunidad", Target],
                   ["proposals", "Propuestas " + (leadProposals.length || ""), FileText],
                   ["tasks", "Tareas " + (leadTasks.length || ""), Check],
                   ["files", "Archivos", FolderOpen],
@@ -2667,176 +2666,58 @@ function LeadsPage() {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4 data-[state=inactive]:hidden">
-                <div data-demo="leads-quick-actions">
-                  <CrmDetailSection
-                    title="Acciones rápidas"
-                    icon={<Target className="h-3.5 w-3.5" />}
-                    action={
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <CrmDetailLineButton className="h-8">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                            Más
-                          </CrmDetailLineButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            disabled={!can("leads.edit")}
-                            onClick={() => can("leads.edit") && openEdit(selectedLead)}
-                          >
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!can("leads.delete")}
-                            onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    }
-                  >
-                    <CrmDetailActionGrid
-                      actions={[
-                        {
-                          key: "convert-client",
-                          label: selectedLead.converted_client_id ? "Abrir cliente" : "Convertir en cliente",
-                          icon: <Users className="h-4 w-4" />,
-                          onClick: () => {
-                            if (selectedLead.converted_client_id) {
-                              void navigate({ to: "/clients", search: { clientId: selectedLead.converted_client_id } });
-                              return;
-                            }
-                            setConvertReviewOpen(true);
-                          },
-                          disabled: convertingClient,
-                        },
-                        {
-                          key: "whatsapp",
-                          label: openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp",
-                          icon: <MessageCircle className="h-4 w-4" />,
-                          tone: "success",
-                          onClick: () => void handleOpenWhatsAppFromLead(selectedLead),
-                          disabled:
-                            openingWhatsapp ||
-                            !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone),
-                          title: !normalizePhoneForWhatsApp(
-                            selectedLead.whatsapp || selectedLead.phone,
-                          )
-                            ? "Este prospecto no tiene teléfono o WhatsApp válido."
-                            : undefined,
-                        },
-                        {
-                          key: "email",
-                          label: "Email",
-                          icon: <Mail className="h-4 w-4" />,
-                          onClick: () => {
-                            if (!selectedLead.email) {
-                              toast.message("Este prospecto no tiene email");
-                              return;
-                            }
-                            window.location.href = `mailto:${selectedLead.email}`;
-                          },
-                        },
-                        {
-                          key: "call",
-                          label: "Llamar",
-                          icon: <Phone className="h-4 w-4" />,
-                          onClick: () => {
-                            if (!selectedLead.phone) {
-                              toast.message("Este prospecto no tiene teléfono");
-                              return;
-                            }
-                            window.location.href = `tel:${selectedLead.phone}`;
-                          },
-                        },
-                        {
-                          key: "follow-up",
-                          label: "Crear seguimiento",
-                          icon: <Calendar className="h-4 w-4" />,
-                          onClick: () => openFollowUpDialog(selectedLead),
-                          disabled:
-                            !can("tasks.create") ||
-                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
-                          title: !can("tasks.create")
-                            ? "No tienes permiso para crear seguimiento."
-                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                              ? "Solo puedes crear seguimiento para tus propios prospectos."
-                              : undefined,
-                        },
-                        {
-                          key: "proposal",
-                          label: "Crear propuesta",
-                          icon: <FileText className="h-4 w-4" />,
-                          onClick: () => setQuickProposalOpen(true),
-                          disabled:
-                            !can("deals.create") ||
-                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
-                          title: !can("deals.create")
-                            ? "No tienes permiso para crear propuestas."
-                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                              ? "Solo puedes crear propuestas para tus propios prospectos."
-                              : undefined,
-                        },
-                      ]}
-                    />
-                    <div className="pt-2 text-[11px] font-normal text-slate-500">
-                      {!can("leads.edit")
-                        ? "No tienes permiso para editar este prospecto."
-                        : "Edita, contacta y avanza este prospecto desde aquí."}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <CrmDetailSection title="Información del prospecto" icon={<Users className="h-3.5 w-3.5" />}>
+                    <div className="space-y-2">
+                      <CrmDetailRow label="Nombre completo" value={getLeadName(selectedLead)} />
+                      <CrmDetailRow label="Cargo" value={selectedLead.position || "—"} />
+                      <CrmDetailRow label="Departamento" value={selectedLead.department || "—"} />
+                      <CrmDetailRow label="Empresa" value={selectedLead.company_name || "—"} />
+                      <CrmDetailRow label="Correo" value={selectedLead.email || "—"} />
+                      <CrmDetailRow label="Teléfono" value={selectedLead.phone || "—"} />
+                      <CrmDetailRow label="WhatsApp" value={selectedLead.whatsapp || "—"} />
+                      <CrmDetailRow label="Sitio web" value={selectedLead.website || "—"} />
+                    </div>
+                  </CrmDetailSection>
+
+                  <CrmDetailSection title="Información comercial" icon={<Target className="h-3.5 w-3.5" />}>
+                    <div className="space-y-2">
+                      <CrmDetailRow label="Estado" value={getStatusLabel(selectedLead.status)} />
+                      <CrmDetailRow label="Fuente" value={getSourceLabel(selectedLead.source)} />
+                      <CrmDetailRow label="Canal" value={selectedLead.source_channel || selectedLead.first_touch_channel || "—"} />
+                      <CrmDetailRow label="Plataforma" value={selectedLead.source_platform || "—"} />
+                      <CrmDetailRow label="Servicio de interés" value={selectedServiceLabel || "—"} />
+                      <CrmDetailRow label="Valor estimado" value={formatCurrencyAmount(selectedLead.estimated_value || 0, selectedLead.currency || currencySettings.baseCurrency)} />
+                      <CrmDetailRow label="Responsable" value={getAssigneeLabel(selectedLead)} />
+                      <CrmDetailRow label="Último contacto" value={formatDate(selectedLead.last_interaction_at || selectedLead.updated_at)} />
+                    </div>
+                  </CrmDetailSection>
+
+                  <CrmDetailSection title="Ubicación" icon={<FolderOpen className="h-3.5 w-3.5" />}>
+                    <div className="space-y-2">
+                      <CrmDetailRow label="Dirección" value={selectedLead.address || "—"} />
+                      <CrmDetailRow label="Ciudad" value={selectedLead.city || "—"} />
+                      <CrmDetailRow label="Estado / provincia" value={selectedLead.state || "—"} />
+                      <CrmDetailRow label="País" value={selectedLead.country || "—"} />
+                      <CrmDetailRow label="Código postal" value={selectedLead.postal_code || "—"} />
+                    </div>
+                  </CrmDetailSection>
+
+                  <CrmDetailSection title="Registro y seguimiento" icon={<Calendar className="h-3.5 w-3.5" />}>
+                    <div className="space-y-2">
+                      <CrmDetailRow label="Creado" value={formatDate(selectedLead.created_at)} />
+                      <CrmDetailRow label="Última actualización" value={formatDate(selectedLead.updated_at)} />
+                      <CrmDetailRow label="Idioma" value={selectedLead.default_language || "Sistema"} />
+                      <CrmDetailRow label="Visibilidad" value={selectedLead.is_public ? "Público" : "Privado"} />
+                      <CrmDetailRow label="Etiquetas" value={selectedLead.tags?.length ? selectedLead.tags.join(", ") : "—"} />
+                      <CrmDetailRow label="ID externo" value={selectedLead.external_id || "—"} />
                     </div>
                   </CrmDetailSection>
                 </div>
-              </TabsContent>
 
-              <TabsContent value="followup" className="space-y-4 data-[state=inactive]:hidden">
-                <div data-demo="leads-followup">
-                  <CrmDetailSection
-                    title="Seguimiento"
-                    icon={<Calendar className="h-3.5 w-3.5" />}
-                    action={
-                      <CrmDetailLineButton
-                        className="h-8"
-                        onClick={() => openFollowUpDialog(selectedLead)}
-                        disabled={
-                          !can("tasks.create") ||
-                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                        }
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Crear
-                      </CrmDetailLineButton>
-                    }
-                  >
-                    {signalsLoading ? (
-                      <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
-                    ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold truncate">
-                          {signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}
-                        </div>
-                        <div className="text-[13px] text-muted-foreground">
-                          {formatDateShort(signalsByLeadId[selectedLead.id]?.nextTaskDueDate)} ·{" "}
-                          {signalsByLeadId[selectedLead.id]?.nextTaskStatus || "—"}
-                        </div>
-                      </div>
-                    ) : (
-                      <CrmDetailEmptyState>
-                        Este prospecto no tiene seguimiento programado.
-                      </CrmDetailEmptyState>
-                    )}
-                    {signalsError ? (
-                      <div className="mt-2 text-xs font-medium text-destructive">
-                        {signalsError}
-                      </div>
-                    ) : null}
-                  </CrmDetailSection>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="opportunity" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection
+                <CrmDetailSection title="Oportunidad comercial" icon={<Target className="h-3.5 w-3.5" />}>
+                  <div className="space-y-4">
+<CrmDetailSection
                   title="Oportunidad comercial"
                   icon={<Target className="h-3.5 w-3.5" />}
                   action={
@@ -3047,11 +2928,180 @@ function LeadsPage() {
                 >
                   {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
                 </Button>
+                  </div>
+                </CrmDetailSection>
+
+                <div data-demo="leads-quick-actions">
+                  <CrmDetailSection
+                    title="Acciones rápidas"
+                    icon={<Target className="h-3.5 w-3.5" />}
+                    action={
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <CrmDetailLineButton className="h-8">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                            Más
+                          </CrmDetailLineButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={!can("leads.edit")}
+                            onClick={() => can("leads.edit") && openEdit(selectedLead)}
+                          >
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!can("leads.delete")}
+                            onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    }
+                  >
+                    <CrmDetailActionGrid
+                      actions={[
+                        {
+                          key: "convert-client",
+                          label: selectedLead.converted_client_id ? "Abrir cliente" : "Convertir en cliente",
+                          icon: <Users className="h-4 w-4" />,
+                          onClick: () => {
+                            if (selectedLead.converted_client_id) {
+                              void navigate({ to: "/clients", search: { clientId: selectedLead.converted_client_id } });
+                              return;
+                            }
+                            setConvertReviewOpen(true);
+                          },
+                          disabled: convertingClient,
+                        },
+                        {
+                          key: "whatsapp",
+                          label: openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp",
+                          icon: <MessageCircle className="h-4 w-4" />,
+                          tone: "success",
+                          onClick: () => void handleOpenWhatsAppFromLead(selectedLead),
+                          disabled:
+                            openingWhatsapp ||
+                            !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone),
+                          title: !normalizePhoneForWhatsApp(
+                            selectedLead.whatsapp || selectedLead.phone,
+                          )
+                            ? "Este prospecto no tiene teléfono o WhatsApp válido."
+                            : undefined,
+                        },
+                        {
+                          key: "email",
+                          label: "Email",
+                          icon: <Mail className="h-4 w-4" />,
+                          onClick: () => {
+                            if (!selectedLead.email) {
+                              toast.message("Este prospecto no tiene email");
+                              return;
+                            }
+                            window.location.href = `mailto:${selectedLead.email}`;
+                          },
+                        },
+                        {
+                          key: "call",
+                          label: "Llamar",
+                          icon: <Phone className="h-4 w-4" />,
+                          onClick: () => {
+                            if (!selectedLead.phone) {
+                              toast.message("Este prospecto no tiene teléfono");
+                              return;
+                            }
+                            window.location.href = `tel:${selectedLead.phone}`;
+                          },
+                        },
+                        {
+                          key: "follow-up",
+                          label: "Crear seguimiento",
+                          icon: <Calendar className="h-4 w-4" />,
+                          onClick: () => openFollowUpDialog(selectedLead),
+                          disabled:
+                            !can("tasks.create") ||
+                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
+                          title: !can("tasks.create")
+                            ? "No tienes permiso para crear seguimiento."
+                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                              ? "Solo puedes crear seguimiento para tus propios prospectos."
+                              : undefined,
+                        },
+                        {
+                          key: "proposal",
+                          label: "Crear propuesta",
+                          icon: <FileText className="h-4 w-4" />,
+                          onClick: () => setQuickProposalOpen(true),
+                          disabled:
+                            !can("deals.create") ||
+                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
+                          title: !can("deals.create")
+                            ? "No tienes permiso para crear propuestas."
+                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
+                              ? "Solo puedes crear propuestas para tus propios prospectos."
+                              : undefined,
+                        },
+                      ]}
+                    />
+                    <div className="pt-2 text-[11px] font-normal text-slate-500">
+                      {!can("leads.edit")
+                        ? "No tienes permiso para editar este prospecto."
+                        : "Edita, contacta y avanza este prospecto desde aquí."}
+                    </div>
+                  </CrmDetailSection>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="followup" className="space-y-4 data-[state=inactive]:hidden">
+                <div data-demo="leads-followup">
+                  <CrmDetailSection
+                    title="Seguimiento"
+                    icon={<Calendar className="h-3.5 w-3.5" />}
+                    action={
+                      <CrmDetailLineButton
+                        className="h-8"
+                        onClick={() => openFollowUpDialog(selectedLead)}
+                        disabled={
+                          !can("tasks.create") ||
+                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                        }
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Crear
+                      </CrmDetailLineButton>
+                    }
+                  >
+                    {signalsLoading ? (
+                      <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
+                    ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold truncate">
+                          {signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}
+                        </div>
+                        <div className="text-[13px] text-muted-foreground">
+                          {formatDateShort(signalsByLeadId[selectedLead.id]?.nextTaskDueDate)} ·{" "}
+                          {signalsByLeadId[selectedLead.id]?.nextTaskStatus || "—"}
+                        </div>
+                      </div>
+                    ) : (
+                      <CrmDetailEmptyState>
+                        Este prospecto no tiene seguimiento programado.
+                      </CrmDetailEmptyState>
+                    )}
+                    {signalsError ? (
+                      <div className="mt-2 text-xs font-medium text-destructive">
+                        {signalsError}
+                      </div>
+                    ) : null}
+                  </CrmDetailSection>
+                </div>
               </TabsContent>
 
               <TabsContent value="overview" className="space-y-4 data-[state=inactive]:hidden">
                 <div data-demo="leads-assignment">
-                  <CrmDetailSection title="Asignación" icon={<Users className="h-3.5 w-3.5" />}>
+                  <CrmDetailSection title="Responsable comercial" icon={<Users className="h-3.5 w-3.5" />}>
                     <CrmDetailRow
                       label="Responsable"
                       value={
@@ -3101,19 +3151,6 @@ function LeadsPage() {
                         )
                       }
                     />
-                  </CrmDetailSection>
-                </div>
-
-                <div data-demo="leads-contact">
-                  <CrmDetailSection title="Contacto" icon={<Phone className="h-3.5 w-3.5" />}>
-                    <div className="space-y-2">
-                      <CrmDetailRow label="Teléfono" value={selectedLead.phone || "—"} />
-                      <CrmDetailRow label="WhatsApp" value={selectedLead.whatsapp || "—"} />
-                      <CrmDetailRow
-                        label="Servicio de interés"
-                        value={selectedServiceLabel || "—"}
-                      />
-                    </div>
                   </CrmDetailSection>
                 </div>
               </TabsContent>
