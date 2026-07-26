@@ -72,8 +72,8 @@ function PaymentsPage() {
   const [paymentWorkspaceOpen, setPaymentWorkspaceOpen] = useState(false);
 
   const enrichPaymentRows = useCallback(
-    async (rows: Record<string, any>[]) =>
-      Promise.all(
+    async (rows: Record<string, any>[]) => {
+      const enriched = await Promise.all(
         rows.map(async (payment) => {
           const balance = await loadPaymentNetBalance(
             payment,
@@ -91,7 +91,13 @@ function PaymentsPage() {
             display_status: balance.displayStatus,
           };
         }),
-      ),
+      );
+
+      return enriched.sort(
+        (left, right) =>
+          Number(right.payment_number || 0) - Number(left.payment_number || 0),
+      );
+    },
     [profile?.company_id],
   );
 
