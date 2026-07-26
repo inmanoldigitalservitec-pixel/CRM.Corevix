@@ -112,9 +112,8 @@ function AppShell() {
   const firstRunSetup = useFirstRunSetup();
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const isLoginPage = currentPath === "/login";
-  const isPublicProposalRoute = currentPath.startsWith("/proposal/public/");
-  const isPublicInvoiceRoute = currentPath.startsWith("/invoice/public/");
-  const isPublicRoute = isLoginPage || isPublicProposalRoute || isPublicInvoiceRoute;
+  const isPublicDocumentRoute = currentPath.includes("/public/");
+  const isPublicRoute = isLoginPage || isPublicDocumentRoute;
   const isAiRoute = currentPath === "/ai-assistant";
   const isProposalBuilderRoute = currentPath.startsWith("/proposal-builder/");
 
