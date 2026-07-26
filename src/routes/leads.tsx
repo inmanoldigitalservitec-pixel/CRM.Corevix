@@ -2628,6 +2628,7 @@ function LeadsPage() {
           status={selectedLead?.status}
           accent="blue"
           size="lg"
+          presentation="modal"
           icon={<Users className="h-5 w-5 text-blue-600" />}
           badges={
             selectedLead ? (
