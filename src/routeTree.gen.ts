@@ -51,6 +51,9 @@ import { Route as ProposalBuilderProposalIdRouteImport } from './routes/proposal
 import { Route as ProposalsProposalIdBuilderRouteImport } from './routes/proposals/$proposalId/builder'
 import { Route as ProposalPublicPublicTokenRouteImport } from './routes/proposal/public/$publicToken'
 import { Route as InvoicePublicPublicTokenRouteImport } from './routes/invoice/public/$publicToken'
+import { Route as EstimatePublicPublicTokenRouteImport } from './routes/estimate/public/$publicToken'
+import { Route as CreditNotePublicPublicTokenRouteImport } from './routes/credit-note/public/$publicToken'
+import { Route as ContractPublicPublicTokenRouteImport } from './routes/contract/public/$publicToken'
 
 const WhatsappWebRoute = WhatsappWebRouteImport.update({
   id: '/whatsapp-web',
@@ -266,6 +269,24 @@ const InvoicePublicPublicTokenRoute =
     path: '/invoice/public/$publicToken',
     getParentRoute: () => rootRouteImport,
   } as any)
+const EstimatePublicPublicTokenRoute =
+  EstimatePublicPublicTokenRouteImport.update({
+    id: '/estimate/public/$publicToken',
+    path: '/estimate/public/$publicToken',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CreditNotePublicPublicTokenRoute =
+  CreditNotePublicPublicTokenRouteImport.update({
+    id: '/credit-note/public/$publicToken',
+    path: '/credit-note/public/$publicToken',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ContractPublicPublicTokenRoute =
+  ContractPublicPublicTokenRouteImport.update({
+    id: '/contract/public/$publicToken',
+    path: '/contract/public/$publicToken',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -307,6 +328,9 @@ export interface FileRoutesByFullPath {
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
   '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
+  '/contract/public/$publicToken': typeof ContractPublicPublicTokenRoute
+  '/credit-note/public/$publicToken': typeof CreditNotePublicPublicTokenRoute
+  '/estimate/public/$publicToken': typeof EstimatePublicPublicTokenRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
   '/proposals/$proposalId/builder': typeof ProposalsProposalIdBuilderRoute
@@ -351,6 +375,9 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
   '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
+  '/contract/public/$publicToken': typeof ContractPublicPublicTokenRoute
+  '/credit-note/public/$publicToken': typeof CreditNotePublicPublicTokenRoute
+  '/estimate/public/$publicToken': typeof EstimatePublicPublicTokenRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
   '/proposals/$proposalId/builder': typeof ProposalsProposalIdBuilderRoute
@@ -396,6 +423,9 @@ export interface FileRoutesById {
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-web': typeof WhatsappWebRoute
   '/proposal-builder/$proposalId': typeof ProposalBuilderProposalIdRoute
+  '/contract/public/$publicToken': typeof ContractPublicPublicTokenRoute
+  '/credit-note/public/$publicToken': typeof CreditNotePublicPublicTokenRoute
+  '/estimate/public/$publicToken': typeof EstimatePublicPublicTokenRoute
   '/invoice/public/$publicToken': typeof InvoicePublicPublicTokenRoute
   '/proposal/public/$publicToken': typeof ProposalPublicPublicTokenRoute
   '/proposals/$proposalId/builder': typeof ProposalsProposalIdBuilderRoute
@@ -442,6 +472,9 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-web'
     | '/proposal-builder/$proposalId'
+    | '/contract/public/$publicToken'
+    | '/credit-note/public/$publicToken'
+    | '/estimate/public/$publicToken'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
     | '/proposals/$proposalId/builder'
@@ -486,6 +519,9 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-web'
     | '/proposal-builder/$proposalId'
+    | '/contract/public/$publicToken'
+    | '/credit-note/public/$publicToken'
+    | '/estimate/public/$publicToken'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
     | '/proposals/$proposalId/builder'
@@ -530,6 +566,9 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-web'
     | '/proposal-builder/$proposalId'
+    | '/contract/public/$publicToken'
+    | '/credit-note/public/$publicToken'
+    | '/estimate/public/$publicToken'
     | '/invoice/public/$publicToken'
     | '/proposal/public/$publicToken'
     | '/proposals/$proposalId/builder'
@@ -575,6 +614,9 @@ export interface RootRouteChildren {
   WhatsappRoute: typeof WhatsappRoute
   WhatsappWebRoute: typeof WhatsappWebRoute
   ProposalBuilderProposalIdRoute: typeof ProposalBuilderProposalIdRoute
+  ContractPublicPublicTokenRoute: typeof ContractPublicPublicTokenRoute
+  CreditNotePublicPublicTokenRoute: typeof CreditNotePublicPublicTokenRoute
+  EstimatePublicPublicTokenRoute: typeof EstimatePublicPublicTokenRoute
   InvoicePublicPublicTokenRoute: typeof InvoicePublicPublicTokenRoute
   ProposalPublicPublicTokenRoute: typeof ProposalPublicPublicTokenRoute
 }
@@ -875,6 +917,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoicePublicPublicTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/estimate/public/$publicToken': {
+      id: '/estimate/public/$publicToken'
+      path: '/estimate/public/$publicToken'
+      fullPath: '/estimate/public/$publicToken'
+      preLoaderRoute: typeof EstimatePublicPublicTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/credit-note/public/$publicToken': {
+      id: '/credit-note/public/$publicToken'
+      path: '/credit-note/public/$publicToken'
+      fullPath: '/credit-note/public/$publicToken'
+      preLoaderRoute: typeof CreditNotePublicPublicTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contract/public/$publicToken': {
+      id: '/contract/public/$publicToken'
+      path: '/contract/public/$publicToken'
+      fullPath: '/contract/public/$publicToken'
+      preLoaderRoute: typeof ContractPublicPublicTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -930,6 +993,9 @@ const rootRouteChildren: RootRouteChildren = {
   WhatsappRoute: WhatsappRoute,
   WhatsappWebRoute: WhatsappWebRoute,
   ProposalBuilderProposalIdRoute: ProposalBuilderProposalIdRoute,
+  ContractPublicPublicTokenRoute: ContractPublicPublicTokenRoute,
+  CreditNotePublicPublicTokenRoute: CreditNotePublicPublicTokenRoute,
+  EstimatePublicPublicTokenRoute: EstimatePublicPublicTokenRoute,
   InvoicePublicPublicTokenRoute: InvoicePublicPublicTokenRoute,
   ProposalPublicPublicTokenRoute: ProposalPublicPublicTokenRoute,
 }

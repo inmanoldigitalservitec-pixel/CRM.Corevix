@@ -474,7 +474,6 @@ export function PaymentFormDialog({
             <Select
               value={normalizeCurrency(form.currency)}
               onValueChange={(currency) => patchForm({ currency: normalizeCurrency(currency) })}
-              disabled={form.invoice_id !== NONE}
             >
               <SelectTrigger className={crmFormStyles.select}>
                 <SelectValue />
