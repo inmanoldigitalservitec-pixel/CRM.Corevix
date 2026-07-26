@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Pencil, Plus, X } from "lucide-react";
+import { Copy, ExternalLink, FileText, Pencil, Plus, X } from "lucide-react";
 import {
   SalesDocumentBuilder,
   type SalesDocumentBuilderForm,
@@ -115,6 +115,7 @@ type Estimate = {
   client_note?: string | null;
   terms?: string | null;
   estimate_data?: Record<string, any> | null;
+  public_token?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -677,6 +678,38 @@ function EstimatesPage() {
     }
   };
 
+  const getEstimatePublicUrl = (estimate: Estimate) => {
+    const token = String(estimate.public_token || "").trim();
+    if (!token) return null;
+
+    return `${window.location.origin}/estimate/public/${token}`;
+  };
+
+  const openPublicEstimate = (estimate: Estimate) => {
+    const url = getEstimatePublicUrl(estimate);
+    if (!url) {
+      toast.error("Esta cotización todavía no tiene un enlace público.");
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const copyPublicEstimateLink = async (estimate: Estimate) => {
+    const url = getEstimatePublicUrl(estimate);
+    if (!url) {
+      toast.error("Esta cotización todavía no tiene un enlace público.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Enlace de la cotización copiado.");
+    } catch {
+      toast.error("No se pudo copiar el enlace.");
+    }
+  };
+
   const convertEstimate = async (estimate: Estimate) => {
     try {
       const { data: result, error } = await (supabase as any).rpc("convert_estimate_to_invoice", {
@@ -797,6 +830,24 @@ function EstimatesPage() {
                   <TableCell>{estimate.expiry_date || "—"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openPublicEstimate(estimate)}
+                        disabled={!estimate.public_token}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Ver
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void copyPublicEstimateLink(estimate)}
+                        disabled={!estimate.public_token}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copiar enlace
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => openEditBuilder(estimate)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
