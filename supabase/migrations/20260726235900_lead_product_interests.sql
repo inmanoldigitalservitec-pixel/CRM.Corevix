@@ -19,6 +19,58 @@ create table if not exists public.lead_products (
   constraint lead_products_has_interest check (product_id is not null or nullif(trim(custom_name), '') is not null)
 );
 
+-- Some environments already contain an older lead_products table. Upgrade it
+-- in place before creating indexes or policies so the migration is idempotent.
+alter table public.lead_products
+  add column if not exists client_id uuid,
+  add column if not exists deal_id uuid,
+  add column if not exists custom_name text,
+  add column if not exists custom_description text,
+  add column if not exists quantity numeric(12,2) not null default 1,
+  add column if not exists unit_price numeric(14,2) not null default 0,
+  add column if not exists currency text not null default 'USD',
+  add column if not exists created_by uuid,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'lead_products'
+      and column_name = 'estimated_total'
+  ) then
+    alter table public.lead_products
+      add column estimated_total numeric(14,2)
+      generated always as (round(quantity * unit_price, 2)) stored;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'lead_products_client_id_fkey'
+  ) then
+    alter table public.lead_products
+      add constraint lead_products_client_id_fkey
+      foreign key (client_id) references public.clients(id) on delete set null;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'lead_products_deal_id_fkey'
+  ) then
+    alter table public.lead_products
+      add constraint lead_products_deal_id_fkey
+      foreign key (deal_id) references public.deals(id) on delete set null;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'lead_products_created_by_fkey'
+  ) then
+    alter table public.lead_products
+      add constraint lead_products_created_by_fkey
+      foreign key (created_by) references public.profiles(id) on delete set null;
+  end if;
+end $$;
+
 create index if not exists ix_lead_products_company_lead
   on public.lead_products(company_id, lead_id);
 create index if not exists ix_lead_products_company_client
