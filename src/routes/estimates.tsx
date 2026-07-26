@@ -831,30 +831,53 @@ function EstimatesPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
-                        variant="outline"
-                        size="sm"
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
                         onClick={() => openPublicEstimate(estimate)}
                         disabled={!estimate.public_token}
+                        title="Ver cotización"
+                        aria-label="Ver cotización"
                       >
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Ver
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
+
                       <Button
-                        variant="outline"
-                        size="sm"
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
                         onClick={() => void copyPublicEstimateLink(estimate)}
                         disabled={!estimate.public_token}
+                        title="Copiar enlace"
+                        aria-label="Copiar enlace"
                       >
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copiar enlace
+                        <Copy className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => openEditBuilder(estimate)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Editar
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
+                        onClick={() => openEditBuilder(estimate)}
+                        title="Editar cotización"
+                        aria-label="Editar cotización"
+                      >
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => void convertEstimate(estimate)}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        Factura
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-none border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
+                        onClick={() => void convertEstimate(estimate)}
+                        title="Convertir en factura"
+                        aria-label="Convertir en factura"
+                      >
+                        <FileText className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
