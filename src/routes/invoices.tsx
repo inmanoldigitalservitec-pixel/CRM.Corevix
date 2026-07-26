@@ -87,6 +87,14 @@ import {
 import { convertCurrencyAmount, convertToBaseCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/invoices")({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { invoiceId?: string } => ({
+    invoiceId:
+      typeof search.invoiceId === "string"
+        ? search.invoiceId
+        : undefined,
+  }),
   component: InvoicesPage,
   head: () => ({ meta: [{ title: "Facturas — Corevix CRM" }] }),
 });
@@ -281,6 +289,8 @@ type ProposalOption = {
 function InvoicesPage() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
+  const { invoiceId: requestedInvoiceId } = Route.useSearch();
+  const openedInvoiceFromSearchRef = useRef<string | null>(null);
   const { can } = usePermissions();
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { taxes: salesTaxes } = useCompanyTaxes("sales");
@@ -694,6 +704,30 @@ function InvoicesPage() {
     setDrawerMode("view");
     setDrawerOpen(true);
   };
+
+  useEffect(() => {
+    if (!requestedInvoiceId) {
+      openedInvoiceFromSearchRef.current = null;
+      return;
+    }
+
+    if (openedInvoiceFromSearchRef.current === requestedInvoiceId) return;
+
+    const requestedInvoice = data.find(
+      (invoice) => invoice.id === requestedInvoiceId,
+    );
+
+    if (!requestedInvoice) return;
+
+    openedInvoiceFromSearchRef.current = requestedInvoiceId;
+    openInvoiceDetail(requestedInvoice);
+
+    void navigate({
+      to: "/invoices",
+      search: {},
+      replace: true,
+    });
+  }, [data, navigate, requestedInvoiceId]);
 
   const openInvoiceEditor = (invoice: Invoice) => {
     setSelected(invoice);
