@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, FileText, Pencil, Plus } from "lucide-react";
+import { Copy, ExternalLink, Eye, FileText, Pencil, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -111,6 +111,8 @@ type ContractRow = {
   signed_at: string | null;
   signature_status?: string | null;
   invoice_id?: string | null;
+  public_token?: string | null;
+  metadata?: Record<string, any> | null;
   created_at: string;
   updated_at: string;
 };
@@ -140,6 +142,12 @@ function formatDate(value: string | null | undefined) {
 
 function formatMoney(value: number | null | undefined, currency?: string | null) {
   return formatCurrencyAmount(value, currency || "USD");
+}
+
+function getContractPublicUrl(contract: ContractRow) {
+  const token = String(contract.public_token || "").trim();
+  if (!token || typeof window === "undefined") return null;
+  return `${window.location.origin}/contract/public/${token}`;
 }
 
 function getContractCurrency(contract: ContractRow, fallback: string) {
@@ -245,6 +253,31 @@ function ContractsPage() {
       profiles.map((staff) => ({ id: staff.id, label: staff.full_name || staff.email || "Staff" })),
     [profiles],
   );
+
+  const openPublicContract = (contract: ContractRow) => {
+    const url = getContractPublicUrl(contract);
+    if (!url) {
+      toast.error("Este contrato todavía no tiene un enlace público.");
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const copyPublicContractLink = async (contract: ContractRow) => {
+    const url = getContractPublicUrl(contract);
+    if (!url) {
+      toast.error("Este contrato todavía no tiene un enlace público.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Enlace del contrato copiado.");
+    } catch {
+      toast.error("No se pudo copiar el enlace.");
+    }
+  };
 
   const fetchContracts = async () => {
     if (!profile?.company_id) return;
@@ -753,19 +786,41 @@ function ContractsPage() {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <CrmDetailLineButton
-                              className="h-8 bg-transparent hover:bg-transparent"
-                              icon={<Eye className="h-3.5 w-3.5" />}
-                              onClick={() => openContractDetail(contract)}
+                              className="h-8 w-8 bg-transparent px-0 shadow-none hover:bg-slate-100"
+                              onClick={() => openPublicContract(contract)}
+                              aria-label="Ver contrato público"
+                              title="Ver contrato público"
+                              disabled={!contract.public_token}
                             >
-                              Ver
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </CrmDetailLineButton>
+
+                            <CrmDetailLineButton
+                              className="h-8 w-8 bg-transparent px-0 shadow-none hover:bg-slate-100"
+                              onClick={() => void copyPublicContractLink(contract)}
+                              aria-label="Copiar enlace"
+                              title="Copiar enlace"
+                              disabled={!contract.public_token}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </CrmDetailLineButton>
+
+                            <CrmDetailLineButton
+                              className="h-8 w-8 bg-transparent px-0 shadow-none hover:bg-slate-100"
+                              onClick={() => openContractDetail(contract)}
+                              aria-label="Ver detalle"
+                              title="Ver detalle"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
                             </CrmDetailLineButton>
                             {can("contracts.edit") && (
                               <CrmDetailLineButton
-                                className="h-8 bg-transparent hover:bg-transparent"
-                                icon={<Pencil className="h-3.5 w-3.5" />}
+                                className="h-8 w-8 bg-transparent px-0 shadow-none hover:bg-slate-100"
                                 onClick={() => openEditContract(contract)}
+                                aria-label="Editar contrato"
+                                title="Editar contrato"
                               >
-                                Editar
+                                <Pencil className="h-3.5 w-3.5" />
                               </CrmDetailLineButton>
                             )}
                           </div>
