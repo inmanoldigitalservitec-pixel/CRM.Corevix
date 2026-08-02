@@ -475,6 +475,8 @@ interface ClientNoteSummaryRow {
   id: string;
   company_id: string;
   client_id: string;
+  author_profile_id: string | null;
+  content: string;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -1216,7 +1218,7 @@ function ClientsPage() {
 
   const { data: clientNotes, fetch: fetchClientNotes } = useCrud<ClientNoteSummaryRow>({
     table: "client_notes",
-    select: "id,company_id,client_id,archived_at,created_at,updated_at",
+    select: "id,company_id,client_id,author_profile_id,content,archived_at,created_at,updated_at",
     orderBy: "updated_at",
     ascending: false,
     limit: 2000,
@@ -1952,6 +1954,7 @@ function ClientsPage() {
       const latestActivityAt = maxDate([
         client.updated_at,
         ...clientContacts.map((contact) => contact.updated_at),
+        ...clientInternalNotes.map((note) => note.updated_at),
         ...clientProjects.map((project) => project.updated_at),
         ...clientTasks.map((task) => task.updated_at),
         ...clientInvoices.map((invoice) => invoice.updated_at),
@@ -3410,8 +3413,25 @@ function ClientsPage() {
           tone,
         } satisfies ActivityItem;
       });
+    const coveredNoteIds = new Set(
+      activityLogs
+        .filter((log) => log.entity_type === "client_notes" && log.entity_id)
+        .map((log) => String(log.entity_id)),
+    );
 
     const items: ActivityItem[] = [];
+
+    selectedClient.internalNotes.slice(0, 4).forEach((note) => {
+      if (coveredNoteIds.has(note.id)) return;
+      items.push({
+        id: `client-note-${note.id}`,
+        title: note.created_at === note.updated_at ? "Nota interna creada" : "Nota interna actualizada",
+        description: note.content || "Nota interna del cliente",
+        at: note.updated_at || note.created_at,
+        icon: FileText,
+        tone: "bg-slate-50 text-slate-700",
+      });
+    });
 
     selectedClient.contacts.slice(0, 4).forEach((contact) => {
       items.push({
