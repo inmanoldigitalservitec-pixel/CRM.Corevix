@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import type { DateSelectArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 import type { EventResizeDoneArg } from "@fullcalendar/interaction";
 import { CalendarDays, Clock, MapPin, X } from "lucide-react";
@@ -38,6 +38,19 @@ type EventForm = {
   end_at: string;
   all_day: boolean;
 };
+
+function readNamedFormValue(form: HTMLFormElement, name: string) {
+  const control = form.elements.namedItem(name);
+  if (!control || control instanceof RadioNodeList) return "";
+  return String(
+    (control as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value || "",
+  ).trim();
+}
+
+function readNamedFormChecked(form: HTMLFormElement, name: string) {
+  const control = form.elements.namedItem(name);
+  return control instanceof HTMLInputElement ? control.checked : false;
+}
 
 function emptyForm(selection?: {
   start?: Date | string;
@@ -134,24 +147,36 @@ export function DashboardCalendarWidget({
     setCreateOpen(true);
   };
 
-  const handleCreateEvent = async () => {
-    if (!profile?.company_id || !user?.id || !form.title.trim()) return;
+  const handleCreateEvent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!profile?.company_id || !user?.id) return;
 
-    const startAt = fromInputValue(form.start_at, form.all_day);
-    const endAt = fromInputValue(form.end_at, form.all_day);
+    const formElement = event.currentTarget;
+    const title = readNamedFormValue(formElement, "title");
+    const type = (readNamedFormValue(formElement, "type") || "event") as FormType;
+    const description = readNamedFormValue(formElement, "description");
+    const location = readNamedFormValue(formElement, "location");
+    const startInput = readNamedFormValue(formElement, "start_at");
+    const endInput = readNamedFormValue(formElement, "end_at");
+    const allDay = readNamedFormChecked(formElement, "all_day");
+
+    if (!title) return;
+
+    const startAt = fromInputValue(startInput, allDay);
+    const endAt = fromInputValue(endInput, allDay);
     if (!startAt) return;
 
     setSaving(true);
     const { error } = await db.from("calendar_events").insert({
       company_id: profile.company_id,
       user_id: user.id,
-      title: form.title.trim(),
-      type: form.type,
-      description: form.description.trim() || null,
-      location: form.location.trim() || null,
+      title,
+      type,
+      description: description || null,
+      location: location || null,
       start_at: startAt,
       end_at: endAt,
-      all_day: form.all_day,
+      all_day: allDay,
       status: "scheduled",
       metadata: { created_from: "dashboard_calendar_widget" },
     });
@@ -160,8 +185,8 @@ export function DashboardCalendarWidget({
       await db.from("notifications").insert({
         company_id: profile.company_id,
         user_id: user.id,
-        title: `${FORM_TYPE_LABELS[form.type]} creado`,
-        message: `${form.title.trim()} quedó en el calendario.`,
+        title: `${FORM_TYPE_LABELS[type]} creado`,
+        message: `${title} quedó en el calendario.`,
         type: "calendar",
         link: "/calendar",
         read: false,
@@ -272,13 +297,10 @@ export function DashboardCalendarWidget({
       }
 
       if (item.source === "payment") {
-        const { error } = await db.rpc(
-          "reschedule_pending_payment",
-          {
-            p_payment_id: item.relatedId,
-            p_payment_date: newDate,
-          },
-        );
+        const { error } = await db.rpc("reschedule_pending_payment", {
+          p_payment_id: item.relatedId,
+          p_payment_date: newDate,
+        });
 
         if (error) throw error;
       }
@@ -330,16 +352,18 @@ export function DashboardCalendarWidget({
             </p>
           </div>
 
-          <div className="space-y-4 p-6">
+          <form className="space-y-4 p-6" onSubmit={handleCreateEvent}>
             <div>
               <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-[#667085]">
                 Título
               </Label>
               <Input
+                name="title"
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
                 className="h-12 rounded-2xl border-[#e5eaf2] bg-[#fbfcff] text-sm font-semibold"
                 placeholder="Ej: Demo CRM con Juan Pérez"
+                required
               />
             </div>
 
@@ -349,6 +373,7 @@ export function DashboardCalendarWidget({
                   Tipo
                 </Label>
                 <select
+                  name="type"
                   value={form.type}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, type: event.target.value as FormType }))
@@ -367,6 +392,7 @@ export function DashboardCalendarWidget({
               <label className="flex items-end gap-2 rounded-2xl border border-[#e5eaf2] bg-[#fbfcff] px-4 py-3 text-sm font-black">
                 <input
                   type="checkbox"
+                  name="all_day"
                   checked={form.all_day}
                   onChange={(event) =>
                     setForm((prev) => ({
@@ -394,11 +420,13 @@ export function DashboardCalendarWidget({
                 </Label>
                 <Input
                   type={form.all_day ? "date" : "datetime-local"}
+                  name="start_at"
                   value={form.start_at}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, start_at: event.target.value }))
                   }
                   className="h-12 rounded-2xl border-[#e5eaf2] bg-[#fbfcff] text-sm font-bold"
+                  required
                 />
               </div>
               <div>
@@ -407,6 +435,7 @@ export function DashboardCalendarWidget({
                 </Label>
                 <Input
                   type={form.all_day ? "date" : "datetime-local"}
+                  name="end_at"
                   value={form.end_at}
                   onChange={(event) => setForm((prev) => ({ ...prev, end_at: event.target.value }))}
                   className="h-12 rounded-2xl border-[#e5eaf2] bg-[#fbfcff] text-sm font-bold"
@@ -419,6 +448,7 @@ export function DashboardCalendarWidget({
                 Lugar
               </Label>
               <Input
+                name="location"
                 value={form.location}
                 onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
                 className="h-12 rounded-2xl border-[#e5eaf2] bg-[#fbfcff] text-sm font-semibold"
@@ -431,6 +461,7 @@ export function DashboardCalendarWidget({
                 Descripción
               </Label>
               <Textarea
+                name="description"
                 value={form.description}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, description: event.target.value }))
@@ -442,6 +473,7 @@ export function DashboardCalendarWidget({
 
             <div className="flex justify-end gap-2 pt-2">
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setCreateOpen(false)}
                 className="rounded-2xl"
@@ -449,14 +481,14 @@ export function DashboardCalendarWidget({
                 Cancelar
               </Button>
               <Button
-                onClick={handleCreateEvent}
-                disabled={saving || !form.title.trim()}
+                type="submit"
+                disabled={saving}
                 className="rounded-2xl bg-[#111827] font-black"
               >
                 {saving ? "Guardando..." : "Crear evento"}
               </Button>
             </div>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
 

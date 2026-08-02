@@ -65,6 +65,19 @@ type EventForm = {
   all_day: boolean;
 };
 
+function readNamedFormValue(form: HTMLFormElement, name: string) {
+  const control = form.elements.namedItem(name);
+  if (!control || control instanceof RadioNodeList) return "";
+  return String(
+    (control as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value || "",
+  ).trim();
+}
+
+function readNamedFormChecked(form: HTMLFormElement, name: string) {
+  const control = form.elements.namedItem(name);
+  return control instanceof HTMLInputElement ? control.checked : false;
+}
+
 const desktopMonthFormatter = new Intl.DateTimeFormat("es", { month: "long" });
 const desktopShortMonthFormatter = new Intl.DateTimeFormat("es", { month: "short" });
 
@@ -376,14 +389,14 @@ function CalendarPage() {
     event.preventDefault();
     if (!profile?.company_id || !user?.id) return;
 
-    const formData = new FormData(event.currentTarget);
-    const title = String(formData.get("title") || "").trim();
-    const type = String(formData.get("type") || "event") as FormType;
-    const description = String(formData.get("description") || "").trim();
-    const location = String(formData.get("location") || "").trim();
-    const startInput = String(formData.get("start_at") || "").trim();
-    const endInput = String(formData.get("end_at") || "").trim();
-    const allDay = formData.get("all_day") === "on";
+    const formElement = event.currentTarget;
+    const title = readNamedFormValue(formElement, "title");
+    const type = (readNamedFormValue(formElement, "type") || "event") as FormType;
+    const description = readNamedFormValue(formElement, "description");
+    const location = readNamedFormValue(formElement, "location");
+    const startInput = readNamedFormValue(formElement, "start_at");
+    const endInput = readNamedFormValue(formElement, "end_at");
+    const allDay = readNamedFormChecked(formElement, "all_day");
 
     if (!title) return;
 
