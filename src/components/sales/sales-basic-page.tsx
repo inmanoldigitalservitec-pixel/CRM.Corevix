@@ -222,6 +222,7 @@ function normalizePayload(
   },
   currencyAware: boolean,
   taxById?: Map<string, { id: string; name: string; rate: number | string }>,
+  allowTaxFields = false,
 ) {
   const payload: Record<string, any> = {};
   const currency = normalizeCurrency(form.currency || settings.baseCurrency);
@@ -252,7 +253,8 @@ function normalizePayload(
       else payload[`${key}_base`] = baseAmount;
     });
 
-    const selectedTax = form.tax_id && form.tax_id !== NONE ? taxById?.get(form.tax_id) : null;
+    const selectedTax =
+      allowTaxFields && form.tax_id && form.tax_id !== NONE ? taxById?.get(form.tax_id) : null;
     if (selectedTax) {
       const taxRate = normalizeTaxRate(selectedTax.rate);
       const taxableBase = Number(payload.subtotal ?? payload.amount ?? 0) || 0;
@@ -275,13 +277,20 @@ function normalizePayload(
           settings.usdToDopRate,
         );
       }
-    } else if ("tax_id" in payload) {
+    } else if (allowTaxFields && "tax_id" in payload) {
       payload.tax_id = null;
       payload.tax_name = null;
       payload.tax_rate = 0;
       payload.tax_amount = 0;
       payload.tax = 0;
       payload.tax_base = 0;
+    } else if (!allowTaxFields) {
+      delete payload.tax_id;
+      delete payload.tax_name;
+      delete payload.tax_rate;
+      delete payload.tax_amount;
+      delete payload.tax;
+      delete payload.tax_base;
     }
   }
 
@@ -388,6 +397,7 @@ export function SalesBasicPage({
   const { taxes: salesTaxes, taxById: salesTaxById, defaultTax } = useCompanyTaxes("sales");
   const canDelete = enableDelete && can(`${config.module}.delete` as any);
   const currencyAware = CURRENCY_AWARE_TABLES.has(config.table);
+  const allowTaxFields = config.fields.some((field) => field.type === "tax-select");
   const fields = useMemo(() => currencyAwareFields(config), [config]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -404,7 +414,7 @@ export function SalesBasicPage({
     () => ({
 	      ...config.defaultValues,
 	      ...(currencyAware ? { currency: currencySettings.baseCurrency } : {}),
-	      ...(currencyAware && config.fields.some((field) => field.type === "tax-select")
+	      ...(currencyAware && allowTaxFields
 	        ? { tax_id: defaultTax?.id || NONE }
 	        : {}),
 	      ...(initialFieldValues || {}),
@@ -416,6 +426,7 @@ export function SalesBasicPage({
 	      defaultValuesKey,
 	      initialFieldValuesKey,
 	      config.fields,
+	      allowTaxFields,
 	    ],
 	  );
   const [form, setForm] = useState<Record<string, string>>(initialForm);
@@ -629,6 +640,7 @@ export function SalesBasicPage({
         currencySettings,
         currencyAware,
         salesTaxById,
+        allowTaxFields,
       );
 
       let created: GenericRow;
@@ -1063,7 +1075,11 @@ export function SalesBasicPage({
 	                      }
 	                      if (field.key === "product_id") {
 	                        const product = productById.get(value);
-	                        if (product?.default_tax_id) {
+	                        if (!allowTaxFields) {
+	                          delete patch.tax_id;
+	                          delete patch.tax_name;
+	                          delete patch.tax_rate;
+	                        } else if (product?.default_tax_id) {
 	                          patch.tax_id = product.default_tax_id;
 	                        } else if (product?.default_tax_name || product?.default_tax_rate) {
 	                          patch.tax_id = NONE;

@@ -379,6 +379,7 @@ interface InvoiceRow {
   base_currency?: string | null;
   total_base?: number | null;
   invoice_data?: Record<string, unknown> | null;
+  date_issued: string | null;
   due_date: string | null;
   updated_at: string;
 }
@@ -621,6 +622,7 @@ interface ClientSnapshot extends ClientRow {
   creditNotes: CreditNoteRow[];
   appliedCreditNotes: CreditNoteRow[];
   totalCreditAmount: number;
+  financialBalance: number;
   subscriptions: SubscriptionRow[];
   activeSubscriptions: SubscriptionRow[];
   recurringAmount: number;
@@ -762,6 +764,13 @@ function isoDate(offsetDays = 0) {
   return new Date(Date.now() + offsetDays * 86_400_000).toISOString().split("T")[0];
 }
 
+function dateKey(value: string | null | undefined) {
+  if (!value) return "";
+  const text = String(value);
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
+}
+
 function cleanInvoiceText(value: unknown) {
   const text = String(value || "").trim();
   return text ? text : null;
@@ -790,6 +799,15 @@ function splitTags(value: string | null | undefined) {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
+  const key = dateKey(value);
+  if (key) {
+    const [year, month, day] = key.split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString("es-DO", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
   return new Date(value).toLocaleDateString("es-DO", {
     day: "2-digit",
     month: "short",
@@ -987,7 +1005,10 @@ function getClientHealth(args: {
   };
 }
 
-function clientFinanceLabel(client: ClientSnapshot) {
+function clientFinanceLabel(client: ClientSnapshot, baseCurrency = "USD") {
+  if (Math.abs(client.financialBalance) > 0.005) {
+    return money(client.financialBalance, baseCurrency);
+  }
   if (client.overdueInvoices.length > 0) {
     return `${client.overdueInvoices.length} vencida${client.overdueInvoices.length > 1 ? "s" : ""}`;
   }
@@ -1232,7 +1253,8 @@ function ClientsPage() {
     fetch: fetchInvoices,
   } = useCrud<InvoiceRow>({
     table: "invoices",
-    select: "id,company_id,client_id,number,status,total,due_date,updated_at",
+    select:
+      "id,company_id,client_id,number,status,total,currency,base_currency,total_base,invoice_data,date_issued,due_date,updated_at",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -1245,7 +1267,7 @@ function ClientsPage() {
   } = useCrud<PaymentRow>({
     table: "payments",
     select:
-      "id,company_id,payment_number,reference,invoice_id,client_id,amount,payment_date,method,status,notes,created_at,updated_at",
+      "id,company_id,payment_number,reference,invoice_id,client_id,amount,currency,base_currency,amount_base,payment_date,method,status,notes,created_at,updated_at",
     orderBy: "payment_date",
     ascending: false,
     limit: 2000,
@@ -1259,7 +1281,7 @@ function ClientsPage() {
   } = useCrud<CreditNoteRow>({
     table: "credit_notes",
     select:
-      "id,company_id,credit_note_number,invoice_id,client_id,amount,status,date_issued,reason,notes,created_at,updated_at",
+      "id,company_id,credit_note_number,invoice_id,client_id,amount,currency,base_currency,amount_base,status,date_issued,reason,notes,created_at,updated_at",
     orderBy: "date_issued",
     ascending: false,
     limit: 2000,
@@ -1274,7 +1296,7 @@ function ClientsPage() {
   } = useCrud<SubscriptionRow>({
     table: "subscriptions",
     select:
-      "id,company_id,name,client_id,product_id,amount,billing_cycle,status,start_date,next_billing_date,end_date,notes,created_at,updated_at",
+      "id,company_id,name,client_id,product_id,amount,currency,base_currency,amount_base,billing_cycle,status,start_date,next_billing_date,end_date,notes,created_at,updated_at",
     orderBy: "next_billing_date",
     ascending: true,
     limit: 2000,
@@ -1794,6 +1816,44 @@ function ClientsPage() {
           ),
         0,
       );
+      const invoicedAmount = clientInvoices
+        .filter((invoice) => normalizeStatus(invoice.status) !== "cancelled")
+        .reduce(
+          (sum, invoice) =>
+            sum +
+            storedOrConvertedBaseMoney(
+              invoice.total_base,
+              invoice.base_currency,
+              invoice.total,
+              rowCurrency(invoice),
+              currencySettings,
+            ),
+          0,
+        );
+      const paidAmount = completedPayments.reduce(
+        (sum, payment) =>
+          sum +
+          storedOrConvertedBaseMoney(
+            payment.amount_base,
+            payment.base_currency,
+            payment.amount,
+            payment.currency || "USD",
+            currencySettings,
+          ),
+        0,
+      );
+      const creditedAmount = appliedCreditNotes.reduce(
+        (sum, creditNote) =>
+          sum +
+          storedOrConvertedBaseMoney(
+            creditNote.amount_base,
+            creditNote.base_currency,
+            creditNote.amount,
+            creditNote.currency || "USD",
+            currencySettings,
+          ),
+        0,
+      );
       const openPipelineValue = openDeals.reduce((sum, deal) => sum + Number(deal.value || 0), 0);
       const latestActivityAt = maxDate([
         client.updated_at,
@@ -1840,32 +1900,11 @@ function ClientsPage() {
         overdueInvoices,
         payments: clientPayments,
         completedPayments,
-        totalPaidAmount: completedPayments.reduce(
-          (sum, payment) =>
-            sum +
-            storedOrConvertedBaseMoney(
-              payment.amount_base,
-              payment.base_currency,
-              payment.amount,
-              payment.currency || "USD",
-              currencySettings,
-            ),
-          0,
-        ),
+        totalPaidAmount: paidAmount,
         creditNotes: clientCreditNotes,
         appliedCreditNotes,
-        totalCreditAmount: appliedCreditNotes.reduce(
-          (sum, creditNote) =>
-            sum +
-            storedOrConvertedBaseMoney(
-              creditNote.amount_base,
-              creditNote.base_currency,
-              creditNote.amount,
-              creditNote.currency || "USD",
-              currencySettings,
-            ),
-          0,
-        ),
+        totalCreditAmount: creditedAmount,
+        financialBalance: invoicedAmount - paidAmount - creditedAmount,
         subscriptions: clientSubscriptions,
         activeSubscriptions,
         recurringAmount: activeSubscriptions.reduce(
@@ -2133,15 +2172,15 @@ function ClientsPage() {
     const raw = [
       ...selectedClient.invoices.filter((row) => normalizeStatus(row.status) !== "cancelled").map((row) => {
         const value = amount(row, row.total);
-        return value == null ? null : { id: "invoice-" + row.id, date: String(row.updated_at || row.due_date || "").slice(0, 10), type: "invoice" as const, reference: row.number || "Factura", description: "Factura emitida", debit: value, credit: 0, currency: displayCurrency, status: row.status };
+        return value == null ? null : { id: "invoice-" + row.id, date: dateKey(row.date_issued || row.due_date || row.updated_at), type: "invoice" as const, reference: row.number || "Factura", description: "Factura emitida", debit: value, credit: 0, currency: displayCurrency, status: row.status };
       }),
       ...selectedClient.completedPayments.map((row) => {
         const value = amount(row, row.amount);
-        return value == null ? null : { id: "payment-" + row.id, date: String(row.payment_date || row.created_at || "").slice(0, 10), type: "payment" as const, reference: row.payment_number || row.reference || "Pago", description: "Pago recibido · " + paymentLabel(row.method), debit: 0, credit: value, currency: displayCurrency, status: row.status };
+        return value == null ? null : { id: "payment-" + row.id, date: dateKey(row.payment_date || row.created_at), type: "payment" as const, reference: row.payment_number || row.reference || "Pago", description: "Pago recibido · " + paymentLabel(row.method), debit: 0, credit: value, currency: displayCurrency, status: row.status };
       }),
       ...selectedClient.appliedCreditNotes.map((row) => {
         const value = amount(row, row.amount);
-        return value == null ? null : { id: "credit-" + row.id, date: String(row.date_issued || row.created_at || "").slice(0, 10), type: "credit_note" as const, reference: row.credit_note_number ? "NC-" + row.credit_note_number : "Nota de crédito", description: row.reason || "Nota de crédito aplicada", debit: 0, credit: value, currency: displayCurrency, status: row.status };
+        return value == null ? null : { id: "credit-" + row.id, date: dateKey(row.date_issued || row.created_at), type: "credit_note" as const, reference: row.credit_note_number ? "NC-" + row.credit_note_number : "Nota de crédito", description: row.reason || "Nota de crédito aplicada", debit: 0, credit: value, currency: displayCurrency, status: row.status };
       }),
     ].filter(Boolean) as Array<Omit<AccountStatementMovement, "balance">>;
 
@@ -2555,12 +2594,19 @@ function ClientsPage() {
       toast.error("El monto no puede ser negativo.");
       return;
     }
+    const currency = currencySettings.baseCurrency;
 
     const payload = {
       name: String(formData.get("name") || "").trim(),
       client_id: client.id,
       product_id: normalizeNullableSelectValue(formData.get("product_id")),
       amount,
+      currency,
+      base_currency: currencySettings.baseCurrency,
+      exchange_rate: 1,
+      exchange_rate_source: currencySettings.rateSource,
+      exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+      amount_base: amount,
       billing_cycle: String(formData.get("billing_cycle") || "Monthly"),
       status: String(formData.get("status") || "Active"),
       start_date: String(formData.get("start_date") || isoDate()),
@@ -3980,7 +4026,7 @@ function ClientsPage() {
                       </div>
                       <div>
                         <div className="truncate text-[13px] font-extrabold text-slate-950">
-                          {clientFinanceLabel(client)}
+                          {clientFinanceLabel(client, currencySettings.baseCurrency)}
                         </div>
                         <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
                           Finanzas
@@ -4070,7 +4116,7 @@ function ClientsPage() {
                         <TableCell className="hidden py-2 xl:table-cell">
                           <div className="space-y-0.5">
                             <p className="text-sm font-normal text-[#101828]">
-                              {clientFinanceLabel(client)}
+                              {clientFinanceLabel(client, currencySettings.baseCurrency)}
                             </p>
                             <p className="text-xs text-[#667085]">
                               {money(client.pendingInvoiceAmount, currencySettings.baseCurrency)}
