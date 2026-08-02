@@ -757,9 +757,19 @@ function TasksPage() {
       return;
     }
     try {
-      await update(task.id, { status: nextStatus } as Partial<Task>);
+      const updatedTask = await update(task.id, { status: nextStatus } as Partial<Task>);
       if (selectedTask?.id === task.id)
-        setSelectedTask((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+        setSelectedTask((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...(updatedTask || {}),
+                status: updatedTask?.status || nextStatus,
+                due_date: updatedTask?.due_date ?? prev.due_date,
+              }
+            : prev,
+        );
+      await fetchTasks();
       void sendTaskNotification(
         `Tarea ${nextStatus === "Completed" ? "completada" : "actualizada"}`,
         `${task.title || "Tarea sin título"} pasó a ${nextStatus}.`,
@@ -838,7 +848,7 @@ function TasksPage() {
         : null,
       status: (fd.get("status") as string) || "To Do",
       priority: (fd.get("priority") as string) || "Medium",
-      due_date: (fd.get("due_date") as string) || null,
+      due_date: toDateKeyLocal((fd.get("due_date") as string) || null),
       related_project_id: relatedProjectId,
       related_client_id: relatedProject?.client_id || editTask?.related_client_id || null,
     };

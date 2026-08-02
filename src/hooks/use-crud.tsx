@@ -178,9 +178,10 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     if (err) throw err;
     const typed = row as unknown as T;
     const previousRow = data.find((r) => String((r as any).id) === String(id)) as T | undefined;
-    setData((prev) => prev.map((r) => ((r as any).id === id ? typed : r)));
+    const merged = previousRow ? ({ ...previousRow, ...typed } as T) : typed;
+    setData((prev) => prev.map((r) => ((r as any).id === id ? merged : r)));
 
-    return typed;
+    return merged;
   };
 
   const remove = async (id: string) => {
