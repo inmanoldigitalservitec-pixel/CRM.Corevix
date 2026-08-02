@@ -838,9 +838,10 @@ function ProjectsPage() {
       overdue: 0,
       pct: Number(project.progress || 0),
     };
+    const projectDueDate = toDateInputValue(project.due_date);
     const isOverdue =
-      !!project.due_date &&
-      String(project.due_date) < isoToday() &&
+      !!projectDueDate &&
+      projectDueDate < isoToday() &&
       isActiveProjectStatus(project.status);
     return {
       client,
@@ -1529,6 +1530,7 @@ function ProjectsPage() {
                       <Label className={crmFormStyles.label}>Fecha de inicio</Label>
                       <Input
                         className={crmFormStyles.input}
+                        name="start_date"
                         type="date"
                         value={form.start_date}
                         onChange={(event) =>
@@ -1540,6 +1542,7 @@ function ProjectsPage() {
                       <Label className={crmFormStyles.label}>Fecha de entrega</Label>
                       <Input
                         className={crmFormStyles.input}
+                        name="due_date"
                         type="date"
                         value={form.due_date}
                         onChange={(event) =>

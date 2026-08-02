@@ -30,6 +30,14 @@ function isoToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+
 function emptyTaskForm() {
   return {
     title: "",
@@ -176,7 +184,7 @@ export function InlineProjectTaskCreator() {
         status: "To Do",
         priority: form.priority || "Medium",
         assigned_to: user?.id || profile.user_id || null,
-        due_date: form.due_date || null,
+        due_date: toDateInputValue(form.due_date) || null,
         related_project_id: project.id,
         related_client_id: project.client_id || null,
         related_lead_id: project.lead_id || null,
@@ -290,6 +298,7 @@ export function InlineProjectTaskCreator() {
           />
           <div className="grid grid-cols-2 gap-2">
             <Input
+              name="due_date"
               type="date"
               value={form.due_date}
               onChange={(event) => setForm((prev) => ({ ...prev, due_date: event.target.value }))}

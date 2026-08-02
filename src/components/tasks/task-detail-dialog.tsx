@@ -571,6 +571,14 @@ function formatDate(value: string | null | undefined) {
   }
 }
 
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+
 function formatBytes(size: number | null | undefined) {
   if (!size || size <= 0) return "—";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -1335,6 +1343,7 @@ function TaskEditorInfoFields({
       {renderEditField(
         "Due date",
         <Input
+          name="due_date"
           type="date"
           value={draft.dueDate}
           onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
@@ -1738,7 +1747,7 @@ export function TaskCreateDialog({
         description_html: sanitizeRichTextHtml(draft.descriptionHtml) || null,
         status: draft.status || "To Do",
         priority: draft.priority || "Medium",
-        due_date: draft.dueDate || null,
+        due_date: toDateInputValue(draft.dueDate) || null,
         assigned_to: primaryAssigneeId(draft.assigneeIds),
         related_project_id: draft.projectId === NO_PROJECT_VALUE ? null : draft.projectId,
         related_client_id:
@@ -2158,7 +2167,7 @@ export function TaskDetailDialog({
         plainTextToHtml(loadedTask.description || ""),
       status: loadedTask.status || "To Do",
       priority: loadedTask.priority || "Medium",
-      dueDate: loadedTask.due_date || "",
+      dueDate: toDateInputValue(loadedTask.due_date),
       assignedTo: loadedTask.assigned_to || UNASSIGNED_VALUE,
       assigneeIds: normalizeAssigneeIds(loadedTask.assigned_to || []),
       projectId: loadedTask.related_project_id || NO_PROJECT_VALUE,
@@ -2204,7 +2213,8 @@ export function TaskDetailDialog({
         query = query.eq("title", snapshot.title);
         if (snapshot.description) query = query.eq("description", snapshot.description);
         if (snapshot.priority) query = query.eq("priority", snapshot.priority);
-        if (snapshot.dueDate) query = query.eq("due_date", snapshot.dueDate);
+        const snapshotDueDate = toDateInputValue(snapshot.dueDate);
+        if (snapshotDueDate) query = query.eq("due_date", snapshotDueDate);
       } else {
         setMessage("No pude identificar esta tarea.");
         return;
@@ -2289,7 +2299,7 @@ export function TaskDetailDialog({
       description_html: sanitizeRichTextHtml(draft.descriptionHtml) || null,
       status: draft.status,
       priority: draft.priority,
-      due_date: draft.dueDate || null,
+      due_date: toDateInputValue(draft.dueDate) || null,
       assigned_to: primaryAssignee,
       related_project_id: draft.projectId === NO_PROJECT_VALUE ? null : draft.projectId,
       related_client_id:
