@@ -2342,6 +2342,23 @@ function ClientsPage() {
     () => snapshots.find((client) => client.id === contractClientId) || selectedClient,
     [contractClientId, selectedClient, snapshots],
   );
+  const contractInitialValues = useMemo(
+    () => ({
+      subject: contractDialogClient ? `Contrato ${contractDialogClient.company_name}` : "",
+      client_id: contractDialogClient?.id || undefined,
+      project_id: "none",
+      assigned_to: contractDialogClient?.account_manager || profile?.id || "none",
+      status: "Draft",
+      contract_type: "Service Agreement",
+      start_date: isoDate(),
+    }),
+    [
+      contractDialogClient?.account_manager,
+      contractDialogClient?.company_name,
+      contractDialogClient?.id,
+      profile?.id,
+    ],
+  );
   const ticketDialogClient = useMemo(
     () => snapshots.find((client) => client.id === ticketClientId) || selectedClient,
     [ticketClientId, selectedClient, snapshots],
@@ -3370,6 +3387,11 @@ function ClientsPage() {
 
     const logItems = activityLogs
       .filter((log) => {
+        const metadataClientId =
+          log.metadata && typeof log.metadata === "object"
+            ? String((log.metadata as Record<string, unknown>).client_id || "")
+            : "";
+        if (metadataClientId === selectedClient.id) return true;
         if (!log.entity_id) return false;
         if (relatedEntityIds.has(log.entity_id)) return true;
         return log.entity_type === "leads" && relatedLeadIds.has(log.entity_id);
@@ -7027,15 +7049,7 @@ function ClientsPage() {
         clients={clients}
         projects={projects}
         profiles={managers}
-        initialValues={{
-          subject: contractDialogClient ? `Contrato ${contractDialogClient.company_name}` : "",
-          client_id: contractDialogClient?.id || undefined,
-          project_id: "none",
-          assigned_to: contractDialogClient?.account_manager || profile?.id || "none",
-          status: "Draft",
-          contract_type: "Service Agreement",
-          start_date: isoDate(),
-        }}
+        initialValues={contractInitialValues}
         onSaved={async () => {
           await fetchContracts();
           toast.success("Contrato vinculado al cliente.");
