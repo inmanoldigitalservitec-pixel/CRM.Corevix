@@ -20,6 +20,7 @@ const DISPLAY_LABELS: Record<string, string> = {
 };
 
 function SubscriptionsPage() {
+  const today = new Date().toISOString().slice(0, 10);
   return (
     <SalesBasicPage
       config={{
@@ -41,8 +42,8 @@ function SubscriptionsPage() {
           amount: "0",
           billing_cycle: "Monthly",
           status: "Active",
-          start_date: new Date().toISOString().slice(0, 10),
-          next_billing_date: "",
+          start_date: today,
+          next_billing_date: today,
           end_date: "",
           notes: "",
         },

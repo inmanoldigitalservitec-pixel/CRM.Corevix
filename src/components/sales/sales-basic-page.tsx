@@ -197,6 +197,13 @@ function formatDate(value: string | null | undefined) {
   }
 }
 
+function rowDateValue(row: GenericRow, config: SalesConfig) {
+  if (config.module === "subscriptions") {
+    return row[config.dateKey] || row.next_billing_date || row.start_date || row.end_date || null;
+  }
+  return row[config.dateKey] || null;
+}
+
 const CURRENCY_AWARE_TABLES = new Set([
   "estimates",
   "payments",
@@ -642,6 +649,10 @@ export function SalesBasicPage({
         salesTaxById,
         allowTaxFields,
       );
+      if (config.module === "subscriptions") {
+        normalizedPayload.next_billing_date =
+          normalizedPayload.next_billing_date || normalizedPayload.start_date || null;
+      }
 
       let created: GenericRow;
 
@@ -968,7 +979,7 @@ export function SalesBasicPage({
                                 ? productById.get(row.product_id)?.name
                                 : "—"}
                         </TableCell>
-                        <TableCell>{formatDate(row[config.dateKey])}</TableCell>
+                        <TableCell>{formatDate(rowDateValue(row, config))}</TableCell>
                         <TableCell className="font-normal">
                           <div>{money.originalLabel}</div>
                           {money.baseLabel ? (
@@ -1273,7 +1284,7 @@ function SalesMobileCard({
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-slate-600">
             <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            <span className="truncate">{formatDate(row[config.dateKey])}</span>
+            <span className="truncate">{formatDate(rowDateValue(row, config))}</span>
           </div>
         </div>
       </div>
