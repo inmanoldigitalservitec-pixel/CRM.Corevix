@@ -216,19 +216,33 @@ export function toLocalInputValue(value?: Date | string | null) {
 }
 
 export function toDateInputValue(value?: Date | string | null) {
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    const localDateTime = text.match(/^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2})?$/);
+    if (localDateTime) return localDateTime[1];
+  }
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 export function fromInputValue(value: string, allDay: boolean) {
   if (!value) return null;
-  if (allDay && value.length === 10) return `${value}T09:00:00`;
-  return value;
+  if (allDay && value.length === 10) return new Date(`${value}T12:00:00`).toISOString();
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
 }
 
 export function dateOnly(value: string) {
-  return new Date(value).toISOString().slice(0, 10);
+  const text = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const localDateTime = text.match(/^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2})?$/);
+  if (localDateTime) return localDateTime[1];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return localDateKey(date);
 }
 
 export function formatTime(value: string) {
@@ -236,11 +250,24 @@ export function formatTime(value: string) {
 }
 
 export function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("es", {
+  const match = String(value || "")
+    .trim()
+    .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(value);
+  return date.toLocaleDateString("es", {
     weekday: "short",
     month: "short",
     day: "numeric",
   });
+}
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function getCalendarEventTone(type?: string | null): CalendarTone {
@@ -259,7 +286,9 @@ function toAmount(value?: number | string | null) {
 }
 
 function isClosedPaymentStatus(status?: string | null) {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
   return ["completed", "paid", "pagado", "completado", "cancelled", "canceled"].includes(
     normalized,
   );

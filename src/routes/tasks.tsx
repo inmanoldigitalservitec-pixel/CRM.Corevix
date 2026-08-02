@@ -855,6 +855,13 @@ function TasksPage() {
     try {
       if (editTask) {
         await update(editTask.id, data);
+        if (data.due_date) {
+          await (supabase as any)
+            .from("tasks")
+            .update({ due_date: data.due_date })
+            .eq("id", editTask.id)
+            .eq("company_id", editTask.company_id);
+        }
         void sendTaskNotification(
           "Tarea actualizada",
           `${data.title || "Tarea sin título"} fue actualizada.`,
@@ -862,13 +869,21 @@ function TasksPage() {
         toast.success("Tarea actualizada.");
         setSelectedTask(null);
       } else {
-        await create(data);
+        const created = await create(data);
+        if (data.due_date && created?.id) {
+          await (supabase as any)
+            .from("tasks")
+            .update({ due_date: data.due_date })
+            .eq("id", created.id)
+            .eq("company_id", created.company_id);
+        }
         void sendTaskNotification(
           "Tarea creada",
           `${data.title || "Tarea sin título"} fue creada.`,
         );
         toast.success("Tarea creada.");
       }
+      await fetchTasks();
       setDialogOpen(false);
       setEditTask(null);
       setPresetProjectId(null);

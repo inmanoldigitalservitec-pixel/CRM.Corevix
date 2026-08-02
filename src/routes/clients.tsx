@@ -880,6 +880,13 @@ function toDateTimeLocalInputValue(value?: Date | string | null) {
   return local.toISOString().slice(0, 16);
 }
 
+function dateTimeLocalInputToIso(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+}
+
 function reminderLabel(value: string | null | undefined) {
   const key = String(value || "").trim();
   return CLIENT_REMINDER_LABELS[key] || key || "Recordatorio";
@@ -3059,7 +3066,8 @@ function ClientsPage() {
 
     const formData = new FormData(event.currentTarget);
     const title = String(formData.get("title") || "").trim();
-    const startAt = String(formData.get("start_at") || "").trim();
+    const startAtInput = String(formData.get("start_at") || "").trim();
+    const startAt = dateTimeLocalInputToIso(startAtInput);
     if (!title) {
       toast.error("El título del recordatorio es obligatorio.");
       return;

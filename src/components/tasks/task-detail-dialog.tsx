@@ -1766,7 +1766,20 @@ export function TaskCreateDialog({
         .single();
       if (error) throw error;
 
-      const createdTask = data as TaskRow;
+      let createdTask = data as TaskRow;
+      if (payload.due_date && createdTask.due_date !== payload.due_date) {
+        const { data: scheduledTask, error: scheduleError } = await (supabase as any)
+          .from("tasks")
+          .update({ due_date: payload.due_date })
+          .eq("id", createdTask.id)
+          .eq("company_id", createdTask.company_id || companyId)
+          .select(
+            "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_proposal_id,created_at,company_id",
+          )
+          .single();
+        if (scheduleError) throw scheduleError;
+        createdTask = (scheduledTask as TaskRow) || { ...createdTask, due_date: payload.due_date };
+      }
       await syncTaskAssignees({
         taskId: createdTask.id,
         companyId: createdTask.company_id || companyId,

@@ -308,10 +308,10 @@ function CalendarPage() {
   }, [filteredEvents]);
 
   const counters = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dateOnly(new Date().toISOString());
     const weekEnd = new Date();
     weekEnd.setDate(weekEnd.getDate() + 7);
-    const weekEndText = weekEnd.toISOString().slice(0, 10);
+    const weekEndText = dateOnly(weekEnd.toISOString());
 
     return {
       total: events.length,
@@ -328,7 +328,10 @@ function CalendarPage() {
 
   const upcoming = useMemo(() => {
     const now = new Date().toISOString();
-    return events.filter((event) => event.start >= now || event.allDay).slice(0, 7);
+    const today = dateOnly(now);
+    return events
+      .filter((event) => (event.allDay ? dateOnly(event.start) >= today : event.start >= now))
+      .slice(0, 7);
   }, [events]);
 
   function openCreateModal(selection?: {
@@ -413,7 +416,7 @@ function CalendarPage() {
 
     if (!newStart || !profile?.company_id) return;
 
-    const newDate = newStart.toISOString().slice(0, 10);
+    const newDate = dateOnly(newStart.toISOString());
 
     try {
       if (item.source === "calendar_event") {
@@ -496,13 +499,10 @@ function CalendarPage() {
       }
 
       if (item.source === "payment") {
-        const { error } = await db.rpc(
-          "reschedule_pending_payment",
-          {
-            p_payment_id: item.relatedId,
-            p_payment_date: newDate,
-          },
-        );
+        const { error } = await db.rpc("reschedule_pending_payment", {
+          p_payment_id: item.relatedId,
+          p_payment_date: newDate,
+        });
 
         if (error) throw error;
       }
