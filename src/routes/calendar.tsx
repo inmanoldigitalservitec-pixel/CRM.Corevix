@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { DateSelectArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 import type { EventResizeDoneArg } from "@fullcalendar/interaction";
 import {
@@ -372,11 +372,23 @@ function CalendarPage() {
     });
   }
 
-  async function handleCreateEvent() {
-    if (!profile?.company_id || !user?.id || !form.title.trim()) return;
+  async function handleCreateEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile?.company_id || !user?.id) return;
 
-    const startAt = fromInputValue(form.start_at, form.all_day);
-    const endAt = fromInputValue(form.end_at, form.all_day);
+    const formData = new FormData(event.currentTarget);
+    const title = String(formData.get("title") || "").trim();
+    const type = String(formData.get("type") || "event") as FormType;
+    const description = String(formData.get("description") || "").trim();
+    const location = String(formData.get("location") || "").trim();
+    const startInput = String(formData.get("start_at") || "").trim();
+    const endInput = String(formData.get("end_at") || "").trim();
+    const allDay = formData.get("all_day") === "on";
+
+    if (!title) return;
+
+    const startAt = fromInputValue(startInput, allDay);
+    const endAt = fromInputValue(endInput, allDay);
 
     if (!startAt) return;
 
@@ -385,21 +397,21 @@ function CalendarPage() {
     const { error } = await db.from("calendar_events").insert({
       company_id: profile.company_id,
       user_id: user.id,
-      title: form.title.trim(),
-      type: form.type,
-      description: form.description.trim() || null,
-      location: form.location.trim() || null,
+      title,
+      type,
+      description: description || null,
+      location: location || null,
       start_at: startAt,
       end_at: endAt,
-      all_day: form.all_day,
+      all_day: allDay,
       status: "scheduled",
       metadata: { created_from: "calendar_ui" },
     });
 
     if (!error) {
       await createNotification(
-        `${FORM_TYPE_LABELS[form.type]} creado`,
-        `${form.title.trim()} quedó en el calendario.`,
+        `${FORM_TYPE_LABELS[type]} creado`,
+        `${title} quedó en el calendario.`,
       );
 
       setCreateOpen(false);
@@ -751,14 +763,16 @@ function CalendarPage() {
         description="Programa una cita, demo, llamada o recordatorio dentro del CRM."
         size="sm"
       >
-        <div className="space-y-5 sm:space-y-4">
+        <form className="space-y-5 sm:space-y-4" onSubmit={handleCreateEvent}>
           <div>
             <label className={`mb-1 block ${crmFormStyles.label}`}>Título</label>
             <input
+              name="title"
               value={form.title}
               onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
               className={crmFormStyles.input}
               placeholder="Ej: Demo CRM con Juan Pérez"
+              required
             />
           </div>
 
@@ -766,6 +780,7 @@ function CalendarPage() {
             <div>
               <label className={`mb-1 block ${crmFormStyles.label}`}>Tipo</label>
               <select
+                name="type"
                 value={form.type}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, type: event.target.value as FormType }))
@@ -784,6 +799,7 @@ function CalendarPage() {
             <label className="flex items-center gap-3 border-b border-slate-200 py-3 text-base font-normal text-slate-700 sm:items-end sm:rounded-xl sm:border sm:px-3 sm:text-sm">
               <input
                 type="checkbox"
+                name="all_day"
                 checked={form.all_day}
                 onChange={(event) =>
                   setForm((prev) => ({
@@ -809,15 +825,18 @@ function CalendarPage() {
               <label className={`mb-1 block ${crmFormStyles.label}`}>Inicio</label>
               <input
                 type={form.all_day ? "date" : "datetime-local"}
+                name="start_at"
                 value={form.start_at}
                 onChange={(event) => setForm((prev) => ({ ...prev, start_at: event.target.value }))}
                 className={crmFormStyles.input}
+                required
               />
             </div>
             <div>
               <label className={`mb-1 block ${crmFormStyles.label}`}>Fin</label>
               <input
                 type={form.all_day ? "date" : "datetime-local"}
+                name="end_at"
                 value={form.end_at}
                 onChange={(event) => setForm((prev) => ({ ...prev, end_at: event.target.value }))}
                 className={crmFormStyles.input}
@@ -828,6 +847,7 @@ function CalendarPage() {
           <div>
             <label className={`mb-1 block ${crmFormStyles.label}`}>Lugar</label>
             <input
+              name="location"
               value={form.location}
               onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
               className={crmFormStyles.input}
@@ -838,6 +858,7 @@ function CalendarPage() {
           <div>
             <label className={`mb-1 block ${crmFormStyles.label}`}>Descripción</label>
             <textarea
+              name="description"
               value={form.description}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, description: event.target.value }))
@@ -849,21 +870,18 @@ function CalendarPage() {
 
           <div className={crmFormStyles.footer}>
             <Button
+              type="button"
               variant="ghost"
               onClick={() => setCreateOpen(false)}
               className={crmFormStyles.cancelButton}
             >
               Cancelar
             </Button>
-            <Button
-              onClick={handleCreateEvent}
-              disabled={saving || !form.title.trim()}
-              className={crmFormStyles.primaryButton}
-            >
+            <Button type="submit" disabled={saving} className={crmFormStyles.primaryButton}>
               {saving ? "Guardando..." : "Crear evento"}
             </Button>
           </div>
-        </div>
+        </form>
       </CrmCreationDialog>
 
       <CalendarEventDetailDialog event={selectedEvent} onClose={() => setSelectedEvent(null)} />

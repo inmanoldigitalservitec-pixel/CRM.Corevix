@@ -203,6 +203,11 @@ const PROJECT_LABELS: Record<string, string> = {
   Urgent: "Urgente",
 };
 
+function projectLabel(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  return PROJECT_LABELS[text] || text || "—";
+}
+
 const PAYMENT_LABELS: Record<string, string> = {
   Completed: "Completado",
   Pending: "Pendiente",
@@ -3585,7 +3590,7 @@ function ClientsPage() {
       items.push({
         id: `project-${project.id}`,
         title: "Proyecto actualizado",
-        description: `${project.name} · ${displayLabel(project.status)} · ${progress}%`,
+        description: `${project.name} · ${projectLabel(project.status)} · ${progress}%`,
         at: project.updated_at,
         icon: FolderKanban,
         tone: "bg-emerald-50 text-emerald-700",
