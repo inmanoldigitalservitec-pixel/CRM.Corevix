@@ -325,7 +325,9 @@ function isoToday() {
 
 function toDateInputValue(value: string | null | undefined) {
   if (!value) return "";
-  const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  const match = String(value)
+    .trim()
+    .match(/^(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : "";
 }
 
@@ -611,6 +613,7 @@ function ProjectsPage() {
     create,
     update,
     remove,
+    fetch: fetchProjects,
   } = useCrud<Project>({ table: "projects", orderBy: "updated_at", ascending: false, limit: 500 });
   const {
     data: tasks,
@@ -840,9 +843,7 @@ function ProjectsPage() {
     };
     const projectDueDate = toDateInputValue(project.due_date);
     const isOverdue =
-      !!projectDueDate &&
-      projectDueDate < isoToday() &&
-      isActiveProjectStatus(project.status);
+      !!projectDueDate && projectDueDate < isoToday() && isActiveProjectStatus(project.status);
     return {
       client,
       product,
@@ -916,6 +917,15 @@ function ProjectsPage() {
   }, [projects, routeSearch.projectId]);
 
   useEffect(() => {
+    const handleTaskCreated = () => {
+      void fetchTasks();
+      void fetchProjects();
+    };
+    window.addEventListener("corevix:task-created", handleTaskCreated);
+    return () => window.removeEventListener("corevix:task-created", handleTaskCreated);
+  }, [fetchProjects, fetchTasks]);
+
+  useEffect(() => {
     if (!dialogOpen || !form.client_id || form.client_id === NONE || form.manager_ids.length > 0)
       return;
     const client = clientById.get(form.client_id);
@@ -980,6 +990,22 @@ function ProjectsPage() {
     if (insertError) throw insertError;
   }
 
+  async function persistProjectSchedule(
+    projectId: string,
+    schedule: { start_date: string | null; due_date: string | null },
+  ) {
+    if (!profile?.company_id) return;
+    const { error } = await (supabase as any)
+      .from("projects")
+      .update({
+        start_date: schedule.start_date,
+        due_date: schedule.due_date,
+      })
+      .eq("id", projectId)
+      .eq("company_id", profile.company_id);
+    if (error) throw error;
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!can(editItem ? "projects.edit" : "projects.create"))
@@ -1017,6 +1043,10 @@ function ProjectsPage() {
     try {
       if (editItem) {
         const saved = await update(editItem.id, record);
+        await persistProjectSchedule(editItem.id, {
+          start_date: record.start_date,
+          due_date: record.due_date,
+        });
         await syncProjectAssignees(editItem.id, form.manager_ids);
         await fetchProjectAssignees();
         setSelected(null);
@@ -1028,6 +1058,10 @@ function ProjectsPage() {
       } else {
         const saved = await create(record);
         if (saved?.id) {
+          await persistProjectSchedule(saved.id, {
+            start_date: record.start_date,
+            due_date: record.due_date,
+          });
           await syncProjectAssignees(saved.id, form.manager_ids);
           await fetchProjectAssignees();
         }
@@ -1037,6 +1071,7 @@ function ProjectsPage() {
         );
         toast.success("Proyecto creado");
       }
+      await fetchProjects();
       setDialogOpen(false);
       setEditItem(null);
     } catch (error: any) {

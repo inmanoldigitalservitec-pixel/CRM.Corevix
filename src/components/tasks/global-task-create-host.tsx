@@ -59,6 +59,7 @@ export function GlobalTaskCreateHost() {
       currentUserId={profile?.user_id || user?.id || null}
       initialValues={mergedInitialValues}
       onCreated={(task) => {
+        window.dispatchEvent(new CustomEvent("corevix:task-created", { detail: { task } }));
         if (!openDetailAfterCreate || !task?.id) return;
         window.dispatchEvent(
           new CustomEvent("corevix:open-global-detail", {

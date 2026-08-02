@@ -331,6 +331,7 @@ interface TaskRow {
   id: string;
   company_id: string;
   title: string;
+  description: string | null;
   status: string;
   priority: string;
   due_date: string | null;
@@ -811,6 +812,13 @@ function compareDueDateAsc(a: TaskRow, b: TaskRow) {
   return da.localeCompare(db);
 }
 
+function projectProgressFromTasks(project: ProjectRow, tasks: TaskRow[]) {
+  const projectTasks = tasks.filter((task) => task.related_project_id === project.id);
+  if (!projectTasks.length) return Math.max(0, Math.min(Number(project.progress || 0), 100));
+  const completed = projectTasks.filter((task) => isCompletedTaskStatusValue(task.status)).length;
+  return Math.round((completed / projectTasks.length) * 100);
+}
+
 function splitTags(value: string | null | undefined) {
   if (!value) return [] as string[];
   return value
@@ -1246,7 +1254,7 @@ function ClientsPage() {
   } = useCrud<TaskRow>({
     table: "tasks",
     select:
-      "id,company_id,title,status,priority,due_date,updated_at,related_client_id,related_project_id",
+      "id,company_id,title,description,status,priority,due_date,updated_at,related_client_id,related_project_id",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -1577,7 +1585,11 @@ function ClientsPage() {
     [contacts],
   );
   const internalNotesByClient = useMemo(
-    () => groupBy(clientNotes.filter((note) => !note.archived_at), (note) => note.client_id),
+    () =>
+      groupBy(
+        clientNotes.filter((note) => !note.archived_at),
+        (note) => note.client_id,
+      ),
     [clientNotes],
   );
   const projectsByClient = useMemo(
@@ -1865,13 +1877,21 @@ function ClientsPage() {
         });
       });
       clientProjects.forEach((project) =>
-        addPurchasedProduct(project.product_id, "Proyecto", project.start_date || project.updated_at),
+        addPurchasedProduct(
+          project.product_id,
+          "Proyecto",
+          project.start_date || project.updated_at,
+        ),
       );
       clientSubscriptions.forEach((subscription) =>
         addPurchasedProduct(subscription.product_id, "Suscripción", subscription.start_date),
       );
       clientInvoices.forEach((invoice) =>
-        addPurchasedProduct(invoice.product_id, "Factura", invoice.date_issued || invoice.updated_at),
+        addPurchasedProduct(
+          invoice.product_id,
+          "Factura",
+          invoice.date_issued || invoice.updated_at,
+        ),
       );
       clientInvoiceItems.forEach((item) =>
         addPurchasedProduct(item.product_id, "Factura", item.created_at),
@@ -2258,61 +2278,179 @@ function ClientsPage() {
   );
   const accountStatement = useMemo(() => {
     if (!selectedClient) {
-      return { currencies: [] as string[], movements: [] as AccountStatementMovement[], openingBalance: 0, invoiced: 0, paid: 0, credited: 0, closingBalance: 0, overdueBalance: 0, displayCurrency: currencySettings.baseCurrency };
+      return {
+        currencies: [] as string[],
+        movements: [] as AccountStatementMovement[],
+        openingBalance: 0,
+        invoiced: 0,
+        paid: 0,
+        credited: 0,
+        closingBalance: 0,
+        overdueBalance: 0,
+        displayCurrency: currencySettings.baseCurrency,
+      };
     }
 
     const useBase = statementCurrency === "all";
-    const displayCurrency = useBase ? currencySettings.baseCurrency : normalizeCurrency(statementCurrency);
-    const currencyOf = (row: any) => normalizeCurrency(row.currency || String(row.invoice_data?.currency || "") || currencySettings.baseCurrency);
-    const currencies = Array.from(new Set([
-      ...selectedClient.invoices.map(currencyOf),
-      ...selectedClient.payments.map(currencyOf),
-      ...selectedClient.creditNotes.map(currencyOf),
-    ])).sort();
+    const displayCurrency = useBase
+      ? currencySettings.baseCurrency
+      : normalizeCurrency(statementCurrency);
+    const currencyOf = (row: any) =>
+      normalizeCurrency(
+        row.currency || String(row.invoice_data?.currency || "") || currencySettings.baseCurrency,
+      );
+    const currencies = Array.from(
+      new Set([
+        ...selectedClient.invoices.map(currencyOf),
+        ...selectedClient.payments.map(currencyOf),
+        ...selectedClient.creditNotes.map(currencyOf),
+      ]),
+    ).sort();
     const amount = (row: any, raw: number) => {
       const rowCurrencyValue = currencyOf(row);
       if (!useBase && rowCurrencyValue !== displayCurrency) return null;
       return useBase
-        ? storedOrConvertedBaseMoney(row.total_base ?? row.amount_base, row.base_currency, raw, rowCurrencyValue, currencySettings)
+        ? storedOrConvertedBaseMoney(
+            row.total_base ?? row.amount_base,
+            row.base_currency,
+            raw,
+            rowCurrencyValue,
+            currencySettings,
+          )
         : Number(raw || 0);
     };
 
     const raw = [
-      ...selectedClient.invoices.filter((row) => normalizeStatus(row.status) !== "cancelled").map((row) => {
-        const value = amount(row, row.total);
-        return value == null ? null : { id: "invoice-" + row.id, date: dateKey(row.date_issued || row.due_date || row.updated_at), type: "invoice" as const, reference: row.number || "Factura", description: "Factura emitida", debit: value, credit: 0, currency: displayCurrency, status: row.status };
-      }),
+      ...selectedClient.invoices
+        .filter((row) => normalizeStatus(row.status) !== "cancelled")
+        .map((row) => {
+          const value = amount(row, row.total);
+          return value == null
+            ? null
+            : {
+                id: "invoice-" + row.id,
+                date: dateKey(row.date_issued || row.due_date || row.updated_at),
+                type: "invoice" as const,
+                reference: row.number || "Factura",
+                description: "Factura emitida",
+                debit: value,
+                credit: 0,
+                currency: displayCurrency,
+                status: row.status,
+              };
+        }),
       ...selectedClient.completedPayments.map((row) => {
         const value = amount(row, row.amount);
-        return value == null ? null : { id: "payment-" + row.id, date: dateKey(row.payment_date || row.created_at), type: "payment" as const, reference: row.payment_number || row.reference || "Pago", description: "Pago recibido · " + paymentLabel(row.method), debit: 0, credit: value, currency: displayCurrency, status: row.status };
+        return value == null
+          ? null
+          : {
+              id: "payment-" + row.id,
+              date: dateKey(row.payment_date || row.created_at),
+              type: "payment" as const,
+              reference: row.payment_number || row.reference || "Pago",
+              description: "Pago recibido · " + paymentLabel(row.method),
+              debit: 0,
+              credit: value,
+              currency: displayCurrency,
+              status: row.status,
+            };
       }),
       ...selectedClient.appliedCreditNotes.map((row) => {
         const value = amount(row, row.amount);
-        return value == null ? null : { id: "credit-" + row.id, date: dateKey(row.date_issued || row.created_at), type: "credit_note" as const, reference: row.credit_note_number ? "NC-" + row.credit_note_number : "Nota de crédito", description: row.reason || "Nota de crédito aplicada", debit: 0, credit: value, currency: displayCurrency, status: row.status };
+        return value == null
+          ? null
+          : {
+              id: "credit-" + row.id,
+              date: dateKey(row.date_issued || row.created_at),
+              type: "credit_note" as const,
+              reference: row.credit_note_number
+                ? "NC-" + row.credit_note_number
+                : "Nota de crédito",
+              description: row.reason || "Nota de crédito aplicada",
+              debit: 0,
+              credit: value,
+              currency: displayCurrency,
+              status: row.status,
+            };
       }),
     ].filter(Boolean) as Array<Omit<AccountStatementMovement, "balance">>;
 
     raw.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-    const openingBalance = raw.filter((row) => statementFrom && row.date < statementFrom).reduce((sum, row) => sum + row.debit - row.credit, 0);
-    const period = raw.filter((row) => (!statementFrom || row.date >= statementFrom) && (!statementTo || row.date <= statementTo));
+    const openingBalance = raw
+      .filter((row) => statementFrom && row.date < statementFrom)
+      .reduce((sum, row) => sum + row.debit - row.credit, 0);
+    const period = raw.filter(
+      (row) =>
+        (!statementFrom || row.date >= statementFrom) && (!statementTo || row.date <= statementTo),
+    );
     let running = openingBalance;
-    const movements = period.map((row) => ({ ...row, balance: (running += row.debit - row.credit) }));
+    const movements = period.map((row) => ({
+      ...row,
+      balance: (running += row.debit - row.credit),
+    }));
     const invoiced = period.reduce((sum, row) => sum + row.debit, 0);
-    const paid = period.filter((row) => row.type === "payment").reduce((sum, row) => sum + row.credit, 0);
-    const credited = period.filter((row) => row.type === "credit_note").reduce((sum, row) => sum + row.credit, 0);
-    const overdueBalance = selectedClient.overdueInvoices.reduce((sum, invoice) => sum + Number(amount(invoice, invoice.total) || 0), 0);
-    return { currencies, movements, openingBalance, invoiced, paid, credited, closingBalance: openingBalance + invoiced - paid - credited, overdueBalance, displayCurrency };
+    const paid = period
+      .filter((row) => row.type === "payment")
+      .reduce((sum, row) => sum + row.credit, 0);
+    const credited = period
+      .filter((row) => row.type === "credit_note")
+      .reduce((sum, row) => sum + row.credit, 0);
+    const overdueBalance = selectedClient.overdueInvoices.reduce(
+      (sum, invoice) => sum + Number(amount(invoice, invoice.total) || 0),
+      0,
+    );
+    return {
+      currencies,
+      movements,
+      openingBalance,
+      invoiced,
+      paid,
+      credited,
+      closingBalance: openingBalance + invoiced - paid - credited,
+      overdueBalance,
+      displayCurrency,
+    };
   }, [currencySettings, selectedClient, statementCurrency, statementFrom, statementTo]);
 
   const exportAccountStatement = () => {
     if (!selectedClient) return;
-    const rows = [["Fecha", "Tipo", "Referencia", "Descripción", "Débito", "Crédito", "Saldo", "Moneda", "Estado"], ...accountStatement.movements.map((row) => [row.date, row.type, row.reference, row.description, row.debit, row.credit, row.balance, row.currency, row.status])];
-    const csv = rows.map((row) => row.map((value) => '"' + String(value ?? "").replaceAll('"', '""') + '"').join(",")).join("\n");
+    const rows = [
+      [
+        "Fecha",
+        "Tipo",
+        "Referencia",
+        "Descripción",
+        "Débito",
+        "Crédito",
+        "Saldo",
+        "Moneda",
+        "Estado",
+      ],
+      ...accountStatement.movements.map((row) => [
+        row.date,
+        row.type,
+        row.reference,
+        row.description,
+        row.debit,
+        row.credit,
+        row.balance,
+        row.currency,
+        row.status,
+      ]),
+    ];
+    const csv = rows
+      .map((row) =>
+        row.map((value) => '"' + String(value ?? "").replaceAll('"', '""') + '"').join(","),
+      )
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "estado-cuenta-" + selectedClient.company_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".csv";
+    link.download =
+      "estado-cuenta-" +
+      selectedClient.company_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() +
+      ".csv";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -2639,40 +2777,31 @@ function ClientsPage() {
 
     setCreditNoteSaving(true);
     try {
-      const { data: rpcResult, error: rpcError } =
-        await db.rpc("save_credit_note", {
-          p_credit_note_id: null,
-          p_invoice_id: invoiceId,
-          p_client_id: client.id,
-          p_amount: amount,
-          p_date_issued: payload.date_issued,
-          p_reason: payload.reason,
-          p_notes: payload.notes,
-        });
+      const { data: rpcResult, error: rpcError } = await db.rpc("save_credit_note", {
+        p_credit_note_id: null,
+        p_invoice_id: invoiceId,
+        p_client_id: client.id,
+        p_amount: amount,
+        p_date_issued: payload.date_issued,
+        p_reason: payload.reason,
+        p_notes: payload.notes,
+      });
 
       if (rpcError) throw rpcError;
 
-      const saved = Array.isArray(rpcResult)
-        ? rpcResult[0]
-        : rpcResult;
+      const saved = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
 
       if (!saved?.credit_note_id) {
-        throw new Error(
-          "No se pudo confirmar la nota de crédito.",
-        );
+        throw new Error("No se pudo confirmar la nota de crédito.");
       }
 
       const created = {
         id: saved.credit_note_id,
-        credit_note_number:
-          saved.credit_note_number,
+        credit_note_number: saved.credit_note_number,
         status: saved.status,
       };
 
-      await Promise.all([
-        fetchCreditNotes(),
-        fetchInvoices(),
-      ]);
+      await Promise.all([fetchCreditNotes(), fetchInvoices()]);
       setCreditNoteDialogOpen(false);
       setCreditNoteClientId(null);
       toast.success("Nota de crédito creada.");
@@ -3177,9 +3306,7 @@ function ClientsPage() {
           tax_rate:
             item.tax_rate === null || item.tax_rate === undefined ? 0 : Number(item.tax_rate),
           tax_amount:
-            item.tax_amount === null || item.tax_amount === undefined
-              ? 0
-              : Number(item.tax_amount),
+            item.tax_amount === null || item.tax_amount === undefined ? 0 : Number(item.tax_amount),
         };
       })
       .filter((item) => item.item_name || item.description || item.unit_price > 0);
@@ -3418,6 +3545,16 @@ function ClientsPage() {
         .filter((log) => log.entity_type === "client_notes" && log.entity_id)
         .map((log) => String(log.entity_id)),
     );
+    const coveredProjectIds = new Set(
+      activityLogs
+        .filter((log) => log.entity_type === "projects" && log.entity_id)
+        .map((log) => String(log.entity_id)),
+    );
+    const coveredTaskIds = new Set(
+      activityLogs
+        .filter((log) => log.entity_type === "tasks" && log.entity_id)
+        .map((log) => String(log.entity_id)),
+    );
 
     const items: ActivityItem[] = [];
 
@@ -3425,11 +3562,42 @@ function ClientsPage() {
       if (coveredNoteIds.has(note.id)) return;
       items.push({
         id: `client-note-${note.id}`,
-        title: note.created_at === note.updated_at ? "Nota interna creada" : "Nota interna actualizada",
+        title:
+          note.created_at === note.updated_at ? "Nota interna creada" : "Nota interna actualizada",
         description: note.content || "Nota interna del cliente",
         at: note.updated_at || note.created_at,
         icon: FileText,
         tone: "bg-slate-50 text-slate-700",
+      });
+    });
+
+    selectedClient.projects.slice(0, 4).forEach((project) => {
+      if (coveredProjectIds.has(project.id)) return;
+      const progress = projectProgressFromTasks(project, selectedClient.tasks);
+      items.push({
+        id: `project-${project.id}`,
+        title: "Proyecto actualizado",
+        description: `${project.name} · ${displayLabel(project.status)} · ${progress}%`,
+        at: project.updated_at,
+        icon: FolderKanban,
+        tone: "bg-emerald-50 text-emerald-700",
+      });
+    });
+
+    selectedClient.tasks.slice(0, 4).forEach((task) => {
+      if (coveredTaskIds.has(task.id)) return;
+      const project = task.related_project_id ? projectById.get(task.related_project_id) : null;
+      items.push({
+        id: `task-activity-${task.id}`,
+        title: isCompletedTaskStatusValue(task.status) ? "Tarea completada" : "Tarea actualizada",
+        description: `${task.title}${task.description ? ` · ${task.description}` : ""}${
+          task.due_date ? ` · Vence ${formatDate(task.due_date)}` : ""
+        }${project ? ` · ${project.name}` : ""}`,
+        at: task.updated_at,
+        icon: Clock3,
+        tone: isCompletedTaskStatusValue(task.status)
+          ? "bg-emerald-50 text-emerald-700"
+          : "bg-blue-50 text-blue-700",
       });
     });
 
@@ -3611,7 +3779,7 @@ function ClientsPage() {
       })
       .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
       .slice(0, 8);
-  }, [activityLogs, selectedClient]);
+  }, [activityLogs, projectById, selectedClient]);
 
   useEffect(() => {
     if (!contactDialogOpen) {
@@ -3871,7 +4039,15 @@ function ClientsPage() {
 
     try {
       const created = await createProject(payload);
-      if (created?.id) await syncProjectAssignees(created.id, projectAssigneeIds);
+      if (created?.id) {
+        const { error: scheduleError } = await (supabase as any)
+          .from("projects")
+          .update({ start_date: payload.start_date, due_date: payload.due_date })
+          .eq("id", created.id)
+          .eq("company_id", profile.company_id);
+        if (scheduleError) throw scheduleError;
+        await syncProjectAssignees(created.id, projectAssigneeIds);
+      }
       await fetchProjects();
       toast.success("Proyecto creado");
       resetProjectDialog();
@@ -4637,7 +4813,7 @@ function ClientsPage() {
                             {
                               key: "projects",
                               label: "Proyectos",
-                              value: selectedClient.activeProjects.length,
+                              value: selectedClient.projects.length,
                             },
                             {
                               key: "tasks",
@@ -4903,83 +5079,200 @@ function ClientsPage() {
                       </div>
                     </TabsContent>
 
-                                        <TabsContent data-demo="client-360-statement" value="statement" className="space-y-5">
+                    <TabsContent
+                      data-demo="client-360-statement"
+                      value="statement"
+                      className="space-y-5"
+                    >
                       <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 xl:flex-row xl:items-end xl:justify-between">
                         <div className="min-w-[180px] max-w-[220px]">
-                          <h3 className="text-base font-semibold text-slate-950">Estado de cuenta</h3>
-                          <p className="mt-1 text-sm text-slate-500">Facturas, pagos y notas de crédito con saldo acumulado.</p>
+                          <h3 className="text-base font-semibold text-slate-950">
+                            Estado de cuenta
+                          </h3>
+                          <p className="mt-1 text-sm text-slate-500">
+                            Facturas, pagos y notas de crédito con saldo acumulado.
+                          </p>
                         </div>
                         <div className="flex min-w-0 flex-wrap items-end justify-end gap-1.5">
                           <div className="shrink-0 space-y-1">
                             <Label className="text-[11px] text-slate-500">Desde</Label>
-                            <Input type="date" value={statementFrom} onChange={(event) => setStatementFrom(event.target.value)} className="h-8 w-[124px] px-2 text-xs" />
+                            <Input
+                              type="date"
+                              value={statementFrom}
+                              onChange={(event) => setStatementFrom(event.target.value)}
+                              className="h-8 w-[124px] px-2 text-xs"
+                            />
                           </div>
                           <div className="shrink-0 space-y-1">
                             <Label className="text-[11px] text-slate-500">Hasta</Label>
-                            <Input type="date" value={statementTo} onChange={(event) => setStatementTo(event.target.value)} className="h-8 w-[124px] px-2 text-xs" />
+                            <Input
+                              type="date"
+                              value={statementTo}
+                              onChange={(event) => setStatementTo(event.target.value)}
+                              className="h-8 w-[124px] px-2 text-xs"
+                            />
                           </div>
                           <div className="shrink-0 space-y-1">
                             <Label className="text-[11px] text-slate-500">Moneda</Label>
                             <Select value={statementCurrency} onValueChange={setStatementCurrency}>
-                              <SelectTrigger className="h-8 w-[128px] px-2 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-8 w-[128px] px-2 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="all">Moneda base</SelectItem>
                                 {accountStatement.currencies.map((currency) => (
-                                  <SelectItem key={currency} value={currency}>{currency}</SelectItem>
+                                  <SelectItem key={currency} value={currency}>
+                                    {currency}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
-                          <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={exportAccountStatement} aria-label="Exportar estado de cuenta en CSV" title="Exportar CSV">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={exportAccountStatement}
+                            aria-label="Exportar estado de cuenta en CSV"
+                            title="Exportar CSV"
+                          >
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={printAccountStatement} aria-label="Imprimir o guardar estado de cuenta en PDF" title="Imprimir / PDF">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={printAccountStatement}
+                            aria-label="Imprimir o guardar estado de cuenta en PDF"
+                            title="Imprimir / PDF"
+                          >
                             <Printer className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                      {accountStatement.movements.length === 0 && accountStatement.openingBalance === 0 ? (
+                      {accountStatement.movements.length === 0 &&
+                      accountStatement.openingBalance === 0 ? (
                         <EmptyState
                           icon={<Receipt className="h-6 w-6" />}
                           title="Aún no hay movimientos"
                           description="Este cliente todavía no tiene facturas, pagos ni notas de crédito registradas. Cuando se cree el primer movimiento, aparecerá aquí automáticamente."
                           actionLabel={can("invoices.create") ? "Crear primera factura" : undefined}
-                          onAction={can("invoices.create") ? () => openInvoiceCreator(selectedClient) : undefined}
+                          onAction={
+                            can("invoices.create")
+                              ? () => openInvoiceCreator(selectedClient)
+                              : undefined
+                          }
                         />
                       ) : (
                         <>
-                          <CrmDetailSummaryGrid columns={4} items={[
-                            { key: "opening", label: "Saldo inicial", value: money(accountStatement.openingBalance, accountStatement.displayCurrency) },
-                            { key: "invoiced", label: "Facturado", value: money(accountStatement.invoiced, accountStatement.displayCurrency) },
-                            { key: "paid", label: "Pagos recibidos", value: money(accountStatement.paid, accountStatement.displayCurrency) },
-                            { key: "credits", label: "Notas de crédito", value: money(accountStatement.credited, accountStatement.displayCurrency) },
-                            { key: "overdue", label: "Monto vencido", value: money(accountStatement.overdueBalance, accountStatement.displayCurrency) },
-                            { key: "closing", label: "Saldo pendiente", value: money(accountStatement.closingBalance, accountStatement.displayCurrency) },
-                          ]} />
+                          <CrmDetailSummaryGrid
+                            columns={4}
+                            items={[
+                              {
+                                key: "opening",
+                                label: "Saldo inicial",
+                                value: money(
+                                  accountStatement.openingBalance,
+                                  accountStatement.displayCurrency,
+                                ),
+                              },
+                              {
+                                key: "invoiced",
+                                label: "Facturado",
+                                value: money(
+                                  accountStatement.invoiced,
+                                  accountStatement.displayCurrency,
+                                ),
+                              },
+                              {
+                                key: "paid",
+                                label: "Pagos recibidos",
+                                value: money(
+                                  accountStatement.paid,
+                                  accountStatement.displayCurrency,
+                                ),
+                              },
+                              {
+                                key: "credits",
+                                label: "Notas de crédito",
+                                value: money(
+                                  accountStatement.credited,
+                                  accountStatement.displayCurrency,
+                                ),
+                              },
+                              {
+                                key: "overdue",
+                                label: "Monto vencido",
+                                value: money(
+                                  accountStatement.overdueBalance,
+                                  accountStatement.displayCurrency,
+                                ),
+                              },
+                              {
+                                key: "closing",
+                                label: "Saldo pendiente",
+                                value: money(
+                                  accountStatement.closingBalance,
+                                  accountStatement.displayCurrency,
+                                ),
+                              },
+                            ]}
+                          />
                           <div className="overflow-x-auto border-y border-slate-100">
                             <Table className="min-w-[860px]">
-                              <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Movimiento</TableHead><TableHead>Referencia</TableHead><TableHead>Descripción</TableHead><TableHead className="text-right">Débito</TableHead><TableHead className="text-right">Crédito</TableHead><TableHead className="text-right">Saldo</TableHead></TableRow></TableHeader>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Fecha</TableHead>
+                                  <TableHead>Movimiento</TableHead>
+                                  <TableHead>Referencia</TableHead>
+                                  <TableHead>Descripción</TableHead>
+                                  <TableHead className="text-right">Débito</TableHead>
+                                  <TableHead className="text-right">Crédito</TableHead>
+                                  <TableHead className="text-right">Saldo</TableHead>
+                                </TableRow>
+                              </TableHeader>
                               <TableBody>
                                 {accountStatement.movements.map((row) => (
                                   <TableRow key={row.id}>
                                     <TableCell>{formatDate(row.date)}</TableCell>
-                                    <TableCell>{row.type === "invoice" ? "Factura" : row.type === "payment" ? "Pago" : "Nota de crédito"}</TableCell>
-                                    <TableCell className="font-medium text-slate-950">{row.reference}</TableCell>
-                                    <TableCell className="max-w-[260px] truncate text-slate-500">{row.description}</TableCell>
-                                    <TableCell className="text-right">{row.debit ? money(row.debit, row.currency) : "—"}</TableCell>
-                                    <TableCell className="text-right text-emerald-700">{row.credit ? money(row.credit, row.currency) : "—"}</TableCell>
-                                    <TableCell className="text-right font-semibold text-slate-950">{money(row.balance, row.currency)}</TableCell>
+                                    <TableCell>
+                                      {row.type === "invoice"
+                                        ? "Factura"
+                                        : row.type === "payment"
+                                          ? "Pago"
+                                          : "Nota de crédito"}
+                                    </TableCell>
+                                    <TableCell className="font-medium text-slate-950">
+                                      {row.reference}
+                                    </TableCell>
+                                    <TableCell className="max-w-[260px] truncate text-slate-500">
+                                      {row.description}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {row.debit ? money(row.debit, row.currency) : "—"}
+                                    </TableCell>
+                                    <TableCell className="text-right text-emerald-700">
+                                      {row.credit ? money(row.credit, row.currency) : "—"}
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold text-slate-950">
+                                      {money(row.balance, row.currency)}
+                                    </TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
                             </Table>
                           </div>
-                          <p className="text-xs text-slate-500">El saldo se calcula con facturas no canceladas menos pagos completados y notas de crédito emitidas o aplicadas.</p>
+                          <p className="text-xs text-slate-500">
+                            El saldo se calcula con facturas no canceladas menos pagos completados y
+                            notas de crédito emitidas o aplicadas.
+                          </p>
                         </>
                       )}
                     </TabsContent>
 
-<TabsContent
+                    <TabsContent
                       data-demo="client-360-contacts-section"
                       value="contacts"
                       className="space-y-4"
@@ -5134,42 +5427,46 @@ function ClientsPage() {
                         />
                       ) : (
                         <div className="divide-y divide-slate-100 border-y border-slate-100">
-                          {selectedClient.projects.map((project) => (
-                            <div key={project.id} className="py-4">
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <h4 className="text-base font-normal text-slate-950">
-                                    {project.name}
-                                  </h4>
-                                  <p className="mt-1 text-sm font-normal text-slate-500">
-                                    Vence {formatDate(project.due_date)}
-                                  </p>
+                          {selectedClient.projects.map((project) => {
+                            const progress = projectProgressFromTasks(
+                              project,
+                              selectedClient.tasks,
+                            );
+                            return (
+                              <div key={project.id} className="py-4">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <h4 className="text-base font-normal text-slate-950">
+                                      {project.name}
+                                    </h4>
+                                    <p className="mt-1 text-sm font-normal text-slate-500">
+                                      Vence {formatDate(project.due_date)}
+                                    </p>
+                                  </div>
+                                  <div className="flex shrink-0 items-center gap-2">
+                                    <StatusBadge status={project.status} />
+                                    {renderClient360QuickDetailButton(
+                                      "projects",
+                                      project.id,
+                                      "Ver proyecto",
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex shrink-0 items-center gap-2">
-                                  <StatusBadge status={project.status} />
-                                  {renderClient360QuickDetailButton(
-                                    "projects",
-                                    project.id,
-                                    "Ver proyecto",
-                                  )}
+                                <div className="mt-4 h-2 rounded-full bg-slate-100">
+                                  <div
+                                    className="h-2 rounded-full bg-blue-500 transition-all"
+                                    style={{
+                                      width: `${progress}%`,
+                                    }}
+                                  />
+                                </div>
+                                <div className="mt-2 flex items-center justify-between text-sm font-normal text-slate-500">
+                                  <span>Progreso</span>
+                                  <span className="font-normal text-slate-950">{progress}%</span>
                                 </div>
                               </div>
-                              <div className="mt-4 h-2 rounded-full bg-slate-100">
-                                <div
-                                  className="h-2 rounded-full bg-blue-500 transition-all"
-                                  style={{
-                                    width: `${Math.max(0, Math.min(Number(project.progress || 0), 100))}%`,
-                                  }}
-                                />
-                              </div>
-                              <div className="mt-2 flex items-center justify-between text-sm font-normal text-slate-500">
-                                <span>Progreso</span>
-                                <span className="font-normal text-slate-950">
-                                  {Math.max(0, Math.min(Number(project.progress || 0), 100))}%
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </TabsContent>

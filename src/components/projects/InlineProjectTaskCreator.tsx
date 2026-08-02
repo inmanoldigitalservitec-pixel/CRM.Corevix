@@ -208,6 +208,7 @@ export function InlineProjectTaskCreator() {
       };
 
       setCreatedTasks((prev) => [visibleTask, ...prev]);
+      window.dispatchEvent(new CustomEvent("corevix:task-created", { detail: { task: inserted } }));
       setForm(emptyTaskForm());
       window.setTimeout(keepTasksTabActive, 0);
       window.setTimeout(keepTasksTabActive, 80);
@@ -218,6 +219,7 @@ export function InlineProjectTaskCreator() {
         userId: profile.id || null,
         action: "task_created",
         entityType: "tasks",
+        entityId: inserted?.id || null,
         detail: `Tarea creada desde proyecto: ${payload.title}`,
         metadata: {
           related_project_id: project.id,
