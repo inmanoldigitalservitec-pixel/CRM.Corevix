@@ -151,7 +151,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
       }
     }
     const createdByCol = createdByColumnByTable[table];
-    const createdByValue = table === "invoices" ? profile?.user_id || null : profile?.id || null;
+    const createdByValue = profile?.id || null;
 
     if (createdByCol && payload[createdByCol] == null && createdByValue) {
       // Hotfix: only inject created_by for tables confirmed to support it safely.

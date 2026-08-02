@@ -323,6 +323,12 @@ function isoToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) return "";
+  const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
+}
+
 function projectBudgetBaseAmount(project: Project, settings: CompanyCurrencySettings) {
   if (project.budget_base != null) {
     return convertCurrencyAmount(
@@ -352,9 +358,10 @@ function projectBudgetBaseLabel(project: Project, settings: CompanyCurrencySetti
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
+  const dateValue = toDateInputValue(value);
+  if (!dateValue) return "—";
   try {
-    return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    return new Date(`${dateValue}T00:00:00`).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -940,8 +947,8 @@ function ProjectsPage() {
       budget_currency: normalizeCurrency(
         project.budget_currency || project.base_currency || currencySettings.baseCurrency,
       ),
-      start_date: project.start_date || "",
-      due_date: project.due_date || "",
+      start_date: toDateInputValue(project.start_date),
+      due_date: toDateInputValue(project.due_date),
       client_id: project.client_id || NONE,
       product_id: project.product_id || NONE,
       deal_id: project.deal_id || NONE,
@@ -997,8 +1004,8 @@ function ProjectsPage() {
       base_currency: currencySettings.baseCurrency,
       exchange_rate: currencySettings.usdToDopRate,
       budget_base: budgetBase,
-      start_date: form.start_date || null,
-      due_date: form.due_date || null,
+      start_date: toDateInputValue(form.start_date) || null,
+      due_date: toDateInputValue(form.due_date) || null,
       client_id: form.client_id !== NONE ? form.client_id : null,
       product_id: form.product_id !== NONE ? form.product_id : null,
       deal_id: form.deal_id !== NONE ? form.deal_id : null,

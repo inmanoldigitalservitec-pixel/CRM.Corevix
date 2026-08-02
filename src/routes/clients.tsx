@@ -3447,7 +3447,8 @@ function ClientsPage() {
   const openContactCreator = (clientId: string) => {
     setEditContact(null);
     setContactClientId(clientId);
-    setContactIsPrimary(false);
+    const client = snapshots.find((snapshot) => snapshot.id === clientId);
+    setContactIsPrimary((client?.contacts.length || 0) === 0);
     setContactDialogOpen(true);
   };
 

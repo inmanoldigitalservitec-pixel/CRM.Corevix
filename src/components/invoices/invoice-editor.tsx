@@ -410,6 +410,8 @@ export function InvoiceEditor({
           ...nextItems[emptyIndex],
           ...nextItem,
         };
+      } else {
+        nextItems.push(nextItem);
       }
       return {
         ...current,

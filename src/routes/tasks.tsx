@@ -173,7 +173,7 @@ function parseDate(value: string | null | undefined) {
 }
 
 function formatShortDate(value: string | null | undefined) {
-  return value ? value : "—";
+  return toDateKeyLocal(value) || "—";
 }
 
 function isoTodayLocal() {
