@@ -57,7 +57,15 @@ function relativeTimeLabel(value: string) {
   return rtf.format(days, "day");
 }
 
-export function ClientNotesPanel({ clientId, canEdit }: { clientId: string; canEdit: boolean }) {
+export function ClientNotesPanel({
+  clientId,
+  canEdit,
+  onChanged,
+}: {
+  clientId: string;
+  canEdit: boolean;
+  onChanged?: () => Promise<void> | void;
+}) {
   const { profile } = useAuth();
   const [notes, setNotes] = useState<ClientNoteRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,13 +115,17 @@ export function ClientNotesPanel({ clientId, canEdit }: { clientId: string; canE
 
     setSaving(true);
     const content = draft.trim();
-    const { error } = await (supabase as any).from("client_notes").insert({
-      company_id: profile.company_id,
-      client_id: clientId,
-      author_profile_id: profile.id || null,
-      kind: "internal",
-      content,
-    });
+    const { data: createdNote, error } = await (supabase as any)
+      .from("client_notes")
+      .insert({
+        company_id: profile.company_id,
+        client_id: clientId,
+        author_profile_id: profile.id || null,
+        kind: "internal",
+        content,
+      })
+      .select("id")
+      .single();
     setSaving(false);
 
     if (error) return toast.error(error.message || "No se pudo guardar la nota.");
@@ -121,15 +133,17 @@ export function ClientNotesPanel({ clientId, canEdit }: { clientId: string; canE
     setDraft("");
     setSelectedNote(null);
     setDialogOpen(false);
-    await loadNotes();
-    void logActivityEvent({
+    await logActivityEvent({
       companyId: profile.company_id,
       userId: profile.id || null,
       action: "client_note_created",
       entityType: "client_notes",
+      entityId: createdNote?.id || null,
       detail: `Nota interna creada en cliente (${content.slice(0, 80)})`,
       metadata: { client_id: clientId },
     }).catch(() => {});
+    await loadNotes();
+    await onChanged?.();
     toast.success("Nota guardada.");
   }
 
@@ -151,8 +165,7 @@ export function ClientNotesPanel({ clientId, canEdit }: { clientId: string; canE
     setSelectedNote(null);
     setDraft("");
     setDialogOpen(false);
-    await loadNotes();
-    void logActivityEvent({
+    await logActivityEvent({
       companyId: profile.company_id,
       userId: profile.id || null,
       action: "client_note_updated",
@@ -161,6 +174,8 @@ export function ClientNotesPanel({ clientId, canEdit }: { clientId: string; canE
       detail: `Nota interna actualizada en cliente (${content.slice(0, 80)})`,
       metadata: { client_id: clientId },
     }).catch(() => {});
+    await loadNotes();
+    await onChanged?.();
     toast.success("Nota actualizada.");
   }
 
@@ -181,16 +196,17 @@ export function ClientNotesPanel({ clientId, canEdit }: { clientId: string; canE
       setDraft("");
       setDialogOpen(false);
     }
-    await loadNotes();
-    void logActivityEvent({
+    await logActivityEvent({
       companyId: profile.company_id,
       userId: profile.id || null,
-      action: "client_note_deleted",
+      action: "client_note_archived",
       entityType: "client_notes",
       entityId: note.id,
       detail: `Nota interna archivada en cliente (${note.content.slice(0, 80)})`,
       metadata: { client_id: clientId },
     }).catch(() => {});
+    await loadNotes();
+    await onChanged?.();
     toast.success("Nota eliminada.");
   }
 

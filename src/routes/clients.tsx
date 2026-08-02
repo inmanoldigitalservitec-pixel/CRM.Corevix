@@ -372,6 +372,7 @@ interface InvoiceRow {
   id: string;
   company_id: string;
   client_id: string | null;
+  product_id?: string | null;
   number: string;
   status: string;
   total: number;
@@ -382,6 +383,15 @@ interface InvoiceRow {
   date_issued: string | null;
   due_date: string | null;
   updated_at: string;
+}
+
+interface InvoiceItemRow {
+  id: string;
+  company_id: string;
+  invoice_id: string;
+  product_id: string | null;
+  item_name: string | null;
+  created_at: string;
 }
 
 interface PaymentRow {
@@ -457,6 +467,15 @@ interface ExpenseRow {
   client_id: string | null;
   receipt_url: string | null;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ClientNoteSummaryRow {
+  id: string;
+  company_id: string;
+  client_id: string;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -604,6 +623,7 @@ interface ProfileRow {
 
 interface ClientSnapshot extends ClientRow {
   contacts: ContactRow[];
+  internalNotes: ClientNoteSummaryRow[];
   primaryContact: ContactRow | null;
   purchasedProducts: Array<{ clientProduct: ClientProductRow; product: ProductRow | null }>;
   purchasedProductNames: string[];
@@ -1159,6 +1179,7 @@ function ClientsPage() {
   const [vaultSaving, setVaultSaving] = useState(false);
   const [revealedVaultItemIds, setRevealedVaultItemIds] = useState<Set<string>>(() => new Set());
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
   const [statementFrom, setStatementFrom] = useState(() => isoDate(-90));
   const [statementTo, setStatementTo] = useState(() => isoDate());
   const [statementCurrency, setStatementCurrency] = useState("all");
@@ -1191,6 +1212,14 @@ function ClientsPage() {
       "id,company_id,client_id,first_name,last_name,email,phone,whatsapp,department,position,tags,notes,is_primary,created_at,updated_at",
     orderBy: "updated_at",
     ascending: false,
+  });
+
+  const { data: clientNotes, fetch: fetchClientNotes } = useCrud<ClientNoteSummaryRow>({
+    table: "client_notes",
+    select: "id,company_id,client_id,archived_at,created_at,updated_at",
+    orderBy: "updated_at",
+    ascending: false,
+    limit: 2000,
   });
 
   const {
@@ -1254,9 +1283,17 @@ function ClientsPage() {
   } = useCrud<InvoiceRow>({
     table: "invoices",
     select:
-      "id,company_id,client_id,number,status,total,currency,base_currency,total_base,invoice_data,date_issued,due_date,updated_at",
+      "id,company_id,client_id,product_id,number,status,total,currency,base_currency,total_base,invoice_data,date_issued,due_date,updated_at",
     orderBy: "updated_at",
     ascending: false,
+  });
+
+  const { data: invoiceItems } = useCrud<InvoiceItemRow>({
+    table: "invoice_items",
+    select: "id,company_id,invoice_id,product_id,item_name,created_at",
+    orderBy: "created_at",
+    ascending: false,
+    limit: 5000,
   });
 
   const {
@@ -1311,7 +1348,7 @@ function ClientsPage() {
   } = useCrud<ExpenseRow>({
     table: "expenses",
     select:
-      "id,company_id,title,vendor,category,amount,status,expense_date,project_id,client_id,receipt_url,notes,created_at,updated_at",
+      "id,company_id,title,vendor,category,amount,currency,base_currency,amount_base,status,expense_date,project_id,client_id,receipt_url,notes,created_at,updated_at",
     orderBy: "expense_date",
     ascending: false,
     limit: 2000,
@@ -1531,11 +1568,15 @@ function ClientsPage() {
     return () => {
       cancelled = true;
     };
-  }, [profile?.company_id]);
+  }, [profile?.company_id, activityRefreshKey]);
 
   const contactsByClient = useMemo(
     () => groupBy(contacts, (contact) => contact.client_id),
     [contacts],
+  );
+  const internalNotesByClient = useMemo(
+    () => groupBy(clientNotes.filter((note) => !note.archived_at), (note) => note.client_id),
+    [clientNotes],
   );
   const projectsByClient = useMemo(
     () => groupBy(projects, (project) => project.client_id),
@@ -1617,10 +1658,15 @@ function ClientsPage() {
     () => new Map(invoices.map((invoice) => [invoice.id, invoice])),
     [invoices],
   );
+  const invoiceItemsByInvoice = useMemo(
+    () => groupBy(invoiceItems, (item) => item.invoice_id),
+    [invoiceItems],
+  );
 
   const snapshots = useMemo<ClientSnapshot[]>(() => {
     return clients.map((client) => {
       const clientContacts = contactsByClient.get(client.id) || [];
+      const clientInternalNotes = internalNotesByClient.get(client.id) || [];
       const primaryContact =
         clientContacts.find((contact) => contact.is_primary) || clientContacts[0] || null;
       const clientProjects = projectsByClient.get(client.id) || [];
@@ -1632,6 +1678,9 @@ function ClientsPage() {
       for (const t of [...directClientTasks, ...projectTasks]) taskById.set(String(t.id), t);
       const clientTasks = Array.from(taskById.values());
       const clientInvoices = invoicesByClient.get(client.id) || [];
+      const clientInvoiceItems = clientInvoices.flatMap(
+        (invoice) => invoiceItemsByInvoice.get(invoice.id) || [],
+      );
       const paymentById = new Map<string, PaymentRow>();
       for (const payment of paymentsByClient.get(client.id) || []) {
         paymentById.set(payment.id, payment);
@@ -1777,10 +1826,55 @@ function ClientsPage() {
       const clientProposals = proposalsByClient.get(client.id) || [];
       const clientDeals = dealsByClient.get(client.id) || [];
       const cps = (clientProductsByClient.get(client.id) || []) as ClientProductRow[];
-      const purchasedProducts = cps.map((cp) => ({
-        clientProduct: cp,
-        product: productById.get(cp.product_id) || null,
-      }));
+      const purchasedProductById = new Map<
+        string,
+        { clientProduct: ClientProductRow; product: ProductRow | null }
+      >();
+      const addPurchasedProduct = (
+        productId: string | null | undefined,
+        source: string,
+        sourceDate: string | null | undefined,
+      ) => {
+        if (!productId || purchasedProductById.has(productId)) return;
+        purchasedProductById.set(productId, {
+          clientProduct: {
+            id: `${source}-${productId}`,
+            company_id: client.company_id,
+            client_id: client.id,
+            product_id: productId,
+            deal_id: null,
+            status: source,
+            start_date: sourceDate || null,
+            end_date: null,
+            price: null,
+            billing_type: null,
+            notes: null,
+            created_at: sourceDate || client.created_at,
+            updated_at: sourceDate || client.updated_at,
+          },
+          product: productById.get(productId) || null,
+        });
+      };
+      cps.forEach((cp) => {
+        if (!cp.product_id) return;
+        purchasedProductById.set(cp.product_id, {
+          clientProduct: cp,
+          product: productById.get(cp.product_id) || null,
+        });
+      });
+      clientProjects.forEach((project) =>
+        addPurchasedProduct(project.product_id, "Proyecto", project.start_date || project.updated_at),
+      );
+      clientSubscriptions.forEach((subscription) =>
+        addPurchasedProduct(subscription.product_id, "Suscripción", subscription.start_date),
+      );
+      clientInvoices.forEach((invoice) =>
+        addPurchasedProduct(invoice.product_id, "Factura", invoice.date_issued || invoice.updated_at),
+      );
+      clientInvoiceItems.forEach((item) =>
+        addPurchasedProduct(item.product_id, "Factura", item.created_at),
+      );
+      const purchasedProducts = Array.from(purchasedProductById.values());
       const purchasedProductNames = purchasedProducts
         .map((p) => p.product?.name || null)
         .filter(Boolean) as string[];
@@ -1886,6 +1980,7 @@ function ClientsPage() {
       return {
         ...client,
         contacts: clientContacts,
+        internalNotes: clientInternalNotes,
         primaryContact,
         purchasedProducts,
         purchasedProductNames,
@@ -1908,7 +2003,15 @@ function ClientsPage() {
         subscriptions: clientSubscriptions,
         activeSubscriptions,
         recurringAmount: activeSubscriptions.reduce(
-          (sum, subscription) => sum + Number(subscription.amount || 0),
+          (sum, subscription) =>
+            sum +
+            storedOrConvertedBaseMoney(
+              subscription.amount_base,
+              subscription.base_currency,
+              subscription.amount,
+              subscription.currency || subscription.base_currency || currencySettings.baseCurrency,
+              currencySettings,
+            ),
           0,
         ),
         expenses: clientExpenses,
@@ -1920,7 +2023,7 @@ function ClientsPage() {
               expense.amount_base,
               expense.base_currency,
               expense.amount,
-              expense.currency || "USD",
+              expense.currency || expense.base_currency || currencySettings.baseCurrency,
               currencySettings,
             ),
           0,
@@ -1978,6 +2081,8 @@ function ClientsPage() {
     dealsByClient,
     expensesByClient,
     expensesByProject,
+    internalNotesByClient,
+    invoiceItemsByInvoice,
     invoicesByClient,
     managerNameById,
     paymentsByClient,
@@ -2670,12 +2775,16 @@ function ClientsPage() {
       toast.error("El monto no puede ser negativo.");
       return;
     }
+    const currency = currencySettings.baseCurrency;
 
     const payload = {
       title: String(formData.get("title") || "").trim(),
       vendor: String(formData.get("vendor") || "").trim() || null,
       category: String(formData.get("category") || "").trim() || "General",
       amount,
+      currency,
+      base_currency: currencySettings.baseCurrency,
+      amount_base: amount,
       status: String(formData.get("status") || "Pending"),
       expense_date: String(formData.get("expense_date") || isoDate()),
       project_id: normalizeNullableSelectValue(formData.get("project_id")),
@@ -3174,6 +3283,7 @@ function ClientsPage() {
     const relatedLeadIds = new Set<string>();
     const relatedEntityIds = new Set<string>([selectedClient.id]);
     selectedClient.contacts.forEach((contact) => relatedEntityIds.add(contact.id));
+    selectedClient.internalNotes.forEach((note) => relatedEntityIds.add(note.id));
     selectedClient.projects.forEach((project) => relatedEntityIds.add(project.id));
     selectedClient.tasks.forEach((task) => relatedEntityIds.add(task.id));
     selectedClient.invoices.forEach((invoice) => relatedEntityIds.add(invoice.id));
@@ -3211,6 +3321,9 @@ function ClientsPage() {
       vault_item_created_from_client: "Acceso de Vault creado",
       client_vault_secret_revealed: "Secreto de Vault revelado",
       client_vault_secret_copied: "Secreto de Vault copiado",
+      client_note_created: "Nota interna creada",
+      client_note_updated: "Nota interna actualizada",
+      client_note_archived: "Nota interna archivada",
       project_created: "Proyecto creado",
       project_updated: "Proyecto actualizado",
       task_created: "Tarea creada",
@@ -3233,6 +3346,7 @@ function ClientsPage() {
       vault_item: "bg-blue-50 text-blue-700",
       projects: "bg-emerald-50 text-emerald-700",
       tasks: "bg-rose-50 text-rose-700",
+      client_notes: "bg-slate-50 text-slate-700",
       clients: "bg-emerald-50 text-emerald-700",
     };
 
@@ -3250,6 +3364,7 @@ function ClientsPage() {
       vault_item: ShieldAlert,
       projects: FolderKanban,
       tasks: Clock3,
+      client_notes: FileText,
       clients: Activity,
     };
 
@@ -3358,7 +3473,7 @@ function ClientsPage() {
       items.push({
         id: `expense-${expense.id}`,
         title: "Gasto registrado",
-        description: `${expense.title} · ${money(expense.amount, expense.currency)} · ${expenseLabel(expense.status)}`,
+        description: `${expense.title} · ${money(expense.amount, expense.currency || expense.base_currency || currencySettings.baseCurrency)} · ${expenseLabel(expense.status)}`,
         at: expense.updated_at || expense.created_at,
         icon: Receipt,
         tone: "bg-orange-50 text-orange-700",
@@ -4018,7 +4133,7 @@ function ClientsPage() {
                       </div>
                       <div>
                         <div className="text-[13px] font-extrabold text-slate-950">
-                          {client.openTasks.length}
+                          {client.tasks.length}
                         </div>
                         <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
                           Tareas
@@ -4106,10 +4221,10 @@ function ClientsPage() {
                         <TableCell className="hidden py-2 xl:table-cell">
                           <div className="space-y-0.5">
                             <p className="text-sm font-normal text-[#101828]">
-                              {client.openTasks.length}
+                              {client.tasks.length}
                             </p>
                             <p className="text-xs text-[#667085]">
-                              {client.overdueTasks.length} vencidas
+                              {client.openTasks.length} abiertas
                             </p>
                           </div>
                         </TableCell>
@@ -4382,7 +4497,7 @@ function ClientsPage() {
                           value: "notes",
                           label: "Notas",
                           icon: FileText,
-                          count: selectedClient.notes ? 1 : undefined,
+                          count: selectedClient.internalNotes.length || undefined,
                         },
                         { value: "statement", label: "Estado de cuenta", icon: Receipt },
                         {
@@ -4485,7 +4600,7 @@ function ClientsPage() {
                             {
                               key: "tasks",
                               label: "Tareas",
-                              value: selectedClient.openTasks.length,
+                              value: selectedClient.tasks.length,
                             },
                             {
                               key: "pipeline",
@@ -5218,6 +5333,10 @@ function ClientsPage() {
                       <ClientNotesPanel
                         clientId={selectedClient.id}
                         canEdit={can("clients.edit")}
+                        onChanged={async () => {
+                          await fetchClientNotes();
+                          setActivityRefreshKey((value) => value + 1);
+                        }}
                       />
                     </TabsContent>
 
@@ -5708,7 +5827,12 @@ function ClientsPage() {
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {money(expense.amount, expense.currency)}
+                                      {money(
+                                        expense.amount,
+                                        expense.currency ||
+                                          expense.base_currency ||
+                                          currencySettings.baseCurrency,
+                                      )}
                                     </p>
                                     <StatusBadge status={expense.status} />
                                   </div>

@@ -89,11 +89,21 @@ function emptyForm() {
   };
 }
 
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+
 function normalizeInitialValues(initialValues?: Partial<ContractForm>) {
   if (!initialValues) return emptyForm();
   return {
     ...emptyForm(),
     ...initialValues,
+    start_date: toDateInputValue(initialValues.start_date),
+    end_date: toDateInputValue(initialValues.end_date),
     client_id: initialValues.client_id || NONE,
     project_id: initialValues.project_id || NONE,
     assigned_to: initialValues.assigned_to || NONE,
@@ -128,8 +138,8 @@ export function ContractEditorDialog({
             contract_type: contract.contract_type || "Service Agreement",
             contract_value: contract.contract_value == null ? "" : String(contract.contract_value),
             currency: normalizeCurrency(contract.currency || currencySettings.baseCurrency),
-            start_date: contract.start_date || "",
-            end_date: contract.end_date || "",
+            start_date: toDateInputValue(contract.start_date),
+            end_date: toDateInputValue(contract.end_date),
             client_id: contract.client_id || NONE,
             project_id: contract.project_id || NONE,
             assigned_to: contract.assigned_to || NONE,
@@ -194,8 +204,8 @@ export function ContractEditorDialog({
       exchange_rate_source: currencySettings.rateSource,
       exchange_rate_updated_at: currencySettings.rateUpdatedAt,
       contract_value_base: baseValue,
-      start_date: form.start_date || null,
-      end_date: form.end_date || null,
+      start_date: toDateInputValue(form.start_date) || null,
+      end_date: toDateInputValue(form.end_date) || null,
       client_id: form.client_id === NONE ? null : form.client_id,
       project_id: form.project_id === NONE ? null : form.project_id,
       assigned_to: form.assigned_to === NONE ? null : form.assigned_to,
@@ -428,6 +438,7 @@ export function ContractEditorDialog({
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>Start Date</Label>
             <Input
+              name="start_date"
               type="date"
               value={form.start_date}
               onChange={(event) => setField("start_date", event.target.value)}
@@ -437,6 +448,7 @@ export function ContractEditorDialog({
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>End Date</Label>
             <Input
+              name="end_date"
               type="date"
               value={form.end_date}
               onChange={(event) => setField("end_date", event.target.value)}
