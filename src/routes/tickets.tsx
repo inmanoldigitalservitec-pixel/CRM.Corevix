@@ -494,6 +494,17 @@ function TicketsPage() {
     if (error) return toast.error(error.message || "No se pudo agregar el mensaje.");
     setReply("");
     setReplyInternal(false);
+    const { data: refreshedTicket } = await db
+      .from("tickets")
+      .select("*")
+      .eq("id", selectedTicket.id)
+      .single();
+    if (refreshedTicket) {
+      setTickets((current) =>
+        current.map((ticket) => (ticket.id === refreshedTicket.id ? refreshedTicket : ticket)),
+      );
+      setSelectedTicket(refreshedTicket);
+    }
     await Promise.all([fetchMessages(selectedTicket.id), fetchTickets()]);
     toast.success(replyInternal ? "Nota interna agregada." : "Respuesta agregada.");
   };

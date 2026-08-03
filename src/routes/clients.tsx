@@ -1809,7 +1809,7 @@ function ClientsPage() {
       const openTickets = clientTickets.filter(
         (ticket) => normalizeStatus(ticket.status) !== "closed",
       );
-      const urgentTickets = openTickets.filter((ticket) =>
+      const urgentTickets = clientTickets.filter((ticket) =>
         ["high", "urgent"].includes(normalizeStatus(ticket.priority)),
       );
       const nowIso = new Date().toISOString();
