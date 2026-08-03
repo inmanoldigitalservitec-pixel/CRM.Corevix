@@ -583,7 +583,10 @@ function clientLabel(client?: ClientSummaryRow | null) {
 
 function formatShortDate(value?: string | null) {
   if (!value) return "Sin fecha";
-  const date = new Date(value);
+  const dateOnlyMatch = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString();
 }
@@ -1761,7 +1764,9 @@ function DashboardPage() {
           .limit(120),
         db
           .from("contracts")
-          .select("id,contract_number,subject,end_date,status,contract_value,currency,base_currency")
+          .select(
+            "id,contract_number,subject,end_date,status,contract_value,currency,base_currency",
+          )
           .eq("company_id", cid)
           .not("end_date", "is", null)
           .order("end_date", { ascending: true })
