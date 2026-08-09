@@ -365,7 +365,7 @@ function formatPersonName(first?: string | null, last?: string | null) {
 
 function formatDateLabel(input?: string | null) {
   if (!input) return "—";
-  const d = new Date(input);
+  const d = parseIsoDateOnly(input) || new Date(input);
   if (Number.isNaN(d.getTime())) return input;
   return d.toLocaleDateString();
 }
