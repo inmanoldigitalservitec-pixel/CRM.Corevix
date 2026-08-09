@@ -57,7 +57,15 @@ function relativeTimeLabel(value: string) {
   return rtf.format(days, "day");
 }
 
-export function LeadNotesPanel({ leadId, canEdit }: { leadId: string; canEdit: boolean }) {
+export function LeadNotesPanel({
+  leadId,
+  canEdit,
+  onActivityChange,
+}: {
+  leadId: string;
+  canEdit: boolean;
+  onActivityChange?: () => void;
+}) {
   const { profile } = useAuth();
   const [notes, setNotes] = useState<LeadNoteRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +137,7 @@ export function LeadNotesPanel({ leadId, canEdit }: { leadId: string; canEdit: b
       entityType: "lead_notes",
       detail: `Nota interna creada en prospecto (${content.slice(0, 80)})`,
       metadata: { lead_id: leadId },
-    }).catch(() => {});
+    }).finally(() => onActivityChange?.());
     toast.success("Nota guardada.");
   }
 
@@ -160,7 +168,7 @@ export function LeadNotesPanel({ leadId, canEdit }: { leadId: string; canEdit: b
       entityId: selectedNote.id,
       detail: `Nota interna actualizada en prospecto (${content.slice(0, 80)})`,
       metadata: { lead_id: leadId },
-    }).catch(() => {});
+    }).finally(() => onActivityChange?.());
     toast.success("Nota actualizada.");
   }
 
@@ -190,7 +198,7 @@ export function LeadNotesPanel({ leadId, canEdit }: { leadId: string; canEdit: b
       entityId: note.id,
       detail: `Nota interna archivada en prospecto (${note.content.slice(0, 80)})`,
       metadata: { lead_id: leadId },
-    }).catch(() => {});
+    }).finally(() => onActivityChange?.());
     toast.success("Nota eliminada.");
   }
 

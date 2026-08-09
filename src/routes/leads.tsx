@@ -256,6 +256,16 @@ type DealProductRow = {
   total_price: number | null;
 };
 
+type LeadActivityLogRow = {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  detail: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
 type ProductWorkflowRow = {
   id: string;
   product_id: string;
@@ -705,6 +715,9 @@ function LeadsPage() {
   const [leadProposals, setLeadProposals] = useState<any[]>([]);
   const [leadTasks, setLeadTasks] = useState<any[]>([]);
   const [leadReminders, setLeadReminders] = useState<any[]>([]);
+  const [leadActivityLogs, setLeadActivityLogs] = useState<LeadActivityLogRow[]>([]);
+  const [leadActivityLoading, setLeadActivityLoading] = useState(false);
+  const [leadActivityRefreshKey, setLeadActivityRefreshKey] = useState(0);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [signalsLoading, setSignalsLoading] = useState(false);
   const [signalsError, setSignalsError] = useState<string | null>(null);
@@ -741,6 +754,60 @@ function LeadsPage() {
   const selectedLead = useMemo(() => {
     return leads.find((lead) => lead.id === selectedLeadId) || null;
   }, [leads, selectedLeadId]);
+
+  const refreshLeadActivity = useCallback(() => {
+    setLeadActivityRefreshKey((value) => value + 1);
+  }, []);
+
+  const loadLeadActivityLogs = useCallback(async () => {
+    if (!profile?.company_id || !selectedLeadId) {
+      setLeadActivityLogs([]);
+      setLeadActivityLoading(false);
+      return;
+    }
+
+    setLeadActivityLoading(true);
+    const activityQuery = "id,action,entity_type,entity_id,detail,metadata,created_at";
+    const [entityResult, metadataResult] = await Promise.all([
+      (supabase as any)
+        .from("activity_logs")
+        .select(activityQuery)
+        .eq("company_id", profile.company_id)
+        .eq("entity_type", "leads")
+        .eq("entity_id", selectedLeadId)
+        .order("created_at", { ascending: false })
+        .limit(80),
+      (supabase as any)
+        .from("activity_logs")
+        .select(activityQuery)
+        .eq("company_id", profile.company_id)
+        .contains("metadata", { lead_id: selectedLeadId })
+        .order("created_at", { ascending: false })
+        .limit(80),
+    ]);
+
+    if (entityResult.error || metadataResult.error) {
+      setLeadActivityLogs([]);
+      setLeadActivityLoading(false);
+      return;
+    }
+
+    const byId = new Map<string, LeadActivityLogRow>();
+    for (const item of [...(entityResult.data || []), ...(metadataResult.data || [])]) {
+      byId.set(item.id, item as LeadActivityLogRow);
+    }
+    setLeadActivityLogs(
+      Array.from(byId.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    );
+    setLeadActivityLoading(false);
+  }, [profile?.company_id, selectedLeadId]);
+
+  useEffect(() => {
+    if (!detailOpen) return;
+    void loadLeadActivityLogs();
+  }, [detailOpen, loadLeadActivityLogs, leadActivityRefreshKey]);
 
   const loadLeadWorkspaceRelations = useCallback(async () => {
     if (!profile?.company_id || !selectedLeadId) {
@@ -3245,16 +3312,49 @@ function LeadsPage() {
                     title="Última actividad"
                     icon={<Check className="h-3.5 w-3.5" />}
                   >
-                    <div className="text-sm">
-                      <div className="font-medium">
-                        {selectedLead.last_interaction_at
-                          ? "Interacción registrada"
-                          : "Prospecto creado"}
+                    {leadActivityLoading ? (
+                      <CrmDetailEmptyState>Cargando actividad...</CrmDetailEmptyState>
+                    ) : leadActivityLogs.length ? (
+                      <div className="divide-y divide-slate-100 border-y border-slate-100">
+                        {leadActivityLogs.slice(0, 12).map((log) => {
+                          const titleByAction: Record<string, string> = {
+                            lead_created: "Prospecto creado",
+                            lead_updated: "Prospecto actualizado",
+                            lead_note_created: "Nota interna creada",
+                            lead_note_updated: "Nota interna actualizada",
+                            lead_note_deleted: "Nota interna archivada",
+                            deal_created: "Oportunidad creada",
+                            deal_moved: "Oportunidad movida",
+                            task_created: "Tarea creada",
+                            task_updated: "Tarea actualizada",
+                          };
+                          return (
+                            <div key={log.id} className="py-3 text-sm">
+                              <div className="font-medium">
+                                {titleByAction[log.action] || log.action.replaceAll("_", " ")}
+                              </div>
+                              <div className="mt-1 text-[13px] text-muted-foreground">
+                                {log.detail || "Actividad registrada"}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-400">
+                                {formatDate(log.created_at)}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div className="mt-1 text-[13px] text-muted-foreground">
-                        {formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}
+                    ) : (
+                      <div className="text-sm">
+                        <div className="font-medium">
+                          {selectedLead.last_interaction_at
+                            ? "Interacción registrada"
+                            : "Prospecto creado"}
+                        </div>
+                        <div className="mt-1 text-[13px] text-muted-foreground">
+                          {formatDate(selectedLead.last_interaction_at || selectedLead.created_at)}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </CrmDetailSection>
                 </div>
               </TabsContent>
@@ -3293,7 +3393,11 @@ function LeadsPage() {
               </TabsContent>
 
               <TabsContent value="notes" className="space-y-4 data-[state=inactive]:hidden">
-                <LeadNotesPanel leadId={selectedLead.id} canEdit={can("leads.edit")} />
+                <LeadNotesPanel
+                  leadId={selectedLead.id}
+                  canEdit={can("leads.edit")}
+                  onActivityChange={refreshLeadActivity}
+                />
               </TabsContent>
             </Tabs>
           ) : null}
