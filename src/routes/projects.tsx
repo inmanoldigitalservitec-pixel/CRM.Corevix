@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -595,7 +595,7 @@ function ProjectsPage() {
   const routeSearch = Route.useSearch();
   const openedProjectSearchRef = useRef<string | null>(null);
   const { profile, user } = useAuth();
-  const { can } = usePermissions();
+  const { can, dbPermsLoading } = usePermissions();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
@@ -1134,7 +1134,10 @@ function ProjectsPage() {
     toast.success("Tarea completada");
   }
 
-  if (loading) return <LoadingState />;
+  if (!profile || dbPermsLoading || loading) return <LoadingState />;
+  if (!can("projects.view_all") && !can("projects.view_assigned")) {
+    return <Navigate to="/dashboard" />;
+  }
 
   const mobileStatusFilters = [
     { value: "all", label: "Todos los estados" },
