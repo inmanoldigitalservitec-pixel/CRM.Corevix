@@ -405,7 +405,11 @@ function PipelinePage() {
   const [newDealStageOverride, setNewDealStageOverride] = useState<string | null>(null);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("board");
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+      ? "list"
+      : "board",
+  );
   const [boardStagePage, setBoardStagePage] = useState(0);
   const [newDeal, setNewDeal] = useState({
     name: "",
@@ -449,6 +453,8 @@ function PipelinePage() {
   useEffect(() => {
     if (isMobile) setViewMode("list");
   }, [isMobile]);
+
+  const effectiveViewMode = isMobile ? "list" : viewMode;
 
   const [team, setTeam] = useState<CompanyTeamMember[]>([]);
   const [closingAsWon, setClosingAsWon] = useState(false);
@@ -2438,8 +2444,8 @@ function PipelinePage() {
                 <div className="inline-flex h-9 items-center gap-3">
                   <button
                     className={
-                      "h-9 border-b px-1 text-[12px] font-normal flex items-center gap-1.5 transition " +
-                      (viewMode === "board"
+                      "hidden h-9 border-b px-1 text-[12px] font-normal items-center gap-1.5 transition md:flex " +
+                      (effectiveViewMode === "board"
                         ? "border-blue-600 text-blue-600"
                         : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950")
                     }
@@ -2452,7 +2458,7 @@ function PipelinePage() {
                   <button
                     className={
                       "h-9 border-b px-1 text-[12px] font-normal flex items-center gap-1.5 transition " +
-                      (viewMode === "list"
+                      (effectiveViewMode === "list"
                         ? "border-blue-600 text-blue-600"
                         : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950")
                     }
@@ -2677,7 +2683,7 @@ function PipelinePage() {
             />
           ) : (
             <>
-              {viewMode === "list" ? (
+              {effectiveViewMode === "list" ? (
                 <div className="overflow-hidden border-y border-slate-100 bg-white">
                   <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                     <div>
