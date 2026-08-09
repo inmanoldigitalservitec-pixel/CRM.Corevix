@@ -1347,6 +1347,9 @@ function TaskEditorInfoFields({
           type="date"
           value={draft.dueDate}
           onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
+          onInput={(e) =>
+            setDraft((d) => ({ ...d, dueDate: (e.currentTarget as HTMLInputElement).value }))
+          }
         />,
       )}
       {renderEditField(
@@ -1795,6 +1798,8 @@ export function TaskCreateDialog({
         metadata: {
           related_client_id: createdTask.related_client_id,
           related_project_id: createdTask.related_project_id,
+          related_lead_id: payload.related_lead_id,
+          related_deal_id: payload.related_deal_id,
           related_proposal_id: createdTask.related_proposal_id,
           due_date: createdTask.due_date,
           priority: createdTask.priority,

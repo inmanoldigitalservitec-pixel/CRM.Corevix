@@ -768,7 +768,7 @@ function LeadsPage() {
 
     setLeadActivityLoading(true);
     const activityQuery = "id,action,entity_type,entity_id,detail,metadata,created_at";
-    const [entityResult, metadataResult] = await Promise.all([
+    const [entityResult, metadataResult, relatedResult] = await Promise.all([
       (supabase as any)
         .from("activity_logs")
         .select(activityQuery)
@@ -784,16 +784,27 @@ function LeadsPage() {
         .contains("metadata", { lead_id: selectedLeadId })
         .order("created_at", { ascending: false })
         .limit(80),
+      (supabase as any)
+        .from("activity_logs")
+        .select(activityQuery)
+        .eq("company_id", profile.company_id)
+        .contains("metadata", { related_lead_id: selectedLeadId })
+        .order("created_at", { ascending: false })
+        .limit(80),
     ]);
 
-    if (entityResult.error || metadataResult.error) {
+    if (entityResult.error || metadataResult.error || relatedResult.error) {
       setLeadActivityLogs([]);
       setLeadActivityLoading(false);
       return;
     }
 
     const byId = new Map<string, LeadActivityLogRow>();
-    for (const item of [...(entityResult.data || []), ...(metadataResult.data || [])]) {
+    for (const item of [
+      ...(entityResult.data || []),
+      ...(metadataResult.data || []),
+      ...(relatedResult.data || []),
+    ]) {
       byId.set(item.id, item as LeadActivityLogRow);
     }
     setLeadActivityLogs(
