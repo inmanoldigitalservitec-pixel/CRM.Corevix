@@ -120,7 +120,9 @@ type ProductRow = {
 type DealProductRow = {
   id: string;
   deal_id: string;
-  product_id: string;
+  product_id: string | null;
+  custom_name?: string | null;
+  custom_description?: string | null;
   quantity: number | null;
   unit_price: number | null;
   total_price: number | null;
@@ -639,6 +641,14 @@ function PipelinePage() {
   const db = supabase as any;
 
   const dealRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (!selectedDeal?.id) return;
+    const freshDeal = deals.find((deal) => String(deal.id) === String(selectedDeal.id));
+    if (!freshDeal || freshDeal === selectedDeal) return;
+    setSelectedDeal(freshDeal);
+  }, [deals, selectedDeal]);
+
   const loadActiveProducts = useCallback(async () => {
     if (!profile?.company_id) {
       setActiveProducts([]);
@@ -673,9 +683,9 @@ function PipelinePage() {
     }
     setDealProductsLoading(true);
     try {
-      const { data: rows, error } = await db
-        .from("deal_products")
-        .select("id,deal_id,product_id,quantity,unit_price,total_price")
+    const { data: rows, error } = await db
+      .from("deal_products")
+      .select("id,deal_id,product_id,custom_name,custom_description,quantity,unit_price,total_price")
         .eq("company_id", profile.company_id)
         .eq("deal_id", selectedDeal.id)
         .order("created_at", { ascending: true });
@@ -687,7 +697,9 @@ function PipelinePage() {
       const list = (rows || []) as DealProductRow[];
       setDealProducts(list);
 
-      const ids = Array.from(new Set(list.map((r) => String(r.product_id)).filter(Boolean)));
+      const ids = Array.from(
+        new Set(list.map((r) => (r.product_id ? String(r.product_id) : "")).filter(Boolean)),
+      );
       if (!ids.length) {
         setDealProductsProductById({});
         return;
@@ -859,14 +871,14 @@ function PipelinePage() {
 
     const { data: dealProducts, error: dpErr } = await db
       .from("deal_products")
-      .select("id,deal_id,product_id,quantity,unit_price,total_price")
+      .select("id,deal_id,product_id,custom_name,custom_description,quantity,unit_price,total_price")
       .eq("company_id", cid)
       .eq("deal_id", deal.id)
       .order("created_at", { ascending: false });
     if (dpErr) throw new Error(dpErr.message || "No se pudieron cargar los productos del deal");
 
     const idsFromDealProducts = Array.isArray(dealProducts)
-      ? dealProducts.map((r: any) => String(r.product_id))
+      ? dealProducts.map((r: any) => (r.product_id ? String(r.product_id) : ""))
       : [];
 
     let candidateIds = idsFromDealProducts;
@@ -1217,7 +1229,7 @@ function PipelinePage() {
       // reload list by re-triggering effect using selectedDeal.id (same). Fetch manually:
       const { data: rows } = await db
         .from("deal_products")
-        .select("id,deal_id,product_id,quantity,unit_price,total_price")
+        .select("id,deal_id,product_id,custom_name,custom_description,quantity,unit_price,total_price")
         .eq("company_id", profile.company_id)
         .eq("deal_id", deal.id)
         .order("created_at", { ascending: true });
@@ -1249,6 +1261,43 @@ function PipelinePage() {
     } finally {
       setRemovingDealProductId(null);
     }
+  }
+
+  async function handleUpdateDealProduct(
+    deal: Deal,
+    row: DealProductRow,
+    patch: Partial<Pick<DealProductRow, "quantity" | "unit_price">>,
+  ) {
+    if (!profile?.company_id) return;
+    if (!canManageDealProducts(deal)) {
+      toast.error("No tienes permiso para editar productos de esta oportunidad");
+      return;
+    }
+    const quantity =
+      patch.quantity == null ? row.quantity || 1 : Math.max(1, Math.round(Number(patch.quantity) || 1));
+    const unitPrice =
+      patch.unit_price == null ? row.unit_price || 0 : Math.max(0, Number(patch.unit_price) || 0);
+    const { error } = await db
+      .from("deal_products")
+      .update({
+        quantity,
+        unit_price: unitPrice,
+        total_price: quantity * unitPrice,
+      })
+      .eq("company_id", profile.company_id)
+      .eq("id", row.id);
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar el producto");
+      return;
+    }
+    setDealProducts((current) =>
+      current.map((item) =>
+        item.id === row.id
+          ? { ...item, quantity, unit_price: unitPrice, total_price: quantity * unitPrice }
+          : item,
+      ),
+    );
+    toast.success("Producto actualizado");
   }
 
   const loadPipelineData = useCallback(async () => {
@@ -1767,6 +1816,7 @@ function PipelinePage() {
 
     moveDealInState(dealId, stageName, null);
     setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: stageName } : d)));
+    setSelectedDeal((prev) => (prev?.id === dealId ? { ...prev, stage: stageName } : prev));
 
     const { error } = await db.from("deals").update({ stage: stageName }).eq("id", dealId);
     if (error) {
@@ -3411,6 +3461,12 @@ function PipelinePage() {
                         type="date"
                         value={newDeal.expected_close}
                         onChange={(e) => setNewDeal({ ...newDeal, expected_close: e.target.value })}
+                        onInput={(e) =>
+                          setNewDeal({
+                            ...newDeal,
+                            expected_close: (e.currentTarget as HTMLInputElement).value,
+                          })
+                        }
                       />
                     </div>
                     <div>
@@ -3809,14 +3865,20 @@ function PipelinePage() {
                             </div>
                           ) : null}
 
-                          {dealProducts.length ? (
-                            <div>
-                              <div className="text-[11px] font-normal text-slate-500">
-                                Productos asociados
-                              </div>
+                          <div>
+                            <div className="text-[11px] font-normal text-slate-500">
+                              Productos asociados
+                            </div>
+                            {dealProductsLoading ? (
+                              <div className="mt-1 text-xs text-slate-500">Cargando productos...</div>
+                            ) : dealProducts.length ? (
                               <div className="mt-1 divide-y divide-slate-100">
                                 {dealProducts.map((row) => {
-                                  const product = dealProductsProductById[String(row.product_id)];
+                                  const product = row.product_id
+                                    ? dealProductsProductById[String(row.product_id)]
+                                    : undefined;
+                                  const productLabel =
+                                    product?.name || row.custom_name || "Producto personalizado";
                                   const qty = Math.max(1, Number(row.quantity || 1));
                                   const unit = toNumber(row.unit_price);
                                   const total =
@@ -3825,22 +3887,152 @@ function PipelinePage() {
                                       : qty * unit;
 
                                   return (
-                                    <div
-                                      key={row.id}
-                                      className="flex items-center justify-between py-2"
-                                    >
-                                      <span className="font-normal text-slate-950">
-                                        {product?.name || String(row.product_id)}
-                                      </span>
-                                      <span className="text-slate-500">
-                                        {money(total, currencySettings.baseCurrency)}
-                                      </span>
+                                    <div key={row.id} className="space-y-2 py-2">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <span className="min-w-0 truncate font-normal text-slate-950">
+                                          {productLabel}
+                                        </span>
+                                        <span className="shrink-0 text-slate-500">
+                                          {money(total, currencySettings.baseCurrency)}
+                                        </span>
+                                      </div>
+                                      <div className="grid grid-cols-[72px_minmax(0,1fr)_32px] gap-2">
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          defaultValue={qty}
+                                          className="h-8 text-xs"
+                                          disabled={!canManageDealProducts(selectedDeal)}
+                                          onBlur={(event) => {
+                                            const next = Math.max(
+                                              1,
+                                              Math.round(Number(event.currentTarget.value) || 1),
+                                            );
+                                            if (next !== qty)
+                                              void handleUpdateDealProduct(selectedDeal, row, {
+                                                quantity: next,
+                                              });
+                                          }}
+                                        />
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          step="0.01"
+                                          defaultValue={unit}
+                                          className="h-8 text-xs"
+                                          disabled={!canManageDealProducts(selectedDeal)}
+                                          onBlur={(event) => {
+                                            const next = Math.max(
+                                              0,
+                                              Number(event.currentTarget.value) || 0,
+                                            );
+                                            if (next !== unit)
+                                              void handleUpdateDealProduct(selectedDeal, row, {
+                                                unit_price: next,
+                                              });
+                                          }}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-slate-400"
+                                          disabled={
+                                            !canManageDealProducts(selectedDeal) ||
+                                            removingDealProductId === row.id
+                                          }
+                                          onClick={() =>
+                                            void handleRemoveDealProduct(selectedDeal, row.id)
+                                          }
+                                          aria-label="Quitar producto"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
                                     </div>
                                   );
                                 })}
                               </div>
+                            ) : (
+                              <div className="mt-1 text-xs text-slate-500">
+                                Esta oportunidad no tiene productos asociados.
+                              </div>
+                            )}
+
+                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_64px_92px_auto] gap-2">
+                              <Select
+                                value={addDealProductValues.product_id}
+                                onValueChange={(productId) => {
+                                  const product = activeProducts.find(
+                                    (item) => String(item.id) === productId,
+                                  );
+                                  setAddDealProductValues((current) => ({
+                                    ...current,
+                                    product_id: productId,
+                                    unit_price:
+                                      product?.base_price != null
+                                        ? String(product.base_price)
+                                        : current.unit_price,
+                                  }));
+                                }}
+                                disabled={
+                                  !canManageDealProducts(selectedDeal) || activeProductsLoading
+                                }
+                              >
+                                <CrmDetailSelectTrigger className="h-8 text-xs">
+                                  <SelectValue
+                                    placeholder={
+                                      activeProductsLoading ? "Cargando..." : "Agregar producto"
+                                    }
+                                  />
+                                </CrmDetailSelectTrigger>
+                                <SelectContent className="border-slate-200 bg-white shadow-none">
+                                  {activeProducts.map((product) => (
+                                    <SelectItem key={product.id} value={product.id}>
+                                      {product.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min={1}
+                                className="h-8 text-xs"
+                                value={addDealProductValues.quantity}
+                                onChange={(event) =>
+                                  setAddDealProductValues((current) => ({
+                                    ...current,
+                                    quantity: event.target.value,
+                                  }))
+                                }
+                                disabled={!canManageDealProducts(selectedDeal)}
+                              />
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                className="h-8 text-xs"
+                                value={addDealProductValues.unit_price}
+                                onChange={(event) =>
+                                  setAddDealProductValues((current) => ({
+                                    ...current,
+                                    unit_price: event.target.value,
+                                  }))
+                                }
+                                disabled={!canManageDealProducts(selectedDeal)}
+                              />
+                              <CrmDetailLineButton
+                                onClick={() => void handleAddDealProduct(selectedDeal)}
+                                disabled={
+                                  !canManageDealProducts(selectedDeal) ||
+                                  addingDealProduct ||
+                                  !addDealProductValues.product_id
+                                }
+                              >
+                                Añadir
+                              </CrmDetailLineButton>
                             </div>
-                          ) : null}
+                          </div>
                         </div>
                       </details>
                     </>
