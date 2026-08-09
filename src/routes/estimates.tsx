@@ -748,14 +748,14 @@ function EstimatesPage() {
           />
         </div>
 
-        <div className="grid gap-3 border-y border-slate-100 py-3 sm:grid-cols-4">
-          <div className="border-b border-slate-100 pb-3 sm:border-b-0 sm:border-r sm:pb-0">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Cotizaciones</div>
-            <div className="mt-2 text-2xl font-light text-slate-950">{filteredEstimates.length}</div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0 border-y border-slate-100 py-2 sm:grid-cols-4 sm:gap-3 sm:py-3">
+          <div className="min-h-[58px] border-b border-slate-100 py-1.5 sm:min-h-0 sm:border-b-0 sm:border-r sm:py-0">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">Cotizaciones</div>
+            <div className="mt-1 text-lg font-light leading-tight text-slate-950 sm:mt-2 sm:text-2xl">{filteredEstimates.length}</div>
           </div>
-          <div className="border-b border-slate-100 pb-3 sm:border-b-0 sm:border-r sm:pb-0">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Activas</div>
-            <div className="mt-2 text-2xl font-light text-emerald-600">
+          <div className="min-h-[58px] border-b border-slate-100 py-1.5 sm:min-h-0 sm:border-b-0 sm:border-r sm:py-0">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">Activas</div>
+            <div className="mt-1 text-lg font-light leading-tight text-emerald-600 sm:mt-2 sm:text-2xl">
               {
                 filteredEstimates.filter(
                   (estimate) => !["Declined", "Expired", "Converted"].includes(estimate.status),
@@ -763,17 +763,17 @@ function EstimatesPage() {
               }
             </div>
           </div>
-          <div className="border-b border-slate-100 pb-3 sm:border-b-0 sm:border-r sm:pb-0">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Vencidas</div>
-            <div className="mt-2 text-2xl font-light text-rose-600">
+          <div className="min-h-[58px] py-1.5 sm:min-h-0 sm:border-b-0 sm:border-r sm:py-0">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">Vencidas</div>
+            <div className="mt-1 text-lg font-light leading-tight text-rose-600 sm:mt-2 sm:text-2xl">
               {filteredEstimates.filter((estimate) => estimate.status === "Expired").length}
             </div>
           </div>
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+          <div className="min-h-[58px] py-1.5 sm:min-h-0 sm:py-0">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">
               Valor cotizado
             </div>
-            <div className="mt-2 text-2xl font-light text-blue-600">
+            <div className="mt-1 truncate text-lg font-light leading-tight text-blue-600 sm:mt-2 sm:text-2xl">
               {formatCurrencyAmount(baseTotal, currencySettings.baseCurrency)}
             </div>
           </div>
