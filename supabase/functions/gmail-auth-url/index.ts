@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
     if (!jwt) return jsonResponse({ error: "No estás autenticado." }, 401);
 
     const body = await req.json().catch(() => ({}));
+    const accountType = body?.accountType === "shared" ? "shared" : "personal";
     const redirectTo = body?.redirectTo
       ? String(body.redirectTo)
       : `${siteUrl.replace(/\/$/, "")}/settings`;
@@ -78,6 +79,14 @@ Deno.serve(async (req) => {
     if (profile.is_active === false)
       return jsonResponse({ error: "Tu usuario está inactivo." }, 403);
 
+    if (accountType === "shared") {
+      const { data: canManage, error: permissionError } = await callerClient.rpc(
+        "can_manage_users",
+      );
+      if (permissionError) return jsonResponse({ error: permissionError.message }, 403);
+      if (canManage !== true) return jsonResponse({ error: "Solo un administrador puede conectar un buzón compartido." }, 403);
+    }
+
     const { data: settings, error: settingsError } = await serviceClient
       .from("gmail_settings")
       .select("client_id,redirect_uri,scopes,is_enabled")
@@ -98,6 +107,7 @@ Deno.serve(async (req) => {
       company_id: profile.company_id,
       profile_id: profile.id,
       user_auth_id: authData.user.id,
+      account_type: accountType,
       redirect_to: redirectTo,
       expires_at: expiresAt,
     });

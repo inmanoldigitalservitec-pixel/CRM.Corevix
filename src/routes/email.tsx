@@ -78,6 +78,9 @@ type EmailAccount = {
   id: string;
   email_address: string;
   last_synced_at: string | null;
+  account_type: "official" | "personal" | "shared";
+  shared_name?: string | null;
+  can_send: boolean;
 };
 
 type ProviderKey = "gmail" | "outlook";
@@ -285,6 +288,7 @@ function EmailPage() {
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const driveInputRef = useRef<HTMLInputElement | null>(null);
   const [emailAccount, setEmailAccount] = useState<EmailAccount | null>(null);
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncError, setSyncError] = useState<string | null>(null);
   const syncInFlightRef = useRef(false);
@@ -391,49 +395,39 @@ function EmailPage() {
     setLoading(false);
   }, [db, profile?.company_id, provider]);
 
-  const loadEmailAccount = useCallback(async () => {
+  const loadEmailAccounts = useCallback(async () => {
     if (provider !== "gmail") {
+      setEmailAccounts([]);
       setEmailAccount(null);
       setSyncStatus("idle");
-      return null;
+      return [] as EmailAccount[];
     }
-    const profileId = profile?.id || null;
-    const authUserId = profile?.user_id || null;
-    if (!profileId && !authUserId) return null;
-
-    const tryLoad = async (userId: string) =>
-      db
-        .from("email_accounts")
-        .select("id,email_address,last_synced_at,is_active,provider,updated_at")
-        .eq("provider", "gmail")
-        .eq("account_type", "personal")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-    let data: any = null;
-    if (profileId) {
-      const result = await tryLoad(profileId);
-      data = result.data;
+    const { data, error } = await db.rpc("list_accessible_email_accounts");
+    if (error) {
+      setEmailAccounts([]);
+      setEmailAccount(null);
+      setSyncStatus("error");
+      return [] as EmailAccount[];
     }
-    if (!data && authUserId) {
-      const result = await tryLoad(authUserId);
-      data = result.data;
-    }
+    const accounts = ((data || []) as any[]).map((row) => ({
+      id: String(row.id),
+      email_address: String(row.email_address || ""),
+      last_synced_at: row.last_synced_at ? String(row.last_synced_at) : null,
+      account_type: row.account_type as EmailAccount["account_type"],
+      shared_name: row.shared_name ? String(row.shared_name) : null,
+      can_send: row.can_send !== false,
+    }));
+    setEmailAccounts(accounts);
+    const selected = accounts.find((account) => account.id === emailAccount?.id) || accounts.find((account) => account.can_send) || null;
+    setEmailAccount(selected);
+    if (!selected) setSyncStatus("not_connected");
+    return accounts;
+  }, [db, emailAccount?.id, provider]);
 
-    const account = data
-      ? {
-          id: String(data.id),
-          email_address: String(data.email_address || ""),
-          last_synced_at: data.last_synced_at ? String(data.last_synced_at) : null,
-        }
-      : null;
-    setEmailAccount(account);
-    if (!account) setSyncStatus("not_connected");
-    return account;
-  }, [db, profile?.id, profile?.user_id, provider]);
+  const loadEmailAccount = useCallback(async () => {
+    const accounts = await loadEmailAccounts();
+    return accounts.find((account) => account.can_send) || null;
+  }, [loadEmailAccounts]);
 
   const loadMessagesForSelected = useCallback(async () => {
     if (!selectedConvo?.id) return;
@@ -489,7 +483,7 @@ function EmailPage() {
       setSyncStatus("syncing");
       setSyncError(null);
       const { data, error } = await supabase.functions.invoke("sync-gmail", {
-        body: { limit: 25 },
+        body: { limit: 25, email_account_id: account.id },
       });
       syncInFlightRef.current = false;
 
@@ -889,6 +883,7 @@ function EmailPage() {
         to,
         subject: composerSubject.trim(),
         body,
+        email_account_id: account.id,
         attachments: composerAttachments.map((attachment) => ({
           filename: attachment.filename,
           mimeType: attachment.mimeType,
@@ -1457,6 +1452,30 @@ function EmailPage() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+              </div>
+
+              <div className="border-b border-slate-100 px-4 py-2">
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="shrink-0">Enviar desde</span>
+                  <select
+                    value={emailAccount?.id || ""}
+                    onChange={(event) => {
+                      const account = emailAccounts.find((item) => item.id === event.target.value);
+                      if (account?.can_send) setEmailAccount(account);
+                    }}
+                    className="min-w-0 flex-1 bg-transparent text-xs font-medium text-slate-700 outline-none"
+                  >
+                    {emailAccounts
+                      .filter((account) => account.can_send)
+                      .map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.shared_name ||
+                            (account.account_type === "official" ? "Correo oficial" : "Cuenta personal")}{" "}
+                          · {account.email_address}
+                        </option>
+                      ))}
+                  </select>
+                </label>
               </div>
 
               <div className="border-b border-slate-100 px-4">

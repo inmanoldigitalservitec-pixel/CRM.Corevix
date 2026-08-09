@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useTeamUsers } from "@/hooks/use-team-users";
 import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -236,6 +237,7 @@ function SettingsPage() {
   const companyId = profile?.company_id || null;
   const profileId = profile?.id || null;
   const authUserId = profile?.user_id || user?.id || null;
+  const { data: teamUsers } = useTeamUsers({ enabled: can("settings.manage") });
 
   const [companyForm, setCompanyForm] = useState({
     company_name: "",
@@ -295,6 +297,24 @@ function SettingsPage() {
     id: string;
     email_address: string;
   } | null>(null);
+  const [sharedGmailAccounts, setSharedGmailAccounts] = useState<
+    Array<{
+      id: string;
+      email_address: string;
+      shared_name: string | null;
+    }>
+  >([]);
+  const [sharedGmailMembers, setSharedGmailMembers] = useState<
+    Array<{
+      id: string;
+      email_account_id: string;
+      profile_id: string;
+      can_read: boolean;
+      can_send: boolean;
+    }>
+  >([]);
+  const [sharedMemberSelection, setSharedMemberSelection] = useState<Record<string, string>>({});
+  const [sharedMailboxLoading, setSharedMailboxLoading] = useState(false);
   const [gmailLoading, setGmailLoading] = useState(false);
   const [gmailSettingsLoading, setGmailSettingsLoading] = useState(false);
   const [gmailBanner, setGmailBanner] = useState<"connected" | "error" | null>(null);
@@ -459,10 +479,95 @@ function SettingsPage() {
     );
   };
 
+  const loadSharedGmailAccounts = async () => {
+    if (!companyId || !can("settings.manage")) {
+      setSharedGmailAccounts([]);
+      setSharedGmailMembers([]);
+      return;
+    }
+    setSharedMailboxLoading(true);
+    const [{ data: accounts }, { data: members }] = await Promise.all([
+      db
+        .from("email_accounts")
+        .select("id,email_address,shared_name")
+        .eq("company_id", companyId)
+        .eq("provider", "gmail")
+        .eq("account_type", "shared")
+        .eq("is_active", true)
+        .order("email_address"),
+      db
+        .from("email_account_members")
+        .select("id,email_account_id,profile_id,can_read,can_send")
+        .order("created_at"),
+    ]);
+    setSharedGmailAccounts((accounts || []) as any);
+    setSharedGmailMembers((members || []) as any);
+    setSharedMailboxLoading(false);
+  };
+
+  const connectSharedGmail = async () => {
+    if (!can("settings.manage")) return;
+    setSharedMailboxLoading(true);
+    const { data, error } = await supabase.functions.invoke("gmail-auth-url", {
+      body: { redirectTo: `${window.location.origin}/settings`, accountType: "shared" },
+    });
+    setSharedMailboxLoading(false);
+    if (error || (data as any)?.error) {
+      toast.error(await getEdgeFunctionErrorMessage(error, data, "No se pudo conectar el buzón compartido"));
+      return;
+    }
+    const url = (data as any)?.authUrl ? String((data as any).authUrl) : "";
+    if (!url) {
+      toast.error("No se recibió URL de autorización.");
+      return;
+    }
+    window.location.href = url;
+  };
+
+  const addSharedMember = async (accountId: string) => {
+    const profileToAdd = sharedMemberSelection[accountId];
+    if (!profileToAdd) return;
+    const { error } = await db.from("email_account_members").upsert(
+      { email_account_id: accountId, profile_id: profileToAdd, can_read: true, can_send: true },
+      { onConflict: "email_account_id,profile_id" },
+    );
+    if (error) {
+      toast.error(error.message || "No se pudo agregar el usuario.");
+      return;
+    }
+    setSharedMemberSelection((current) => ({ ...current, [accountId]: "" }));
+    await loadSharedGmailAccounts();
+  };
+
+  const updateSharedMember = async (
+    member: (typeof sharedGmailMembers)[number],
+    field: "can_read" | "can_send",
+  ) => {
+    const { error } = await db
+      .from("email_account_members")
+      .update({ [field]: !member[field] })
+      .eq("id", member.id);
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar el permiso.");
+      return;
+    }
+    await loadSharedGmailAccounts();
+  };
+
+  const removeSharedMember = async (memberId: string) => {
+    const { error } = await db.from("email_account_members").delete().eq("id", memberId);
+    if (error) {
+      toast.error(error.message || "No se pudo quitar el usuario.");
+      return;
+    }
+    await loadSharedGmailAccounts();
+  };
+
   useEffect(() => {
     void loadGmailSettings();
     void loadGmailAccount();
     void loadOfficialGmailAccount();
+    void loadSharedGmailAccounts();
   }, [companyId, profileId, authUserId]);
 
   useEffect(() => {
@@ -1569,6 +1674,127 @@ function SettingsPage() {
                         {officialGmailAccount ? "Activo" : "Pendiente"}
                       </Badge>
                     </div>
+                  </div>
+                )}
+
+                {can("settings.manage") && (
+                  <div className="border border-slate-200 bg-white p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="text-sm font-semibold">Correos compartidos</div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Conecta un buzón de equipo y decide quién puede leer o enviar desde él.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={connectSharedGmail}
+                        disabled={sharedMailboxLoading}
+                      >
+                        {sharedMailboxLoading ? "Conectando..." : "Conectar buzón compartido"}
+                      </Button>
+                    </div>
+
+                    {sharedGmailAccounts.length === 0 ? (
+                      <div className="mt-4 border border-dashed border-slate-300 p-4 text-sm text-muted-foreground">
+                        No hay buzones compartidos configurados.
+                      </div>
+                    ) : (
+                      <div className="mt-4 space-y-3">
+                        {sharedGmailAccounts.map((account) => {
+                          const members = sharedGmailMembers.filter(
+                            (member) => member.email_account_id === account.id,
+                          );
+                          const memberIds = new Set(members.map((member) => member.profile_id));
+                          return (
+                            <div key={account.id} className="border border-slate-200 p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                  <div className="text-sm font-semibold">
+                                    {account.shared_name || "Buzón compartido"}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {account.email_address}
+                                  </div>
+                                </div>
+                                <Badge variant="secondary">{members.length} miembros</Badge>
+                              </div>
+
+                              <div className="mt-3 space-y-2">
+                                {members.map((member) => {
+                                  const teamUser = teamUsers.find(
+                                    (userRow) => userRow.profile_id === member.profile_id,
+                                  );
+                                  return (
+                                    <div
+                                      key={member.id}
+                                      className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-sm"
+                                    >
+                                      <span>{teamUser?.full_name || teamUser?.email || "Usuario"}</span>
+                                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                        <label className="flex items-center gap-1">
+                                          <input
+                                            type="checkbox"
+                                            checked={member.can_read}
+                                            onChange={() => void updateSharedMember(member, "can_read")}
+                                          />
+                                          Leer
+                                        </label>
+                                        <label className="flex items-center gap-1">
+                                          <input
+                                            type="checkbox"
+                                            checked={member.can_send}
+                                            onChange={() => void updateSharedMember(member, "can_send")}
+                                          />
+                                          Enviar
+                                        </label>
+                                        <button
+                                          type="button"
+                                          className="text-destructive hover:underline"
+                                          onClick={() => void removeSharedMember(member.id)}
+                                        >
+                                          Quitar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                                <select
+                                  value={sharedMemberSelection[account.id] || ""}
+                                  onChange={(event) =>
+                                    setSharedMemberSelection((current) => ({
+                                      ...current,
+                                      [account.id]: event.target.value,
+                                    }))
+                                  }
+                                  className="h-9 min-w-0 flex-1 border border-slate-200 bg-white px-3 text-sm"
+                                >
+                                  <option value="">Agregar miembro...</option>
+                                  {teamUsers
+                                    .filter((userRow) => userRow.is_active && !memberIds.has(userRow.profile_id))
+                                    .map((userRow) => (
+                                      <option key={userRow.profile_id} value={userRow.profile_id}>
+                                        {userRow.full_name || userRow.email || "Usuario"}
+                                      </option>
+                                    ))}
+                                </select>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => void addSharedMember(account.id)}
+                                  disabled={!sharedMemberSelection[account.id]}
+                                >
+                                  Agregar miembro
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 

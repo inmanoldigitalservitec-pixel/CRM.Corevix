@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
     const { data: stateRow, error: stateErr } = await serviceClient
       .from("oauth_states")
-      .select("id, company_id, profile_id, user_auth_id, redirect_to, expires_at")
+      .select("id, company_id, profile_id, user_auth_id, account_type, redirect_to, expires_at")
       .eq("provider", "gmail")
       .eq("state_hash", stateHash)
       .gte("expires_at", nowIso)
@@ -293,7 +293,7 @@ Deno.serve(async (req) => {
     const basePayload: Record<string, unknown> = {
       company_id: stateRow.company_id,
       provider: "gmail",
-      account_type: "personal",
+      account_type: stateRow.account_type === "shared" ? "shared" : "personal",
       is_system_default: false,
       email: finalEmail,
       email_address: finalEmail,
