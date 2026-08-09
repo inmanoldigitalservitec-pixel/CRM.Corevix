@@ -11,24 +11,19 @@ import {
   ChevronDown,
   CircleDot,
   CreditCard,
-  Database,
   Download,
   FileCheck2,
   FileText,
   FolderOpen,
-  HelpCircle,
   Image,
   LifeBuoy,
   LockKeyhole,
-  Megaphone,
   MessageCircle,
   Package,
   Receipt,
   ReceiptText,
   RotateCcw,
   Settings,
-  ShieldCheck,
-  Target,
   UserCog,
   Users,
   X,
@@ -45,7 +40,6 @@ type MobileSectionItem = {
   url?: string;
   icon: React.ElementType;
   iconClassName?: string;
-  placeholder?: boolean;
   permission?: string;
 };
 
@@ -145,53 +139,20 @@ const utilitiesItems: MobileSectionItem[] = [
     iconClassName: "text-sky-600",
   },
   { title: "Exportar PDFs", url: "/pdf-export", icon: Download, iconClassName: "text-slate-700" },
-  {
-    title: "Exportar e-facturas",
-    icon: ReceiptText,
-    iconClassName: "text-orange-600",
-    placeholder: true,
-  },
   { title: "Exportar CSV", url: "/csv-export", icon: FileText, iconClassName: "text-emerald-600" },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar, iconClassName: "text-slate-600" },
   { titleKey: "nav.vault", url: "/vault", icon: LockKeyhole, iconClassName: "text-blue-700" },
-  { title: "Anuncios", icon: Megaphone, iconClassName: "text-amber-600", placeholder: true },
-  { title: "Metas", icon: Target, iconClassName: "text-violet-600", placeholder: true },
   {
     title: "Registro de actividad",
     url: "/activity-log",
     icon: Activity,
     iconClassName: "text-blue-700",
   },
-  {
-    title: "Respaldo de datos",
-    icon: Database,
-    iconClassName: "text-slate-700",
-    placeholder: true,
-  },
 ];
 
 const reportsItems: MobileSectionItem[] = [
   { title: "Ventas", url: "/reports", icon: BarChart3, iconClassName: "text-blue-700" },
   { title: "Gastos", url: "/expenses", icon: BadgeDollarSign, iconClassName: "text-red-600" },
-  {
-    title: "Gastos vs ingresos",
-    icon: BarChart3,
-    iconClassName: "text-emerald-700",
-    placeholder: true,
-  },
-  { title: "Leads", icon: Users, iconClassName: "text-violet-600", placeholder: true },
-  {
-    title: "Resumen de tiempos",
-    icon: Activity,
-    iconClassName: "text-slate-700",
-    placeholder: true,
-  },
-  {
-    title: "Artículos de ayuda",
-    icon: FileText,
-    iconClassName: "text-amber-700",
-    placeholder: true,
-  },
 ];
 
 const setupItems: MobileSectionItem[] = [
@@ -202,7 +163,6 @@ const setupItems: MobileSectionItem[] = [
     iconClassName: "text-fuchsia-600",
     permission: "team.view",
   },
-  { title: "GDPR", icon: ShieldCheck, iconClassName: "text-blue-700", placeholder: true },
   {
     titleKey: "nav.settings",
     url: "/settings",
@@ -210,7 +170,6 @@ const setupItems: MobileSectionItem[] = [
     iconClassName: "text-slate-700",
     permission: "settings.view",
   },
-  { title: "Ayuda", icon: HelpCircle, iconClassName: "text-slate-600", placeholder: true },
 ];
 
 const groups: MobileSectionGroup[] = [
@@ -297,15 +256,10 @@ export function MobileSectionsMenu({
         <span className="line-clamp-2 min-w-0 text-[12px] font-semibold leading-tight">
           {label}
         </span>
-        {item.placeholder ? (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold uppercase text-slate-500">
-            Pronto
-          </span>
-        ) : null}
       </>
     );
 
-    if (item.placeholder || !item.url) {
+    if (!item.url) {
       return (
         <button key={label} type="button" className={`${className} cursor-default opacity-70`}>
           {content}
