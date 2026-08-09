@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useT } from "@/i18n";
 import { supabase } from "@/integrations/supabase/client";
-import { FirstRunSetupScreen } from "@/components/onboarding/first-run-setup-screen";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -18,7 +17,6 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { user, loading, signIn, signUp } = useAuth();
   const { t } = useT();
-  const [introPreviewOpen, setIntroPreviewOpen] = useState(false);
   const inviteToken = useMemo(() => {
     if (typeof window === "undefined") return "";
     const params = new URLSearchParams(window.location.search);
@@ -38,18 +36,6 @@ function LoginPage() {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
-    );
-  }
-
-  if (introPreviewOpen) {
-    return (
-      <FirstRunSetupScreen
-        mode="preview"
-        onDismiss={() => {
-          setIntroPreviewOpen(false);
-          return true;
-        }}
-      />
     );
   }
 
@@ -156,15 +142,6 @@ function LoginPage() {
                           : "¿Ya tienes cuenta? Inicia sesión"}
                       </Button>
                     )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="mt-1 h-auto rounded-full px-3 py-2 text-[0.68rem] font-bold text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-                      onClick={() => setIntroPreviewOpen(true)}
-                    >
-                      Ver introducción
-                    </Button>
                   </div>
                 </div>
 
