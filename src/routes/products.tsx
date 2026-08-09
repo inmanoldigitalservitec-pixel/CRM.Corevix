@@ -1921,7 +1921,7 @@ function ProductsPage() {
                         )}
 
                         {isAdminLike ? (
-                          <CrmDetailLineButton type="button" onClick={openCreateStep}>
+                          <CrmDetailLineButton type="button" onClick={openNewStep}>
                             Agregar paso
                           </CrmDetailLineButton>
                         ) : null}
