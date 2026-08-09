@@ -20,7 +20,7 @@ export function ProjectSalesSummaryView({ summary }: { summary: ProjectSalesSumm
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Cobrado</p>
-            <h4 className="mt-2 text-3xl font-extrabold tracking-[-0.03em] text-slate-950">
+            <h4 className="mt-2 text-2xl font-bold leading-none tracking-normal text-slate-950 sm:text-3xl sm:font-extrabold sm:tracking-[-0.03em]">
               {formatMoney(summary.collectedTotal, currency)}
             </h4>
             <p className="mt-1 text-sm font-semibold text-slate-500">
