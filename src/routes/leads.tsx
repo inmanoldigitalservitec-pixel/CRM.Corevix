@@ -250,7 +250,9 @@ type ProductRow = {
 type DealProductRow = {
   id: string;
   deal_id: string;
-  product_id: string;
+  product_id: string | null;
+  custom_name?: string | null;
+  custom_description?: string | null;
   quantity: number | null;
   unit_price: number | null;
   total_price: number | null;
@@ -264,6 +266,20 @@ type LeadActivityLogRow = {
   detail: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
+};
+
+type LeadActivityNoteRow = {
+  id: string;
+  content: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type LeadActivityItem = {
+  id: string;
+  title: string;
+  description: string;
+  at: string | null;
 };
 
 type ProductWorkflowRow = {
@@ -716,6 +732,7 @@ function LeadsPage() {
   const [leadTasks, setLeadTasks] = useState<any[]>([]);
   const [leadReminders, setLeadReminders] = useState<any[]>([]);
   const [leadActivityLogs, setLeadActivityLogs] = useState<LeadActivityLogRow[]>([]);
+  const [leadActivityNotes, setLeadActivityNotes] = useState<LeadActivityNoteRow[]>([]);
   const [leadActivityLoading, setLeadActivityLoading] = useState(false);
   const [leadActivityRefreshKey, setLeadActivityRefreshKey] = useState(0);
   const [relatedLoading, setRelatedLoading] = useState(false);
@@ -762,13 +779,14 @@ function LeadsPage() {
   const loadLeadActivityLogs = useCallback(async () => {
     if (!profile?.company_id || !selectedLeadId) {
       setLeadActivityLogs([]);
+      setLeadActivityNotes([]);
       setLeadActivityLoading(false);
       return;
     }
 
     setLeadActivityLoading(true);
     const activityQuery = "id,action,entity_type,entity_id,detail,metadata,created_at";
-    const [entityResult, metadataResult, relatedResult] = await Promise.all([
+    const [entityResult, metadataResult, relatedResult, notesResult] = await Promise.all([
       (supabase as any)
         .from("activity_logs")
         .select(activityQuery)
@@ -791,10 +809,19 @@ function LeadsPage() {
         .contains("metadata", { related_lead_id: selectedLeadId })
         .order("created_at", { ascending: false })
         .limit(80),
+      (supabase as any)
+        .from("lead_notes")
+        .select("id,content,created_at,updated_at")
+        .eq("company_id", profile.company_id)
+        .eq("lead_id", selectedLeadId)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(20),
     ]);
 
     if (entityResult.error || metadataResult.error || relatedResult.error) {
       setLeadActivityLogs([]);
+      setLeadActivityNotes([]);
       setLeadActivityLoading(false);
       return;
     }
@@ -812,6 +839,7 @@ function LeadsPage() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),
     );
+    setLeadActivityNotes(notesResult.error ? [] : ((notesResult.data || []) as LeadActivityNoteRow[]));
     setLeadActivityLoading(false);
   }, [profile?.company_id, selectedLeadId]);
 
@@ -819,6 +847,67 @@ function LeadsPage() {
     if (!detailOpen) return;
     void loadLeadActivityLogs();
   }, [detailOpen, loadLeadActivityLogs, leadActivityRefreshKey]);
+
+  const leadActivityItems = useMemo<LeadActivityItem[]>(() => {
+    const titleByAction: Record<string, string> = {
+      lead_created: "Prospecto creado",
+      lead_updated: "Prospecto actualizado",
+      lead_note_created: "Nota interna creada",
+      lead_note_updated: "Nota interna actualizada",
+      lead_note_deleted: "Nota interna archivada",
+      deal_created: "Oportunidad creada",
+      deal_moved: "Oportunidad movida",
+      task_created: "Tarea creada",
+      task_updated: "Tarea actualizada",
+    };
+    const items: LeadActivityItem[] = leadActivityLogs.map((log) => ({
+      id: log.id,
+      title: titleByAction[log.action] || log.action.replaceAll("_", " "),
+      description: log.detail || "Actividad registrada",
+      at: log.created_at,
+    }));
+
+    const noteTextCovered = (content: string | null) =>
+      Boolean(
+        content &&
+          items.some((item) =>
+            item.description.toLowerCase().includes(String(content).slice(0, 40).toLowerCase()),
+          ),
+      );
+
+    leadActivityNotes.forEach((note) => {
+      if (noteTextCovered(note.content)) return;
+      items.push({
+        id: `lead-note-${note.id}`,
+        title: note.created_at === note.updated_at ? "Nota interna creada" : "Nota interna actualizada",
+        description: note.content || "Nota interna del prospecto",
+        at: note.updated_at || note.created_at,
+      });
+    });
+
+    leadDeals.forEach((deal) => {
+      if (items.some((item) => item.description.includes(deal.name))) return;
+      items.push({
+        id: `lead-deal-${deal.id}`,
+        title: "Oportunidad creada",
+        description: deal.name,
+        at: deal.updated_at || deal.created_at,
+      });
+    });
+
+    leadTasks.forEach((task) => {
+      if (items.some((item) => item.description.includes(task.title))) return;
+      items.push({
+        id: `lead-task-${task.id}`,
+        title: "Tarea creada",
+        description: task.title,
+        at: task.updated_at || task.due_date || null,
+      });
+    });
+
+    return items.sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime());
+  }, [leadActivityLogs, leadActivityNotes, leadDeals, leadTasks]);
+
 
   const loadLeadWorkspaceRelations = useCallback(async () => {
     if (!profile?.company_id || !selectedLeadId) {
@@ -1092,7 +1181,7 @@ function LeadsPage() {
             .limit(200),
           db
             .from("deal_products")
-            .select("id,deal_id,product_id,quantity,unit_price,total_price")
+            .select("id,deal_id,product_id,custom_name,custom_description,quantity,unit_price,total_price")
             .eq("company_id", profile.company_id)
             .eq("deal_id", deal.id)
             .order("created_at", { ascending: true }),
@@ -1106,7 +1195,7 @@ function LeadsPage() {
       for (const product of productsList) productMap[String(product.id)] = product;
 
       const missingProductIds = dealProductsList
-        .map((item) => String(item.product_id))
+        .map((item) => (item.product_id ? String(item.product_id) : ""))
         .filter((id) => id && !productMap[id]);
       if (missingProductIds.length) {
         const { data: extraProducts } = await db
@@ -1412,6 +1501,49 @@ function LeadsPage() {
       notes: null,
     };
 
+    async function copyLeadProductsToDeal(dealId: string) {
+      const { data: leadProducts, error } = await (supabase as any)
+        .from("lead_products")
+        .select("product_id,custom_name,custom_description,quantity,unit_price,currency,estimated_total")
+        .eq("company_id", profile.company_id)
+        .eq("lead_id", lead.id)
+        .limit(20);
+      if (error) return;
+
+      const rows = (leadProducts || [])
+        .map((item: any) => {
+          const productId = item.product_id ? String(item.product_id) : null;
+          const customName = String(item.custom_name || "").trim();
+          if (!productId && !customName) return null;
+          const unitPrice = Number(item.unit_price ?? item.estimated_total ?? value ?? 0) || 0;
+          return {
+            company_id: profile.company_id,
+            deal_id: dealId,
+            product_id: productId,
+            custom_name: productId ? null : customName,
+            custom_description: productId ? null : item.custom_description || null,
+            quantity: Math.max(1, Number(item.quantity || 1) || 1),
+            unit_price: unitPrice,
+          };
+        })
+        .filter(Boolean);
+
+      if (!rows.length && serviceLabel) {
+        rows.push({
+          company_id: profile.company_id,
+          deal_id: dealId,
+          product_id: null,
+          custom_name: serviceLabel,
+          custom_description: null,
+          quantity: 1,
+          unit_price: Number.isFinite(value) ? value : 0,
+        });
+      }
+
+      if (!rows.length) return;
+      await (supabase as any).from("deal_products").insert(rows);
+    }
+
     const { data: created, error: createErr } = await (supabase as any)
       .from("deals")
       .insert(payloadBase)
@@ -1434,6 +1566,7 @@ function LeadsPage() {
         toast.error(createErr2.message || "No se pudo crear la oportunidad");
         return;
       }
+      if (created2?.id) await copyLeadProductsToDeal(String(created2.id));
       toast.success("Oportunidad creada");
       await logActivityEvent({
         companyId: profile.company_id,
@@ -1454,6 +1587,7 @@ function LeadsPage() {
       return;
     }
 
+    if (created?.id) await copyLeadProductsToDeal(String(created.id));
     toast.success("Oportunidad creada");
     await logActivityEvent({
       companyId: profile.company_id,
@@ -2964,7 +3098,10 @@ function LeadsPage() {
                         {dealProducts.length ? (
                           <div className="divide-y divide-slate-100 border-y border-slate-100">
                             {dealProducts.map((row) => {
-                              const product = dealProductsByProductId[String(row.product_id)];
+                              const product = row.product_id
+                                ? dealProductsByProductId[String(row.product_id)]
+                                : undefined;
+                              const productLabel = product?.name || row.custom_name || "Producto";
                               return (
                                 <div
                                   key={row.id}
@@ -2972,7 +3109,7 @@ function LeadsPage() {
                                 >
                                   <div className="min-w-0">
                                     <div className="truncate text-sm font-normal text-slate-950">
-                                      {product?.name || "Producto"}
+                                      {productLabel}
                                     </div>
                                     <div className="text-xs font-normal text-slate-500">
                                       {Number(row.quantity || 1)} x{" "}
@@ -3325,30 +3462,17 @@ function LeadsPage() {
                   >
                     {leadActivityLoading ? (
                       <CrmDetailEmptyState>Cargando actividad...</CrmDetailEmptyState>
-                    ) : leadActivityLogs.length ? (
+                    ) : leadActivityItems.length ? (
                       <div className="divide-y divide-slate-100 border-y border-slate-100">
-                        {leadActivityLogs.slice(0, 12).map((log) => {
-                          const titleByAction: Record<string, string> = {
-                            lead_created: "Prospecto creado",
-                            lead_updated: "Prospecto actualizado",
-                            lead_note_created: "Nota interna creada",
-                            lead_note_updated: "Nota interna actualizada",
-                            lead_note_deleted: "Nota interna archivada",
-                            deal_created: "Oportunidad creada",
-                            deal_moved: "Oportunidad movida",
-                            task_created: "Tarea creada",
-                            task_updated: "Tarea actualizada",
-                          };
+                        {leadActivityItems.slice(0, 12).map((item) => {
                           return (
-                            <div key={log.id} className="py-3 text-sm">
-                              <div className="font-medium">
-                                {titleByAction[log.action] || log.action.replaceAll("_", " ")}
-                              </div>
+                            <div key={item.id} className="py-3 text-sm">
+                              <div className="font-medium">{item.title}</div>
                               <div className="mt-1 text-[13px] text-muted-foreground">
-                                {log.detail || "Actividad registrada"}
+                                {item.description}
                               </div>
                               <div className="mt-1 text-xs text-slate-400">
-                                {formatDate(log.created_at)}
+                                {formatDate(item.at)}
                               </div>
                             </div>
                           );
