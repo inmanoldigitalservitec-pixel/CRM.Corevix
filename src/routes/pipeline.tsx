@@ -1283,7 +1283,6 @@ function PipelinePage() {
       .update({
         quantity,
         unit_price: unitPrice,
-        total_price: quantity * unitPrice,
       })
       .eq("company_id", profile.company_id)
       .eq("id", row.id);
