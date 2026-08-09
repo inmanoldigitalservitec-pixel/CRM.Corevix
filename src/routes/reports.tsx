@@ -14,7 +14,9 @@ function ReportsPage() {
   const { can, dbPermsLoading } = usePermissions();
 
   if (!profile || dbPermsLoading) return null;
-  if (!can("reports.view")) return <Navigate to="/dashboard" />;
+  if (!can("reports.view_all") && !can("reports.view_assigned")) {
+    return <Navigate to="/dashboard" />;
+  }
 
   return (
     <div className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
