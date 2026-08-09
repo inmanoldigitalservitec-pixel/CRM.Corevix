@@ -3690,7 +3690,7 @@ function LeadsPage() {
       </Dialog>
 
       <Dialog open={convertReviewOpen} onOpenChange={setConvertReviewOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-y-auto rounded-none border-0 bg-white p-4 shadow-none sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:rounded-lg sm:border sm:border-slate-200 sm:p-6">
           <DialogHeader>
             <DialogTitle>Convertir prospecto en cliente</DialogTitle>
           </DialogHeader>

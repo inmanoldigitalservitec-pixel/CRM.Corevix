@@ -1184,7 +1184,7 @@ function InvoiceReviewDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] w-[calc(100vw-2rem)] max-w-2xl overflow-x-hidden overflow-y-auto">
+      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-x-hidden overflow-y-auto rounded-none border-0 bg-white p-4 shadow-none sm:h-auto sm:max-h-[92dvh] sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:rounded-lg sm:border sm:border-slate-200 sm:p-6">
         <DialogHeader>
           <DialogTitle>Revisar factura antes de enviar</DialogTitle>
           <DialogDescription>

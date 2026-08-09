@@ -340,7 +340,7 @@ export function DashboardCalendarWidget({
       </DashboardCard>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-xl rounded-3xl border-0 p-0 shadow-2xl">
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-y-auto rounded-none border-0 bg-white p-0 shadow-none sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-2rem)] sm:max-w-xl sm:rounded-3xl sm:shadow-2xl">
           <div className="border-b bg-gradient-to-r from-white to-blue-50 px-6 py-5">
             <DialogHeader>
               <DialogTitle className="text-xl font-black tracking-[-0.03em]">
@@ -493,7 +493,7 @@ export function DashboardCalendarWidget({
       </Dialog>
 
       <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
-        <DialogContent className="max-w-lg rounded-3xl border-0 p-0 shadow-2xl">
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-y-auto rounded-none border-0 bg-white p-0 shadow-none sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-2rem)] sm:max-w-lg sm:rounded-3xl sm:shadow-2xl">
           <div className="border-b bg-gradient-to-r from-white to-slate-50 px-6 py-5">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between gap-2">

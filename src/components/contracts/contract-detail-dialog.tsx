@@ -231,7 +231,7 @@ export function ContractDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto border-slate-200 bg-white p-0 shadow-none">
+      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-y-auto rounded-none border-0 bg-white p-0 shadow-none md:max-h-[92vh] md:max-w-5xl md:rounded-lg md:border md:border-slate-200">
         <div className="border-b border-slate-100 bg-white p-5">
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-2 text-xl font-normal text-slate-950">

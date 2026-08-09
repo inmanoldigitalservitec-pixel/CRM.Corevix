@@ -930,7 +930,7 @@ function EstimatesPage() {
           if (!open) setPreviewEstimate(null);
         }}
       >
-        <DialogContent className="flex h-[94dvh] w-[96vw] max-w-[1180px] flex-col overflow-hidden p-0">
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-white p-0 shadow-none sm:h-[94dvh] sm:w-[96vw] sm:max-w-[1180px] sm:rounded-lg sm:border sm:border-slate-200">
           <DialogHeader className="border-b border-slate-200 px-5 py-4">
             <div className="flex items-center justify-between gap-4 pr-8">
               <div className="min-w-0">
