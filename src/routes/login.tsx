@@ -24,7 +24,14 @@ function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     return params.get("invite") || params.get("token") || "";
   }, []);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">(inviteToken ? "signup" : "signin");
+  const recoveryMode = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("mode") === "reset" || window.location.hash.includes("type=recovery");
+  }, []);
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | "forgot" | "reset">(
+    recoveryMode ? "reset" : inviteToken ? "signup" : "signin",
+  );
 
   if (loading) {
     return (
@@ -46,16 +53,24 @@ function LoginPage() {
     );
   }
 
-  if (user) {
+  if (user && authMode !== "reset") {
     return <Navigate to="/dashboard" />;
   }
 
-  const pageTitle = inviteToken
+  const pageTitle = authMode === "forgot"
+    ? "Recupera tu contraseña"
+    : authMode === "reset"
+      ? "Crea una nueva contraseña"
+      : inviteToken
     ? "Acepta tu invitación"
     : authMode === "signin"
       ? ""
       : "Crea tu cuenta";
-  const pageSubtitle = inviteToken
+  const pageSubtitle = authMode === "forgot"
+    ? "Te enviaremos un enlace seguro a tu correo."
+    : authMode === "reset"
+      ? "Elige una contraseña nueva para continuar."
+      : inviteToken
     ? "Completa tus datos para entrar al workspace."
     : t("auth.brandTagline");
   const heroImage =
@@ -118,23 +133,29 @@ function LoginPage() {
                   className="animate-[loginFormIn_260ms_ease-out] space-y-2.5 lg:space-y-5"
                 >
                   {authMode === "signin" ? (
-                    <SignInForm onSubmit={signIn} />
+                    <SignInForm onSubmit={signIn} onForgot={() => setAuthMode("forgot")} />
+                  ) : authMode === "forgot" ? (
+                    <ForgotPasswordForm onBack={() => setAuthMode("signin")} />
+                  ) : authMode === "reset" ? (
+                    <ResetPasswordForm />
                   ) : (
                     <SignUpForm onSubmit={signUp} />
                   )}
 
-                  <div className="text-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto rounded-full px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                      onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
-                    >
-                      {authMode === "signin"
-                        ? "¿Aún no tienes cuenta? Regístrate"
-                        : "¿Ya tienes cuenta? Inicia sesión"}
-                    </Button>
+                  <div className="flex flex-col items-center text-center">
+                    {(authMode === "signin" || authMode === "signup") && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto rounded-full px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                        onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
+                      >
+                        {authMode === "signin"
+                          ? "¿Aún no tienes cuenta? Regístrate"
+                          : "¿Ya tienes cuenta? Inicia sesión"}
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
@@ -237,8 +258,10 @@ function PasswordInput({
 
 function SignInForm({
   onSubmit,
+  onForgot,
 }: {
   onSubmit: (email: string, password: string) => Promise<void>;
+  onForgot: () => void;
 }) {
   const { t } = useT();
   const [email, setEmail] = useState("");
@@ -281,6 +304,103 @@ function SignInForm({
         disabled={submitting}
       >
         {submitting ? t("auth.signingIn") : t("auth.signIn")}
+      </Button>
+      <button
+        type="button"
+        className="w-full text-center text-xs font-semibold text-blue-700 hover:underline"
+        onClick={onForgot}
+      >
+        ¿Olvidaste tu contraseña?
+      </button>
+    </form>
+  );
+}
+
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSubmitting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/login?mode=reset`,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error(error.message || "No se pudo solicitar el enlace.");
+      return;
+    }
+    toast.success("Si el correo está registrado, recibirás un enlace para recuperar tu contraseña.");
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <AuthInput
+        label="Correo electrónico"
+        type="email"
+        placeholder="you@company.com"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        required
+      />
+      <Button type="submit" className="h-10 w-full rounded-full font-black lg:h-12" disabled={submitting}>
+        {submitting ? "Enviando..." : "Enviar enlace de recuperación"}
+      </Button>
+      <button type="button" className="w-full text-center text-xs font-semibold text-blue-700 hover:underline" onClick={onBack}>
+        Volver a iniciar sesión
+      </button>
+    </form>
+  );
+}
+
+function ResetPasswordForm() {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (password.length < 8) {
+      toast.error("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    if (password !== confirmation) {
+      toast.error("Las contraseñas no coinciden.");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setSubmitting(false);
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar la contraseña.");
+      return;
+    }
+    toast.success("Contraseña actualizada. Ya puedes iniciar sesión.");
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PasswordInput
+        label="Nueva contraseña"
+        placeholder="Mínimo 8 caracteres"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+        required
+        minLength={8}
+      />
+      <PasswordInput
+        label="Confirmar contraseña"
+        placeholder="Repite tu contraseña"
+        value={confirmation}
+        onChange={(event) => setConfirmation(event.target.value)}
+        required
+        minLength={8}
+      />
+      <Button type="submit" className="h-10 w-full rounded-full font-black lg:h-12" disabled={submitting}>
+        {submitting ? "Guardando..." : "Guardar nueva contraseña"}
       </Button>
     </form>
   );
