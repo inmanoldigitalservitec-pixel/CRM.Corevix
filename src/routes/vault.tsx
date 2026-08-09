@@ -514,7 +514,75 @@ function VaultPage() {
             onAction={() => setDialogOpen(true)}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div>
+            <div className="grid gap-3 p-3 md:hidden">
+              {filteredItems.map((item) => {
+                const revealed = revealedIds.has(item.id);
+                const client = item.client_id ? clientById.get(item.client_id) : null;
+                const project = item.project_id ? projectById.get(item.project_id) : null;
+                const owner = item.owner_id ? profileById.get(item.owner_id) : null;
+                return (
+                  <article key={item.id} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                        <KeyRound className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-semibold text-slate-950">{item.title}</div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className="border-slate-200 text-slate-600">
+                            {optionLabel(CATEGORY_OPTIONS, item.category)}
+                          </Badge>
+                          {(item.tags || []).slice(0, 2).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="bg-slate-100">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 border-y border-slate-100 py-3 text-sm">
+                      <div className="min-w-0">
+                        <div className="text-[11px] uppercase text-slate-400">Vinculado a</div>
+                        <div className="truncate font-medium text-slate-800">{client?.company_name || "Sin cliente"}</div>
+                        <div className="truncate text-slate-500">{project?.name || "Sin proyecto"}</div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] uppercase text-slate-400">Cuenta</div>
+                        <div className="truncate text-slate-600">{item.username || item.email || "Sin usuario"}</div>
+                        {item.url ? <div className="truncate text-blue-600">{item.url}</div> : null}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="min-w-0 truncate font-mono text-sm text-slate-700">
+                          {item.secret_value ? (revealed ? item.secret_value : "••••••••••••") : "—"}
+                        </span>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => toggleReveal(item)} disabled={!item.secret_value} aria-label={revealed ? "Ocultar secreto" : "Revelar secreto"}>
+                          {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => void copySecret(item)} disabled={!item.secret_value} aria-label="Copiar secreto">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <span className="shrink-0 text-right text-xs text-slate-500">Vence {formatDate(item.expires_at)}</span>
+                    </div>
+                    <div className="mt-3 flex min-w-0 items-end justify-between gap-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className={statusClass(item.status)}>{optionLabel(STATUS_OPTIONS, item.status)}</Badge>
+                        <Badge variant="outline" className={sensitivityClass(item.sensitivity)}>{optionLabel(SENSITIVITY_OPTIONS, item.sensitivity)}</Badge>
+                      </div>
+                      <div className="min-w-0 text-right text-xs text-slate-500">
+                        <div className="truncate">{owner?.full_name || "Sin responsable"}</div>
+                        <div className="truncate">{owner?.email || ""}</div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -650,6 +718,7 @@ function VaultPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           </div>
         )}
       </div>
