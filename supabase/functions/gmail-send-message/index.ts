@@ -297,7 +297,9 @@ Deno.serve(async (req) => {
         { p_account_id: requestedAccountId, p_access: "send" },
       );
       if (accessError) return jsonResponse({ error: accessError.message }, 403);
-      if (canSend !== true) return jsonResponse({ error: "No tienes permiso para enviar desde esa cuenta." }, 403);
+      if (canSend !== true) {
+        return jsonResponse({ error: "No tienes permiso para enviar desde esa cuenta." }, 403);
+      }
     }
 
     const accountQueryIds = [profile.id, authData.user.id].filter(Boolean);

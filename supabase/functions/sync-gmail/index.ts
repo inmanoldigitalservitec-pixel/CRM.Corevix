@@ -154,7 +154,9 @@ Deno.serve(async (req) => {
         { p_account_id: requestedAccountId, p_access: "read" },
       );
       if (accessError) return jsonResponse({ error: accessError.message }, 403);
-      if (canRead !== true) return jsonResponse({ error: "No tienes permiso para sincronizar esa cuenta." }, 403);
+      if (canRead !== true) {
+        return jsonResponse({ error: "No tienes permiso para sincronizar esa cuenta." }, 403);
+      }
     }
 
     let accountQuery = serviceClient
