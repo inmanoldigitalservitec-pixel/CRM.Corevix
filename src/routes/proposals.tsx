@@ -623,9 +623,15 @@ function dateAfterDays(days: number) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function parseDateOnlyLocal(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return new Date(value);
+}
+
 function isProposalExpired(validUntil: string | null | undefined) {
   if (!validUntil) return false;
-  const d = new Date(validUntil);
+  const d = parseDateOnlyLocal(validUntil);
   if (Number.isNaN(d.getTime())) return false;
   const today = new Date();
   const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);

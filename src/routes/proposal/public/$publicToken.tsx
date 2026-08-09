@@ -46,6 +46,16 @@ function splitProposalItems(value: string) {
     .filter(Boolean);
 }
 
+function formatProposalDate(value?: string | null) {
+  if (!value) return "—";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("es-DO");
+}
+
 function LetterProposalView(props: {
   proposal: any;
   approved: boolean;
@@ -75,8 +85,8 @@ function LetterProposalView(props: {
   const nextStep = String((data as any)?.nextStep || "").trim();
   const notes = String(proposal?.content || proposal?.notes || "").trim();
   const today = proposal?.created_at
-    ? new Date(proposal.created_at).toLocaleDateString()
-    : new Date().toLocaleDateString();
+    ? formatProposalDate(proposal.created_at)
+    : formatProposalDate(new Date().toISOString());
 
   const lineItems = (
     deliverables.length ? deliverables : features.length ? features : [serviceDescription]
@@ -431,7 +441,7 @@ function ProposalDocumentView(props: {
           <div className="rounded-sm border border-slate-200 text-[11px]">
             <div className="flex justify-between border-b border-slate-200 px-3 py-2">
               <span className="font-semibold text-slate-500">Fecha</span>
-              <span>{proposalDate ? new Date(proposalDate).toLocaleDateString() : "—"}</span>
+              <span>{formatProposalDate(proposalDate)}</span>
             </div>
             <div className="flex justify-between border-b border-slate-200 px-3 py-2">
               <span className="font-semibold text-slate-500">Válida hasta</span>

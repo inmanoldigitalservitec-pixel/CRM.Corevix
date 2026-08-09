@@ -304,7 +304,10 @@ function clean(value: unknown) {
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
-  const date = new Date(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return new Intl.DateTimeFormat("es-DO", {
     day: "2-digit",
