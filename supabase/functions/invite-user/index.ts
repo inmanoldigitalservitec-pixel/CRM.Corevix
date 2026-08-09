@@ -244,6 +244,7 @@ async function sendGmailHtmlEmail(args: {
   const boundary = `corevix-invite-${crypto.randomUUID()}`;
   const raw = [
     `From: ${args.from}`,
+    `Reply-To: ${args.from}`,
     `To: ${args.to}`,
     `Subject: ${encodeHeader(args.subject)}`,
     "MIME-Version: 1.0",
@@ -446,7 +447,7 @@ Deno.serve(async (req) => {
 
         const sent = await sendGmailHtmlEmail({
           accessToken,
-          from: String(account.email_address || "me"),
+          from: `Corevix CRM <${String(account.email_address || "me")}>`,
           to: invitation.email,
           subject,
           html,
