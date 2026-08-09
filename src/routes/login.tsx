@@ -405,6 +405,7 @@ function SignUpForm({
     "idle" | "checking" | "valid" | "invalid" | "expired"
   >("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -457,6 +458,7 @@ function SignUpForm({
     setSubmitting(true);
     try {
       await onSubmit(email, password, fullName, companyName, invitationToken.trim() || undefined);
+      setConfirmationSent(true);
       toast.success(
         isInviteFlow
           ? "Cuenta creada. Revisa tu email para confirmar el acceso."
@@ -471,6 +473,42 @@ function SignUpForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2.5 lg:space-y-4">
+      {confirmationSent && (
+        <div className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-blue-950">
+          <div>
+            <p className="font-extrabold">Revisa tu correo</p>
+            <p className="mt-1 text-sm font-medium leading-5 text-blue-900/80">
+              Enviamos un enlace de confirmación a <strong>{email}</strong>. Revisa también la
+              carpeta de spam o promociones.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full rounded-full border-blue-200 bg-white font-bold text-blue-800 hover:bg-blue-100"
+            onClick={async () => {
+              setSubmitting(true);
+              const { error } = await supabase.auth.resend({
+                type: "signup",
+                email: email.trim(),
+                options: { emailRedirectTo: `${window.location.origin}/login` },
+              });
+              setSubmitting(false);
+              if (error) {
+                toast.error(error.message || "No se pudo reenviar el correo de confirmación.");
+                return;
+              }
+              toast.success("Correo de confirmación reenviado.");
+            }}
+            disabled={submitting}
+          >
+            {submitting ? "Reenviando..." : "Reenviar correo de confirmación"}
+          </Button>
+        </div>
+      )}
+
+      {confirmationSent ? null : (
+        <>
       {isInviteFlow && (
         <div
           className={`rounded-2xl border p-3 text-sm ${
@@ -551,6 +589,8 @@ function SignUpForm({
             ? "Crear cuenta y unirme"
             : t("auth.createAccount")}
       </Button>
+        </>
+      )}
     </form>
   );
 }
