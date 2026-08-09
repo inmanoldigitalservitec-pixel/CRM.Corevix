@@ -406,6 +406,7 @@ function EmailPage() {
         .from("email_accounts")
         .select("id,email_address,last_synced_at,is_active,provider,updated_at")
         .eq("provider", "gmail")
+        .eq("account_type", "personal")
         .eq("user_id", userId)
         .eq("is_active", true)
         .order("updated_at", { ascending: false })

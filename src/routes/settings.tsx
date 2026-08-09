@@ -88,7 +88,7 @@ type GmailSettingsRow = {
   id: string;
   company_id: string;
   client_id: string | null;
-  client_secret_encrypted: string | null;
+  client_secret_configured: boolean;
   redirect_uri: string | null;
   scopes: string | null;
   is_enabled: boolean;
@@ -291,6 +291,10 @@ function SettingsPage() {
     email_address: string;
     last_synced_at: string | null;
   } | null>(null);
+  const [officialGmailAccount, setOfficialGmailAccount] = useState<{
+    id: string;
+    email_address: string;
+  } | null>(null);
   const [gmailLoading, setGmailLoading] = useState(false);
   const [gmailSettingsLoading, setGmailSettingsLoading] = useState(false);
   const [gmailBanner, setGmailBanner] = useState<"connected" | "error" | null>(null);
@@ -378,8 +382,9 @@ function SettingsPage() {
     const tryLoad = async (userId: string) =>
       db
         .from("email_accounts")
-        .select("id, email_address, last_synced_at, is_active, provider")
+        .select("id, email_address, last_synced_at, is_active, provider, account_type")
         .eq("provider", "gmail")
+        .eq("account_type", "personal")
         .eq("user_id", userId)
         .eq("is_active", true)
         .order("updated_at", { ascending: false })
@@ -414,7 +419,7 @@ function SettingsPage() {
     const { data, error } = await db
       .from("gmail_settings")
       .select(
-        "id,company_id,client_id,client_secret_encrypted,redirect_uri,scopes,is_enabled,updated_at",
+        "id,company_id,client_id,client_secret_configured,redirect_uri,scopes,is_enabled,updated_at",
       )
       .eq("company_id", companyId)
       .maybeSingle();
@@ -431,12 +436,33 @@ function SettingsPage() {
         "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify",
       is_enabled: !!row.is_enabled,
     });
-    setGmailSecretConfigured(!!row.client_secret_encrypted);
+    setGmailSecretConfigured(!!row.client_secret_configured);
+  };
+
+  const loadOfficialGmailAccount = async () => {
+    if (!companyId || !can("settings.manage")) {
+      setOfficialGmailAccount(null);
+      return;
+    }
+    const { data } = await db
+      .from("email_accounts")
+      .select("id,email_address")
+      .eq("company_id", companyId)
+      .eq("provider", "gmail")
+      .eq("account_type", "official")
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setOfficialGmailAccount(
+      data ? { id: String(data.id), email_address: String(data.email_address || "") } : null,
+    );
   };
 
   useEffect(() => {
     void loadGmailSettings();
     void loadGmailAccount();
+    void loadOfficialGmailAccount();
   }, [companyId, profileId, authUserId]);
 
   useEffect(() => {
@@ -462,7 +488,10 @@ function SettingsPage() {
     };
 
     const newSecret = gmailForm.client_secret.trim();
-    if (newSecret) payload.client_secret_encrypted = newSecret;
+    if (newSecret) {
+      payload.client_secret_encrypted = newSecret;
+      payload.client_secret_configured = true;
+    }
 
     const { error } = await db.from("gmail_settings").upsert(payload, { onConflict: "company_id" });
     if (error) {
@@ -1525,6 +1554,24 @@ function SettingsPage() {
                   </div>
                 </div>
 
+                {can("settings.manage") && (
+                  <div className="border border-slate-200 bg-slate-50 p-4">
+                    <div className="text-sm font-semibold">Correo oficial del CRM</div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Se usa para invitaciones y comunicaciones automáticas. No es la cuenta
+                      personal del administrador.
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium">
+                        {officialGmailAccount?.email_address || "No configurado"}
+                      </span>
+                      <Badge variant={officialGmailAccount ? "default" : "secondary"}>
+                        {officialGmailAccount ? "Activo" : "Pendiente"}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
                 <div className="border border-slate-200 bg-white p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -1648,10 +1695,10 @@ function SettingsPage() {
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   <div className="border border-slate-200 bg-white p-4">
-                    <div className="text-sm font-semibold">Paso 2 · Cuenta Gmail</div>
+                    <div className="text-sm font-semibold">Paso 2 · Tu cuenta personal</div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Autoriza la cuenta que quieres usar para recibir y enviar correos dentro del
-                      CRM.
+                      Autoriza tu Gmail personal para recibir y enviar correos dentro del CRM. Las
+                      invitaciones del sistema salen por el correo oficial.
                     </p>
 
                     <div className="mt-4 border border-slate-200 bg-white p-3">

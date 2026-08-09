@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(1, Math.min(25, Number(body?.limit ?? 10) || 10));
+    const requestedAccountId = body?.email_account_id || body?.emailAccountId || null;
 
     // Caller client (RLS applies) + validate JWT
     const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -147,18 +148,33 @@ Deno.serve(async (req) => {
     console.log("[sync-gmail] querying connected gmail accounts", {
       authUserId: authData.user.id ?? null,
     });
-    const { data: accountsRows, error: accountErr } = await serviceClient
+    if (requestedAccountId) {
+      const { data: canRead, error: accessError } = await callerClient.rpc(
+        "can_access_email_account",
+        { p_account_id: requestedAccountId, p_access: "read" },
+      );
+      if (accessError) return jsonResponse({ error: accessError.message }, 403);
+      if (canRead !== true) return jsonResponse({ error: "No tienes permiso para sincronizar esa cuenta." }, 403);
+    }
+
+    let accountQuery = serviceClient
       .from("email_accounts")
       .select(
-        "id, company_id, user_id, provider, email_address, is_active, access_token, refresh_token, token_expires_at",
+        "id, company_id, user_id, provider, account_type, email_address, is_active, access_token, refresh_token, token_expires_at",
       )
       .eq("provider", "gmail")
-      // Some schemas store email_accounts.user_id as profiles.id; others store auth.users.id.
-      .in("user_id", [profile.id, authData.user.id])
       .eq("company_id", profile.company_id)
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false })
-      .limit(1);
+      .eq("is_active", true);
+    if (requestedAccountId) {
+      accountQuery = accountQuery.eq("id", String(requestedAccountId));
+    } else {
+      accountQuery = accountQuery
+        .eq("account_type", "personal")
+        // Some schemas store email_accounts.user_id as profiles.id; others store auth.users.id.
+        .in("user_id", [profile.id, authData.user.id])
+        .order("updated_at", { ascending: false });
+    }
+    const { data: accountsRows, error: accountErr } = await accountQuery.limit(1);
 
     const account = Array.isArray(accountsRows) && accountsRows.length ? accountsRows[0] : null;
     const accounts = account ? [account] : [];

@@ -293,6 +293,8 @@ Deno.serve(async (req) => {
     const basePayload: Record<string, unknown> = {
       company_id: stateRow.company_id,
       provider: "gmail",
+      account_type: "personal",
+      is_system_default: false,
       email: finalEmail,
       email_address: finalEmail,
       display_name: displayName,

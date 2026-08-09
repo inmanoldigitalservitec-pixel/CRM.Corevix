@@ -274,6 +274,9 @@ Deno.serve(async (req) => {
     const subject = cleanOptionalString((body as any).subject) || "(No Subject)";
     const messageBody = cleanOptionalString((body as any).body);
     const conversationId = cleanOptionalString((body as any).conversation_id);
+    const requestedAccountId = cleanOptionalString(
+      (body as any).email_account_id || (body as any).emailAccountId,
+    );
     const attachments = normalizeAttachments((body as any).attachments);
 
     if (!to.length) return jsonResponse({ error: "Agrega al menos un destinatario." }, 400);
@@ -288,18 +291,33 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Los adjuntos no pueden superar 20 MB en total." }, 400);
     }
 
+    if (requestedAccountId) {
+      const { data: canSend, error: accessError } = await callerClient.rpc(
+        "can_access_email_account",
+        { p_account_id: requestedAccountId, p_access: "send" },
+      );
+      if (accessError) return jsonResponse({ error: accessError.message }, 403);
+      if (canSend !== true) return jsonResponse({ error: "No tienes permiso para enviar desde esa cuenta." }, 403);
+    }
+
     const accountQueryIds = [profile.id, authData.user.id].filter(Boolean);
-    const { data: accountsRows, error: accountError } = await serviceClient
+    let accountQuery = serviceClient
       .from("email_accounts")
       .select(
-        "id, company_id, user_id, provider, email_address, is_active, access_token, refresh_token, token_expires_at",
+        "id, company_id, user_id, provider, account_type, email_address, is_active, access_token, refresh_token, token_expires_at",
       )
       .eq("provider", "gmail")
-      .in("user_id", accountQueryIds)
       .eq("company_id", profile.company_id)
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false })
-      .limit(1);
+      .eq("is_active", true);
+    if (requestedAccountId) {
+      accountQuery = accountQuery.eq("id", requestedAccountId);
+    } else {
+      accountQuery = accountQuery
+        .eq("account_type", "personal")
+        .in("user_id", accountQueryIds)
+        .order("updated_at", { ascending: false });
+    }
+    const { data: accountsRows, error: accountError } = await accountQuery.limit(1);
     if (accountError) return jsonResponse({ error: accountError.message }, 400);
     const account = Array.isArray(accountsRows) && accountsRows.length ? accountsRows[0] : null;
     if (!account?.id) return jsonResponse({ error: "No hay una cuenta de Gmail conectada." }, 400);

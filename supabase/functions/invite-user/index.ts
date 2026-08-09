@@ -386,21 +386,41 @@ Deno.serve(async (req) => {
       let gmailError: string | undefined;
 
       try {
-        const accountQueryIds = [inviterProfileId, authData.user.id].filter(Boolean);
-        const { data: accountsRows, error: accountError } = await serviceClient
+        const { data: officialRows, error: officialError } = await serviceClient
           .from("email_accounts")
           .select(
-            "id, company_id, user_id, provider, email_address, is_active, access_token, refresh_token, token_expires_at",
+            "id, company_id, user_id, provider, account_type, email_address, is_active, access_token, refresh_token, token_expires_at",
           )
           .eq("provider", "gmail")
-          .in("user_id", accountQueryIds)
           .eq("company_id", companyId)
+          .eq("account_type", "official")
           .eq("is_active", true)
           .order("updated_at", { ascending: false })
           .limit(1);
 
-        if (accountError) throw accountError;
-        const account = Array.isArray(accountsRows) && accountsRows.length ? accountsRows[0] : null;
+        if (officialError) throw officialError;
+        let account = Array.isArray(officialRows) && officialRows.length ? officialRows[0] : null;
+
+        // Backward-compatible fallback for companies created before official
+        // mailbox classification. New installations always use the official row.
+        if (!account) {
+          const accountQueryIds = [inviterProfileId, authData.user.id].filter(Boolean);
+          const { data: personalRows, error: personalError } = await serviceClient
+            .from("email_accounts")
+            .select(
+              "id, company_id, user_id, provider, account_type, email_address, is_active, access_token, refresh_token, token_expires_at",
+            )
+            .eq("provider", "gmail")
+            .eq("company_id", companyId)
+            .eq("account_type", "personal")
+            .in("user_id", accountQueryIds)
+            .eq("is_active", true)
+            .order("updated_at", { ascending: false })
+            .limit(1);
+          if (personalError) throw personalError;
+          account = Array.isArray(personalRows) && personalRows.length ? personalRows[0] : null;
+        }
+
         if (!account?.id) throw new Error("No hay una cuenta de Gmail conectada.");
 
         const { data: gmailSettings, error: settingsError } = await serviceClient
