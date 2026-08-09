@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Search } from "lucide-react";
+import { Download, Search, SlidersHorizontal } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -89,7 +89,7 @@ const REPORTS = [
   },
   {
     id: "subscriptions",
-    label: "Subscriptions / MRR",
+    label: "Suscripciones / MRR",
     table: "subscriptions",
     dateKey: "start_date",
     amountKey: "amount_base",
@@ -104,11 +104,11 @@ const REPORTS = [
 ] as const;
 
 const PERIODS = [
-  { value: "this_month", label: "This Month" },
+  { value: "this_month", label: "Este mes" },
   { value: "last_month", label: "Mes pasado" },
-  { value: "this_quarter", label: "This Quarter" },
-  { value: "this_year", label: "This Year" },
-  { value: "all", label: "All Time" },
+  { value: "this_quarter", label: "Este trimestre" },
+  { value: "this_year", label: "Este año" },
+  { value: "all", label: "Todo el tiempo" },
 ];
 
 const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
@@ -316,6 +316,7 @@ export function SalesReportCenter() {
   const [period, setPeriod] = useState("this_month");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const db = supabase as any;
@@ -442,10 +443,16 @@ export function SalesReportCenter() {
       .slice(0, 8);
   }, [activeReport, config.amountKey, currencySettings, filtered]);
 
+  const selectReport = (reportId: ReportId) => {
+    setActiveReport(reportId);
+    setStatus("all");
+    setSearch("");
+  };
+
   return (
     <div className="min-w-0 border-y border-slate-100 bg-white">
       <div className="grid min-w-0 gap-0 lg:grid-cols-[300px_1fr]">
-        <aside className="min-w-0 border-b border-slate-100 p-4 lg:border-b-0 lg:border-r">
+        <aside className="hidden min-w-0 border-b border-slate-100 p-4 lg:block lg:border-b-0 lg:border-r">
           <div className="mb-4 text-[11px] font-normal uppercase tracking-wide text-slate-500">
             Reportes
           </div>
@@ -454,11 +461,7 @@ export function SalesReportCenter() {
               <button
                 key={report.id}
                 type="button"
-                onClick={() => {
-                  setActiveReport(report.id);
-                  setStatus("all");
-                  setSearch("");
-                }}
+                onClick={() => selectReport(report.id)}
                 className={`flex w-full items-center justify-between border-b px-0 py-2.5 text-left text-sm font-normal transition ${
                   activeReport === report.id
                     ? "border-blue-500 text-slate-950"
@@ -472,12 +475,30 @@ export function SalesReportCenter() {
         </aside>
 
         <section className="min-w-0 p-4">
+          <div className="mb-4 lg:hidden">
+            <div className="mb-1 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+              Tipo de reporte
+            </div>
+            <Select value={activeReport} onValueChange={(value) => selectReport(value as ReportId)}>
+              <SelectTrigger className="h-11 rounded-none border-0 border-b border-slate-300 bg-white px-0 text-base font-medium shadow-none focus:ring-0 focus:ring-offset-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REPORTS.map((report) => (
+                  <SelectItem key={report.id} value={report.id}>
+                    {report.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid gap-4 xl:grid-cols-[1fr_220px_220px]">
-            <div>
+            <div className="hidden lg:block">
               <div className="text-sm font-normal text-slate-950">Reporte generado</div>
               <p className="text-sm font-normal text-slate-500">{config.label}</p>
             </div>
-            <div>
+            <div className="hidden lg:block">
               <div className="mb-1 text-[11px] font-normal uppercase tracking-wide text-slate-500">
                 Periodo
               </div>
@@ -494,7 +515,7 @@ export function SalesReportCenter() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="hidden lg:block">
               <div className="mb-1 text-[11px] font-normal uppercase tracking-wide text-slate-500">
                 Estado
               </div>
@@ -514,7 +535,7 @@ export function SalesReportCenter() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2 sm:mt-5 sm:gap-x-8 sm:gap-y-4">
             <Summary label="Filas" value={String(filtered.length)} />
             <Summary
               label="Total"
@@ -529,7 +550,7 @@ export function SalesReportCenter() {
                 Gráfico por grupo
               </div>
               {chartData.length ? (
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} />
@@ -552,7 +573,7 @@ export function SalesReportCenter() {
                 </div>
               )}
             </div>
-            <div className="border-y border-slate-100 py-4">
+            <div className="hidden border-y border-slate-100 py-4 sm:block">
               <div className="mb-3 text-[11px] font-normal uppercase tracking-wide text-slate-500">
                 Distribución
               </div>
@@ -593,19 +614,68 @@ export function SalesReportCenter() {
           </div>
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative">
+            <button
+              type="button"
+              className="flex h-10 items-center justify-center gap-2 border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 sm:hidden"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+              <span className="text-xs text-slate-400">{filtersOpen ? "Ocultar" : "Mostrar"}</span>
+            </button>
+            <div
+              className={`${filtersOpen ? "flex" : "hidden"} flex-wrap items-center gap-3 sm:flex`}
+            >
+              <div className="grid w-full grid-cols-2 gap-3 sm:hidden">
+                <div>
+                  <div className="mb-1 text-[10px] font-normal uppercase tracking-wide text-slate-500">
+                    Periodo
+                  </div>
+                  <Select value={period} onValueChange={setPeriod}>
+                    <SelectTrigger className="h-10 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERIODS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="mb-1 text-[10px] font-normal uppercase tracking-wide text-slate-500">
+                    Estado
+                  </div>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger className="h-10 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {statusOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="relative w-full sm:w-auto">
                 <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar en el reporte..."
-                  className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white pl-7 pr-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="h-10 w-full rounded-none border-0 border-b border-slate-200 bg-white pl-7 pr-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-9 sm:w-72"
                 />
               </div>
               <Button
                 variant="default"
-                className="h-9 rounded-full bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700"
+                className="h-10 rounded-full bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700 sm:h-9"
                 onClick={() => downloadCsv(`${activeReport}-report.csv`, filtered, columns)}
               >
                 <Download className="mr-2 h-4 w-4" />
@@ -614,7 +684,7 @@ export function SalesReportCenter() {
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden border-y border-slate-100">
+          <div className="mt-4 hidden overflow-hidden border-y border-slate-100 sm:block">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-white">
@@ -631,7 +701,7 @@ export function SalesReportCenter() {
                         colSpan={columns.length}
                         className="py-8 text-center text-sm text-slate-500"
                       >
-                        Generating report...
+                        Generando reporte...
                       </TableCell>
                     </TableRow>
                   ) : filtered.length ? (
@@ -655,13 +725,68 @@ export function SalesReportCenter() {
                         colSpan={columns.length}
                         className="py-8 text-center text-sm text-slate-500"
                       >
-                        No records found for this report.
+                        No hay registros para este reporte.
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
+          </div>
+
+          <div className="mt-4 space-y-2 sm:hidden">
+            {loading ? (
+              <div className="border-y border-slate-100 py-8 text-center text-sm text-slate-500">
+                Generando reporte...
+              </div>
+            ) : filtered.length ? (
+              filtered.map((row, index) => (
+                <article
+                  key={row.id || index}
+                  className="border-y border-slate-100 bg-white px-3 py-3"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0 text-sm font-medium text-slate-950">
+                      {renderCell(
+                        columns[0].key,
+                        row[columns[0].key],
+                        row,
+                        currencySettings.baseCurrency,
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      {renderCell(
+                        columns[columns.length - 1].key,
+                        row[columns[columns.length - 1].key],
+                        row,
+                        currencySettings.baseCurrency,
+                      )}
+                    </div>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    {columns.slice(1, -1).map((column) => (
+                      <div key={column.key} className="min-w-0">
+                        <dt className="truncate text-[10px] uppercase tracking-wide text-slate-400">
+                          {column.label}
+                        </dt>
+                        <dd className="mt-0.5 truncate text-xs text-slate-700">
+                          {renderCell(
+                            column.key,
+                            row[column.key],
+                            row,
+                            currencySettings.baseCurrency,
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </article>
+              ))
+            ) : (
+              <div className="border-y border-slate-100 py-8 text-center text-sm text-slate-500">
+                No hay registros para este reporte.
+              </div>
+            )}
           </div>
         </section>
       </div>
