@@ -29,7 +29,13 @@ import {
   normalizeCurrencyAmount,
   type CurrencyCode,
 } from "@/lib/currency";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
 import {
   AlertDialog,
@@ -3070,6 +3076,11 @@ function PipelinePage() {
                 <DialogTitle className="text-xl font-normal tracking-normal text-slate-950">
                   {editDeal ? "Editar oportunidad" : "Nueva oportunidad"}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  {editDeal
+                    ? "Actualiza los datos comerciales de esta oportunidad."
+                    : "Crea una oportunidad comercial y define origen, producto, valor, fecha y etapa."}
+                </DialogDescription>
               </DialogHeader>
               <form
                 onSubmit={handleCreateOrUpdate}
@@ -4081,6 +4092,9 @@ function PipelinePage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Marcar oportunidad como perdida</DialogTitle>
+                <DialogDescription>
+                  Registra la razón de pérdida y una nota opcional para esta oportunidad.
+                </DialogDescription>
               </DialogHeader>
               <form
                 className="space-y-2.5"

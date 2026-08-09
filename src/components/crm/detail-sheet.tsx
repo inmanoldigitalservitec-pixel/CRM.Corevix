@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -198,6 +204,9 @@ export function DetailSheet({
                   {subtitle ? (
                     <p className="mt-1 truncate text-sm font-normal text-slate-500">{subtitle}</p>
                   ) : null}
+                  <SheetDescription className="sr-only">
+                    {subtitle || title || "Panel de detalles"}
+                  </SheetDescription>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {status ? <StatusBadge status={status} /> : null}
                     {badges ? badges : null}
