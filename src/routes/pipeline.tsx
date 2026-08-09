@@ -4,6 +4,7 @@ import {
   BriefcaseBusiness,
   Calendar as CalendarIcon,
   Archive,
+  Check,
   Grid2X2,
   List,
   SlidersHorizontal,
@@ -3887,7 +3888,11 @@ function PipelinePage() {
                                       : qty * unit;
 
                                   return (
-                                    <div key={row.id} className="space-y-2 py-2">
+                                    <div
+                                      key={row.id}
+                                      data-deal-product-row
+                                      className="space-y-2 py-2"
+                                    >
                                       <div className="flex items-center justify-between gap-3">
                                         <span className="min-w-0 truncate font-normal text-slate-950">
                                           {productLabel}
@@ -3896,7 +3901,7 @@ function PipelinePage() {
                                           {money(total, currencySettings.baseCurrency)}
                                         </span>
                                       </div>
-                                      <div className="grid grid-cols-[72px_minmax(0,1fr)_32px] gap-2">
+                                      <div className="grid grid-cols-[72px_minmax(0,1fr)_32px_32px] gap-2">
                                         <Input
                                           type="number"
                                           min={1}
@@ -3932,6 +3937,28 @@ function PipelinePage() {
                                               });
                                           }}
                                         />
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-emerald-600"
+                                          disabled={!canManageDealProducts(selectedDeal)}
+                                          onClick={(event) => {
+                                            const container = event.currentTarget.closest(
+                                              "[data-deal-product-row]",
+                                            );
+                                            const inputs = Array.from(
+                                              container?.querySelectorAll("input") || [],
+                                            ) as HTMLInputElement[];
+                                            void handleUpdateDealProduct(selectedDeal, row, {
+                                              quantity: Number(inputs[0]?.value || qty),
+                                              unit_price: Number(inputs[1]?.value || unit),
+                                            });
+                                          }}
+                                          aria-label="Guardar producto"
+                                        >
+                                          <Check className="h-3.5 w-3.5" />
+                                        </Button>
                                         <Button
                                           type="button"
                                           variant="ghost"
