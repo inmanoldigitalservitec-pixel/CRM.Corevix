@@ -2651,19 +2651,33 @@ function ProposalsPage() {
                           <span className="text-rose-500">*</span> Fecha
                         </Label>
                         <Input
+                          name="proposal_date"
                           className={crmFormStyles.input}
                           type="date"
                           value={form.proposalDate}
                           onChange={(e) => setForm((p) => ({ ...p, proposalDate: e.target.value }))}
+                          onInput={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              proposalDate: (e.currentTarget as HTMLInputElement).value,
+                            }))
+                          }
                         />
                       </div>
                       <div className="space-y-1.5">
                         <Label className={crmFormStyles.label}>Abierta hasta</Label>
                         <Input
+                          name="valid_until"
                           className={crmFormStyles.input}
                           type="date"
                           value={form.valid_until}
                           onChange={(e) => setForm((p) => ({ ...p, valid_until: e.target.value }))}
+                          onInput={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              valid_until: (e.currentTarget as HTMLInputElement).value,
+                            }))
+                          }
                         />
                       </div>
                     </div>
@@ -3343,11 +3357,18 @@ function ProposalsPage() {
                         <div className="space-y-1.5">
                           <Label className={crmFormStyles.label}>Válida hasta</Label>
                           <Input
+                            name="valid_until"
                             className={crmFormStyles.input}
                             type="date"
                             value={form.valid_until}
                             onChange={(e) =>
                               setForm((p) => ({ ...p, valid_until: e.target.value }))
+                            }
+                            onInput={(e) =>
+                              setForm((p) => ({
+                                ...p,
+                                valid_until: (e.currentTarget as HTMLInputElement).value,
+                              }))
                             }
                           />
                         </div>
