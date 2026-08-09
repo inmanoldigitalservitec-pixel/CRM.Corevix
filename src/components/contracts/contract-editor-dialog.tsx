@@ -442,6 +442,9 @@ export function ContractEditorDialog({
               type="date"
               value={form.start_date}
               onChange={(event) => setField("start_date", event.target.value)}
+              onInput={(event) =>
+                setField("start_date", (event.currentTarget as HTMLInputElement).value)
+              }
               className={crmFormStyles.input}
             />
           </div>
@@ -452,6 +455,9 @@ export function ContractEditorDialog({
               type="date"
               value={form.end_date}
               onChange={(event) => setField("end_date", event.target.value)}
+              onInput={(event) =>
+                setField("end_date", (event.currentTarget as HTMLInputElement).value)
+              }
               className={crmFormStyles.input}
             />
           </div>
