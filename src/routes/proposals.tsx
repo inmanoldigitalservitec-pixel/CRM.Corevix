@@ -2149,7 +2149,7 @@ function ProposalsPage() {
                         setDrawerMode("view");
                         setDrawerOpen(true);
                       }}
-                      className="w-full rounded-[18px] border border-slate-200 bg-white p-3.5 text-left transition-colors active:scale-[0.992] hover:border-slate-300"
+                      className="w-full min-w-0 rounded-[18px] border border-slate-200 bg-white p-3.5 text-left transition-colors active:scale-[0.992] hover:border-slate-300"
                     >
                       <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-2.5">
                         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-blue-100 bg-blue-50 text-blue-700">

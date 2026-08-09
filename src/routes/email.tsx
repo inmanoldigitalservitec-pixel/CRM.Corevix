@@ -1209,7 +1209,7 @@ function EmailPage() {
                         type="button"
                         key={convo.id}
                         onClick={() => selectConvo(convo)}
-                        className={`group grid w-full grid-cols-[32px_32px_minmax(150px,220px)_minmax(0,1fr)_76px] items-center gap-2 border-b border-slate-100 px-3 py-0 text-left transition hover:bg-slate-50 ${
+                        className={`group grid w-full min-w-0 grid-cols-[32px_32px_minmax(0,1fr)_76px] items-center gap-2 border-b border-slate-100 px-3 py-0 text-left transition hover:bg-slate-50 sm:grid-cols-[32px_32px_minmax(150px,220px)_minmax(0,1fr)_76px] ${
                           isActive ? "bg-blue-50" : "bg-white"
                         }`}
                       >
@@ -1230,7 +1230,7 @@ function EmailPage() {
                         </span>
 
                         <span
-                          className={`truncate text-[13px] ${
+                          className={`hidden truncate text-[13px] sm:block ${
                             unread ? "font-semibold text-slate-950" : "font-medium text-slate-700"
                           }`}
                         >

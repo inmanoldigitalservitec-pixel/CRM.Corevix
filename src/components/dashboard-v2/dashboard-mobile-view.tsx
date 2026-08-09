@@ -1232,7 +1232,7 @@ export function DashboardMobileView({
         }
       `}</style>
       <div className="mx-auto grid max-w-[430px] gap-4">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-blue-100 pb-3">
+        <header className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-blue-100 pb-3">
           <div className="min-w-0">
             <p className="truncate text-[13px] font-medium text-slate-500">Buenos dias</p>
             <h1 className="truncate text-[22px] font-semibold tracking-normal">

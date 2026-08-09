@@ -443,9 +443,9 @@ export function SalesReportCenter() {
   }, [activeReport, config.amountKey, currencySettings, filtered]);
 
   return (
-    <div className="border-y border-slate-100 bg-white">
-      <div className="grid gap-0 lg:grid-cols-[300px_1fr]">
-        <aside className="border-b border-slate-100 p-4 lg:border-b-0 lg:border-r">
+    <div className="min-w-0 border-y border-slate-100 bg-white">
+      <div className="grid min-w-0 gap-0 lg:grid-cols-[300px_1fr]">
+        <aside className="min-w-0 border-b border-slate-100 p-4 lg:border-b-0 lg:border-r">
           <div className="mb-4 text-[11px] font-normal uppercase tracking-wide text-slate-500">
             Reportes
           </div>
@@ -471,7 +471,7 @@ export function SalesReportCenter() {
           </div>
         </aside>
 
-        <section className="p-4">
+        <section className="min-w-0 p-4">
           <div className="grid gap-4 xl:grid-cols-[1fr_220px_220px]">
             <div>
               <div className="text-sm font-normal text-slate-950">Reporte generado</div>
