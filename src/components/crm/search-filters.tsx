@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, ListFilter, MoreHorizontal, RefreshCw, X } from "lucide-react";
+import { Download, ListFilter, MoreHorizontal, RefreshCw, Search, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useT } from "@/i18n";
 
 interface FilterOption {
@@ -221,7 +222,20 @@ export function SearchFilters({
   };
 
   if (!filters.length) {
-    return <>{renderTaskToolbarMenu()}</>;
+    return (
+      <>
+        {renderTaskToolbarMenu()}
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={_searchValue}
+            onChange={(event) => _onSearchChange(event.target.value)}
+            placeholder={_searchPlaceholder}
+            className="h-10 border-border/60 bg-white pl-9"
+          />
+        </div>
+      </>
+    );
   }
 
   return (
@@ -234,6 +248,15 @@ export function SearchFilters({
           .filter(Boolean)
           .join(" ")}
       >
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={_searchValue}
+            onChange={(event) => _onSearchChange(event.target.value)}
+            placeholder={_searchPlaceholder}
+            className="h-10 border-border/60 bg-white pl-9"
+          />
+        </div>
         <div className="flex min-w-0 items-center gap-2 sm:hidden">
           <Button
             type="button"
