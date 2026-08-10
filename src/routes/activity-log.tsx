@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Search } from "lucide-react";
+import { Activity, Boxes, ListChecks } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DataCard } from "@/components/crm/data-card";
 import {
   Table,
   TableBody,
@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/crm/empty-state";
 import { LoadingTable } from "@/components/crm/loading-state";
+import { MetricCard } from "@/components/crm/metric-card";
+import { PageHeader } from "@/components/crm/page-header";
+import { SearchFilters } from "@/components/crm/search-filters";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -89,47 +92,42 @@ function ActivityLogPage() {
   }, [logs]);
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Registro de actividad</h1>
-        <p className="text-sm text-muted-foreground">
-          Timeline global del CRM con eventos recientes en ventas, operaciones y soporte.
-        </p>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <PageHeader
+        title="Registro de actividad"
+        subtitle="Timeline global del CRM con eventos recientes en ventas, operaciones y soporte."
+      />
+
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <MetricCard label="Eventos recientes" value={logs.length} icon={Activity} size="compact" />
+        <MetricCard
+          label="Entidades activas"
+          value={new Set(logs.map((log) => log.entity_type)).size}
+          icon={Boxes}
+          size="compact"
+        />
+        <MetricCard
+          label="Top de actividad"
+          value={entitySummary[0]?.[0] || "—"}
+          icon={ListChecks}
+          size="compact"
+        />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Eventos recientes</CardDescription>
-            <CardTitle className="text-3xl">{logs.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Entidades activas</CardDescription>
-            <CardTitle className="text-3xl">
-              {new Set(logs.map((log) => log.entity_type)).size}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Top de actividad</CardDescription>
-            <CardTitle className="text-base">
-              {entitySummary.length
-                ? entitySummary.map(([key, count]) => `${key} (${count})`).join(", ")
-                : "Sin datos"}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card>
+      <DataCard noPadding className="overflow-hidden">
         <CardHeader>
           <CardTitle>Timeline</CardTitle>
           <CardDescription>Ultimos 250 eventos disponibles para tu empresa.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <div className="border-b border-border/40 px-4 pb-4 sm:px-6">
+          <SearchFilters
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar acción, entidad o detalle..."
+            mobileCollapsible={false}
+          />
+        </div>
+        <CardContent className="p-4 sm:p-6">
           {loading ? (
             <LoadingTable rows={8} cols={4} />
           ) : filtered.length === 0 ? (
@@ -139,29 +137,51 @@ function ActivityLogPage() {
               description="Todavia no se han registrado eventos o el filtro actual no coincide."
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Accion</TableHead>
-                  <TableHead>Entidad</TableHead>
-                  <TableHead>Detalle</TableHead>
-                  <TableHead>Fecha</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Accion</TableHead>
+                      <TableHead>Entidad</TableHead>
+                      <TableHead>Detalle</TableHead>
+                      <TableHead>Fecha</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-medium">{log.action}</TableCell>
+                        <TableCell>{log.entity_type}</TableCell>
+                        <TableCell>{log.detail || "Sin detalle"}</TableCell>
+                        <TableCell>{formatDateTime(log.created_at)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="grid gap-2 md:hidden">
                 {filtered.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-medium">{log.action}</TableCell>
-                    <TableCell>{log.entity_type}</TableCell>
-                    <TableCell>{log.detail || "Sin detalle"}</TableCell>
-                    <TableCell>{formatDateTime(log.created_at)}</TableCell>
-                  </TableRow>
+                  <article key={log.id} className="rounded-lg border border-border/40 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-medium">{log.action}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDateTime(log.created_at)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {log.entity_type}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {log.detail || "Sin detalle"}
+                    </p>
+                  </article>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
-      </Card>
+      </DataCard>
     </div>
   );
 }

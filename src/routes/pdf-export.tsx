@@ -1,12 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ExternalLink, FileText, Printer } from "lucide-react";
+import { Copy, ExternalLink, FileText, FileStack, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DataCard } from "@/components/crm/data-card";
 import { LoadingTable } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
+import { MetricCard } from "@/components/crm/metric-card";
+import { PageHeader } from "@/components/crm/page-header";
+import { SearchFilters } from "@/components/crm/search-filters";
 import {
   Table,
   TableBody,
@@ -146,36 +149,29 @@ function PdfExportPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Exportar PDFs</h1>
-        <p className="text-sm text-muted-foreground">
-          Centraliza propuestas y facturas con salida imprimible o descarga desde su vista publica.
-        </p>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <PageHeader
+        title="Exportar PDFs"
+        subtitle="Centraliza propuestas y facturas con salida imprimible o descarga desde su vista publica."
+      />
+
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <MetricCard
+          label="Documentos listados"
+          value={items.length}
+          icon={FileStack}
+          size="compact"
+        />
+        <MetricCard
+          label="Listos para imprimir"
+          value={printReadyCount}
+          icon={Printer}
+          size="compact"
+        />
+        <MetricCard label="Tipos soportados" value="2" icon={FileText} size="compact" />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Documentos listados</CardDescription>
-            <CardTitle className="text-3xl">{items.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Listos para imprimir</CardDescription>
-            <CardTitle className="text-3xl">{printReadyCount}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Tipos soportados</CardDescription>
-            <CardTitle className="text-3xl">2</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card>
+      <DataCard noPadding className="overflow-hidden">
         <CardHeader>
           <CardTitle>Cola de exportacion</CardTitle>
           <CardDescription>
@@ -183,7 +179,15 @@ function PdfExportPage() {
             automaticamente.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <div className="border-b border-border/40 px-4 pb-4 sm:px-6">
+          <SearchFilters
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por documento, tipo o estado..."
+            mobileCollapsible={false}
+          />
+        </div>
+        <CardContent className="p-4 sm:p-6">
           {loading ? (
             <LoadingTable rows={6} cols={5} />
           ) : filtered.length === 0 ? (
@@ -193,62 +197,112 @@ function PdfExportPage() {
               description="Crea facturas o propuestas con enlace publico para habilitar la salida en PDF."
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Monto</TableHead>
-                  <TableHead>Actualizado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Documento</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Monto</TableHead>
+                      <TableHead>Actualizado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((item) => (
+                      <TableRow key={`${item.kind}-${item.id}`}>
+                        <TableCell className="font-medium">{item.label}</TableCell>
+                        <TableCell>{item.kind === "proposal" ? "Propuesta" : "Factura"}</TableCell>
+                        <TableCell>{item.status}</TableCell>
+                        <TableCell>{item.amount}</TableCell>
+                        <TableCell>{formatDate(item.updatedAt)}</TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpen(item, false)}
+                              disabled={!item.publicToken}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              Vista
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void handleCopy(item)}
+                              disabled={!item.publicToken}
+                            >
+                              <Copy className="h-4 w-4" />
+                              Link
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpen(item, true)}
+                              disabled={!item.publicToken}
+                            >
+                              <Printer className="h-4 w-4" />
+                              Imprimir PDF
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="grid gap-3 md:hidden">
                 {filtered.map((item) => (
-                  <TableRow key={`${item.kind}-${item.id}`}>
-                    <TableCell className="font-medium">{item.label}</TableCell>
-                    <TableCell>{item.kind === "proposal" ? "Propuesta" : "Factura"}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                    <TableCell>{item.amount}</TableCell>
-                    <TableCell>{formatDate(item.updatedAt)}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpen(item, false)}
-                          disabled={!item.publicToken}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                          Vista
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleCopy(item)}
-                          disabled={!item.publicToken}
-                        >
-                          <Copy className="h-4 w-4" />
-                          Link
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleOpen(item, true)}
-                          disabled={!item.publicToken}
-                        >
-                          <Printer className="h-4 w-4" />
-                          Imprimir PDF
-                        </Button>
+                  <article
+                    key={`${item.kind}-${item.id}`}
+                    className="rounded-lg border border-border/40 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{item.label}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.kind === "proposal" ? "Propuesta" : "Factura"} · {item.status}
+                        </p>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                      <span className="shrink-0 text-sm font-semibold">{item.amount}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Actualizado {formatDate(item.updatedAt)}
+                    </p>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpen(item, false)}
+                        disabled={!item.publicToken}
+                      >
+                        <ExternalLink className="h-4 w-4" /> Vista
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleCopy(item)}
+                        disabled={!item.publicToken}
+                      >
+                        <Copy className="h-4 w-4" /> Link
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpen(item, true)}
+                        disabled={!item.publicToken}
+                      >
+                        <Printer className="h-4 w-4" /> PDF
+                      </Button>
+                    </div>
+                  </article>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
-      </Card>
+      </DataCard>
     </div>
   );
 }

@@ -32,8 +32,10 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
+import { DataCard } from "@/components/crm/data-card";
 import { EmptyState } from "@/components/crm/empty-state";
 import { LoadingTable } from "@/components/crm/loading-state";
+import { MetricCard } from "@/components/crm/metric-card";
 import { PageHeader } from "@/components/crm/page-header";
 import { SearchFilters } from "@/components/crm/search-filters";
 import { useAuth } from "@/hooks/use-auth";
@@ -205,32 +207,6 @@ function sensitivityClass(sensitivity: string) {
   if (sensitivity === "critical") return "border-rose-200 bg-rose-50 text-rose-700";
   if (sensitivity === "restricted") return "border-blue-200 bg-blue-50 text-blue-700";
   return "border-slate-200 bg-slate-50 text-slate-600";
-}
-
-function VaultKpi({
-  label,
-  value,
-  tone = "slate",
-}: {
-  label: string;
-  value: number;
-  tone?: string;
-}) {
-  const toneClass =
-    tone === "rose"
-      ? "text-rose-600"
-      : tone === "amber"
-        ? "text-amber-600"
-        : tone === "blue"
-          ? "text-blue-600"
-          : "text-slate-950";
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={cn("mt-2 text-2xl font-semibold", toneClass)}>{value}</p>
-    </div>
-  );
 }
 
 function VaultPage() {
@@ -453,14 +429,35 @@ function VaultPage() {
         onAction={() => setDialogOpen(true)}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <VaultKpi label="Total guardados" value={stats.total} />
-        <VaultKpi label="Críticos" value={stats.critical} tone="rose" />
-        <VaultKpi label="Por revisar" value={stats.review} tone="amber" />
-        <VaultKpi label="Vencen pronto" value={stats.expiring} tone="blue" />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+        <MetricCard label="Total guardados" value={stats.total} icon={LockKeyhole} size="compact" />
+        <MetricCard
+          label="Críticos"
+          value={stats.critical}
+          icon={ShieldAlert}
+          iconClassName="text-rose-600"
+          iconChipClassName="bg-rose-50"
+          size="compact"
+        />
+        <MetricCard
+          label="Por revisar"
+          value={stats.review}
+          icon={Eye}
+          iconClassName="text-amber-600"
+          iconChipClassName="bg-amber-50"
+          size="compact"
+        />
+        <MetricCard
+          label="Vencen pronto"
+          value={stats.expiring}
+          icon={KeyRound}
+          iconClassName="text-blue-600"
+          iconChipClassName="bg-blue-50"
+          size="compact"
+        />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <DataCard noPadding className="overflow-hidden border-slate-200">
         <div className="border-b border-slate-100 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative min-w-0 flex-1 lg:max-w-md">
@@ -522,7 +519,10 @@ function VaultPage() {
                 const project = item.project_id ? projectById.get(item.project_id) : null;
                 const owner = item.owner_id ? profileById.get(item.owner_id) : null;
                 return (
-                  <article key={item.id} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+                  <article
+                    key={item.id}
+                    className="min-w-0 rounded-xl border border-slate-200 bg-white p-3"
+                  >
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                         <KeyRound className="h-5 w-5" />
@@ -544,33 +544,65 @@ function VaultPage() {
                     <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 border-y border-slate-100 py-3 text-sm">
                       <div className="min-w-0">
                         <div className="text-[11px] uppercase text-slate-400">Vinculado a</div>
-                        <div className="truncate font-medium text-slate-800">{client?.company_name || "Sin cliente"}</div>
-                        <div className="truncate text-slate-500">{project?.name || "Sin proyecto"}</div>
+                        <div className="truncate font-medium text-slate-800">
+                          {client?.company_name || "Sin cliente"}
+                        </div>
+                        <div className="truncate text-slate-500">
+                          {project?.name || "Sin proyecto"}
+                        </div>
                       </div>
                       <div className="min-w-0">
                         <div className="text-[11px] uppercase text-slate-400">Cuenta</div>
-                        <div className="truncate text-slate-600">{item.username || item.email || "Sin usuario"}</div>
+                        <div className="truncate text-slate-600">
+                          {item.username || item.email || "Sin usuario"}
+                        </div>
                         {item.url ? <div className="truncate text-blue-600">{item.url}</div> : null}
                       </div>
                     </div>
                     <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className="min-w-0 truncate font-mono text-sm text-slate-700">
-                          {item.secret_value ? (revealed ? item.secret_value : "••••••••••••") : "—"}
+                          {item.secret_value
+                            ? revealed
+                              ? item.secret_value
+                              : "••••••••••••"
+                            : "—"}
                         </span>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => toggleReveal(item)} disabled={!item.secret_value} aria-label={revealed ? "Ocultar secreto" : "Revelar secreto"}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 rounded-full"
+                          onClick={() => toggleReveal(item)}
+                          disabled={!item.secret_value}
+                          aria-label={revealed ? "Ocultar secreto" : "Revelar secreto"}
+                        >
                           {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => void copySecret(item)} disabled={!item.secret_value} aria-label="Copiar secreto">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 rounded-full"
+                          onClick={() => void copySecret(item)}
+                          disabled={!item.secret_value}
+                          aria-label="Copiar secreto"
+                        >
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
-                      <span className="shrink-0 text-right text-xs text-slate-500">Vence {formatDate(item.expires_at)}</span>
+                      <span className="shrink-0 text-right text-xs text-slate-500">
+                        Vence {formatDate(item.expires_at)}
+                      </span>
                     </div>
                     <div className="mt-3 flex min-w-0 items-end justify-between gap-3">
                       <div className="flex flex-wrap gap-1.5">
-                        <Badge variant="outline" className={statusClass(item.status)}>{optionLabel(STATUS_OPTIONS, item.status)}</Badge>
-                        <Badge variant="outline" className={sensitivityClass(item.sensitivity)}>{optionLabel(SENSITIVITY_OPTIONS, item.sensitivity)}</Badge>
+                        <Badge variant="outline" className={statusClass(item.status)}>
+                          {optionLabel(STATUS_OPTIONS, item.status)}
+                        </Badge>
+                        <Badge variant="outline" className={sensitivityClass(item.sensitivity)}>
+                          {optionLabel(SENSITIVITY_OPTIONS, item.sensitivity)}
+                        </Badge>
                       </div>
                       <div className="min-w-0 text-right text-xs text-slate-500">
                         <div className="truncate">{owner?.full_name || "Sin responsable"}</div>
@@ -583,145 +615,150 @@ function VaultPage() {
             </div>
 
             <div className="hidden overflow-x-auto md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Acceso</TableHead>
-                  <TableHead>Vinculado a</TableHead>
-                  <TableHead>Cuenta</TableHead>
-                  <TableHead>Secreto</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Vence</TableHead>
-                  <TableHead>Responsable</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => {
-                  const revealed = revealedIds.has(item.id);
-                  const client = item.client_id ? clientById.get(item.client_id) : null;
-                  const project = item.project_id ? projectById.get(item.project_id) : null;
-                  const owner = item.owner_id ? profileById.get(item.owner_id) : null;
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="flex min-w-[220px] items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                            <KeyRound className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-slate-950">{item.title}</div>
-                            <div className="mt-1 flex flex-wrap gap-1.5">
-                              <Badge variant="outline" className="border-slate-200 text-slate-600">
-                                {optionLabel(CATEGORY_OPTIONS, item.category)}
-                              </Badge>
-                              {(item.tags || []).slice(0, 2).map((tag) => (
-                                <Badge key={tag} variant="secondary" className="bg-slate-100">
-                                  {tag}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Acceso</TableHead>
+                    <TableHead>Vinculado a</TableHead>
+                    <TableHead>Cuenta</TableHead>
+                    <TableHead>Secreto</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Vence</TableHead>
+                    <TableHead>Responsable</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => {
+                    const revealed = revealedIds.has(item.id);
+                    const client = item.client_id ? clientById.get(item.client_id) : null;
+                    const project = item.project_id ? projectById.get(item.project_id) : null;
+                    const owner = item.owner_id ? profileById.get(item.owner_id) : null;
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="flex min-w-[220px] items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                              <KeyRound className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-950">{item.title}</div>
+                              <div className="mt-1 flex flex-wrap gap-1.5">
+                                <Badge
+                                  variant="outline"
+                                  className="border-slate-200 text-slate-600"
+                                >
+                                  {optionLabel(CATEGORY_OPTIONS, item.category)}
                                 </Badge>
-                              ))}
+                                {(item.tags || []).slice(0, 2).map((tag) => (
+                                  <Badge key={tag} variant="secondary" className="bg-slate-100">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="min-w-[180px] text-sm">
-                          <div className="font-medium text-slate-800">
-                            {client?.company_name || "Sin cliente"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-[180px] text-sm">
+                            <div className="font-medium text-slate-800">
+                              {client?.company_name || "Sin cliente"}
+                            </div>
+                            <div className="text-slate-500">{project?.name || "Sin proyecto"}</div>
                           </div>
-                          <div className="text-slate-500">{project?.name || "Sin proyecto"}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="min-w-[190px] space-y-1 text-sm text-slate-600">
-                          <div>{item.username || item.email || "Sin usuario"}</div>
-                          {item.url ? (
-                            <a
-                              href={item.url.startsWith("http") ? item.url : `https://${item.url}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex max-w-[210px] items-center gap-1 truncate text-blue-600"
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-[190px] space-y-1 text-sm text-slate-600">
+                            <div>{item.username || item.email || "Sin usuario"}</div>
+                            {item.url ? (
+                              <a
+                                href={
+                                  item.url.startsWith("http") ? item.url : `https://${item.url}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex max-w-[210px] items-center gap-1 truncate text-blue-600"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                                {item.url}
+                              </a>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex min-w-[180px] items-center gap-2">
+                            <span className="max-w-[120px] truncate font-mono text-sm text-slate-700">
+                              {item.secret_value
+                                ? revealed
+                                  ? item.secret_value
+                                  : "••••••••••••"
+                                : "—"}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                              onClick={() => toggleReveal(item)}
+                              disabled={!item.secret_value}
+                              aria-label={revealed ? "Ocultar secreto" : "Revelar secreto"}
                             >
-                              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                              {item.url}
-                            </a>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex min-w-[180px] items-center gap-2">
-                          <span className="max-w-[120px] truncate font-mono text-sm text-slate-700">
-                            {item.secret_value
-                              ? revealed
-                                ? item.secret_value
-                                : "••••••••••••"
-                              : "—"}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full"
-                            onClick={() => toggleReveal(item)}
-                            disabled={!item.secret_value}
-                            aria-label={revealed ? "Ocultar secreto" : "Revelar secreto"}
-                          >
-                            {revealed ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full"
-                            onClick={() => void copySecret(item)}
-                            disabled={!item.secret_value}
-                            aria-label="Copiar secreto"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex min-w-[150px] flex-col gap-1.5">
-                          <Badge variant="outline" className={statusClass(item.status)}>
-                            {optionLabel(STATUS_OPTIONS, item.status)}
-                          </Badge>
-                          <Badge variant="outline" className={sensitivityClass(item.sensitivity)}>
-                            {optionLabel(SENSITIVITY_OPTIONS, item.sensitivity)}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            "text-sm text-slate-600",
-                            isExpired(item.expires_at) && "font-semibold text-rose-600",
-                            isExpiringSoon(item.expires_at) && "font-semibold text-amber-600",
-                          )}
-                        >
-                          {formatDate(item.expires_at)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="min-w-[140px] text-sm">
-                          <div className="font-medium text-slate-800">
-                            {owner?.full_name || "Sin responsable"}
+                              {revealed ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                              onClick={() => void copySecret(item)}
+                              disabled={!item.secret_value}
+                              aria-label="Copiar secreto"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <div className="truncate text-slate-500">{owner?.email || ""}</div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex min-w-[150px] flex-col gap-1.5">
+                            <Badge variant="outline" className={statusClass(item.status)}>
+                              {optionLabel(STATUS_OPTIONS, item.status)}
+                            </Badge>
+                            <Badge variant="outline" className={sensitivityClass(item.sensitivity)}>
+                              {optionLabel(SENSITIVITY_OPTIONS, item.sensitivity)}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "text-sm text-slate-600",
+                              isExpired(item.expires_at) && "font-semibold text-rose-600",
+                              isExpiringSoon(item.expires_at) && "font-semibold text-amber-600",
+                            )}
+                          >
+                            {formatDate(item.expires_at)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-[140px] text-sm">
+                            <div className="font-medium text-slate-800">
+                              {owner?.full_name || "Sin responsable"}
+                            </div>
+                            <div className="truncate text-slate-500">{owner?.email || ""}</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
-      </div>
+      </DataCard>
 
       <CrmCreationDialog
         open={dialogOpen}

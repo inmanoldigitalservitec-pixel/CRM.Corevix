@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { Database, Download, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingCards } from "@/components/crm/loading-state";
+import { DataCard } from "@/components/crm/data-card";
+import { MetricCard } from "@/components/crm/metric-card";
+import { PageHeader } from "@/components/crm/page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { downloadCsv } from "@/lib/download";
@@ -175,39 +178,31 @@ function CsvExportPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Exportar CSV</h1>
-          <p className="text-sm text-muted-foreground">
-            Punto unico para descargar los datos mas usados del CRM en formato tabular.
-          </p>
-        </div>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <PageHeader
+        title="Exportar CSV"
+        subtitle="Punto unico para descargar los datos mas usados del CRM en formato tabular."
+      >
         <Button variant="outline" onClick={() => void refreshCounts()} disabled={loading}>
           <RefreshCw className="h-4 w-4" />
           Actualizar conteos
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Modulos listos</CardDescription>
-            <CardTitle className="text-3xl">{modules.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Registros exportables</CardDescription>
-            <CardTitle className="text-3xl">{totalRecords}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Formato</CardDescription>
-            <CardTitle className="text-3xl">CSV</CardTitle>
-          </CardHeader>
-        </Card>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <MetricCard
+          label="Modulos listos"
+          value={modules.length}
+          icon={FileSpreadsheet}
+          size="compact"
+        />
+        <MetricCard
+          label="Registros exportables"
+          value={totalRecords}
+          icon={Database}
+          size="compact"
+        />
+        <MetricCard label="Formato" value="CSV" icon={Download} size="compact" />
       </div>
 
       {loading ? (
@@ -215,7 +210,7 @@ function CsvExportPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {modules.map((module) => (
-            <Card key={module.key}>
+            <DataCard key={module.key} className="h-full">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
@@ -237,7 +232,7 @@ function CsvExportPage() {
                   {busyKey === module.key ? "Exportando..." : "Descargar CSV"}
                 </Button>
               </CardContent>
-            </Card>
+            </DataCard>
           ))}
         </div>
       )}

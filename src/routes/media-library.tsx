@@ -7,13 +7,16 @@ import {
   ImageIcon,
   Link2,
   Package,
-  Search,
+  Images,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DataCard } from "@/components/crm/data-card";
 import { EmptyState } from "@/components/crm/empty-state";
 import { LoadingCards } from "@/components/crm/loading-state";
-import { Input } from "@/components/ui/input";
+import { MetricCard } from "@/components/crm/metric-card";
+import { PageHeader } from "@/components/crm/page-header";
+import { SearchFilters } from "@/components/crm/search-filters";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -120,15 +123,12 @@ function MediaLibraryPage() {
   const productCount = assets.filter((asset) => asset.source === "product").length;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Biblioteca multimedia</h1>
-          <p className="text-sm text-muted-foreground">
-            Archivos de Drive y recursos visuales ya guardados por el CRM en un solo lugar.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <PageHeader
+        title="Biblioteca multimedia"
+        subtitle="Archivos de Drive y recursos visuales ya guardados por el CRM en un solo lugar."
+      >
+        <div className="flex flex-wrap justify-end gap-2">
           <Button variant="outline" asChild>
             <Link to="/tasks">
               <FolderOpen className="h-4 w-4" />
@@ -142,79 +142,81 @@ function MediaLibraryPage() {
             </Link>
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Total de activos</CardDescription>
-            <CardTitle className="text-3xl">{assets.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Archivos de Drive</CardDescription>
-            <CardTitle className="text-3xl">{driveCount}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Imagenes de productos</CardDescription>
-            <CardTitle className="text-3xl">{productCount}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {loading ? (
-        <LoadingCards count={6} />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<ImageIcon className="h-6 w-6" />}
-          title="No encontramos recursos"
-          description="Todavia no hay archivos centralizados o el filtro no devolvio coincidencias."
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <MetricCard label="Total de activos" value={assets.length} icon={Images} size="compact" />
+        <MetricCard label="Archivos de Drive" value={driveCount} icon={FolderOpen} size="compact" />
+        <MetricCard
+          label="Imagenes de productos"
+          value={productCount}
+          icon={Package}
+          size="compact"
         />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((asset) => (
-            <Card key={asset.id} className="overflow-hidden">
-              <div className="flex aspect-[16/9] items-center justify-center bg-slate-100">
-                {asset.previewUrl ? (
-                  <img
-                    src={asset.previewUrl}
-                    alt={asset.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <FileImage className="h-10 w-10 text-slate-400" />
-                )}
-              </div>
-              <CardHeader>
-                <CardTitle className="line-clamp-1 text-base">{asset.title}</CardTitle>
-                <CardDescription>{asset.subtitle}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between gap-3">
-                <div className="text-xs text-muted-foreground">{formatDate(asset.createdAt)}</div>
-                <div className="flex gap-2">
-                  {asset.openUrl ? (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={asset.openUrl} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                        Abrir
-                      </a>
-                    </Button>
-                  ) : null}
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link to={asset.source === "drive" ? "/tasks" : "/products"}>
-                      <Link2 className="h-4 w-4" />
-                      Origen
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      </div>
+
+      <DataCard noPadding className="overflow-hidden">
+        <div className="border-b border-border/40 p-4">
+          <SearchFilters
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar archivos, productos o enlaces..."
+            mobileCollapsible={false}
+          />
         </div>
-      )}
+        {loading ? (
+          <div className="p-4">
+            <LoadingCards count={6} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={<ImageIcon className="h-6 w-6" />}
+            title="No encontramos recursos"
+            description="Todavia no hay archivos centralizados o el filtro no devolvio coincidencias."
+          />
+        ) : (
+          <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((asset) => (
+              <Card key={asset.id} className="overflow-hidden border-border/40 shadow-none">
+                <div className="flex aspect-[16/9] items-center justify-center bg-slate-100">
+                  {asset.previewUrl ? (
+                    <img
+                      src={asset.previewUrl}
+                      alt={asset.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <FileImage className="h-10 w-10 text-slate-400" />
+                  )}
+                </div>
+                <CardHeader>
+                  <CardTitle className="line-clamp-1 text-base">{asset.title}</CardTitle>
+                  <CardDescription>{asset.subtitle}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between gap-3">
+                  <div className="text-xs text-muted-foreground">{formatDate(asset.createdAt)}</div>
+                  <div className="flex gap-2">
+                    {asset.openUrl ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={asset.openUrl} target="_blank" rel="noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                          Abrir
+                        </a>
+                      </Button>
+                    ) : null}
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={asset.source === "drive" ? "/tasks" : "/products"}>
+                        <Link2 className="h-4 w-4" />
+                        Origen
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </DataCard>
     </div>
   );
 }
