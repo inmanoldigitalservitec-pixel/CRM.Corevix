@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import {
   Dialog,
   DialogContent,
@@ -741,31 +742,33 @@ export function QuickCreateDialog({
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
+                    <div className="space-y-1.5">
                       <Label className={labelClass}>Cliente</Label>
-                      <Select
-                        value={form.client_id || "none"}
-                        onValueChange={(value) =>
-                          updateField("client_id", value === "none" ? "" : value)
+                      <ClientProspectSearchSelect
+                        clients={clients.map((client) => ({
+                          id: client.id,
+                          label: client.contact_person
+                            ? `${client.company_name} · ${client.contact_person}`
+                            : client.company_name,
+                          secondaryLabel: client.contact_person,
+                          searchText: [client.company_name, client.contact_person]
+                            .filter(Boolean)
+                            .join(" "),
+                          data: client,
+                        }))}
+                        value={
+                          form.client_id
+                            ? { type: "client", id: form.client_id }
+                            : null
                         }
+                        placeholder="Buscar cliente"
                         disabled={proposalOptionsLoading}
-                      >
-                        <SelectTrigger className={selectClass}>
-                          <SelectValue placeholder="Selecciona cliente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin cliente</SelectItem>
-                          {clients.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.contact_person
-                                ? `${client.company_name} · ${client.contact_person}`
-                                : client.company_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(value) =>
+                          updateField("client_id", value?.id || "")
+                        }
+                      />
                     </div>
 
-                    <div className="space-y-1.5">
                       <Label className={labelClass}>Producto</Label>
                       <Select
                         value={form.product_id || "none"}
