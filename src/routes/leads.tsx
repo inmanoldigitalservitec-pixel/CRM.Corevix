@@ -81,6 +81,7 @@ import { logActivityEvent } from "@/lib/activity-log";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel";
+import { LeadFilesPanel } from "@/components/leads/lead-files-panel";
 
 export const Route = createFileRoute("/leads")({
   validateSearch: (search: Record<string, unknown>): { leadId?: string } => ({
@@ -182,6 +183,8 @@ interface Lead {
   tags?: string[] | null;
   is_public?: boolean;
   converted_client_id?: string | null;
+  drive_folder_id?: string | null;
+  drive_folder_url?: string | null;
   converted_contact_id?: string | null;
   converted_at?: string | null;
 }
@@ -3543,9 +3546,12 @@ function LeadsPage() {
               </TabsContent>
 
               <TabsContent value="files" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection title="Archivos" icon={<FolderOpen className="h-3.5 w-3.5" />}>
-                  <CrmDetailEmptyState>El expediente documental quedará vinculado aquí. La relación de archivos se habilitará sobre el almacenamiento unificado del CRM.</CrmDetailEmptyState>
-                </CrmDetailSection>
+                <LeadFilesPanel
+                  leadId={selectedLead.id}
+                  leadName={getLeadPrimaryLabel(selectedLead)}
+                  driveFolderUrl={selectedLead.drive_folder_url}
+                  canEdit={can("leads.edit")}
+                />
               </TabsContent>
 
               <TabsContent value="reminders" className="space-y-4 data-[state=inactive]:hidden">
