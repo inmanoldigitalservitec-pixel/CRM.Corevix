@@ -2834,28 +2834,85 @@ function ProposalsPage() {
                           }}
                         />
                       ) : (
-                        <Select
-                          value={form.client_id || "none"}
-                          onValueChange={(v) =>
+                        <ClientProspectSearchSelect
+                          clients={clients.map((client) => ({
+                            id: client.id,
+                            label: client.contact_person
+                              ? `${client.company_name} · ${client.contact_person}`
+                              : client.company_name,
+                            secondaryLabel: [client.email, client.phone]
+                              .filter(Boolean)
+                              .join(" · ") || null,
+                            searchText: [
+                              client.company_name,
+                              client.contact_person,
+                              client.email,
+                              client.phone,
+                              client.whatsapp,
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                            data: client,
+                          }))}
+                          prospects={leads.map((lead) => ({
+                            id: lead.id,
+                            label:
+                              lead.company_name ||
+                              lead.display_name ||
+                              lead.full_name ||
+                              [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+                              lead.email ||
+                              "Prospecto",
+                            secondaryLabel: [lead.email, lead.phone]
+                              .filter(Boolean)
+                              .join(" · ") || null,
+                            searchText: [
+                              lead.company_name,
+                              lead.first_name,
+                              lead.last_name,
+                              lead.full_name,
+                              lead.display_name,
+                              lead.email,
+                              lead.phone,
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                            data: lead,
+                          }))}
+                          value={
+                            form.client_id
+                              ? { type: "client", id: form.client_id }
+                              : form.lead_id
+                                ? { type: "lead", id: form.lead_id }
+                                : null
+                          }
+                          placeholder="Buscar cliente o prospecto"
+                          onChange={(nextValue, option) => {
+                            const data = (option?.data || {}) as Record<string, unknown>;
                             setForm((p) => ({
                               ...p,
-                              client_id: v === "none" ? null : v,
-                              lead_id: null,
-                            }))
-                          }
-                        >
-                          <SelectTrigger className={crmFormStyles.select}>
-                            <SelectValue placeholder="Nada seleccionado" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Nada seleccionado</SelectItem>
-                            {clientOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                              client_id:
+                                nextValue?.type === "client" ? nextValue.id : null,
+                              lead_id:
+                                nextValue?.type === "lead" ? nextValue.id : null,
+                              recipientName:
+                                String(
+                                  data.contact_person ||
+                                    data.full_name ||
+                                    data.display_name ||
+                                    data.company_name ||
+                                    "",
+                                ).trim() || p.recipientName,
+                              recipientEmail:
+                                String(data.email || "").trim() || p.recipientEmail,
+                              recipientPhone:
+                                String(data.phone || data.whatsapp || "").trim() ||
+                                p.recipientPhone,
+                              recipientCity:
+                                String(data.city || "").trim() || p.recipientCity,
+                            }));
+                          }}
+                        />
                       )}
                     </div>
 
