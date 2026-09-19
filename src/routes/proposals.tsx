@@ -926,8 +926,14 @@ function ProposalsPage() {
       routeSearch.clientId,
       routeSearch.conversationId,
       routeSearch.dealId,
+      routeSearch.description,
       routeSearch.leadId,
+      routeSearch.new,
       routeSearch.productId,
+      routeSearch.title,
+      routeSearch.amount,
+      routeSearch.currency,
+      routeSearch.valid_until,
     ],
   );
 
