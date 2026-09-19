@@ -23,7 +23,6 @@ export function InvoiceActionsMenu({
   canOpenPublic,
   canMarkPaid,
   canRegisterPayment,
-  canCreateProject,
   canViewProject,
   canViewClient,
   canViewProposal,
@@ -36,7 +35,6 @@ export function InvoiceActionsMenu({
   onEdit,
   onMarkPaid,
   onRegisterPayment,
-  onCreateProject,
   onViewProject,
   onViewClient,
   onViewProposal,
@@ -45,7 +43,6 @@ export function InvoiceActionsMenu({
   canOpenPublic: boolean;
   canMarkPaid: boolean;
   canRegisterPayment: boolean;
-  canCreateProject: boolean;
   canViewProject: boolean;
   canViewClient: boolean;
   canViewProposal: boolean;
@@ -58,7 +55,6 @@ export function InvoiceActionsMenu({
   onEdit: () => void;
   onMarkPaid: () => void;
   onRegisterPayment: () => void;
-  onCreateProject: () => void;
   onViewProject: () => void;
   onViewClient: () => void;
   onViewProposal: () => void;
@@ -172,7 +168,7 @@ export function InvoiceActionsMenu({
             </DropdownMenuItem>
           </>
         ) : null}
-        {canRegisterPayment || canMarkPaid || canCreateProject || canViewProject ? (
+        {canRegisterPayment || canMarkPaid || canViewProject ? (
           <>
             <DropdownMenuSeparator />
             {canRegisterPayment ? (
@@ -191,12 +187,6 @@ export function InvoiceActionsMenu({
               <DropdownMenuItem onSelect={onViewProject}>
                 <BriefcaseBusiness className="h-4 w-4" />
                 Ver proyecto
-              </DropdownMenuItem>
-            ) : null}
-            {canCreateProject ? (
-              <DropdownMenuItem onSelect={onCreateProject}>
-                <BriefcaseBusiness className="h-4 w-4" />
-                Crear proyecto
               </DropdownMenuItem>
             ) : null}
           </>
