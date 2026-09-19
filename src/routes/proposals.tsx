@@ -2808,7 +2808,7 @@ function ProposalsPage() {
                           }
                           placeholder="Buscar cliente o prospecto"
                           onChange={(nextValue, option) => {
-                            const data = option?.data || {};
+                            const data = (option?.data || {}) as Record<string, unknown>;
                             setForm((p) => ({
                               ...p,
                               client_id:
