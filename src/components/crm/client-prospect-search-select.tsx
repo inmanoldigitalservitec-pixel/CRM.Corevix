@@ -22,6 +22,7 @@ export type ClientProspectOption = {
   label: string;
   secondaryLabel?: string | null;
   searchText?: string | null;
+  data?: Record<string, unknown>;
 };
 
 export type ClientProspectValue = {
@@ -110,6 +111,7 @@ export function ClientProspectSearchSelect({
       searchText: [record.company_name, record.contact_person, record.email, record.phone]
         .filter(Boolean)
         .join(" "),
+      data: record,
     };
 
     setCreatedClients((current) => [...current, option]);
