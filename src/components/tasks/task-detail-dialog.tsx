@@ -860,7 +860,7 @@ function TaskFileDropZone({
   );
 }
 
-function TaskRichTextEditor({
+export function TaskRichTextEditor({
   html,
   plainText,
   onChange,
