@@ -44,6 +44,7 @@ import { PageHeader } from "@/components/crm/page-header";
 import { LoadingTable } from "@/components/crm/loading-state";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { InlineStatusSelect } from "@/components/crm/inline-status-select";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
@@ -1071,6 +1072,7 @@ export function SalesBasicPage({
                   field={field}
                   value={form[field.key] || ""}
                   options={fieldOptions(field)}
+                  clientOptions={clients}
                   currency={form.currency || currencySettings.baseCurrency}
                   onChange={(value) => {
                     setForm((current) => {
@@ -1360,12 +1362,14 @@ function Field({
   field,
   value,
   options,
+  clientOptions,
   currency,
   onChange,
 }: {
   field: SalesField;
   value: string;
   options: Option[];
+  clientOptions: ClientRow[];
   currency: string;
   onChange: (value: string) => void;
 }) {
@@ -1384,8 +1388,53 @@ function Field({
         />
       </div>
     );
-	  if (field.type === "select" || field.type === "tax-select")
-	    return (
+	  if (field.key === "client_id") {
+    return (
+      <div className={cls}>
+        <Label className={crmFormStyles.label}>{field.label}</Label>
+        <ClientProspectSearchSelect
+          clients={clientOptions.map((client) => ({
+            id: client.id,
+            label: client.contact_person
+              ? `${client.company_name} · ${client.contact_person}`
+              : client.company_name,
+            secondaryLabel: client.contact_person,
+            searchText: [client.company_name, client.contact_person]
+              .filter(Boolean)
+              .join(" "),
+            data: client,
+          }))}
+          value={value && value !== NONE ? { type: "client", id: value } : null}
+          placeholder="Buscar cliente"
+          onChange={(selected) => onChange(selected?.id || NONE)}
+        />
+      </div>
+    );
+  }
+
+  if (field.type === "select" || field.type === "tax-select")
+    return (
+      <div className={cls}>
+        <Label className={crmFormStyles.label}>{field.label}</Label>
+        <Select value={value || NONE} onValueChange={onChange}>
+          <SelectTrigger className={crmFormStyles.select}>
+            <SelectValue placeholder={field.type === "tax-select" ? "Sin impuesto" : undefined} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>
+              {field.type === "tax-select" ? "Sin impuesto" : "Ninguno"}
+            </SelectItem>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.displayLabel ?? displayLabel(option.label)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+
+  return (
 	      <div className={cls}>
 	        <Label className={crmFormStyles.label}>{field.label}</Label>
 	        <Select value={value || NONE} onValueChange={onChange}>
