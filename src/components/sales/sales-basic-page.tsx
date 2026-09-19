@@ -727,9 +727,9 @@ export function SalesBasicPage({
   };
 
   const updateStatus = async (row: GenericRow, nextStatus: string) => {
-    if (!row.id || !nextStatus || row[effectiveStatusKey] === nextStatus) return;
+    if (!row.id || !nextStatus || row[config.statusKey] === nextStatus) return;
     try {
-      await update(String(row.id), { [effectiveStatusKey]: nextStatus });
+      await update(String(row.id), { [config.statusKey]: nextStatus });
       toast.success("Estado actualizado");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar el estado.");
