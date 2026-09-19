@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -1877,6 +1878,19 @@ function PipelinePage() {
     });
   }
 
+  function openReminderDialogForDeal(deal: Deal) {
+    const label = deal.name || "oportunidad";
+    openGlobalReminderCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${label}`,
+        description: `Recordatorio creado desde Pipeline.\\nOportunidad: ${deal.name}`,
+        relatedLeadId: deal.lead_id || null,
+        relatedDealId: deal.id,
+        contextLabel: `Oportunidad: ${label}`,
+      },
+    });
+  }
+
   async function handleOpenWhatsAppFromLead(lead: LeadRow) {
     if (!profile?.company_id) {
       toast.error("No hay contexto de empresa");
@@ -3692,14 +3706,24 @@ function PipelinePage() {
                             </div>
                           </div>
 
-                          <CrmDetailLineButton
-                            className="h-8 shrink-0"
-                            disabled={!canCreateTaskForDeal(selectedDeal) || isWon || isLost}
-                            onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                            icon={<CalendarIcon className="h-4 w-4" />}
-                          >
-                            Seguimiento
-                          </CrmDetailLineButton>
+                          <div className="flex shrink-0 gap-2">
+                            <CrmDetailLineButton
+                              className="h-8"
+                              disabled={isWon || isLost}
+                              onClick={() => openReminderDialogForDeal(selectedDeal)}
+                              icon={<CalendarIcon className="h-4 w-4" />}
+                            >
+                              Recordatorio
+                            </CrmDetailLineButton>
+                            <CrmDetailLineButton
+                              className="h-8"
+                              disabled={!canCreateTaskForDeal(selectedDeal) || isWon || isLost}
+                              onClick={() => openFollowUpDialogForDeal(selectedDeal)}
+                              icon={<Plus className="h-4 w-4" />}
+                            >
+                              Tarea
+                            </CrmDetailLineButton>
+                          </div>
                         </div>
                       </div>
 
