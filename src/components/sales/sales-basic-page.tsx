@@ -31,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
