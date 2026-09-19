@@ -3549,7 +3549,7 @@ function LeadsPage() {
               </TabsContent>
 
               <TabsContent value="reminders" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection title="Recordatorios" icon={<Calendar className="h-3.5 w-3.5" />} action={<div className="flex gap-2"><CrmDetailLineButton onClick={() => openReminderDialogForLead(selectedLead)}><Calendar className="h-3.5 w-3.5" />Recordatorio</CrmDetailLineButton><CrmDetailLineButton onClick={() => openFollowUpDialog(selectedLead)}><Plus className="h-3.5 w-3.5" />Tarea</CrmDetailLineButton></div>}>
+                <CrmDetailSection title="Recordatorios" icon={<Calendar className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => openReminderDialogForLead(selectedLead)}><Calendar className="h-3.5 w-3.5" />Recordatorio</CrmDetailLineButton>}>
                   {relatedLoading ? <CrmDetailEmptyState>Cargando recordatorios...</CrmDetailEmptyState> : leadReminders.length ? leadReminders.map((event) => <CrmDetailRow key={event.id} label={event.title} value={event.status + " · " + formatDateShort(event.start_at)} />) : <CrmDetailEmptyState>No hay recordatorios asociados.</CrmDetailEmptyState>}
                 </CrmDetailSection>
               </TabsContent>
