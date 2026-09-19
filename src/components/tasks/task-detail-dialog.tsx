@@ -18,7 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -175,6 +177,14 @@ type ProjectOption = {
 };
 
 type ClientOption = { id: string; company_name: string; contact_person: string | null };
+type LeadOption = {
+  id: string;
+  company_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+};
 type ProductOption = { id: string; name: string };
 
 type TaskDetailDialogProps = {
@@ -237,6 +247,7 @@ const TASK_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_PROJECT_VALUE = "__no_project__";
 const NO_CLIENT_VALUE = "__no_client__";
+const NO_RELATED_VALUE = "__no_related__";
 const EMPTY_PROFILES: QuickProfile[] = [];
 const RICH_TEXT_COLORS = ["#0f172a", "#475569", "#2563eb", "#059669", "#d97706", "#dc2626"];
 
@@ -491,7 +502,7 @@ async function syncTaskAssignees(args: {
 }
 
 async function fetchTaskRelationOptions(companyId: string) {
-  const [projectResult, clientResult, productResult] = await Promise.all([
+  const [projectResult, clientResult, leadResult, productResult] = await Promise.all([
     (supabase as any)
       .from("projects")
       .select("id,name,client_id,product_id")
@@ -505,6 +516,12 @@ async function fetchTaskRelationOptions(companyId: string) {
       .order("company_name", { ascending: true })
       .limit(500),
     (supabase as any)
+      .from("leads")
+      .select("id,company_name,first_name,last_name,email,phone")
+      .eq("company_id", companyId)
+      .order("updated_at", { ascending: false })
+      .limit(500),
+    (supabase as any)
       .from("products")
       .select("id,name")
       .eq("company_id", companyId)
@@ -515,8 +532,9 @@ async function fetchTaskRelationOptions(companyId: string) {
   return {
     projects: !projectResult.error && Array.isArray(projectResult.data) ? projectResult.data : [],
     clients: !clientResult.error && Array.isArray(clientResult.data) ? clientResult.data : [],
+    leads: !leadResult.error && Array.isArray(leadResult.data) ? leadResult.data : [],
     products: !productResult.error && Array.isArray(productResult.data) ? productResult.data : [],
-    error: projectResult.error || clientResult.error || productResult.error || null,
+    error: projectResult.error || clientResult.error || leadResult.error || productResult.error || null,
   };
 }
 
@@ -608,6 +626,11 @@ function getGoogleDrivePreviewUrl(rawHref: string | null | undefined, driveFileI
   } catch {
     return null;
   }
+}
+
+function leadLabel(lead: LeadOption) {
+  const personName = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim();
+  return lead.company_name || personName || lead.email || lead.phone || "Prospecto";
 }
 
 function clientLabel(client: ClientOption | null | undefined) {
@@ -1258,6 +1281,7 @@ function TaskEditorInfoFields({
   profiles,
   projects,
   clients,
+  leads = [],
   draftProductName,
 }: {
   draft: TaskEditorDraft;
@@ -1265,6 +1289,7 @@ function TaskEditorInfoFields({
   profiles: QuickProfile[];
   projects: ProjectOption[];
   clients: ClientOption[];
+  leads?: LeadOption[];
   draftProductName: string;
 }) {
   const availableProjects = useMemo(
@@ -1281,12 +1306,44 @@ function TaskEditorInfoFields({
       return {
         ...current,
         clientId,
+        leadId: "",
         projectId: projectBelongsToClient(selectedProject, clientId)
           ? current.projectId
           : NO_PROJECT_VALUE,
       };
     });
   };
+
+  const updateRelatedEntity = (value: string) => {
+    if (value === NO_RELATED_VALUE) {
+      setDraft((current) => ({
+        ...current,
+        clientId: NO_CLIENT_VALUE,
+        leadId: "",
+        projectId: NO_PROJECT_VALUE,
+      }));
+      return;
+    }
+    if (value.startsWith("client:")) {
+      updateClientId(value.slice("client:".length));
+      return;
+    }
+    if (value.startsWith("lead:")) {
+      setDraft((current) => ({
+        ...current,
+        clientId: NO_CLIENT_VALUE,
+        leadId: value.slice("lead:".length),
+        projectId: NO_PROJECT_VALUE,
+      }));
+    }
+  };
+
+  const relatedEntityValue =
+    draft.clientId !== NO_CLIENT_VALUE
+      ? `client:${draft.clientId}`
+      : draft.leadId
+        ? `lead:${draft.leadId}`
+        : NO_RELATED_VALUE;
 
   const updateProjectId = (projectId: string) => {
     setDraft((current) => {
@@ -1367,18 +1424,29 @@ function TaskEditorInfoFields({
         />,
       )}
       {renderEditField(
-        "Client",
-        <Select value={draft.clientId} onValueChange={updateClientId}>
+        "Relacionado con",
+        <Select value={relatedEntityValue} onValueChange={updateRelatedEntity}>
           <SelectTrigger>
-            <SelectValue placeholder="Cliente" />
+            <SelectValue placeholder="Seleccionar cliente o prospecto" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NO_CLIENT_VALUE}>Sin cliente directo</SelectItem>
-            {clients.map((client) => (
-              <SelectItem key={client.id} value={client.id}>
-                {clientLabel(client)}
-              </SelectItem>
-            ))}
+            <SelectItem value={NO_RELATED_VALUE}>Sin relación directa</SelectItem>
+            <SelectGroup>
+              <SelectLabel>Clientes</SelectLabel>
+              {clients.map((client) => (
+                <SelectItem key={`client:${client.id}`} value={`client:${client.id}`}>
+                  {clientLabel(client)}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel>Prospectos</SelectLabel>
+              {leads.map((lead) => (
+                <SelectItem key={`lead:${lead.id}`} value={`lead:${lead.id}`}>
+                  {leadLabel(lead)}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>,
       )}
@@ -1519,6 +1587,7 @@ export function TaskCreateDialog({
   const [profiles, setProfiles] = useState<QuickProfile[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [leads, setLeads] = useState<LeadOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -1608,6 +1677,7 @@ export function TaskCreateDialog({
         setProfiles(nextProfiles);
         setProjects(options.projects);
         setClients(options.clients);
+        setLeads(options.leads);
         setProducts(options.products);
         if (options.error) setMessage(options.error.message || "No se pudieron cargar relaciones.");
       })
@@ -1914,6 +1984,7 @@ export function TaskCreateDialog({
                     profiles={profiles}
                     projects={projects}
                     clients={clients}
+                    leads={leads}
                     draftProductName={draftProductName}
                   />
                 </section>
