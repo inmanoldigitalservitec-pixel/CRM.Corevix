@@ -9,6 +9,7 @@ import {
 } from "@/components/sales/sales-document-builder";
 import { PageHeader } from "@/components/crm/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineStatusSelect } from "@/components/crm/inline-status-select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -314,6 +315,16 @@ function EstimatesPage() {
     limit: 500,
   });
   const estimateItemsCrud = useEstimateItems(editingEstimate?.id || null);
+
+  const updateEstimateStatus = async (estimate: Estimate, nextStatus: string) => {
+    if (!estimate.id || !nextStatus || estimate.status === nextStatus) return;
+    try {
+      await estimatesCrud.update(estimate.id, { status: nextStatus });
+      toast.success("Estado de la cotización actualizado.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar el estado de la cotización.");
+    }
+  };
 
   const clientById = useMemo(
     () => new Map(clientsCrud.data.map((client) => [client.id, client])),
@@ -844,7 +855,14 @@ function EstimatesPage() {
                     {estimate.client_id ? clientById.get(estimate.client_id)?.company_name || "—" : "—"}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={estimate.status} />
+                    <InlineStatusSelect
+                      value={estimate.status}
+                      options={STATUSES.map((status) => ({
+                        value: status,
+                        label: displayLabel(status),
+                      }))}
+                      onChange={(nextStatus) => updateEstimateStatus(estimate, nextStatus)}
+                    />
                   </TableCell>
                   <TableCell className="hidden font-normal md:table-cell">
                     {formatCurrencyAmount(estimate.total || 0, estimate.currency || currencySettings.baseCurrency)}
