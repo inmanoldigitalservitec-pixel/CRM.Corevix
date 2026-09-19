@@ -1682,6 +1682,8 @@ export function ProposalTasksPanel({
   tasks,
   profilesById,
   canEdit,
+  canCreate = canEdit,
+  canComplete = canEdit,
   loading,
   saving,
   countLabel,
@@ -1693,6 +1695,8 @@ export function ProposalTasksPanel({
   tasks: ProposalTaskRow[];
   profilesById: Map<string, ProposalProfileRow>;
   canEdit: boolean;
+  canCreate?: boolean;
+  canComplete?: boolean;
   loading: boolean;
   saving: boolean;
   countLabel: string;
@@ -1717,7 +1721,7 @@ export function ProposalTasksPanel({
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
               {countLabel}
             </span>
-            {canEdit ? (
+            {canCreate ? (
               <Button
                 type="button"
                 variant="outline"
@@ -1782,7 +1786,7 @@ export function ProposalTasksPanel({
                     <TableCell>{task.priority || "Medium"}</TableCell>
                     <TableCell>{profileLabel(profilesById, task.assigned_to)}</TableCell>
                     <TableCell className="text-right">
-                      {canEdit && !isClosed ? (
+                      {canComplete && !isClosed ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -1808,8 +1812,8 @@ export function ProposalTasksPanel({
               icon={<CheckCircle2 className="h-6 w-6" />}
               title="No hay tareas todavía"
               description={`Crea tareas para dar seguimiento interno a esta ${contextLabel}.`}
-              actionLabel={canEdit ? "Crear tarea" : undefined}
-              onAction={canEdit ? onCreate : undefined}
+              actionLabel={canCreate ? "Crear tarea" : undefined}
+              onAction={canCreate ? onCreate : undefined}
             />
           </div>
         )}
