@@ -33,6 +33,7 @@ export type SalesDocumentBuilderForm = {
   documentDate: string;
   validUntil: string;
   clientId: string | null;
+  leadId?: string | null;
   productId: string | null;
   currency: string;
   status: string;
@@ -93,6 +94,7 @@ export function SalesDocumentBuilder({
   statuses: string[];
   currentAssigneeName: string;
   clientOptions: SelectOption[];
+  prospectOptions?: SelectOption[];
   productOptions: SelectOption[];
   taxes: CompanyTax[];
   taxById: Map<string, CompanyTax>;
@@ -100,6 +102,7 @@ export function SalesDocumentBuilder({
   rateUpdatedAt: string | null;
   onCurrencyChange: (currency: string) => void;
   onClientChange: (clientId: string | null) => void;
+  onRelatedChange?: (value: { id: string; type: "client" | "lead" } | null) => void;
   onProductChange: (productId: string | null) => void;
   onAddProductLine: (productId: string) => void;
   onAddBlankLine: () => void;
@@ -149,13 +152,23 @@ export function SalesDocumentBuilder({
                 label: option.label,
                 searchText: option.label,
               }))}
+              prospects={(prospectOptions || []).map((option) => ({
+                id: option.value,
+                label: option.label,
+                searchText: option.label,
+              }))}
               value={
                 form.clientId
                   ? { type: "client", id: form.clientId }
-                  : null
+                  : form.leadId
+                    ? { type: "lead", id: form.leadId }
+                    : null
               }
-              placeholder="Buscar cliente"
-              onChange={(value) => onClientChange(value?.id || null)}
+              placeholder={prospectOptions?.length ? "Buscar cliente o prospecto" : "Buscar cliente"}
+              onChange={(value) => {
+                if (onRelatedChange) onRelatedChange(value);
+                else onClientChange(value?.type === "client" ? value.id : null);
+              }}
             />
           </div>
 
