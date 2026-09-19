@@ -60,6 +60,7 @@ type ProposalWorkspaceProposal = {
   status: string;
   product_id: string | null;
   client_id: string | null;
+  lead_id: string | null;
   amount: number;
   currency: string | null;
   base_currency?: string | null;
@@ -1643,6 +1644,7 @@ export function ProposalWorkspaceDialog({
           initialValues={{
             title: `Seguimiento de propuesta ${proposal.number}`,
             clientId: proposal.client_id || undefined,
+            leadId: proposal.lead_id || undefined,
             assignedTo: (profile as any)?.user_id || user?.id || undefined,
           }}
           onCreated={async (task) => {
