@@ -38,9 +38,17 @@ import { EmailHtmlViewer } from "@/components/email/email-html-viewer";
 import { toast } from "sonner";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 
+type EmailSearch = {
+  conversationId?: string;
+  compose?: string;
+  to?: string;
+};
+
 export const Route = createFileRoute("/email")({
-  validateSearch: (search: Record<string, unknown>): { conversationId?: string } => ({
+  validateSearch: (search: Record<string, unknown>): EmailSearch => ({
     conversationId: typeof search.conversationId === "string" ? search.conversationId : undefined,
+    compose: typeof search.compose === "string" ? search.compose : undefined,
+    to: typeof search.to === "string" ? search.to : undefined,
   }),
   component: EmailPage,
   head: () => ({ meta: [{ title: "Email Inbox — Corevix CRM" }] }),
@@ -757,6 +765,25 @@ function EmailPage() {
     setComposerOpen(true);
     setComposerExpanded(false);
   };
+
+  useEffect(() => {
+    if (routeSearch.compose !== "1") return;
+
+    const recipient = String(routeSearch.to || "").trim();
+    if (!recipient) {
+      toast.error("No se indicó un destinatario para el nuevo correo.");
+      return;
+    }
+
+    setComposerTo(recipient);
+    setComposerSubject("");
+    setComposerBody("");
+    setComposerAttachments([]);
+    setEmojiPickerOpen(false);
+    setComposerConfidential(false);
+    setComposerOpen(true);
+    setComposerExpanded(false);
+  }, [routeSearch.compose, routeSearch.to]);
 
   const closeComposer = () => {
     setComposerOpen(false);
