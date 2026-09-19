@@ -162,6 +162,19 @@ export function ClientProspectSearchSelect({
               placeholder="Escribe para buscar..."
             />
             <CommandList>
+              {value ? (
+                <CommandItem
+                  value="__clear_relation__"
+                  onSelect={() => {
+                    onChange(null);
+                    setQuery("");
+                    setOpen(false);
+                  }}
+                >
+                  Quitar selección
+                </CommandItem>
+              ) : null}
+
               {!hasResults && normalizedQuery ? (
                 <CommandEmpty className="px-3 py-5">
                   <div className="text-sm text-slate-500">
