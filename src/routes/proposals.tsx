@@ -47,6 +47,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
+import {
+  ClientProspectSearchSelect,
+  type ClientProspectOption,
+} from "@/components/crm/client-prospect-search-select";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/crm/page-header";
@@ -2741,36 +2745,121 @@ function ProposalsPage() {
 
                     <div className="space-y-1.5">
                       <Label className={crmFormStyles.label}>
-                        <span className="text-rose-500">*</span> Relacionado
+                        <span className="text-rose-500">*</span> Cliente o prospecto
                       </Label>
-                      <Select
-                        value={form.client_id || "none"}
-                        onValueChange={(v) => {
-                          const nextClientId = v === "none" ? null : v;
-                          const client = nextClientId ? clientById.get(nextClientId) : null;
-                          setForm((p) => ({
-                            ...p,
-                            client_id: nextClientId,
-                            recipientName:
-                              client?.contact_person || client?.company_name || p.recipientName,
-                            recipientEmail: client?.email || p.recipientEmail,
-                            recipientPhone: client?.phone || client?.whatsapp || p.recipientPhone,
-                            recipientCity: client?.city || p.recipientCity,
-                          }));
-                        }}
-                      >
-                        <SelectTrigger className={crmFormStyles.select}>
-                          <SelectValue placeholder="Nada seleccionado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nada seleccionado</SelectItem>
-                          {clientOptions.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {drawerMode === "create" ? (
+                        <ClientProspectSearchSelect
+                          clients={clients.map((client) => ({
+                            id: client.id,
+                            label: client.contact_person
+                              ? `${client.company_name} · ${client.contact_person}`
+                              : client.company_name,
+                            secondaryLabel: [client.email, client.phone]
+                              .filter(Boolean)
+                              .join(" · ") || null,
+                            searchText: [
+                              client.company_name,
+                              client.contact_person,
+                              client.email,
+                              client.phone,
+                              client.whatsapp,
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                            data: client,
+                          }))}
+                          prospects={leads.map((lead) => {
+                            const contactName = [
+                              lead.first_name,
+                              lead.last_name,
+                            ]
+                              .filter(Boolean)
+                              .join(" ")
+                              .trim();
+                            return {
+                              id: lead.id,
+                              label:
+                                lead.company_name ||
+                                lead.display_name ||
+                                lead.full_name ||
+                                contactName ||
+                                lead.email ||
+                                "Prospecto",
+                              secondaryLabel: [contactName, lead.email, lead.phone]
+                                .filter(Boolean)
+                                .join(" · ") || null,
+                              searchText: [
+                                lead.company_name,
+                                lead.first_name,
+                                lead.last_name,
+                                lead.full_name,
+                                lead.display_name,
+                                lead.email,
+                                lead.phone,
+                              ]
+                                .filter(Boolean)
+                                .join(" "),
+                              data: lead,
+                            };
+                          })}
+                          value={
+                            form.client_id
+                              ? { type: "client", id: form.client_id }
+                              : form.lead_id
+                                ? { type: "lead", id: form.lead_id }
+                                : null
+                          }
+                          placeholder="Buscar cliente o prospecto"
+                          onChange={(nextValue, option) => {
+                            const data = option?.data || {};
+                            setForm((p) => ({
+                              ...p,
+                              client_id:
+                                nextValue?.type === "client" ? nextValue.id : null,
+                              lead_id:
+                                nextValue?.type === "lead" ? nextValue.id : null,
+                              recipientName:
+                                String(
+                                  data.contact_person ||
+                                    data.full_name ||
+                                    data.display_name ||
+                                    data.company_name ||
+                                    "",
+                                ).trim() || p.recipientName,
+                              recipientEmail:
+                                String(data.email || "").trim() || p.recipientEmail,
+                              recipientPhone:
+                                String(data.phone || data.whatsapp || "").trim() ||
+                                p.recipientPhone,
+                              recipientCity:
+                                String(data.city || "").trim() || p.recipientCity,
+                            }));
+                          }}
+                        />
+                      ) : (
+                        <Select
+                          value={form.client_id || "none"}
+                          onValueChange={(v) =>
+                            setForm((p) => ({
+                              ...p,
+                              client_id: v === "none" ? null : v,
+                              lead_id: null,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className={crmFormStyles.select}>
+                            <SelectValue placeholder="Nada seleccionado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nada seleccionado</SelectItem>
+                            {clientOptions.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
