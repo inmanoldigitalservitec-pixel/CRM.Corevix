@@ -150,7 +150,7 @@ type ProposalCommentRow = {
   author?: WorkspaceAuthor | null;
 };
 
-type ProposalTaskRow = {
+export type ProposalTaskRow = {
   id: string;
   company_id: string;
   title: string;
@@ -164,7 +164,7 @@ type ProposalTaskRow = {
   updated_at: string;
 };
 
-type ProposalReminderRow = {
+export type ProposalReminderRow = {
   id: string;
   company_id: string;
   proposal_id: string;
@@ -180,7 +180,7 @@ type ProposalReminderRow = {
   updated_at: string;
 };
 
-type ProposalProfileRow = WorkspaceAuthor & {
+export type ProposalProfileRow = WorkspaceAuthor & {
   user_id?: string | null;
   is_active?: boolean | null;
 };
@@ -1676,7 +1676,7 @@ function SummaryLine({ label, value, strong }: { label: string; value: string; s
   );
 }
 
-function ProposalTasksPanel({
+export function ProposalTasksPanel({
   tasks,
   profilesById,
   canEdit,
@@ -1686,6 +1686,7 @@ function ProposalTasksPanel({
   onRefresh,
   onCreate,
   onComplete,
+  contextLabel = "propuesta",
 }: {
   tasks: ProposalTaskRow[];
   profilesById: Map<string, ProposalProfileRow>;
@@ -1696,6 +1697,7 @@ function ProposalTasksPanel({
   onRefresh: () => void;
   onCreate: () => void;
   onComplete: (task: ProposalTaskRow) => void;
+  contextLabel?: string;
 }) {
   return (
     <section className="mx-auto max-w-5xl space-y-4">
@@ -1703,10 +1705,10 @@ function ProposalTasksPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h3 className="text-[17px] font-bold tracking-[-0.02em] text-slate-950">
-              Tareas de la propuesta
+              Tareas de la {contextLabel}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Trabajo interno vinculado a esta propuesta.
+              Trabajo interno vinculado a esta {contextLabel}.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -1803,7 +1805,7 @@ function ProposalTasksPanel({
             <EmptyState
               icon={<CheckCircle2 className="h-6 w-6" />}
               title="No hay tareas todavía"
-              description="Crea tareas para dar seguimiento interno a esta propuesta."
+              description={`Crea tareas para dar seguimiento interno a esta ${contextLabel}.`}
               actionLabel={canEdit ? "Crear tarea" : undefined}
               onAction={canEdit ? onCreate : undefined}
             />
@@ -1814,7 +1816,7 @@ function ProposalTasksPanel({
   );
 }
 
-function ProposalRemindersPanel({
+export function ProposalRemindersPanel({
   reminders,
   profilesById,
   canEdit,
@@ -1825,6 +1827,7 @@ function ProposalRemindersPanel({
   onCreate,
   onComplete,
   onCancel,
+  contextLabel = "propuesta",
 }: {
   reminders: ProposalReminderRow[];
   profilesById: Map<string, ProposalProfileRow>;
@@ -1836,6 +1839,7 @@ function ProposalRemindersPanel({
   onCreate: () => void;
   onComplete: (reminder: ProposalReminderRow) => void;
   onCancel: (reminder: ProposalReminderRow) => void;
+  contextLabel?: string;
 }) {
   return (
     <section className="mx-auto max-w-5xl space-y-4">
@@ -1843,7 +1847,7 @@ function ProposalRemindersPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h3 className="text-[17px] font-bold tracking-[-0.02em] text-slate-950">
-              Recordatorios de la propuesta
+              Recordatorios de la {contextLabel}
             </h3>
             <p className="mt-1 text-sm text-slate-500">Próximos seguimientos internos.</p>
           </div>
@@ -1948,7 +1952,7 @@ function ProposalRemindersPanel({
             <EmptyState
               icon={<Bell className="h-6 w-6" />}
               title="No hay recordatorios todavía"
-              description="Programa el próximo seguimiento de esta propuesta."
+              description={`Programa el próximo seguimiento de esta ${contextLabel}.`}
               actionLabel={canEdit ? "Crear recordatorio" : undefined}
               onAction={canEdit ? onCreate : undefined}
             />
