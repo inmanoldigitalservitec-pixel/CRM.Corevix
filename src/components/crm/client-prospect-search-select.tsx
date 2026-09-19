@@ -72,6 +72,7 @@ export function ClientProspectSearchSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreatePrefill, setQuickCreatePrefill] = useState("");
   const [createdClients, setCreatedClients] = useState<ClientProspectOption[]>([]);
 
   const allClients = useMemo(
@@ -118,6 +119,7 @@ export function ClientProspectSearchSelect({
     setCreatedClients((current) => [...current, option]);
     onChange({ type: "client", id: option.id }, option);
     setQuery("");
+    setQuickCreatePrefill("");
     setQuickCreateOpen(false);
     setOpen(false);
   };
@@ -170,6 +172,7 @@ export function ClientProspectSearchSelect({
                     size="sm"
                     className="mt-3"
                     onClick={() => {
+                      setQuickCreatePrefill(query);
                       setQuickCreateOpen(true);
                       setOpen(false);
                     }}
@@ -238,7 +241,7 @@ export function ClientProspectSearchSelect({
         type="client"
         open={quickCreateOpen}
         onOpenChange={setQuickCreateOpen}
-        context={{ prefill: { company_name: query } }}
+        context={{ prefill: { company_name: quickCreatePrefill } }}
         onCreated={handleCreatedClient}
       />
     </>
