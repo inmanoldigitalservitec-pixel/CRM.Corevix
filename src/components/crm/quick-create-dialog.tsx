@@ -110,6 +110,15 @@ type QuickClientOption = {
   contact_person: string | null;
 };
 
+type QuickLeadOption = {
+  id: string;
+  company_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
 function tomorrowDateKey() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -195,6 +204,7 @@ export function QuickCreateDialog({
   const [proposalOptionsLoading, setProposalOptionsLoading] = useState(false);
   const [products, setProducts] = useState<QuickProductOption[]>([]);
   const [clients, setClients] = useState<QuickClientOption[]>([]);
+  const [leads, setLeads] = useState<QuickLeadOption[]>([]);
   const [form, setForm] = useState<QuickCreateForm>({
     name: "",
     company_name: "",
@@ -269,7 +279,7 @@ export function QuickCreateDialog({
       setProposalOptionsLoading(true);
       try {
         const db = supabase as any;
-        const [productsRes, clientsRes] = await Promise.all([
+        const [productsRes, clientsRes, leadsRes] = await Promise.all([
           db
             .from("products")
             .select(
@@ -284,21 +294,30 @@ export function QuickCreateDialog({
             .eq("company_id", profile.company_id)
             .order("company_name", { ascending: true })
             .limit(500),
+          db
+            .from("leads")
+            .select("id,company_name,first_name,last_name,email,phone")
+            .eq("company_id", profile.company_id)
+            .order("created_at", { ascending: false })
+            .limit(500),
         ]);
 
         if (productsRes.error) throw productsRes.error;
         if (clientsRes.error) throw clientsRes.error;
+        if (leadsRes.error) throw leadsRes.error;
 
         if (!cancelled) {
           setProducts(
             (productsRes.data || []).filter((p: QuickProductOption) => p.is_active !== false),
           );
           setClients(clientsRes.data || []);
+          setLeads(leadsRes.data || []);
         }
       } catch (error) {
         if (!cancelled) {
           setProducts([]);
           setClients([]);
+          setLeads([]);
         }
       } finally {
         if (!cancelled) setProposalOptionsLoading(false);
@@ -742,8 +761,7 @@ export function QuickCreateDialog({
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                    <div className="space-y-1.5">
-                      <Label className={labelClass}>Cliente</Label>
+                      <Label className={labelClass}>Cliente o prospecto</Label>
                       <ClientProspectSearchSelect
                         clients={clients.map((client) => ({
                           id: client.id,
@@ -756,15 +774,30 @@ export function QuickCreateDialog({
                             .join(" "),
                           data: client,
                         }))}
+                        prospects={leads.map((lead) => ({
+                          id: lead.id,
+                          label: [lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.company_name || lead.email || "Prospecto",
+                          secondaryLabel: lead.company_name || lead.email || lead.phone,
+                          searchText: [lead.first_name, lead.last_name, lead.company_name, lead.email, lead.phone]
+                            .filter(Boolean)
+                            .join(" "),
+                          data: lead,
+                        }))}
                         value={
                           form.client_id
                             ? { type: "client", id: form.client_id }
-                            : null
+                            : form.lead_id
+                              ? { type: "lead", id: form.lead_id }
+                              : null
                         }
-                        placeholder="Buscar cliente"
+                        placeholder="Buscar cliente o prospecto"
                         disabled={proposalOptionsLoading}
                         onChange={(value) =>
-                          updateField("client_id", value?.id || "")
+                          setForm((current) => ({
+                            ...current,
+                            client_id: value?.type === "client" ? value.id : "",
+                            lead_id: value?.type === "lead" ? value.id : "",
+                          }))
                         }
                       />
                     </div>
