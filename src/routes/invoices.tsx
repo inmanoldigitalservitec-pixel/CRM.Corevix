@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineStatusSelect } from "@/components/crm/inline-status-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2151,7 +2152,14 @@ function InvoicesPage() {
                             </div>
                           </TableCell>
                           <TableCell data-demo={index === 0 ? "invoice-status" : undefined}>
-                            <StatusBadge status={getFinancialInvoiceStatus(invoice)} />
+                            <InlineStatusSelect
+                              value={invoice.status}
+                              options={INVOICE_STATUSES.map((status) => ({
+                                value: status,
+                                label: displayInvoiceStatus(status),
+                              }))}
+                              onChange={(nextStatus) => applyStatusQuick(invoice, nextStatus)}
+                            />
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {formatInvoiceDate(invoice.date_issued)}
@@ -2205,6 +2213,11 @@ function InvoicesPage() {
                       dueLabel={formatInvoiceDueDate(invoice.due_date)}
                       collectionLabel={collectionLabel(invoice)}
                       actionMenu={renderActionsMenu(invoice)}
+                      statusOptions={INVOICE_STATUSES.map((status) => ({
+                        value: status,
+                        label: displayInvoiceStatus(status),
+                      }))}
+                      onStatusChange={(nextStatus) => applyStatusQuick(invoice, nextStatus)}
                       onOpen={() => openInvoiceDetail(invoice)}
                       onOpenProject={
                         hasProject ? () => viewProject(projectByInvoiceId[invoice.id]) : undefined
