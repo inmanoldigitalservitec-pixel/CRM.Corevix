@@ -23,6 +23,7 @@ export type ReminderCreateInitialValues = {
   relatedLeadId?: string | null;
   relatedClientId?: string | null;
   relatedDealId?: string | null;
+  relatedProposalId?: string | null;
   contextLabel?: string;
 };
 
@@ -41,6 +42,7 @@ export type ReminderEventRow = {
   related_lead_id: string | null;
   related_client_id: string | null;
   related_deal_id: string | null;
+  related_proposal_id: string | null;
 };
 
 type ReminderCreateDialogProps = {
@@ -153,6 +155,7 @@ export function ReminderCreateDialog({
       related_lead_id: initialValues?.relatedLeadId || null,
       related_client_id: initialValues?.relatedClientId || null,
       related_deal_id: initialValues?.relatedDealId || null,
+      related_proposal_id: initialValues?.relatedProposalId || null,
       metadata: { created_from: "contextual_reminder_panel" },
     };
 
@@ -161,7 +164,7 @@ export function ReminderCreateDialog({
         .from("calendar_events")
         .insert(payload)
         .select(
-          "id,company_id,user_id,title,description,location,type,status,start_at,end_at,all_day,related_lead_id,related_client_id,related_deal_id",
+          "id,company_id,user_id,title,description,location,type,status,start_at,end_at,all_day,related_lead_id,related_client_id,related_deal_id,related_proposal_id",
         )
         .single();
       if (error) throw error;
@@ -266,6 +269,7 @@ export function ReminderCreateDialog({
                   {initialValues?.relatedLeadId ? "Se vinculará al prospecto actual." : null}
                   {initialValues?.relatedClientId ? "Se vinculará al cliente actual." : null}
                   {initialValues?.relatedDealId ? "Se vinculará a la oportunidad actual." : null}
+                  {initialValues?.relatedProposalId ? "Se vinculará a la propuesta actual." : null}
                 </div>
               </div>
             </aside>
