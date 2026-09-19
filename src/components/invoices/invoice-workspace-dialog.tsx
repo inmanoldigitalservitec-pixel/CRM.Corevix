@@ -226,17 +226,16 @@ export function InvoiceWorkspaceDialog({
   }, [invoice?.id, loadProfiles, loadReminders, loadTasks, open]);
 
   useEffect(() => {
-    const onReminderCreated = (event: Event) => {
+    const onReminderCreated = async (event: Event) => {
       const created = (
         event as CustomEvent<{
           event?: { id?: string; title?: string; related_invoice_id?: string | null };
         }>
       ).detail?.event;
       if (!created || created.related_invoice_id !== invoice?.id) return;
-      void loadReminders();
-      setActivityRefreshKey((current) => current + 1);
+      await loadReminders();
       if (profile?.company_id) {
-        void logActivityEvent({
+        await logActivityEvent({
           companyId: profile.company_id,
           userId: profile.id || null,
           action: "invoice_reminder_created",
@@ -246,6 +245,7 @@ export function InvoiceWorkspaceDialog({
           metadata: { invoice_id: invoice.id },
         }).catch(() => {});
       }
+      setActivityRefreshKey((current) => current + 1);
     };
     window.addEventListener("corevix:reminder-created", onReminderCreated);
     return () => window.removeEventListener("corevix:reminder-created", onReminderCreated);
