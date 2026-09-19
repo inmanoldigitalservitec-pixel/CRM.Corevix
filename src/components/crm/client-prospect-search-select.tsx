@@ -80,7 +80,8 @@ export function ClientProspectSearchSelect({
   );
 
   const selectedOption = useMemo(() => {
-    const source = value?.type === "lead" ? prospects : allClients;
+    if (!value) return null;
+    const source = value.type === "lead" ? prospects : allClients;
     return source.find((option) => option.id === value.id) || null;
   }, [allClients, prospects, value]);
 
