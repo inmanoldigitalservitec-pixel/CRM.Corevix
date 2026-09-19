@@ -668,7 +668,6 @@ function LeadsPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [quickLeadOpen, setQuickLeadOpen] = useState(false);
-  const [quickProposalOpen, setQuickProposalOpen] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [leadFormCurrency, setLeadFormCurrency] = useState<CurrencyCode>(
     currencySettings.baseCurrency,
@@ -3347,7 +3346,25 @@ function LeadsPage() {
                           key: "proposal",
                           label: "Crear propuesta",
                           icon: <FileText className="h-4 w-4" />,
-                          onClick: () => setQuickProposalOpen(true),
+                          onClick: () => {
+                            if (!selectedLead) return;
+                            void navigate({
+                              to: "/proposals",
+                              search: {
+                                leadId: selectedLead.id,
+                                title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
+                                amount: selectedLead.estimated_value
+                                  ? String(selectedLead.estimated_value)
+                                  : undefined,
+                                currency: selectedLead.currency || currencySettings.baseCurrency,
+                                description:
+                                  getInterestLabel(selectedLead) || selectedLead.notes || undefined,
+                                valid_until: new Date(Date.now() + 15 * 86400000)
+                                  .toISOString()
+                                  .slice(0, 10),
+                              },
+                            });
+                          },
                           disabled:
                             !can("deals.create") ||
                             (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
@@ -3510,7 +3527,27 @@ function LeadsPage() {
               </TabsContent>
 
               <TabsContent value="proposals" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection title="Propuestas" icon={<FileText className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => setQuickProposalOpen(true)}><Plus className="h-3.5 w-3.5" />Nueva</CrmDetailLineButton>}>
+                <CrmDetailSection title="Propuestas" icon={<FileText className="h-3.5 w-3.5" />} action={<CrmDetailLineButton
+                    onClick={() => {
+                      if (!selectedLead) return;
+                      void navigate({
+                        to: "/proposals",
+                        search: {
+                          leadId: selectedLead.id,
+                          title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
+                          amount: selectedLead.estimated_value
+                            ? String(selectedLead.estimated_value)
+                            : undefined,
+                          currency: selectedLead.currency || currencySettings.baseCurrency,
+                          description:
+                            getInterestLabel(selectedLead) || selectedLead.notes || undefined,
+                          valid_until: new Date(Date.now() + 15 * 86400000)
+                            .toISOString()
+                            .slice(0, 10),
+                        },
+                      });
+                    }}
+                  ><Plus className="h-3.5 w-3.5" />Nueva</CrmDetailLineButton>}>
                   {relatedLoading ? <CrmDetailEmptyState>Cargando propuestas...</CrmDetailEmptyState> : leadProposals.length ? (
                     <div className="divide-y divide-slate-100 border-y border-slate-100">
                       {leadProposals.map((proposal) => (
@@ -3587,40 +3624,6 @@ function LeadsPage() {
         }}
         onCreated={() => {
           void fetchLeads();
-        }}
-      />
-
-      <QuickCreateDialog
-        type="proposal"
-        open={quickProposalOpen}
-        onOpenChange={setQuickProposalOpen}
-        context={
-          selectedLead
-            ? {
-                sourceType: "lead",
-                sourceId: selectedLead.id,
-                prefill: {
-                  lead_id: selectedLead.id,
-                  title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
-                  amount: selectedLead.estimated_value || "",
-                  currency: selectedLead.currency || currencySettings.baseCurrency,
-                  description: getInterestLabel(selectedLead) || selectedLead.notes || "",
-                  valid_until: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
-                },
-              }
-            : undefined
-        }
-        onCreated={async () => {
-          if (selectedLead && can("leads.edit")) {
-            await update(selectedLead.id, { status: "Proposal Sent" } as any);
-            void sendLeadNotification(
-              "Propuesta vinculada",
-              `${getLeadPrimaryLabel(selectedLead)} pasó a Proposal Sent.`,
-              "/proposals",
-            );
-          }
-          void fetchLeads();
-          toast.success("Propuesta vinculada al prospecto.");
         }}
       />
 
