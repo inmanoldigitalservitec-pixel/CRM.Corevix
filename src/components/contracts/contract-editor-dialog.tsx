@@ -12,6 +12,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ContractFileDropzone } from "@/components/contracts/contract-detail-dialog";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -402,19 +403,23 @@ export function ContractEditorDialog({
           </div>
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>Client</Label>
-            <Select value={form.client_id} onValueChange={(value) => setField("client_id", value)}>
-              <SelectTrigger className={crmFormStyles.select}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>No client</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.company_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ClientProspectSearchSelect
+              clients={clients.map((client) => ({
+                id: client.id,
+                label: client.company_name,
+                searchText: client.company_name,
+                data: client,
+              }))}
+              value={
+                form.client_id === NONE
+                  ? null
+                  : { type: "client", id: form.client_id }
+              }
+              placeholder="Buscar cliente"
+              onChange={(value) =>
+                setField("client_id", value?.id || NONE)
+              }
+            />
           </div>
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>Project</Label>
