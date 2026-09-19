@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { useCrud } from "@/hooks/use-crud";
@@ -437,21 +438,28 @@ export function PaymentFormDialog({
             </>
           ) : (
             <Field label="Cliente" className="sm:col-span-2">
-              <Select value={form.client_id} onValueChange={(client_id) => patchForm({ client_id })}>
-                <SelectTrigger className={crmFormStyles.select}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Ninguno</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.contact_person
-                        ? `${client.company_name} · ${client.contact_person}`
-                        : client.company_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClientProspectSearchSelect
+                clients={clients.map((client) => ({
+                  id: client.id,
+                  label: client.contact_person
+                    ? `${client.company_name} · ${client.contact_person}`
+                    : client.company_name,
+                  secondaryLabel: client.contact_person,
+                  searchText: [client.company_name, client.contact_person]
+                    .filter(Boolean)
+                    .join(" "),
+                  data: client,
+                }))}
+                value={
+                  form.client_id === NONE
+                    ? null
+                    : { type: "client", id: form.client_id }
+                }
+                placeholder="Buscar cliente"
+                onChange={(value) =>
+                  patchForm({ client_id: value?.id || NONE })
+                }
+              />
             </Field>
           )}
 
