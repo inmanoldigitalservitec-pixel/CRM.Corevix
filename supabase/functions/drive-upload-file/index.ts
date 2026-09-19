@@ -265,6 +265,50 @@ async function ensureClientFolder(args: {
   return { id: clientFolderId, webViewLink: clientFolderUrl };
 }
 
+async function ensureLeadFolder(args: {
+  accessToken: string;
+  serviceClient: any;
+  companyId: string;
+  lead: any;
+}) {
+  let leadFolderId = args.lead.drive_folder_id ? String(args.lead.drive_folder_id) : "";
+  let leadFolderUrl = args.lead.drive_folder_url ? String(args.lead.drive_folder_url) : "";
+
+  if (leadFolderId) return { id: leadFolderId, webViewLink: leadFolderUrl };
+
+  const corevixFolder = await getCorevixFolder({
+    accessToken: args.accessToken,
+    serviceClient: args.serviceClient,
+    companyId: args.companyId,
+  });
+  const leadsFolder = await getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: "Leads",
+    parentId: corevixFolder.id,
+  });
+  const createdLeadFolder = await getOrCreateFolder({
+    accessToken: args.accessToken,
+    name: safeName(
+      args.lead.company_name || [args.lead.first_name, args.lead.last_name].filter(Boolean).join(" "),
+      "Lead",
+    ),
+    parentId: leadsFolder.id,
+  });
+
+  leadFolderId = createdLeadFolder.id;
+  leadFolderUrl = String(createdLeadFolder.webViewLink || "");
+  await args.serviceClient
+    .from("leads")
+    .update({
+      drive_folder_id: leadFolderId,
+      drive_folder_url: leadFolderUrl || null,
+    })
+    .eq("id", String(args.lead.id))
+    .eq("company_id", args.companyId);
+
+  return { id: leadFolderId, webViewLink: leadFolderUrl };
+}
+
 async function ensureClientChildFolder(args: {
   accessToken: string;
   serviceClient: any;
@@ -359,7 +403,7 @@ function buildDriveFilePayload(args: {
     size?: string | number;
   };
   fallbackFile: File;
-  linkedType: "client" | "project" | "task";
+  linkedType: "client" | "lead" | "project" | "task";
   linkedId: string;
   authUserId: string;
   filePurpose?: "resource" | "deliverable";
@@ -411,15 +455,16 @@ Deno.serve(async (req) => {
     const formData = await req.formData();
     const taskId = String(formData.get("task_id") || "").trim();
     const clientId = String(formData.get("client_id") || "").trim();
+    const leadId = String(formData.get("lead_id") || "").trim();
     const projectId = String(formData.get("project_id") || "").trim();
     const filePurpose =
       String(formData.get("file_purpose") || "deliverable").trim() === "resource"
         ? "resource"
         : "deliverable";
     const file = formData.get("file");
-    const targetCount = [taskId, clientId, projectId].filter(Boolean).length;
+    const targetCount = [taskId, clientId, leadId, projectId].filter(Boolean).length;
     if (targetCount === 0)
-      return jsonResponse({ error: "No se recibió task_id, client_id o project_id." }, 400);
+      return jsonResponse({ error: "No se recibió task_id, client_id, lead_id o project_id." }, 400);
     if (targetCount > 1) return jsonResponse({ error: "Envía solo un destino por subida." }, 400);
     if (!(file instanceof File)) return jsonResponse({ error: "No se recibió archivo." }, 400);
 
@@ -436,6 +481,7 @@ Deno.serve(async (req) => {
 
     let task: any = null;
     let client: any = null;
+    let lead: any = null;
     let project: any = null;
 
     if (taskId) {
@@ -466,6 +512,20 @@ Deno.serve(async (req) => {
       if (String(data.company_id) !== companyId)
         return jsonResponse({ error: "El cliente no pertenece a esta compañía." }, 403);
       client = data;
+    }
+
+    if (leadId) {
+      const { data, error } = await callerClient
+        .from("leads")
+        .select("id,company_id,first_name,last_name,company_name,drive_folder_id,drive_folder_url")
+        .eq("id", leadId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!data?.id) return jsonResponse({ error: "El prospecto no existe." }, 404);
+      if (String(data.company_id) !== companyId)
+        return jsonResponse({ error: "El prospecto no pertenece a esta compañía." }, 403);
+      lead = data;
     }
 
     if (projectId) {
@@ -630,6 +690,75 @@ Deno.serve(async (req) => {
       if (saveError) return jsonResponse({ error: saveError.message }, 400);
 
       return jsonResponse({ file: saved, folder_url: clientFolder.webViewLink || null });
+    }
+
+    if (lead?.id) {
+      let filesFolder: { id: string; name: string; webViewLink?: string };
+      let leadFolder: { id: string; webViewLink?: string };
+      try {
+        leadFolder = await ensureLeadFolder({
+          accessToken,
+          serviceClient,
+          companyId,
+          client,
+        });
+        filesFolder = await getOrCreateFolder({
+          accessToken,
+          name: "Files",
+          parentId: leadFolder.id,
+        });
+      } catch (folderError) {
+        const detail = folderError instanceof Error ? folderError.message : "unknown";
+        return jsonResponse(
+          { error: "No se pudo crear la carpeta de archivos del cliente.", detail },
+          400,
+        );
+      }
+
+      const fileBuffer = new Uint8Array(await file.arrayBuffer());
+      let uploaded:
+        | {
+            id: string;
+            name: string;
+            mimeType?: string;
+            webViewLink?: string;
+            webContentLink?: string;
+            thumbnailLink?: string;
+            iconLink?: string;
+            size?: string | number;
+          }
+        | undefined;
+      try {
+        uploaded = await uploadFileMultipart({
+          accessToken,
+          folderId: filesFolder.id,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          bytes: fileBuffer,
+        });
+      } catch (uploadError) {
+        const detail = uploadError instanceof Error ? uploadError.message : "unknown";
+        return jsonResponse({ error: "No se pudo subir el archivo a Google Drive.", detail }, 400);
+      }
+
+      const rowPayload = buildDriveFilePayload({
+        companyId,
+        uploaded: uploaded!,
+        fallbackFile: file,
+        linkedType: "lead",
+        linkedId: leadId,
+        authUserId,
+        filePurpose: "deliverable",
+      });
+
+      const { data: saved, error: saveError } = await serviceClient
+        .from("drive_files")
+        .insert(rowPayload)
+        .select("*")
+        .single();
+      if (saveError) return jsonResponse({ error: saveError.message }, 400);
+
+      return jsonResponse({ file: saved, folder_url: leadFolder.webViewLink || null });
     }
 
     if (project?.id) {
