@@ -186,6 +186,7 @@ function AppShell() {
         <GlobalSearch launcherOnly />
         <MobileBottomNav />
         <GlobalTaskCreateHost />
+        <GlobalReminderCreateHost />
         <GlobalDetailHost />
       </SidebarProvider>
     </DemoTourProvider>
