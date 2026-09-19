@@ -9,7 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { InlineStatusSelect } from "@/components/crm/inline-status-select";
 import {
   AlertDialog,
