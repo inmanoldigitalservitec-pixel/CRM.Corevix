@@ -67,9 +67,13 @@ function formatDate(value?: string | null) {
 export function InvoicePaymentsPanel({
   invoiceId,
   refreshKey,
+  canRegisterPayment = false,
+  onRegisterPayment,
 }: {
   invoiceId: string;
   refreshKey?: number | string;
+  canRegisterPayment?: boolean;
+  onRegisterPayment?: () => void;
 }) {
   const { profile } = useAuth();
   const [payments, setPayments] = useState<EnrichedInvoicePayment[]>([]);
@@ -153,19 +157,27 @@ export function InvoicePaymentsPanel({
         icon={<CreditCard className="h-6 w-6" />}
         title="Sin pagos registrados"
         description="Esta factura todavía no tiene pagos asociados."
+        actionLabel={canRegisterPayment ? "Registrar pago" : undefined}
+        onAction={canRegisterPayment ? onRegisterPayment : undefined}
       />
     );
   }
 
   return (
     <div className="min-w-0 space-y-4">
-      <div className="border-b border-slate-100 pb-3">
-        <div className="text-sm font-normal text-slate-950">
-          Pagos asociados
+      <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-normal text-slate-950">Pagos asociados</div>
+          <div className="mt-1 text-xs font-normal text-slate-500">
+            Cada comprobante queda vinculado al pago correspondiente.
+          </div>
         </div>
-        <div className="mt-1 text-xs font-normal text-slate-500">
-          Cada comprobante queda vinculado al pago correspondiente.
-        </div>
+        {canRegisterPayment && onRegisterPayment ? (
+          <Button type="button" variant="outline" size="sm" onClick={onRegisterPayment}>
+            <CreditCard className="mr-2 h-4 w-4" />
+            Registrar pago
+          </Button>
+        ) : null}
       </div>
 
       <div className="divide-y divide-slate-100 border-y border-slate-100">
