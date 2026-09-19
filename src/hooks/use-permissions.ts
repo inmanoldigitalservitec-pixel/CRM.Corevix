@@ -50,6 +50,7 @@ type CrudPermissionModule =
   | "credit_notes"
   | "subscriptions"
   | "expenses"
+  | "invoices"
   | "reports";
 type CrudPermissionAction = "view_all" | "view_assigned" | "create" | "edit" | "delete";
 type PermissionKey =
