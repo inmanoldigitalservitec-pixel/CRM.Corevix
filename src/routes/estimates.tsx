@@ -8,7 +8,6 @@ import {
   type SalesDocumentTotals,
 } from "@/components/sales/sales-document-builder";
 import { PageHeader } from "@/components/crm/page-header";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { InlineStatusSelect } from "@/components/crm/inline-status-select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
