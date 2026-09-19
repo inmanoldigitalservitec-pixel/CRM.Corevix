@@ -392,6 +392,8 @@ export function InvoiceWorkspaceDialog({
           tasks={tasks}
           profilesById={profilesById}
           canEdit={canCreateTasks || canEditTasks}
+          canCreate={canCreateTasks}
+          canComplete={canEditTasks}
           loading={loadingTasks}
           saving={savingTask}
           countLabel={taskCountLabel}
