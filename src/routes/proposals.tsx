@@ -765,10 +765,18 @@ function ProposalsPage() {
     setSelected(null);
     autoOpenSearchKeyRef.current = null;
 
-    if (routeSearch.proposalId) {
+    if (
+      routeSearch.proposalId ||
+      routeSearch.new ||
+      routeSearch.leadId ||
+      routeSearch.dealId ||
+      routeSearch.conversationId ||
+      routeSearch.productId ||
+      routeSearch.clientId
+    ) {
       void navigate({
         to: "/proposals",
-        search: { ...routeSearch, proposalId: undefined },
+        search: {},
         replace: true,
       });
     }
