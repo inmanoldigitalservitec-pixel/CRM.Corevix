@@ -47,10 +47,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
-import {
-  ClientProspectSearchSelect,
-  type ClientProspectOption,
-} from "@/components/crm/client-prospect-search-select";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/crm/page-header";
