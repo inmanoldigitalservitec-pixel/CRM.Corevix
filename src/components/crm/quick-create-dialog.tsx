@@ -802,6 +802,7 @@ export function QuickCreateDialog({
                       />
                     </div>
 
+                    <div className="space-y-1.5">
                       <Label className={labelClass}>Producto</Label>
                       <Select
                         value={form.product_id || "none"}
