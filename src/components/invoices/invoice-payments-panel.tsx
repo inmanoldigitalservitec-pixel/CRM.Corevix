@@ -68,11 +68,13 @@ export function InvoicePaymentsPanel({
   invoiceId,
   refreshKey,
   canRegisterPayment = false,
+  registerPaymentDisabledReason,
   onRegisterPayment,
 }: {
   invoiceId: string;
   refreshKey?: number | string;
   canRegisterPayment?: boolean;
+  registerPaymentDisabledReason?: string;
   onRegisterPayment?: () => void;
 }) {
   const { profile } = useAuth();
@@ -142,6 +144,38 @@ export function InvoicePaymentsPanel({
     };
   }, [invoiceId, profile?.company_id, refreshKey]);
 
+  const registerPaymentButton =
+    canRegisterPayment && onRegisterPayment ? (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onRegisterPayment}
+        disabled={Boolean(registerPaymentDisabledReason)}
+        title={registerPaymentDisabledReason}
+      >
+        <CreditCard className="mr-2 h-4 w-4" />
+        Registrar pago
+      </Button>
+    ) : null;
+
+  const paymentsHeader = (
+    <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <div className="text-sm font-normal text-slate-950">Pagos asociados</div>
+        <div className="mt-1 text-xs font-normal text-slate-500">
+          Registra cobros y gestiona sus movimientos y comprobantes.
+        </div>
+        {registerPaymentDisabledReason ? (
+          <div className="mt-1 text-xs font-normal text-amber-700">
+            {registerPaymentDisabledReason}
+          </div>
+        ) : null}
+      </div>
+      {registerPaymentButton}
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-40 items-center justify-center gap-2 text-sm font-normal text-slate-500">
@@ -153,32 +187,20 @@ export function InvoicePaymentsPanel({
 
   if (!payments.length) {
     return (
-      <EmptyState
-        icon={<CreditCard className="h-6 w-6" />}
-        title="Sin pagos registrados"
-        description="Esta factura todavía no tiene pagos asociados."
-        actionLabel={canRegisterPayment ? "Registrar pago" : undefined}
-        onAction={canRegisterPayment ? onRegisterPayment : undefined}
-      />
+      <div className="min-w-0 space-y-4">
+        {paymentsHeader}
+        <EmptyState
+          icon={<CreditCard className="h-6 w-6" />}
+          title="Sin pagos registrados"
+          description="Esta factura todavía no tiene pagos asociados."
+        />
+      </div>
     );
   }
 
   return (
     <div className="min-w-0 space-y-4">
-      <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="text-sm font-normal text-slate-950">Pagos asociados</div>
-          <div className="mt-1 text-xs font-normal text-slate-500">
-            Cada comprobante queda vinculado al pago correspondiente.
-          </div>
-        </div>
-        {canRegisterPayment && onRegisterPayment ? (
-          <Button type="button" variant="outline" size="sm" onClick={onRegisterPayment}>
-            <CreditCard className="mr-2 h-4 w-4" />
-            Registrar pago
-          </Button>
-        ) : null}
-      </div>
+      {paymentsHeader}
 
       <div className="divide-y divide-slate-100 border-y border-slate-100">
         {payments.map((payment) => {
@@ -280,7 +302,7 @@ export function InvoicePaymentsPanel({
                     }}
                   >
                     <FileText className="mr-2 h-4 w-4" />
-                    Recibo
+                    Gestionar pago
                   </Button>
                 </div>
               </div>
@@ -305,7 +327,7 @@ export function InvoicePaymentsPanel({
         paymentId={selectedPaymentId}
         open={workspaceOpen}
         onOpenChange={setWorkspaceOpen}
-        initialTab="receipt"
+        initialTab="details"
         onOpenInvoice={() => setWorkspaceOpen(false)}
       />
     </div>
