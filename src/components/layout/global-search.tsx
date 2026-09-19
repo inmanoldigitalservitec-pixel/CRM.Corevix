@@ -379,6 +379,10 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
         });
         return;
       }
+      if (detail.type === "proposal") {
+        void navigate({ to: "/proposals", search: { new: "1" } as any });
+        return;
+      }
       setQuickCreateType(detail.type);
     };
 
@@ -878,6 +882,16 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
       });
       setQuery("");
       setItems([]);
+      return;
+    }
+    if (type === "proposal") {
+      const proposalTitle = normalizedQuery ? `Propuesta - ${normalizedQuery}` : undefined;
+      setQuery("");
+      setItems([]);
+      void navigate({
+        to: "/proposals",
+        search: { new: "1", title: proposalTitle, currency: "USD" } as any,
+      });
       return;
     }
     setQuickCreateType(type);
