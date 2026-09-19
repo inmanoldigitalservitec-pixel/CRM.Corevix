@@ -24,6 +24,8 @@ const actionLabels: Record<string, string> = {
   invoice_note_created: "Nota creada",
   invoice_note_updated: "Nota actualizada",
   invoice_note_archived: "Nota eliminada",
+  task_created: "Tarea creada",
+  task_completed: "Tarea completada",
   invoice_task_created: "Tarea creada",
   invoice_task_completed: "Tarea completada",
   invoice_reminder_created: "Recordatorio creado",
@@ -84,7 +86,9 @@ export function InvoiceActivity({
 
       setLogs(
         ((data || []) as ActivityLogRow[]).filter((row) => {
-          const metadataInvoiceId = String(row.metadata?.invoice_id || "");
+          const metadataInvoiceId = String(
+            row.metadata?.invoice_id || row.metadata?.related_invoice_id || "",
+          );
           return (
             metadataInvoiceId === invoiceId ||
             (row.entity_type === "invoices" && row.entity_id === invoiceId)
