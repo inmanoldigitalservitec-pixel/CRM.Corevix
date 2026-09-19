@@ -43,6 +43,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import { logActivityEvent } from "@/lib/activity-log";
 import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import { LoadingMetrics, LoadingTable } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
 import { DataCard } from "@/components/crm/data-card";
@@ -2655,9 +2656,14 @@ function ClientsPage() {
       toast.error("No se pudo identificar tu sesión.");
       return;
     }
-    setSelectedClientId(client.id);
-    setReminderClientId(client.id);
-    setReminderDialogOpen(true);
+    openGlobalReminderCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${client.company_name}`,
+        description: `Recordatorio creado desde Cliente 360.\\nCliente: ${client.company_name}`,
+        relatedClientId: client.id,
+        contextLabel: `Cliente: ${client.company_name}`,
+      },
+    });
   };
 
   const openVaultCreator = (client: ClientSnapshot) => {
