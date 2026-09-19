@@ -3041,9 +3041,7 @@ function LeadsPage() {
                   </CrmDetailSection>
                 </div>
 
-                <CrmDetailSection title="Oportunidad comercial" icon={<Target className="h-3.5 w-3.5" />}>
-                  <div className="space-y-4">
-<CrmDetailSection
+                <CrmDetailSection
                   title="Oportunidad comercial"
                   icon={<Target className="h-3.5 w-3.5" />}
                   action={
@@ -3229,11 +3227,12 @@ function LeadsPage() {
                       </CrmDetailLineButton>
                     </div>
                   ) : (
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <CrmDetailEmptyState>
                         Este prospecto todavía no tiene oportunidad comercial.
                       </CrmDetailEmptyState>
                       <CrmDetailLineButton
+                        className="h-8 shrink-0 px-3"
                         onClick={() => void handleCreateDealFromLead(selectedLead)}
                         disabled={
                           !can("deals.create") ||
@@ -3246,18 +3245,6 @@ function LeadsPage() {
                   )}
                 </CrmDetailSection>
 
-                <Button
-                  className="h-9 w-full bg-[#1d62f9] hover:bg-[#0f52dd]"
-                  onClick={() => void handleConvertLeadToClient(selectedLead)}
-                  disabled={
-                    convertingClient ||
-                    !can("clients.create") ||
-                    (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
-                  }
-                >
-                  {convertingClient ? "Convirtiendo..." : "Convertir a cliente"}
-                </Button>
-                  </div>
                 </CrmDetailSection>
 
                 <div data-demo="leads-quick-actions">
