@@ -44,6 +44,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/crm/page-header";
 import { LoadingTable } from "@/components/crm/loading-state";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
+import { InlineStatusSelect } from "@/components/crm/inline-status-select";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
@@ -438,7 +439,7 @@ export function SalesBasicPage({
 	  );
   const [form, setForm] = useState<Record<string, string>>(initialForm);
 
-  const { data, loading, error, fetch, create, remove } = useCrud<GenericRow>({
+  const { data, loading, error, fetch, create, update, remove } = useCrud<GenericRow>({
     table: config.table,
     orderBy: "updated_at",
     ascending: false,
@@ -725,6 +726,16 @@ export function SalesBasicPage({
     }
   };
 
+  const updateStatus = async (row: GenericRow, nextStatus: string) => {
+    if (!row.id || !nextStatus || row[effectiveStatusKey] === nextStatus) return;
+    try {
+      await update(String(row.id), { [effectiveStatusKey]: nextStatus });
+      toast.success("Estado actualizado");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar el estado.");
+    }
+  };
+
   const mobileKpiLabel =
     summaryLabel ||
     (config.module === "payments"
@@ -911,6 +922,7 @@ export function SalesBasicPage({
                 displayAmountKey={effectiveAmountKey}
                 displayStatusKey={effectiveStatusKey}
                 onOpen={() => openRecordDetail(row)}
+                onStatusChange={(nextStatus) => updateStatus(row, nextStatus)}
                 onDelete={() => setDeleteRow(row)}
                 rowActions={renderRowActions?.(row)}
               />
@@ -989,7 +1001,14 @@ export function SalesBasicPage({
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={row[effectiveStatusKey] || "—"} />
+                          <InlineStatusSelect
+                            value={row[effectiveStatusKey] || "—"}
+                            options={config.statuses.map((status) => ({
+                              value: status,
+                              label: displayLabel(status),
+                            }))}
+                            onChange={(nextStatus) => updateStatus(row, nextStatus)}
+                          />
                         </TableCell>
                         {canDelete || renderRowActions ? (
                           <TableCell className="text-right">
@@ -1191,6 +1210,7 @@ function SalesMobileCard({
   displayAmountKey,
   displayStatusKey,
   onOpen,
+  onStatusChange,
   onDelete,
   rowActions,
 }: {
@@ -1206,6 +1226,7 @@ function SalesMobileCard({
   displayAmountKey: string;
   displayStatusKey: string;
   onOpen: () => void;
+  onStatusChange: (nextStatus: string) => Promise<void> | void;
   onDelete: () => void;
   rowActions?: ReactNode;
 }) {
@@ -1258,9 +1279,13 @@ function SalesMobileCard({
           </div>
         </div>
 
-        <StatusBadge
-          status={row[displayStatusKey] || "—"}
-          className="min-h-6 max-w-[92px] shrink-0 truncate rounded-full px-2.5 text-[11px] font-bold"
+        <InlineStatusSelect
+          value={row[displayStatusKey] || "—"}
+          options={config.statuses.map((status) => ({
+            value: status,
+            label: displayLabel(status),
+          }))}
+          onChange={onStatusChange}
         />
       </div>
 
