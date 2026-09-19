@@ -86,6 +86,7 @@ type TaskRow = {
   related_client_id: string | null;
   related_lead_id?: string | null;
   related_proposal_id?: string | null;
+  related_invoice_id?: string | null;
   created_at: string;
   company_id: string;
 };
@@ -239,6 +240,7 @@ type TaskCreateDialogProps = {
   profiles?: QuickProfile[];
   initialValues?: Partial<TaskEditorDraft>;
   relatedProposalId?: string | null;
+  relatedInvoiceId?: string | null;
   onCreated?: (task: TaskRow) => void | Promise<void>;
   canCreate?: boolean;
 };
@@ -1576,6 +1578,7 @@ export function TaskCreateDialog({
   profiles: propProfiles = EMPTY_PROFILES,
   initialValues,
   relatedProposalId,
+  relatedInvoiceId,
   onCreated,
   canCreate = true,
 }: TaskCreateDialogProps) {
@@ -1834,13 +1837,14 @@ export function TaskCreateDialog({
         related_lead_id: draft.leadId || null,
         related_deal_id: draft.dealId || null,
         related_proposal_id: relatedProposalId || null,
+        related_invoice_id: relatedInvoiceId || null,
       };
 
       const { data, error } = await (supabase as any)
         .from("tasks")
         .insert(payload)
         .select(
-          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_lead_id,related_proposal_id,created_at,company_id",
+          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_lead_id,related_proposal_id,related_invoice_id,created_at,company_id",
         )
         .single();
       if (error) throw error;
@@ -1853,7 +1857,7 @@ export function TaskCreateDialog({
           .eq("id", createdTask.id)
           .eq("company_id", createdTask.company_id || companyId)
           .select(
-            "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_lead_id,related_proposal_id,created_at,company_id",
+            "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_lead_id,related_proposal_id,related_invoice_id,created_at,company_id",
           )
           .single();
         if (scheduleError) throw scheduleError;
@@ -1877,6 +1881,7 @@ export function TaskCreateDialog({
           related_lead_id: payload.related_lead_id,
           related_deal_id: payload.related_deal_id,
           related_proposal_id: createdTask.related_proposal_id,
+          related_invoice_id: createdTask.related_invoice_id,
           due_date: createdTask.due_date,
           priority: createdTask.priority,
         },
