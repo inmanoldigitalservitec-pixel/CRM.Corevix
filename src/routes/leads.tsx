@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -2032,6 +2033,32 @@ function LeadsPage() {
     });
   }
 
+  function openReminderDialogForLead(lead: Lead) {
+    const canCreateFollowUp =
+      can("tasks.create") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
+    if (!canCreateFollowUp) {
+      toast.error("No tienes permiso para crear recordatorios");
+      return;
+    }
+    const leadLabel =
+      lead.company_name ||
+      getLeadName(lead) ||
+      lead.email ||
+      lead.phone ||
+      lead.whatsapp ||
+      "prospecto";
+    const sourceHint = lead.source_channel || lead.source || "—";
+    setSelectedLeadId(lead.id);
+    openGlobalReminderCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${leadLabel}`,
+        description: `Recordatorio creado desde Prospectos.\\nFuente: ${sourceHint}`,
+        relatedLeadId: lead.id,
+        contextLabel: `Prospecto: ${leadLabel}`,
+      },
+    });
+  }
+
   const stats = useMemo(() => {
     const total = leads.length;
     const newLeads = leads.filter((l) => {
@@ -3522,7 +3549,7 @@ function LeadsPage() {
               </TabsContent>
 
               <TabsContent value="reminders" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection title="Recordatorios" icon={<Calendar className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => openFollowUpDialog(selectedLead)}><Plus className="h-3.5 w-3.5" />Nuevo</CrmDetailLineButton>}>
+                <CrmDetailSection title="Recordatorios" icon={<Calendar className="h-3.5 w-3.5" />} action={<div className="flex gap-2"><CrmDetailLineButton onClick={() => openReminderDialogForLead(selectedLead)}><Calendar className="h-3.5 w-3.5" />Recordatorio</CrmDetailLineButton><CrmDetailLineButton onClick={() => openFollowUpDialog(selectedLead)}><Plus className="h-3.5 w-3.5" />Tarea</CrmDetailLineButton></div>}>
                   {relatedLoading ? <CrmDetailEmptyState>Cargando recordatorios...</CrmDetailEmptyState> : leadReminders.length ? leadReminders.map((event) => <CrmDetailRow key={event.id} label={event.title} value={event.status + " · " + formatDateShort(event.start_at)} />) : <CrmDetailEmptyState>No hay recordatorios asociados.</CrmDetailEmptyState>}
                 </CrmDetailSection>
               </TabsContent>
