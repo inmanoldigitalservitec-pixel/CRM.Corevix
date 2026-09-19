@@ -85,6 +85,14 @@ type TicketMessage = {
 };
 
 type ClientRow = { id: string; company_name: string; contact_person: string | null };
+type LeadRow = {
+  id: string;
+  company_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+};
 type ContactRow = {
   id: string;
   client_id: string | null;
@@ -109,6 +117,7 @@ type TicketForm = {
   department: string;
   service: string;
   client_id: string;
+  lead_id: string;
   contact_id: string;
   project_id: string;
   assigned_to: string;
@@ -123,6 +132,7 @@ function defaultForm(): TicketForm {
     department: "Support",
     service: "",
     client_id: NONE,
+    lead_id: NONE,
     contact_id: NONE,
     project_id: NONE,
     assigned_to: NONE,
@@ -230,6 +240,7 @@ function TicketsPage() {
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
+  const [leads, setLeads] = useState<LeadRow[]>([]);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
@@ -259,7 +270,7 @@ function TicketsPage() {
     if (!profile?.company_id) return;
     setLoading(true);
     const cid = profile.company_id;
-    const [ticketRes, clientRes, contactRes, projectRes, profileRes] = await Promise.all([
+    const [ticketRes, clientRes, leadRes, contactRes, projectRes, profileRes] = await Promise.all([
       db
         .from("tickets")
         .select("*")
@@ -271,6 +282,12 @@ function TicketsPage() {
         .select("id,company_name,contact_person")
         .eq("company_id", cid)
         .order("company_name", { ascending: true })
+        .limit(1000),
+      db
+        .from("leads")
+        .select("id,company_name,first_name,last_name,email,phone")
+        .eq("company_id", cid)
+        .order("created_at", { ascending: false })
         .limit(1000),
       db
         .from("contacts")
@@ -295,6 +312,7 @@ function TicketsPage() {
     const firstError =
       ticketRes.error ||
       clientRes.error ||
+      leadRes.error ||
       contactRes.error ||
       projectRes.error ||
       profileRes.error;
@@ -306,6 +324,7 @@ function TicketsPage() {
 
     setTickets(ticketRes.data || []);
     setClients(clientRes.data || []);
+    setLeads(leadRes.data || []);
     setContacts(contactRes.data || []);
     setProjects(projectRes.data || []);
     setProfiles(profileRes.data || []);
@@ -414,6 +433,7 @@ function TicketsPage() {
       ...defaultForm(),
       project_id: project?.id || NONE,
       client_id: project?.client_id || NONE,
+      lead_id: NONE,
     });
     setDialogOpen(true);
   };
@@ -428,6 +448,7 @@ function TicketsPage() {
       department: ticket.department || "Support",
       service: ticket.service || "",
       client_id: ticket.client_id || NONE,
+      lead_id: ticket.lead_id || NONE,
       contact_id: ticket.contact_id || NONE,
       project_id: ticket.project_id || NONE,
       assigned_to: ticket.assigned_to || NONE,
@@ -449,6 +470,7 @@ function TicketsPage() {
       department: form.department.trim() || "Support",
       service: form.service.trim() || null,
       client_id: form.client_id !== NONE ? form.client_id : null,
+      lead_id: form.lead_id !== NONE ? form.lead_id : null,
       contact_id: form.contact_id !== NONE ? form.contact_id : null,
       project_id: form.project_id !== NONE ? form.project_id : null,
       assigned_to: form.assigned_to !== NONE ? form.assigned_to : null,
@@ -908,16 +930,28 @@ function TicketsPage() {
                     .join(" "),
                   data: client,
                 }))}
+                prospects={leads.map((lead) => ({
+                  id: lead.id,
+                  label: [lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.company_name || lead.email || "Prospecto",
+                  secondaryLabel: lead.company_name || lead.email || lead.phone,
+                  searchText: [lead.first_name, lead.last_name, lead.company_name, lead.email, lead.phone]
+                    .filter(Boolean)
+                    .join(" "),
+                  data: lead,
+                }))}
                 value={
-                  form.client_id === NONE
-                    ? null
-                    : { type: "client", id: form.client_id }
+                  form.client_id !== NONE
+                    ? { type: "client", id: form.client_id }
+                    : form.lead_id !== NONE
+                      ? { type: "lead", id: form.lead_id }
+                      : null
                 }
-                placeholder="Buscar cliente"
+                placeholder="Buscar cliente o prospecto"
                 onChange={(value) =>
                   setForm((current) => ({
                     ...current,
-                    client_id: value?.id || NONE,
+                    client_id: value?.type === "client" ? value.id : NONE,
+                    lead_id: value?.type === "lead" ? value.id : NONE,
                     contact_id: NONE,
                   }))
                 }
