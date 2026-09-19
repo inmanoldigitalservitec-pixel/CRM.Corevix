@@ -2158,6 +2158,12 @@ function InvoicesPage() {
           notes={selected.notes}
           formatMoney={formatInvoiceMoney}
           paymentReceiptsRefreshKey={paymentReceiptsRefreshKey}
+          canEditNotes={can("invoices.edit")}
+          canCreateTasks={can("tasks.create")}
+          canEditTasks={can("tasks.edit")}
+          canManageReminders={can("invoices.edit")}
+          canRegisterPayment={canCreatePayment && isFinanciallyPending(selected)}
+          onRegisterPayment={() => void registerPayment(selected)}
         />
       ) : null}
 
