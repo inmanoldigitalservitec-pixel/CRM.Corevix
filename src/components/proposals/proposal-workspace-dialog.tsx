@@ -161,13 +161,15 @@ export type ProposalTaskRow = {
   due_date: string | null;
   related_client_id: string | null;
   related_proposal_id?: string | null;
+  related_invoice_id?: string | null;
   updated_at: string;
 };
 
 export type ProposalReminderRow = {
   id: string;
   company_id: string;
-  proposal_id: string;
+  proposal_id?: string;
+  invoice_id?: string;
   assigned_to: string | null;
   created_by: string | null;
   title: string;
