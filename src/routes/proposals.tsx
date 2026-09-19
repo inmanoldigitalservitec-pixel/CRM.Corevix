@@ -2249,9 +2249,10 @@ function ProposalsPage() {
                     normalizeStatus(p.status) !== "rejected";
 
                   return (
-                    <button
+                    <div
                       key={p.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       data-demo={index === 0 ? "proposals-first-mobile-card" : undefined}
                       onClick={() => {
                         setSelected(p);
@@ -2315,7 +2316,7 @@ function ProposalsPage() {
                           </span>
                         )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
