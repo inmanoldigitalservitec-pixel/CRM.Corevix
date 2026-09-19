@@ -2494,6 +2494,7 @@ export type Database = {
           exchange_rate_updated_at: string | null
           expiry_date: string | null
           id: string
+          lead_id: string | null
           notes: string | null
           number: number
           project_id: string | null
@@ -2535,6 +2536,7 @@ export type Database = {
           exchange_rate_updated_at?: string | null
           expiry_date?: string | null
           id?: string
+          lead_id?: string | null
           notes?: string | null
           number?: number
           project_id?: string | null
@@ -2576,6 +2578,7 @@ export type Database = {
           exchange_rate_updated_at?: string | null
           expiry_date?: string | null
           id?: string
+          lead_id?: string | null
           notes?: string | null
           number?: number
           project_id?: string | null
@@ -2625,6 +2628,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
           {
