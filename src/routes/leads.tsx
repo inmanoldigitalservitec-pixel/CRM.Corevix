@@ -3541,7 +3541,24 @@ function LeadsPage() {
 
               <TabsContent value="tasks" className="space-y-4 data-[state=inactive]:hidden">
                 <CrmDetailSection title="Tareas" icon={<Check className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => openFollowUpDialog(selectedLead)}><Plus className="h-3.5 w-3.5" />Nueva</CrmDetailLineButton>}>
-                  {relatedLoading ? <CrmDetailEmptyState>Cargando tareas...</CrmDetailEmptyState> : leadTasks.length ? leadTasks.map((task) => <CrmDetailRow key={task.id} label={task.title} value={task.status + " · " + task.priority + " · " + formatDateShort(task.due_date)} />) : <CrmDetailEmptyState>No hay tareas asociadas.</CrmDetailEmptyState>}
+                  {relatedLoading ? (
+                    <CrmDetailEmptyState>Cargando tareas...</CrmDetailEmptyState>
+                  ) : leadTasks.length ? (
+                    <div className="divide-y divide-slate-100 border-y border-slate-100">
+                      {leadTasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between gap-4 py-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-slate-950">{task.title}</div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {task.status} · {task.priority} · {formatDateShort(task.due_date)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <CrmDetailEmptyState>No hay tareas asociadas.</CrmDetailEmptyState>
+                  )}
                 </CrmDetailSection>
               </TabsContent>
 
