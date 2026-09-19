@@ -71,6 +71,7 @@ import {
 } from "@/components/crm/crm-detail-layout";
 import { PageHeader } from "@/components/crm/page-header";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
+import { InlineStatusSelect } from "@/components/crm/inline-status-select";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useCrud } from "@/hooks/use-crud";
 import { useAuth } from "@/hooks/use-auth";
@@ -724,6 +725,24 @@ function LeadsPage() {
     remove,
     fetch: fetchLeads,
   } = useCrud<Lead>({ table: "leads" });
+
+  const handleInlineStatusChange = async (lead: Lead, nextStatus: string) => {
+    if (!lead.id || !nextStatus || lead.status === nextStatus) return;
+    if (!can("leads.edit")) {
+      toast.error("No tienes permiso para cambiar el estado de este lead.");
+      return;
+    }
+
+    setUpdatingLeadStatusId(lead.id);
+    try {
+      await update(lead.id, { status: nextStatus } as Partial<Lead>);
+      toast.success("Estado del lead actualizado.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar el estado del lead.");
+    } finally {
+      setUpdatingLeadStatusId(null);
+    }
+  };
 
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
@@ -2705,14 +2724,15 @@ function LeadsPage() {
                               {personLabel}
                             </div>
                           </button>
-                          <span
-                            className={cn(
-                              "inline-flex min-h-6 max-w-[92px] shrink-0 items-center rounded-full px-2.5 text-[11px] font-bold",
-                              getStatusTone(lead.status),
-                            )}
-                          >
-                            {getStatusLabel(lead.status)}
-                          </span>
+                          <InlineStatusSelect
+                            value={lead.status}
+                            options={STATUSES.map((status) => ({
+                              value: status,
+                              label: getStatusLabel(status),
+                            }))}
+                            onChange={(nextStatus) => handleInlineStatusChange(lead, nextStatus)}
+                            disabled={updatingLeadStatusId === lead.id || !can("leads.edit")}
+                          />
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-3 pl-[76px] max-[380px]:pl-0">
@@ -2839,23 +2859,15 @@ function LeadsPage() {
                               </div>
                             </td>
                             <td className="px-3 py-2" onClick={(event) => event.stopPropagation()}>
-                              <Select
+                              <InlineStatusSelect
                                 value={lead.status}
-                                onValueChange={(value) => void handleInlineStatusChange(lead, value)}
+                                options={STATUSES.map((status) => ({
+                                  value: status,
+                                  label: getStatusLabel(status),
+                                }))}
+                                onChange={(nextStatus) => handleInlineStatusChange(lead, nextStatus)}
                                 disabled={updatingLeadStatusId === lead.id || !can("leads.edit")}
-                              >
-                                <SelectTrigger className={cn(
-                                  "h-7 w-[150px] rounded-md border px-2 text-[11px] font-medium shadow-none focus:ring-0 focus:ring-offset-0",
-                                  getStatusTone(lead.status),
-                                )}>
-                                  <SelectValue>{getStatusLabel(lead.status)}</SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {STATUSES.map((status) => (
-                                    <SelectItem key={status} value={status}>{getStatusLabel(status)}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              />
                             </td>
                             <td className="px-3 py-2">
                               <span className={cn(
