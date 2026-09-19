@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineStatusSelect } from "@/components/crm/inline-status-select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -857,6 +858,19 @@ function ProposalsPage() {
     orderBy: "updated_at",
     ascending: false,
   });
+
+  const updateProposalStatus = async (proposal: Proposal, nextStatus: string) => {
+    if (!proposal.id || !nextStatus || proposal.status === nextStatus) return;
+    try {
+      await update(proposal.id, { status: nextStatus });
+      setSelected((current) =>
+        current?.id === proposal.id ? { ...current, status: nextStatus } : current,
+      );
+      toast.success("Estado de la propuesta actualizado.");
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo actualizar el estado de la propuesta.");
+    }
+  };
 
   const { data: products } = useCrud<Product>({
     table: "products",
@@ -2259,9 +2273,13 @@ function ProposalsPage() {
                             {p.number} · {productName}
                           </div>
                         </div>
-                        <StatusBadge
-                          status={p.status}
-                          className="min-h-6 max-w-[92px] shrink-0 truncate rounded-full px-2.5 text-[11px] font-bold"
+                        <InlineStatusSelect
+                          value={p.status}
+                          options={PROPOSAL_STATUSES.map((status) => ({
+                            value: status,
+                            label: status,
+                          }))}
+                          onChange={(nextStatus) => updateProposalStatus(p, nextStatus)}
                         />
                       </div>
 
@@ -2346,7 +2364,14 @@ function ProposalsPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <StatusBadge status={p.status} />
+                              <InlineStatusSelect
+                                value={p.status}
+                                options={PROPOSAL_STATUSES.map((status) => ({
+                                  value: status,
+                                  label: status,
+                                }))}
+                                onChange={(nextStatus) => updateProposalStatus(p, nextStatus)}
+                              />
                               {isProposalExpired(p.valid_until) &&
                               !isApprovedProposalStatus(p.status) &&
                               normalizeStatus(p.status) !== "rejected" ? (
