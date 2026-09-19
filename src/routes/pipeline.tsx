@@ -3706,24 +3706,14 @@ function PipelinePage() {
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 gap-2">
-                            <CrmDetailLineButton
-                              className="h-8"
-                              disabled={isWon || isLost}
-                              onClick={() => openReminderDialogForDeal(selectedDeal)}
-                              icon={<CalendarIcon className="h-4 w-4" />}
-                            >
-                              Recordatorio
-                            </CrmDetailLineButton>
-                            <CrmDetailLineButton
-                              className="h-8"
-                              disabled={!canCreateTaskForDeal(selectedDeal) || isWon || isLost}
-                              onClick={() => openFollowUpDialogForDeal(selectedDeal)}
-                              icon={<Plus className="h-4 w-4" />}
-                            >
-                              Tarea
-                            </CrmDetailLineButton>
-                          </div>
+                          <CrmDetailLineButton
+                            className="h-8 shrink-0"
+                            disabled={isWon || isLost}
+                            onClick={() => openReminderDialogForDeal(selectedDeal)}
+                            icon={<CalendarIcon className="h-4 w-4" />}
+                          >
+                            Recordatorio
+                          </CrmDetailLineButton>
                         </div>
                       </div>
 
