@@ -74,6 +74,7 @@ export function InvoiceWorkspaceDialog({
   canEditTasks,
   canManageReminders,
   canRegisterPayment,
+  registerPaymentDisabledReason,
   onRegisterPayment,
 }: {
   open: boolean;
@@ -109,6 +110,7 @@ export function InvoiceWorkspaceDialog({
   canEditTasks: boolean;
   canManageReminders: boolean;
   canRegisterPayment: boolean;
+  registerPaymentDisabledReason?: string;
   onRegisterPayment?: () => void;
 }) {
   const { profile, user } = useAuth();
@@ -383,6 +385,7 @@ export function InvoiceWorkspaceDialog({
           invoiceId={invoice.id}
           refreshKey={paymentReceiptsRefreshKey}
           canRegisterPayment={canRegisterPayment}
+          registerPaymentDisabledReason={registerPaymentDisabledReason}
           onRegisterPayment={onRegisterPayment}
         />
       </TabsContent>
