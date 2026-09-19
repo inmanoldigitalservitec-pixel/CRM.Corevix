@@ -513,7 +513,6 @@ function InvoicesPage() {
   };
 
   const canCreatePayment = can("payments.create");
-  const canCreateProjectRecord = can("projects.create");
   const canViewClients = can("clients.view_all") || can("clients.view_assigned");
   const canViewProjects = can("projects.view_all") || can("projects.view_assigned");
 
@@ -800,33 +799,6 @@ function InvoicesPage() {
     return token ? `${window.location.origin}/invoice/public/${token}` : null;
   };
 
-  const createProjectForInvoice = async (invoice: Invoice) => {
-    if (!canCreateProjectRecord) {
-      toast.error("No tienes permiso para crear proyectos.");
-      return;
-    }
-    if (
-      !window.confirm(
-        "Esto verificará si ya existe un proyecto para esta factura y lo creará si hace falta. ¿Continuar?",
-      )
-    ) {
-      return;
-    }
-    try {
-      const result = await ensureProjectFromPaidInvoice(invoice.id);
-      if (result.projectId) {
-        setProjectByInvoiceId((prev) => ({
-          ...prev,
-          [invoice.id]: result.projectId!,
-        }));
-      }
-      toast.success(result.created ? "Proyecto creado." : "Proyecto ya existente.");
-    } catch (e: any) {
-      console.error("create project quick action error:", e);
-      toast.error("No se pudo crear el proyecto.");
-    }
-  };
-
   const resetFilters = () => {
     setSearch("");
     setStatusFilter("all");
@@ -958,11 +930,6 @@ function InvoicesPage() {
       canRegisterPayment={
         canCreatePayment && isFinanciallyPending(invoice)
       }
-      canCreateProject={
-        canCreateProjectRecord &&
-        isFinanciallyPaid(invoice) &&
-        !projectByInvoiceId[invoice.id]
-      }
       canViewProject={
         canViewProjects &&
         isFinanciallyPaid(invoice) &&
@@ -979,7 +946,6 @@ function InvoicesPage() {
       onEdit={() => openInvoiceEditor(invoice)}
       onMarkPaid={() => void registerPayment(invoice)}
       onRegisterPayment={() => registerPayment(invoice)}
-      onCreateProject={() => void createProjectForInvoice(invoice)}
       onViewProject={() => viewProject(projectByInvoiceId[invoice.id])}
       onViewClient={() => viewClient(invoice)}
       onViewProposal={() => viewProposal(invoice)}
@@ -1151,7 +1117,6 @@ function InvoicesPage() {
   };
 
   const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
-  const [creatingProject, setCreatingProject] = useState(false);
   const [projectByInvoiceId, setProjectByInvoiceId] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -1162,35 +1127,6 @@ function InvoicesPage() {
 
     setLinkedProjectId(projectByInvoiceId[selected.id] || null);
   }, [drawerOpen, drawerMode, projectByInvoiceId, selected]);
-
-  const createProjectFromInvoice = async (invoiceId: string) => {
-    if (!invoiceId) return;
-    if (!canCreateProjectRecord) {
-      toast.error("No tienes permiso para crear proyectos.");
-      return;
-    }
-    if (
-      !window.confirm(
-        "Esto verificará si ya existe un proyecto para esta factura y lo creará si hace falta. ¿Continuar?",
-      )
-    ) {
-      return;
-    }
-    setCreatingProject(true);
-    try {
-      const result = await ensureProjectFromPaidInvoice(invoiceId);
-      if (result.projectId) {
-        setLinkedProjectId(result.projectId);
-        setProjectByInvoiceId((prev) => ({ ...prev, [invoiceId]: result.projectId! }));
-      }
-      toast.success(result?.created ? "Proyecto creado correctamente." : "Proyecto ya existía.");
-    } catch (e: any) {
-      console.error("create_project_from_paid_invoice error:", e);
-      toast.error("No se pudo crear el proyecto.");
-    } finally {
-      setCreatingProject(false);
-    }
-  };
 
   const ensureProjectFromPaidInvoice = async (invoiceId: string) => {
     const db = supabase as any;
