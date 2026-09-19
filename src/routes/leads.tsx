@@ -3245,8 +3245,6 @@ function LeadsPage() {
                   )}
                 </CrmDetailSection>
 
-                </CrmDetailSection>
-
                 <div data-demo="leads-quick-actions">
                   <CrmDetailSection
                     title="Acciones rápidas"
