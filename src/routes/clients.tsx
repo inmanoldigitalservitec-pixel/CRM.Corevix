@@ -1171,7 +1171,6 @@ function ClientsPage() {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectClientId, setProjectClientId] = useState<string | null>(null);
   const [projectAssigneeIds, setProjectAssigneeIds] = useState<string[]>([]);
-  const [quickProposalOpen, setQuickProposalOpen] = useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceClientId, setInvoiceClientId] = useState<string | null>(null);
   const [invoiceSaving, setInvoiceSaving] = useState(false);
@@ -5814,7 +5813,20 @@ function ClientsPage() {
                           title="No hay propuestas vinculadas"
                           description="Las propuestas creadas para este cliente aparecerán aquí."
                           actionLabel="Crear propuesta"
-                          onAction={() => setQuickProposalOpen(true)}
+                          onAction={() => {
+                            if (!selectedClient) return;
+                            void navigate({
+                              to: "/proposals",
+                              search: {
+                                clientId: selectedClient.id,
+                                title: `Propuesta — ${selectedClient.company_name}`,
+                                currency: "USD",
+                                valid_until: new Date(Date.now() + 15 * 86400000)
+                                  .toISOString()
+                                  .slice(0, 10),
+                              },
+                            });
+                          }}
                         />
                       ) : (
                         <div className="divide-y divide-slate-100 border-y border-slate-100">
@@ -7831,29 +7843,6 @@ function ClientsPage() {
             setSelectedClientId(String(args.record.id));
           }
           toast.success("Cliente creado rápido.");
-        }}
-      />
-
-      <QuickCreateDialog
-        type="proposal"
-        open={quickProposalOpen}
-        onOpenChange={setQuickProposalOpen}
-        context={
-          selectedClient
-            ? {
-                sourceType: "client",
-                sourceId: selectedClient.id,
-                prefill: {
-                  client_id: selectedClient.id,
-                  title: `Propuesta — ${selectedClient.company_name}`,
-                  currency: "USD",
-                  valid_until: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
-                },
-              }
-            : undefined
-        }
-        onCreated={() => {
-          toast.success("Propuesta vinculada al cliente.");
         }}
       />
 
