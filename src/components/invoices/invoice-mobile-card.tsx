@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { CalendarDays, CreditCard, ExternalLink, Eye } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineStatusSelect, type InlineStatusOption } from "@/components/crm/inline-status-select";
 import { Button } from "@/components/ui/button";
 
 export function InvoiceMobileCard({
@@ -9,6 +9,8 @@ export function InvoiceMobileCard({
   service,
   proposal,
   status,
+  statusOptions,
+  onStatusChange,
   total,
   dueLabel,
   collectionLabel,
@@ -21,6 +23,8 @@ export function InvoiceMobileCard({
   service: string;
   proposal: string;
   status: string;
+  statusOptions: InlineStatusOption[];
+  onStatusChange: (nextStatus: string) => Promise<void> | void;
   total: string;
   dueLabel: string;
   collectionLabel: string;
@@ -62,7 +66,11 @@ export function InvoiceMobileCard({
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <StatusBadge status={status} />
+        <InlineStatusSelect
+          value={status}
+          options={statusOptions}
+          onChange={onStatusChange}
+        />
         <span className="max-w-[56%] shrink-0 truncate text-right text-base font-extrabold text-slate-950">
           {total}
         </span>
