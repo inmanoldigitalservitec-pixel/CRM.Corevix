@@ -839,22 +839,26 @@ function VaultPage() {
 
           <div className="space-y-2">
             <label className={crmFormStyles.label}>Cliente</label>
-            <Select
-              value={form.client_id}
-              onValueChange={(value) => updateForm("client_id", value)}
-            >
-              <SelectTrigger className={crmFormStyles.select}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Sin cliente</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.company_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ClientProspectSearchSelect
+              clients={clients.map((client) => ({
+                id: client.id,
+                label: client.company_name,
+                secondaryLabel: client.contact_person,
+                searchText: [client.company_name, client.contact_person]
+                  .filter(Boolean)
+                  .join(" "),
+                data: client,
+              }))}
+              value={
+                form.client_id === NONE
+                  ? null
+                  : { type: "client", id: form.client_id }
+              }
+              placeholder="Buscar cliente"
+              onChange={(value) =>
+                updateForm("client_id", value?.id || NONE)
+              }
+            />
           </div>
 
           <div className="space-y-2">
