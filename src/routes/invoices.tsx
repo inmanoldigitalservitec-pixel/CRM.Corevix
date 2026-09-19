@@ -2162,7 +2162,14 @@ function InvoicesPage() {
           canCreateTasks={can("tasks.create")}
           canEditTasks={can("tasks.edit")}
           canManageReminders={can("invoices.edit")}
-          canRegisterPayment={canCreatePayment && isFinanciallyPending(selected)}
+          canRegisterPayment={canCreatePayment}
+          registerPaymentDisabledReason={
+            isInvoiceCancelled(selected)
+              ? "No se pueden registrar pagos en una factura cancelada."
+              : !isFinanciallyPending(selected)
+                ? "Esta factura no tiene saldo pendiente. Puedes gestionar los pagos existentes."
+                : undefined
+          }
           onRegisterPayment={() => void registerPayment(selected)}
         />
       ) : null}
