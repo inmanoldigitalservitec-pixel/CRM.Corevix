@@ -1855,6 +1855,16 @@ function ProposalsPage() {
         });
         const savedProposal = await create(payload as any);
         if (savedProposal?.id) await saveLineItems(savedProposal.id);
+        if (savedProposal?.id && form.lead_id) {
+          const { error: leadStatusError } = await (supabase as any)
+            .from("leads")
+            .update({ status: "Proposal Sent" })
+            .eq("id", form.lead_id)
+            .eq("company_id", profile.company_id);
+          if (leadStatusError) {
+            console.warn("No se pudo actualizar el estado del lead asociado", leadStatusError);
+          }
+        }
         void sendProposalNotification("Propuesta creada", `${title} fue creada.`);
         toast.success("Propuesta creada correctamente.");
       }
