@@ -3309,11 +3309,18 @@ function LeadsPage() {
                           label: "Email",
                           icon: <Mail className="h-4 w-4" />,
                           onClick: () => {
-                            if (!selectedLead.email) {
-                              toast.message("Este prospecto no tiene email");
+                            const email = selectedLead.email?.trim();
+                            if (!email) {
+                              toast.error("Este prospecto no contiene un correo electrónico.");
                               return;
                             }
-                            window.location.href = `mailto:${selectedLead.email}`;
+                            void navigate({
+                              to: "/email",
+                              search: {
+                                compose: "1",
+                                to: email,
+                              },
+                            });
                           },
                         },
                         {
