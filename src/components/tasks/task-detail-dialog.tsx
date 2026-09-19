@@ -84,6 +84,7 @@ type TaskRow = {
   due_date: string | null;
   related_project_id: string | null;
   related_client_id: string | null;
+  related_lead_id?: string | null;
   related_proposal_id?: string | null;
   created_at: string;
   company_id: string;
@@ -1606,6 +1607,10 @@ export function TaskCreateDialog({
     () => new Map(clients.map((client) => [client.id, client])),
     [clients],
   );
+  const leadsById = useMemo(
+    () => new Map(leads.map((lead) => [lead.id, lead])),
+    [leads],
+  );
   const productsById = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
     [products],
@@ -1619,6 +1624,7 @@ export function TaskCreateDialog({
       : selectedProject?.client_id
         ? clientsById.get(selectedProject.client_id) || null
         : null;
+  const selectedLead = draft.leadId ? leadsById.get(draft.leadId) || null : null;
   const draftProductName = selectedProject?.product_id
     ? productsById.get(selectedProject.product_id)?.name || "—"
     : "—";
@@ -1834,7 +1840,7 @@ export function TaskCreateDialog({
         .from("tasks")
         .insert(payload)
         .select(
-          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_proposal_id,created_at,company_id",
+          "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_lead_id,related_proposal_id,created_at,company_id",
         )
         .single();
       if (error) throw error;
@@ -1847,7 +1853,7 @@ export function TaskCreateDialog({
           .eq("id", createdTask.id)
           .eq("company_id", createdTask.company_id || companyId)
           .select(
-            "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_proposal_id,created_at,company_id",
+            "id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_lead_id,related_proposal_id,created_at,company_id",
           )
           .single();
         if (scheduleError) throw scheduleError;
@@ -1934,7 +1940,11 @@ export function TaskCreateDialog({
             </div>
             <div className="mt-3 flex w-full min-w-0 items-center gap-2 overflow-hidden border-t border-slate-100 pt-2">
               {renderContextPill(
-                selectedClient ? clientLabel(selectedClient) : "Sin cliente",
+                selectedClient
+                  ? clientLabel(selectedClient)
+                  : selectedLead
+                    ? `Prospecto: ${leadLabel(selectedLead)}`
+                    : "Sin relación",
                 <Users className="h-3.5 w-3.5" />,
               )}
               {renderContextPill(
