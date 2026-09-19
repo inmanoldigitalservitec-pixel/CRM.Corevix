@@ -1868,7 +1868,7 @@ export function TaskCreateDialog({
         companyId: createdTask.company_id || companyId,
         assigneeIds: draft.assigneeIds,
       });
-      void logActivityEvent({
+      await logActivityEvent({
         companyId: createdTask.company_id || companyId,
         userId: currentUserId,
         action: "task_created",
