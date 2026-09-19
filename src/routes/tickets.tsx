@@ -894,15 +894,35 @@ function TicketsPage() {
                 className={crmFormStyles.input}
               />
             </div>
-            <TicketSelect
-              label="Cliente"
-              value={form.client_id}
-              onChange={(value) =>
-                setForm((current) => ({ ...current, client_id: value, contact_id: NONE }))
-              }
-              options={clients.map((item) => ({ label: item.company_name, value: item.id }))}
-              noneLabel={t("tickets.noClient")}
-            />
+            <div className="space-y-1.5">
+              <Label className={crmFormStyles.label}>Cliente</Label>
+              <ClientProspectSearchSelect
+                clients={clients.map((client) => ({
+                  id: client.id,
+                  label: client.contact_person
+                    ? `${client.company_name} · ${client.contact_person}`
+                    : client.company_name,
+                  secondaryLabel: client.contact_person,
+                  searchText: [client.company_name, client.contact_person]
+                    .filter(Boolean)
+                    .join(" "),
+                  data: client,
+                }))}
+                value={
+                  form.client_id === NONE
+                    ? null
+                    : { type: "client", id: form.client_id }
+                }
+                placeholder="Buscar cliente"
+                onChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    client_id: value?.id || NONE,
+                    contact_id: NONE,
+                  }))
+                }
+              />
+            </div>
             <TicketSelect
               label={t("tickets.table.contact")}
               value={form.contact_id}
