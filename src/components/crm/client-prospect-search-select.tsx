@@ -22,7 +22,7 @@ export type ClientProspectOption = {
   label: string;
   secondaryLabel?: string | null;
   searchText?: string | null;
-  data?: Record<string, unknown>;
+  data?: unknown;
 };
 
 export type ClientProspectValue = {
