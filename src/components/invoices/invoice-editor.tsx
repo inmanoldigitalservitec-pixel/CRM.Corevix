@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { formatInvoiceMoney } from "@/components/invoices/invoice-utils";
 import { SalesDocumentLineEditor } from "@/components/sales/sales-document-line-editor";
 import type {
@@ -729,21 +730,45 @@ export function InvoiceEditor({
                 </Select>
               </Field>
               <Field label="Cliente">
-                <Select value={draft.client_id || NONE_CLIENT} onValueChange={selectClient}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE_CLIENT}>Sin cliente</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.contact_person
-                          ? `${client.company_name} · ${client.contact_person}`
-                          : client.company_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ClientProspectSearchSelect
+                  clients={clients.map((client) => ({
+                    id: client.id,
+                    label: client.contact_person
+                      ? `${client.company_name} · ${client.contact_person}`
+                      : client.company_name,
+                    secondaryLabel: [client.email, client.phone]
+                      .filter(Boolean)
+                      .join(" · ") || null,
+                    searchText: [
+                      client.company_name,
+                      client.contact_person,
+                      client.email,
+                      client.phone,
+                    ]
+                      .filter(Boolean)
+                      .join(" "),
+                    data: client,
+                  }))}
+                  value={
+                    draft.client_id
+                      ? { type: "client", id: draft.client_id }
+                      : null
+                  }
+                  placeholder="Buscar cliente"
+                  onChange={(value, option) => {
+                    const data = (option?.data || {}) as Record<string, unknown>;
+                    setDraft((current) => ({
+                      ...current,
+                      client_id: value?.id || null,
+                      clientName: cleanText(data.contact_person),
+                      clientCompany: cleanText(data.company_name),
+                      clientEmail: cleanText(data.email),
+                      clientPhone: cleanText(data.phone || data.whatsapp),
+                      clientAddress: cleanText(data.address),
+                      clientTaxId: cleanText(data.tax_id),
+                    }));
+                  }}
+                />
               </Field>
               <Field label="Propuesta">
                 <Select value={draft.proposal_id || NONE_PROPOSAL} onValueChange={applyProposal}>
