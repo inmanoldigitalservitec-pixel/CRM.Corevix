@@ -81,22 +81,34 @@ import {
 } from "@/hooks/use-company-taxes";
 
 type ProposalsSearch = {
+  new?: string;
   leadId?: string;
   dealId?: string;
   conversationId?: string;
   productId?: string;
   clientId?: string;
   proposalId?: string;
+  title?: string;
+  amount?: string;
+  currency?: string;
+  description?: string;
+  valid_until?: string;
 };
 
 export const Route = createFileRoute("/proposals")({
   validateSearch: (search: Record<string, unknown>): ProposalsSearch => ({
+    new: typeof search.new === "string" ? search.new : undefined,
     leadId: typeof search.leadId === "string" ? search.leadId : undefined,
     dealId: typeof search.dealId === "string" ? search.dealId : undefined,
     conversationId: typeof search.conversationId === "string" ? search.conversationId : undefined,
     productId: typeof search.productId === "string" ? search.productId : undefined,
     clientId: typeof search.clientId === "string" ? search.clientId : undefined,
     proposalId: typeof search.proposalId === "string" ? search.proposalId : undefined,
+    title: typeof search.title === "string" ? search.title : undefined,
+    amount: typeof search.amount === "string" ? search.amount : undefined,
+    currency: typeof search.currency === "string" ? search.currency : undefined,
+    description: typeof search.description === "string" ? search.description : undefined,
+    valid_until: typeof search.valid_until === "string" ? search.valid_until : undefined,
   }),
   component: ProposalsPage,
   head: () => ({ meta: [{ title: "Propuestas — Corevix CRM" }] }),
@@ -453,15 +465,15 @@ function EditableListField({
 function createEmptyProposalForm(context?: ProposalsSearch) {
   return {
     number: generateProposalNumber(),
-    title: "",
+    title: context?.title ?? "",
     proposalDate: dateAfterDays(0),
     product_id: context?.productId ?? null,
     client_id: context?.clientId ?? null,
     lead_id: context?.leadId ?? null,
     deal_id: context?.dealId ?? null,
     whatsapp_conversation_id: context?.conversationId ?? null,
-    amount: "",
-    currency: "USD",
+    amount: context?.amount ?? "",
+    currency: normalizeProposalCurrency(context?.currency || "USD"),
     status: "Draft",
     assignedTo: "",
     discountType: "none",
@@ -478,8 +490,8 @@ function createEmptyProposalForm(context?: ProposalsSearch) {
     recipientZipCode: "",
     recipientEmail: "",
     recipientPhone: "",
-    valid_until: dateAfterDays(7),
-    description: "",
+    valid_until: context?.valid_until || dateAfterDays(7),
+    description: context?.description ?? "",
     deliverablesText: "",
     estimatedTime: "",
     nextStep: "",
@@ -898,11 +910,17 @@ function ProposalsPage() {
 
   const openNewContext = useMemo(
     () => ({
+      ...(routeSearch.new ? { new: routeSearch.new } : {}),
       ...(routeSearch.leadId ? { leadId: routeSearch.leadId } : {}),
       ...(routeSearch.dealId ? { dealId: routeSearch.dealId } : {}),
       ...(routeSearch.conversationId ? { conversationId: routeSearch.conversationId } : {}),
       ...(routeSearch.productId ? { productId: routeSearch.productId } : {}),
       ...(routeSearch.clientId ? { clientId: routeSearch.clientId } : {}),
+      ...(routeSearch.title ? { title: routeSearch.title } : {}),
+      ...(routeSearch.amount ? { amount: routeSearch.amount } : {}),
+      ...(routeSearch.currency ? { currency: routeSearch.currency } : {}),
+      ...(routeSearch.description ? { description: routeSearch.description } : {}),
+      ...(routeSearch.valid_until ? { valid_until: routeSearch.valid_until } : {}),
     }),
     [
       routeSearch.clientId,
@@ -1552,10 +1570,12 @@ function ProposalsPage() {
   useEffect(() => {
     if (!isAdminLike) return;
     const hasContext = Boolean(
+      routeSearch.new ||
       routeSearch.leadId ||
       routeSearch.dealId ||
       routeSearch.conversationId ||
-      routeSearch.productId,
+      routeSearch.productId ||
+      routeSearch.clientId,
     );
     if (!hasContext) {
       autoOpenSearchKeyRef.current = null;
@@ -1567,6 +1587,13 @@ function ProposalsPage() {
       routeSearch.dealId || "",
       routeSearch.conversationId || "",
       routeSearch.productId || "",
+      routeSearch.clientId || "",
+      routeSearch.title || "",
+      routeSearch.amount || "",
+      routeSearch.currency || "",
+      routeSearch.description || "",
+      routeSearch.valid_until || "",
+      routeSearch.new || "",
     ].join("|");
 
     if (autoOpenSearchKeyRef.current === searchKey) return;
