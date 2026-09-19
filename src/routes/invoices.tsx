@@ -950,7 +950,7 @@ function InvoicesPage() {
 
   const renderActionsMenu = (
     invoice: Invoice,
-    options: { viewProposalDisabled?: boolean } = {},
+    options: { viewProposalDisabled?: boolean; inline?: boolean } = {},
   ) => (
     <InvoiceActionsMenu
       canOpenPublic={Boolean(invoice.public_token)}
@@ -971,6 +971,7 @@ function InvoicesPage() {
       canViewClient={canViewClients && Boolean(invoice.client_id)}
       canViewProposal={Boolean(invoice.proposal_id)}
       viewProposalDisabled={options.viewProposalDisabled}
+      inline={options.inline}
       canDeleteDraft={isInvoiceDraft(invoice)}
       onView={() => openInvoiceDetail(invoice)}
       onOpenPublic={() => openPublicInvoice(invoice)}
@@ -1811,46 +1812,9 @@ function InvoicesPage() {
           date: formatInvoiceDateTime(event.rawDate),
         })) as InvoiceActivityEvent[])
     : [];
-  const selectedDetailActions = selected ? (
-    <>
-      {isFinanciallyPaid(selected) ? (
-        linkedProjectId ? (
-          <CrmDetailLineButton
-            type="button"
-            onClick={() => viewProject(linkedProjectId)}
-            disabled={!canViewProjects}
-          >
-            Ver proyecto
-          </CrmDetailLineButton>
-        ) : (
-          <CrmDetailLineButton
-            type="button"
-            onClick={() => void createProjectFromInvoice(selected.id)}
-            disabled={creatingProject || !canCreateProjectRecord}
-          >
-            {creatingProject ? "Creando..." : "Crear proyecto"}
-          </CrmDetailLineButton>
-        )
-      ) : isInvoiceDraft(selected) ? (
-        <CrmDetailLineButton
-          type="button"
-          onClick={() => {
-            setEditItem(selected);
-            setEditorPaymentFeedback(null);
-            setDrawerMode("edit");
-          }}
-        >
-          Editar
-        </CrmDetailLineButton>
-      ) : null}
-      {canCreatePayment && isFinanciallyPending(selected) ? (
-        <CrmDetailLineButton type="button" onClick={() => void registerPayment(selected)}>
-          Registrar pago
-        </CrmDetailLineButton>
-      ) : null}
-      {renderActionsMenu(selected, { viewProposalDisabled: true })}
-    </>
-  ) : null;
+  const selectedDetailActions = selected
+    ? renderActionsMenu(selected, { viewProposalDisabled: true, inline: true })
+    : null;
 
   return (
     <div data-demo="invoices-main" className="min-h-dvh space-y-3 bg-white p-4 sm:p-6 md:space-y-5">
