@@ -70,6 +70,18 @@ type Client = {
   country?: string | null;
 };
 
+type Lead = {
+  id: string;
+  company_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+};
+
 type Product = {
   id: string;
   name: string;
@@ -87,6 +99,7 @@ type Estimate = {
   number: number | null;
   title: string;
   client_id?: string | null;
+  lead_id?: string | null;
   subtotal: number | null;
   tax: number | null;
   total: number | null;
@@ -195,6 +208,7 @@ function createEmptyForm(currency: CurrencyCode): SalesDocumentBuilderForm {
     documentDate: today(),
     validUntil: dateAfter(7),
     clientId: null,
+    leadId: null,
     productId: null,
     currency,
     status: "Draft",
@@ -305,6 +319,13 @@ function EstimatesPage() {
     ascending: true,
     limit: 500,
   });
+  const leadsCrud = useCrud<Lead>({
+    table: "leads",
+    select: "id,company_name,first_name,last_name,email,phone,address,city,country",
+    orderBy: "created_at",
+    ascending: false,
+    limit: 500,
+  });
   const productsCrud = useCrud<Product>({
     table: "products",
     select:
@@ -329,6 +350,10 @@ function EstimatesPage() {
     () => new Map(clientsCrud.data.map((client) => [client.id, client])),
     [clientsCrud.data],
   );
+  const leadById = useMemo(
+    () => new Map(leadsCrud.data.map((lead) => [lead.id, lead])),
+    [leadsCrud.data],
+  );
   const productById = useMemo(
     () => new Map(productsCrud.data.map((product) => [product.id, product])),
     [productsCrud.data],
@@ -338,7 +363,13 @@ function EstimatesPage() {
     const needle = search.trim().toLowerCase();
     return estimatesCrud.data.filter((estimate) => {
       const matchesStatus = statusFilter === "all" || estimate.status === statusFilter;
-      const clientName = estimate.client_id ? clientById.get(estimate.client_id)?.company_name || "" : "";
+      const clientName = estimate.client_id
+        ? clientById.get(estimate.client_id)?.company_name || ""
+        : estimate.lead_id
+          ? [leadById.get(estimate.lead_id)?.first_name, leadById.get(estimate.lead_id)?.last_name]
+              .filter(Boolean)
+              .join(" ") || leadById.get(estimate.lead_id)?.company_name || ""
+          : "";
       const matchesSearch =
         !needle ||
         estimate.title.toLowerCase().includes(needle) ||
@@ -346,7 +377,7 @@ function EstimatesPage() {
         clientName.toLowerCase().includes(needle);
       return matchesStatus && matchesSearch;
     });
-  }, [clientById, estimatesCrud.data, search, statusFilter]);
+  }, [clientById, estimatesCrud.data, leadById, search, statusFilter]);
 
   const totals = useMemo(() => calculateTotals(lineItems, form), [lineItems, form]);
   const currentAssigneeName = profile?.full_name || profile?.user_id || "Responsable";
@@ -410,12 +441,37 @@ function EstimatesPage() {
     setForm((current) => ({
       ...current,
       clientId,
+      leadId: null,
       recipientName: client?.company_name || "",
       recipientAddress: client?.address || "",
       recipientCity: client?.city || "",
       recipientCountry: client?.country || "",
       recipientEmail: client?.email || "",
       recipientPhone: client?.phone || "",
+    }));
+  };
+
+  const fillRelated = (value: { id: string; type: "client" | "lead" } | null) => {
+    if (!value) {
+      setForm((current) => ({ ...current, clientId: null, leadId: null }));
+      return;
+    }
+    if (value.type === "client") {
+      fillClient(value.id);
+      return;
+    }
+    const lead = leadById.get(value.id);
+    setForm((current) => ({
+      ...current,
+      clientId: null,
+      leadId: value.id,
+      recipientName:
+        [lead?.first_name, lead?.last_name].filter(Boolean).join(" ") || lead?.company_name || "",
+      recipientAddress: lead?.address || "",
+      recipientCity: lead?.city || "",
+      recipientCountry: lead?.country || "",
+      recipientEmail: lead?.email || "",
+      recipientPhone: lead?.phone || "",
     }));
   };
 
@@ -489,6 +545,7 @@ function EstimatesPage() {
       documentDate: estimate.date_issued || today(),
       validUntil: estimate.expiry_date || "",
       clientId: estimate.client_id || null,
+      leadId: estimate.lead_id || null,
       productId: data.productId || null,
       currency,
       status: estimate.status || "Draft",
@@ -587,6 +644,7 @@ function EstimatesPage() {
     const payload: Partial<Estimate> = {
       title: form.title.trim(),
       client_id: form.clientId,
+      lead_id: form.leadId || null,
       subtotal: nextTotals.subtotal,
       tax: nextTotals.taxTotal,
       total: nextTotals.total,
@@ -851,7 +909,11 @@ function EstimatesPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {estimate.client_id ? clientById.get(estimate.client_id)?.company_name || "—" : "—"}
+                    {estimate.client_id
+                      ? clientById.get(estimate.client_id)?.company_name || "—"
+                      : estimate.lead_id
+                        ? [leadById.get(estimate.lead_id)?.first_name, leadById.get(estimate.lead_id)?.last_name].filter(Boolean).join(" ") || leadById.get(estimate.lead_id)?.company_name || "—"
+                        : "—"}
                   </TableCell>
                   <TableCell>
                     <InlineStatusSelect
@@ -1040,6 +1102,7 @@ function EstimatesPage() {
                 rateUpdatedAt={currencySettings.rateUpdatedAt}
                 onCurrencyChange={changeCurrency}
                 onClientChange={fillClient}
+                onRelatedChange={fillRelated}
                 onProductChange={chooseBaseProduct}
                 onAddProductLine={addProductLine}
                 onAddBlankLine={() =>
