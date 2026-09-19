@@ -28,6 +28,7 @@ export function InvoiceActionsMenu({
   canViewClient,
   canViewProposal,
   viewProposalDisabled = false,
+  inline = false,
   canDeleteDraft,
   onView,
   onOpenPublic,
@@ -49,6 +50,7 @@ export function InvoiceActionsMenu({
   canViewClient: boolean;
   canViewProposal: boolean;
   viewProposalDisabled?: boolean;
+  inline?: boolean;
   canDeleteDraft: boolean;
   onView: () => void;
   onOpenPublic: () => void;
@@ -62,6 +64,78 @@ export function InvoiceActionsMenu({
   onViewProposal: () => void;
   onDeleteDraft: () => void;
 }) {
+  if (inline) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onView}>
+          <FileText className="h-4 w-4" />
+          Ver detalle
+        </CrmDetailLineButton>
+        <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onEdit}>
+          <Pencil className="h-4 w-4" />
+          Editar
+        </CrmDetailLineButton>
+        {canOpenPublic ? (
+          <>
+            <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onOpenPublic}>
+              <ExternalLink className="h-4 w-4" />
+              Ver factura pública
+            </CrmDetailLineButton>
+            <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onCopyPublic}>
+              <Copy className="h-4 w-4" />
+              Copiar enlace
+            </CrmDetailLineButton>
+          </>
+        ) : null}
+        {canRegisterPayment ? (
+          <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onRegisterPayment}>
+            <Receipt className="h-4 w-4" />
+            Registrar pago
+          </CrmDetailLineButton>
+        ) : null}
+        {canMarkPaid ? (
+          <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onMarkPaid}>
+            <CheckCircle2 className="h-4 w-4" />
+            Marcar pagada
+          </CrmDetailLineButton>
+        ) : null}
+        {canViewProject ? (
+          <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onViewProject}>
+            <BriefcaseBusiness className="h-4 w-4" />
+            Ver proyecto
+          </CrmDetailLineButton>
+        ) : null}
+        {canViewClient ? (
+          <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onViewClient}>
+            <UserRound className="h-4 w-4" />
+            Ver cliente
+          </CrmDetailLineButton>
+        ) : null}
+        {canViewProposal ? (
+          <CrmDetailLineButton
+            type="button"
+            className="h-8 gap-1.5 px-2 text-xs"
+            onClick={onViewProposal}
+            disabled={viewProposalDisabled}
+          >
+            <FileText className="h-4 w-4" />
+            Ver propuesta
+          </CrmDetailLineButton>
+        ) : null}
+        {canDeleteDraft ? (
+          <CrmDetailLineButton
+            type="button"
+            className="h-8 gap-1.5 px-2 text-xs text-destructive hover:text-destructive"
+            onClick={onDeleteDraft}
+          >
+            <Trash2 className="h-4 w-4" />
+            Eliminar borrador
+          </CrmDetailLineButton>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
