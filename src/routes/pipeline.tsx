@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -3208,113 +3209,92 @@ function PipelinePage() {
                       </SelectContent>
                     </Select>
 
-                    {newDeal.source_type === "lead" ? (
-                      <div className="mt-3">
-                        <Label className={crmFormStyles.label}>Prospecto</Label>
-                        <Select
-                          value={newDeal.lead_id}
-                          onValueChange={(v) => {
-                            const lead = dealLeadOptions.find((l) => String(l.id) === String(v));
-                            const label =
-                              lead?.company_name ||
-                              [lead?.first_name, lead?.last_name].filter(Boolean).join(" ") ||
-                              lead?.email ||
-                              lead?.phone ||
-                              "Nueva oportunidad";
-
-                            setNewDeal({
-                              ...newDeal,
-                              lead_id: v,
-                              name: newDeal.name || label,
-                              currency: normalizeCurrency(
-                                lead?.currency || currencySettings.baseCurrency,
-                              ),
-                              value:
-                                newDeal.value ||
-                                (lead?.estimated_value ? String(lead.estimated_value) : ""),
-                            });
-                          }}
-                        >
-                          <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
-                            <SelectValue
-                              placeholder={
-                                dealSourceOptionsLoading
-                                  ? "Cargando prospectos…"
-                                  : "Selecciona un prospecto"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dealLeadOptions.map((lead) => {
-                              const label =
-                                lead.company_name ||
-                                [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
-                                lead.email ||
-                                lead.phone ||
-                                String(lead.id);
-
-                              return (
-                                <SelectItem key={lead.id} value={lead.id}>
-                                  {label}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : null}
-
-                    {newDeal.source_type === "client" ? (
-                      <div className="mt-3">
-                        <Label className={crmFormStyles.label}>Cliente</Label>
-                        <Select
-                          value={newDeal.client_id}
-                          onValueChange={(v) => {
-                            const client = dealClientOptions.find(
-                              (c) => String(c.id) === String(v),
-                            );
-                            const label =
-                              client?.company_name ||
-                              client?.contact_person ||
-                              client?.email ||
-                              client?.phone ||
-                              "Nueva oportunidad";
-
-                            setNewDeal({
-                              ...newDeal,
-                              client_id: v,
-                              name: newDeal.name || label,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
-                            <SelectValue
-                              placeholder={
-                                dealSourceOptionsLoading
-                                  ? "Cargando clientes…"
-                                  : "Selecciona un cliente"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dealClientOptions.map((client) => {
-                              const label =
-                                client.company_name ||
-                                client.contact_person ||
-                                client.email ||
-                                client.phone ||
-                                String(client.id);
-
-                              return (
-                                <SelectItem key={client.id} value={client.id}>
-                                  {label}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : null}
+                    <div className="mt-3">
+                      <Label className={crmFormStyles.label}>Cliente o prospecto</Label>
+                      <ClientProspectSearchSelect
+                        clients={dealClientOptions.map((client) => ({
+                          id: String(client.id),
+                          label:
+                            client.company_name ||
+                            client.contact_person ||
+                            client.email ||
+                            client.phone ||
+                            String(client.id),
+                          secondaryLabel: [client.contact_person, client.email, client.phone]
+                            .filter(Boolean)
+                            .join(" · ") || null,
+                          searchText: [
+                            client.company_name,
+                            client.contact_person,
+                            client.email,
+                            client.phone,
+                          ]
+                            .filter(Boolean)
+                            .join(" "),
+                          data: client,
+                        }))}
+                        prospects={dealLeadOptions.map((lead) => ({
+                          id: String(lead.id),
+                          label:
+                            lead.company_name ||
+                            [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+                            lead.email ||
+                            lead.phone ||
+                            String(lead.id),
+                          secondaryLabel: [lead.email, lead.phone]
+                            .filter(Boolean)
+                            .join(" · ") || null,
+                          searchText: [
+                            lead.company_name,
+                            lead.first_name,
+                            lead.last_name,
+                            lead.email,
+                            lead.phone,
+                          ]
+                            .filter(Boolean)
+                            .join(" "),
+                          data: lead,
+                        }))}
+                        value={
+                          newDeal.source_type === "lead" && newDeal.lead_id
+                            ? { type: "lead", id: newDeal.lead_id }
+                            : newDeal.source_type === "client" && newDeal.client_id
+                              ? { type: "client", id: newDeal.client_id }
+                              : null
+                        }
+                        placeholder={
+                          dealSourceOptionsLoading
+                            ? "Cargando clientes y prospectos…"
+                            : "Buscar cliente o prospecto"
+                        }
+                        onChange={(value, option) => {
+                          const data = (option?.data || {}) as Record<string, unknown>;
+                          const label = String(
+                            option?.label ||
+                              data.company_name ||
+                              data.contact_person ||
+                              data.email ||
+                              data.phone ||
+                              "Nueva oportunidad",
+                          );
+                          setNewDeal({
+                            ...newDeal,
+                            source_type: value?.type || "none",
+                            lead_id: value?.type === "lead" ? value.id : "",
+                            client_id: value?.type === "client" ? value.id : "",
+                            name: newDeal.name || label,
+                            currency: normalizeCurrency(
+                              String(data.currency || currencySettings.baseCurrency),
+                            ),
+                            value:
+                              newDeal.value ||
+                              (value?.type === "lead" && data.estimated_value
+                                ? String(data.estimated_value)
+                                : ""),
+                          });
+                        }}
+                      />
+                    </div>
 
                     {!editDeal && activeProducts.length > 0 ? (
                       <div className="mt-3">
