@@ -75,26 +75,44 @@ export function InvoiceActivity({
         return;
       }
 
-      const { data, error } = await (supabase as any)
-        .from("activity_logs")
-        .select("id,action,detail,entity_type,entity_id,metadata,created_at")
-        .eq("company_id", profile.company_id)
-        .order("created_at", { ascending: false })
-        .limit(500);
+      const select = "id,action,detail,entity_type,entity_id,metadata,created_at";
+      const [direct, contextual, related] = await Promise.all([
+        (supabase as any)
+          .from("activity_logs")
+          .select(select)
+          .eq("company_id", profile.company_id)
+          .eq("entity_type", "invoices")
+          .eq("entity_id", invoiceId)
+          .order("created_at", { ascending: false })
+          .limit(200),
+        (supabase as any)
+          .from("activity_logs")
+          .select(select)
+          .eq("company_id", profile.company_id)
+          .contains("metadata", { invoice_id: invoiceId })
+          .order("created_at", { ascending: false })
+          .limit(200),
+        (supabase as any)
+          .from("activity_logs")
+          .select(select)
+          .eq("company_id", profile.company_id)
+          .contains("metadata", { related_invoice_id: invoiceId })
+          .order("created_at", { ascending: false })
+          .limit(200),
+      ]);
 
-      if (cancelled || error) return;
+      if (cancelled) return;
 
-      setLogs(
-        ((data || []) as ActivityLogRow[]).filter((row) => {
-          const metadataInvoiceId = String(
-            row.metadata?.invoice_id || row.metadata?.related_invoice_id || "",
-          );
-          return (
-            metadataInvoiceId === invoiceId ||
-            (row.entity_type === "invoices" && row.entity_id === invoiceId)
-          );
-        }),
+      const rows = [
+        ...(direct.data || []),
+        ...(contextual.data || []),
+        ...(related.data || []),
+      ] as ActivityLogRow[];
+      const uniqueRows = Array.from(new Map(rows.map((row) => [row.id, row])).values()).sort(
+        (left, right) =>
+          new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
       );
+      setLogs(uniqueRows);
     };
 
     void load();
