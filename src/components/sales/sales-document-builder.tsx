@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { SalesDocumentLineEditor } from "@/components/sales/sales-document-line-editor";
 import type {
   SalesDocumentLineItem,
@@ -142,19 +143,20 @@ export function SalesDocumentBuilder({
             <Label className={crmFormStyles.label}>
               <span className="text-rose-500">*</span> {relatedLabel}
             </Label>
-            <Select value={form.clientId || "none"} onValueChange={(value) => onClientChange(value === "none" ? null : value)}>
-              <SelectTrigger className={crmFormStyles.select}>
-                <SelectValue placeholder="Nada seleccionado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nada seleccionado</SelectItem>
-                {clientOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ClientProspectSearchSelect
+              clients={clientOptions.map((option) => ({
+                id: option.value,
+                label: option.label,
+                searchText: option.label,
+              }))}
+              value={
+                form.clientId
+                  ? { type: "client", id: form.clientId }
+                  : null
+              }
+              placeholder="Buscar cliente"
+              onChange={(value) => onClientChange(value?.id || null)}
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
