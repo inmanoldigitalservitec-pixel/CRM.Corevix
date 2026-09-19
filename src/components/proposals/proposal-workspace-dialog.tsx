@@ -47,6 +47,7 @@ import { renderProposalTemplateHtml } from "@/components/proposals/proposal-temp
 import { SalesDocumentWorkspaceDialog } from "@/components/sales/sales-document-workspace-dialog";
 import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
 import { TaskCreateDialog } from "@/components/tasks/task-detail-dialog";
+import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
@@ -285,13 +286,6 @@ function relativeTimeLabel(value: string) {
   return rtf.format(days, "day");
 }
 
-function defaultReminderDateTime() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  date.setHours(9, 0, 0, 0);
-  return date.toISOString().slice(0, 16);
-}
-
 function authorLabel(
   author: WorkspaceAuthor | null | undefined,
   fallbackName?: string | null,
@@ -499,16 +493,9 @@ export function ProposalWorkspaceDialog({
   const [savingReminder, setSavingReminder] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ProposalTemplateRow | null>(null);
   const [templateDraft, setTemplateDraft] = useState<ProposalTemplateDraft>(emptyTemplateDraft);
-  const [reminderDraft, setReminderDraft] = useState({
-    title: "",
-    notes: "",
-    remindAt: "",
-    assignedTo: "unassigned",
-  });
 
   const recipientName =
     proposal?.recipient_name ||
@@ -651,14 +638,11 @@ export function ProposalWorkspaceDialog({
 
     setLoadingReminders(true);
     const { data, error } = await (supabase as any)
-      .from("proposal_reminders")
-      .select(
-        "id,company_id,proposal_id,assigned_to,created_by,title,notes,remind_at,status,completed_at,archived_at,created_at,updated_at",
-      )
+      .from("calendar_events")
+      .select("id,company_id,user_id,title,description,status,start_at,related_proposal_id,updated_at")
       .eq("company_id", profile.company_id)
-      .eq("proposal_id", proposal.id)
-      .is("archived_at", null)
-      .order("remind_at", { ascending: true })
+      .eq("related_proposal_id", proposal.id)
+      .order("start_at", { ascending: true })
       .limit(200);
     setLoadingReminders(false);
 
@@ -667,7 +651,7 @@ export function ProposalWorkspaceDialog({
       return;
     }
 
-    setReminders((data || []) as ProposalReminderRow[]);
+    setReminders((data || []).map((event: any) => ({ id: event.id, company_id: event.company_id, proposal_id: event.related_proposal_id, assigned_to: event.user_id, created_by: event.user_id, title: event.title, notes: event.description, remind_at: event.start_at, status: event.status === "completed" ? "Completed" : event.status === "cancelled" ? "Cancelled" : "Pending", completed_at: event.status === "completed" ? event.updated_at : null, archived_at: null, created_at: event.updated_at, updated_at: event.updated_at })) as ProposalReminderRow[]);
   }, [profile?.company_id, proposal?.id]);
 
   const loadTemplates = useCallback(async () => {
@@ -715,6 +699,15 @@ export function ProposalWorkspaceDialog({
   ]);
 
   useEffect(() => {
+    const onReminderCreated = (event: Event) => {
+      const created = (event as CustomEvent<{ event?: { related_proposal_id?: string | null } }>).detail?.event;
+      if (created?.related_proposal_id === proposal?.id) void loadReminders();
+    };
+    window.addEventListener("corevix:reminder-created", onReminderCreated);
+    return () => window.removeEventListener("corevix:reminder-created", onReminderCreated);
+  }, [loadReminders, proposal?.id]);
+
+  useEffect(() => {
     if (!open) {
       setNoteDraft("");
       setCommentDraft("");
@@ -724,16 +717,9 @@ export function ProposalWorkspaceDialog({
       setNoteDialogOpen(false);
       setCommentDialogOpen(false);
       setTaskDialogOpen(false);
-      setReminderDialogOpen(false);
-      setTemplateDialogOpen(false);
+        setTemplateDialogOpen(false);
       setEditingTemplate(null);
       setTemplateDraft(emptyTemplateDraft);
-      setReminderDraft({
-        title: "",
-        notes: "",
-        remindAt: "",
-        assignedTo: "unassigned",
-      });
     }
   }, [open]);
 
@@ -923,82 +909,14 @@ export function ProposalWorkspaceDialog({
     toast.success(status === "Completed" ? "Tarea completada." : "Tarea actualizada.");
   }
 
-  async function saveReminder() {
-    if (!proposal?.id || !profile?.company_id)
-      return toast.error("No se pudo identificar tu compañía.");
-    const title = reminderDraft.title.trim();
-    if (!title) return toast.error("El título del recordatorio es obligatorio.");
-    if (!reminderDraft.remindAt)
-      return toast.error("Selecciona fecha y hora para el recordatorio.");
-
-    setSavingReminder(true);
-    const { data, error } = await (supabase as any)
-      .from("proposal_reminders")
-      .insert({
-        company_id: profile.company_id,
-        proposal_id: proposal.id,
-        assigned_to: reminderDraft.assignedTo === "unassigned" ? null : reminderDraft.assignedTo,
-        created_by: profile.id || null,
-        title,
-        notes: reminderDraft.notes.trim() || null,
-        remind_at: new Date(reminderDraft.remindAt).toISOString(),
-        status: "Pending",
-      })
-      .select("id")
-      .single();
-    setSavingReminder(false);
-
-    if (error) return toast.error(error.message || "No se pudo crear el recordatorio.");
-
-    setReminderDialogOpen(false);
-    setReminderDraft({
-      title: "",
-      notes: "",
-      remindAt: "",
-      assignedTo: "unassigned",
-    });
-    await loadReminders();
-    void logActivityEvent({
-      companyId: profile.company_id,
-      userId: profile.id || null,
-      action: "proposal_reminder_created",
-      entityType: "proposal_reminders",
-      entityId: data?.id || null,
-      detail: `Recordatorio creado para propuesta ${proposal.number}: ${title}`,
-      metadata: { proposal_id: proposal.id, remind_at: reminderDraft.remindAt },
-    }).catch(() => {});
-    toast.success("Recordatorio creado.");
-  }
-
-  async function updateReminderStatus(
-    reminder: ProposalReminderRow,
-    status: "Completed" | "Cancelled",
-  ) {
+  async function updateReminderStatus(reminder: ProposalReminderRow, status: "Completed" | "Cancelled") {
     if (!profile?.company_id) return;
-
     setSavingReminder(true);
-    const { error } = await (supabase as any)
-      .from("proposal_reminders")
-      .update({
-        status,
-        completed_at: status === "Completed" ? new Date().toISOString() : null,
-      })
-      .eq("id", reminder.id)
-      .eq("company_id", profile.company_id);
+    const nextStatus = status === "Completed" ? "completed" : "cancelled";
+    const { error } = await (supabase as any).from("calendar_events").update({ status: nextStatus }).eq("id", reminder.id).eq("company_id", profile.company_id);
     setSavingReminder(false);
-
-    if (error) return toast.error(error.message || "No se pudo actualizar el recordatorio.");
+    if (error) { toast.error(error.message || "No se pudo actualizar el recordatorio."); return; }
     await loadReminders();
-    void logActivityEvent({
-      companyId: profile.company_id,
-      userId: profile.id || null,
-      action:
-        status === "Completed" ? "proposal_reminder_completed" : "proposal_reminder_cancelled",
-      entityType: "proposal_reminders",
-      entityId: reminder.id,
-      detail: `Recordatorio ${status === "Completed" ? "completado" : "cancelado"} en propuesta ${proposal?.number || ""}`,
-      metadata: { proposal_id: proposal?.id, status },
-    }).catch(() => {});
     toast.success(status === "Completed" ? "Recordatorio completado." : "Recordatorio cancelado.");
   }
 
@@ -1168,6 +1086,16 @@ export function ProposalWorkspaceDialog({
 
   if (!proposal) return null;
 
+  function openProposalReminderCreator() {
+    if (!proposal) return;
+    openGlobalReminderCreate({ initialValues: {
+      title: `Dar seguimiento a ${proposal.title}`,
+      description: `Recordatorio creado desde la propuesta ${proposal.number}.`,
+      startAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      relatedProposalId: proposal.id,
+      contextLabel: `Propuesta: ${proposal.number}`,
+    } });
+  }
   return (
     <SalesDocumentWorkspaceDialog
       open={open}
@@ -1503,15 +1431,7 @@ export function ProposalWorkspaceDialog({
                 saving={savingReminder}
                 countLabel={reminderCountLabel}
                 onRefresh={() => void loadReminders()}
-                onCreate={() => {
-                  setReminderDraft({
-                    title: `Dar seguimiento a ${proposal.title}`,
-                    notes: "",
-                    remindAt: defaultReminderDateTime(),
-                    assignedTo: profile?.id || "unassigned",
-                  });
-                  setReminderDialogOpen(true);
-                }}
+                onCreate={openProposalReminderCreator}
                 onComplete={(reminder) => void updateReminderStatus(reminder, "Completed")}
                 onCancel={(reminder) => void updateReminderStatus(reminder, "Cancelled")}
               />
@@ -1739,116 +1659,7 @@ export function ProposalWorkspaceDialog({
           }}
         />
 
-        <ProjectWorkspaceFormDialog
-          open={reminderDialogOpen}
-          onOpenChange={(nextOpen) => {
-            if (savingReminder) return;
-            setReminderDialogOpen(nextOpen);
-          }}
-          title="Crear recordatorio"
-          description="Seguimiento vinculado a esta propuesta."
-          size="md"
-        >
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveReminder();
-            }}
-          >
-            <div className="space-y-2">
-              <Label className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                Título
-              </Label>
-              <Input
-                value={reminderDraft.title}
-                onChange={(event) =>
-                  setReminderDraft((current) => ({ ...current, title: event.target.value }))
-                }
-                placeholder="Ej: Llamar para dar seguimiento"
-                disabled={savingReminder}
-                className="h-11 rounded-2xl border-slate-200 shadow-none"
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                  Fecha y hora
-                </Label>
-                <Input
-                  type="datetime-local"
-                  value={reminderDraft.remindAt}
-                  onChange={(event) =>
-                    setReminderDraft((current) => ({ ...current, remindAt: event.target.value }))
-                  }
-                  disabled={savingReminder}
-                  className="h-11 rounded-2xl border-slate-200 shadow-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                  Responsable
-                </Label>
-                <Select
-                  value={reminderDraft.assignedTo}
-                  onValueChange={(value) =>
-                    setReminderDraft((current) => ({ ...current, assignedTo: value }))
-                  }
-                  disabled={savingReminder}
-                >
-                  <SelectTrigger className="h-11 rounded-2xl border-slate-200 shadow-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Sin responsable</SelectItem>
-                    {profiles.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {authorLabel(item)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                Notas
-              </Label>
-              <Textarea
-                value={reminderDraft.notes}
-                onChange={(event) =>
-                  setReminderDraft((current) => ({ ...current, notes: event.target.value }))
-                }
-                placeholder="Contexto del seguimiento."
-                disabled={savingReminder}
-                className="min-h-[130px] rounded-2xl border-slate-200 shadow-none"
-              />
-            </div>
-
-            <div className="sticky bottom-0 -mx-5 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setReminderDialogOpen(false)}
-                disabled={savingReminder}
-                className="rounded-full px-4"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={savingReminder || !reminderDraft.title.trim() || !reminderDraft.remindAt}
-                className="rounded-full px-4"
-              >
-                <Save className="mr-1.5 h-3.5 w-3.5" />
-                Crear recordatorio
-              </Button>
-            </div>
-          </form>
-        </ProjectWorkspaceFormDialog>
-    </SalesDocumentWorkspaceDialog>
+   </SalesDocumentWorkspaceDialog>
   );
 }
 
