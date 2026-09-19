@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/command";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
 import { toast } from "sonner";
@@ -1428,30 +1429,46 @@ function TaskEditorInfoFields({
       )}
       {renderEditField(
         "Relacionado con",
-        <Select value={relatedEntityValue} onValueChange={updateRelatedEntity}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccionar cliente o prospecto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_RELATED_VALUE}>Sin relación directa</SelectItem>
-            <SelectGroup>
-              <SelectLabel>Clientes</SelectLabel>
-              {clients.map((client) => (
-                <SelectItem key={`client:${client.id}`} value={`client:${client.id}`}>
-                  {clientLabel(client)}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-            <SelectGroup>
-              <SelectLabel>Prospectos</SelectLabel>
-              {leads.map((lead) => (
-                <SelectItem key={`lead:${lead.id}`} value={`lead:${lead.id}`}>
-                  {leadLabel(lead)}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>,
+        <ClientProspectSearchSelect
+          clients={clients.map((client) => ({
+            id: client.id,
+            label: clientLabel(client),
+            searchText: [client.company_name, client.contact_person]
+              .filter(Boolean)
+              .join(" "),
+            data: client,
+          }))}
+          prospects={leads.map((lead) => ({
+            id: lead.id,
+            label: leadLabel(lead),
+            secondaryLabel: [lead.email, lead.phone].filter(Boolean).join(" · ") || null,
+            searchText: [
+              lead.company_name,
+              lead.first_name,
+              lead.last_name,
+              lead.email,
+              lead.phone,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            data: lead,
+          }))}
+          value={
+            draft.clientId !== NO_CLIENT_VALUE && draft.clientId
+              ? { type: "client", id: draft.clientId }
+              : draft.leadId
+                ? { type: "lead", id: draft.leadId }
+                : null
+          }
+          placeholder="Buscar cliente o prospecto"
+          onChange={(value) => {
+            if (!value) {
+              updateRelatedEntity(NO_RELATED_VALUE);
+              return;
+            }
+            updateRelatedEntity(`${value.type === "client" ? "client" : "lead"}:${value.id}`);
+          }}
+        />,
       )}
       {renderEditField(
         "Project",
