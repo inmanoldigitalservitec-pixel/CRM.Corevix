@@ -228,6 +228,17 @@ interface Client {
   status: string;
 }
 
+interface ProposalLead {
+  id: string;
+  company_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  display_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
 interface ProposalProcessStep {
   title: string;
   description: string;
@@ -859,6 +870,12 @@ function ProposalsPage() {
     ascending: true,
   });
 
+  const { data: leads } = useCrud<ProposalLead>({
+    table: "leads",
+    orderBy: "created_at",
+    ascending: false,
+  });
+
   const { data: proposalItemRows, fetch: fetchProposalItems } = useCrud<ProposalItemRecord>({
     table: "proposal_items",
     orderBy: "sort_order",
@@ -965,6 +982,36 @@ function ProposalsPage() {
     for (const c of clients) m.set(c.id, c);
     return m;
   }, [clients]);
+
+  const leadById = useMemo(() => {
+    const m = new Map<string, ProposalLead>();
+    for (const lead of leads) m.set(lead.id, lead);
+    return m;
+  }, [leads]);
+
+  const getProposalRelatedLabel = (proposal: Proposal) => {
+    if (proposal.client_id) {
+      return clientById.get(proposal.client_id)?.company_name || "Cliente";
+    }
+
+    if (proposal.lead_id) {
+      const lead = leadById.get(proposal.lead_id);
+      if (lead) {
+        const contactName = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim();
+        return (
+          lead.company_name ||
+          lead.display_name ||
+          lead.full_name ||
+          contactName ||
+          lead.email ||
+          "Prospecto"
+        );
+      }
+      return proposal.recipient_name || "Prospecto";
+    }
+
+    return "—";
+  };
 
   const selectedProposalClient = useMemo(
     () => (form.client_id ? clientById.get(form.client_id) || null : null),
@@ -2181,9 +2228,7 @@ function ProposalsPage() {
                   const productName = p.product_id
                     ? productById.get(p.product_id)?.name || "Sin producto"
                     : "Sin producto";
-                  const clientName = p.client_id
-                    ? clientById.get(p.client_id)?.company_name || "Sin cliente"
-                    : "Sin cliente";
+                  const relatedName = getProposalRelatedLabel(p);
                   const expired =
                     isProposalExpired(p.valid_until) &&
                     !isApprovedProposalStatus(p.status) &&
@@ -2240,7 +2285,7 @@ function ProposalsPage() {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between gap-3 text-[12.5px] font-semibold text-slate-500">
-                        <span className="min-w-0 truncate">{clientName}</span>
+                        <span className="min-w-0 truncate">{relatedName}</span>
                         {expired ? (
                           <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
                             <TriangleAlert className="h-3 w-3" />
@@ -2264,7 +2309,7 @@ function ProposalsPage() {
                       <TableRow>
                         <TableHead className="pl-4 sm:pl-5">Número</TableHead>
                         <TableHead>Título</TableHead>
-                        <TableHead>Cliente</TableHead>
+                        <TableHead>Relacionado con</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="hidden md:table-cell">Monto</TableHead>
                         <TableHead className="hidden lg:table-cell">Vence</TableHead>
@@ -2297,7 +2342,7 @@ function ProposalsPage() {
                             )}
                           </TableCell>
                           <TableCell className="text-slate-600">
-                            {p.client_id ? clientById.get(p.client_id)?.company_name || "—" : "—"}
+                            {getProposalRelatedLabel(p)}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
