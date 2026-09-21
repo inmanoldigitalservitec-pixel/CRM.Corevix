@@ -2573,12 +2573,6 @@ function LeadsPage() {
                     Nuevo prospecto
                   </CrmDetailLineButton>
                 )}
-                <CrmDetailLineButton
-                  icon={<Sidebar className="h-4 w-4" />}
-                  onClick={() => setDetailOpen((current) => !current)}
-                >
-                  Ver detalle
-                </CrmDetailLineButton>
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
