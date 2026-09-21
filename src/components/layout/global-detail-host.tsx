@@ -396,6 +396,7 @@ function GlobalRecordDetailDialog({
   return (
     <Dialog open={!!detail} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 md:h-auto md:max-h-[82vh] md:w-[calc(100vw-24px)] md:max-w-4xl md:rounded-2xl md:border [&>button]:hidden">
+        <DialogTitle className="sr-only">{detail?.title || "Detalle"}</DialogTitle>
         {detail ? (
           <div className="flex h-full min-h-0 flex-col bg-white text-slate-950">
             <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 pb-3 pt-[calc(0.875rem+env(safe-area-inset-top))] text-left md:px-5 md:py-4">
@@ -404,9 +405,9 @@ function GlobalRecordDetailDialog({
                   <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
                     {detail.eyebrow}
                   </p>
-                  <DialogTitle className="mt-1 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-normal text-slate-950 md:text-[24px]">
+                  <h2 className="mt-1 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-normal text-slate-950 md:text-[24px]">
                     {detail.title}
-                  </DialogTitle>
+                  </h2>
                   <p className="mt-1 truncate text-[13px] font-semibold text-slate-500">
                     {detail.subtitle}
                   </p>
@@ -522,6 +523,7 @@ function GlobalEmailDetailDialog({
   return (
     <Dialog open={!!conversation} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden rounded-none border-0 p-0 md:h-[90vh] md:w-[calc(100vw-24px)] md:max-w-4xl md:rounded-2xl md:border [&>button]:hidden">
+        <DialogTitle className="sr-only">{conversation?.subject || "Correo"}</DialogTitle>
         {conversation ? (
           <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
             <DialogHeader
@@ -538,9 +540,9 @@ function GlobalEmailDetailDialog({
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-slate-500">Email</p>
-                    <DialogTitle className="mt-1 line-clamp-2 text-xl font-bold leading-tight tracking-normal text-slate-950">
+                    <h2 className="mt-1 line-clamp-2 text-xl font-bold leading-tight tracking-normal text-slate-950">
                       {conversation.subject || "Correo sin asunto"}
-                    </DialogTitle>
+                    </h2>
                     <p className="mt-1 truncate text-sm font-medium text-slate-500">
                       {conversation.from_email ||
                         conversation.to_email ||
@@ -644,7 +646,8 @@ function GlobalWhatsappDetailDialog({
 }) {
   return (
     <Dialog open={!!conversation} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 md:h-[90vh] md:w-[calc(100vw-24px)] md:max-w-3xl md:rounded-2xl md:border [&>button]:hidden">
+      <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 md:h-[90vh] md:max-w-3xl md:rounded-2xl md:border [&>button]:hidden">
+        <DialogTitle className="sr-only">{whatsappTitle(conversation) || "WhatsApp"}</DialogTitle>
         {conversation ? (
           <div className="flex h-full min-h-0 flex-col bg-[#f8fafc]">
             <DialogHeader className="shrink-0 border-b bg-white px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] text-left md:py-4">
@@ -657,9 +660,9 @@ function GlobalWhatsappDetailDialog({
                     <p className="text-xs font-semibold text-slate-500">
                       {conversation.channel || "WhatsApp"}
                     </p>
-                    <DialogTitle className="mt-1 truncate text-xl font-bold leading-tight tracking-normal text-slate-950">
+                    <h2 className="mt-1 truncate text-xl font-bold leading-tight tracking-normal text-slate-950">
                       {whatsappTitle(conversation)}
-                    </DialogTitle>
+                    </h2>
                     <p className="mt-1 truncate text-sm font-medium text-slate-500">
                       {conversation.phone ||
                         conversation.selected_service ||
