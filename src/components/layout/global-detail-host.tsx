@@ -1771,6 +1771,7 @@ export function GlobalDetailHost() {
       {projectBundle ? (
         <ProjectWorkspaceDialog
           project={projectBundle.project}
+          currencySettings={currencySettings}
           meta={projectBundle.meta}
           tasks={projectBundle.tasks}
           clientName={projectBundle.clientName}
