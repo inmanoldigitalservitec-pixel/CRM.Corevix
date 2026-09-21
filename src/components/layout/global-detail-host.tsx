@@ -30,7 +30,7 @@ import { CrmDetailRow, CrmDetailSection } from "@/components/crm/crm-detail";
 import { DetailSheet } from "@/components/crm/detail-sheet";
 import { EmailHtmlViewer } from "@/components/email/email-html-viewer";
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
-import { InvoiceDetailsPanel } from "@/components/invoices/invoice-details-panel";
+import { InvoiceWorkspaceDialog } from "@/components/invoices/invoice-workspace-dialog";
 import type { InvoiceActivityEvent } from "@/components/invoices/invoice-activity";
 import type { InvoiceDetailItem } from "@/components/invoices/invoice-items-view";
 import { CalendarEventDetailDialog } from "@/components/calendar/calendar-event-detail-dialog";
@@ -1810,46 +1810,33 @@ export function GlobalDetailHost() {
         onAddMessage={addTicketMessage}
       />
 
-      <Dialog open={!!invoice} onOpenChange={(open) => !open && close()}>
-        <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 md:h-[90vh] md:w-[calc(100vw-24px)] md:max-w-5xl md:rounded-2xl md:border [&>button]:hidden">
-          {invoice ? (
-            <div className="flex h-full min-h-0 flex-col">
-              <DialogHeader className="border-b px-5 py-4 text-left">
-                <div className="flex items-center justify-between gap-3 pr-8">
-                  <DialogTitle>Factura {invoice.number}</DialogTitle>
-                  <Button variant="ghost" size="icon" onClick={close}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </DialogHeader>
-              <ScrollArea className="min-h-0 flex-1">
-                <div className="p-5">
-                  <InvoiceDetailsPanel
-                    invoice={invoice}
-                    actions={null}
-                    summaryFields={invoiceSummaryFields}
-                    issuerFields={[]}
-                    clientFields={[]}
-                    items={invoiceItems}
-                    itemsLoading={invoiceItemsLoading}
-                    itemsError={null}
-                    activity={buildInvoiceActivity(invoice)}
-                    currency={invoiceCurrency}
-                    total={money(invoice.total, invoiceCurrency)}
-                    balance={money(invoice.total, invoiceCurrency)}
-                    subtotal={money(invoice.subtotal, invoiceCurrency)}
-                    tax={money(invoice.tax, invoiceCurrency)}
-                    discount={money(invoice.discount, invoiceCurrency)}
-                    notes={invoice.notes}
-                    publicUrl={invoice.payment_link || null}
-                    formatMoney={money}
-                  />
-                </div>
-              </ScrollArea>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <InvoiceWorkspaceDialog
+        open={!!invoice}
+        onOpenChange={(open) => !open && close()}
+        invoice={invoice}
+        financialStatus={invoice?.status || "Draft"}
+        actions={null}
+        summaryFields={invoiceSummaryFields}
+        issuerFields={[]}
+        clientFields={[]}
+        items={invoiceItems}
+        itemsLoading={invoiceItemsLoading}
+        itemsError={null}
+        activity={invoice ? buildInvoiceActivity(invoice) : []}
+        currency={invoiceCurrency}
+        total={money(invoice?.total, invoiceCurrency)}
+        balance={money(invoice?.total, invoiceCurrency)}
+        subtotal={money(invoice?.subtotal, invoiceCurrency)}
+        tax={money(invoice?.tax, invoiceCurrency)}
+        discount={money(invoice?.discount, invoiceCurrency)}
+        notes={invoice?.notes}
+        formatMoney={money}
+        canEditNotes={false}
+        canCreateTasks={false}
+        canEditTasks={false}
+        canManageReminders={false}
+        canRegisterPayment={false}
+      />
 
       <GlobalRecordDetailDialog detail={recordDetail} onClose={close} />
       <GlobalEmailDetailDialog
