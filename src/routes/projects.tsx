@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import {
   CURRENCY_OPTIONS,
+  DEFAULT_COMPANY_CURRENCY_SETTINGS,
   convertCurrencyAmount,
   convertToBaseCurrency,
   formatCurrencyAmount,
@@ -1183,7 +1184,7 @@ function ProjectsPage() {
         ]}
       >
         <div className="mt-2 grid w-full grid-cols-2 gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter || "all"} onValueChange={setStatusFilter}>
             <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
               <SelectValue />
             </SelectTrigger>
@@ -1195,7 +1196,7 @@ function ProjectsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={tasksFilter} onValueChange={setTasksFilter}>
+          <Select value={tasksFilter || "all"} onValueChange={setTasksFilter}>
             <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
               <SelectValue />
             </SelectTrigger>
@@ -1264,7 +1265,7 @@ function ProjectsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={clientFilter} onValueChange={setClientFilter}>
+            <Select value={clientFilter || "all"} onValueChange={setClientFilter}>
               <CrmDetailSelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Cliente" />
               </CrmDetailSelectTrigger>
@@ -1277,7 +1278,7 @@ function ProjectsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={productFilter} onValueChange={setProductFilter}>
+            <Select value={productFilter || "all"} onValueChange={setProductFilter}>
               <CrmDetailSelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Producto" />
               </CrmDetailSelectTrigger>
@@ -1290,7 +1291,7 @@ function ProjectsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={managerFilter} onValueChange={setManagerFilter}>
+            <Select value={managerFilter || "all"} onValueChange={setManagerFilter}>
               <CrmDetailSelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Responsable" />
               </CrmDetailSelectTrigger>
@@ -1820,7 +1821,7 @@ function ProjectSelect({
   return (
     <div className="space-y-1.5">
       <Label className={crmFormStyles.label}>{label}</Label>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value || NONE} onValueChange={onChange}>
         <SelectTrigger className={crmFormStyles.select}>
           <SelectValue />
         </SelectTrigger>
@@ -1839,7 +1840,7 @@ function ProjectSelect({
 
 export function ProjectWorkspaceDialog({
   project,
-  currencySettings,
+  currencySettings: currencySettingsProp,
   meta,
   tasks,
   clientName,
@@ -1858,7 +1859,7 @@ export function ProjectWorkspaceDialog({
   onCompleteTask,
 }: {
   project: Project;
-  currencySettings: CompanyCurrencySettings;
+  currencySettings?: CompanyCurrencySettings;
   meta: { stats: ProjectStats; isOverdue: boolean; hasRisk: boolean };
   tasks: TaskRow[];
   clientName: string;
@@ -1876,6 +1877,7 @@ export function ProjectWorkspaceDialog({
   onCreateTask: () => void;
   onCompleteTask: (task: TaskRow) => void;
 }) {
+  const currencySettings = currencySettingsProp ?? DEFAULT_COMPANY_CURRENCY_SETTINGS;
   const [activeTab, setActiveTab] = useState("overview");
   const [moreOpen, setMoreOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
