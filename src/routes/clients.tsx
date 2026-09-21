@@ -1420,6 +1420,15 @@ function ClientsPage() {
     limit: 2000,
   });
 
+  useEffect(() => {
+    const onReminderCreated = () => {
+      void fetchCalendarEvents();
+    };
+
+    window.addEventListener("corevix:reminder-created", onReminderCreated);
+    return () => window.removeEventListener("corevix:reminder-created", onReminderCreated);
+  }, [fetchCalendarEvents]);
+
   const {
     data: vaultItems,
     loading: vaultItemsLoading,
