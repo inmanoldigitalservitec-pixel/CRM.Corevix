@@ -80,6 +80,7 @@ import {
   matchesAmountFilter,
   matchesDueFilter,
   matchesOperationalFilter,
+  mergeAddressParts,
   type InvoiceAmountFilter,
   type InvoiceDueFilter,
   type InvoiceOperationalFilter,
@@ -574,7 +575,7 @@ function InvoicesPage() {
         if (clientIds.length) {
           const { data: rows, error } = await db
             .from("clients")
-            .select("id, company_name, contact_person, email, phone, address, tax_id")
+            .select("id, company_name, contact_person, email, phone, address, city, country, tax_id")
             .eq("company_id", profile.company_id)
             .in("id", clientIds);
           if (error) throw error;
@@ -1693,7 +1694,15 @@ function InvoicesPage() {
         },
         { label: "Teléfono", value: readTextValue(selectedInvoiceData.clientPhone) },
         { label: "ID fiscal", value: readTextValue(selectedInvoiceData.clientTaxId) },
-        { label: "Dirección", value: readTextValue(selectedInvoiceData.clientAddress) },
+        {
+          label: "Dirección",
+          value: mergeAddressParts(
+            selectedInvoiceData.clientAddress,
+            selectedClient?.address,
+            selectedClient?.city,
+            selectedClient?.country,
+          ),
+        },
         {
           label: "Producto / servicio",
           value:
@@ -1751,7 +1760,7 @@ function InvoicesPage() {
         })) as InvoiceActivityEvent[])
     : [];
   const selectedDetailActions = selected
-    ? renderActionsMenu(selected, { viewProposalDisabled: true, inline: true })
+    ? renderActionsMenu(selected, { inline: true })
     : null;
 
   return (

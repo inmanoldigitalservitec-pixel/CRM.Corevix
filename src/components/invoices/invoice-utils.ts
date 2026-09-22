@@ -5,6 +5,29 @@ export type InvoiceOperationalFilter = "all" | "pending" | "overdue" | "paid" | 
 export type InvoiceDueFilter = "all" | "today" | "week" | "month" | "overdue";
 export type InvoiceAmountFilter = "all" | "lt1000" | "1000_5000" | "5000_10000" | "gte10000";
 
+export function mergeAddressParts(...values: unknown[]) {
+  const parts: string[] = [];
+
+  for (const value of values) {
+    const next = String(value || "").trim();
+    if (!next) continue;
+
+    const normalizedNext = next.toLocaleLowerCase("es");
+    const alreadyIncluded = parts.some((part) => {
+      const normalizedPart = part.toLocaleLowerCase("es");
+      return (
+        normalizedPart === normalizedNext ||
+        normalizedPart.includes(normalizedNext) ||
+        normalizedNext.includes(normalizedPart)
+      );
+    });
+
+    if (!alreadyIncluded) parts.push(next);
+  }
+
+  return parts.join(", ");
+}
+
 type InvoiceLike = {
   status: string;
   due_date?: string | null;

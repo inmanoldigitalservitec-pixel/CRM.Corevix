@@ -25,6 +25,7 @@ import {
   loadPaymentNetBalance,
   type PaymentNetBalance,
 } from "@/lib/payments/payment-net-balance";
+import { mergeAddressParts } from "@/components/invoices/invoice-utils";
 
 type PaymentWorkspaceTab = "receipt" | "details" | "movements" | "receipts";
 
@@ -64,6 +65,8 @@ type ClientRow = {
   email: string | null;
   phone: string | null;
   address: string | null;
+  city: string | null;
+  country: string | null;
   tax_id: string | null;
 };
 
@@ -190,7 +193,7 @@ export function PaymentWorkspaceDialog({
               ? db
                   .from("clients")
                   .select(
-                    "id,company_name,contact_person,email,phone,address,tax_id",
+                    "id,company_name,contact_person,email,phone,address,city,country,tax_id",
                   )
                   .eq("company_id", profile.company_id)
                   .eq("id", paymentRow.client_id)
@@ -312,8 +315,12 @@ export function PaymentWorkspaceDialog({
           readText(invoiceData, "clientPhone") ||
           client?.phone,
         address:
-          readText(invoiceData, "clientAddress") ||
-          client?.address,
+          mergeAddressParts(
+            readText(invoiceData, "clientAddress"),
+            client?.address,
+            client?.city,
+            client?.country,
+          ),
         taxId:
           readText(invoiceData, "clientTaxId") ||
           client?.tax_id,
