@@ -27,6 +27,7 @@ import { LoadingTable } from "@/components/crm/loading-state";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { CrmDetailLineButton, CrmDetailSelectTrigger } from "@/components/crm/crm-detail-layout";
+import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
