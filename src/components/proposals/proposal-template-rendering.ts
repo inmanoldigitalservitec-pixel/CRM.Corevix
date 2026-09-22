@@ -61,6 +61,27 @@ function getClientValue(proposal: any, key: string) {
   return client?.[key] ?? "";
 }
 
+function buildRecipientAddress(proposal: any) {
+  const data = proposalData(proposal);
+  const parts: string[] = [];
+  const appendUnique = (value: unknown) => {
+    const next = clean(value);
+    if (!next) return;
+    const current = parts.join(", ").toLocaleLowerCase("es");
+    if (!current.includes(next.toLocaleLowerCase("es"))) parts.push(next);
+  };
+
+  appendUnique(proposal?.recipient_address || data?.recipientAddress || getClientValue(proposal, "address"));
+  appendUnique(proposal?.recipient_city || data?.recipientCity || getClientValue(proposal, "city"));
+  appendUnique(proposal?.recipient_state || data?.recipientState || getClientValue(proposal, "state"));
+  appendUnique(
+    proposal?.recipient_country || data?.recipientCountry || getClientValue(proposal, "country"),
+  );
+  appendUnique(proposal?.recipient_zip_code || data?.recipientZipCode || getClientValue(proposal, "zip_code"));
+
+  return parts.join(", ");
+}
+
 function proposalData(proposal: any) {
   return proposal?.proposal_data && typeof proposal.proposal_data === "object"
     ? proposal.proposal_data
@@ -251,7 +272,7 @@ function buildMergeFields(
     client_name: clientName,
     client_email: proposal?.recipient_email || getClientValue(proposal, "email"),
     client_phone: proposal?.recipient_phone || getClientValue(proposal, "phone"),
-    client_address: proposal?.recipient_address || "",
+    client_address: buildRecipientAddress(proposal),
     company_name: companyName,
     company_tax_id: companyTaxId,
     company_email: companyEmail,
@@ -288,6 +309,12 @@ export function renderProposalTemplateHtml(
     const replacement = key === "proposal_items" ? value : escapeHtml(value);
     html = html.replace(new RegExp(`\\{${key}\\}`, "g"), replacement);
   });
+
+  // Remove the known accidental QA marker without mutating the persisted proposal.
+  html = html.replace(
+    /esta propuesta buesadjncsdjknjksdnckjsd ckjsdnckjdsncjsdncsdncjsdncksdncksjn/gi,
+    "",
+  );
 
   return sanitizeTemplateHtml(html);
 }
