@@ -1149,7 +1149,24 @@ function InvoicesPage() {
       return;
     }
     try {
-      await update(inv.id, { status: nextStatus } as Partial<Invoice>);
+      if (nextStatus === "Sent") {
+        const db = supabase as any;
+        const { data, error } = await db.rpc("issue_invoice", {
+          p_invoice_id: inv.id,
+        });
+        if (error) throw error;
+
+        const result = Array.isArray(data) ? data[0] : data;
+        const sentAt = result?.sent_at || new Date().toISOString();
+        setSelected((current) =>
+          current?.id === inv.id
+            ? { ...current, status: "Sent", sent_at: sentAt }
+            : current,
+        );
+        await fetch();
+      } else {
+        await update(inv.id, { status: nextStatus } as Partial<Invoice>);
+      }
       toast.success("Estado actualizado");
 
       if (isPaidInvoiceStatus(nextStatus)) {
