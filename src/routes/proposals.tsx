@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 44818)
-Total output lines: 4152
-
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -1703,7 +1700,1301 @@ function ProposalsPage() {
     }
   }, [data, routeSearch.proposalId]);
 
-  const handleSubmit = async (e: R…14818 tokens truncated…      <SelectContent>
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!isAdminLike) {
+      toast.error("No tienes permiso para crear/editar propuestas.");
+      return;
+    }
+    if (!profile?.company_id) {
+      toast.error("No se pudo detectar la empresa (company_id).");
+      return;
+    }
+    if (!user?.id) {
+      toast.error("No se pudo detectar tu sesión (user.id). Vuelve a iniciar sesión.");
+      return;
+    }
+
+    const uuidOrNull = (value: unknown) => {
+      const v = String(value ?? "").trim();
+      return v ? v : null;
+    };
+
+    const number = form.number.trim() || generateProposalNumber();
+    const title = form.title.trim();
+    if (!title) {
+      toast.error("El título es requerido");
+      return;
+    }
+
+    const currency = normalizeProposalCurrency(form.currency);
+    const amount = normalizeCurrencyAmount(proposalTotals.total || Number(form.amount), currency);
+    const publicToken =
+      String(form.public_token || "").trim() ||
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? (crypto as any).randomUUID()
+        : generatePublicToken());
+    const proposalLineItems = normalizeProposalLineItems(form.proposalItems);
+    const tagsArray = form.tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    const baseProposalData =
+      editItem?.proposal_data && typeof editItem.proposal_data === "object"
+        ? { ...(editItem.proposal_data as any) }
+        : {};
+
+    const proposalData = {
+      ...baseProposalData,
+      serviceDescription: form.description?.trim() || null,
+      proposalDate: form.proposalDate || null,
+      assignedTo: form.assignedTo?.trim() || currentAssigneeName,
+      discountType: form.discountType || "none",
+      discountValue:
+        form.discountType === "percent"
+          ? form.discountValue?.trim() || null
+          : normalizeCurrencyInput(form.discountValue, currency) || null,
+      adjustmentValue: normalizeCurrencyInput(form.adjustmentValue, currency) || null,
+      quantityMode: form.quantityMode || "qty",
+      tags: tagsArray,
+      allowComments: Boolean(form.allowComments),
+      recipientName: form.recipientName?.trim() || null,
+      recipientAddress: form.recipientAddress?.trim() || null,
+      recipientCity: form.recipientCity?.trim() || null,
+      recipientState: form.recipientState?.trim() || null,
+      recipientCountry: form.recipientCountry?.trim() || null,
+      recipientZipCode: form.recipientZipCode?.trim() || null,
+      recipientEmail: form.recipientEmail?.trim() || null,
+      recipientPhone: form.recipientPhone?.trim() || null,
+      proposalItems: proposalLineItems,
+      totals: proposalTotals,
+      deliverablesText: form.deliverablesText?.trim() || null,
+      estimatedTime: form.estimatedTime?.trim() || null,
+      nextStep: form.nextStep?.trim() || null,
+      introductionText: form.introductionText?.trim() || null,
+      objectiveText: form.objectiveText?.trim() || null,
+      featuresText: form.featuresText?.trim() || null,
+      optionalServicesText: form.optionalServicesText?.trim() || null,
+      outOfScopeText: form.outOfScopeText?.trim() || null,
+      processText: form.processText?.trim() || null,
+      processSteps:
+        Array.isArray(form.processSteps) && form.processSteps.length
+          ? form.processSteps.map((step, index) => ({
+              title: step.title?.trim() || `Paso ${index + 1}`,
+              description: step.description?.trim() || "",
+              order: Number(step.order || index + 1),
+              durationDays: step.durationDays ?? null,
+            }))
+          : null,
+      initialStageText: form.initialStageText?.trim() || null,
+      productionStageText: form.productionStageText?.trim() || null,
+      revisionStageText: form.revisionStageText?.trim() || null,
+      finalStageText: form.finalStageText?.trim() || null,
+      clientRequirementsText: form.clientRequirementsText?.trim() || null,
+      requiredMaterialsText: form.requiredMaterialsText?.trim() || null,
+      requiredAccessText: form.requiredAccessText?.trim() || null,
+      clientResponseTimeText: form.clientResponseTimeText?.trim() || null,
+      revisionRoundsText: form.revisionRoundsText?.trim() || null,
+      termsText: form.termsText?.trim() || null,
+      paymentFrequency: form.paymentFrequency?.trim() || null,
+      investmentDetailsText: form.investmentDetailsText?.trim() || null,
+      additionalCostsText: form.additionalCostsText?.trim() || null,
+      paymentTermsText: form.paymentTermsText?.trim() || null,
+      customContent: form.content?.trim() || null,
+    };
+
+    let defaultTemplate: { id: string; content_html: string } | null = null;
+    if (!editItem) {
+      const { data: templateRow } = await (supabase as any)
+        .from("proposal_templates")
+        .select("id,content_html")
+        .eq("company_id", profile.company_id)
+        .eq("is_default", true)
+        .eq("is_active", true)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      defaultTemplate = templateRow || null;
+    }
+
+    const record: Record<string, any> = {
+      company_id: profile.company_id,
+      number,
+      title,
+      product_id: uuidOrNull(form.product_id),
+      client_id: uuidOrNull(form.client_id),
+      lead_id: uuidOrNull(form.lead_id),
+      deal_id: uuidOrNull(form.deal_id),
+      whatsapp_conversation_id: uuidOrNull(form.whatsapp_conversation_id),
+      amount: Number.isFinite(amount) ? amount : 0,
+      currency,
+      status: form.status || "Draft",
+      proposal_date: form.proposalDate || null,
+      discount_type: form.discountType || "none",
+      discount_value:
+        form.discountType === "percent"
+          ? parseMoneyValue(form.discountValue)
+          : normalizeCurrencyAmount(form.discountValue, currency),
+      adjustment_value: normalizeCurrencyAmount(form.adjustmentValue, currency),
+      subtotal: proposalTotals.subtotal,
+      tax_total: proposalTotals.taxTotal,
+      total: proposalTotals.total,
+      quantity_mode: form.quantityMode || "qty",
+      tags: tagsArray,
+      allow_comments: Boolean(form.allowComments),
+      recipient_name: form.recipientName.trim() || null,
+      recipient_email: form.recipientEmail.trim() || null,
+      recipient_phone: form.recipientPhone.trim() || null,
+      recipient_address: form.recipientAddress.trim() || null,
+      recipient_city: form.recipientCity.trim() || null,
+      recipient_state: form.recipientState.trim() || null,
+      recipient_country: form.recipientCountry.trim() || null,
+      recipient_zip_code: form.recipientZipCode.trim() || null,
+      valid_until: form.valid_until || null,
+      description: form.description.trim() || null,
+      content: defaultTemplate?.content_html || form.content.trim() || null,
+      proposal_data: proposalData,
+      notes: form.notes.trim() || null,
+      sent_at: form.sent_at || null,
+      public_token: publicToken,
+      template_id: editItem ? editItem.template_id || null : defaultTemplate?.id || null,
+      template_key: editItem
+        ? editItem.template_key || null
+        : defaultTemplate
+          ? "custom_html"
+          : null,
+    };
+    const saveLineItems = async (proposalId: string) => {
+      const db = supabase as any;
+      const { error: deleteError } = await db
+        .from("proposal_items")
+        .delete()
+        .eq("proposal_id", proposalId)
+        .eq("company_id", profile.company_id);
+      if (deleteError) throw deleteError;
+
+      const rows = proposalLineItems.map((line, index) => {
+        const quantity = parseMoneyValue(line.quantity);
+        const rate = normalizeCurrencyAmount(line.rate, currency);
+        const tax = parseMoneyValue(line.tax);
+        const documentCurrency = normalizeProposalCurrency(line.documentCurrency || currency);
+        const originalCurrency = normalizeProposalCurrency(line.originalCurrency || currency);
+        const originalRate = normalizeCurrencyAmount(
+          line.originalRate || line.rate,
+          originalCurrency,
+        );
+        const convertedRate = normalizeCurrencyAmount(
+          line.convertedRate || line.rate,
+          documentCurrency,
+        );
+        const lineBase = quantity * rate;
+        const lineTaxAmount = lineBase * (tax / 100);
+        return {
+          company_id: profile.company_id,
+          proposal_id: proposalId,
+          product_id: line.productId || null,
+          item_name: line.item,
+          description: line.description || null,
+          quantity,
+          unit_type: form.quantityMode || "qty",
+          rate,
+          tax_rate: tax,
+          tax_id: line.taxId || null,
+          tax_name: line.taxName || null,
+          tax_amount: normalizeCurrencyAmount(lineTaxAmount, currency),
+          is_optional: Boolean(line.optional),
+          sort_order: index,
+          amount: normalizeCurrencyAmount(getLineAmount(line), currency),
+          document_currency: documentCurrency,
+          original_currency: originalCurrency,
+          original_rate: originalRate,
+          converted_rate: convertedRate,
+          exchange_rate: line.exchangeRate ?? (originalCurrency === documentCurrency ? 1 : null),
+          exchange_rate_source: line.exchangeRateSource || null,
+          exchange_rate_updated_at: line.exchangeRateUpdatedAt || null,
+        };
+      });
+
+      if (!rows.length) return;
+      const { error: insertError } = await db.from("proposal_items").insert(rows);
+      if (insertError) throw insertError;
+    };
+    try {
+      if (editItem) {
+        const savedProposal = await update(editItem.id, record as any);
+        await saveLineItems(savedProposal?.id || editItem.id);
+        void sendProposalNotification("Propuesta actualizada", `${title} fue actualizada.`);
+        toast.success("Propuesta actualizada correctamente.");
+        setSelected(null);
+      } else {
+        const payload = { ...record, created_by: user.id };
+        console.log("Creating proposal payload", {
+          userId: user?.id,
+          profileId: profile?.id,
+          profileUserId: (profile as any)?.user_id,
+          companyId: profile?.company_id,
+          payload,
+        });
+        const savedProposal = await create(payload as any);
+        if (savedProposal?.id) await saveLineItems(savedProposal.id);
+        if (savedProposal?.id && form.lead_id) {
+          const { error: leadStatusError } = await (supabase as any)
+            .from("leads")
+            .update({ status: "Proposal Sent" })
+            .eq("id", form.lead_id)
+            .eq("company_id", profile.company_id);
+          if (leadStatusError) {
+            console.warn("No se pudo actualizar el estado del lead asociado", leadStatusError);
+          }
+        }
+        void sendProposalNotification("Propuesta creada", `${title} fue creada.`);
+        toast.success("Propuesta creada correctamente.");
+      }
+      await fetchProposalItems();
+      closeProposalWorkspace();
+    } catch (err: any) {
+      toast.error(err?.message ?? "No se pudo guardar la propuesta.");
+    }
+  };
+
+  useEffect(() => {
+    const onDemoShowPublicProposal = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+
+      if (detail?.open === false) {
+        setDemoPublicProposalUrl(null);
+        return;
+      }
+
+      const demoProposal =
+        filtered.find((p) => String(p.number || "").includes("DEMO-CRM-001")) ||
+        filtered.find((p) =>
+          String(p.title || "")
+            .toLowerCase()
+            .includes("demo"),
+        ) ||
+        filtered.find((p) => Boolean((p as any).public_token));
+
+      const token = String((demoProposal as any)?.public_token || "").trim();
+
+      if (!token) {
+        setDemoPublicProposalUrl(null);
+        return;
+      }
+
+      setDemoPublicProposalUrl(`/proposal/public/${token}`);
+    };
+
+    window.addEventListener("crm-demo-show-public-proposal", onDemoShowPublicProposal);
+    return () =>
+      window.removeEventListener("crm-demo-show-public-proposal", onDemoShowPublicProposal);
+  }, [filtered]);
+
+  if (loading) return <LoadingState />;
+
+  const mobileStatusFilters = [
+    { value: "all", label: "Todos los estados" },
+    ...PROPOSAL_STATUSES.map((status) => ({ value: status, label: status })),
+  ];
+  const mobileValidityFilters = [
+    { value: "all", label: "Toda validez" },
+    { value: "valid", label: "Vigentes" },
+    { value: "expired", label: "Vencidas" },
+  ];
+
+  function copyPublicLink(publicToken: string | null | undefined) {
+    const token = String(publicToken || "").trim();
+    if (!token) {
+      toast.error("Esta propuesta no tiene enlace público.");
+      return;
+    }
+    const publicUrl = `${window.location.origin}/proposal/public/${token}`;
+    void navigator.clipboard.writeText(publicUrl);
+    toast.success("Enlace público copiado.");
+  }
+
+  function openPublicLink(publicToken: string | null | undefined) {
+    const token = String(publicToken || "").trim();
+    if (!token) {
+      toast.error("Esta propuesta no tiene enlace público.");
+      return;
+    }
+    const publicUrl = `${window.location.origin}/proposal/public/${token}`;
+    window.open(publicUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function updateProposalItem(id: string, patch: Partial<ProposalLineItem>) {
+    setForm((prev) => ({
+      ...prev,
+      proposalItems: prev.proposalItems.map((line) =>
+        line.id === id ? { ...line, ...patch } : line,
+      ),
+    }));
+  }
+
+  function addProposalItem() {
+    const taxRate = defaultTax ? normalizeTaxRate(defaultTax.rate) : 0;
+    setForm((prev) => ({
+      ...prev,
+      proposalItems: [
+        ...prev.proposalItems,
+        {
+          id: generatePublicToken(),
+          productId: null,
+          item: "",
+          description: "",
+          quantity: "1",
+          rate: "",
+          tax: String(taxRate),
+          taxId: defaultTax?.id || null,
+          taxName: defaultTax?.name || null,
+          optional: false,
+          documentCurrency: normalizeProposalCurrency(prev.currency),
+          originalCurrency: normalizeProposalCurrency(prev.currency),
+          originalRate: "",
+          convertedRate: "",
+          exchangeRate: 1,
+          exchangeRateSource: currencySettings.rateSource,
+          exchangeRateUpdatedAt: currencySettings.rateUpdatedAt,
+        },
+      ],
+    }));
+  }
+
+  function removeProposalItem(id: string) {
+    setForm((prev) => ({
+      ...prev,
+      proposalItems:
+        prev.proposalItems.length > 1
+          ? prev.proposalItems.filter((line) => line.id !== id)
+          : prev.proposalItems.map((line) =>
+              line.id === id
+                ? {
+                    ...line,
+                    productId: null,
+                    item: "",
+                    description: "",
+                    quantity: "1",
+                    rate: "",
+                    tax: "0",
+                    optional: false,
+                    documentCurrency: normalizeProposalCurrency(prev.currency),
+                    originalCurrency: normalizeProposalCurrency(prev.currency),
+                    originalRate: "",
+                    convertedRate: "",
+                    exchangeRate: 1,
+                    exchangeRateSource: currencySettings.rateSource,
+                    exchangeRateUpdatedAt: currencySettings.rateUpdatedAt,
+                  }
+                : line,
+            ),
+    }));
+  }
+
+  return (
+    <div className="min-h-dvh space-y-5 bg-white p-4 sm:p-6">
+      <div data-demo="proposals-main">
+        <div className="hidden md:block">
+          <PageHeader
+            title="Propuestas"
+            subtitle="Administra propuestas comerciales cargadas y compartidas como PDF."
+          />
+        </div>
+      </div>
+
+      <GlobalKpiStrip
+        title="Propuestas"
+        subtitle="Cotizaciones, envíos y cierres comerciales"
+        actionLabel={isAdminLike ? "Nueva propuesta" : undefined}
+        onAction={isAdminLike ? () => openNew(openNewContext) : undefined}
+        actionIcon={<Plus className="h-3.5 w-3.5" />}
+        items={[
+          {
+            key: "proposals-summary",
+            label: "Pipeline",
+            value: formatMoney(stats.pipelineAmount, currencySettings.baseCurrency),
+            helper: `${filtered.length} visibles de ${stats.total} propuestas`,
+            icon: BadgeDollarSign,
+            tone: stats.expired > 0 ? "orange" : "blue",
+            meta: [
+              { label: "Activas", value: stats.active, tone: "blue" },
+              { label: "Enviadas", value: stats.sent, tone: "green" },
+              { label: "Vencidas", value: stats.expired, tone: "orange" },
+            ],
+          },
+        ]}
+      >
+        <div className="mt-2 grid w-full grid-cols-2 gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileStatusFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={validityFilter}
+            onValueChange={(value) => setValidityFilter(value as typeof validityFilter)}
+          >
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileValidityFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </GlobalKpiStrip>
+
+      <div className="hidden border-y border-slate-100 bg-white sm:grid sm:grid-cols-4">
+        <ProposalKpi label="Propuestas" value={stats.total} />
+        <ProposalKpi label="Activas" value={stats.active} tone="green" />
+        <ProposalKpi
+          label="Vencidas"
+          value={stats.expired}
+          tone={stats.expired > 0 ? "orange" : "green"}
+        />
+        <ProposalKpi
+          label="Pipeline"
+          value={formatMoney(stats.pipelineAmount, currencySettings.baseCurrency)}
+          tone={stats.expired > 0 ? "orange" : "green"}
+        />
+      </div>
+
+      <section className="border-y border-slate-100 bg-white max-sm:border-0">
+        <div className="border-b border-slate-100 px-4 py-3 max-md:hidden sm:px-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2">
+              {isAdminLike ? (
+                <Button
+                  className="hidden h-9 rounded-md bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700 sm:inline-flex"
+                  onClick={() => openNew(openNewContext)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva propuesta
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por título o número..."
+                className="h-9 w-[240px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0"
+              />
+              <Select value={productFilter} onValueChange={setProductFilter}>
+                <SelectTrigger className="h-9 w-[180px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los productos</SelectItem>
+                  {productOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-[160px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {PROPOSAL_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={validityFilter}
+                onValueChange={(value) => setValidityFilter(value as typeof validityFilter)}
+              >
+                <SelectTrigger className="h-9 w-[150px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Validez" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toda validez</SelectItem>
+                  <SelectItem value="valid">Vigentes</SelectItem>
+                  <SelectItem value="expired">Vencidas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 space-y-4 md:mt-0">
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<FileText className="h-6 w-6" />}
+              title="Todavía no hay propuestas"
+              description="Crea una propuesta para enviarla luego a prospectos, clientes u oportunidades."
+              actionLabel={isAdminLike ? "Nueva propuesta" : undefined}
+              onAction={isAdminLike ? () => openNew(openNewContext) : undefined}
+            />
+          ) : (
+            <>
+              <div className="grid gap-2.5 md:hidden">
+                {filtered.map((p, index) => {
+                  const productName = p.product_id
+                    ? productById.get(p.product_id)?.name || "Sin producto"
+                    : "Sin producto";
+                  const relatedName = getProposalRelatedLabel(p);
+                  const expired =
+                    isProposalExpired(p.valid_until) &&
+                    !isApprovedProposalStatus(p.status) &&
+                    normalizeStatus(p.status) !== "rejected";
+
+                  return (
+                    <div
+                      key={p.id}
+                      role="button"
+                      tabIndex={0}
+                      data-demo={index === 0 ? "proposals-first-mobile-card" : undefined}
+                      onClick={() => {
+                        setSelected(p);
+                        setEditItem(null);
+                        setDrawerMode("view");
+                        setDrawerOpen(true);
+                      }}
+                      className="w-full min-w-0 rounded-[18px] border border-slate-200 bg-white p-3.5 text-left transition-colors active:scale-[0.992] hover:border-slate-300"
+                    >
+                      <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-2.5">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-blue-100 bg-blue-50 text-blue-700">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 pt-0.5">
+                          <div className="truncate text-[15px] font-bold leading-5 tracking-[-0.01em] text-slate-950">
+                            {p.title}
+                          </div>
+                          <div className="mt-0.5 truncate text-[12.5px] font-medium leading-4 text-slate-500">
+                            {p.number} · {productName}
+                          </div>
+                        </div>
+                        <InlineStatusSelect
+                          value={p.status}
+                          options={PROPOSAL_STATUSES.map((status) => ({
+                            value: status,
+                            label: status,
+                          }))}
+                          onChange={(nextStatus) => updateProposalStatus(p, nextStatus)}
+                        />
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-3 pl-[50px] max-[360px]:grid-cols-1 max-[360px]:pl-0">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+                            Monto
+                          </div>
+                          <div className="mt-1 truncate text-[13px] font-extrabold text-slate-900">
+                            {formatMoney(Number(p.amount || 0), p.currency)}
+                          </div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+                            Validez
+                          </div>
+                          <div className="mt-1 truncate text-[12.5px] font-semibold text-slate-600">
+                            {p.valid_until || "—"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3 text-[12.5px] font-semibold text-slate-500">
+                        <span className="min-w-0 truncate">{relatedName}</span>
+                        {expired ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <TriangleAlert className="h-3 w-3" />
+                            Vencida
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-slate-400">
+                            {p.updated_at ? new Date(p.updated_at).toLocaleDateString() : "—"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-white">
+                      <TableRow>
+                        <TableHead className="pl-4 sm:pl-5">Número</TableHead>
+                        <TableHead>Título</TableHead>
+                        <TableHead>Relacionado con</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="hidden md:table-cell">Monto</TableHead>
+                        <TableHead className="hidden lg:table-cell">Vence</TableHead>
+                        <TableHead className="text-right pr-4 sm:pr-5">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((p, index) => (
+                        <TableRow
+                          key={p.id}
+                          className="cursor-pointer transition-colors hover:bg-slate-50/70"
+                          onClick={() => {
+                            setSelected(p);
+                            setEditItem(null);
+                            setDrawerMode("view");
+                            setDrawerOpen(true);
+                          }}
+                        >
+                          <TableCell className="pl-4 font-normal text-slate-500 sm:pl-5">
+                            {p.number}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-normal text-slate-900">{p.title}</div>
+                            {p.product_id ? (
+                              <div className="text-xs text-slate-500">
+                                {productById.get(p.product_id)?.name || "Sin producto"}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-500">Sin producto</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-slate-600">
+                            {getProposalRelatedLabel(p)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <InlineStatusSelect
+                                value={p.status}
+                                options={PROPOSAL_STATUSES.map((status) => ({
+                                  value: status,
+                                  label: status,
+                                }))}
+                                onChange={(nextStatus) => updateProposalStatus(p, nextStatus)}
+                              />
+                              {isProposalExpired(p.valid_until) &&
+                              !isApprovedProposalStatus(p.status) &&
+                              normalizeStatus(p.status) !== "rejected" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border-amber-200">
+                                  <TriangleAlert className="h-3 w-3" /> Vencida
+                                </span>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden font-normal md:table-cell">
+                            {formatMoney(Number(p.amount || 0), p.currency)}
+                          </TableCell>
+                          <TableCell className="hidden text-sm text-slate-500 lg:table-cell">
+                            {p.valid_until || "—"}
+                          </TableCell>
+                          <TableCell className="text-right pr-4 sm:pr-5">
+                            <div
+                              data-demo={index === 0 ? "proposal-row-actions" : undefined}
+                              className="flex justify-end gap-1.5"
+                            >
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelected(p);
+                                  setEditItem(null);
+                                  setDrawerMode("view");
+                                  setDrawerOpen(true);
+                                }}
+                                title="Ver detalle"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  copyPublicLink((p as any).public_token ?? null);
+                                }}
+                                title="Copiar enlace público"
+                              >
+                                <LinkIcon className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openPublicLink((p as any).public_token ?? null);
+                                }}
+                                title="Ver propuesta"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void navigator.clipboard.writeText(p.content || "");
+                                  toast.success("Contenido copiado.");
+                                }}
+                                title="Copiar contenido"
+                              >
+                                <Clipboard className="h-4 w-4" />
+                              </Button>
+                              {isAdminLike ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-full bg-blue-600 px-3 text-xs font-normal text-white shadow-none hover:bg-blue-700"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openEdit(p);
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Editar
+                                </Button>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <ProposalWorkspaceDialog
+        open={drawerOpen && drawerMode === "view" && Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeProposalWorkspace();
+            return;
+          }
+          setDrawerOpen(open);
+        }}
+        proposal={selected}
+        client={selected?.client_id ? clientById.get(selected.client_id) || null : null}
+        product={selected?.product_id ? productById.get(selected.product_id) || null : null}
+        items={selected ? proposalItemsByProposalId.get(selected.id) || [] : []}
+        canEdit={isAdminLike}
+        onEdit={() => {
+          if (selected) openEdit(selected);
+        }}
+        onDelete={async () => {
+          if (!selected) return;
+          try {
+            await remove(selected.id);
+            toast.success("Propuesta eliminada.");
+            closeProposalWorkspace();
+          } catch (err: any) {
+            toast.error(err?.message || "No se pudo eliminar la propuesta.");
+          }
+        }}
+        onCopyPublicLink={() => copyPublicLink((selected as any)?.public_token ?? null)}
+        onOpenPublicLink={() => openPublicLink((selected as any)?.public_token ?? null)}
+        onProposalPatch={(patch) => {
+          setSelected((current) => (current ? ({ ...current, ...patch } as Proposal) : current));
+          setRows((current) =>
+            current.map((item) =>
+              selected && item.id === selected.id ? { ...item, ...patch } : item,
+            ),
+          );
+        }}
+        formatMoney={formatMoney}
+      />
+
+      <ProposalEditorDialog
+        open={drawerOpen && (drawerMode === "create" || drawerMode === "edit")}
+        onOpenChange={(o) => {
+          if (!o) {
+            closeProposalWorkspace();
+            return;
+          }
+          setDrawerOpen(o);
+        }}
+        title={
+          drawerMode === "create"
+            ? "Nueva propuesta"
+            : drawerMode === "edit"
+              ? `Editar propuesta ${editItem?.number || ""}`.trim()
+              : selected
+                ? `${selected.number} — ${selected.title}`
+                : "Propuesta"
+        }
+        subtitle={
+          drawerMode === "view" && selected
+            ? `Estado: ${selected.status || "—"}`
+            : "Constructor de propuesta"
+        }
+        footer={
+          drawerMode === "create" || drawerMode === "edit" ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full border-slate-200 bg-white px-4 shadow-none"
+                onClick={() => {
+                  closeProposalWorkspace();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                form="proposal-editor-form"
+                disabled={!isAdminLike}
+                className="rounded-full border border-slate-200 bg-white px-5 font-normal text-slate-900 shadow-none hover:bg-slate-50"
+                onClick={() =>
+                  setForm((p) => ({
+                    ...p,
+                    status: "Sent",
+                    sent_at: p.sent_at || new Date().toISOString(),
+                  }))
+                }
+              >
+                Guardar y enviar
+              </Button>
+              <Button
+                type="submit"
+                form="proposal-editor-form"
+                disabled={!isAdminLike}
+                className="rounded-full bg-slate-950 px-5 font-normal text-white shadow-none hover:bg-slate-800"
+              >
+                Guardar
+              </Button>
+            </>
+          ) : null
+        }
+      >
+        <div data-demo="proposal-editor" className="space-y-4">
+          {drawerMode === "view" && selected ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                  onClick={() => copyPublicLink((selected as any).public_token ?? null)}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  Copiar enlace público
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                  onClick={() => openPublicLink((selected as any).public_token ?? null)}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Ver propuesta
+                </Button>
+                {isAdminLike ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full bg-blue-600 px-3 text-sm font-normal text-white shadow-none hover:bg-blue-700"
+                    onClick={() => openEdit(selected)}
+                  >
+                    Editar
+                  </Button>
+                ) : null}
+                {isAdminLike ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-none border-0 border-b border-rose-200 bg-transparent px-0 text-destructive shadow-none hover:bg-transparent hover:text-destructive"
+                    onClick={async () => {
+                      const ok = window.confirm("¿Seguro que deseas eliminar esta propuesta?");
+                      if (!ok) return;
+                      try {
+                        await remove(selected.id);
+                        toast.success("Propuesta eliminada.");
+                        closeProposalWorkspace();
+                      } catch (err: any) {
+                        toast.error(err?.message || "No se pudo eliminar la propuesta.");
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </Button>
+                ) : null}
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 border-y border-slate-100 text-sm">
+                <div className="border-b border-r border-slate-100 py-3 pr-3">
+                  <div className="text-xs text-slate-500">Estado</div>
+                  <div className="mt-1 font-medium">
+                    <StatusBadge status={selected.status} />
+                  </div>
+                </div>
+                <div className="border-b border-slate-100 py-3 pl-3">
+                  <div className="text-xs text-slate-500">Producto</div>
+                  <div className="mt-1 font-medium">
+                    {selected.product_id ? productById.get(selected.product_id)?.name || "—" : "—"}
+                  </div>
+                </div>
+                <div className="border-b border-r border-slate-100 py-3 pr-3">
+                  <div className="text-xs text-slate-500">Monto</div>
+                  <div className="mt-1 font-medium">
+                    {formatMoney(Number(selected.amount || 0), selected.currency)}
+                  </div>
+                </div>
+                <div className="border-b border-slate-100 py-3 pl-3">
+                  <div className="text-xs text-slate-500">Válida hasta</div>
+                  <div className="mt-1 font-medium">{selected.valid_until || "—"}</div>
+                </div>
+                <div className="border-r border-slate-100 py-3 pr-3">
+                  <div className="text-xs text-slate-500">Cliente</div>
+                  <div className="mt-1 font-medium">
+                    {selected.client_id
+                      ? clientById.get(selected.client_id)?.company_name || "—"
+                      : "—"}
+                  </div>
+                </div>
+                <div className="py-3 pl-3">
+                  <div className="text-xs text-slate-500">Oportunidad</div>
+                  <div className="mt-1 font-medium">
+                    {selected.deal_id ? String(selected.deal_id).slice(0, 8) + "…" : "—"}
+                  </div>
+                </div>
+              </div>
+
+              {selected.description ? (
+                <div className="border-b border-slate-100 pb-4">
+                  <div className="text-xs text-slate-500">Descripción</div>
+                  <div className="whitespace-pre-wrap">{selected.description}</div>
+                </div>
+              ) : null}
+
+              <div className="border-b border-slate-100 pb-4">
+                <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                  <span>Contenido</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 shadow-none hover:bg-transparent"
+                    onClick={() => {
+                      const fallback =
+                        selected.content ||
+                        `Propuesta: ${selected.title}\n\n${selected.description || ""}\n\nInversión: ${formatMoney(Number(selected.amount || 0), selected.currency)}`.trim();
+                      void navigator.clipboard.writeText(fallback);
+                      toast.success("Contenido copiado.");
+                    }}
+                  >
+                    <Clipboard className="h-4 w-4" />
+                    Copiar
+                  </Button>
+                </div>
+                <div className="mt-2 whitespace-pre-wrap text-[12.5px] leading-5 text-slate-700">
+                  {selected.content || "—"}
+                </div>
+              </div>
+
+              {selected.notes ? (
+                <div className="border-b border-slate-100 pb-4">
+                  <div className="text-xs text-slate-500">Notas</div>
+                  <div className="whitespace-pre-wrap">{selected.notes}</div>
+                </div>
+              ) : null}
+
+              <div className="text-xs text-muted-foreground">
+                Actualizado{" "}
+                {selected.updated_at ? new Date(selected.updated_at).toLocaleDateString() : "—"}
+              </div>
+            </>
+          ) : null}
+
+          {drawerMode === "create" || drawerMode === "edit" ? (
+            <form id="proposal-editor-form" onSubmit={handleSubmit} className="space-y-4">
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="grid grid-cols-1 gap-0 border-b border-slate-200 lg:grid-cols-2">
+                  <div className="space-y-5 p-4 sm:p-6 lg:border-r lg:border-slate-200">
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>
+                        <span className="text-rose-500">*</span> Asunto
+                      </Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        value={form.title}
+                        onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>
+                        <span className="text-rose-500">*</span> Cliente o prospecto
+                      </Label>
+                      {drawerMode === "create" ? (
+                        <ClientProspectSearchSelect
+                          clients={clients.map((client) => ({
+                            id: client.id,
+                            label: client.contact_person
+                              ? `${client.company_name} · ${client.contact_person}`
+                              : client.company_name,
+                            secondaryLabel: [client.email, client.phone]
+                              .filter(Boolean)
+                              .join(" · ") || null,
+                            searchText: [
+                              client.company_name,
+                              client.contact_person,
+                              client.email,
+                              client.phone,
+                              client.whatsapp,
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                            data: client,
+                          }))}
+                          prospects={leads.map((lead) => {
+                            const contactName = [
+                              lead.first_name,
+                              lead.last_name,
+                            ]
+                              .filter(Boolean)
+                              .join(" ")
+                              .trim();
+                            return {
+                              id: lead.id,
+                              label:
+                                lead.company_name ||
+                                lead.display_name ||
+                                lead.full_name ||
+                                contactName ||
+                                lead.email ||
+                                "Prospecto",
+                              secondaryLabel: [contactName, lead.email, lead.phone]
+                                .filter(Boolean)
+                                .join(" · ") || null,
+                              searchText: [
+                                lead.company_name,
+                                lead.first_name,
+                                lead.last_name,
+                                lead.full_name,
+                                lead.display_name,
+                                lead.email,
+                                lead.phone,
+                              ]
+                                .filter(Boolean)
+                                .join(" "),
+                              data: lead,
+                            };
+                          })}
+                          value={
+                            form.client_id
+                              ? { type: "client", id: form.client_id }
+                              : form.lead_id
+                                ? { type: "lead", id: form.lead_id }
+                                : null
+                          }
+                          placeholder="Buscar cliente o prospecto"
+                          onChange={(nextValue, option) => {
+                            const data = (option?.data || {}) as Record<string, unknown>;
+                            setForm((p) => ({
+                              ...p,
+                              client_id:
+                                nextValue?.type === "client" ? nextValue.id : null,
+                              lead_id:
+                                nextValue?.type === "lead" ? nextValue.id : null,
+                              recipientName:
+                                String(
+                                  data.contact_person ||
+                                    data.full_name ||
+                                    data.display_name ||
+                                    data.company_name ||
+                                    "",
+                                ).trim() || p.recipientName,
+                              recipientEmail:
+                                String(data.email || "").trim() || p.recipientEmail,
+                              recipientPhone:
+                                String(data.phone || data.whatsapp || "").trim() ||
+                                p.recipientPhone,
+                              recipientCity:
+                                String(data.city || "").trim() || p.recipientCity,
+                            }));
+                          }}
+                        />
+                      ) : (
+                        <ClientProspectSearchSelect
+                          clients={clients.map((client) => ({
+                            id: client.id,
+                            label: client.contact_person
+                              ? `${client.company_name} · ${client.contact_person}`
+                              : client.company_name,
+                            secondaryLabel: [client.email, client.phone]
+                              .filter(Boolean)
+                              .join(" · ") || null,
+                            searchText: [
+                              client.company_name,
+                              client.contact_person,
+                              client.email,
+                              client.phone,
+                              client.whatsapp,
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                            data: client,
+                          }))}
+                          prospects={leads.map((lead) => ({
+                            id: lead.id,
+                            label:
+                              lead.company_name ||
+                              lead.display_name ||
+                              lead.full_name ||
+                              [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+                              lead.email ||
+                              "Prospecto",
+                            secondaryLabel: [lead.email, lead.phone]
+                              .filter(Boolean)
+                              .join(" · ") || null,
+                            searchText: [
+                              lead.company_name,
+                              lead.first_name,
+                              lead.last_name,
+                              lead.full_name,
+                              lead.display_name,
+                              lead.email,
+                              lead.phone,
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                            data: lead,
+                          }))}
+                          value={
+                            form.client_id
+                              ? { type: "client", id: form.client_id }
+                              : form.lead_id
+                                ? { type: "lead", id: form.lead_id }
+                                : null
+                          }
+                          placeholder="Buscar cliente o prospecto"
+                          onChange={(nextValue, option) => {
+                            const data = (option?.data || {}) as Record<string, unknown>;
+                            setForm((p) => ({
+                              ...p,
+                              client_id:
+                                nextValue?.type === "client" ? nextValue.id : null,
+                              lead_id:
+                                nextValue?.type === "lead" ? nextValue.id : null,
+                              recipientName:
+                                String(
+                                  data.contact_person ||
+                                    data.full_name ||
+                                    data.display_name ||
+                                    data.company_name ||
+                                    "",
+                                ).trim() || p.recipientName,
+                              recipientEmail:
+                                String(data.email || "").trim() || p.recipientEmail,
+                              recipientPhone:
+                                String(data.phone || data.whatsapp || "").trim() ||
+                                p.recipientPhone,
+                              recipientCity:
+                                String(data.city || "").trim() || p.recipientCity,
+                            }));
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className={crmFormStyles.label}>
+                          <span className="text-rose-500">*</span> Fecha
+                        </Label>
+                        <Input
+                          name="proposal_date"
+                          className={crmFormStyles.input}
+                          type="date"
+                          value={form.proposalDate}
+                          onChange={(e) => setForm((p) => ({ ...p, proposalDate: e.target.value }))}
+                          onInput={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              proposalDate: (e.currentTarget as HTMLInputElement).value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className={crmFormStyles.label}>Abierta hasta</Label>
+                        <Input
+                          name="valid_until"
+                          className={crmFormStyles.input}
+                          type="date"
+                          value={form.valid_until}
+                          onChange={(e) => setForm((p) => ({ ...p, valid_until: e.target.value }))}
+                          onInput={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              valid_until: (e.currentTarget as HTMLInputElement).value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className={crmFormStyles.label}>
+                          <span className="text-rose-500">*</span> Moneda
+                        </Label>
+                        <Select
+                          value={form.currency || "USD"}
+                          onValueChange={applyProposalCurrency}
+                        >
+                          <SelectTrigger className={crmFormStyles.select}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">US$ · Dólares</SelectItem>
+                            <SelectItem value="DOP">RD$ · Peso dominicano</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className={crmFormStyles.label}>Tipo de descuento</Label>
+                        <Select
+                          value={form.discountType || "none"}
+                          onValueChange={(v) =>
+                            setForm((p) => ({
+                              ...p,
+                              discountType: v,
+                              discountValue: v === "none" ? "" : p.discountValue,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className={crmFormStyles.select}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
                             <SelectItem value="none">Sin descuento</SelectItem>
                             <SelectItem value="fixed">Monto fijo</SelectItem>
                             <SelectItem value="percent">Porcentaje</SelectItem>
