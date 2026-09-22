@@ -170,6 +170,26 @@ function cleanNumber(value: unknown) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function mergeAddressParts(...values: unknown[]) {
+  const result: string[] = [];
+  for (const value of values) {
+    const part = cleanText(value);
+    if (!part) continue;
+    const normalized = part.toLowerCase();
+    if (
+      result.some(
+        (item) =>
+          item.toLowerCase().includes(normalized) ||
+          normalized.includes(item.toLowerCase()),
+      )
+    ) {
+      continue;
+    }
+    result.push(part);
+  }
+  return result.join(", ");
+}
+
 function normalizeInvoiceCurrency(currency: string | null | undefined) {
   return normalizeCurrency(currency);
 }
@@ -356,9 +376,7 @@ export function InvoiceEditor({
       clientCompany: cleanText(client?.company_name),
       clientEmail: cleanText(client?.email),
       clientPhone: cleanText(client?.phone),
-      clientAddress: cleanText(
-        [client?.address, client?.city, client?.country].filter(Boolean).join(", "),
-      ),
+      clientAddress: mergeAddressParts(client?.address, client?.city, client?.country),
       clientTaxId: cleanText(client?.tax_id),
     }));
   };
@@ -533,6 +551,12 @@ export function InvoiceEditor({
 	    ...draft,
 	    status,
 	    currency: normalizeInvoiceCurrency(draft.currency),
+	    clientAddress: mergeAddressParts(
+	      draft.clientAddress,
+	      selectedClient?.address,
+	      selectedClient?.city,
+	      selectedClient?.country,
+	    ),
 	    tax: Math.max(0, normalizeInvoiceAmount(totals.tax, draft.currency)),
 	    discount: Math.max(0, normalizeInvoiceAmount(draft.discount, draft.currency)),
 	    items: draft.items.map((item) => {
@@ -1112,7 +1136,13 @@ function InvoiceEditorSummary({
     email: draft.clientEmail || client?.email || "—",
     phone: draft.clientPhone || client?.phone || "—",
     taxId: draft.clientTaxId || client?.tax_id || "—",
-    address: draft.clientAddress || client?.address || "—",
+    address:
+      mergeAddressParts(
+        draft.clientAddress,
+        client?.address,
+        client?.city,
+        client?.country,
+      ) || "—",
     product: draft.productName || "—",
   };
 
