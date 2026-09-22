@@ -1203,7 +1203,7 @@ export function GlobalDetailHost() {
 
         if (selection.group === "invoices") {
           setInvoiceItemsLoading(true);
-          const [invoiceRes, itemsRes, clientRes, companyRes] = await Promise.all([
+          const [invoiceRes, itemsRes, companyRes] = await Promise.all([
             db.from("invoices").select("*").eq("company_id", cid).eq("id", selection.id).single(),
             db
               .from("invoice_items")
@@ -1212,28 +1212,31 @@ export function GlobalDetailHost() {
               .eq("invoice_id", selection.id)
               .order("created_at", { ascending: true }),
             db
-              .from("clients")
-              .select("id,company_name,contact_person,email,phone,address,tax_id")
-              .eq("company_id", cid)
-              .eq("id", selection.id)
-              .maybeSingle(),
-            db
               .from("companies")
               .select("company_name,tax_id,email,phone,address,city,country,website,logo_url")
               .eq("id", cid)
               .maybeSingle(),
           ]);
           if (invoiceRes.error) throw invoiceRes.error;
+
+          const invoiceRow = invoiceRes.data as InvoiceRow;
+          const clientRes = invoiceRow.client_id
+            ? await db
+                .from("clients")
+                .select("id,company_name,contact_person,email,phone,address,tax_id")
+                .eq("company_id", cid)
+                .eq("id", invoiceRow.client_id)
+                .maybeSingle()
+            : { data: null };
+
           if (!cancelled) {
-            const invoiceRow = invoiceRes.data as InvoiceRow;
             const partyFields = buildInvoicePartyFields(invoiceRow, clientRes.data, companyRes.data);
             setInvoice(invoiceRow);
             setInvoiceIssuerFields(partyFields.issuerFields);
             setInvoiceClientFields(partyFields.clientFields);
             setInvoiceItems((itemsRes.data || []) as InvoiceDetailItem[]);
             setInvoiceItemsLoading(false);
-          }
-          return;
+          }          return;
         }
 
         if (selection.group === "proposals") {
