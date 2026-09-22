@@ -51,6 +51,11 @@ function clean(value: unknown) {
   return String(value || "").trim();
 }
 
+function isTemplateMarkup(value: unknown) {
+  const text = clean(value);
+  return /\{(?:proposal|client|company)_[^}]+\}/i.test(text);
+}
+
 function getClientValue(proposal: any, key: string) {
   const client = proposal?.client && typeof proposal.client === "object" ? proposal.client : {};
   return client?.[key] ?? "";
@@ -177,6 +182,17 @@ function buildMergeFields(
     data?.companyName ||
     data?.clientName ||
     "Cliente";
+  const customContent = clean(data?.customContent);
+  const summaryContent = isTemplateMarkup(customContent)
+    ? clean(data?.introductionText) ||
+      clean(data?.objectiveText) ||
+      clean(proposal?.notes) ||
+      clean(proposal?.description)
+    : customContent ||
+      clean(data?.introductionText) ||
+      clean(data?.objectiveText) ||
+      clean(proposal?.notes) ||
+      clean(proposal?.description);
   const companyName = getCompanyValue(
     proposal,
     company,
@@ -227,13 +243,7 @@ function buildMergeFields(
     proposal_date: proposal?.proposal_date || proposal?.created_at || "",
     valid_until: proposal?.valid_until || "",
     proposal_description: proposal?.description || data?.serviceDescription || "",
-    proposal_content:
-      data?.customContent ||
-      data?.introductionText ||
-      data?.objectiveText ||
-      proposal?.notes ||
-      proposal?.description ||
-      "",
+    proposal_content: summaryContent,
     proposal_items: renderItemsTable(items, currency),
     proposal_subtotal: formatMoney(proposal?.subtotal ?? proposal?.amount ?? 0, currency),
     proposal_tax_total: formatMoney(proposal?.tax_total ?? 0, currency),
