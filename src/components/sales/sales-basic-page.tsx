@@ -729,8 +729,31 @@ export function SalesBasicPage({
   const updateStatus = async (row: GenericRow, nextStatus: string) => {
     if (!row.id || !nextStatus || row[config.statusKey] === nextStatus) return;
     try {
-      await update(String(row.id), { [config.statusKey]: nextStatus });
+      if (config.module === "credit_notes") {
+        if (nextStatus === "Issued") {
+          const { error } = await db.rpc("issue_credit_note", {
+            p_credit_note_id: String(row.id),
+          });
+          if (error) throw error;
+        } else if (nextStatus === "Applied") {
+          const { error } = await db.rpc("apply_credit_note", {
+            p_credit_note_id: String(row.id),
+          });
+          if (error) throw error;
+        } else if (nextStatus === "Cancelled") {
+          const { error } = await db.rpc("cancel_credit_note", {
+            p_credit_note_id: String(row.id),
+            p_reason: null,
+          });
+          if (error) throw error;
+        } else {
+          throw new Error("Esta transición de estado no está disponible.");
+        }
+      } else {
+        await update(String(row.id), { [config.statusKey]: nextStatus });
+      }
       toast.success("Estado actualizado");
+      await fetch();
     } catch (error: any) {
       toast.error(error?.message || "No se pudo actualizar el estado.");
     }
