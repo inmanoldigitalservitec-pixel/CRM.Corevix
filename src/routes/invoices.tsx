@@ -156,6 +156,8 @@ type ClientLite = {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  city?: string | null;
+  country?: string | null;
   tax_id?: string | null;
 };
 
@@ -346,7 +348,7 @@ function InvoicesPage() {
 
   const { data: clients } = useCrud<ClientOption>({
     table: "clients",
-    select: "id, company_name, contact_person, email, phone, address, tax_id",
+    select: "id, company_name, contact_person, email, phone, address, city, country, tax_id",
     orderBy: "company_name",
     ascending: true,
   });
