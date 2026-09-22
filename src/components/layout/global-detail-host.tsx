@@ -121,6 +121,12 @@ type InvoiceRow = {
   currency?: string | null;
 };
 
+type InvoiceDetailField = {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+};
+
 type GlobalEmailConversation = {
   id: string;
   subject: string | null;
@@ -220,6 +226,49 @@ function money(amount: unknown, currency = "USD") {
 
 function text(value: unknown) {
   return String(value ?? "").trim();
+}
+
+function buildInvoicePartyFields(
+  invoice: InvoiceRow,
+  client: any,
+  company: any,
+) {
+  const invoiceData =
+    invoice.invoice_data && typeof invoice.invoice_data === "object"
+      ? invoice.invoice_data
+      : {};
+  const value = (key: string) => text((invoiceData as Record<string, unknown>)[key]) || null;
+  const companyAddress = [company?.address, company?.city, company?.country]
+    .map((item) => text(item))
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    issuerFields: [
+      { label: "Nombre", value: value("issuerName") || company?.company_name || null },
+      { label: "ID fiscal", value: value("issuerTaxId") || company?.tax_id || null },
+      { label: "Correo", value: value("issuerEmail") || company?.email || null },
+      { label: "Teléfono", value: value("issuerPhone") || company?.phone || null },
+      { label: "Dirección", value: value("issuerAddress") || companyAddress || null },
+      { label: "Sitio web", value: value("issuerWebsite") || company?.website || null },
+    ] as InvoiceDetailField[],
+    clientFields: [
+      { label: "Nombre", value: value("clientName") || client?.contact_person || null },
+      {
+        label: "Empresa",
+        value:
+          value("clientCompany") ||
+          client?.company_name ||
+          value("clientName") ||
+          client?.contact_person ||
+          null,
+      },
+      { label: "Correo", value: value("clientEmail") || client?.email || null },
+      { label: "Teléfono", value: value("clientPhone") || client?.phone || null },
+      { label: "ID fiscal", value: value("clientTaxId") || client?.tax_id || null },
+      { label: "Dirección", value: value("clientAddress") || client?.address || null },
+    ] as InvoiceDetailField[],
+  };
 }
 
 function dateText(value: unknown) {
@@ -759,6 +808,9 @@ export function GlobalDetailHost() {
   const [invoice, setInvoice] = useState<InvoiceRow | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceDetailItem[]>([]);
   const [invoiceItemsLoading, setInvoiceItemsLoading] = useState(false);
+  const [invoiceIssuerFields, setInvoiceIssuerFields] = useState<InvoiceDetailField[]>([]);
+  const [invoiceClientFields, setInvoiceClientFields] = useState<InvoiceDetailField[]>([]);
+
   const [calendarEvent, setCalendarEvent] = useState<CalendarItem | null>(null);
   const [recordDetail, setRecordDetail] = useState<GlobalRecordDetail | null>(null);
   const [emailConversation, setEmailConversation] = useState<GlobalEmailConversation | null>(null);
@@ -777,6 +829,9 @@ export function GlobalDetailHost() {
     setTicketReplyInternal(false);
     setInvoice(null);
     setInvoiceItems([]);
+    setInvoiceIssuerFields([]);
+    setInvoiceClientFields([]);
+
     setCalendarEvent(null);
     setRecordDetail(null);
     setEmailConversation(null);
@@ -1148,7 +1203,7 @@ export function GlobalDetailHost() {
 
         if (selection.group === "invoices") {
           setInvoiceItemsLoading(true);
-          const [invoiceRes, itemsRes] = await Promise.all([
+          const [invoiceRes, itemsRes, clientRes, companyRes] = await Promise.all([
             db.from("invoices").select("*").eq("company_id", cid).eq("id", selection.id).single(),
             db
               .from("invoice_items")
@@ -1156,10 +1211,25 @@ export function GlobalDetailHost() {
               .eq("company_id", cid)
               .eq("invoice_id", selection.id)
               .order("created_at", { ascending: true }),
+            db
+              .from("clients")
+              .select("id,company_name,contact_person,email,phone,address,tax_id")
+              .eq("company_id", cid)
+              .eq("id", selection.id)
+              .maybeSingle(),
+            db
+              .from("companies")
+              .select("company_name,tax_id,email,phone,address,city,country,website,logo_url")
+              .eq("id", cid)
+              .maybeSingle(),
           ]);
           if (invoiceRes.error) throw invoiceRes.error;
           if (!cancelled) {
-            setInvoice(invoiceRes.data as InvoiceRow);
+            const invoiceRow = invoiceRes.data as InvoiceRow;
+            const partyFields = buildInvoicePartyFields(invoiceRow, clientRes.data, companyRes.data);
+            setInvoice(invoiceRow);
+            setInvoiceIssuerFields(partyFields.issuerFields);
+            setInvoiceClientFields(partyFields.clientFields);
             setInvoiceItems((itemsRes.data || []) as InvoiceDetailItem[]);
             setInvoiceItemsLoading(false);
           }
@@ -1821,8 +1891,8 @@ export function GlobalDetailHost() {
         financialStatus={invoice?.status || "Draft"}
         actions={null}
         summaryFields={invoiceSummaryFields}
-        issuerFields={[]}
-        clientFields={[]}
+        issuerFields={invoiceIssuerFields}
+        clientFields={invoiceClientFields}
         items={invoiceItems}
         itemsLoading={invoiceItemsLoading}
         itemsError={null}
