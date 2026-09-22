@@ -768,7 +768,9 @@ export function InvoiceEditor({
                       clientCompany: cleanText(data.company_name),
                       clientEmail: cleanText(data.email),
                       clientPhone: cleanText(data.phone || data.whatsapp),
-                      clientAddress: cleanText(data.address),
+                      clientAddress: cleanText(
+                        [data.address, data.city, data.country].filter(Boolean).join(", "),
+                      ),
                       clientTaxId: cleanText(data.tax_id),
                     }));
                   }}
