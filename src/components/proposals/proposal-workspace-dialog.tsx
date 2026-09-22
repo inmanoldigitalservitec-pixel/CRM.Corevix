@@ -1099,6 +1099,12 @@ export function ProposalWorkspaceDialog({
       contextLabel: `Propuesta: ${proposal.number}`,
     } });
   }
+  const displayProductName =
+    product?.name ||
+    items.find((item) => String(item.item_name || "").trim())?.item_name ||
+    items.find((item) => String(item.description || "").trim())?.description ||
+    "Servicio personalizado";
+
   return (
     <SalesDocumentWorkspaceDialog
       open={open}
@@ -1110,7 +1116,7 @@ export function ProposalWorkspaceDialog({
         <>
           <span>{client?.company_name || "Sin cliente vinculado"}</span>
           <span>·</span>
-          <span>{product?.name || "Sin producto"}</span>
+          <span>{displayProductName}</span>
           <span>·</span>
           <span>{formatMoney(totalAmount, proposal.currency)}</span>
         </>
