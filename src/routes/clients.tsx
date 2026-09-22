@@ -2803,6 +2803,7 @@ function ClientsPage() {
 
     setCreditNoteSaving(true);
     try {
+      const db = supabase as any;
       const { data: rpcResult, error: rpcError } = await db.rpc("save_credit_note", {
         p_credit_note_id: null,
         p_invoice_id: invoiceId,
