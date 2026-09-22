@@ -65,6 +65,8 @@ export type InvoiceEditorClient = {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  city?: string | null;
+  country?: string | null;
   tax_id?: string | null;
 };
 
@@ -354,7 +356,9 @@ export function InvoiceEditor({
       clientCompany: cleanText(client?.company_name),
       clientEmail: cleanText(client?.email),
       clientPhone: cleanText(client?.phone),
-      clientAddress: cleanText(client?.address),
+      clientAddress: cleanText(
+        [client?.address, client?.city, client?.country].filter(Boolean).join(", "),
+      ),
       clientTaxId: cleanText(client?.tax_id),
     }));
   };
