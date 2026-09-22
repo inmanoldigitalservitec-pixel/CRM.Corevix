@@ -228,6 +228,20 @@ function text(value: unknown) {
   return String(value ?? "").trim();
 }
 
+function mergeAddressParts(...values: unknown[]) {
+  const result: string[] = [];
+  for (const value of values) {
+    const part = text(value);
+    if (!part) continue;
+    const normalized = part.toLowerCase();
+    if (result.some((item) => item.toLowerCase().includes(normalized) || normalized.includes(item.toLowerCase()))) {
+      continue;
+    }
+    result.push(part);
+  }
+  return result.join(", ");
+}
+
 function buildInvoicePartyFields(
   invoice: InvoiceRow,
   client: any,
@@ -238,10 +252,13 @@ function buildInvoicePartyFields(
       ? invoice.invoice_data
       : {};
   const value = (key: string) => text((invoiceData as Record<string, unknown>)[key]) || null;
-  const companyAddress = [company?.address, company?.city, company?.country]
-    .map((item) => text(item))
-    .filter(Boolean)
-    .join(", ");
+  const companyAddress = mergeAddressParts(company?.address, company?.city, company?.country);
+  const clientAddress = mergeAddressParts(
+    value("clientAddress"),
+    client?.address,
+    client?.city,
+    client?.country,
+  );
 
   return {
     issuerFields: [
@@ -266,7 +283,7 @@ function buildInvoicePartyFields(
       { label: "Correo", value: value("clientEmail") || client?.email || null },
       { label: "Teléfono", value: value("clientPhone") || client?.phone || null },
       { label: "ID fiscal", value: value("clientTaxId") || client?.tax_id || null },
-      { label: "Dirección", value: value("clientAddress") || client?.address || null },
+      { label: "Dirección", value: clientAddress || null },
     ] as InvoiceDetailField[],
   };
 }
@@ -810,6 +827,7 @@ export function GlobalDetailHost() {
   const [invoiceItemsLoading, setInvoiceItemsLoading] = useState(false);
   const [invoiceIssuerFields, setInvoiceIssuerFields] = useState<InvoiceDetailField[]>([]);
   const [invoiceClientFields, setInvoiceClientFields] = useState<InvoiceDetailField[]>([]);
+  const [invoiceBalance, setInvoiceBalance] = useState<number | null>(null);
 
   const [calendarEvent, setCalendarEvent] = useState<CalendarItem | null>(null);
   const [recordDetail, setRecordDetail] = useState<GlobalRecordDetail | null>(null);
@@ -831,6 +849,7 @@ export function GlobalDetailHost() {
     setInvoiceItems([]);
     setInvoiceIssuerFields([]);
     setInvoiceClientFields([]);
+    setInvoiceBalance(null);
 
     setCalendarEvent(null);
     setRecordDetail(null);
@@ -1203,7 +1222,7 @@ export function GlobalDetailHost() {
 
         if (selection.group === "invoices") {
           setInvoiceItemsLoading(true);
-          const [invoiceRes, itemsRes, companyRes] = await Promise.all([
+          const [invoiceRes, itemsRes, companyRes, balanceRes] = await Promise.all([
             db.from("invoices").select("*").eq("company_id", cid).eq("id", selection.id).single(),
             db
               .from("invoice_items")
@@ -1216,14 +1235,24 @@ export function GlobalDetailHost() {
               .select("company_name,tax_id,email,phone,address,city,country,website,logo_url")
               .eq("id", cid)
               .maybeSingle(),
+            db.rpc("get_invoice_financial_balance", { p_invoice_id: selection.id }),
           ]);
           if (invoiceRes.error) throw invoiceRes.error;
 
           const invoiceRow = invoiceRes.data as InvoiceRow;
+          const balanceRow = Array.isArray(balanceRes.data) ? balanceRes.data[0] : balanceRes.data;
+          const computedInvoiceBalance = balanceRes.error
+            ? invoiceRow.status === "Paid"
+              ? 0
+              : Number(invoiceRow.total || 0)
+            : Number(balanceRow?.balance_due ?? 0);
+          if (balanceRes.error) {
+            console.error("No se pudo cargar el saldo financiero de la factura:", balanceRes.error);
+          }
           const clientRes = invoiceRow.client_id
             ? await db
                 .from("clients")
-                .select("id,company_name,contact_person,email,phone,address,tax_id")
+                .select("id,company_name,contact_person,email,phone,address,city,country,tax_id")
                 .eq("company_id", cid)
                 .eq("id", invoiceRow.client_id)
                 .maybeSingle()
@@ -1232,6 +1261,7 @@ export function GlobalDetailHost() {
           if (!cancelled) {
             const partyFields = buildInvoicePartyFields(invoiceRow, clientRes.data, companyRes.data);
             setInvoice(invoiceRow);
+            setInvoiceBalance(computedInvoiceBalance);
             setInvoiceIssuerFields(partyFields.issuerFields);
             setInvoiceClientFields(partyFields.clientFields);
             setInvoiceItems((itemsRes.data || []) as InvoiceDetailItem[]);
@@ -1902,7 +1932,10 @@ export function GlobalDetailHost() {
         activity={invoice ? buildInvoiceActivity(invoice) : []}
         currency={invoiceCurrency}
         total={money(invoice?.total, invoiceCurrency)}
-        balance={money(invoice?.total, invoiceCurrency)}
+        balance={money(
+          invoiceBalance ?? (invoice?.status === "Paid" ? 0 : invoice?.total),
+          invoiceCurrency,
+        )}
         subtotal={money(invoice?.subtotal, invoiceCurrency)}
         tax={money(invoice?.tax, invoiceCurrency)}
         discount={money(invoice?.discount, invoiceCurrency)}
