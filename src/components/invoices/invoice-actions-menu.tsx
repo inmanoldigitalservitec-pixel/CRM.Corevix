@@ -63,10 +63,6 @@ export function InvoiceActionsMenu({
   if (inline) {
     return (
       <div className="flex flex-wrap items-center justify-end gap-1.5">
-        <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onView}>
-          <FileText className="h-4 w-4" />
-          Ver detalle
-        </CrmDetailLineButton>
         <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onEdit}>
           <Pencil className="h-4 w-4" />
           Editar
