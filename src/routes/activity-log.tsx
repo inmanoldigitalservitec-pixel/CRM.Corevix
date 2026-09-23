@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Boxes, ListChecks } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { DataCard } from "@/components/crm/data-card";
 import {
   Table,
@@ -47,14 +48,22 @@ function ActivityLogPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [logs, setLogs] = useState<ActivityRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadLogs = async () => {
-      if (!profile?.company_id) return;
+      if (!profile?.company_id) {
+        setLogs([]);
+        setLoading(false);
+        setLoadError(null);
+        return;
+      }
       setLoading(true);
-      const { data } = await (supabase as any)
+      setLoadError(null);
+      const { data, error } = await supabase
         .from("activity_logs")
         .select("id,action,detail,entity_type,created_at")
         .eq("company_id", profile.company_id)
@@ -62,6 +71,12 @@ function ActivityLogPage() {
         .limit(250);
 
       if (cancelled) return;
+      if (error) {
+        setLogs([]);
+        setLoadError(error.message || "No fue posible cargar los eventos.");
+        setLoading(false);
+        return;
+      }
       setLogs(data || []);
       setLoading(false);
     };
@@ -70,7 +85,7 @@ function ActivityLogPage() {
     return () => {
       cancelled = true;
     };
-  }, [profile?.company_id]);
+  }, [profile?.company_id, reloadKey]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -130,6 +145,23 @@ function ActivityLogPage() {
         <CardContent className="p-4 sm:p-6">
           {loading ? (
             <LoadingTable rows={8} cols={4} />
+          ) : loadError ? (
+            <div
+              role="alert"
+              className="flex flex-col items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p className="font-medium">No se pudo cargar el registro de actividad.</p>
+                <p className="mt-1 break-words">{loadError}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setReloadKey((current) => current + 1)}
+              >
+                Reintentar
+              </Button>
+            </div>
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={<Activity className="h-6 w-6" />}
