@@ -2356,7 +2356,11 @@ function InvoicesPage() {
                 ? `Saldo pendiente: ${formatInvoiceMoney(result.remainingBalance, selectedCurrency)}`
                 : null,
               result.projectCreated ? "Proyecto creado." : null,
-              result.receiptUploaded ? "Comprobante adjunto." : "Sin comprobante adjunto.",
+              result.receiptUploaded
+                ? "Comprobante adjunto."
+                : result.receiptUploadError
+                  ? "No se pudo adjuntar el comprobante."
+                  : "Sin comprobante adjunto.",
             ]
               .filter(Boolean)
               .join(" · "),
