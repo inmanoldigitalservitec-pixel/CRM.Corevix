@@ -4256,7 +4256,7 @@ function ClientsPage() {
             tone={clientRiskTone(attentionCount, 1, 6)}
           />
           <ClientKpi
-            label="Pendientes"
+            label="Facturas pendientes"
             value={pendingInvoicesCount}
             tone={clientRiskTone(pendingInvoicesCount, 1, 6)}
           />
