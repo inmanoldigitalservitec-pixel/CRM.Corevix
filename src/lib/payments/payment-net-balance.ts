@@ -38,6 +38,8 @@ export async function loadPaymentNetBalance(
     const originalAmount = Number(payment.amount || 0) || 0;
     const originalAmountBase =
       Number(payment.amount_base ?? payment.amount ?? 0) || 0;
+    const isCompleted =
+      String(payment.status || "").trim().toLowerCase() === "completed";
 
     return {
       paymentId: String(payment.id),
@@ -45,8 +47,8 @@ export async function loadPaymentNetBalance(
       originalAmountBase,
       movementAmount: 0,
       movementAmountBase: 0,
-      netAmount: originalAmount,
-      netAmountBase: originalAmountBase,
+      netAmount: isCompleted ? originalAmount : 0,
+      netAmountBase: isCompleted ? originalAmountBase : 0,
       displayStatus: String(payment.status || "Pending"),
     };
   }
