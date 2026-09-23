@@ -1458,26 +1458,6 @@ function Field({
     );
 
   return (
-	      <div className={cls}>
-	        <Label className={crmFormStyles.label}>{field.label}</Label>
-	        <Select value={value || NONE} onValueChange={onChange}>
-	          <SelectTrigger className={crmFormStyles.select}>
-	            <SelectValue placeholder={field.type === "tax-select" ? "Sin impuesto" : undefined} />
-	          </SelectTrigger>
-	          <SelectContent>
-	            <SelectItem value={NONE}>
-	              {field.type === "tax-select" ? "Sin impuesto" : "Ninguno"}
-	            </SelectItem>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.displayLabel ?? displayLabel(option.label)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  return (
     <div className={cls}>
       <Label className={crmFormStyles.label}>{field.label}</Label>
       <Input
