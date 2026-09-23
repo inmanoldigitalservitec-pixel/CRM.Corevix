@@ -683,6 +683,7 @@ function LeadsPage() {
   const [leadChipFilter, setLeadChipFilter] = useState<LeadChipFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const [updatingLeadStatusId, setUpdatingLeadStatusId] = useState<string | null>(null);
+  const [pendingConvertedStatusChange, setPendingConvertedStatusChange] = useState<{ lead: Lead; nextStatus: string } | null>(null);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -726,13 +727,8 @@ function LeadsPage() {
     fetch: fetchLeads,
   } = useCrud<Lead>({ table: "leads" });
 
-  const handleInlineStatusChange = async (lead: Lead, nextStatus: string) => {
+  const persistLeadStatusChange = async (lead: Lead, nextStatus: string) => {
     if (!lead.id || !nextStatus || lead.status === nextStatus) return;
-    if (!can("leads.edit")) {
-      toast.error("No tienes permiso para cambiar el estado de este lead.");
-      return;
-    }
-
     setUpdatingLeadStatusId(lead.id);
     try {
       await update(lead.id, { status: nextStatus } as Partial<Lead>);
@@ -742,6 +738,21 @@ function LeadsPage() {
     } finally {
       setUpdatingLeadStatusId(null);
     }
+  };
+
+  const handleInlineStatusChange = async (lead: Lead, nextStatus: string) => {
+    if (!lead.id || !nextStatus || lead.status === nextStatus) return;
+    if (!can("leads.edit")) {
+      toast.error("No tienes permiso para cambiar el estado de este lead.");
+      return;
+    }
+
+    if (nextStatus !== "Won" && (lead.status === "Won" || lead.converted_client_id)) {
+      setPendingConvertedStatusChange({ lead, nextStatus });
+      return;
+    }
+
+    await persistLeadStatusChange(lead, nextStatus);
   };
 
   const [teamLoading, setTeamLoading] = useState(false);
@@ -3768,6 +3779,54 @@ function LeadsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!pendingConvertedStatusChange}
+        onOpenChange={(open) => {
+          if (!open) setPendingConvertedStatusChange(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cambiar el estado de este lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingConvertedStatusChange?.lead.converted_client_id ? (
+                <>
+                  Este lead ya está vinculado al cliente{" "}
+                  <strong>
+                    {pendingConvertedStatusChange.lead.company_name ||
+                      getLeadName(pendingConvertedStatusChange.lead)}
+                  </strong>
+                  . Si lo cambias a{" "}
+                  <strong>{getStatusLabel(pendingConvertedStatusChange.nextStatus)}</strong>,
+                  el cliente seguirá vinculado: no se eliminará ni se desvinculará.
+                </>
+              ) : (
+                <>
+                  Este lead está marcado como Ganado. Si lo cambias a{" "}
+                  <strong>{getStatusLabel(pendingConvertedStatusChange?.nextStatus || "")}</strong>,
+                  dejará de aparecer como Ganado. ¿Deseas continuar?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingConvertedStatusChange) return;
+                void persistLeadStatusChange(
+                  pendingConvertedStatusChange.lead,
+                  pendingConvertedStatusChange.nextStatus,
+                );
+                setPendingConvertedStatusChange(null);
+              }}
+            >
+              Cambiar estado
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!lostDeal} onOpenChange={(open) => !open && setLostDeal(null)}>
         <AlertDialogContent>
