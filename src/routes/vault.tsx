@@ -898,3 +898,103 @@ function VaultPage() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2">
+            <label className={crmFormStyles.label}>Estado</label>
+            <Select value={form.status} onValueChange={(value) => updateForm("status", value)}>
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className={crmFormStyles.label}>URL</label>
+            <Input
+              className={crmFormStyles.input}
+              value={form.url}
+              onChange={(event) => updateForm("url", event.target.value)}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className={crmFormStyles.label}>Usuario</label>
+            <Input
+              className={crmFormStyles.input}
+              value={form.username}
+              onChange={(event) => updateForm("username", event.target.value)}
+              placeholder="Usuario o cuenta"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className={crmFormStyles.label}>Correo</label>
+            <Input
+              className={crmFormStyles.input}
+              value={form.email}
+              onChange={(event) => updateForm("email", event.target.value)}
+              placeholder="correo@empresa.com"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className={crmFormStyles.label}>Vence</label>
+            <Input
+              className={crmFormStyles.input}
+              type="date"
+              value={form.expires_at}
+              onChange={(event) => updateForm("expires_at", event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <label className={crmFormStyles.label}>Secreto</label>
+            <Input
+              className={crmFormStyles.input}
+              type="password"
+              value={form.secret_value}
+              onChange={(event) => updateForm("secret_value", event.target.value)}
+              placeholder="Contraseña, token, API key o código seguro"
+            />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <label className={crmFormStyles.label}>Etiquetas</label>
+            <Input
+              className={crmFormStyles.input}
+              value={form.tags}
+              onChange={(event) => updateForm("tags", event.target.value)}
+              placeholder="producción, hosting, cliente vip"
+            />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <label className={crmFormStyles.label}>Notas</label>
+            <Textarea
+              className={crmFormStyles.textarea}
+              value={form.notes}
+              onChange={(event) => updateForm("notes", event.target.value)}
+              placeholder="Contexto de uso, instrucciones o detalles importantes."
+            />
+          </div>
+
+          <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:col-span-2">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Usa Vault para información realmente necesaria. Mantén responsables y vencimientos
+              claros para evitar accesos olvidados.
+            </p>
+          </div>
+        </div>
+      </CrmCreationDialog>
+    </div>
+  );
+}
