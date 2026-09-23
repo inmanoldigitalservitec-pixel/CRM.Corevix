@@ -419,6 +419,13 @@ export function SalesReportCenter() {
     const q = search.trim().toLowerCase();
     return rows.filter((row) => {
       const rowStatus = row.finance_status || row.status || "";
+      if (
+        config.id === "subscriptions" &&
+        String(rowStatus).toLowerCase() === "paused"
+      ) {
+        return false;
+      }
+
       const rowDate = row[config.dateKey] || row.date;
       const text = columns
         .map((c) => row[c.key])
@@ -430,7 +437,7 @@ export function SalesReportCenter() {
         (!q || text.includes(q))
       );
     });
-  }, [columns, config.dateKey, period, rows, search, status]);
+  }, [columns, config.dateKey, config.id, period, rows, search, status]);
 
   const totalAmount = filtered.reduce(
     (sum, row) => sum + readReportBaseAmount(row, config.amountKey, currencySettings),
