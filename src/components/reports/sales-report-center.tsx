@@ -410,9 +410,18 @@ export function SalesReportCenter() {
   const statusOptions = useMemo(
     () =>
       Array.from(
-        new Set(rows.map((row) => row.finance_status || row.status).filter(Boolean)),
+        new Set(
+          rows
+            .filter(
+              (row) =>
+                config.id !== "subscriptions" ||
+                String(row.finance_status || row.status || "").toLowerCase() !== "paused",
+            )
+            .map((row) => row.finance_status || row.status)
+            .filter(Boolean),
+        ),
       ).sort(),
-    [rows],
+    [config.id, rows],
   );
 
   const filtered = useMemo(() => {
