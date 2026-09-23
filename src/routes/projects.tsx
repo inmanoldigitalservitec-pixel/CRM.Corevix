@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 27140)
-Total output lines: 2773
-
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1186,7 +1183,585 @@ function ProjectsPage() {
           },
         ]}
       >
-        <div className…7140 tokens truncated…    .slice()
+        <div className="mt-2 grid w-full grid-cols-2 gap-2">
+          <Select value={statusFilter || "all"} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileStatusFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={tasksFilter || "all"} onValueChange={setTasksFilter}>
+            <SelectTrigger className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 shadow-none transition hover:border-slate-400 hover:bg-slate-50/40 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-slate-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {mobileTaskFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </GlobalKpiStrip>
+
+      <div className="hidden grid-cols-2 gap-x-8 gap-y-4 md:grid lg:grid-cols-6">
+        <ProjectKpi label="Total" value={kpis.total} />
+        <ProjectKpi label="Activos" value={kpis.active} tone="info" />
+        <ProjectKpi label="En riesgo" value={kpis.risky} tone={projectRiskTone(kpis.risky, 1, 3)} />
+        <ProjectKpi label="Completados" value={kpis.completed} tone="success" />
+        <ProjectKpi
+          label="Vencidos"
+          value={kpis.overdue}
+          tone={projectRiskTone(kpis.overdue, 1, 3)}
+        />
+        <ProjectKpi
+          label="Tareas abiertas"
+          value={kpis.abiertasTasks}
+          tone={projectRiskTone(kpis.abiertasTasks, 5, 12)}
+        />
+      </div>
+
+      <section
+        data-demo="projects-list"
+        className="overflow-hidden border-y border-slate-100 bg-white max-md:border-0"
+      >
+        <div className="hidden flex-col gap-3 border-b border-slate-100 px-4 py-3 md:flex xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {can("projects.create") ? (
+              <CrmDetailLineButton
+                icon={<Plus className="h-4 w-4" />}
+                onClick={abiertasNewProject}
+                className="h-9 rounded-full border-blue-600 bg-blue-600 px-3 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+              >
+                Nuevo proyecto
+              </CrmDetailLineButton>
+            ) : null}
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar proyectos..."
+              className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Estado" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {PROJECT_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {displayLabel(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={clientFilter || "all"} onValueChange={setClientFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="Cliente" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los clientes</SelectItem>
+                {clientOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={productFilter || "all"} onValueChange={setProductFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="Producto" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los productos</SelectItem>
+                {productOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={managerFilter || "all"} onValueChange={setManagerFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="Responsable" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los responsables</SelectItem>
+                {managerOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={tasksFilter} onValueChange={setTasksFilter}>
+              <CrmDetailSelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Tareas" />
+              </CrmDetailSelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las tareas</SelectItem>
+                <SelectItem value="overdue">Vencidas</SelectItem>
+                <SelectItem value="in_progress">Abiertas</SelectItem>
+                <SelectItem value="completed">Completas</SelectItem>
+                <SelectItem value="no_tasks">Sin tareas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={<FolderOpen className="h-6 w-6" />}
+            title="No hay proyectos"
+            description="Crea tu primer proyecto."
+            actionLabel={can("projects.create") ? "Nuevo proyecto" : undefined}
+            onAction={can("projects.create") ? abiertasNewProject : undefined}
+          />
+        ) : (
+          <>
+            <div className="grid gap-2.5 md:hidden">
+              {filtered.map((project, index) => {
+                const meta = projectMeta(project);
+                return (
+                  <ProjectMobileCard
+                    key={project.id}
+                    project={project}
+                    meta={meta}
+                    owner={meta.assigneeLabel}
+                    demo={index === 0 ? "projects-first-row" : undefined}
+                    onOpen={() => setSelected(project)}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block">
+              <Table className="projects-list-table">
+                <TableHeader className="bg-white">
+                  <TableRow>
+                    <TableHead className="pl-4 sm:pl-5">Proyecto</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cliente / Producto</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="hidden md:table-cell">Progreso</TableHead>
+                    <TableHead className="hidden xl:table-cell">Responsables</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cronograma</TableHead>
+                    <TableHead className="hidden sm:table-cell pr-4 text-right sm:pr-5">
+                      Budget
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((project, index) => {
+                    const meta = projectMeta(project);
+                    const clientName = meta.client?.company_name || "Sin cliente";
+                    const productName = meta.product?.name || "Sin producto";
+                    const owner = meta.assigneeLabel;
+                    return (
+                      <TableRow
+                        key={project.id}
+                        data-demo={index === 0 ? "projects-first-row" : undefined}
+                        className="cursor-pointer align-top hover:bg-slate-50/40"
+                        onClick={() => setSelected(project)}
+                      >
+                        <TableCell className="pl-4 sm:pl-5">
+                          <div className="flex min-w-0 items-start gap-3 sm:min-w-[320px]">
+                            <div
+                              className={`grid h-12 w-12 shrink-0 place-items-center rounded-full border font-medium shadow-none sm:h-11 sm:w-11 ${meta.hasRisk ? "border-rose-100 bg-rose-50 text-rose-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}
+                            >
+                              {meta.hasRisk ? (
+                                <AlertTriangle className="h-5 w-5" />
+                              ) : (
+                                <span className="text-xs">{initials(project.name)}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <div className="truncate text-[15px] font-normal text-slate-950">
+                                  {project.name}
+                                </div>
+                                {meta.hasRisk ? (
+                                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+                                    Riesgo
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="mt-1 truncate text-[12.5px] text-muted-foreground">
+                                {clientName} · {meta.deal?.name || "Sin oportunidad"}
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-none">
+                                  <Package className="h-3 w-3" />
+                                  {productName}
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-none md:hidden">
+                                  <UserRound className="h-3 w-3" />
+                                  {owner}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="max-w-[240px]">
+                            <div className="truncate text-sm font-normal">{clientName}</div>
+                            <div className="mt-1 truncate text-xs text-muted-foreground">
+                              {productName}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell data-demo={index === 0 ? "projects-status" : undefined}>
+                          <StatusBadge status={project.status} />
+                        </TableCell>
+                        <TableCell
+                          data-demo={index === 0 ? "projects-progress" : undefined}
+                          className="hidden md:table-cell"
+                        >
+                          <div className="min-w-[150px]">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-normal">{meta.stats.pct}%</span>
+                              <span className="text-muted-foreground">
+                                {meta.stats.total
+                                  ? `${meta.stats.completed}/${meta.stats.total}`
+                                  : "Sin tareas"}
+                              </span>
+                            </div>
+                            <Progress value={meta.stats.pct} className="mt-2 h-2" />
+                            {meta.stats.overdue ? (
+                              <div className="mt-1 text-[11px] font-normal text-rose-700">
+                                {meta.stats.overdue} vencidas
+                              </div>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell">
+                          <ProfileAvatarStack
+                            profiles={meta.assigneeProfiles}
+                            label={meta.assigneeLabel}
+                          />
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Inicio: {formatDate(project.start_date)}
+                            </div>
+                            <div
+                              className={
+                                meta.isOverdue
+                                  ? "flex items-center gap-1.5 font-medium text-rose-700"
+                                  : "flex items-center gap-1.5 text-muted-foreground"
+                              }
+                            >
+                              <CircleDot className="h-3.5 w-3.5" />
+                              Entrega: {formatDate(project.due_date)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell pr-4 text-right sm:pr-5">
+                          <div className="font-normal">
+                            {projectBudgetBaseLabel(project, currencySettings)}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {normalizeCurrency(project.budget_currency) ===
+                            currencySettings.baseCurrency
+                              ? "presupuesto"
+                              : projectBudgetOriginalLabel(project)}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
+      </section>
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setEditItem(null);
+          }
+        }}
+      >
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-none max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:rounded-none sm:h-[min(760px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-3xl sm:rounded-2xl sm:border sm:border-slate-200">
+          <DialogHeader className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 pr-14 text-left sm:px-6">
+            <DialogTitle className="text-xl font-normal tracking-normal text-slate-950">
+              {editItem ? "Editar proyecto" : "Añadir nuevo proyecto"}
+            </DialogTitle>
+            <DialogDescription className="text-sm font-normal text-slate-500">
+              Completa lo esencial primero. La configuración puede quedar para después.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col bg-white">
+            <Tabs defaultValue="project" className="flex h-full min-h-0 flex-col">
+              <TabsList className="h-auto justify-start rounded-none border-b border-slate-100 bg-transparent px-4 py-0 sm:px-6">
+                <TabsTrigger
+                  value="project"
+                  className="rounded-none border-b-2 border-transparent px-3 py-3 text-sm font-normal data-[state=active]:border-slate-950 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Proyecto
+                </TabsTrigger>
+                <TabsTrigger
+                  value="settings"
+                  className="rounded-none border-b-2 border-transparent px-3 py-3 text-sm font-normal data-[state=active]:border-slate-950 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Configuración
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+                <TabsContent value="project" className="m-0 space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className={crmFormStyles.label}>
+                      <span className="text-rose-600">*</span> Nombre del proyecto
+                    </Label>
+                    <Input
+                      className={crmFormStyles.input}
+                      value={form.name}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, name: event.target.value }))
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <ProjectSelect
+                      label="Cliente"
+                      value={form.client_id}
+                      onChange={(value) => setForm((current) => ({ ...current, client_id: value }))}
+                      options={clientOptions}
+                      noneLabel="Selecciona o deja sin cliente"
+                    />
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Responsables</Label>
+                      <ProfileMultiPicker
+                        value={form.manager_ids}
+                        profiles={availableProjectProfiles}
+                        onChange={(value) =>
+                          setForm((current) => ({
+                            ...current,
+                            manager_ids: value,
+                            manager: primaryManagerProfileId(value) || NONE,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Fecha de inicio</Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        name="start_date"
+                        type="date"
+                        value={form.start_date}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, start_date: event.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Fecha de entrega</Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        name="due_date"
+                        type="date"
+                        value={form.due_date}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, due_date: event.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <ProjectSelect
+                      label="Producto o servicio"
+                      value={form.product_id}
+                      onChange={(value) =>
+                        setForm((current) => ({ ...current, product_id: value }))
+                      }
+                      options={productOptions}
+                      noneLabel="Sin producto"
+                    />
+                    <ProjectSelect
+                      label="Estado inicial"
+                      value={form.status}
+                      onChange={(value) => setForm((current) => ({ ...current, status: value }))}
+                      options={PROJECT_STATUSES.map((item) => ({
+                        label: displayLabel(item),
+                        value: item,
+                      }))}
+                      noneLabel="No iniciado"
+                      hideNone
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className={crmFormStyles.label}>Descripción</Label>
+                    <Textarea
+                      className={crmFormStyles.textarea}
+                      value={form.description}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, description: event.target.value }))
+                      }
+                      rows={6}
+                      placeholder="Alcance, entregables, notas del cliente o cualquier detalle importante."
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="settings" className="m-0 space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <ProjectSelect
+                      label="Oportunidad relacionada"
+                      value={form.deal_id}
+                      onChange={(value) => setForm((current) => ({ ...current, deal_id: value }))}
+                      options={dealOptions}
+                      noneLabel="Sin oportunidad"
+                    />
+                    <ProjectSelect
+                      label="Lead relacionado"
+                      value={form.lead_id}
+                      onChange={(value) => setForm((current) => ({ ...current, lead_id: value }))}
+                      options={leadOptions}
+                      noneLabel="Sin lead"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <ProjectSelect
+                      label="Prioridad"
+                      value={form.priority}
+                      onChange={(value) => setForm((current) => ({ ...current, priority: value }))}
+                      options={PRIORITIES.map((item) => ({
+                        label: displayLabel(item),
+                        value: item,
+                      }))}
+                      noneLabel="Media"
+                      hideNone
+                    />
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Presupuesto</Label>
+                      <div className="grid grid-cols-[minmax(0,1fr)_116px] gap-2">
+                        <Input
+                          className={crmFormStyles.input}
+                          type="number"
+                          min="0"
+                          step={getCurrencyStep(form.budget_currency)}
+                          inputMode={getCurrencyInputMode(form.budget_currency)}
+                          value={form.budget}
+                          onChange={(event) =>
+                            setForm((current) => ({ ...current, budget: event.target.value }))
+                          }
+                          onBlur={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              budget: normalizeCurrencyInput(
+                                event.target.value,
+                                current.budget_currency,
+                              ),
+                            }))
+                          }
+                        />
+                        <Select
+                          value={normalizeCurrency(form.budget_currency)}
+                          onValueChange={(value) => {
+                            const nextCurrency = normalizeCurrency(value);
+                            setForm((current) => ({
+                              ...current,
+                              budget_currency: nextCurrency,
+                              budget: current.budget.trim()
+                                ? String(
+                                    convertCurrencyAmount(
+                                      current.budget,
+                                      current.budget_currency,
+                                      nextCurrency,
+                                      currencySettings.usdToDopRate,
+                                    ),
+                                  )
+                                : current.budget,
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className={crmFormStyles.select}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CURRENCY_OPTIONS.map((currency) => (
+                              <SelectItem key={currency.value} value={currency.value}>
+                                {currency.symbol}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={crmFormStyles.label}>Progreso manual (%)</Label>
+                      <Input
+                        className={crmFormStyles.input}
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={form.progress}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, progress: event.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+              </div>
+
+              <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <p className="text-xs font-medium text-slate-500">
+                  Solo el nombre es obligatorio. Puedes completar los demás datos cuando avance el
+                  proyecto.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={crmFormStyles.cancelButton}
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className={crmFormStyles.primaryButton}>
+                    {editItem ? "Guardar cambios" : "Guardar"}
+                  </Button>
+                </div>
+              </div>
+            </Tabs>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {selected ? (
+        <ProjectWorkspaceDialog
+          project={selected}
+          currencySettings={currencySettings}
+          meta={projectMeta(selected)}
+          tasks={(tasksByProjectId.get(selected.id) || [])
+            .slice()
             .sort((a, b) => (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31"))}
           clientName={projectMeta(selected).client?.company_name || "—"}
           productName={projectMeta(selected).product?.name || "—"}
