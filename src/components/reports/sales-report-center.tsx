@@ -183,6 +183,15 @@ function readReportBaseAmount(row: Row, amountKey: string, settings: CompanyCurr
 
 function dateLabel(value: string | null | undefined) {
   if (!value) return "—";
+
+  // Date-only values (e.g. expense_date) are calendar dates, not UTC instants.
+  // Parse them locally so timezone conversion cannot shift the displayed day.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString();
+  }
+
   try {
     return new Date(value).toLocaleDateString();
   } catch {
