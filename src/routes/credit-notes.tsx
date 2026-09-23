@@ -28,7 +28,6 @@ export const Route = createFileRoute("/credit-notes")({
 });
 
 const STATUSES = ["Draft", "Issued", "Applied", "Cancelled"];
-const CREATE_STATUSES = ["Draft"];
 
 type CreditNoteRow = Record<string, any>;
 
@@ -145,16 +144,6 @@ function CreditNotesPage() {
             { key: "client_id", label: "Cliente", type: "select" },
             { key: "amount", label: "Monto", type: "number", required: true },
             { key: "date_issued", label: "Fecha", type: "date" },
-            {
-              key: "status",
-              label: "Estado",
-              type: "select",
-              options: CREATE_STATUSES.map((value) => ({
-                label: value,
-                value,
-                displayLabel: displayLabel(value),
-              })),
-            },
             { key: "notes", label: "Notas", type: "textarea" },
           ],
         }}
