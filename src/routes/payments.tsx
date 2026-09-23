@@ -254,6 +254,7 @@ function PaymentsPage() {
             "Review Required",
           ],
           primaryLabel: "pago sin aplicar",
+          primaryActionLabel: "Nuevo pago",
           defaultValues: {
             reference: "",
             invoice_id: "none",
