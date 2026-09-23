@@ -291,6 +291,15 @@ function columnsFor(reportId: ReportId) {
       { key: "status", label: "Estado" },
       { key: "created_at", label: "Creado" },
     ];
+  if (reportId === "proposals")
+    return [
+      { key: "number", label: "#" },
+      { key: "title", label: "Título" },
+      { key: "client_name", label: "Cliente" },
+      { key: "date", label: "Fecha" },
+      { key: "total_base", label: "Monto" },
+      { key: "status", label: "Estado" },
+    ];
   return [
     { key: "number", label: "#" },
     { key: "title", label: "Título" },
