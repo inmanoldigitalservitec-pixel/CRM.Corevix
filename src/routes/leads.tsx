@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   Check,
@@ -683,7 +683,8 @@ function LeadsPage() {
   const [leadChipFilter, setLeadChipFilter] = useState<LeadChipFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const [updatingLeadStatusId, setUpdatingLeadStatusId] = useState<string | null>(null);
-  const [pendingConvertedStatusChange, setPendingConvertedStatusChange] = useState<{ lead: Lead; nextStatus: string } | null>(null);
+  const [pendingConvertedStatusChange, setPendingConvertedStatusChange] = useState<{ lead: Lead; nextStatus: string; confirm: () => void } | null>(null);
+  const skipStatusConfirmationRef = useRef(false);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -748,7 +749,11 @@ function LeadsPage() {
     }
 
     if (nextStatus !== "Won" && (lead.status === "Won" || lead.converted_client_id)) {
-      setPendingConvertedStatusChange({ lead, nextStatus });
+      setPendingConvertedStatusChange({
+        lead,
+        nextStatus,
+        confirm: () => void persistLeadStatusChange(lead, nextStatus),
+      });
       return;
     }
 
@@ -2255,6 +2260,8 @@ function LeadsPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const bypassStatusConfirmation = skipStatusConfirmationRef.current;
+    skipStatusConfirmationRef.current = false;
     if (!can(editLead ? "leads.edit" : "leads.create")) {
       toast.error("No tienes permiso para realizar esta acción");
       return;
@@ -2306,6 +2313,25 @@ function LeadsPage() {
       },
       notes: String(fd.get("notes") || "").trim() || null,
     };
+
+    if (
+      !bypassStatusConfirmation &&
+      editLead &&
+      data.status !== editLead.status &&
+      data.status !== "Won" &&
+      (editLead.status === "Won" || editLead.converted_client_id)
+    ) {
+      const form = e.currentTarget;
+      setPendingConvertedStatusChange({
+        lead: editLead,
+        nextStatus: data.status,
+        confirm: () => {
+          skipStatusConfirmationRef.current = true;
+          form.requestSubmit();
+        },
+      });
+      return;
+    }
 
     try {
       let savedLead: Lead | null = null;
@@ -3815,10 +3841,7 @@ function LeadsPage() {
             <AlertDialogAction
               onClick={() => {
                 if (!pendingConvertedStatusChange) return;
-                void persistLeadStatusChange(
-                  pendingConvertedStatusChange.lead,
-                  pendingConvertedStatusChange.nextStatus,
-                );
+                pendingConvertedStatusChange.confirm();
                 setPendingConvertedStatusChange(null);
               }}
             >
