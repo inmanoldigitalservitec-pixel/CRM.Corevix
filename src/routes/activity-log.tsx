@@ -31,6 +31,8 @@ type ActivityRow = {
   detail: string | null;
   entity_type: string;
   created_at: string;
+  user_id: string | null;
+  actor_name: string;
 };
 
 function formatDateTime(value: string) {
@@ -65,7 +67,7 @@ function ActivityLogPage() {
       setLoadError(null);
       const { data, error } = await supabase
         .from("activity_logs")
-        .select("id,action,detail,entity_type,created_at")
+        .select("id,action,detail,entity_type,created_at,user_id")
         .eq("company_id", profile.company_id)
         .order("created_at", { ascending: false })
         .limit(250);
@@ -77,7 +79,30 @@ function ActivityLogPage() {
         setLoading(false);
         return;
       }
-      setLogs(data || []);
+      const rows = data || [];
+      const actorIds = [...new Set(rows.flatMap((row) => (row.user_id ? [row.user_id] : [])))];
+      const { data: actors } = actorIds.length
+        ? await supabase
+            .from("profiles")
+            .select("user_id,full_name,email")
+            .eq("company_id", profile.company_id)
+            .in("user_id", actorIds)
+        : { data: [] };
+      const actorNames = new Map(
+        (actors || []).map((actor) => [
+          actor.user_id,
+          actor.full_name?.trim() || actor.email?.trim() || "Usuario sin nombre",
+        ]),
+      );
+      if (cancelled) return;
+      setLogs(
+        rows.map((row) => ({
+          ...row,
+          actor_name: row.user_id
+            ? actorNames.get(row.user_id) || `Usuario (${row.user_id.slice(0, 8)})`
+            : "Sin usuario asociado",
+        })),
+      );
       setLoading(false);
     };
 
@@ -175,6 +200,7 @@ function ActivityLogPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Accion</TableHead>
+                      <TableHead>Usuario</TableHead>
                       <TableHead>Entidad</TableHead>
                       <TableHead>Detalle</TableHead>
                       <TableHead>Fecha</TableHead>
@@ -184,6 +210,7 @@ function ActivityLogPage() {
                     {filtered.map((log) => (
                       <TableRow key={log.id}>
                         <TableCell className="font-medium">{log.action}</TableCell>
+                        <TableCell>{log.actor_name}</TableCell>
                         <TableCell>{log.entity_type}</TableCell>
                         <TableCell>{log.detail || "Sin detalle"}</TableCell>
                         <TableCell>{formatDateTime(log.created_at)}</TableCell>
@@ -202,7 +229,7 @@ function ActivityLogPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {log.entity_type}
+                      {log.entity_type} · {log.actor_name}
                     </p>
                     <p className="mt-2 text-sm text-muted-foreground">
                       {log.detail || "Sin detalle"}
