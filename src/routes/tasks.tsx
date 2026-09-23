@@ -32,13 +32,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/crm/page-header";
 import { GlobalKpiStrip, type GlobalKpiItem } from "@/components/crm/global-kpi-strip";
 import { EmptyState } from "@/components/crm/empty-state";
 import { TaskCreateDialog, TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
+import { ProfileAvatarStack } from "@/components/crm/profile-avatar-stack";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useAuth } from "@/hooks/use-auth";
@@ -278,64 +278,6 @@ function sortTaskRows(a: Task, b: Task) {
   if (dA && !dB) return -1;
   if (!dA && dB) return 1;
   return a.title.localeCompare(b.title);
-}
-
-function getInitials(value: string) {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  return (parts[0]?.[0] || "U") + (parts[1]?.[0] || "");
-}
-
-function AssigneeAvatarStack({
-  assignees,
-  label,
-  maxVisible = 5,
-}: {
-  assignees: ProfileRow[];
-  label: string;
-  maxVisible?: number;
-}) {
-  if (!assignees.length) {
-    return (
-      <div className="flex items-center" title="Sin asignar" aria-label="Sin asignar">
-        <span className="grid h-8 w-8 place-items-center rounded-full border border-dashed border-slate-200 bg-slate-50 text-[11px] font-normal text-slate-400">
-          —
-        </span>
-      </div>
-    );
-  }
-
-  const visible = assignees.slice(0, maxVisible);
-  const hiddenCount = Math.max(0, assignees.length - visible.length);
-
-  return (
-    <div className="flex min-w-[96px] items-center pl-2" title={label} aria-label={label}>
-      {visible.map((assignee, index) => {
-        const name = String(assignee.full_name || assignee.email || "Usuario").trim();
-        return (
-          <Avatar
-            key={`${assignee.id}-${assignee.user_id || index}`}
-            className="-ml-2 h-8 w-8 border-2 border-white bg-white shadow-sm ring-1 ring-slate-100"
-            title={name}
-          >
-            {assignee.avatar_url ? (
-              <AvatarImage src={assignee.avatar_url} alt={name} className="object-cover" />
-            ) : null}
-            <AvatarFallback className="bg-slate-50 text-[11px] font-normal text-slate-600">
-              {getInitials(name).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-        );
-      })}
-      {hiddenCount > 0 ? (
-        <span
-          className="-ml-2 grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-slate-100 text-[11px] font-normal text-slate-600 shadow-sm ring-1 ring-slate-100"
-          title={label}
-        >
-          +{hiddenCount}
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 function statusSelectClass(status: string | null | undefined) {
@@ -1447,8 +1389,8 @@ function TasksPage() {
                             {formatShortDate(task.due_date)}
                           </TableCell>
                           <TableCell>
-                            <AssigneeAvatarStack
-                              assignees={meta.assigneeProfiles}
+                            <ProfileAvatarStack
+                              profiles={meta.assigneeProfiles}
                               label={meta.assigneeLabel}
                             />
                           </TableCell>
