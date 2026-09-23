@@ -17,14 +17,18 @@ export type PaymentNetBalance = {
 
 export type PaymentMovementSummary = {
   refundAmount: number;
+  refundAmountBase: number;
   reversalAmount: number;
+  reversalAmountBase: number;
   refundMovementCount: number;
   reversalMovementCount: number;
 };
 
 const emptyMovementSummary: PaymentMovementSummary = {
   refundAmount: 0,
+  refundAmountBase: 0,
   reversalAmount: 0,
+  reversalAmountBase: 0,
   refundMovementCount: 0,
   reversalMovementCount: 0,
 };
@@ -36,7 +40,7 @@ export async function loadPaymentMovementSummary(
   const db = supabase as any;
   let query = db
     .from("payment_movements")
-    .select("movement_type,amount")
+    .select("movement_type,amount,amount_base")
     .eq("original_payment_id", paymentId);
 
   if (companyId) query = query.eq("company_id", companyId);
@@ -45,12 +49,17 @@ export async function loadPaymentMovementSummary(
   if (error) throw error;
 
   return (data || []).reduce(
-    (summary: PaymentMovementSummary, movement: { movement_type: string; amount: number }) => {
+    (
+      summary: PaymentMovementSummary,
+      movement: { movement_type: string; amount: number; amount_base: number },
+    ) => {
       if (movement.movement_type === "Refund") {
         summary.refundAmount += Number(movement.amount || 0);
+        summary.refundAmountBase += Number(movement.amount_base || 0);
         summary.refundMovementCount += 1;
       } else if (movement.movement_type === "Reversal") {
         summary.reversalAmount += Number(movement.amount || 0);
+        summary.reversalAmountBase += Number(movement.amount_base || 0);
         summary.reversalMovementCount += 1;
       }
       return summary;
@@ -114,20 +123,21 @@ export async function loadPaymentNetBalance(
       String(payment.status || "")
         .trim()
         .toLowerCase() === "completed";
+    const movementAmount = movementSummary.refundAmount + movementSummary.reversalAmount;
+    const movementAmountBase =
+      movementSummary.refundAmountBase + movementSummary.reversalAmountBase;
+    const netAmount = isCompleted ? Math.max(originalAmount - movementAmount, 0) : 0;
+    const netAmountBase = isCompleted ? Math.max(originalAmountBase - movementAmountBase, 0) : 0;
 
     return {
       paymentId: String(payment.id),
       originalAmount,
       originalAmountBase,
-      movementAmount: 0,
-      movementAmountBase: 0,
-      netAmount: isCompleted ? originalAmount : 0,
-      netAmountBase: isCompleted ? originalAmountBase : 0,
-      displayStatus: derivePaymentDisplayStatus(
-        payment.status,
-        isCompleted ? originalAmount : 0,
-        movementSummary,
-      ),
+      movementAmount,
+      movementAmountBase,
+      netAmount,
+      netAmountBase,
+      displayStatus: derivePaymentDisplayStatus(payment.status, netAmount, movementSummary),
       ...movementSummary,
     };
   }

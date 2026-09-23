@@ -85,7 +85,7 @@ function PaymentsPage() {
       if (paymentIds.length) {
         const { data: movements, error } = await (supabase as any)
           .from("payment_movements")
-          .select("original_payment_id,movement_type,amount")
+          .select("original_payment_id,movement_type,amount,amount_base")
           .eq("company_id", profile?.company_id)
           .in("original_payment_id", paymentIds);
         if (error) throw error;
@@ -94,15 +94,19 @@ function PaymentsPage() {
           const paymentId = String(movement.original_payment_id);
           const summary = movementSummaryByPayment.get(paymentId) || {
             refundAmount: 0,
+            refundAmountBase: 0,
             reversalAmount: 0,
+            reversalAmountBase: 0,
             refundMovementCount: 0,
             reversalMovementCount: 0,
           };
           if (movement.movement_type === "Refund") {
             summary.refundAmount += Number(movement.amount || 0);
+            summary.refundAmountBase += Number(movement.amount_base || 0);
             summary.refundMovementCount += 1;
           } else if (movement.movement_type === "Reversal") {
             summary.reversalAmount += Number(movement.amount || 0);
+            summary.reversalAmountBase += Number(movement.amount_base || 0);
             summary.reversalMovementCount += 1;
           }
           movementSummaryByPayment.set(paymentId, summary);
@@ -113,7 +117,9 @@ function PaymentsPage() {
         rows.map(async (payment) => {
           const movementSummary = movementSummaryByPayment.get(String(payment.id)) || {
             refundAmount: 0,
+            refundAmountBase: 0,
             reversalAmount: 0,
+            reversalAmountBase: 0,
             refundMovementCount: 0,
             reversalMovementCount: 0,
           };
