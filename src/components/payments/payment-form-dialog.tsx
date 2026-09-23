@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { CreditCard, Loader2 } from "lucide-react";
+import { CreditCard, FileText, Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
   normalizeCurrencyInput,
 } from "@/lib/currency";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
+import { PAYMENT_RECEIPT_ACCEPT, uploadPaymentReceipt } from "@/lib/payments/payment-receipts";
 
 const NONE = "none";
 const METHODS = ["Manual", "Cash", "Card", "Bank Transfer", "Check", "Other"];
@@ -85,6 +86,7 @@ export type PaymentFormInitialValues = {
 export type PaymentFormCreatedResult = {
   payment: PaymentRow;
   receiptUploaded: boolean;
+  receiptUploadError?: string | null;
   becamePaid?: boolean;
   remainingBalance?: number;
   projectId?: string | null;
@@ -144,6 +146,7 @@ export function PaymentFormDialog({
   const initialKey = JSON.stringify(initialValues || {});
   const [form, setForm] = useState(() => defaultForm(initialValues, currencySettings.baseCurrency));
   const [saving, setSaving] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const paymentRequestKeyRef = useRef<string | null>(null);
   const isInvoiceMode = mode === "invoice";
 
@@ -185,6 +188,7 @@ export function PaymentFormDialog({
         : `payment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     setForm(defaultForm(initialValues, currencySettings.baseCurrency));
+    setReceiptFile(null);
   }, [currencySettings.baseCurrency, open, initialKey]);
 
   const patchForm = (patch: Partial<ReturnType<typeof defaultForm>>) => {
@@ -338,11 +342,36 @@ export function PaymentFormDialog({
       }
       if (!payment?.id) throw new Error("No se pudo confirmar el pago creado.");
 
-      toast.success("Pago creado correctamente.");
+      let receiptUploaded = false;
+      let receiptUploadError: string | null = null;
+      if (receiptFile) {
+        try {
+          await uploadPaymentReceipt(receiptFile, {
+            companyId: profile.company_id,
+            paymentId: payment.id,
+            invoiceId: payment.invoice_id,
+            uploadedBy: profile.id || null,
+            originalName: receiptFile.name,
+          });
+          receiptUploaded = true;
+        } catch (error: any) {
+          receiptUploadError = error?.message || "No se pudo adjuntar el comprobante.";
+          console.error("payment receipt upload after creation error:", error);
+        }
+      }
+
+      if (receiptUploadError) {
+        toast.error(
+          `El pago se registró, pero no se pudo adjuntar el comprobante: ${receiptUploadError}`,
+        );
+      } else {
+        toast.success("Pago creado correctamente.");
+      }
       paymentRequestKeyRef.current = null;
       await onCreated?.({
         payment,
-        receiptUploaded: false,
+        receiptUploaded,
+        receiptUploadError,
         becamePaid,
         remainingBalance,
         projectId,
@@ -528,6 +557,46 @@ export function PaymentFormDialog({
               onChange={(event) => patchForm({ notes: event.target.value })}
               className={crmFormStyles.textarea}
             />
+          </Field>
+
+          <Field label="Comprobante del pago" className="sm:col-span-2">
+            <input
+              type="file"
+              accept={PAYMENT_RECEIPT_ACCEPT}
+              className="sr-only"
+              id="payment-receipt-upload"
+              onChange={(event) => {
+                setReceiptFile(event.target.files?.[0] || null);
+                event.target.value = "";
+              }}
+            />
+            {receiptFile ? (
+              <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                  <FileText className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="truncate">{receiptFile.name}</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Quitar comprobante"
+                  onClick={() => setReceiptFile(null)}
+                  disabled={saving}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <label
+                htmlFor="payment-receipt-upload"
+                className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                <Paperclip className="h-4 w-4" />
+                Adjuntar comprobante
+              </label>
+            )}
+            <p className="text-xs text-muted-foreground">PDF, JPG, PNG o WebP. Máximo 3 MB.</p>
           </Field>
         </div>
 
