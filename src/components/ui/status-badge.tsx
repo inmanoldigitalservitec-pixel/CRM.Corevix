@@ -40,6 +40,8 @@ const statusLabelsEs: Record<string, string> = {
   Paid: "Pagado",
   "Partially Paid": "Parcialmente pagada",
   "Partially Refunded": "Parcialmente reembolsado",
+  Reversed: "Revertido",
+  "Review Required": "Revisar movimiento",
   Unpaid: "Sin pagar",
   Overdue: "Vencido",
   "Not Sent": "No enviada",
@@ -108,6 +110,8 @@ const statusColors: Record<string, string> = {
   Paid: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   "Partially Paid": "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
   "Partially Refunded": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  "Review Required": "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+  Reversed: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400",
   Overdue: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   // WhatsApp
   Open: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",

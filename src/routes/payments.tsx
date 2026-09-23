@@ -8,7 +8,10 @@ import { PaymentFormDialog } from "@/components/payments/payment-form-dialog";
 import { PaymentWorkspaceDialog } from "@/components/payments/payment-workspace-dialog";
 import { deletePaymentReceiptsForPayment } from "@/lib/payments/payment-receipts";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
-import { loadPaymentNetBalance } from "@/lib/payments/payment-net-balance";
+import {
+  loadPaymentNetBalance,
+  type PaymentMovementSummary,
+} from "@/lib/payments/payment-net-balance";
 import { normalizeCurrency } from "@/lib/currency";
 
 const DISPLAY_LABELS: Record<string, string> = {
@@ -31,6 +34,9 @@ const DISPLAY_LABELS: Record<string, string> = {
   Pending: "Pendiente",
   Failed: "Fallido",
   Refunded: "Reembolsado",
+  "Partially Refunded": "Parcialmente reembolsado",
+  Reversed: "Revertido",
+  "Review Required": "Revisar movimiento",
   Issued: "Emitida",
   Applied: "Aplicada",
   Active: "Activo",
@@ -57,7 +63,7 @@ export const Route = createFileRoute("/payments")({
   component: PaymentsPage,
   head: () => ({ meta: [{ title: "Pagos — Corevix CRM" }] }),
 });
-const STATUSES = ["Pending", "Completed", "Failed", "Refunded"];
+const STATUSES = ["Pending", "Completed", "Failed"];
 const METHODS = ["Manual", "Cash", "Card", "Bank Transfer", "Check", "Other"];
 
 function PaymentsPage() {
@@ -73,11 +79,48 @@ function PaymentsPage() {
 
   const enrichPaymentRows = useCallback(
     async (rows: Record<string, any>[]) => {
+      const paymentIds = rows.map((payment) => String(payment.id)).filter(Boolean);
+      const movementSummaryByPayment = new Map<string, PaymentMovementSummary>();
+
+      if (paymentIds.length) {
+        const { data: movements, error } = await (supabase as any)
+          .from("payment_movements")
+          .select("original_payment_id,movement_type,amount")
+          .eq("company_id", profile?.company_id)
+          .in("original_payment_id", paymentIds);
+        if (error) throw error;
+
+        for (const movement of movements || []) {
+          const paymentId = String(movement.original_payment_id);
+          const summary = movementSummaryByPayment.get(paymentId) || {
+            refundAmount: 0,
+            reversalAmount: 0,
+            refundMovementCount: 0,
+            reversalMovementCount: 0,
+          };
+          if (movement.movement_type === "Refund") {
+            summary.refundAmount += Number(movement.amount || 0);
+            summary.refundMovementCount += 1;
+          } else if (movement.movement_type === "Reversal") {
+            summary.reversalAmount += Number(movement.amount || 0);
+            summary.reversalMovementCount += 1;
+          }
+          movementSummaryByPayment.set(paymentId, summary);
+        }
+      }
+
       const enriched = await Promise.all(
         rows.map(async (payment) => {
+          const movementSummary = movementSummaryByPayment.get(String(payment.id)) || {
+            refundAmount: 0,
+            reversalAmount: 0,
+            refundMovementCount: 0,
+            reversalMovementCount: 0,
+          };
           const balance = await loadPaymentNetBalance(
             payment,
             profile?.company_id,
+            movementSummary,
           );
 
           return {
@@ -89,13 +132,13 @@ function PaymentsPage() {
             net_amount: balance.netAmount,
             net_amount_base: balance.netAmountBase,
             display_status: balance.displayStatus,
+            refundMovementCount: balance.refundMovementCount,
           };
         }),
       );
 
       return enriched.sort(
-        (left, right) =>
-          Number(right.payment_number || 0) - Number(left.payment_number || 0),
+        (left, right) => Number(right.payment_number || 0) - Number(left.payment_number || 0),
       );
     },
     [profile?.company_id],
@@ -197,6 +240,13 @@ function PaymentsPage() {
           dateKey: "payment_date",
           statusKey: "status",
           statuses: STATUSES,
+          filterStatuses: [
+            ...STATUSES,
+            "Partially Refunded",
+            "Refunded",
+            "Reversed",
+            "Review Required",
+          ],
           primaryLabel: "pago sin aplicar",
           defaultValues: {
             reference: "",

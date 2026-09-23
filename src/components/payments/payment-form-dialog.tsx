@@ -30,13 +30,12 @@ import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balanc
 
 const NONE = "none";
 const METHODS = ["Manual", "Cash", "Card", "Bank Transfer", "Check", "Other"];
-const STATUSES = ["Pending", "Completed", "Failed", "Refunded"];
+const STATUSES = ["Pending", "Completed", "Failed"];
 
 const DISPLAY_LABELS: Record<string, string> = {
   Completed: "Completado",
   Pending: "Pendiente",
   Failed: "Fallido",
-  Refunded: "Reembolsado",
   Manual: "Manual",
   Cash: "Efectivo",
   Card: "Tarjeta",
@@ -158,7 +157,8 @@ export function PaymentFormDialog({
   });
   const { data: invoices } = useCrud<InvoiceRow>({
     table: "invoices",
-    select: "id,number,total,client_id,status,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,invoice_data",
+    select:
+      "id,number,total,client_id,status,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,invoice_data",
     orderBy: "updated_at",
     ascending: false,
     limit: 1000,
@@ -230,21 +230,14 @@ export function PaymentFormDialog({
         if (normalizedInvoiceStatus === "cancelled" || normalizedInvoiceStatus === "canceled") {
           throw new Error("Esta factura está cancelada.");
         }
-        const balance = await loadInvoicePaymentBalance(
-          selectedInvoice,
-          profile.company_id,
-        );
+        const balance = await loadInvoicePaymentBalance(selectedInvoice, profile.company_id);
 
         const invoiceBaseCurrency = normalizeCurrency(
-          selectedInvoice.base_currency ||
-            balance.baseCurrency ||
-            currencySettings.baseCurrency,
+          selectedInvoice.base_currency || balance.baseCurrency || currencySettings.baseCurrency,
         );
 
         const effectiveRate = Number(
-          selectedInvoice.exchange_rate ||
-            currencySettings.usdToDopRate ||
-            1,
+          selectedInvoice.exchange_rate || currencySettings.usdToDopRate || 1,
         );
 
         const paymentAmountBase =
@@ -278,16 +271,12 @@ export function PaymentFormDialog({
           p_idempotency_key: paymentRequestKeyRef.current,
           p_currency: currency,
           p_exchange_rate: Number(
-            selectedInvoice.exchange_rate ||
-              currencySettings.usdToDopRate ||
-              1,
+            selectedInvoice.exchange_rate || currencySettings.usdToDopRate || 1,
           ),
           p_exchange_rate_source:
-            selectedInvoice.exchange_rate_source ||
-            currencySettings.rateSource,
+            selectedInvoice.exchange_rate_source || currencySettings.rateSource,
           p_exchange_rate_updated_at:
-            selectedInvoice.exchange_rate_updated_at ||
-            currencySettings.rateUpdatedAt,
+            selectedInvoice.exchange_rate_updated_at || currencySettings.rateUpdatedAt,
         });
         if (error) throw error;
         const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
@@ -313,44 +302,30 @@ export function PaymentFormDialog({
         if (paymentLoadError) throw paymentLoadError;
         payment = createdPayment as PaymentRow;
       } else {
-        const { data: rpcResult, error: rpcError } = await db.rpc(
-          "register_unapplied_payment",
-          {
-            p_amount: amount,
-            p_payment_date: form.payment_date || todayIso(),
-            p_method: form.method || "Manual",
-            p_status: form.status || "Completed",
-            p_reference: form.reference.trim() || null,
-            p_notes: form.notes.trim() || null,
-            p_client_id: normalizeOptionalId(form.client_id),
-            p_currency: currency,
-            p_base_currency: baseCurrency,
-            p_exchange_rate:
-              currency === baseCurrency
-                ? 1
-                : currencySettings.usdToDopRate,
-            p_exchange_rate_source: currencySettings.rateSource,
-            p_exchange_rate_updated_at:
-              currencySettings.rateUpdatedAt,
-          },
-        );
+        const { data: rpcResult, error: rpcError } = await db.rpc("register_unapplied_payment", {
+          p_amount: amount,
+          p_payment_date: form.payment_date || todayIso(),
+          p_method: form.method || "Manual",
+          p_status: form.status || "Completed",
+          p_reference: form.reference.trim() || null,
+          p_notes: form.notes.trim() || null,
+          p_client_id: normalizeOptionalId(form.client_id),
+          p_currency: currency,
+          p_base_currency: baseCurrency,
+          p_exchange_rate: currency === baseCurrency ? 1 : currencySettings.usdToDopRate,
+          p_exchange_rate_source: currencySettings.rateSource,
+          p_exchange_rate_updated_at: currencySettings.rateUpdatedAt,
+        });
 
         if (rpcError) throw rpcError;
 
-        const result = Array.isArray(rpcResult)
-          ? rpcResult[0]
-          : rpcResult;
+        const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
 
         if (!result?.payment_id) {
-          throw new Error(
-            "No se pudo confirmar el pago creado.",
-          );
+          throw new Error("No se pudo confirmar el pago creado.");
         }
 
-        const {
-          data: createdPayment,
-          error: paymentLoadError,
-        } = await db
+        const { data: createdPayment, error: paymentLoadError } = await db
           .from("payments")
           .select("*")
           .eq("company_id", profile.company_id)
@@ -450,15 +425,9 @@ export function PaymentFormDialog({
                     .join(" "),
                   data: client,
                 }))}
-                value={
-                  form.client_id === NONE
-                    ? null
-                    : { type: "client", id: form.client_id }
-                }
+                value={form.client_id === NONE ? null : { type: "client", id: form.client_id }}
                 placeholder="Buscar cliente"
-                onChange={(value) =>
-                  patchForm({ client_id: value?.id || NONE })
-                }
+                onChange={(value) => patchForm({ client_id: value?.id || NONE })}
               />
             </Field>
           )}
@@ -498,21 +467,16 @@ export function PaymentFormDialog({
 
           {isInvoiceMode && selectedInvoice ? (
             <div className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-              {normalizeCurrency(form.currency) ===
-              getInvoiceCurrency(selectedInvoice) ? (
-                <span>
-                  El pago se aplicará directamente en la moneda de la factura.
-                </span>
+              {normalizeCurrency(form.currency) === getInvoiceCurrency(selectedInvoice) ? (
+                <span>El pago se aplicará directamente en la moneda de la factura.</span>
               ) : (
                 <span>
-                  Pago recibido en {normalizeCurrency(form.currency)}. Se
-                  convertirá a {getInvoiceCurrency(selectedInvoice)} usando una
-                  tasa de{" "}
+                  Pago recibido en {normalizeCurrency(form.currency)}. Se convertirá a{" "}
+                  {getInvoiceCurrency(selectedInvoice)} usando una tasa de{" "}
                   {Number(
-                    selectedInvoice.exchange_rate ||
-                      currencySettings.usdToDopRate ||
-                      1,
-                  ).toLocaleString("es-DO")}.
+                    selectedInvoice.exchange_rate || currencySettings.usdToDopRate || 1,
+                  ).toLocaleString("es-DO")}
+                  .
                 </span>
               )}
             </div>

@@ -48,11 +48,7 @@ import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-sea
 import { CrmCreationDialog, crmFormStyles } from "@/components/crm/crm-form-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
-import {
-  formatTaxOptionLabel,
-  normalizeTaxRate,
-  useCompanyTaxes,
-} from "@/hooks/use-company-taxes";
+import { formatTaxOptionLabel, normalizeTaxRate, useCompanyTaxes } from "@/hooks/use-company-taxes";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
@@ -90,6 +86,9 @@ const DISPLAY_LABELS: Record<string, string> = {
   Pending: "Pendiente",
   Failed: "Fallido",
   Refunded: "Reembolsado",
+  "Partially Refunded": "Parcialmente reembolsado",
+  Reversed: "Revertido",
+  "Review Required": "Revisar movimiento",
   Issued: "Emitida",
   Applied: "Aplicada",
   Active: "Activo",
@@ -138,6 +137,7 @@ type SalesConfig = {
   defaultValues: Record<string, string>;
   fields: SalesField[];
   statuses: string[];
+  filterStatuses?: string[];
   primaryLabel: string;
   primaryActionLabel?: string;
 };
@@ -276,7 +276,12 @@ function normalizePayload(
         const discount = Number(payload.discount || 0) || 0;
         payload.total = Math.max(0, taxableBase + taxAmount - discount);
       }
-      payload.tax_base = convertCurrencyAmount(taxAmount, currency, baseCurrency, settings.usdToDopRate);
+      payload.tax_base = convertCurrencyAmount(
+        taxAmount,
+        currency,
+        baseCurrency,
+        settings.usdToDopRate,
+      );
       if ("total" in payload) {
         payload.total_base = convertCurrencyAmount(
           payload.total,
@@ -420,23 +425,21 @@ export function SalesBasicPage({
   const initialFieldValuesKey = JSON.stringify(initialFieldValues || {});
   const initialForm = useMemo(
     () => ({
-	      ...config.defaultValues,
-	      ...(currencyAware ? { currency: currencySettings.baseCurrency } : {}),
-	      ...(currencyAware && allowTaxFields
-	        ? { tax_id: defaultTax?.id || NONE }
-	        : {}),
-	      ...(initialFieldValues || {}),
-	    }),
-	    [
-	      currencyAware,
-	      currencySettings.baseCurrency,
-	      defaultTax?.id,
-	      defaultValuesKey,
-	      initialFieldValuesKey,
-	      config.fields,
-	      allowTaxFields,
-	    ],
-	  );
+      ...config.defaultValues,
+      ...(currencyAware ? { currency: currencySettings.baseCurrency } : {}),
+      ...(currencyAware && allowTaxFields ? { tax_id: defaultTax?.id || NONE } : {}),
+      ...(initialFieldValues || {}),
+    }),
+    [
+      currencyAware,
+      currencySettings.baseCurrency,
+      defaultTax?.id,
+      defaultValuesKey,
+      initialFieldValuesKey,
+      config.fields,
+      allowTaxFields,
+    ],
+  );
   const [form, setForm] = useState<Record<string, string>>(initialForm);
 
   const { data, loading, error, fetch, create, update, remove } = useCrud<GenericRow>({
@@ -466,13 +469,13 @@ export function SalesBasicPage({
     ascending: false,
     limit: 1000,
   });
-	  const { data: products } = useCrud<ProductRow>({
-	    table: "products",
-	    select: "id,name,base_price,currency,default_tax_id,default_tax_name,default_tax_rate",
-	    orderBy: "name",
-	    ascending: true,
-	    limit: 1000,
-	  });
+  const { data: products } = useCrud<ProductRow>({
+    table: "products",
+    select: "id,name,base_price,currency,default_tax_id,default_tax_name,default_tax_rate",
+    orderBy: "name",
+    ascending: true,
+    limit: 1000,
+  });
 
   useEffect(() => {
     if (!enrichRows) {
@@ -512,16 +515,16 @@ export function SalesBasicPage({
 
   const fieldOptions = (field: SalesField): Option[] => {
     if (field.options) return field.options;
-	    if (field.key === "currency")
-	      return CURRENCY_OPTIONS.map((option) => ({
-	        label: `${option.symbol} · ${option.label}`,
-	        value: option.value,
-	      }));
-	    if (field.type === "tax-select")
-	      return salesTaxes.map((tax) => ({
-	        label: formatTaxOptionLabel(tax),
-	        value: tax.id,
-	      }));
+    if (field.key === "currency")
+      return CURRENCY_OPTIONS.map((option) => ({
+        label: `${option.symbol} · ${option.label}`,
+        value: option.value,
+      }));
+    if (field.type === "tax-select")
+      return salesTaxes.map((tax) => ({
+        label: formatTaxOptionLabel(tax),
+        value: tax.id,
+      }));
     if (field.key === "client_id")
       return clients.map((item) => ({ label: item.company_name, value: item.id }));
     if (field.key === "project_id")
@@ -557,7 +560,9 @@ export function SalesBasicPage({
         ["Draft", "Pending", "Sent", "Trial"].includes(row[effectiveStatusKey]),
       ).length,
       refunded: displayData.filter((row) =>
-        ["Refunded", "Partially Refunded"].includes(row[effectiveStatusKey]),
+        config.module === "payments"
+          ? Number(row.refundMovementCount || 0) > 0
+          : ["Refunded", "Partially Refunded"].includes(row[effectiveStatusKey]),
       ).length,
     }),
     [
@@ -566,6 +571,7 @@ export function SalesBasicPage({
       displayData,
       effectiveAmountKey,
       effectiveStatusKey,
+      config.module,
       productById,
     ],
   );
@@ -597,9 +603,7 @@ export function SalesBasicPage({
     statusFilter,
   ]);
 
-  const createPermission =
-    config.createPermission ||
-    `${config.module}.create`;
+  const createPermission = config.createPermission || `${config.module}.create`;
 
   const openCreate = () => {
     if (onCreateAction) {
@@ -658,41 +662,28 @@ export function SalesBasicPage({
       let created: GenericRow;
 
       if (config.module === "credit_notes") {
-        const { data: result, error: rpcError } =
-          await db.rpc("save_credit_note", {
-            p_credit_note_id: null,
-            p_invoice_id:
-              normalizedPayload.invoice_id || null,
-            p_client_id:
-              normalizedPayload.client_id || null,
-            p_amount:
-              Number(normalizedPayload.amount || 0),
-            p_date_issued:
-              normalizedPayload.date_issued ||
-              new Date().toISOString().slice(0, 10),
-            p_reason:
-              normalizedPayload.reason || null,
-            p_notes:
-              normalizedPayload.notes || null,
-          });
+        const { data: result, error: rpcError } = await db.rpc("save_credit_note", {
+          p_credit_note_id: null,
+          p_invoice_id: normalizedPayload.invoice_id || null,
+          p_client_id: normalizedPayload.client_id || null,
+          p_amount: Number(normalizedPayload.amount || 0),
+          p_date_issued: normalizedPayload.date_issued || new Date().toISOString().slice(0, 10),
+          p_reason: normalizedPayload.reason || null,
+          p_notes: normalizedPayload.notes || null,
+        });
 
         if (rpcError) throw rpcError;
 
-        const saved = Array.isArray(result)
-          ? result[0]
-          : result;
+        const saved = Array.isArray(result) ? result[0] : result;
 
         if (!saved?.credit_note_id) {
-          throw new Error(
-            "No se pudo confirmar la nota de crédito.",
-          );
+          throw new Error("No se pudo confirmar la nota de crédito.");
         }
 
         created = {
           ...normalizedPayload,
           id: saved.credit_note_id,
-          credit_note_number:
-            saved.credit_note_number,
+          credit_note_number: saved.credit_note_number,
           status: saved.status,
         };
       } else {
@@ -849,7 +840,7 @@ export function SalesBasicPage({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los estados</SelectItem>
-              {config.statuses.map((status) => (
+              {(config.filterStatuses || config.statuses).map((status) => (
                 <SelectItem key={status} value={status}>
                   {displayLabel(status)}
                 </SelectItem>
@@ -888,11 +879,7 @@ export function SalesBasicPage({
             tone={riskTone(kpis.refunded, 1, 6)}
           />
         ) : null}
-        <Kpi
-          label="Pendientes"
-          value={String(kpis.pending)}
-          tone={riskTone(kpis.pending, 1, 6)}
-        />
+        <Kpi label="Pendientes" value={String(kpis.pending)} tone={riskTone(kpis.pending, 1, 6)} />
       </div>
 
       <section className="border-y border-slate-100 bg-white max-sm:border-0 max-sm:bg-transparent">
@@ -916,7 +903,7 @@ export function SalesBasicPage({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  {config.statuses.map((status) => (
+                  {(config.filterStatuses || config.statuses).map((status) => (
                     <SelectItem key={status} value={status}>
                       {displayLabel(status)}
                     </SelectItem>
@@ -939,9 +926,7 @@ export function SalesBasicPage({
                 projectById={projectById}
                 invoiceById={invoiceById}
                 productById={productById}
-                canDelete={
-                  canDelete && (!canDeleteRow || canDeleteRow(row))
-                }
+                canDelete={canDelete && (!canDeleteRow || canDeleteRow(row))}
                 displayAmountKey={effectiveAmountKey}
                 displayStatusKey={effectiveStatusKey}
                 onOpen={() => openRecordDetail(row)}
@@ -1031,6 +1016,10 @@ export function SalesBasicPage({
                               label: displayLabel(status),
                             }))}
                             onChange={(nextStatus) => updateStatus(row, nextStatus)}
+                            disabled={
+                              config.module === "payments" &&
+                              row[effectiveStatusKey] !== row[config.statusKey]
+                            }
                           />
                         </TableCell>
                         {canDelete || renderRowActions ? (
@@ -1041,19 +1030,19 @@ export function SalesBasicPage({
                             >
                               {renderRowActions?.(row)}
                               {canDelete && (!canDeleteRow || canDeleteRow(row)) ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent shadow-none hover:bg-transparent"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setDeleteRow(row);
-                              }}
-                              aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent shadow-none hover:bg-transparent"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setDeleteRow(row);
+                                  }}
+                                  aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               ) : null}
                             </div>
                           </TableCell>
@@ -1123,27 +1112,27 @@ export function SalesBasicPage({
                           );
                         });
                       }
-	                      if (field.key === "invoice_id") {
-	                        const invoice = invoiceById.get(value);
-	                        if (invoice) patch.currency = getInvoiceCurrency(invoice);
-	                      }
-	                      if (field.key === "product_id") {
-	                        const product = productById.get(value);
-	                        if (!allowTaxFields) {
-	                          delete patch.tax_id;
-	                          delete patch.tax_name;
-	                          delete patch.tax_rate;
-	                        } else if (product?.default_tax_id) {
-	                          patch.tax_id = product.default_tax_id;
-	                        } else if (product?.default_tax_name || product?.default_tax_rate) {
-	                          patch.tax_id = NONE;
-	                          patch.tax_name = product.default_tax_name || "";
-	                          patch.tax_rate = String(normalizeTaxRate(product.default_tax_rate));
-	                        } else if (defaultTax?.id) {
-	                          patch.tax_id = defaultTax.id;
-	                        }
-	                      }
-	                      return { ...current, ...patch };
+                      if (field.key === "invoice_id") {
+                        const invoice = invoiceById.get(value);
+                        if (invoice) patch.currency = getInvoiceCurrency(invoice);
+                      }
+                      if (field.key === "product_id") {
+                        const product = productById.get(value);
+                        if (!allowTaxFields) {
+                          delete patch.tax_id;
+                          delete patch.tax_name;
+                          delete patch.tax_rate;
+                        } else if (product?.default_tax_id) {
+                          patch.tax_id = product.default_tax_id;
+                        } else if (product?.default_tax_name || product?.default_tax_rate) {
+                          patch.tax_id = NONE;
+                          patch.tax_name = product.default_tax_name || "";
+                          patch.tax_rate = String(normalizeTaxRate(product.default_tax_rate));
+                        } else if (defaultTax?.id) {
+                          patch.tax_id = defaultTax.id;
+                        }
+                      }
+                      return { ...current, ...patch };
                     });
                   }}
                 />
@@ -1310,6 +1299,7 @@ function SalesMobileCard({
             label: displayLabel(status),
           }))}
           onChange={onStatusChange}
+          disabled={config.module === "payments" && row[displayStatusKey] !== row[config.statusKey]}
         />
       </div>
 
@@ -1359,21 +1349,21 @@ function SalesMobileCard({
             onClick={(event) => event.stopPropagation()}
           >
             {rowActions}
-          {canDelete ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete();
-              }}
-              aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          ) : null}
+            {canDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete();
+                }}
+                aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1411,7 +1401,7 @@ function Field({
         />
       </div>
     );
-	  if (field.key === "client_id") {
+  if (field.key === "client_id") {
     return (
       <div className={cls}>
         <Label className={crmFormStyles.label}>{field.label}</Label>
@@ -1422,9 +1412,7 @@ function Field({
               ? `${client.company_name} · ${client.contact_person}`
               : client.company_name,
             secondaryLabel: client.contact_person,
-            searchText: [client.company_name, client.contact_person]
-              .filter(Boolean)
-              .join(" "),
+            searchText: [client.company_name, client.contact_person].filter(Boolean).join(" "),
             data: client,
           }))}
           value={value && value !== NONE ? { type: "client", id: value } : null}

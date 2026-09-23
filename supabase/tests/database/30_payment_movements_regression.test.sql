@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(15);
+select plan(16);
 
 -- ============================================================
 -- Permisos temporales de la prueba
@@ -427,6 +427,28 @@ select throws_ok(
 -- Cambiamos al propietario para comprobar que el trigger también
 -- protege los movimientos frente a SQL privilegiado.
 reset role;
+
+select throws_ok(
+  $$
+    insert into public.payments (
+      id,
+      company_id,
+      invoice_id,
+      amount,
+      status
+    )
+    values (
+      'a5000000-0000-0000-0000-000000000099',
+      'a2000000-0000-0000-0000-000000000001',
+      'a4000000-0000-0000-0000-000000000001',
+      50,
+      'Refunded'
+    )
+  $$,
+  '22023',
+  'El estado de reembolso se deriva de los movimientos; registra el reembolso desde la acción correspondiente.',
+  'No se puede crear un pago marcándolo manualmente como reembolsado'
+);
 
 select throws_ok(
   $$
