@@ -451,7 +451,7 @@ function PipelinePage() {
     probability: "0",
     expected_close: "",
     stage: "",
-    source_type: "",
+    source_type: "none",
     lead_id: "",
     client_id: "",
   });
@@ -2274,13 +2274,12 @@ function PipelinePage() {
       return;
     }
     if (!editDeal) {
-      if (!newDeal.source_type) {
-        toast.error("Selecciona si la oportunidad viene de un prospecto, cliente o sin contacto.");
-        return;
-      }
-
       if (newDeal.source_type === "lead" && !newDeal.lead_id) {
         toast.error("Selecciona un prospecto para conectar la oportunidad.");
+        return;
+      }
+      if (newDeal.source_type === "client" && !newDeal.client_id) {
+        toast.error("Selecciona un cliente para conectar la oportunidad.");
         return;
       }
     }
@@ -2359,7 +2358,7 @@ function PipelinePage() {
       probability: "0",
       expected_close: "",
       stage: stages[0]?.name || "",
-      source_type: "",
+      source_type: "none",
       lead_id: "",
       client_id: "",
     });
@@ -2477,7 +2476,7 @@ function PipelinePage() {
                         probability: "0",
                         expected_close: "",
                         stage: stages[0]?.name || "",
-                        source_type: "",
+                        source_type: "none",
                         lead_id: "",
                         client_id: "",
                       });
@@ -3086,7 +3085,7 @@ function PipelinePage() {
                                       probability: "0",
                                       expected_close: "",
                                       stage: stage.name,
-                                      source_type: "",
+                                      source_type: "none",
                                       lead_id: "",
                                       client_id: "",
                                     });
@@ -3220,7 +3219,7 @@ function PipelinePage() {
                 <DialogDescription className="sr-only">
                   {editDeal
                     ? "Actualiza los datos comerciales de esta oportunidad."
-                    : "Crea una oportunidad comercial y define origen, producto, valor, fecha y etapa."}
+                    : "Crea una oportunidad comercial y, si corresponde, vincúlala con un cliente o prospecto."}
                 </DialogDescription>
               </DialogHeader>
               <form
@@ -3229,28 +3228,6 @@ function PipelinePage() {
               >
                 {!editDeal ? (
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-                    <Label className={crmFormStyles.label}>Origen de la oportunidad</Label>
-                    <Select
-                      value={newDeal.source_type || undefined}
-                      onValueChange={(v) =>
-                        setNewDeal({
-                          ...newDeal,
-                          source_type: v,
-                          lead_id: v === "lead" ? newDeal.lead_id : "",
-                          client_id: v === "client" ? newDeal.client_id : "",
-                        })
-                      }
-                    >
-                      <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
-                        <SelectValue placeholder="Selecciona el origen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="lead">Prospecto existente</SelectItem>
-                        <SelectItem value="client">Cliente existente</SelectItem>
-                        <SelectItem value="none">Sin contacto todavía</SelectItem>
-                      </SelectContent>
-                    </Select>
-
                     <div className="mt-3">
                       <Label className={crmFormStyles.label}>Cliente o prospecto</Label>
                       <ClientProspectSearchSelect
@@ -3496,30 +3473,6 @@ function PipelinePage() {
                         ) : null}
                       </div>
                     ) : null}
-
-                    {newDeal.source_type === "none" ? (
-                      <div className="mt-3 rounded-[12px] border bg-white px-3 py-3 text-xs text-muted-foreground space-y-3">
-                        <p>
-                          Esta oportunidad no tiene un prospecto o cliente conectado. Para mantener
-                          el historial completo, primero crea un cliente y luego vuelve a crear la
-                          oportunidad.
-                        </p>
-                        <div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-8"
-                            onClick={() => {
-                              window.location.href = "/clients";
-                            }}
-                          >
-                            Crear nuevo cliente
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 {editDeal ||
                 newDeal.source_type === "none" ||
