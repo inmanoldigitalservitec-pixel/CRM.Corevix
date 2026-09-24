@@ -448,7 +448,7 @@ function PipelinePage() {
     name: "",
     value: "",
     currency: currencySettings.baseCurrency,
-    probability: "50",
+    probability: "0",
     expected_close: "",
     stage: "",
     source_type: "",
@@ -1756,7 +1756,7 @@ function PipelinePage() {
       if (valueMax !== null && valueBase > valueMax) return false;
 
       // Probability range
-      const prob = clamp(deal.probability ?? 50, 0, 100);
+      const prob = clamp(deal.probability ?? 0, 0, 100);
       if (probMin !== null && prob < probMin) return false;
       if (probMax !== null && prob > probMax) return false;
 
@@ -2296,7 +2296,7 @@ function PipelinePage() {
           name: newDeal.name,
           value,
           currency,
-          probability: Number(newDeal.probability) || 50,
+          probability: Number(newDeal.probability) || 0,
           expected_close: newDeal.expected_close || null,
           stage: newDealStageOverride || newDeal.stage,
         })
@@ -2325,7 +2325,7 @@ function PipelinePage() {
         name: newDeal.name,
         value,
         currency,
-        probability: Number(newDeal.probability) || 50,
+        probability: Number(newDeal.probability) || 0,
         expected_close: newDeal.expected_close || null,
         stage: newDealStageOverride || newDeal.stage,
         lead_id: newDeal.source_type === "lead" && newDeal.lead_id ? newDeal.lead_id : null,
@@ -2356,7 +2356,7 @@ function PipelinePage() {
       name: "",
       value: "",
       currency: currencySettings.baseCurrency,
-      probability: "50",
+      probability: "0",
       expected_close: "",
       stage: stages[0]?.name || "",
       source_type: "",
@@ -2474,7 +2474,7 @@ function PipelinePage() {
                         name: "",
                         value: "",
                         currency: currencySettings.baseCurrency,
-                        probability: "50",
+                        probability: "0",
                         expected_close: "",
                         stage: stages[0]?.name || "",
                         source_type: "",
@@ -2773,7 +2773,7 @@ function PipelinePage() {
                           normalizeHex(
                             stages.find((stage) => stage.name === deal.stage)?.color || "",
                           ) || stageDefaults(deal.stage);
-                        const prob = clamp(deal.probability ?? 50, 0, 100);
+                        const prob = clamp(deal.probability ?? 0, 0, 100);
 
                         return (
                           <button
@@ -2814,7 +2814,7 @@ function PipelinePage() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] text-[#667085]">
+                            <div className={prob > 0 ? "flex items-center gap-2 text-[11px] text-[#667085]" : "hidden"}>
                               <span
                                 className="shrink-0"
                                 title={`Probabilidad estimada: ${prob}%`}
@@ -2856,7 +2856,7 @@ function PipelinePage() {
                           normalizeHex(
                             stages.find((stage) => stage.name === deal.stage)?.color || "",
                           ) || stageDefaults(deal.stage);
-                        const prob = clamp(deal.probability ?? 50, 0, 100);
+                        const prob = clamp(deal.probability ?? 0, 0, 100);
                         const isWon = wonStageNames.has(deal.stage);
                         const isLost = lostStageNames.has(deal.stage);
                         const stageInitial = deal.stage.trim().slice(0, 1).toUpperCase() || "•";
@@ -2915,7 +2915,7 @@ function PipelinePage() {
                               {moneyDeal(deal)}
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className={prob > 0 ? "flex items-center gap-2" : "hidden"}>
                               <span
                                 className="shrink-0 whitespace-nowrap text-[12px] font-normal text-[#475467]"
                                 title={`Probabilidad estimada: ${prob}%`}
@@ -3083,7 +3083,7 @@ function PipelinePage() {
                                       name: "",
                                       value: "",
                                       currency: currencySettings.baseCurrency,
-                                      probability: "50",
+                                      probability: "0",
                                       expected_close: "",
                                       stage: stage.name,
                                       source_type: "",
@@ -3116,7 +3116,7 @@ function PipelinePage() {
                               </div>
                             ) : null}
                             {stageDeals.map((deal) => {
-                              const prob = clamp(deal.probability ?? 50, 0, 100);
+                              const prob = clamp(deal.probability ?? 0, 0, 100);
                               const borderHover = rgba(stageColor, 0.38);
                               return (
                                 <div
@@ -3170,7 +3170,7 @@ function PipelinePage() {
                                     >
                                       {moneyDeal(deal)}
                                     </div>
-                                    <div className="flex min-w-[110px] flex-1 items-center justify-end gap-2">
+                                    <div className={prob > 0 ? "flex min-w-[110px] flex-1 items-center justify-end gap-2" : "hidden"}>
                                       <div className="shrink-0 text-[12px] font-normal text-[#475467]">
                                         {prob}%
                                       </div>
@@ -3577,7 +3577,7 @@ function PipelinePage() {
                         <Input
                           className={crmFormStyles.input}
                           type="number"
-                          placeholder="50"
+                          placeholder="0"
                           value={newDeal.probability}
                           onChange={(e) => setNewDeal({ ...newDeal, probability: e.target.value })}
                           min="0"
@@ -3669,7 +3669,7 @@ function PipelinePage() {
                     {
                       key: "probability",
                       label: "Prob.",
-                      value: `${clamp(selectedDeal.probability ?? 50, 0, 100)}%`,
+                      value: `${clamp(selectedDeal.probability ?? 0, 0, 100)}%`,
                     },
                     {
                       key: "close",
@@ -3826,7 +3826,7 @@ function PipelinePage() {
                             {
                               key: "probability",
                               label: "Probabilidad",
-                              value: `${clamp(selectedDeal.probability ?? 50, 0, 100)}%`,
+                              value: `${clamp(selectedDeal.probability ?? 0, 0, 100)}%`,
                             },
                             {
                               key: "estimated-close",
@@ -3887,7 +3887,7 @@ function PipelinePage() {
                                   currency: normalizeCurrency(
                                     selectedDeal.currency || currencySettings.baseCurrency,
                                   ),
-                                  probability: String(selectedDeal.probability ?? 50),
+                                  probability: String(selectedDeal.probability ?? 0),
                                   expected_close: selectedDeal.expected_close || "",
                                   stage: selectedDeal.stage,
                                   source_type: selectedDeal.lead_id ? "lead" : "none",
