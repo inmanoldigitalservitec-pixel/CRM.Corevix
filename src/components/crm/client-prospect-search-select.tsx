@@ -113,6 +113,11 @@ export function ClientProspectSearchSelect({
 
   const handleCreatedRecord = ({ type, record }: { type: QuickCreateType; record: any }) => {
     if (type !== "client" && type !== "lead") return;
+    if (!record?.id) {
+      throw new Error(
+        "Supabase confirmó la respuesta, pero no devolvió el identificador. Verifica la lista de prospectos antes de volver a intentarlo.",
+      );
+    }
 
     const fullName = [record.first_name, record.last_name].filter(Boolean).join(" ");
     const option: ClientProspectOption = {
@@ -141,9 +146,17 @@ export function ClientProspectSearchSelect({
     };
 
     if (type === "lead") {
-      setCreatedProspects((current) => [...current, option]);
+      setCreatedProspects((current) =>
+        current.some((created) => created.id === option.id)
+          ? current.map((created) => (created.id === option.id ? option : created))
+          : [...current, option],
+      );
     } else {
-      setCreatedClients((current) => [...current, option]);
+      setCreatedClients((current) =>
+        current.some((created) => created.id === option.id)
+          ? current.map((created) => (created.id === option.id ? option : created))
+          : [...current, option],
+      );
     }
     onChange({ type, id: option.id }, option);
     setQuery("");
@@ -282,7 +295,10 @@ export function ClientProspectSearchSelect({
         type="client"
         allowClientLeadChoice
         open={quickCreateOpen}
-        onOpenChange={setQuickCreateOpen}
+        onOpenChange={(nextOpen) => {
+          setQuickCreateOpen(nextOpen);
+          if (!nextOpen) setQuickCreatePrefill("");
+        }}
         context={{ prefill: { company_name: quickCreatePrefill } }}
         onCreated={handleCreatedRecord}
       />
