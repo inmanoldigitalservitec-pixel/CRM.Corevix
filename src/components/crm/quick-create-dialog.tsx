@@ -60,6 +60,7 @@ export type QuickCreateContext = {
 
 type QuickCreateDialogProps = {
   type: QuickCreateType;
+  allowClientLeadChoice?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   context?: QuickCreateContext;
@@ -190,12 +191,23 @@ function resolveRelatedPayload(context?: QuickCreateContext) {
 
 export function QuickCreateDialog({
   type,
+  allowClientLeadChoice = false,
   open,
   onOpenChange,
   context,
   onCreated,
 }: QuickCreateDialogProps) {
   const { profile, user } = useAuth();
+  const [clientLeadType, setClientLeadType] = useState<"client" | "lead">(
+    type === "lead" ? "lead" : "client",
+  );
+  const activeType: QuickCreateType =
+    allowClientLeadChoice && (type === "client" || type === "lead") ? clientLeadType : type;
+
+  useEffect(() => {
+    if (!open || !allowClientLeadChoice) return;
+    setClientLeadType(type === "lead" ? "lead" : "client");
+  }, [open, allowClientLeadChoice, type]);
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { taxById: salesTaxById, defaultTax } = useCompanyTaxes("sales");
   const prefill = context?.prefill || {};
@@ -237,7 +249,7 @@ export function QuickCreateDialog({
     const nextWhatsapp = text(prefill.whatsapp || prefill.phone);
     const nextService = text(prefill.service || prefill.selected_service || prefill.product_name);
     const nextTitle =
-      text(prefill.title) || (type === "task" && nextName ? `Dar seguimiento a ${nextName}` : "");
+      text(prefill.title) || (activeType === "task" && nextName ? `Dar seguimiento a ${nextName}` : "");
 
     setForm({
       name: nextName,
@@ -271,7 +283,7 @@ export function QuickCreateDialog({
   }, [open, type, context?.sourceType, context?.sourceId, currencySettings.baseCurrency]);
 
   useEffect(() => {
-    if (!open || type !== "proposal" || !profile?.company_id) return;
+    if (!open || activeType !== "proposal" || !profile?.company_id) return;
 
     let cancelled = false;
 
@@ -329,7 +341,7 @@ export function QuickCreateDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, type, profile?.company_id]);
+  }, [open, activeType, profile?.company_id]);
 
   const applyProductToProposal = (productId: string) => {
     const product = products.find((p) => p.id === productId);
@@ -388,25 +400,25 @@ export function QuickCreateDialog({
   };
 
   const title = useMemo(() => {
-    if (type === "lead") return "Nuevo prospecto rápido";
-    if (type === "client") return "Nuevo cliente rápido";
-    if (type === "proposal") return "Nueva propuesta rápida";
+    if (activeType === "lead") return "Nuevo prospecto rápido";
+    if (activeType === "client") return "Nuevo cliente rápido";
+    if (activeType === "proposal") return "Nueva propuesta rápida";
     return "Nueva tarea rápida";
-  }, [type]);
+  }, [activeType]);
 
   const description = useMemo(() => {
     if (type === "lead") return "Captura lo mínimo y deja que el CRM complete el flujo después.";
     if (type === "client") return "Crea la cuenta con los datos esenciales.";
     if (type === "proposal") return "Elige cliente y producto; el CRM rellena lo importante.";
     return "Crea una tarea conectada al contexto actual.";
-  }, [type]);
+  }, [activeType]);
 
   const Icon =
-    type === "lead"
+    activeType === "lead"
       ? UserPlus
-      : type === "client"
+      : activeType === "client"
         ? Users
-        : type === "proposal"
+        : activeType === "proposal"
           ? BadgeDollarSign
           : CalendarClock;
 
@@ -428,7 +440,7 @@ export function QuickCreateDialog({
       let table = "";
       let payload: Record<string, unknown> = {};
 
-      if (type === "lead") {
+      if (activeType === "lead") {
         const name = form.name.trim() || form.company_name.trim();
         if (!name && !form.phone.trim() && !form.whatsapp.trim() && !form.email.trim()) {
           toast.error("Agrega al menos nombre, teléfono, WhatsApp o email.");
@@ -459,7 +471,7 @@ export function QuickCreateDialog({
         };
       }
 
-      if (type === "client") {
+      if (activeType === "client") {
         const companyName = form.company_name.trim() || form.name.trim();
         if (!companyName) {
           toast.error("El nombre o empresa es requerido.");
@@ -480,7 +492,7 @@ export function QuickCreateDialog({
         };
       }
 
-      if (type === "task") {
+      if (activeType === "task") {
         if (!form.title.trim()) {
           toast.error("El título de la tarea es requerido.");
           return;
@@ -504,7 +516,7 @@ export function QuickCreateDialog({
         };
       }
 
-      if (type === "proposal") {
+      if (activeType === "proposal") {
         if (!user?.id) {
           toast.error("No se pudo detectar tu usuario.");
           return;
@@ -583,16 +595,16 @@ export function QuickCreateDialog({
       if (error) throw error;
 
       toast.success(
-        type === "lead"
+        activeType === "lead"
           ? "Prospecto creado"
-          : type === "client"
+          : activeType === "client"
             ? "Cliente creado"
-            : type === "proposal"
+            : activeType === "proposal"
               ? "Propuesta creada"
               : "Tarea creada",
       );
 
-      onCreated?.({ type, record: data });
+      onCreated?.({ type: activeType, record: data });
       onOpenChange(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo crear el registro.";
@@ -627,12 +639,56 @@ export function QuickCreateDialog({
               </DialogDescription>
             </div>
           </div>
+          {allowClientLeadChoice ? (
+            <div
+              className="mx-auto mt-4 flex w-full max-w-2xl rounded-lg bg-slate-100 p-1"
+              role="group"
+              aria-label="Tipo de registro"
+            >
+              <button
+                type="button"
+                aria-pressed={activeType === "client"}
+                className={`flex-1 rounded-md px-3 py-2 text-sm transition ${
+                  activeType === "client"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+                onClick={() => {
+                  setClientLeadType("client");
+                  setForm((current) => ({
+                    ...current,
+                    company_name: current.company_name || current.name,
+                  }));
+                }}
+              >
+                Cliente
+              </button>
+              <button
+                type="button"
+                aria-pressed={activeType === "lead"}
+                className={`flex-1 rounded-md px-3 py-2 text-sm transition ${
+                  activeType === "lead"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+                onClick={() => {
+                  setClientLeadType("lead");
+                  setForm((current) => ({
+                    ...current,
+                    name: current.name || current.company_name,
+                  }));
+                }}
+              >
+                Prospecto
+              </button>
+            </div>
+          ) : null}
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-7">
             <div className="mx-auto w-full max-w-2xl space-y-4">
-              {type === "lead" ? (
+              {activeType === "lead" ? (
                 <>
                   <div className="space-y-1.5">
                     <Label className={labelClass}>Nombre o empresa</Label>
@@ -689,7 +745,7 @@ export function QuickCreateDialog({
                 </>
               ) : null}
 
-              {type === "client" ? (
+              {activeType === "client" ? (
                 <>
                   <div className="space-y-1.5">
                     <Label className={labelClass}>Empresa o nombre</Label>
@@ -746,7 +802,7 @@ export function QuickCreateDialog({
                 </>
               ) : null}
 
-              {type === "proposal" ? (
+              {activeType === "proposal" ? (
                 <>
                   <div className="space-y-1.5">
                     <Label className={labelClass}>Título</Label>
@@ -924,7 +980,7 @@ export function QuickCreateDialog({
                 </>
               ) : null}
 
-              {type === "task" ? (
+              {activeType === "task" ? (
                 <>
                   <div className="space-y-1.5">
                     <Label className={labelClass}>Título</Label>
