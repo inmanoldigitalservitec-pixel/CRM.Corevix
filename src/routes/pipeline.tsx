@@ -3146,7 +3146,7 @@ function PipelinePage() {
                           </div>
 
                           <div
-                            className="grid min-h-[160px] min-w-0 flex-1 gap-2 overflow-y-auto overflow-x-hidden px-2 py-2.5 transition-colors"
+                            className="grid min-h-[160px] min-w-0 flex-1 auto-rows-max content-start gap-2 overflow-y-auto overflow-x-hidden px-2 py-2.5 transition-colors"
                             style={{
                               background: isDragOver ? rgba(stageColor, 0.07) : "transparent",
                             }}
