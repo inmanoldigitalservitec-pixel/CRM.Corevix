@@ -304,6 +304,22 @@ function stageDefaults(name: string) {
   return "#1d62f9";
 }
 
+const PIPELINE_STAGE_LABELS: Record<string, string> = {
+  "new opportunity": "Nueva oportunidad",
+  discovery: "Primer contacto",
+  qualified: "Calificada",
+  "proposal preparation": "Preparación de propuesta",
+  "proposal sent": "Propuesta enviada",
+  negotiation: "Negociación",
+  "contract sent": "Contrato enviado",
+  won: "Ganada",
+  lost: "Perdida",
+};
+
+function getPipelineStageLabel(stageName: string) {
+  return PIPELINE_STAGE_LABELS[stageName.trim().toLocaleLowerCase()] || stageName;
+}
+
 type PipelineKpiTone = "neutral" | "success" | "warning" | "danger" | "info";
 
 function pipelineRiskTone(value: number, warningAt: number, dangerAt: number): PipelineKpiTone {
@@ -2655,7 +2671,7 @@ function PipelinePage() {
                               color: checked ? stageColor : undefined,
                             }}
                           >
-                            <span className="truncate">{stage.name}</span>
+                            <span className="truncate">{getPipelineStageLabel(stage.name)}</span>
                             {checked ? <span>✓</span> : null}
                           </button>
                         );
@@ -2763,7 +2779,7 @@ function PipelinePage() {
                                 className="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold"
                                 style={{ background: rgba(stageColor, 0.1), color: stageColor }}
                               >
-                                {deal.stage}
+                                {getPipelineStageLabel(deal.stage)}
                               </span>
                             </div>
                             <div className="grid grid-cols-2 gap-3 text-[12px]">
@@ -2869,7 +2885,7 @@ function PipelinePage() {
                                 className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-normal"
                                 style={{ background: rgba(stageColor, 0.1), color: stageColor }}
                               >
-                                <span className="truncate">{deal.stage}</span>
+                                <span className="truncate">{getPipelineStageLabel(deal.stage)}</span>
                               </span>
                             </div>
 
@@ -3827,7 +3843,7 @@ function PipelinePage() {
                               <SelectContent className="border-slate-200 bg-white shadow-none">
                                 {pipelineStages.map((stage) => (
                                   <SelectItem key={stage.id} value={stage.name}>
-                                    {stage.name}
+                                    {getPipelineStageLabel(stage.name)}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -4433,7 +4449,7 @@ function PipelinePage() {
                               </div>
                               <div className="text-[12px] font-normal text-[#667085]">
                                 Etapa:{" "}
-                                <span className="font-medium text-[#344054]">{deal.stage}</span>
+                                <span className="font-medium text-[#344054]">{getPipelineStageLabel(deal.stage)}</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
