@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
+import { QuickCreateDialog, type QuickCreateType } from "@/components/crm/quick-create-dialog";
 import { cn } from "@/lib/utils";
 
 export type ClientProspectOption = {
@@ -74,17 +74,23 @@ export function ClientProspectSearchSelect({
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreatePrefill, setQuickCreatePrefill] = useState("");
   const [createdClients, setCreatedClients] = useState<ClientProspectOption[]>([]);
+  const [createdProspects, setCreatedProspects] = useState<ClientProspectOption[]>([]);
 
   const allClients = useMemo(
     () => [...clients, ...createdClients.filter((created) => !clients.some((client) => client.id === created.id))],
     [clients, createdClients],
   );
 
+  const allProspects = useMemo(
+    () => [...prospects, ...createdProspects.filter((created) => !prospects.some((prospect) => prospect.id === created.id))],
+    [prospects, createdProspects],
+  );
+
   const selectedOption = useMemo(() => {
     if (!value) return null;
-    const source = value.type === "lead" ? prospects : allClients;
+    const source = value.type === "lead" ? allProspects : allClients;
     return source.find((option) => option.id === value.id) || null;
-  }, [allClients, prospects, value]);
+  }, [allClients, allProspects, value]);
 
   const filteredClients = useMemo(
     () => allClients.filter((option) => matchesQuery(option, query)),
@@ -92,8 +98,8 @@ export function ClientProspectSearchSelect({
   );
 
   const filteredProspects = useMemo(
-    () => prospects.filter((option) => matchesQuery(option, query)),
-    [prospects, query],
+    () => allProspects.filter((option) => matchesQuery(option, query)),
+    [allProspects, query],
   );
 
   const hasResults = filteredClients.length > 0 || filteredProspects.length > 0;
@@ -105,19 +111,41 @@ export function ClientProspectSearchSelect({
     setOpen(false);
   };
 
-  const handleCreatedClient = ({ record }: { record: any }) => {
+  const handleCreatedRecord = ({ type, record }: { type: QuickCreateType; record: any }) => {
+    if (type !== "client" && type !== "lead") return;
+
+    const fullName = [record.first_name, record.last_name].filter(Boolean).join(" ");
     const option: ClientProspectOption = {
       id: String(record.id),
-      label: String(record.company_name || record.contact_person || "Cliente"),
-      secondaryLabel: record.contact_person || record.email || null,
-      searchText: [record.company_name, record.contact_person, record.email, record.phone]
+      label: String(
+        type === "lead"
+          ? record.company_name || fullName || record.email || record.phone || "Prospecto"
+          : record.company_name || record.contact_person || record.email || record.phone || "Cliente",
+      ),
+      secondaryLabel:
+        type === "lead"
+          ? [record.email, record.phone].filter(Boolean).join(" · ") || null
+          : [record.contact_person, record.email, record.phone].filter(Boolean).join(" · ") || null,
+      searchText: [
+        record.company_name,
+        record.contact_person,
+        record.first_name,
+        record.last_name,
+        record.email,
+        record.phone,
+        record.whatsapp,
+      ]
         .filter(Boolean)
         .join(" "),
       data: record,
     };
 
-    setCreatedClients((current) => [...current, option]);
-    onChange({ type: "client", id: option.id }, option);
+    if (type === "lead") {
+      setCreatedProspects((current) => [...current, option]);
+    } else {
+      setCreatedClients((current) => [...current, option]);
+    }
+    onChange({ type, id: option.id }, option);
     setQuery("");
     setQuickCreatePrefill("");
     setQuickCreateOpen(false);
@@ -191,7 +219,7 @@ export function ClientProspectSearchSelect({
                     }}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Crear nuevo cliente
+                    Crear cliente o prospecto
                   </Button>
                 </CommandEmpty>
               ) : null}
@@ -252,10 +280,11 @@ export function ClientProspectSearchSelect({
 
       <QuickCreateDialog
         type="client"
+        allowClientLeadChoice
         open={quickCreateOpen}
         onOpenChange={setQuickCreateOpen}
         context={{ prefill: { company_name: quickCreatePrefill } }}
-        onCreated={handleCreatedClient}
+        onCreated={handleCreatedRecord}
       />
     </>
   );
