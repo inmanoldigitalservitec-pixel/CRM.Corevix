@@ -112,6 +112,7 @@ interface Deal {
   expected_close: string | null;
   stage: string;
   lead_id?: string | null;
+  client_id?: string | null;
   assigned_to?: string | null;
   notes: string | null;
   created_at?: string;
@@ -595,6 +596,28 @@ function PipelinePage() {
   const [activeWorkflowSteps, setActiveWorkflowSteps] = useState<ProductWorkflowStepRow[]>([]);
 
   const [relatedLeadById, setRelatedLeadById] = useState<Record<string, LeadRow | undefined>>({});
+  const [relatedClientById, setRelatedClientById] = useState<Record<string, ClientRow | undefined>>({});
+  useEffect(() => {
+    const clientIds = [...new Set(deals.map((deal) => deal.client_id).filter(Boolean))] as string[];
+    if (!profile?.company_id || clientIds.length === 0) {
+      setRelatedClientById({});
+      return;
+    }
+    let cancelled = false;
+    void (supabase as any)
+      .from("clients")
+      .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status")
+      .eq("company_id", profile.company_id)
+      .in("id", clientIds)
+      .then(({ data, error }: { data: ClientRow[] | null; error: unknown }) => {
+        if (!cancelled && !error) {
+          const byId: Record<string, ClientRow> = {};
+          for (const client of data || []) byId[String(client.id)] = client;
+          setRelatedClientById(byId);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [deals, profile?.company_id]);
   const [nextTaskByLeadId, setNextTaskByLeadId] = useState<Record<string, TaskRow | undefined>>({});
   const [relatedLoading, setRelatedLoading] = useState(false);
 
@@ -670,6 +693,9 @@ function PipelinePage() {
 
   const selectedLead = selectedDeal?.lead_id
     ? relatedLeadById[String(selectedDeal.lead_id)]
+    : undefined;
+  const selectedClient = selectedDeal?.client_id
+    ? relatedClientById[String(selectedDeal.client_id)]
     : undefined;
   const selectedNextTask = selectedDeal?.lead_id
     ? nextTaskByLeadId[String(selectedDeal.lead_id)]
@@ -1371,7 +1397,7 @@ function PipelinePage() {
       db
         .from("deals")
         .select(
-          "id,company_id,name,value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,value_base,probability,expected_close,stage,lead_id,assigned_to,notes,created_at,updated_at",
+          "id,company_id,name,value,currency,base_currency,exchange_rate,exchange_rate_source,exchange_rate_updated_at,value_base,probability,expected_close,stage,lead_id,client_id,assigned_to,notes,created_at,updated_at",
         )
         .eq("company_id", cid)
         .order("created_at", { ascending: false }),
@@ -1566,11 +1592,11 @@ function PipelinePage() {
   );
 
   const loadRelated = useCallback(async () => {
-    if (!profile?.company_id) return;
-    if (!selectedDeal) return;
+    if (!profile?.company_id || !selectedDeal) return;
 
     const leadId = selectedDeal.lead_id ? String(selectedDeal.lead_id) : null;
-    if (!leadId) return;
+    const clientId = selectedDeal.client_id ? String(selectedDeal.client_id) : null;
+    if (!leadId && !clientId) return;
 
     setRelatedLoading(true);
     try {
@@ -1587,7 +1613,7 @@ function PipelinePage() {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null });
 
-      const [leadRes, taskRes] = await Promise.all([
+      const [leadRes, clientRes, taskRes] = await Promise.all([
         leadId
           ? (supabase as any)
               .from("leads")
@@ -1598,11 +1624,22 @@ function PipelinePage() {
               .eq("id", leadId)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
+        clientId
+          ? (supabase as any)
+              .from("clients")
+              .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status")
+              .eq("company_id", profile.company_id)
+              .eq("id", clientId)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
         tasksPromise,
       ]);
 
       if (!leadRes.error && leadRes.data && leadId) {
         setRelatedLeadById((prev) => ({ ...prev, [leadId]: leadRes.data as LeadRow }));
+      }
+      if (!clientRes.error && clientRes.data && clientId) {
+        setRelatedClientById((prev) => ({ ...prev, [clientId]: clientRes.data as ClientRow }));
       }
       if (!taskRes.error && taskRes.data && leadId) {
         setNextTaskByLeadId((prev) => ({ ...prev, [leadId]: taskRes.data as TaskRow }));
@@ -2298,6 +2335,8 @@ function PipelinePage() {
           probability: Number(newDeal.probability) || 0,
           expected_close: newDeal.expected_close || null,
           stage: newDealStageOverride || newDeal.stage,
+          lead_id: editDeal.lead_id || null,
+          client_id: editDeal.client_id || null,
         })
         .eq("id", editDeal.id);
       if (error) {
@@ -2328,6 +2367,7 @@ function PipelinePage() {
         expected_close: newDeal.expected_close || null,
         stage: newDealStageOverride || newDeal.stage,
         lead_id: newDeal.source_type === "lead" && newDeal.lead_id ? newDeal.lead_id : null,
+        client_id: newDeal.source_type === "client" && newDeal.client_id ? newDeal.client_id : null,
         assigned_to: profile?.user_id || user?.id || null,
         created_by: profile?.id || null,
       });
@@ -2344,6 +2384,7 @@ function PipelinePage() {
         metadata: {
           stage: newDealStageOverride || newDeal.stage,
           lead_id: newDeal.source_type === "lead" ? newDeal.lead_id || null : null,
+          client_id: newDeal.source_type === "client" ? newDeal.client_id || null : null,
         },
       }).catch(() => {});
       toast.success("Oportunidad creada");
@@ -2762,12 +2803,13 @@ function PipelinePage() {
                         const lead = deal.lead_id
                           ? relatedLeadById[String(deal.lead_id)]
                           : undefined;
+                        const client = deal.client_id
+                          ? relatedClientById[String(deal.client_id)]
+                          : undefined;
                         const contactLabel =
-                          lead?.company_name ||
-                          formatPersonName(lead?.first_name, lead?.last_name) ||
-                          lead?.email ||
-                          lead?.phone ||
-                          "Sin contacto";
+                          client?.company_name || client?.contact_person || lead?.company_name ||
+                          formatPersonName(lead?.first_name, lead?.last_name) || lead?.email ||
+                          lead?.phone || "Sin contacto";
                         const stageColor =
                           normalizeHex(
                             stages.find((stage) => stage.name === deal.stage)?.color || "",
@@ -2886,7 +2928,7 @@ function PipelinePage() {
                                     {deal.name}
                                   </div>
                                   <div className="mt-0.5 text-[11px] font-normal text-[#667085]">
-                                    {deal.lead_id ? "Prospecto conectado" : "Oportunidad manual"}
+                                    {deal.client_id ? "Cliente conectado" : deal.lead_id ? "Prospecto conectado" : "Oportunidad manual"}
                                   </div>
                                 </div>
                               </div>
@@ -2897,7 +2939,7 @@ function PipelinePage() {
                                 {contactLabel}
                               </div>
                               <div className="mt-0.5 truncate text-[11px] font-normal text-[#98a2b3]">
-                                {lead?.email || lead?.phone || "Sin datos de contacto"}
+                                {client?.email || client?.phone || lead?.email || lead?.phone || "Sin datos de contacto"}
                               </div>
                             </div>
 
@@ -3641,12 +3683,15 @@ function PipelinePage() {
                   const isWon = wonStageNames.has(selectedDeal.stage);
                   const isLost = lostStageNames.has(selectedDeal.stage);
                   const contactName =
+                    selectedClient?.company_name ||
+                    selectedClient?.contact_person ||
                     selectedLead?.company_name ||
                     formatPersonName(selectedLead?.first_name, selectedLead?.last_name) ||
                     selectedLead?.email ||
                     selectedLead?.phone ||
                     "Sin contacto conectado";
-                  const phone = selectedLead?.whatsapp || selectedLead?.phone || "";
+                  const phone = selectedClient?.whatsapp || selectedClient?.phone || selectedLead?.whatsapp || selectedLead?.phone || "";
+                  const contactEmail = selectedClient?.email || selectedLead?.email || "";
                   const responsible = selectedDeal.assigned_to
                     ? teamByProfileId.get(String(selectedDeal.assigned_to))?.full_name ||
                       teamByUserId.get(String(selectedDeal.assigned_to))?.full_name ||
@@ -3705,19 +3750,18 @@ function PipelinePage() {
                               {contactName}
                             </div>
                             <div className="mt-1 text-sm font-normal text-slate-500">
-                              {selectedLead
-                                ? [selectedLead.email, phone].filter(Boolean).join(" · ") ||
-                                  "Sin email o teléfono"
-                                : selectedDeal.lead_id
+                              {selectedLead || selectedClient
+                                ? [contactEmail, phone].filter(Boolean).join(" · ") || "Sin email o teléfono"
+                                : selectedDeal.lead_id || selectedDeal.client_id
                                   ? "Cargando contacto…"
-                                  : "Esta oportunidad no tiene prospecto conectado."}
+                                  : "Esta oportunidad no tiene cliente ni prospecto conectado."}
                             </div>
                           </div>
 
-                          {selectedDeal.lead_id ? (
+                          {selectedDeal.lead_id || selectedDeal.client_id ? (
                             <CrmDetailLineButton
                               className="h-8 shrink-0"
-                              onClick={() => (window.location.href = "/leads")}
+                              onClick={() => (window.location.href = selectedDeal.client_id ? "/clients" : "/leads")}
                               icon={<Eye className="h-4 w-4" />}
                             >
                               Ver
@@ -3743,10 +3787,10 @@ function PipelinePage() {
                               key: "email",
                               label: "Email",
                               icon: <Mail className="h-4 w-4" />,
-                              disabled: !selectedLead?.email,
+                              disabled: !contactEmail,
                               onClick: () => {
-                                if (!selectedLead?.email) return;
-                                window.open(`mailto:${selectedLead.email}`, "_blank");
+                                if (!contactEmail) return;
+                                window.open(`mailto:${contactEmail}`, "_blank");
                               },
                             },
                             {
@@ -3846,9 +3890,9 @@ function PipelinePage() {
                                   probability: String(selectedDeal.probability ?? 0),
                                   expected_close: selectedDeal.expected_close || "",
                                   stage: selectedDeal.stage,
-                                  source_type: selectedDeal.lead_id ? "lead" : "none",
+                                  source_type: selectedDeal.lead_id ? "lead" : selectedDeal.client_id ? "client" : "none",
                                   lead_id: selectedDeal.lead_id || "",
-                                  client_id: "",
+                                  client_id: selectedDeal.client_id || "",
                                 });
                                 setDialogOpen(true);
                               }}
@@ -3935,10 +3979,10 @@ function PipelinePage() {
 
                             <div>
                               <div className="text-[11px] font-normal text-slate-500">
-                                Prospecto
+                                {selectedDeal.client_id ? "Cliente" : "Prospecto"}
                               </div>
                               <div className="font-normal text-slate-950">
-                                {selectedDeal.lead_id ? "Conectado" : "No conectado"}
+                                {selectedDeal.client_id || selectedDeal.lead_id ? "Conectado" : "No conectado"}
                               </div>
                             </div>
                           </div>
