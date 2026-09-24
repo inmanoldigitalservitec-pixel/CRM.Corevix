@@ -1939,7 +1939,7 @@ function ProposalsPage() {
         });
         const savedProposal = await create(payload as any);
         if (savedProposal?.id) await saveLineItems(savedProposal.id);
-        if (savedProposal?.id && form.lead_id) {
+        if (savedProposal?.id && form.lead_id && form.status === "Sent") {
           const { error: leadStatusError } = await (supabase as any)
             .from("leads")
             .update({ status: "Proposal Sent" })
