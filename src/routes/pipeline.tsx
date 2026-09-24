@@ -3038,7 +3038,7 @@ function PipelinePage() {
                                     className="text-[13px] font-normal truncate"
                                     style={{ color: stageColor }}
                                   >
-                                    {stage.name}
+                                    {getPipelineStageLabel(stage.name)}
                                   </h3>
                                   <div className="mt-0.5 text-[11px] font-normal text-[#667085]">
                                     {stageDeals.length} oportunidades ·{" "}
