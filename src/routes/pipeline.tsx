@@ -11,6 +11,7 @@ import {
   Trophy,
   DollarSign,
   Eye,
+  Info,
   Mail,
   MessageCircle,
   Phone,
@@ -332,10 +333,12 @@ function PipelineKpi({
   label,
   value,
   tone = "neutral",
+  description,
 }: {
   label: string;
   value: string | number;
   tone?: PipelineKpiTone;
+  description?: string;
 }) {
   const toneClass: Record<PipelineKpiTone, string> = {
     neutral: "text-slate-950",
@@ -347,7 +350,19 @@ function PipelineKpi({
 
   return (
     <div className="min-w-0 border-b border-slate-100 pb-3">
-      <div className="text-xs font-normal uppercase text-slate-500">{label}</div>
+      <div className="flex items-center gap-1 text-xs font-normal uppercase text-slate-500">
+        {label}
+        {description ? (
+          <span
+            title={description}
+            aria-label={description}
+            tabIndex={0}
+            className="inline-flex cursor-help normal-case outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <Info aria-hidden="true" className="h-3.5 w-3.5" />
+          </span>
+        ) : null}
+      </div>
       <div className={`mt-2 truncate text-xl font-normal ${toneClass[tone]}`}>{value}</div>
     </div>
   );
@@ -564,7 +579,7 @@ function PipelinePage() {
         }
       }
 
-      toast.info("No encontré una conversación de WhatsApp para este deal.");
+      toast.info("No encontré una conversación de WhatsApp para esta oportunidad.");
       window.location.href = "/whatsapp";
     } catch (e: any) {
       toast.error(e?.message || "No se pudo abrir WhatsApp.");
@@ -2197,7 +2212,7 @@ function PipelinePage() {
   const handleDropCommit = async (stageName: string) => {
     if (!draggedDealId) return;
     if (!can("deals.edit")) {
-      toast.error("No tienes permiso para editar deals");
+      toast.error("No tienes permiso para editar oportunidades");
       setDraggedDealId(null);
       setDragOverStage(null);
       return;
@@ -2207,7 +2222,7 @@ function PipelinePage() {
     setDragOverStage(null);
 
     if (normalizeStage(deal.stage) === normalizeStage(stageName)) {
-      toast.success(`Deal movido a ${stageName}`);
+      toast.success(`Oportunidad movida a ${getPipelineStageLabel(stageName)}`);
       setDraggedDealId(null);
       return;
     }
@@ -2217,7 +2232,7 @@ function PipelinePage() {
 
     const { error } = await db.from("deals").update({ stage: stageName }).eq("id", draggedDealId);
     if (error) {
-      toast.error(error.message || "No se pudo mover el deal");
+      toast.error(error.message || "No se pudo mover la oportunidad");
       // Rollback: refetch is safest (no order column to reconcile).
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       (async () => {
@@ -2247,7 +2262,7 @@ function PipelinePage() {
       metadata: { stage: stageName, source: "drag" },
     }).catch(() => {});
 
-    toast.success(`Deal movido a ${stageName}`);
+    toast.success(`Oportunidad movida a ${getPipelineStageLabel(stageName)}`);
     setDraggedDealId(null);
   };
 
@@ -2432,7 +2447,8 @@ function PipelinePage() {
               value={money(avgDeal, currencySettings.baseCurrency)}
             />
             <PipelineKpi
-              label="Win rate"
+              label="Tasa de cierre"
+              description="Porcentaje de oportunidades cerradas que se ganaron."
               value={`${winRate}%`}
               tone={winRate >= 50 ? "success" : winRate >= 25 ? "warning" : "danger"}
             />
@@ -2799,7 +2815,13 @@ function PipelinePage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-[#667085]">
-                              <span className="shrink-0">Prob. {prob}%</span>
+                              <span
+                                className="shrink-0"
+                                title={`Probabilidad estimada: ${prob}%`}
+                                aria-label={`Probabilidad estimada: ${prob}%`}
+                              >
+                                Prob. {prob}%
+                              </span>
                               <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e8edf3]">
                                 <span
                                   className="block h-full rounded-full"
@@ -2894,8 +2916,12 @@ function PipelinePage() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="w-8 text-[12px] font-normal text-[#475467]">
-                                {prob}%
+                              <span
+                                className="shrink-0 whitespace-nowrap text-[12px] font-normal text-[#475467]"
+                                title={`Probabilidad estimada: ${prob}%`}
+                                aria-label={`Probabilidad estimada: ${prob}%`}
+                              >
+                                Prob. {prob}%
                               </span>
                               <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[#e8edf3]">
                                 <span
@@ -3067,7 +3093,7 @@ function PipelinePage() {
                                     setEditDeal(null);
                                     setDialogOpen(true);
                                   }}
-                                  aria-label="Nuevo deal en esta etapa"
+                                  aria-label="Nueva oportunidad en esta etapa"
                                 >
                                   <Plus className="h-4 w-4" />
                                 </button>
@@ -3634,7 +3660,7 @@ function PipelinePage() {
                 <CrmDetailSummaryGrid
                   className="border-b border-slate-100 pb-4"
                   items={[
-                    { key: "stage", label: "Etapa", value: selectedDeal.stage },
+                    { key: "stage", label: "Etapa", value: getPipelineStageLabel(selectedDeal.stage) },
                     {
                       key: "value",
                       label: "Valor",
@@ -3948,7 +3974,7 @@ function PipelinePage() {
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <div className="text-[11px] font-normal text-slate-500">Etapa</div>
-                              <div className="font-normal text-slate-950">{selectedDeal.stage}</div>
+                              <div className="font-normal text-slate-950">{getPipelineStageLabel(selectedDeal.stage)}</div>
                             </div>
 
                             <div>
@@ -4371,7 +4397,7 @@ function PipelinePage() {
           >
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Eliminar deal</AlertDialogTitle>
+                <AlertDialogTitle>Eliminar oportunidad</AlertDialogTitle>
                 <AlertDialogDescription>Esto no se puede deshacer.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
