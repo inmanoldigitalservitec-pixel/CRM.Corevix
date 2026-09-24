@@ -428,6 +428,7 @@ export function QuickCreateDialog({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    event.stopPropagation();
 
     if (!profile?.company_id) {
       toast.error("No se pudo detectar la empresa.");
