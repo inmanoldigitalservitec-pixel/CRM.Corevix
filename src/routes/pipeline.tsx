@@ -3338,21 +3338,36 @@ function PipelinePage() {
                               data.phone ||
                               "Nueva oportunidad",
                           );
-                          setNewDeal({
-                            ...newDeal,
+
+                          if (value?.type === "lead" && data.id) {
+                            const lead = { ...data, id: value.id } as LeadRow;
+                            setDealLeadOptions((current) => [
+                              lead,
+                              ...current.filter((item) => String(item.id) !== value.id),
+                            ]);
+                          } else if (value?.type === "client" && data.id) {
+                            const client = { ...data, id: value.id } as ClientRow;
+                            setDealClientOptions((current) => [
+                              client,
+                              ...current.filter((item) => String(item.id) !== value.id),
+                            ]);
+                          }
+
+                          setNewDeal((current) => ({
+                            ...current,
                             source_type: value?.type || "none",
                             lead_id: value?.type === "lead" ? value.id : "",
                             client_id: value?.type === "client" ? value.id : "",
-                            name: newDeal.name || label,
+                            name: current.name || label,
                             currency: normalizeCurrency(
                               String(data.currency || currencySettings.baseCurrency),
                             ),
                             value:
-                              newDeal.value ||
+                              current.value ||
                               (value?.type === "lead" && data.estimated_value
                                 ? String(data.estimated_value)
                                 : ""),
-                          });
+                          }));
                         }}
                       />
                     </div>
