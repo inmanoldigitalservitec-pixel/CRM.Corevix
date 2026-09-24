@@ -3474,6 +3474,9 @@ function PipelinePage() {
                       </div>
                     ) : null}
 
+                  </div>
+                ) : null}
+
                 {editDeal ||
                 newDeal.source_type === "none" ||
                 (newDeal.source_type === "lead" && newDeal.lead_id) ||
