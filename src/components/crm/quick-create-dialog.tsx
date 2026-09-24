@@ -164,6 +164,20 @@ function nullableText(value: unknown) {
   return v ? v : null;
 }
 
+function describeCreateError(error: unknown) {
+  const value =
+    error && typeof error === "object"
+      ? (error as Record<string, unknown>)
+      : { message: error == null ? "" : String(error) };
+  const message = text(value.message) || "La solicitud falló sin un mensaje de error.";
+  return {
+    message,
+    code: text(value.code) || null,
+    details: text(value.details) || null,
+    hint: text(value.hint) || null,
+    status: text(value.status || value.statusCode) || null,
+  };
+}
 function splitPersonName(raw: string) {
   const parts = raw.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { first_name: "", last_name: "" };
@@ -213,6 +227,22 @@ export function QuickCreateDialog({
   const prefill = context?.prefill || {};
 
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<{
+    title: string;
+    message: string;
+    code?: string | null;
+    details?: string | null;
+    hint?: string | null;
+    status?: string | null;
+  } | null>(null);
+  const [creationSavedButNotSelected, setCreationSavedButNotSelected] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setSubmitError(null);
+      setCreationSavedButNotSelected(false);
+    }
+  }, [open]);
   const [proposalOptionsLoading, setProposalOptionsLoading] = useState(false);
   const [products, setProducts] = useState<QuickProductOption[]>([]);
   const [clients, setClients] = useState<QuickClientOption[]>([]);
@@ -423,6 +453,7 @@ export function QuickCreateDialog({
           : CalendarClock;
 
   const updateField = (key: keyof QuickCreateForm, value: string) => {
+    setSubmitError(null);
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -430,13 +461,13 @@ export function QuickCreateDialog({
     event.preventDefault();
     event.stopPropagation();
 
+    setSubmitError(null);
     if (!profile?.company_id) {
-      toast.error("No se pudo detectar la empresa.");
+      setSubmitError({ title: "No se pudo iniciar la creación", message: "No se pudo detectar la empresa. Cierra y vuelve a abrir el formulario." });
       return;
     }
 
-    setSaving(true);
-
+    let failurePhase = "prepare_payload";
     try {
       let table = "";
       let payload: Record<string, unknown> = {};
@@ -444,7 +475,7 @@ export function QuickCreateDialog({
       if (activeType === "lead") {
         const name = form.name.trim() || form.company_name.trim();
         if (!name && !form.phone.trim() && !form.whatsapp.trim() && !form.email.trim()) {
-          toast.error("Agrega al menos nombre, teléfono, WhatsApp o email.");
+          setSubmitError({ title: "Faltan datos del prospecto", message: "Agrega al menos un nombre, teléfono, WhatsApp o correo electrónico." });
           return;
         }
 
@@ -475,7 +506,7 @@ export function QuickCreateDialog({
       if (activeType === "client") {
         const companyName = form.company_name.trim() || form.name.trim();
         if (!companyName) {
-          toast.error("El nombre o empresa es requerido.");
+          setSubmitError({ title: "Falta el nombre del cliente", message: "Escribe el nombre o la empresa para continuar." });
           return;
         }
 
@@ -495,7 +526,7 @@ export function QuickCreateDialog({
 
       if (activeType === "task") {
         if (!form.title.trim()) {
-          toast.error("El título de la tarea es requerido.");
+          setSubmitError({ title: "Falta el título de la tarea", message: "Escribe un título para continuar." });
           return;
         }
 
@@ -519,12 +550,12 @@ export function QuickCreateDialog({
 
       if (activeType === "proposal") {
         if (!user?.id) {
-          toast.error("No se pudo detectar tu usuario.");
+          setSubmitError({ title: "No se pudo iniciar la creación", message: "No se pudo detectar tu usuario. Cierra y vuelve a abrir el formulario." });
           return;
         }
 
         if (!form.title.trim()) {
-          toast.error("El título de la propuesta es requerido.");
+          setSubmitError({ title: "Falta el título de la propuesta", message: "Escribe un título para continuar." });
           return;
         }
 
@@ -587,6 +618,8 @@ export function QuickCreateDialog({
         };
       }
 
+      failurePhase = "insert_with_returning";
+      setSaving(true);
       const { data, error } = await (supabase as any)
         .from(table)
         .insert(payload)
@@ -594,7 +627,10 @@ export function QuickCreateDialog({
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error("Supabase no devolvió el registro creado.");
 
+      failurePhase = "selector_callback";
+      onCreated?.({ type: activeType, record: data });
       toast.success(
         activeType === "lead"
           ? "Prospecto creado"
@@ -605,11 +641,32 @@ export function QuickCreateDialog({
               : "Tarea creada",
       );
 
-      onCreated?.({ type: activeType, record: data });
       onOpenChange(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudo crear el registro.";
-      toast.error(message);
+      const info = describeCreateError(error);
+      const recordLabel = activeType === "lead" ? "prospecto" : activeType === "client" ? "cliente" : activeType === "proposal" ? "propuesta" : "tarea";
+      const linkFailure = failurePhase === "selector_callback";
+      const failure = {
+        ...info,
+        title: linkFailure
+          ? `El ${recordLabel} se creó, pero no se pudo seleccionar`
+          : `No se pudo crear el ${recordLabel}`,
+        message: linkFailure
+          ? "El registro se guardó en la base de datos, pero no se pudo completar la selección. No vuelvas a crearlo; cierra este diálogo y búscalo en la lista."
+          : info.message,
+      };
+      if (linkFailure) setCreationSavedButNotSelected(true);
+      setSubmitError(failure);
+      console.error("[QuickCreateDialog] Falló la creación del registro", {
+        table: table || null,
+        phase: failurePhase,
+        code: info.code,
+        status: info.status,
+        message: info.message,
+        details: info.details,
+        hint: info.hint,
+      });
+      toast.error(failure.title);
     } finally {
       setSaving(false);
     }
@@ -655,6 +712,7 @@ export function QuickCreateDialog({
                     : "text-slate-600 hover:text-slate-950"
                 }`}
                 onClick={() => {
+                  setSubmitError(null);
                   setClientLeadType("client");
                   setForm((current) => ({
                     ...current,
@@ -673,6 +731,7 @@ export function QuickCreateDialog({
                     : "text-slate-600 hover:text-slate-950"
                 }`}
                 onClick={() => {
+                  setSubmitError(null);
                   setClientLeadType("lead");
                   setForm((current) => ({
                     ...current,
@@ -689,6 +748,17 @@ export function QuickCreateDialog({
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-7">
             <div className="mx-auto w-full max-w-2xl space-y-4">
+              {submitError ? (
+                <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-950">
+                  <div className="font-semibold">{submitError.title}</div>
+                  <div className="mt-1">{submitError.message}</div>
+                  {submitError.code ? <div className="mt-2"><span className="font-medium">Código:</span> {submitError.code}</div> : null}
+                  {submitError.status ? <div><span className="font-medium">HTTP:</span> {submitError.status}</div> : null}
+                  {submitError.details ? <div className="mt-1"><span className="font-medium">Detalle:</span> {submitError.details}</div> : null}
+                  {submitError.hint ? <div className="mt-1"><span className="font-medium">Sugerencia:</span> {submitError.hint}</div> : null}
+                  <div className="mt-2 text-xs text-rose-800">Tus datos siguen en el formulario. Corrige el problema e inténtalo de nuevo.</div>
+                </div>
+              ) : null}
               {activeType === "lead" ? (
                 <>
                   <div className="space-y-1.5">
@@ -1057,10 +1127,10 @@ export function QuickCreateDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={saving}
+                disabled={saving || creationSavedButNotSelected}
                 className="rounded-xl bg-slate-950 font-normal shadow-none"
               >
-                {saving ? "Creando..." : "Crear rápido"}
+                {saving ? "Creando..." : creationSavedButNotSelected ? "Revisa Prospectos" : "Crear rápido"}
               </Button>
             </div>
           </div>
