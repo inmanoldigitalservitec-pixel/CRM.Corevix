@@ -496,7 +496,7 @@ export function QuickCreateDialog({
           assigned_to: text(prefill.assigned_to) || profile.user_id || user?.id || null,
           estimated_value: Number(prefill.estimated_value || 0) || 0,
           notes: nullableText(form.notes),
-          metadata: service ? { selected_service: service } : null,
+          metadata: service ? { selected_service: service } : {},
           source_channel: context?.sourceType === "whatsapp" ? "whatsapp" : null,
           first_touch_channel: context?.sourceType === "whatsapp" ? "whatsapp" : null,
           last_touch_channel: context?.sourceType === "whatsapp" ? "whatsapp" : null,
