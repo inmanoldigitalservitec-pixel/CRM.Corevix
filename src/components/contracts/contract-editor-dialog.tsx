@@ -314,7 +314,8 @@ export function ContractEditorDialog({
   const canSave = contract ? can("contracts.edit") : can("contracts.create");
 
   return (
-    <CrmCreationDialog
+    <>
+      <CrmCreationDialog
       open={open}
       onOpenChange={onOpenChange}
       title={contract ? "Edit Contract" : "New Contract"}
@@ -605,5 +606,6 @@ export function ContractEditorDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
   );
 }
