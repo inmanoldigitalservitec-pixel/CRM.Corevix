@@ -104,6 +104,15 @@ function signatureStatus(contract: ContractDetailRow) {
   return contract.signature_status || "Not Signed";
 }
 
+function activityDetail(detail: string | null) {
+  if (!detail) return "Sin detalles";
+  if (detail.startsWith("Document added: "))
+    return `Documento agregado: ${detail.slice("Document added: ".length)}`;
+  const documentsMatch = detail.match(/^(\d+) documents added$/);
+  if (documentsMatch) return `Se agregaron ${documentsMatch[1]} documentos.`;
+  return detail;
+}
+
 export function ContractDetailDialog({
   open,
   onOpenChange,
@@ -399,7 +408,11 @@ export function ContractDetailDialog({
                           {({ document_added: "Documento agregado", contract_created: "Contrato creado", contract_updated: "Contrato actualizado", signature_updated: "Firma actualizada" } as Record<string, string>)[event.action] || event.action.replace(/_/g, " ")}
                         </div>
                         <div className="mt-1 text-sm font-normal text-slate-500">
-                          {event.detail === "Document added" ? "Documento agregado" : event.detail?.endsWith(" documents added") ? event.detail.replace(" documents added", " documentos agregados") : event.detail || "Sin detalles"}
+                          {activityDetail(event.detail)}
+                        </div>
+                        <div className="mt-1 text-xs font-normal text-slate-500">
+                          {profiles.find((item) => item.id === event.actor_profile_id)?.label ||
+                            "Usuario no disponible"}
                         </div>
                         <div className="mt-1 text-xs font-normal text-slate-400">
                           {formatDate(event.created_at)}
