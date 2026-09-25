@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -125,11 +135,20 @@ export function ContractEditorDialog({
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { can } = usePermissions();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const activeUnsignedConfirmedRef = useRef(false);
+  const pendingActiveSelectionRef = useRef(false);
+  const pendingSaveConfirmationRef = useRef(false);
   const [form, setForm] = useState(emptyForm());
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [activeUnsignedWarningOpen, setActiveUnsignedWarningOpen] = useState(false);
 
   useEffect(() => {
+    activeUnsignedConfirmedRef.current = false;
+    pendingActiveSelectionRef.current = false;
+    pendingSaveConfirmationRef.current = false;
+    setActiveUnsignedWarningOpen(false);
     setForm(
       contract
         ? {
@@ -158,6 +177,8 @@ export function ContractEditorDialog({
   }, [contract, currencySettings.baseCurrency, initialValues, open]);
 
   const setField = (key: keyof ContractForm, value: string) => {
+    if (key === "status" || key === "signature_status")
+      activeUnsignedConfirmedRef.current = false;
     setForm((current) => ({ ...current, [key]: value }));
   };
 
@@ -188,6 +209,15 @@ export function ContractEditorDialog({
       ? normalizeCurrencyAmount(form.contract_value.replace(/,/g, ""), contractCurrency)
       : null;
     if (Number.isNaN(value)) return toast.error("Contract value must be numeric.");
+    if (
+      form.status === "Active" &&
+      form.signature_status !== "Signed" &&
+      !activeUnsignedConfirmedRef.current
+    ) {
+      pendingSaveConfirmationRef.current = true;
+      setActiveUnsignedWarningOpen(true);
+      return;
+    }
     const baseValue =
       value == null ? null : convertToBaseCurrency(value, contractCurrency, currencySettings);
 
@@ -291,7 +321,7 @@ export function ContractEditorDialog({
       description="Create or update a client/project contract."
       size="md"
     >
-      <form onSubmit={submit} className="space-y-6">
+      <form ref={formRef} onSubmit={submit} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label className={crmFormStyles.label}>Subject</Label>
@@ -315,7 +345,21 @@ export function ContractEditorDialog({
           </div>
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>Status</Label>
-            <Select value={form.status} onValueChange={(value) => setField("status", value)}>
+            <Select
+              value={form.status}
+              onValueChange={(value) => {
+                if (
+                  value === "Active" &&
+                  form.status !== "Active" &&
+                  form.signature_status !== "Signed"
+                ) {
+                  pendingActiveSelectionRef.current = true;
+                  setActiveUnsignedWarningOpen(true);
+                  return;
+                }
+                setField("status", value);
+              }}
+            >
               <SelectTrigger className={crmFormStyles.select}>
                 <SelectValue />
               </SelectTrigger>
@@ -514,5 +558,52 @@ export function ContractEditorDialog({
         </div>
       </form>
     </CrmCreationDialog>
+      <AlertDialog
+        open={activeUnsignedWarningOpen}
+        onOpenChange={(open) => {
+          setActiveUnsignedWarningOpen(open);
+          if (!open) {
+            pendingActiveSelectionRef.current = false;
+            pendingSaveConfirmationRef.current = false;
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Contrato activo sin firma</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este contrato aún aparece como sin firmar. ¿Deseas marcarlo como activo de todos
+              modos? Continuará como sin firmar y no se incluirá en el valor de contratos vigentes
+              hasta que se registre como firmado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                pendingActiveSelectionRef.current = false;
+                pendingSaveConfirmationRef.current = false;
+              }}
+            >
+              Volver
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingActiveSelectionRef.current) {
+                  setField("status", "Active");
+                  pendingActiveSelectionRef.current = false;
+                }
+                activeUnsignedConfirmedRef.current = true;
+                setActiveUnsignedWarningOpen(false);
+                if (pendingSaveConfirmationRef.current) {
+                  pendingSaveConfirmationRef.current = false;
+                  window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+                }
+              }}
+            >
+              Activar sin firmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
   );
 }
