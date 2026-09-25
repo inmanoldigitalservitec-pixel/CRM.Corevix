@@ -2704,7 +2704,6 @@ function LeadsPage() {
                 <div className="grid gap-0 xl:hidden">
                   {filtered.map((lead, index) => {
                     const isSelected = selectedLeadId === lead.id;
-                    const interest = getInterestLabel(lead) || "Sin interés definido";
                     const needsFollowUp = leadNeedsFollowUpUi(lead);
                     const nextStep = getNextStepLabel(lead, needsFollowUp);
                     const lastActivity =
@@ -2714,8 +2713,7 @@ function LeadsPage() {
                     const personLabel =
                       getLeadName(lead) !== "Prospecto sin nombre"
                         ? getLeadName(lead)
-                        : lead.email || lead.whatsapp || lead.phone || "—";
-                    const sourceLabel = getLeadSourceDisplay(lead);
+                        : "—";
 
                     return (
                       <article
@@ -2763,18 +2761,18 @@ function LeadsPage() {
                         <div className="mt-3 grid grid-cols-2 gap-3 pl-[76px] max-[380px]:pl-0">
                           <div className="min-w-0">
                             <div className="text-[10px] font-normal uppercase text-slate-400">
-                              Interés
+                              Valor potencial
                             </div>
-                            <div className="mt-1 truncate text-[12.5px] font-normal text-slate-600">
-                              {interest}
+                            <div className="mt-1 truncate text-[12.5px] font-normal text-slate-900">
+                              {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
                             </div>
                           </div>
                           <div className="min-w-0">
                             <div className="text-[10px] font-normal uppercase text-slate-400">
-                              Valor
+                              Responsable
                             </div>
-                            <div className="mt-1 truncate text-[12.5px] font-normal text-slate-900">
-                              {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
+                            <div className="mt-1 truncate text-[12.5px] font-normal text-slate-600">
+                              {getAssigneeLabel(lead)}
                             </div>
                           </div>
                         </div>
@@ -2790,11 +2788,8 @@ function LeadsPage() {
                               </span>
                             ) : null}
                           </div>
-                          <div className="flex items-center justify-between gap-3 text-[12px] font-normal text-slate-400">
-                            <span className="truncate">
-                              {getSourceLabel(sourceLabel)} · {getAssigneeLabel(lead)}
-                            </span>
-                            <span className="shrink-0">{formatRelativeDate(lastActivity)}</span>
+                          <div className="text-[12px] font-normal text-slate-400">
+                            Último contacto: {formatRelativeDate(lastActivity)}
                           </div>
                           <div className="flex items-center justify-end gap-2 pt-1">
                             <button
