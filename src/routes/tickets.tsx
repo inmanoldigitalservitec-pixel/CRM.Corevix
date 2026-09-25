@@ -654,12 +654,6 @@ function TicketsPage() {
                 {t("tickets.new")}
               </CrmDetailLineButton>
             ) : null}
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar tickets..."
-              className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Select value={projectFilter} onValueChange={setProjectFilter}>
