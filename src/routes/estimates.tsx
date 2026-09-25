@@ -856,12 +856,6 @@ function EstimatesPage() {
             Nueva cotización
           </Button>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Input
-              className="h-9 w-full rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 sm:w-[360px]"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por título, número o cliente..."
-            />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-9 w-full rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0 sm:w-[180px]">
                 <SelectValue />
