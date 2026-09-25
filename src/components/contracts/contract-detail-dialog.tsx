@@ -240,7 +240,7 @@ export function ContractDetailDialog({
               <StatusBadge status={signatureStatus(contract)} />
             </DialogTitle>
             <DialogDescription className="font-normal text-slate-500">
-              Contract #{contract.contract_number || "—"} · {clientName} · {projectName}
+              Contrato n.º {contract.contract_number || "—"} · {clientName} · {projectName}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -251,19 +251,19 @@ export function ContractDetailDialog({
               value="overview"
               className="rounded-none border-b-2 border-transparent bg-white px-3 py-3 text-sm font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
             >
-              Overview
+              Resumen
             </TabsTrigger>
             <TabsTrigger
               value="documents"
               className="rounded-none border-b-2 border-transparent bg-white px-3 py-3 text-sm font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
             >
-              Documents
+              Documentos
             </TabsTrigger>
             <TabsTrigger
               value="activity"
               className="rounded-none border-b-2 border-transparent bg-white px-3 py-3 text-sm font-normal text-slate-500 shadow-none data-[state=active]:border-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
             >
-              Activity
+              Actividad
             </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-0 space-y-4">
@@ -272,28 +272,28 @@ export function ContractDetailDialog({
               items={[
                 {
                   key: "value",
-                  label: "Value",
+                  label: "Valor",
                   value: formatMoney(
                     contract.contract_value,
                     contract.currency || contract.base_currency,
                   ),
                 },
-                { key: "type", label: "Type", value: contract.contract_type || "—" },
-                { key: "start-date", label: "Start Date", value: formatDate(contract.start_date) },
-                { key: "end-date", label: "End Date", value: formatDate(contract.end_date) },
-                { key: "client", label: "Client", value: clientName },
-                { key: "project", label: "Project", value: projectName },
-                { key: "assigned", label: "Assigned", value: assignedName },
+                { key: "type", label: "Tipo", value: contract.contract_type || "—" },
+                { key: "start-date", label: "Fecha de inicio", value: formatDate(contract.start_date) },
+                { key: "end-date", label: "Fecha de finalización", value: formatDate(contract.end_date) },
+                { key: "client", label: "Cliente", value: clientName },
+                { key: "project", label: "Proyecto", value: projectName },
+                { key: "assigned", label: "Responsable", value: assignedName },
                 {
                   key: "invoice",
-                  label: "Invoice",
-                  value: contract.invoice_id ? "Linked" : "Not linked",
+                  label: "Factura",
+                  value: contract.invoice_id ? "Vinculada" : "Sin vincular",
                 },
               ]}
             />
             <div className="border-b border-slate-100 pb-4">
               <div className="mb-2 text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                Description / Terms
+                Descripción / condiciones
               </div>
               <p className="whitespace-pre-wrap text-sm font-normal leading-6 text-slate-500">
                 {contract.description || "Sin descripción registrada."}
@@ -335,7 +335,7 @@ export function ContractDetailDialog({
                   icon={<RefreshCw className="h-4 w-4" />}
                   onClick={() => void loadDetail()}
                 >
-                  Refresh
+                  Actualizar
                 </CrmDetailLineButton>
               </div>
               <div className="divide-y divide-slate-100">
@@ -351,7 +351,7 @@ export function ContractDetailDialog({
                           <span className="truncate">{doc.file_name}</span>
                         </div>
                         <div className="mt-1 text-xs font-normal text-slate-500">
-                          {doc.file_type || "Document"} ·{" "}
+                          {doc.file_type || "Documento"} ·{" "}
                           {doc.file_size
                             ? formatContractDocumentFileSize(Number(doc.file_size))
                             : formatDate(doc.created_at)}
@@ -363,7 +363,7 @@ export function ContractDetailDialog({
                         icon={<ExternalLink className="h-4 w-4" />}
                         onClick={() => void openDocument(doc)}
                       >
-                        Open
+                        Abrir
                       </CrmDetailLineButton>
                     </div>
                   ))
@@ -384,7 +384,7 @@ export function ContractDetailDialog({
                   Activity Timeline
                 </div>
                 {loading ? (
-                  <span className="text-xs font-normal text-slate-500">Loading...</span>
+                  <span className="text-xs font-normal text-slate-500">Cargando...</span>
                 ) : null}
               </div>
               <div className="divide-y divide-slate-100">
@@ -399,7 +399,7 @@ export function ContractDetailDialog({
                           {event.action.replace(/_/g, " ")}
                         </div>
                         <div className="mt-1 text-sm font-normal text-slate-500">
-                          {event.detail || "No detail"}
+                          {event.detail || "Sin detalles"}
                         </div>
                         <div className="mt-1 text-xs font-normal text-slate-400">
                           {formatDate(event.created_at)}
