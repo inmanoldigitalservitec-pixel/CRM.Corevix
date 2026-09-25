@@ -2890,12 +2890,19 @@ function PipelinePage() {
                         return bTime - aTime;
                       })
                       .map((deal) => {
+                        const client = deal.client_id
+                          ? relatedClientById[String(deal.client_id)]
+                          : undefined;
                         const lead = deal.lead_id
                           ? relatedLeadById[String(deal.lead_id)]
                           : undefined;
                         const contactLabel =
+                          client?.company_name ||
+                          client?.contact_person ||
                           lead?.company_name ||
                           formatPersonName(lead?.first_name, lead?.last_name) ||
+                          client?.email ||
+                          client?.phone ||
                           lead?.email ||
                           lead?.phone ||
                           "Sin contacto";
