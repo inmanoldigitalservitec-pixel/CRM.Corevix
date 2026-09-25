@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadContractDocument } from "@/lib/contracts/contract-documents";
 import {
   convertToBaseCurrency,
+  formatCurrencyAmount,
   CURRENCY_OPTIONS,
   getCurrencyInputMode,
   getCurrencyStep,
