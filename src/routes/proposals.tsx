@@ -2187,12 +2187,6 @@ function ProposalsPage() {
               ) : null}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-3">
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por título o número..."
-                className="h-9 w-[240px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0"
-              />
               <Select value={productFilter} onValueChange={setProductFilter}>
                 <SelectTrigger className="h-9 w-[180px] rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus:ring-0 focus:ring-offset-0">
                   <SelectValue placeholder="Producto" />
