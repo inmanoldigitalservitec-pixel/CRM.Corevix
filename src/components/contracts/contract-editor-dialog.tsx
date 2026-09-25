@@ -88,7 +88,7 @@ function emptyForm() {
     subject: "",
     description: "",
     status: "Draft",
-    contract_type: "Service Agreement",
+    contract_type: "Acuerdo de servicios",
     contract_value: "",
     currency: "USD",
     start_date: "",
@@ -155,7 +155,7 @@ export function ContractEditorDialog({
             subject: contract.subject || "",
             description: contract.description || "",
             status: contract.status || "Draft",
-            contract_type: contract.contract_type || "Service Agreement",
+            contract_type: contract.contract_type || "Acuerdo de servicios",
             contract_value: contract.contract_value == null ? "" : String(contract.contract_value),
             currency: normalizeCurrency(contract.currency || currencySettings.baseCurrency),
             start_date: toDateInputValue(contract.start_date),
@@ -199,16 +199,16 @@ export function ContractEditorDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!profile?.company_id) return toast.error("No company found.");
-    if (!form.subject.trim()) return toast.error("Subject is required.");
+    if (!profile?.company_id) return toast.error("No se encontró la empresa.");
+    if (!form.subject.trim()) return toast.error("El asunto es obligatorio.");
     if (form.start_date && form.end_date && form.start_date > form.end_date)
-      return toast.error("End date cannot be before start date.");
+      return toast.error("La fecha de finalización no puede ser anterior a la fecha de inicio.");
 
     const contractCurrency = normalizeCurrency(form.currency || currencySettings.baseCurrency);
     const value = form.contract_value.trim()
       ? normalizeCurrencyAmount(form.contract_value.replace(/,/g, ""), contractCurrency)
       : null;
-    if (Number.isNaN(value)) return toast.error("Contract value must be numeric.");
+    if (Number.isNaN(value)) return toast.error("El valor del contrato debe ser numérico.");
     if (
       form.status === "Active" &&
       form.signature_status !== "Signed" &&
@@ -226,7 +226,7 @@ export function ContractEditorDialog({
       subject: form.subject.trim(),
       description: form.description.trim() || null,
       status: form.status,
-      contract_type: form.contract_type.trim() || "Service Agreement",
+      contract_type: form.contract_type.trim() || "Acuerdo de servicios",
       contract_value: value,
       currency: contractCurrency,
       base_currency: currencySettings.baseCurrency,
@@ -299,13 +299,13 @@ export function ContractEditorDialog({
         uploadedCount > 0
           ? "Contrato y documentos guardados."
           : contract
-            ? "Contract updated."
-            : "Contract created.",
+            ? "Contrato actualizado."
+            : "Contrato creado.",
       );
       onOpenChange(false);
       await onSaved();
     } catch (error: any) {
-      toast.error(error?.message || "Could not save contract.");
+      toast.error(error?.message || "No se pudo guardar el contrato.");
     } finally {
       setSaving(false);
     }
@@ -318,14 +318,14 @@ export function ContractEditorDialog({
       <CrmCreationDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={contract ? "Edit Contract" : "New Contract"}
-      description="Create or update a client/project contract."
+      title={contract ? "Editar contrato" : "Nuevo contrato"}
+      description="Crea o actualiza un contrato asociado a un cliente o proyecto."
       size="md"
     >
       <form ref={formRef} onSubmit={submit} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label className={crmFormStyles.label}>Subject</Label>
+            <Label className={crmFormStyles.label}>Asunto</Label>
             <Input
               value={form.subject}
               onChange={(event) => setField("subject", event.target.value)}
@@ -345,7 +345,7 @@ export function ContractEditorDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Status</Label>
+            <Label className={crmFormStyles.label}>Estado</Label>
             <Select
               value={form.status}
               onValueChange={(value) => {
@@ -367,14 +367,14 @@ export function ContractEditorDialog({
               <SelectContent>
                 {STATUSES.map((status) => (
                   <SelectItem key={status} value={status}>
-                    {status}
+                    {({ Draft: "Borrador", Active: "Activo", Expired: "Vencido", Cancelled: "Cancelado", "Pending Signature": "Pendiente de firma" } as Record<string, string>)[status] || status}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Signature</Label>
+            <Label className={crmFormStyles.label}>Firma</Label>
             <Select
               value={form.signature_status}
               onValueChange={(value) => setField("signature_status", value)}
@@ -385,14 +385,14 @@ export function ContractEditorDialog({
               <SelectContent>
                 {["Not Signed", "Pending Signature", "Signed", "Declined"].map((status) => (
                   <SelectItem key={status} value={status}>
-                    {status}
+                    {({ "Not Signed": "Sin firmar", "Pending Signature": "Pendiente de firma", Signed: "Firmado", Declined: "Rechazado" } as Record<string, string>)[status] || status}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Type</Label>
+            <Label className={crmFormStyles.label}>Tipo</Label>
             <Input
               value={form.contract_type}
               onChange={(event) => setField("contract_type", event.target.value)}
@@ -400,7 +400,7 @@ export function ContractEditorDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Value</Label>
+            <Label className={crmFormStyles.label}>Valor</Label>
             <Input
               type="number"
               value={form.contract_value}
@@ -447,7 +447,7 @@ export function ContractEditorDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Client</Label>
+            <Label className={crmFormStyles.label}>Cliente</Label>
             <ClientProspectSearchSelect
               clients={clients.map((client) => ({
                 id: client.id,
@@ -467,7 +467,7 @@ export function ContractEditorDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Project</Label>
+            <Label className={crmFormStyles.label}>Proyecto</Label>
             <Select
               value={form.project_id}
               onValueChange={(value) => setField("project_id", value)}
@@ -476,7 +476,7 @@ export function ContractEditorDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>No project</SelectItem>
+                <SelectItem value={NONE}>Sin proyecto</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -486,7 +486,7 @@ export function ContractEditorDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Start Date</Label>
+            <Label className={crmFormStyles.label}>Fecha de inicio</Label>
             <Input
               name="start_date"
               type="date"
@@ -499,7 +499,7 @@ export function ContractEditorDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>End Date</Label>
+            <Label className={crmFormStyles.label}>Fecha de finalización</Label>
             <Input
               name="end_date"
               type="date"
@@ -512,7 +512,7 @@ export function ContractEditorDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>Assigned To</Label>
+            <Label className={crmFormStyles.label}>Responsable</Label>
             <Select
               value={form.assigned_to}
               onValueChange={(value) => setField("assigned_to", value)}
@@ -521,7 +521,7 @@ export function ContractEditorDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>Unassigned</SelectItem>
+                <SelectItem value={NONE}>Sin asignar</SelectItem>
                 {profiles.map((staff) => (
                   <SelectItem key={staff.id} value={staff.id}>
                     {staff.full_name || staff.email || "Staff"}
@@ -547,14 +547,14 @@ export function ContractEditorDialog({
             className={crmFormStyles.cancelButton}
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            Cancelar
           </Button>
           <Button
             type="submit"
             className={crmFormStyles.primaryButton}
             disabled={saving || !canSave}
           >
-            {saving ? "Saving..." : "Save Contract"}
+            {saving ? "Guardando..." : "Guardar contrato"}
           </Button>
         </div>
       </form>
