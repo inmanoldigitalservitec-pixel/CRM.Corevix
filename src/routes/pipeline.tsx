@@ -619,7 +619,7 @@ function PipelinePage() {
     return () => { cancelled = true; };
   }, [deals, profile?.company_id]);
   const [nextTaskByLeadId, setNextTaskByLeadId] = useState<Record<string, TaskRow | undefined>>({});
-  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedLoadedDealId, setRelatedLoadedDealId] = useState<string | null>(null);
 
   const [activeProducts, setActiveProducts] = useState<ProductRow[]>([]);
   const [activeProductsLoading, setActiveProductsLoading] = useState(false);
@@ -1596,11 +1596,13 @@ function PipelinePage() {
   const loadRelated = useCallback(async () => {
     if (!profile?.company_id || !selectedDeal) return;
 
+    const dealId = String(selectedDeal.id);
     const leadId = selectedDeal.lead_id ? String(selectedDeal.lead_id) : null;
     const clientId = selectedDeal.client_id ? String(selectedDeal.client_id) : null;
-    if (!leadId && !clientId) return;
-
-    setRelatedLoading(true);
+    if (!leadId && !clientId) {
+      setRelatedLoadedDealId(dealId);
+      return;
+    }
     try {
       const tasksPromise = leadId
         ? (supabase as any)
@@ -1649,7 +1651,7 @@ function PipelinePage() {
         setNextTaskByLeadId((prev) => ({ ...prev, [leadId]: undefined }));
       }
     } finally {
-      setRelatedLoading(false);
+      setRelatedLoadedDealId(dealId);
     }
   }, [profile?.company_id, selectedDeal]);
 
@@ -3676,7 +3678,7 @@ function PipelinePage() {
                         <SelectContent>
                           {stages.map((s) => (
                             <SelectItem key={s.id} value={s.name}>
-                              {s.name}
+                              {getPipelineStageLabel(s.name)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3713,7 +3715,7 @@ function PipelinePage() {
               title={selectedDeal.name}
               accent="green"
               icon={<BriefcaseBusiness className="h-5 w-5 text-emerald-600" />}
-              status={selectedDeal.stage}
+              status={getPipelineStageLabel(selectedDeal.stage)}
               onEdit={undefined}
               onDelete={undefined}
               fieldGroupDataDemo="pipeline-detail-summary"
@@ -3748,6 +3750,11 @@ function PipelinePage() {
                 {(() => {
                   const isWon = wonStageNames.has(selectedDeal.stage);
                   const isLost = lostStageNames.has(selectedDeal.stage);
+                  const contactPending =
+                    Boolean(selectedDeal.lead_id || selectedDeal.client_id) &&
+                    !selectedLead &&
+                    !selectedClient &&
+                    relatedLoadedDealId !== String(selectedDeal.id);
                   const contactName =
                     selectedClient?.company_name ||
                     selectedClient?.contact_person ||
@@ -3755,7 +3762,7 @@ function PipelinePage() {
                     formatPersonName(selectedLead?.first_name, selectedLead?.last_name) ||
                     selectedLead?.email ||
                     selectedLead?.phone ||
-                    "Sin contacto conectado";
+                    (contactPending ? "Cargando contacto…" : "Sin contacto conectado");
                   const phone = selectedClient?.whatsapp || selectedClient?.phone || selectedLead?.whatsapp || selectedLead?.phone || "";
                   const contactEmail = selectedClient?.email || selectedLead?.email || "";
                   const responsible = selectedDeal.assigned_to
@@ -3818,8 +3825,8 @@ function PipelinePage() {
                             <div className="mt-1 text-sm font-normal text-slate-500">
                               {selectedLead || selectedClient
                                 ? [contactEmail, phone].filter(Boolean).join(" · ") || "Sin email o teléfono"
-                                : selectedDeal.lead_id || selectedDeal.client_id
-                                  ? "Cargando contacto…"
+                                : contactPending
+                                  ? null
                                   : "Esta oportunidad no tiene cliente ni prospecto conectado."}
                             </div>
                           </div>
@@ -3827,7 +3834,13 @@ function PipelinePage() {
                           {selectedDeal.lead_id || selectedDeal.client_id ? (
                             <CrmDetailLineButton
                               className="h-8 shrink-0"
-                              onClick={() => (window.location.href = selectedDeal.client_id ? "/clients" : "/leads")}
+                              onClick={() => {
+                                window.location.href = selectedDeal.client_id
+                                  ? "/clients"
+                                  : selectedDeal.lead_id
+                                    ? `/leads?leadId=${encodeURIComponent(String(selectedDeal.lead_id))}`
+                                    : "/leads";
+                              }}
                               icon={<Eye className="h-4 w-4" />}
                             >
                               Ver
