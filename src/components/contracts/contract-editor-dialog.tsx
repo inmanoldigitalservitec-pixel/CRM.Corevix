@@ -69,6 +69,7 @@ export type ContractEditorRow = {
 type Client = { id: string; company_name: string };
 type Project = { id: string; name: string; client_id: string | null };
 type Staff = { id: string; full_name: string | null; email: string | null };
+type Invoice = { id: string; number: string; total: number | null; currency: string | null; status: string; client_id: string | null };
 
 type ContractForm = ReturnType<typeof emptyForm>;
 
@@ -79,6 +80,7 @@ type Props = {
   clients: Client[];
   projects: Project[];
   profiles: Staff[];
+  invoices: Invoice[];
   initialValues?: Partial<ContractForm>;
   onSaved: () => Promise<void> | void;
 };
@@ -96,6 +98,7 @@ function emptyForm() {
     client_id: NONE,
     project_id: NONE,
     assigned_to: NONE,
+    invoice_id: NONE,
     signature_status: "Not Signed",
   };
 }
@@ -118,6 +121,7 @@ function normalizeInitialValues(initialValues?: Partial<ContractForm>) {
     client_id: initialValues.client_id || NONE,
     project_id: initialValues.project_id || NONE,
     assigned_to: initialValues.assigned_to || NONE,
+    invoice_id: initialValues.invoice_id || NONE,
   };
 }
 
@@ -128,6 +132,7 @@ export function ContractEditorDialog({
   clients,
   projects,
   profiles,
+  invoices,
   initialValues,
   onSaved,
 }: Props) {
@@ -163,6 +168,7 @@ export function ContractEditorDialog({
             client_id: contract.client_id || NONE,
             project_id: contract.project_id || NONE,
             assigned_to: contract.assigned_to || NONE,
+            invoice_id: contract.invoice_id || NONE,
             signature_status: contract.signed_at
               ? "Signed"
               : contract.signature_status || "Not Signed",
@@ -240,6 +246,7 @@ export function ContractEditorDialog({
       client_id: form.client_id === NONE ? null : form.client_id,
       project_id: form.project_id === NONE ? null : form.project_id,
       assigned_to: form.assigned_to === NONE ? null : form.assigned_to,
+      invoice_id: form.invoice_id === NONE ? null : form.invoice_id,
       signature_status: form.signature_status,
       signed_at: form.signature_status === "Signed" ? new Date().toISOString() : null,
       created_by: contract ? contract.created_by : profile.id || null,
@@ -480,6 +487,25 @@ export function ContractEditorDialog({
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className={crmFormStyles.label}>Factura vinculada</Label>
+            <Select
+              value={form.invoice_id}
+              onValueChange={(value) => setField("invoice_id", value)}
+            >
+              <SelectTrigger className={crmFormStyles.select}>
+                <SelectValue placeholder="Seleccionar factura" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Sin factura vinculada</SelectItem>
+                {invoices.map((invoice) => (
+                  <SelectItem key={invoice.id} value={invoice.id}>
+                    {invoice.number} · {formatCurrencyAmount(invoice.total || 0, normalizeCurrency(invoice.currency || currencySettings.baseCurrency))} · {({ Draft: "Borrador", Sent: "Enviada", Paid: "Pagada", Overdue: "Vencida", Cancelled: "Cancelada" } as Record<string, string>)[invoice.status] || invoice.status}
                   </SelectItem>
                 ))}
               </SelectContent>
