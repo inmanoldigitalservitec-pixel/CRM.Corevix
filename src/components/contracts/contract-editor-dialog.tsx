@@ -104,6 +104,20 @@ function emptyForm() {
   };
 }
 
+function contractStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    Draft: "Borrador",
+    Active: "Activo",
+    Expired: "Vencido",
+    Cancelled: "Cancelado",
+    "Pending Signature": "Pendiente de firma",
+    "Not Signed": "Sin firmar",
+    Signed: "Firmado",
+    Declined: "Rechazado",
+  };
+  return labels[status] || status;
+}
+
 function toDateInputValue(value: string | null | undefined) {
   if (!value) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
@@ -270,6 +284,64 @@ export function ContractEditorDialog({
       const contractId = contract?.id || result.data?.id;
       if (!contractId) throw new Error("No se pudo confirmar el contrato creado.");
 
+      const changedFields = contract
+        ? [
+            ["asunto", contract.subject, payload.subject],
+            ["descripción", contract.description || "", payload.description || ""],
+            ["estado", contract.status, payload.status],
+            [
+              "estado de firma",
+              contract.signed_at ? "Signed" : contract.signature_status || "Not Signed",
+              payload.signature_status,
+            ],
+            ["tipo de contrato", contract.contract_type || "", payload.contract_type],
+            [
+              "valor",
+              contract.contract_value == null ? "" : String(contract.contract_value),
+              value == null ? "" : String(value),
+            ],
+            [
+              "moneda",
+              normalizeCurrency(contract.currency || currencySettings.baseCurrency),
+              contractCurrency,
+            ],
+            ["fecha de inicio", toDateInputValue(contract.start_date), payload.start_date || ""],
+            [
+              "fecha de finalización",
+              toDateInputValue(contract.end_date),
+              payload.end_date || "",
+            ],
+            ["cliente", contract.client_id || "", payload.client_id || ""],
+            ["proyecto", contract.project_id || "", payload.project_id || ""],
+            ["responsable", contract.assigned_to || "", payload.assigned_to || ""],
+            ["factura vinculada", contract.invoice_id || "", payload.invoice_id || ""],
+          ]
+            .filter(([, previous, next]) => previous !== next)
+            .map(([label]) => label)
+        : [];
+      let activityLoggingFailed = false;
+      const activityInsert = await db.from("contract_activity_events").insert({
+        company_id: profile.company_id,
+        contract_id: contractId,
+        actor_profile_id: profile.id || null,
+        action: contract ? "contract_updated" : "contract_created",
+        detail: contract
+          ? changedFields.length
+            ? `Se actualizaron: ${changedFields.join(", ")}.`
+            : "Se guardó el contrato sin cambios en sus datos."
+          : `Se creó el contrato "${payload.subject}" con estado ${contractStatusLabel(payload.status)} y firma ${contractStatusLabel(payload.signature_status)}.`,
+        metadata: {
+          source: "contract_editor_dialog",
+          changed_fields: changedFields,
+          status: payload.status,
+          signature_status: payload.signature_status,
+        },
+      });
+      if (activityInsert.error) {
+        activityLoggingFailed = true;
+        console.error("No se pudo registrar la actividad del contrato.", activityInsert.error);
+      }
+
       let uploadedCount = 0;
       try {
         for (const file of documentFiles) {
@@ -284,13 +356,15 @@ export function ContractEditorDialog({
         toast.error(
           uploadError?.message || "El contrato se guardó, pero no se pudo subir el documento.",
         );
+        if (activityLoggingFailed)
+          toast.error("El contrato se guardó, pero tampoco se pudo registrar su actividad.");
         onOpenChange(false);
         await onSaved();
         return;
       }
 
       if (uploadedCount > 0) {
-        await db.from("contract_activity_events").insert({
+        const documentActivity = await db.from("contract_activity_events").insert({
           company_id: profile.company_id,
           contract_id: contractId,
           actor_profile_id: profile.id || null,
@@ -301,15 +375,23 @@ export function ContractEditorDialog({
               : `${uploadedCount} documents added`,
           metadata: { source: "contract_editor_dialog" },
         });
+        if (documentActivity.error) {
+          activityLoggingFailed = true;
+          console.error("No se pudo registrar la subida del documento.", documentActivity.error);
+        }
       }
 
-      toast.success(
-        uploadedCount > 0
-          ? "Contrato y documentos guardados."
-          : contract
-            ? "Contrato actualizado."
-            : "Contrato creado.",
-      );
+      if (activityLoggingFailed) {
+        toast.error("El contrato se guardó, pero no se pudo registrar toda su actividad.");
+      } else {
+        toast.success(
+          uploadedCount > 0
+            ? "Contrato y documentos guardados."
+            : contract
+              ? "Contrato actualizado."
+              : "Contrato creado.",
+        );
+      }
       onOpenChange(false);
       await onSaved();
     } catch (error: any) {
