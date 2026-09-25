@@ -1243,12 +1243,6 @@ function ProjectsPage() {
                 Nuevo proyecto
               </CrmDetailLineButton>
             ) : null}
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar proyectos..."
-              className="h-9 w-72 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
