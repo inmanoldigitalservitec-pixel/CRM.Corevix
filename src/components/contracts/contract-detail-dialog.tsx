@@ -328,7 +328,7 @@ export function ContractDetailDialog({
             <div className="border-y border-slate-100 bg-white">
               <div className="flex items-center justify-between border-b border-slate-100 py-3">
                 <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                  Documents
+                  Documentos
                 </div>
                 <CrmDetailLineButton
                   className="h-8"
@@ -381,7 +381,7 @@ export function ContractDetailDialog({
             <div className="border-y border-slate-100 bg-white">
               <div className="flex items-center justify-between border-b border-slate-100 py-3">
                 <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                  Activity Timeline
+                  Registro de actividad
                 </div>
                 {loading ? (
                   <span className="text-xs font-normal text-slate-500">Cargando...</span>
@@ -396,10 +396,10 @@ export function ContractDetailDialog({
                       </div>
                       <div>
                         <div className="font-normal text-slate-950">
-                          {event.action.replace(/_/g, " ")}
+                          {({ document_added: "Documento agregado", contract_created: "Contrato creado", contract_updated: "Contrato actualizado", signature_updated: "Firma actualizada" } as Record<string, string>)[event.action] || event.action.replace(/_/g, " ")}
                         </div>
                         <div className="mt-1 text-sm font-normal text-slate-500">
-                          {event.detail || "Sin detalles"}
+                          {event.detail === "Document added" ? "Documento agregado" : event.detail?.endsWith(" documents added") ? event.detail.replace(" documents added", " documentos agregados") : event.detail || "Sin detalles"}
                         </div>
                         <div className="mt-1 text-xs font-normal text-slate-400">
                           {formatDate(event.created_at)}
