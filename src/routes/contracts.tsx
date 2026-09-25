@@ -119,6 +119,7 @@ type ContractRow = {
 
 type ClientRow = { id: string; company_name: string; contact_person: string | null };
 type ProjectRow = { id: string; name: string; client_id: string | null };
+type InvoiceRow = { id: string; number: string; total: number | null; currency: string | null; status: string; client_id: string | null };
 type ProfileRow = {
   id: string;
   user_id: string | null;
@@ -234,6 +235,7 @@ function ContractsPage() {
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(ALL);
@@ -292,7 +294,7 @@ function ContractsPage() {
     if (!profile?.company_id) return;
     setLoading(true);
     const cid = profile.company_id;
-    const [contractRes, clientRes, projectRes, profileRes] = await Promise.all([
+    const [contractRes, clientRes, projectRes, profileRes, invoiceRes] = await Promise.all([
       db
         .from("contracts")
         .select("*")
@@ -317,9 +319,15 @@ function ContractsPage() {
         .eq("company_id", cid)
         .order("full_name", { ascending: true })
         .limit(1000),
+      db
+        .from("invoices")
+        .select("id,number,total,currency,status,client_id")
+        .eq("company_id", cid)
+        .order("date_issued", { ascending: false })
+        .limit(1000),
     ]);
 
-    const firstError = contractRes.error || clientRes.error || projectRes.error || profileRes.error;
+    const firstError = contractRes.error || clientRes.error || projectRes.error || profileRes.error || invoiceRes.error;
     if (firstError) {
       toast.error(firstError.message || "No se pudieron cargar los contratos.");
       setLoading(false);
@@ -329,6 +337,7 @@ function ContractsPage() {
     setContracts(contractRes.data || []);
     setClients(clientRes.data || []);
     setProjects(projectRes.data || []);
+    setInvoices(invoiceRes.data || []);
     setProfiles(profileRes.data || []);
     setLoading(false);
   };
@@ -862,6 +871,7 @@ function ContractsPage() {
         clients={clients}
         projects={projects}
         profiles={profiles}
+        invoices={invoices}
         onSaved={fetchContracts}
       />
       <ContractDetailDialog
