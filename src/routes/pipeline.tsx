@@ -719,6 +719,8 @@ function PipelinePage() {
   const db = supabase as any;
 
   const dealRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const autoSuggestedDealNameRef = useRef<string | null>(null);
+  const selectedProductNameRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!selectedDeal?.id) return;
@@ -2392,6 +2394,8 @@ function PipelinePage() {
     }
 
     setNewDealStageOverride(null);
+    autoSuggestedDealNameRef.current = null;
+    selectedProductNameRef.current = null;
     setNewDeal({
       name: "",
       value: "",
@@ -2510,6 +2514,8 @@ function PipelinePage() {
                     onClick={() => {
                       setEditDeal(null);
                       setNewDealStageOverride(null);
+                      autoSuggestedDealNameRef.current = null;
+                      selectedProductNameRef.current = null;
                       setNewDeal({
                         name: "",
                         value: "",
@@ -3120,6 +3126,8 @@ function PipelinePage() {
                                   className="h-8 w-8 border-b border-blue-200 bg-white text-[#1d62f9] grid place-items-center hover:border-blue-500 shrink-0"
                                   onClick={() => {
                                     setNewDealStageOverride(stage.name);
+                                    autoSuggestedDealNameRef.current = null;
+                                    selectedProductNameRef.current = null;
                                     setNewDeal({
                                       name: "",
                                       value: "",
@@ -3353,21 +3361,40 @@ function PipelinePage() {
                             ]);
                           }
 
-                          setNewDeal((current) => ({
-                            ...current,
-                            source_type: value?.type || "none",
-                            lead_id: value?.type === "lead" ? value.id : "",
-                            client_id: value?.type === "client" ? value.id : "",
-                            name: current.name || label,
-                            currency: normalizeCurrency(
-                              String(data.currency || currencySettings.baseCurrency),
-                            ),
-                            value:
-                              current.value ||
-                              (value?.type === "lead" && data.estimated_value
-                                ? String(data.estimated_value)
-                                : ""),
-                          }));
+                          const suggestedName = value
+                            ? selectedProductNameRef.current
+                              ? selectedProductNameRef.current + " — " + label
+                              : label
+                            : selectedProductNameRef.current || "";
+
+                          setNewDeal((current) => {
+                            const canUpdateSuggestedName =
+                              !current.name.trim() ||
+                              current.name === autoSuggestedDealNameRef.current;
+                            const nextName = canUpdateSuggestedName
+                              ? suggestedName
+                              : current.name;
+
+                            if (canUpdateSuggestedName) {
+                              autoSuggestedDealNameRef.current = nextName || null;
+                            }
+
+                            return {
+                              ...current,
+                              source_type: value?.type || "none",
+                              lead_id: value?.type === "lead" ? value.id : "",
+                              client_id: value?.type === "client" ? value.id : "",
+                              name: nextName,
+                              currency: normalizeCurrency(
+                                String(data.currency || currencySettings.baseCurrency),
+                              ),
+                              value:
+                                current.value ||
+                                (value?.type === "lead" && data.estimated_value
+                                  ? String(data.estimated_value)
+                                  : ""),
+                            };
+                          });
                         }}
                       />
                     </div>
@@ -3392,18 +3419,32 @@ function PipelinePage() {
                             const suggestedName = contactLabel
                               ? `${product.name} — ${contactLabel}`
                               : product.name;
-                            setNewDeal((current) => ({
-                              ...current,
-                              name: suggestedName,
-                              currency: normalizeCurrency(
-                                product.currency ||
-                                  current.currency ||
-                                  currencySettings.baseCurrency,
-                              ),
-                              value:
-                                current.value ||
-                                (product.base_price != null ? String(product.base_price) : ""),
-                            }));
+                            selectedProductNameRef.current = product.name;
+                            setNewDeal((current) => {
+                              const canUpdateSuggestedName =
+                                !current.name.trim() ||
+                                current.name === autoSuggestedDealNameRef.current;
+                              const nextName = canUpdateSuggestedName
+                                ? suggestedName
+                                : current.name;
+
+                              if (canUpdateSuggestedName) {
+                                autoSuggestedDealNameRef.current = nextName || null;
+                              }
+
+                              return {
+                                ...current,
+                                name: nextName,
+                                currency: normalizeCurrency(
+                                  product.currency ||
+                                    current.currency ||
+                                    currencySettings.baseCurrency,
+                                ),
+                                value:
+                                  current.value ||
+                                  (product.base_price != null ? String(product.base_price) : ""),
+                              };
+                            });
                           }}
                         >
                           <SelectTrigger className={`${crmFormStyles.select} mt-1`}>
@@ -3545,7 +3586,10 @@ function PipelinePage() {
                         className={crmFormStyles.input}
                         placeholder="Nombre de la oportunidad"
                         value={newDeal.name}
-                        onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })}
+                        onChange={(e) => {
+                          autoSuggestedDealNameRef.current = null;
+                          setNewDeal((current) => ({ ...current, name: e.target.value }));
+                        }}
                         required
                       />
                     </div>
