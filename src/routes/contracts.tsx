@@ -39,7 +39,7 @@ import { convertToBaseCurrency, formatCurrencyAmount, normalizeCurrency } from "
 
 export const Route = createFileRoute("/contracts")({
   component: ContractsPage,
-  head: () => ({ meta: [{ title: "Contracts — Corevix CRM" }] }),
+  head: () => ({ meta: [{ title: "Contratos — Corevix CRM" }] }),
 });
 
 const STATUSES = ["Draft", "Active", "Expired", "Cancelled", "Pending Signature"];
@@ -376,13 +376,13 @@ function ContractsPage() {
   const valueByClient = useMemo(() => {
     return Array.from(
       currentSignedContracts.reduce((map, contract) => {
-        const key = contract.client_id || "No client";
+        const key = contract.client_id || "Sin cliente";
         map.set(key, (map.get(key) || 0) + getContractBaseValue(contract, currencySettings));
         return map;
       }, new Map<string, number>()),
     )
       .map(([clientId, value]) => ({
-        label: clientById.get(clientId)?.company_name || "No client",
+        label: clientById.get(clientId)?.company_name || "Sin cliente",
         value,
       }))
       .sort((a, b) => b.value - a.value)
@@ -392,13 +392,13 @@ function ContractsPage() {
   const valueByProject = useMemo(() => {
     return Array.from(
       currentSignedContracts.reduce((map, contract) => {
-        const key = contract.project_id || "No project";
+        const key = contract.project_id || "Sin proyecto";
         map.set(key, (map.get(key) || 0) + getContractBaseValue(contract, currencySettings));
         return map;
       }, new Map<string, number>()),
     )
       .map(([projectId, value]) => ({
-        label: projectById.get(projectId)?.name || "No project",
+        label: projectById.get(projectId)?.name || "Sin proyecto",
         value,
       }))
       .sort((a, b) => b.value - a.value)
