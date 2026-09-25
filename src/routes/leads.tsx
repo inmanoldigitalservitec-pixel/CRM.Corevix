@@ -2701,7 +2701,7 @@ function LeadsPage() {
               </div>
             ) : (
               <>
-                <div className="grid gap-0 md:hidden">
+                <div className="grid gap-0 xl:hidden">
                   {filtered.map((lead, index) => {
                     const isSelected = selectedLeadId === lead.id;
                     const interest = getInterestLabel(lead) || "Sin interés definido";
@@ -2817,30 +2817,30 @@ function LeadsPage() {
                     );
                   })}
                 </div>
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="min-w-[1500px] w-full border-collapse table-auto">
+                <div className="hidden overflow-x-auto xl:block">
+                  <table className="w-full min-w-[900px] table-fixed border-collapse">
                     <thead>
                       <tr>
-                        <th className="w-[210px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Nombre</th>
-                        <th className="w-[190px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Empresa</th>
-                        <th className="w-[220px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Email</th>
-                        <th className="w-[150px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Teléfono</th>
-                        <th className="w-[120px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Valor</th>
-                        <th className="w-[170px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Etiquetas</th>
-                        <th className="w-[170px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Responsable</th>
-                        <th className="w-[165px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Estado</th>
-                        <th className="w-[135px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Fuente</th>
-                        <th className="w-[145px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Último contacto</th>
-                        <th className="w-[130px] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Creado</th>
-                        <th className="w-[145px] border-b border-slate-100 bg-white px-3 py-2 text-right text-[11px] font-normal text-slate-500">Acciones</th>
+                        <th className="w-[28%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Prospecto</th>
+                        <th className="w-[13%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Valor</th>
+                        <th className="w-[18%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Responsable</th>
+                        <th className="w-[15%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Estado</th>
+                        <th className="w-[14%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Último contacto</th>
+                        <th className="w-[12%] border-b border-slate-100 bg-white px-3 py-2 text-right text-[11px] font-normal text-slate-500">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.map((lead, index) => {
                         const isSelected = selectedLeadId === lead.id;
                         const lastActivity = lead.last_interaction_at || lead.updated_at || lead.created_at;
-                        const sourceLabel = getLeadSourceDisplay(lead);
-                        const tags = getLeadTags(lead);
+                        const personName = getLeadName(lead);
+                        const companyName = (lead.company_name || "").trim();
+                        const primaryName =
+                          personName === "Prospecto sin nombre" && companyName
+                            ? companyName
+                            : personName;
+                        const secondaryName =
+                          companyName && companyName !== primaryName ? companyName : null;
 
                         return (
                           <tr
@@ -2851,32 +2851,33 @@ function LeadsPage() {
                             )}
                             onClick={() => openDetail(lead)}
                           >
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2.5">
-                                <div className={cn(
-                                  "grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-[12px] font-semibold",
-                                  getAvatarTone(index),
-                                )}>
+                            <td className="min-w-0 px-3 py-2">
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                <div
+                                  className={cn(
+                                    "grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-[12px] font-semibold",
+                                    getAvatarTone(index),
+                                  )}
+                                >
                                   {getInitials(lead)}
                                 </div>
-                                <span className="truncate text-[13px] font-normal text-slate-900">{getLeadName(lead)}</span>
+                                <div className="min-w-0">
+                                  <div className="truncate text-[13px] font-normal text-slate-900">
+                                    {primaryName}
+                                  </div>
+                                  {secondaryName ? (
+                                    <div className="truncate text-[11px] font-normal text-slate-500">
+                                      {secondaryName}
+                                    </div>
+                                  ) : null}
+                                </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{lead.company_name || "—"}</td>
-                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{lead.email || "—"}</td>
-                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{lead.phone || lead.whatsapp || "—"}</td>
-                            <td className="px-3 py-2 text-[13px] font-normal text-slate-900">
+                            <td className="truncate px-3 py-2 text-[13px] font-normal text-slate-900">
                               {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
                             </td>
                             <td className="px-3 py-2">
-                              <div className="flex flex-wrap gap-1">
-                                {tags.length ? tags.map((tag) => (
-                                  <span key={tag} className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{tag}</span>
-                                )) : <span className="text-[12px] text-slate-400">—</span>}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2 text-[13px] font-normal text-slate-600">
+                              <div className="flex min-w-0 items-center gap-2 text-[13px] font-normal text-slate-600">
                                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#0f172a,#64748b)] text-[10px] font-semibold text-white">
                                   {getAssigneeLabel(lead).slice(0, 2).toUpperCase()}
                                 </span>
@@ -2895,35 +2896,39 @@ function LeadsPage() {
                               />
                             </td>
                             <td className="px-3 py-2">
-                              <span className={cn(
-                                "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
-                                getSourceTone(sourceLabel),
-                              )}>
-                                {getSourceLabel(sourceLabel)}
-                              </span>
+                              <div className="truncate text-[13px] font-normal text-slate-700">
+                                {formatRelativeDate(lastActivity)}
+                              </div>
+                              <div className="mt-0.5 truncate text-[11px] text-slate-400">
+                                {formatDateShort(lastActivity)}
+                              </div>
                             </td>
-                            <td className="px-3 py-2">
-                              <div className="text-[13px] font-normal text-slate-700">{formatRelativeDate(lastActivity)}</div>
-                              <div className="mt-0.5 text-[11px] text-slate-400">{formatDateShort(lastActivity)}</div>
-                            </td>
-                            <td className="px-3 py-2 text-[13px] font-normal text-slate-600">{formatDateShort(lead.created_at)}</td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
                                 <button
-                                  className="inline-flex h-7 items-center border-b border-slate-200 bg-transparent px-0 text-[11.5px] font-normal text-slate-950 hover:border-slate-400"
-                                  onClick={(event) => { event.stopPropagation(); openDetail(lead); }}
+                                  aria-label="Ver prospecto"
+                                  title="Ver prospecto"
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-600 hover:bg-slate-100"
+                                  onClick={() => openDetail(lead)}
                                   type="button"
-                                >Ver</button>
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
                                 <button
-                                  className="inline-flex h-7 items-center border-b border-emerald-200 bg-transparent px-0 text-[11.5px] font-normal text-emerald-700 hover:border-emerald-500"
-                                  onClick={(event) => { event.stopPropagation(); void handleOpenWhatsAppFromLead(lead); }}
+                                  aria-label="Contactar por WhatsApp"
+                                  title="Contactar por WhatsApp"
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-emerald-700 hover:bg-emerald-50"
+                                  onClick={() => void handleOpenWhatsAppFromLead(lead)}
                                   type="button"
-                                >Contactar</button>
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
-                                      className="grid h-7 w-7 shrink-0 place-items-center border-b border-slate-200 bg-transparent text-slate-500 hover:border-slate-400"
-                                      onClick={(event) => event.stopPropagation()}
+                                      aria-label="Más acciones"
+                                      title="Más acciones"
+                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
                                       type="button"
                                     >
                                       <MoreHorizontal className="h-4 w-4" />
