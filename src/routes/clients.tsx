@@ -4276,13 +4276,6 @@ function ClientsPage() {
           className="hidden border-y border-slate-100 bg-white px-4 py-3 shadow-none md:block"
         >
           <div className="flex items-center gap-3">
-            <SearchFilters
-              searchValue={search}
-              onSearchChange={setSearch}
-              searchPlaceholder="Buscar clientes, contactos, industria..."
-              filters={[]}
-              className="flex-1"
-            />
             <CrmDetailLineButton
               type="button"
               icon={<Download className="h-4 w-4" />}
