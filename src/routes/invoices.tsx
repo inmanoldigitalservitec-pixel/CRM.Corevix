@@ -1892,12 +1892,6 @@ function InvoicesPage() {
       >
         <div data-demo="invoices-list" className="space-y-0 p-0">
           <div className="hidden border-b border-slate-100 px-4 py-3 md:flex md:items-center md:gap-3 sm:px-5">
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por factura, cliente, email, propuesta o producto..."
-              className="h-9 min-w-[260px] flex-1 rounded-none border-0 border-b border-slate-200 bg-white px-0 text-sm font-normal shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
             <Select
               value={operationalFilter}
               onValueChange={(value) => setOperationalFilter(value as InvoiceOperationalFilter)}
