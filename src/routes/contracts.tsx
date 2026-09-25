@@ -183,6 +183,15 @@ function signatureStatus(contract: ContractRow) {
   return contract.signature_status || "Not Signed";
 }
 
+function isCurrentSignedContract(contract: ContractRow, today: string) {
+  return (
+    contract.status === "Active" &&
+    signatureStatus(contract) === "Signed" &&
+    !isExpired(contract) &&
+    (!contract.start_date || contract.start_date <= today)
+  );
+}
+
 type ContractKpiTone = "neutral" | "success" | "warning" | "danger";
 
 function contractRiskTone(value: number, warningAt: number, dangerAt: number): ContractKpiTone {
@@ -334,6 +343,11 @@ function ContractsPage() {
     [contracts],
   );
 
+  const currentSignedContracts = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return contracts.filter((contract) => isCurrentSignedContract(contract, today));
+  }, [contracts]);
+
   const kpis = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const in30Days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
@@ -351,17 +365,17 @@ function ContractsPage() {
           contract.end_date <= in30Days &&
           contract.status !== "Cancelled",
       ).length,
-      totalValue: contracts.reduce(
+      totalValue: currentSignedContracts.reduce(
         (sum, contract) => sum + getContractBaseValue(contract, currencySettings),
         0,
       ),
       invoiced: contracts.filter((contract) => !!contract.invoice_id).length,
     };
-  }, [contracts, currencySettings]);
+  }, [contracts, currencySettings, currentSignedContracts]);
 
   const valueByClient = useMemo(() => {
     return Array.from(
-      contracts.reduce((map, contract) => {
+      currentSignedContracts.reduce((map, contract) => {
         const key = contract.client_id || "No client";
         map.set(key, (map.get(key) || 0) + getContractBaseValue(contract, currencySettings));
         return map;
@@ -373,11 +387,11 @@ function ContractsPage() {
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [contracts, clientById, currencySettings]);
+  }, [currentSignedContracts, clientById, currencySettings]);
 
   const valueByProject = useMemo(() => {
     return Array.from(
-      contracts.reduce((map, contract) => {
+      currentSignedContracts.reduce((map, contract) => {
         const key = contract.project_id || "No project";
         map.set(key, (map.get(key) || 0) + getContractBaseValue(contract, currencySettings));
         return map;
@@ -389,7 +403,7 @@ function ContractsPage() {
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [contracts, projectById, currencySettings]);
+  }, [currentSignedContracts, projectById, currencySettings]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -448,7 +462,7 @@ function ContractsPage() {
             key: "contracted-value",
             label: "Valor contratado",
             value: formatMoney(kpis.totalValue, currencySettings.baseCurrency),
-            helper: `${filtered.length} visibles de ${contracts.length} contratos`,
+            helper: `${currentSignedContracts.length} contratos activos y firmados`,
             icon: FileText,
             tone: "purple",
             meta: [
@@ -516,22 +530,22 @@ function ContractsPage() {
           <div className="grid gap-5 pt-5 xl:grid-cols-[minmax(220px,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <div className="border-b border-slate-100 pb-4 xl:border-b-0">
               <div className="text-xs font-normal uppercase text-slate-500">
-                Valor contratado total
+                Valor de contratos vigentes
               </div>
               <div className="mt-2 text-2xl font-normal text-slate-950">
                 {formatMoney(kpis.totalValue, currencySettings.baseCurrency)}
               </div>
               <p className="mt-1 text-sm font-normal text-slate-500">
-                Valor total de contratos registrados.
+                Suma de contratos activos y firmados, dentro de su vigencia.
               </p>
             </div>
             <ReportList
-              title="Clientes con mayor valor contratado"
+              title="Clientes con mayor valor de contratos vigentes"
               items={valueByClient}
               baseCurrency={currencySettings.baseCurrency}
             />
             <ReportList
-              title="Proyectos con mayor valor contratado"
+              title="Proyectos con mayor valor de contratos vigentes"
               items={valueByProject}
               baseCurrency={currencySettings.baseCurrency}
             />
