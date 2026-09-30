@@ -21,6 +21,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { MobileNotificationCenter } from "@/components/notifications/mobile-notification-center";
 import { useNotifications } from "@/components/notifications/use-notifications";
 import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { getStatusDisplayLabel } from "@/components/ui/status-badge";
 import type { DashboardV2Props } from "./dashboard-v2";
 
 type MobileTone = "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral";
@@ -59,6 +60,7 @@ export type MobileSummarySlide = {
   tone: MobileTone;
   ctaLabel?: string;
   previewItems?: Array<{
+    id?: string;
     label: string;
     value: string;
     meta?: string;
@@ -223,9 +225,9 @@ function SummaryPreview({ slide }: { slide: MobileSummarySlide }) {
 
   return (
     <span className="mt-3 grid gap-1.5">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <span
-          key={`${item.label}-${item.value}`}
+          key={item.id || `${item.label}-${item.value}-${index}`}
           className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 border-t border-[#edf1f7] pt-2 first:border-t-0 first:pt-0"
         >
           <span className={`mt-1.5 h-1.5 w-1.5 rounded-full ${toneDot(item.tone || slide.tone)}`} />
@@ -235,7 +237,7 @@ function SummaryPreview({ slide }: { slide: MobileSummarySlide }) {
             </span>
             <span className="block truncate text-[11px] font-medium text-slate-500">
               {item.value}
-              {item.meta ? ` · ${item.meta}` : ""}
+              {item.meta ? ` · ${getStatusDisplayLabel(item.meta)}` : ""}
             </span>
           </span>
         </span>
@@ -321,8 +323,11 @@ function SummaryVisual({
 
     return (
       <span className="grid w-full gap-2 self-center">
-        {items.map((item) => (
-          <span key={`${item.label}-${item.value}`} className="grid grid-cols-[auto_1fr] gap-2">
+        {items.map((item, index) => (
+          <span
+            key={item.id || `${item.label}-${item.value}-${index}`}
+            className="grid grid-cols-[auto_1fr] gap-2"
+          >
             <span className={`mt-1 h-2 w-2 rounded-full ${toneDot(item.tone || slide.tone)}`} />
             <span className="min-w-0">
               <span className="block truncate text-[12px] font-medium text-slate-900">
@@ -343,9 +348,9 @@ function SummaryVisual({
   return (
     <span className="grid w-full gap-2 self-center">
       {items.length ? (
-        items.map((item) => (
+        items.map((item, index) => (
           <span
-            key={`${item.label}-${item.value}`}
+            key={item.id || `${item.label}-${item.value}-${index}`}
             className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2"
           >
             <span
@@ -357,7 +362,7 @@ function SummaryVisual({
               </span>
               <span className="block truncate text-[11px] font-medium text-slate-500">
                 {item.value}
-                {item.meta ? ` · ${item.meta}` : ""}
+                {item.meta ? ` · ${getStatusDisplayLabel(item.meta)}` : ""}
               </span>
             </span>
           </span>
@@ -504,13 +509,17 @@ function MobileWorkItemRow({
           </span>
           <span className="mt-0.5 flex min-w-0 gap-2 text-[12px] font-medium text-slate-500">
             <span className="truncate">{item.subtitle}</span>
-            {item.meta ? <span className="shrink-0 text-slate-400">{item.meta}</span> : null}
+            {item.meta ? (
+              <span className="shrink-0 text-slate-400">
+                {getStatusDisplayLabel(item.meta)}
+              </span>
+            ) : null}
           </span>
         </span>
         <span
           className={`max-w-[92px] truncate rounded-full border px-2 py-1 text-[11px] font-medium ${toneClasses(item.tone)}`}
         >
-          {item.badge}
+          {getStatusDisplayLabel(item.badge)}
         </span>
       </button>
     </div>
@@ -1052,7 +1061,7 @@ function MobileFinanceWidget({
                 <span className="flex items-center gap-1.5">
                   <span className={`h-2 w-2 rounded-full ${progressColor(tone)}`} />
                   <span className="min-w-0 truncate text-[10.5px] font-medium text-slate-500">
-                    {label}
+                    {getStatusDisplayLabel(label)}
                   </span>
                 </span>
                 <strong className="mt-1 block truncate text-[12px] font-semibold text-slate-950">
@@ -1086,7 +1095,9 @@ function MobileFinanceWidget({
                 onClick={() => goTo("/pipeline")}
                 className="grid grid-cols-[minmax(0,72px)_minmax(0,1fr)_auto] items-center gap-2 text-left"
               >
-                <span className="truncate text-[11px] font-medium text-slate-600">{label}</span>
+                <span className="truncate text-[11px] font-medium text-slate-600">
+                  {getStatusDisplayLabel(label)}
+                </span>
                 <span className="h-1.5 overflow-hidden rounded-full bg-[#edf1f7]">
                   <span className={`block h-full ${color}`} style={{ width: `${percent}%` }} />
                 </span>

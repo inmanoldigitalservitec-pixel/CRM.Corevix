@@ -2758,7 +2758,7 @@ function LeadsPage() {
                           />
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-3 pl-[76px] max-[380px]:pl-0">
+                        <div className="mt-3 grid max-w-[620px] grid-cols-2 gap-x-6 gap-y-2 pl-[76px] max-[380px]:pl-0">
                           <div className="min-w-0">
                             <div className="text-[10px] font-normal uppercase text-slate-400">
                               Valor potencial
@@ -2777,8 +2777,8 @@ function LeadsPage() {
                           </div>
                         </div>
 
-                        <div className="mt-3 grid gap-2">
-                          <div className="flex min-w-0 items-center justify-between gap-3">
+                        <div className="mt-3 flex max-w-[620px] flex-wrap items-center justify-between gap-x-4 gap-y-2 pl-[76px] max-[380px]:pl-0">
+                          <div className="flex min-w-0 items-center gap-3">
                             <span className="min-w-0 truncate text-[12.5px] font-normal text-slate-600">
                               {nextStep}
                             </span>
@@ -2788,24 +2788,26 @@ function LeadsPage() {
                               </span>
                             ) : null}
                           </div>
-                          <div className="text-[12px] font-normal text-slate-400">
-                            Último contacto: {formatRelativeDate(lastActivity)}
-                          </div>
-                          <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
-                              className="inline-flex h-8 items-center border-b border-slate-200 bg-transparent px-0 text-[12px] font-normal text-slate-950"
-                              onClick={() => openDetail(lead)}
-                              type="button"
-                            >
-                              Ver
-                            </button>
-                            <button
-                              className="inline-flex h-8 items-center border-b border-emerald-200 bg-transparent px-0 text-[12px] font-normal text-emerald-700"
-                              onClick={() => void handleOpenWhatsAppFromLead(lead)}
-                              type="button"
-                            >
-                              Contactar
-                            </button>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <span className="text-[12px] font-normal text-slate-400">
+                              Último contacto: {formatRelativeDate(lastActivity)}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                className="inline-flex h-8 items-center border-b border-slate-200 bg-transparent px-0 text-[12px] font-normal text-slate-950"
+                                onClick={() => openDetail(lead)}
+                                type="button"
+                              >
+                                Ver
+                              </button>
+                              <button
+                                className="inline-flex h-8 items-center border-b border-emerald-200 bg-transparent px-0 text-[12px] font-normal text-emerald-700"
+                                onClick={() => void handleOpenWhatsAppFromLead(lead)}
+                                type="button"
+                              >
+                                Contactar
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </article>

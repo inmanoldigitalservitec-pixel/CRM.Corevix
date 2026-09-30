@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Check, ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
+import { cn } from "@/lib/utils";
 import { formatCurrencyAmount, getCurrencyInputMode, getCurrencyStep, normalizeCurrency } from "@/lib/currency";
 import {
   formatTaxOptionLabel,
@@ -79,11 +80,15 @@ type SalesDocumentLineEditorProps = {
   taxes: CompanyTax[];
   taxById: Map<string, CompanyTax>;
   addItemLabel: string;
+  addItemHelp?: string;
+  currencyControl?: ReactNode;
+  allowPercentageDiscount?: boolean;
   rateSource?: string | null;
   rateUpdatedAt?: string | null;
   showAdjustment?: boolean;
   showOptional?: boolean;
   showQuantityMode?: boolean;
+  useCrmFieldStyles?: boolean;
   emptyMessage?: string;
   onAddProductLine: (productId: string) => void;
   onAddBlankLine: () => void;
@@ -102,11 +107,15 @@ export function SalesDocumentLineEditor({
   taxes,
   taxById,
   addItemLabel,
+  addItemHelp,
+  currencyControl,
+  allowPercentageDiscount = false,
   rateSource,
   rateUpdatedAt,
   showAdjustment = true,
   showOptional = true,
   showQuantityMode = true,
+  useCrmFieldStyles = false,
   emptyMessage = "Agrega productos o líneas manuales para construir el documento.",
   onAddProductLine,
   onAddBlankLine,
@@ -115,9 +124,13 @@ export function SalesDocumentLineEditor({
   onFormPatch,
   normalizeMoneyInput,
 }: SalesDocumentLineEditorProps) {
+  const compactInvoiceLayout = useCrmFieldStyles && mode === "invoice";
   const moneyStep = getCurrencyStep(form.currency);
   const moneyMode = getCurrencyInputMode(form.currency);
   const moneyUnitLabel = normalizeCurrency(form.currency) === "DOP" ? "RD$" : "US$";
+  const selectedProductIds = new Set(
+    lineItems.map((line) => line.productId).filter((productId): productId is string => Boolean(productId)),
+  );
   const [adjustmentOpen, setAdjustmentOpen] = useState(
     () => Math.abs(Number(form.adjustmentValue) || 0) > 0,
   );
@@ -127,9 +140,26 @@ export function SalesDocumentLineEditor({
   }, [form.adjustmentValue]);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex w-full max-w-[460px] overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div
+      className={
+        useCrmFieldStyles
+          ? "overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+          : "space-y-5"
+      }
+    >
+      <div
+        className={cn(
+          "border-b border-slate-200 bg-slate-50 p-3 sm:p-4",
+          useCrmFieldStyles
+            ? "grid gap-3 sm:grid-cols-1 sm:items-start"
+            : "flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between",
+        )}
+      >
+        <div className={useCrmFieldStyles ? "min-w-0 space-y-1.5" : "min-w-0 flex-1"}>
+          {useCrmFieldStyles ? (
+            <p className="text-xs font-medium text-slate-600">Producto o servicio</p>
+          ) : null}
+          <div className="flex min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
           <Select
             value="none"
             onValueChange={(value) => {
@@ -141,22 +171,35 @@ export function SalesDocumentLineEditor({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">{addItemLabel}</SelectItem>
-              {productOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
+              {productOptions.map((option) => {
+                const alreadyAdded = selectedProductIds.has(option.value);
+                return (
+                  <SelectItem key={option.value} value={option.value} disabled={alreadyAdded}>
+                    <span className="flex w-full items-center justify-between gap-3">
+                      <span>{option.label}</span>
+                      {alreadyAdded ? (
+                        <Check className="h-4 w-4 text-emerald-600" aria-label="Ya agregado" />
+                      ) : null}
+                    </span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           <Button
             type="button"
             variant="outline"
-            className="h-10 w-12 rounded-none border-0 border-l border-slate-200 bg-white px-0 shadow-none"
+            className="h-10 w-12 shrink-0 rounded-none border-0 border-l border-slate-200 bg-white px-0 shadow-none"
             onClick={onAddBlankLine}
-            title={addItemLabel}
+            title="Agregar línea manual"
+            aria-label="Agregar línea manual"
           >
             <Plus className="h-4 w-4" />
           </Button>
+          </div>
+          {useCrmFieldStyles && addItemHelp ? (
+            <p className="text-xs leading-relaxed text-slate-500">{addItemHelp}</p>
+          ) : null}
         </div>
 
         {showQuantityMode ? (
@@ -182,17 +225,29 @@ export function SalesDocumentLineEditor({
         ) : null}
       </div>
 
-      <div className="overflow-x-auto border border-slate-200">
-        <Table>
+      <div className={compactInvoiceLayout ? "min-w-0 overflow-hidden" : useCrmFieldStyles ? "min-w-0 overflow-hidden" : "overflow-x-auto"}>
+        <Table className={compactInvoiceLayout ? "w-full table-fixed" : useCrmFieldStyles ? "w-full table-fixed" : undefined}>
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead className="min-w-[260px]">Ítem</TableHead>
-              <TableHead className="min-w-[320px]">Descripción</TableHead>
-              <TableHead className="w-[140px] text-right">Cant.</TableHead>
-              <TableHead className="w-[180px] text-right">Tarifa</TableHead>
-              <TableHead className="w-[220px]">Impuesto</TableHead>
-              <TableHead className="w-[160px] text-right">Importe</TableHead>
-              <TableHead className="w-[72px]" />
+              <TableHead className={cn(compactInvoiceLayout ? "w-[22%] min-w-0 px-1.5 text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[20%] min-w-0" : "min-w-[260px]", "text-left")}>
+                Concepto
+              </TableHead>
+              <TableHead className={compactInvoiceLayout ? "w-[19%] min-w-0 px-1.5 text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[21%] min-w-0" : "min-w-[320px]"}>
+                Descripción
+              </TableHead>
+              <TableHead className={cn(compactInvoiceLayout ? "w-[9%] min-w-0 px-1 text-center text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[11%] min-w-0" : "w-[140px]", compactInvoiceLayout ? "" : "text-right")}>
+                Cant.
+              </TableHead>
+              <TableHead className={cn(compactInvoiceLayout ? "w-[12%] min-w-0 px-1 text-right text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[13%] min-w-0" : "w-[180px]", "text-right")}>
+                Precio
+              </TableHead>
+              <TableHead className={compactInvoiceLayout ? "w-[15%] min-w-0 px-1 text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[16%] min-w-0" : "w-[220px]"}>
+                Impuesto
+              </TableHead>
+              <TableHead className={cn(compactInvoiceLayout ? "w-[17%] min-w-0 px-1 text-right text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[11%] min-w-0" : "w-[160px]", "text-right")}>
+                Total
+              </TableHead>
+              <TableHead className={compactInvoiceLayout ? "w-[6%] min-w-0 px-0.5" : useCrmFieldStyles ? "w-[8%] min-w-0" : "w-[72px]"} />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -207,13 +262,20 @@ export function SalesDocumentLineEditor({
                   : base + base * ((Number.isFinite(tax) ? tax : 0) / 100);
 
                 return (
-                  <TableRow key={line.id} className="align-top">
-                    <TableCell className="align-top">
+                  <TableRow key={line.id} className={cn("align-top", compactInvoiceLayout && "text-sm")}>
+                    <TableCell className={cn("min-w-0 align-top", compactInvoiceLayout && "px-2 py-2")}>
                       <Textarea
-                        className="min-h-[92px] rounded-lg align-top"
+                        rows={compactInvoiceLayout ? 3 : undefined}
+                        className={cn(
+                          useCrmFieldStyles ? crmFormStyles.textarea : "rounded-lg shadow-none",
+                          compactInvoiceLayout
+                            ? "min-h-[64px] rounded-lg px-1 py-1 text-[11px] leading-4 [overflow-wrap:break-word]"
+                            : "min-h-[92px] min-w-0 align-top",
+                        )}
                         value={line.item}
+                        aria-label="Nombre del artículo o servicio"
                         onChange={(event) => onLinePatch(line.id, { item: event.target.value })}
-                        placeholder="Descripción"
+                        placeholder="Ej. Diseño de identidad"
                       />
                       {showOptional ? (
                         <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-600">
@@ -227,25 +289,71 @@ export function SalesDocumentLineEditor({
                         </label>
                       ) : null}
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className={cn("min-w-0 align-top", compactInvoiceLayout && "px-2 py-2")}>
                       <Textarea
-                        className="min-h-[92px] rounded-lg align-top"
+                        rows={compactInvoiceLayout ? 4 : undefined}
+                        className={cn(
+                          useCrmFieldStyles ? crmFormStyles.textarea : "rounded-lg shadow-none",
+                          compactInvoiceLayout
+                            ? "min-h-[72px] rounded-lg px-1 py-1 text-[11px] leading-4 [overflow-wrap:break-word]"
+                            : "min-h-[92px] min-w-0 align-top",
+                        )}
                         value={line.description}
+                        aria-label="Detalle que aparecerá en la factura"
                         onChange={(event) =>
                           onLinePatch(line.id, { description: event.target.value })
                         }
-                        placeholder="Descripción larga"
+                        placeholder="Describe brevemente el producto o servicio"
                       />
                     </TableCell>
-                    <TableCell className="align-top text-right">
-                      <Input
-                        className={`${crmFormStyles.input} text-right`}
-                        type="number"
-                        step="0.01"
-                        value={line.quantity}
-                        onChange={(event) => onLinePatch(line.id, { quantity: event.target.value })}
-                      />
-                      <div className="mt-2 text-xs text-slate-400">
+                    <TableCell className={cn("min-w-0 align-top text-right", compactInvoiceLayout && "px-1 py-2 text-center")}>
+                      <div className={compactInvoiceLayout ? "relative h-9 border-b border-slate-200 focus-within:border-blue-500" : "relative"}>
+                        <Input
+                          className={cn(
+                            compactInvoiceLayout
+                              ? "invoice-quantity-input h-9 w-full min-w-0 border-0 bg-transparent px-1 pr-5 text-center text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                              : `${crmFormStyles.input} invoice-quantity-input min-w-0 pl-3 pr-7 text-left`,
+                          )}
+                          type="number"
+                          min="1"
+                          step="0.01"
+                          value={line.quantity}
+                          aria-label="Cantidad del artículo o servicio"
+                          onChange={(event) => onLinePatch(line.id, { quantity: event.target.value })}
+                        />
+                        <div className={cn("absolute right-1 top-1/2 flex -translate-y-1/2 flex-col", compactInvoiceLayout && "right-0.5")}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className={cn("h-4 w-5 p-0 text-slate-500 hover:text-slate-900", compactInvoiceLayout && "h-3 w-4")}
+                            aria-label="Aumentar cantidad"
+                            title="Aumentar cantidad"
+                            onClick={() =>
+                              onLinePatch(line.id, {
+                                quantity: String(Math.max(0, Number(line.quantity) || 0) + 1),
+                              })
+                            }
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className={cn("h-4 w-5 p-0 text-slate-500 hover:text-slate-900 disabled:opacity-40", compactInvoiceLayout && "h-3 w-4")}
+                            aria-label="Disminuir cantidad"
+                            title="Disminuir cantidad"
+                            disabled={Number(line.quantity) <= 1}
+                            onClick={() =>
+                              onLinePatch(line.id, {
+                                quantity: String(Math.max(1, (Number(line.quantity) || 1) - 1)),
+                              })
+                            }
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className={cn("mt-2 text-xs text-slate-400", compactInvoiceLayout && "mt-1 text-[10px]")}>
                         {form.quantityMode === "hours"
                           ? "Horas"
                           : form.quantityMode === "qty_hours"
@@ -253,13 +361,16 @@ export function SalesDocumentLineEditor({
                             : "Unidad"}
                       </div>
                     </TableCell>
-                    <TableCell className="align-top text-right">
+                    <TableCell className={cn("min-w-0 align-top text-right", compactInvoiceLayout && "px-1 py-2")}>
                       <Input
-                        className={`${crmFormStyles.input} text-right`}
+                        className={compactInvoiceLayout
+                          ? "h-9 min-w-0 rounded-lg border border-slate-200 px-1.5 text-right text-sm shadow-none focus-visible:ring-2"
+                          : `${crmFormStyles.input} text-right`}
                         type="number"
                         step={moneyStep}
                         inputMode={moneyMode}
                         value={line.rate}
+                        aria-label="Precio por unidad"
                         onChange={(event) =>
                           onLinePatch(line.id, {
                             rate: event.target.value,
@@ -285,10 +396,10 @@ export function SalesDocumentLineEditor({
                             exchangeRateUpdatedAt: rateUpdatedAt,
                           });
                         }}
-                        placeholder="Tarifa"
+                        placeholder="Precio unitario"
                       />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className={cn("min-w-0 align-top", compactInvoiceLayout && "px-1 py-2")}>
                       <Select
                         value={line.taxId || NO_TAX_VALUE}
                         onValueChange={(value) => {
@@ -301,7 +412,9 @@ export function SalesDocumentLineEditor({
                           });
                         }}
                       >
-                        <SelectTrigger className={crmFormStyles.select}>
+                        <SelectTrigger className={compactInvoiceLayout
+                          ? "h-9 min-w-0 rounded-lg border border-slate-200 px-1 text-[11px] shadow-none focus:ring-2"
+                          : cn(crmFormStyles.select, useCrmFieldStyles && "min-w-0 px-1 text-xs")} aria-label="Impuesto aplicado a este artículo">
                           <SelectValue placeholder="Sin impuesto" />
                         </SelectTrigger>
                         <SelectContent>
@@ -314,19 +427,22 @@ export function SalesDocumentLineEditor({
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="align-top pt-9 text-right font-semibold text-slate-900">
+                    <TableCell className={cn("min-w-0 align-top whitespace-nowrap pt-9 text-right font-semibold text-slate-900", compactInvoiceLayout && "px-1 pt-5 text-[13px] tabular-nums")}>
                       {formatCurrencyAmount(amount, form.currency)}
                     </TableCell>
-                    <TableCell className="align-top pt-6">
+                    <TableCell className={cn("min-w-0 align-top pt-6", compactInvoiceLayout && "px-0.5 pt-5")}>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant={compactInvoiceLayout ? "ghost" : "outline"}
                         size="icon"
-                        className="h-9 w-9 rounded-lg border-slate-200 bg-white text-slate-500 shadow-none hover:text-rose-600"
+                        className={cn(
+                          "h-9 w-9 rounded-lg border-slate-200 bg-white text-slate-500 shadow-none hover:text-rose-600",
+                          compactInvoiceLayout && "h-7 w-7 rounded-md bg-transparent",
+                        )}
                         onClick={() => onRemoveLine(line.id)}
                         title="Quitar ítem"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className={cn("h-4 w-4", compactInvoiceLayout && "h-3.5 w-3.5")} />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -334,7 +450,7 @@ export function SalesDocumentLineEditor({
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-28 text-center text-sm text-slate-500">
+                <TableCell colSpan={7} className="h-28 whitespace-normal break-words text-center text-sm text-slate-500">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -343,9 +459,8 @@ export function SalesDocumentLineEditor({
         </Table>
       </div>
 
-      <div className="ml-auto w-full max-w-[720px] space-y-0 border-t border-slate-200 text-sm">
-        <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
-          <div />
+      <div className="w-full space-y-0 border-t border-slate-200 p-3 text-sm sm:p-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(108px,150px)] items-center gap-4 border-b border-slate-200 py-3">
           <div className="text-right font-semibold text-slate-700">Subtotal:</div>
           <div className="text-right text-slate-700">
             {formatCurrencyAmount(totals.subtotal, form.currency)}
@@ -353,8 +468,7 @@ export function SalesDocumentLineEditor({
         </div>
 
         {totals.taxTotal > 0 ? (
-          <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
-            <div />
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(108px,150px)] items-center gap-4 border-b border-slate-200 py-3">
             <div className="text-right font-semibold text-slate-700">ITBIS:</div>
             <div className="text-right text-slate-700">
               {formatCurrencyAmount(totals.taxTotal, form.currency)}
@@ -362,19 +476,65 @@ export function SalesDocumentLineEditor({
           </div>
         ) : null}
 
+        {allowPercentageDiscount && form.discountType === "none" ? (
+          <div className="flex justify-end border-b border-slate-200 py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 gap-1.5 px-2 text-sm font-medium text-blue-700 hover:text-blue-800"
+              onClick={() => onFormPatch({ discountType: "percent", discountValue: "0" })}
+            >
+              <Plus className="h-4 w-4" />
+              Aplicar descuento
+            </Button>
+          </div>
+        ) : null}
+
         {form.discountType !== "none" ? (
-          <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
-            <div />
-            <div className="text-right font-semibold text-slate-700">Descuento</div>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(108px,150px)] items-center gap-4 border-b border-slate-200 py-3">
+            <div className="text-right font-semibold text-slate-700">
+              {allowPercentageDiscount || form.discountType === "percent"
+                ? "Descuento porcentual"
+                : "Descuento fijo"}
+              <p className="mt-1 text-xs font-normal text-slate-500">
+                {allowPercentageDiscount || form.discountType === "percent"
+                  ? "Porcentaje que se resta del subtotal."
+                  : "Importe que se resta del total."}
+              </p>
+            </div>
             <div className="flex items-center justify-end gap-2">
               <Input
                 className="h-10 max-w-[120px] text-right"
                 type="number"
-                step={form.discountType === "percent" ? "0.01" : moneyStep}
-                inputMode={form.discountType === "percent" ? "decimal" : moneyMode}
+                step={allowPercentageDiscount || form.discountType === "percent" ? "0.01" : moneyStep}
+                min="0"
+                max={allowPercentageDiscount || form.discountType === "percent" ? "100" : undefined}
+                inputMode={allowPercentageDiscount || form.discountType === "percent" ? "decimal" : moneyMode}
                 value={form.discountValue}
-                onChange={(event) => onFormPatch({ discountValue: event.target.value })}
+                aria-label={
+                  allowPercentageDiscount || form.discountType === "percent"
+                    ? "Porcentaje de descuento"
+                    : "Importe fijo del descuento"
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  onFormPatch({
+                    discountValue: allowPercentageDiscount
+                      ? value === "" || Number(value) <= 100
+                        ? value
+                        : "100"
+                      : value,
+                  });
+                }}
                 onBlur={(event) => {
+                  if (allowPercentageDiscount) {
+                    onFormPatch({
+                      discountValue: String(
+                        Math.min(100, Math.max(0, Number(event.target.value) || 0)),
+                      ),
+                    });
+                    return;
+                  }
                   if (form.discountType === "percent") return;
                   onFormPatch({
                     discountValue: normalizeMoneyInput(event.target.value, form.currency),
@@ -382,8 +542,21 @@ export function SalesDocumentLineEditor({
                 }}
               />
               <span className="w-10 text-right text-slate-500">
-                {form.discountType === "percent" ? "%" : moneyUnitLabel}
+                {allowPercentageDiscount || form.discountType === "percent" ? "%" : moneyUnitLabel}
               </span>
+              {allowPercentageDiscount ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-500"
+                  aria-label="Quitar descuento"
+                  title="Quitar descuento"
+                  onClick={() => onFormPatch({ discountType: "none", discountValue: "0" })}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -437,7 +610,9 @@ export function SalesDocumentLineEditor({
         ) : null}
 
         <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 py-4">
-          <div />
+          <div>
+            {currencyControl ? <div className="w-full max-w-48">{currencyControl}</div> : null}
+          </div>
           <div className="text-right text-base font-bold text-slate-800">Total:</div>
           <div className="text-right text-base font-bold text-slate-950">
             {formatCurrencyAmount(totals.total, form.currency)}

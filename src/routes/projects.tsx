@@ -608,6 +608,11 @@ function ProjectsPage() {
   const [selected, setSelected] = useState<Project | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectForm>(defaultProjectForm);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const projectSubmitLockRef = useRef(false);
+  const hasInvalidProjectSchedule = Boolean(
+    form.start_date && form.due_date && form.due_date < form.start_date,
+  );
   const {
     data: projects,
     loading: projectsLoading,
@@ -1009,9 +1014,19 @@ function ProjectsPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (projectSubmitLockRef.current) return;
     if (!can(editItem ? "projects.edit" : "projects.create"))
       return toast.error("No tienes permiso para realizar esta acción");
     if (!profile?.company_id) return toast.error("No se pudo identificar tu compañía.");
+    const projectName = form.name.trim();
+    if (!projectName) {
+      toast.error("Escribe un nombre para el proyecto antes de guardar.");
+      return;
+    }
+    if (hasInvalidProjectSchedule) {
+      toast.error("La fecha de entrega debe ser igual o posterior a la fecha de inicio.");
+      return;
+    }
     const budgetCurrency = normalizeCurrency(form.budget_currency || currencySettings.baseCurrency);
     const budgetValue = form.budget.trim()
       ? normalizeCurrencyAmount(form.budget, budgetCurrency)
@@ -1022,7 +1037,7 @@ function ProjectsPage() {
         : convertToBaseCurrency(budgetValue, budgetCurrency, currencySettings);
     const record = {
       company_id: profile.company_id,
-      name: form.name.trim(),
+      name: projectName,
       description: form.description.trim() || null,
       status: form.status,
       progress: Number(form.progress) || 0,
@@ -1041,6 +1056,8 @@ function ProjectsPage() {
       manager:
         primaryManagerProfileId(form.manager_ids) || (form.manager !== NONE ? form.manager : null),
     };
+    projectSubmitLockRef.current = true;
+    setIsSavingProject(true);
     try {
       if (editItem) {
         const saved = await update(editItem.id, record);
@@ -1077,6 +1094,9 @@ function ProjectsPage() {
       setEditItem(null);
     } catch (error: any) {
       toast.error(error?.message || "No se pudo guardar el proyecto.");
+    } finally {
+      projectSubmitLockRef.current = false;
+      setIsSavingProject(false);
     }
   }
 
@@ -1085,12 +1105,6 @@ function ProjectsPage() {
     if (!can("projects.delete")) return toast.error("No tienes permiso para eliminar proyectos");
     if (!profile?.company_id) return toast.error("No se pudo identificar tu compañía.");
     try {
-      const { error } = await supabase
-        .from("tasks")
-        .delete()
-        .eq("company_id", profile.company_id)
-        .eq("related_project_id", deleteId);
-      if (error) throw error;
       await remove(deleteId);
       await fetchTasks();
       setDeleteId(null);
@@ -1105,6 +1119,13 @@ function ProjectsPage() {
     if (!can("tasks.create")) return toast.error("No tienes permiso para crear tareas");
     setSelected(project);
     openGlobalTaskCreate({
+      projectContext: {
+        id: project.id,
+        name: project.name,
+        client_id: project.client_id,
+        lead_id: project.lead_id,
+        product_id: project.product_id,
+      },
       initialValues: {
         dueDate: isoToday(),
         assignedTo: resolveTaskAssigneeUserId(project.manager) || undefined,
@@ -1530,6 +1551,16 @@ function ProjectsPage() {
                       onChange={(event) =>
                         setForm((current) => ({ ...current, name: event.target.value }))
                       }
+                      onInvalid={(event) => {
+                        event.currentTarget.setCustomValidity("Escribe un nombre para el proyecto.");
+                      }}
+                      onInput={(event) => {
+                        event.currentTarget.setCustomValidity(
+                          event.currentTarget.value.trim()
+                            ? ""
+                            : "Escribe un nombre para el proyecto.",
+                        );
+                      }}
                       required
                     />
                   </div>
@@ -1577,11 +1608,18 @@ function ProjectsPage() {
                         className={crmFormStyles.input}
                         name="due_date"
                         type="date"
+                        min={form.start_date || undefined}
                         value={form.due_date}
+                        aria-invalid={hasInvalidProjectSchedule}
                         onChange={(event) =>
                           setForm((current) => ({ ...current, due_date: event.target.value }))
                         }
                       />
+                      {hasInvalidProjectSchedule ? (
+                        <p className="text-sm text-rose-600" role="alert">
+                          La fecha de entrega debe ser igual o posterior a la fecha de inicio.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1735,12 +1773,23 @@ function ProjectsPage() {
                     type="button"
                     variant="outline"
                     className={crmFormStyles.cancelButton}
+                    disabled={isSavingProject}
                     onClick={() => setDialogOpen(false)}
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" className={crmFormStyles.primaryButton}>
-                    {editItem ? "Guardar cambios" : "Guardar"}
+                  <Button
+                    type="submit"
+                    className={crmFormStyles.primaryButton}
+                    disabled={isSavingProject}
+                  >
+                    {isSavingProject
+                      ? editItem
+                        ? "Guardando cambios…"
+                        : "Guardando…"
+                      : editItem
+                        ? "Guardar cambios"
+                        : "Guardar"}
                   </Button>
                 </div>
               </div>

@@ -213,6 +213,7 @@ function PaymentsPage() {
         displayStatusKey="display_status"
         summaryLabel="Cobrado neto"
         enableDelete
+        inlineDeleteAction
         canDeleteRow={(payment) => payment.status === "Pending"}
         onOpenRow={(payment) => {
           setSelectedPaymentId(String(payment.id));

@@ -23,6 +23,15 @@ import {
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/crm/page-header";
 import { EmptyState } from "@/components/crm/empty-state";
@@ -36,21 +45,12 @@ import { useCompanyTaxes } from "@/hooks/use-company-taxes";
 import { useCrud } from "@/hooks/use-crud";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { isPaidInvoiceStatus, normalizeStatus } from "@/lib/crm/status";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { resolveInvoiceProjectRelations } from "@/lib/projects/project-relations";
 import { InvoiceActionsMenu } from "@/components/invoices/invoice-actions-menu";
 import { InvoiceWorkspaceDialog } from "@/components/invoices/invoice-workspace-dialog";
 import {
-  InvoiceEditor,
   type InvoiceEditorDraft,
   type InvoicePaymentFeedback,
 } from "@/components/invoices/invoice-editor";
@@ -61,6 +61,7 @@ import {
   type PaymentFormInitialValues,
 } from "@/components/payments/payment-form-dialog";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
+import { DRAFT_INVOICE_PAYMENT_MESSAGE } from "@/lib/payments/invoice-payment-policy";
 import type { InvoiceActivityEvent } from "@/components/invoices/invoice-activity";
 import type { InvoiceDetailItem } from "@/components/invoices/invoice-items-view";
 import {
@@ -319,6 +320,9 @@ function InvoicesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>("view");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [voidInvoiceTarget, setVoidInvoiceTarget] = useState<Invoice | null>(null);
+  const [voidInvoiceReason, setVoidInvoiceReason] = useState("");
+  const [voidInvoiceSaving, setVoidInvoiceSaving] = useState(false);
   const [detailItems, setDetailItems] = useState<InvoiceDetailItem[]>([]);
   const [detailItemsLoading, setDetailItemsLoading] = useState(false);
   const [detailItemsError, setDetailItemsError] = useState<string | null>(null);
@@ -732,6 +736,10 @@ function InvoicesPage() {
   }, [data, navigate, requestedInvoiceId]);
 
   const openInvoiceEditor = (invoice: Invoice) => {
+    if (!isInvoiceDraft(invoice)) {
+      toast.error("Solo se pueden editar facturas en borrador.");
+      return;
+    }
     setSelected(invoice);
     setEditItem(invoice);
     setEditorPaymentFeedback(null);
@@ -743,6 +751,10 @@ function InvoicesPage() {
     if (!invoice?.id) return;
     if (!canCreatePayment) {
       toast.error("No tienes permiso para registrar pagos.");
+      return;
+    }
+    if (isInvoiceDraft(invoice)) {
+      toast.error(DRAFT_INVOICE_PAYMENT_MESSAGE);
       return;
     }
     try {
@@ -928,6 +940,7 @@ function InvoicesPage() {
     options: { viewProposalDisabled?: boolean; inline?: boolean } = {},
   ) => (
     <InvoiceActionsMenu
+      canEdit={isInvoiceDraft(invoice)}
       canOpenPublic={Boolean(invoice.public_token)}
       canMarkPaid={false}
       canRegisterPayment={
@@ -1148,6 +1161,11 @@ function InvoicesPage() {
       await registerPayment(inv);
       return;
     }
+    if (nextStatus === "Cancelled") {
+      setVoidInvoiceTarget(inv);
+      setVoidInvoiceReason("");
+      return;
+    }
     try {
       if (nextStatus === "Sent") {
         const db = supabase as any;
@@ -1192,6 +1210,49 @@ function InvoicesPage() {
     } catch (e: any) {
       console.error("quick invoice status update error:", e);
       toast.error(e?.message || "No se pudo actualizar el estado");
+    }
+  };
+
+  const confirmVoidInvoice = async () => {
+    if (!voidInvoiceTarget || voidInvoiceSaving) return;
+    const reason = voidInvoiceReason.trim();
+    if (!reason) {
+      toast.error("Indica el motivo de la anulación.");
+      return;
+    }
+
+    setVoidInvoiceSaving(true);
+    try {
+      const db = supabase as any;
+      const { data, error } = await db.rpc("void_invoice", {
+        p_invoice_id: voidInvoiceTarget.id,
+        p_reason: reason,
+      });
+      if (error) throw error;
+
+      const result = Array.isArray(data) ? data[0] : data;
+      if (result?.status !== "Cancelled") {
+        throw new Error("No se pudo confirmar la anulación de la factura.");
+      }
+
+      setSelected((current) =>
+        current?.id === voidInvoiceTarget.id
+          ? { ...current, status: "Cancelled" }
+          : current,
+      );
+      await fetch();
+      void sendInvoiceNotification(
+        "Factura anulada",
+        `${voidInvoiceTarget.number || "Factura"} fue anulada. Motivo: ${reason}`,
+      );
+      toast.success("Factura anulada.");
+      setVoidInvoiceTarget(null);
+      setVoidInvoiceReason("");
+    } catch (e: any) {
+      console.error("invoice void error:", e);
+      toast.error(e?.message || "No se pudo anular la factura.");
+    } finally {
+      setVoidInvoiceSaving(false);
     }
   };
 
@@ -1266,8 +1327,8 @@ function InvoicesPage() {
 
   const saveEditorDraft = async (
     draft: InvoiceEditorDraft,
-    nextStatus: "Draft" | "Sent",
-    options: { closeAfterSave?: boolean; silent?: boolean } = {},
+    nextStatus: string,
+    options: { closeAfterSave?: boolean; returnToView?: boolean; silent?: boolean } = {},
   ) => {
     const closeAfterSave = options.closeAfterSave ?? true;
     const silent = Boolean(options.silent);
@@ -1339,6 +1400,22 @@ function InvoicesPage() {
     const tax = Math.max(0, Number(draft.tax || 0) || 0);
     const discount = Math.max(0, Number(draft.discount || 0) || 0);
     const previousInvoiceData = readObject(editItem?.invoice_data);
+    let companyIssuer = issuerCompany;
+    if (!companyIssuer) {
+      const { data: companyData } = await supabase
+        .from("companies")
+        .select("company_name,tax_id,email,phone,address,city,country,website,logo_url")
+        .eq("id", companyId)
+        .maybeSingle();
+      companyIssuer = companyData;
+    }
+    const issuerAddress = [
+      clean(companyIssuer?.address),
+      clean(companyIssuer?.city),
+      clean(companyIssuer?.country),
+    ]
+      .filter(Boolean)
+      .join(", ");
     const {
       paymentMethod: _legacyPaymentMethod,
       paymentInstructions: _legacyPaymentInstructions,
@@ -1367,12 +1444,28 @@ function InvoicesPage() {
         clientPhone: clean(draft.clientPhone),
         clientAddress: clean(draft.clientAddress),
         clientTaxId: clean(draft.clientTaxId),
-        issuerName: clean(draft.issuerName),
-        issuerTaxId: clean(draft.issuerTaxId),
-        issuerEmail: clean(draft.issuerEmail),
-        issuerPhone: clean(draft.issuerPhone),
-        issuerAddress: clean(draft.issuerAddress),
-        issuerWebsite: clean(draft.issuerWebsite),
+        issuerName:
+          clean(companyIssuer?.company_name) ||
+          clean(draft.issuerName) ||
+          clean(previousInvoiceData.issuerName),
+        issuerTaxId:
+          clean(companyIssuer?.tax_id) ||
+          clean(draft.issuerTaxId) ||
+          clean(previousInvoiceData.issuerTaxId),
+        issuerEmail:
+          clean(companyIssuer?.email) ||
+          clean(draft.issuerEmail) ||
+          clean(previousInvoiceData.issuerEmail),
+        issuerPhone:
+          clean(companyIssuer?.phone) ||
+          clean(draft.issuerPhone) ||
+          clean(previousInvoiceData.issuerPhone),
+        issuerAddress:
+          issuerAddress || clean(draft.issuerAddress) || clean(previousInvoiceData.issuerAddress),
+        issuerWebsite:
+          clean(companyIssuer?.website) ||
+          clean(draft.issuerWebsite) ||
+          clean(previousInvoiceData.issuerWebsite),
 	        relatedProposalNumber: clean(draft.relatedProposalNumber),
 	        relatedProposalTitle: clean(draft.relatedProposalTitle),
 	        productName: clean(draft.productName),
@@ -1481,23 +1574,36 @@ function InvoicesPage() {
         setDrawerOpen(false);
         setDrawerMode("view");
         setEditItem(null);
+      } else if (options.returnToView) {
+        setSelected(saved as Invoice);
+        setEditItem(null);
+        setDrawerMode("view");
+        setDrawerOpen(true);
       } else {
         setEditItem(saved as Invoice);
         setDrawerMode("edit");
       }
       if (!silent) {
+        const savedAsSent = nextStatus === "Sent";
+        const savedAsDraft = nextStatus === "Draft";
         void sendInvoiceNotification(
-          nextStatus === "Sent"
+          savedAsSent
             ? "Factura enviada"
             : editItem
               ? "Factura actualizada"
-              : "Factura creada",
-          nextStatus === "Sent"
+              : "Borrador de factura guardado",
+          savedAsSent
             ? `${record.number} fue marcada como enviada.`
-            : `${record.number} fue guardada como borrador.`,
+            : savedAsDraft
+              ? `${record.number} fue guardada como borrador.`
+              : `${record.number} fue actualizada y mantiene su estado actual.`,
         );
         toast.success(
-          nextStatus === "Sent" ? "Factura marcada como enviada." : "Borrador guardado.",
+          savedAsSent
+            ? "Factura marcada como enviada."
+            : savedAsDraft
+              ? "Borrador guardado."
+              : "Factura actualizada.",
         );
       }
       return saved;
@@ -1779,6 +1885,25 @@ function InvoicesPage() {
   const selectedDetailActions = selected
     ? renderActionsMenu(selected, { inline: true })
     : null;
+  const workspaceInvoice =
+    selected ||
+    editItem ||
+    (drawerMode === "create"
+      ? ({
+        id: "__new_invoice__",
+        company_id: profile?.company_id || "",
+        number: editorInitialDraft.number,
+        client_id: null,
+        status: "Draft",
+        date_issued: editorInitialDraft.date_issued,
+        due_date: editorInitialDraft.due_date,
+        total: 0,
+        subtotal: 0,
+        tax: 0,
+        discount: 0,
+        invoice_data: {},
+      } as Invoice)
+      : null);
 
   return (
     <div data-demo="invoices-main" className="min-h-dvh space-y-3 bg-white p-4 sm:p-6 md:space-y-5">
@@ -2152,32 +2277,73 @@ function InvoicesPage() {
         </div>
       </DataCard>
 
-      {drawerMode === "view" && selected ? (
+      {drawerOpen && workspaceInvoice ? (
         <InvoiceWorkspaceDialog
           open={drawerOpen}
           onOpenChange={(open) => {
             setDrawerOpen(open);
             if (!open) {
               setSelected(null);
+              setEditItem(null);
+              setDrawerMode("view");
             }
           }}
-          invoice={selected}
-          financialStatus={getFinancialInvoiceStatus(selected)}
-          actions={selectedDetailActions}
-          summaryFields={selectedSummaryFields}
-          issuerFields={selectedIssuerFields}
-          clientFields={selectedClientFields}
-          items={detailItems}
-          itemsLoading={detailItemsLoading}
-          itemsError={detailItemsError}
-          activity={selectedActivity}
-          currency={selectedCurrency}
-          total={formatInvoiceMoney(selected.total, selectedCurrency)}
+          invoice={workspaceInvoice}
+          workspaceMode={drawerMode}
+          editorConfig={
+            drawerMode !== "view"
+              ? {
+                  initialDraft: editorInitialDraft,
+                  clients,
+                  products,
+                  proposals,
+                  taxes: salesTaxes,
+                  livePreview: true,
+                  issuerDefaults: issuerCompany,
+                  saving: editorSaving,
+                  error: editorError,
+                  onCancel: () => {
+                    if (drawerMode === "edit" && editItem) {
+                      setSelected(editItem);
+                      setEditItem(null);
+                      setDrawerMode("view");
+                    } else {
+                      setDrawerOpen(false);
+                      setDrawerMode("view");
+                      setEditItem(null);
+                    }
+                  },
+                  onSaveDraft: async (draft) => {
+                    await saveEditorDraft(draft, drawerMode === "edit" ? draft.status : "Draft", {
+                      closeAfterSave: false,
+                      returnToView: true,
+                    });
+                  },
+                  onConfirmSend: async (draft) => {
+                    await saveEditorDraft(draft, "Sent", {
+                      closeAfterSave: false,
+                      returnToView: true,
+                    });
+                  },
+                }
+              : undefined
+          }
+          financialStatus={selected ? getFinancialInvoiceStatus(selected) : "Draft"}
+          actions={drawerMode === "view" ? selectedDetailActions : null}
+          summaryFields={selected ? selectedSummaryFields : []}
+          issuerFields={selected ? selectedIssuerFields : []}
+          clientFields={selected ? selectedClientFields : []}
+          items={selected ? detailItems : []}
+          itemsLoading={selected ? detailItemsLoading : false}
+          itemsError={selected ? detailItemsError : null}
+          activity={selected ? selectedActivity : []}
+          currency={selected ? selectedCurrency : editorInitialDraft.currency}
+          total={formatInvoiceMoney(selected?.total || 0, selectedCurrency)}
           balance={formatInvoiceMoney(selectedBalance, selectedCurrency)}
-          subtotal={formatInvoiceMoney(selected.subtotal, selectedCurrency)}
-          tax={formatInvoiceMoney(selected.tax, selectedCurrency)}
-          discount={formatInvoiceMoney(selected.discount, selectedCurrency)}
-          notes={selected.notes}
+          subtotal={formatInvoiceMoney(selected?.subtotal || 0, selectedCurrency)}
+          tax={formatInvoiceMoney(selected?.tax || 0, selectedCurrency)}
+          discount={formatInvoiceMoney(selected?.discount || 0, selectedCurrency)}
+          notes={selected?.notes}
           formatMoney={formatInvoiceMoney}
           paymentReceiptsRefreshKey={paymentReceiptsRefreshKey}
           canEditNotes={can("invoices.edit")}
@@ -2186,133 +2352,17 @@ function InvoicesPage() {
           canManageReminders={can("invoices.edit")}
           canRegisterPayment={canCreatePayment}
           registerPaymentDisabledReason={
-            isInvoiceCancelled(selected)
+            selected && isInvoiceCancelled(selected)
               ? "No se pueden registrar pagos en una factura cancelada."
-              : !isFinanciallyPending(selected)
-                ? "Esta factura no tiene saldo pendiente. Puedes gestionar los pagos existentes."
-                : undefined
+              : selected && isInvoiceDraft(selected)
+                ? DRAFT_INVOICE_PAYMENT_MESSAGE
+                : selected && !isFinanciallyPending(selected)
+                  ? "Esta factura no tiene saldo pendiente. Puedes gestionar los pagos existentes."
+                  : undefined
           }
-          onRegisterPayment={() => void registerPayment(selected)}
+          onRegisterPayment={() => selected && void registerPayment(selected)}
         />
       ) : null}
-
-      <Sheet
-        open={drawerOpen && drawerMode !== "view"}
-        onOpenChange={(o) => {
-          setDrawerOpen(o);
-          if (!o) {
-            setDrawerMode("view");
-            setEditItem(null);
-            setSelected(null);
-          }
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="flex h-dvh w-screen max-w-none flex-col overflow-hidden border-l border-slate-200 bg-white p-0 shadow-none sm:max-w-[860px]"
-        >
-          <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 sm:px-6">
-            <SheetHeader className="space-y-1 text-left">
-              <SheetTitle className="text-xl font-normal tracking-normal text-slate-950">
-                {drawerMode === "create"
-                  ? "Nueva factura"
-                  : drawerMode === "edit"
-                    ? `Editar factura ${editItem?.number || ""}`.trim()
-                    : selected?.number || "Factura"}
-              </SheetTitle>
-              <SheetDescription className="text-sm font-normal text-slate-500">
-                {drawerMode === "view" && selected ? (
-                  <>
-                    Estado:{" "}
-                    <span className="font-medium text-slate-900">
-                      {displayInvoiceStatus(getFinancialInvoiceStatus(selected))}
-                    </span>
-                  </>
-                ) : (
-                  "Completa los datos principales, relación comercial, artículos y condiciones de la factura."
-                )}
-              </SheetDescription>
-            </SheetHeader>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="min-w-0 space-y-4 px-4 py-5 sm:px-6">
-              {drawerMode === "create" || drawerMode === "edit" ? (
-                <InvoiceEditor
-                  mode={drawerMode}
-                  initialDraft={editorInitialDraft}
-	                  clients={clients}
-	                  products={products}
-	                  proposals={proposals}
-	                  taxes={salesTaxes}
-	                  statusOptions={INVOICE_STATUSES}
-                  publicToken={editItem?.public_token}
-                  publicUrl={editItem ? getPublicInvoiceUrl(editItem) : null}
-                  saving={editorSaving}
-                  error={editorError}
-                  onCancel={() => {
-                    setDrawerOpen(false);
-                    setDrawerMode("view");
-                    setEditItem(null);
-                  }}
-                  onCopyPublic={() =>
-                    editItem
-                      ? void copyPublicInvoiceLink(editItem)
-                      : toast.error("Guarda la factura para generar el enlace")
-                  }
-                  onOpenPublic={() =>
-                    editItem
-                      ? openPublicInvoice(editItem)
-                      : toast.error("Guarda la factura para ver el enlace")
-                  }
-                  onRegisterPayment={async (draft) => {
-                    if (!canCreatePayment) {
-                      toast.error("No tienes permiso para registrar pagos.");
-                      return;
-                    }
-                    paymentCreatedRef.current = false;
-                    setEditorPaymentFeedback({
-                      status: "preparing",
-                      title: "Preparando pago...",
-                      description: editItem?.id
-                        ? "Guardando los últimos cambios antes de abrir el registro de pago."
-                        : "Guardando la factura como borrador para enlazar el pago.",
-                    });
-                    const saved = await saveEditorDraft(draft, "Draft", {
-                      closeAfterSave: false,
-                      silent: true,
-                    });
-                    if (saved) {
-                      void registerPayment(saved);
-                    } else {
-                      setEditorPaymentFeedback(null);
-                    }
-                  }}
-                  canRegisterPayment={
-                    editItem
-                      ? canCreatePayment &&
-                        !isInvoicePaid(editItem) &&
-                        !isInvoiceCancelled(editItem)
-                      : canCreatePayment
-                  }
-                  registerPaymentHint={
-                    editItem?.id
-                      ? undefined
-                      : "Al registrar el pago, la factura se guardará automáticamente como borrador."
-                  }
-                  paymentFeedback={editorPaymentFeedback}
-                  onSaveDraft={async (draft) => {
-                    await saveEditorDraft(draft, "Draft");
-                  }}
-                  onConfirmSend={async (draft) => {
-                    await saveEditorDraft(draft, "Sent");
-                  }}
-                />
-              ) : null}
-            </div>
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
 
       <PaymentFormDialog
         open={paymentDialogOpen}
@@ -2362,6 +2412,62 @@ function InvoicesPage() {
           toast.success("Pago registrado en la factura.");
         }}
       />
+
+      <Dialog
+        open={Boolean(voidInvoiceTarget)}
+        onOpenChange={(open) => {
+          if (open || voidInvoiceSaving) return;
+          setVoidInvoiceTarget(null);
+          setVoidInvoiceReason("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Anular factura</DialogTitle>
+            <DialogDescription>
+              {voidInvoiceTarget?.number
+                ? `La factura ${voidInvoiceTarget.number} pasará a Cancelada. La factura no se eliminará.`
+                : "La factura pasará a Cancelada. La factura no se eliminará."} Anota el motivo.
+              Si tiene pagos aplicados o ya está pagada, primero habrá que revertirlos o reembolsarlos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="invoice-void-reason" className="text-sm font-medium text-slate-700">
+              Motivo de anulación <span className="text-destructive">*</span>
+            </label>
+            <Textarea
+              id="invoice-void-reason"
+              value={voidInvoiceReason}
+              onChange={(event) => setVoidInvoiceReason(event.target.value)}
+              placeholder="Ej. Se emitió al cliente equivocado"
+              maxLength={1000}
+              disabled={voidInvoiceSaving}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setVoidInvoiceTarget(null);
+                setVoidInvoiceReason("");
+              }}
+              disabled={voidInvoiceSaving}
+            >
+              Volver
+            </Button>
+            <Button
+              type="button"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void confirmVoidInvoice()}
+              disabled={voidInvoiceSaving || !voidInvoiceReason.trim()}
+            >
+              {voidInvoiceSaving ? "Anulando…" : "Confirmar anulación"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={!!deleteId}

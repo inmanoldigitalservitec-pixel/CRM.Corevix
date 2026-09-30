@@ -66,6 +66,20 @@ type QuickAction = {
   icon: ComponentType<{ className?: string }>;
 };
 
+const TASK_STATUS_LABELS_ES: Record<string, string> = {
+  "To Do": "Por hacer",
+  "In Progress": "En progreso",
+  Completed: "Completada",
+  Cancelled: "Cancelada",
+};
+
+const TASK_PRIORITY_LABELS_ES: Record<string, string> = {
+  Low: "Baja",
+  Medium: "Media",
+  High: "Alta",
+  Urgent: "Urgente",
+};
+
 const GROUP_META: Record<
   SearchGroup,
   { label: string; icon: ComponentType<{ className?: string }>; tone: string }
@@ -669,8 +683,8 @@ export function GlobalSearch({ launcherOnly = false }: GlobalSearchProps) {
           group: "tasks" as const,
           title: task.title || "Tarea sin titulo",
           subtitle: joinParts([
-            task.status,
-            task.priority,
+            TASK_STATUS_LABELS_ES[task.status] || task.status,
+            TASK_PRIORITY_LABELS_ES[task.priority] || task.priority,
             task.due_date ? `vence ${task.due_date}` : null,
           ]),
           meta: "Tarea",

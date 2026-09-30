@@ -713,7 +713,7 @@ function EstimatesPage() {
           estimate_id: saved.id,
           product_id: line.productId,
           item_name: line.item.trim() || "Ítem",
-          description: line.description || null,
+          description: line.description?.trim() || line.item.trim() || "Artículo",
           quantity: normalized.quantity,
           unit_type: form.quantityMode || "qty",
           rate: normalized.rate,

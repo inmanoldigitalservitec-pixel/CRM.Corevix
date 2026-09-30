@@ -23,6 +23,9 @@ type SalesDocumentWorkspaceDialogProps = {
   onActiveTabChange: (value: string) => void;
   children: ReactNode;
   className?: string;
+  scrollContentClassName?: string;
+  wide?: boolean;
+  showTabs?: boolean;
 };
 
 export function SalesDocumentWorkspaceDialog({
@@ -38,11 +41,14 @@ export function SalesDocumentWorkspaceDialog({
   onActiveTabChange,
   children,
   className = "",
+  scrollContentClassName = "",
+  wide = false,
+  showTabs = true,
 }: SalesDocumentWorkspaceDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-none md:h-[92vh] md:w-[calc(100vw-24px)] md:max-w-[1180px] md:border md:border-slate-200 [&>button]:hidden ${className}`}
+        className={`flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-none md:h-[92vh] md:w-[calc(100vw-24px)] ${wide ? "md:max-w-[1500px]" : "md:max-w-[1180px]"} md:border md:border-slate-200 [&>button]:hidden ${className}`}
       >
         <DialogTitle className="sr-only">{srTitle || title}</DialogTitle>
         <DialogDescription className="sr-only">
@@ -85,7 +91,7 @@ export function SalesDocumentWorkspaceDialog({
           onValueChange={onActiveTabChange}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="shrink-0 overflow-x-auto border-b border-slate-100 bg-white px-4 py-0 md:px-5">
+          {showTabs ? <div className="shrink-0 overflow-x-auto border-b border-slate-100 bg-white px-4 py-0 md:px-5">
             <TabsList className="inline-flex h-11 w-max justify-start gap-1 bg-transparent p-0">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -101,9 +107,11 @@ export function SalesDocumentWorkspaceDialog({
                 );
               })}
             </TabsList>
-          </div>
+          </div> : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-5">
+          <div
+            className={`min-h-0 flex-1 overflow-y-auto bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-5 ${scrollContentClassName}`}
+          >
             {children}
           </div>
         </Tabs>

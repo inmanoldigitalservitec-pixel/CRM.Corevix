@@ -17,7 +17,7 @@
     "db:lint": "supabase db lint"
   },
   "dependencies": {
-    "@cloudflare/vite-plugin": "^1.25.5",
+    "@cloudflare/vite-plugin": "^1.60.1",
     "@fullcalendar/core": "^6.1.21",
     "@fullcalendar/daygrid": "^6.1.21",
     "@fullcalendar/interaction": "^6.1.21",
@@ -53,22 +53,9 @@
     "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.83.0",
-    "@tanstack/react-router": "^1.168.0",
-    "@tanstack/react-start": "^1.167.14",
-    "@tanstack/router-plugin": "^1.167.10",
-    "@tiptap/extension-font-family": "^3.27.1",
-    "@tiptap/extension-image": "^3.27.1",
-    "@tiptap/extension-table": "^3.27.1",
-    "@tiptap/extension-table-cell": "^3.27.1",
-    "@tiptap/extension-table-header": "^3.27.1",
-    "@tiptap/extension-table-row": "^3.27.1",
-    "@tiptap/extension-text-style": "^3.27.1",
-    "@tiptap/react": "^3.27.1",
-    "@tiptap/starter-kit": "^3.27.1",
-    "@univerjs/core": "^0.25.1",
-    "@univerjs/design": "^0.25.1",
-    "@univerjs/preset-sheets-core": "^0.25.1",
-    "@univerjs/presets": "^0.25.1",
+    "@tanstack/react-router": "^1.169.2",
+    "@tanstack/react-start": "^1.167.64",
+    "@tanstack/router-plugin": "^1.167.34",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -108,6 +95,6 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.6"
   }
 }

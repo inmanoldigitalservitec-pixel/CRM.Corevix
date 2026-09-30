@@ -1,0 +1,3794 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@babel/core": {
+      "name": "@babel/core",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1123528,
+          "name": "@babel/core",
+          "dependency": "@babel/core",
+          "title": "@babel/core: Arbitrary File Read via sourceMappingURL Comment",
+          "url": "https://github.com/advisories/GHSA-4x5r-pxfx-6jf8",
+          "severity": "low",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 3.2,
+            "vectorString": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:C/C:L/I:N/A:N"
+          },
+          "range": "<=7.29.0"
+        }
+      ],
+      "effects": [],
+      "range": "<=7.29.0",
+      "nodes": [
+        "node_modules/@babel/core"
+      ],
+      "fixAvailable": true
+    },
+    "@cloudflare/vite-plugin": {
+      "name": "@cloudflare/vite-plugin",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "miniflare",
+        "wrangler",
+        "ws"
+      ],
+      "effects": [],
+      "range": "<=0.0.0-7b9716462 || 0.1.5 - 1.51.0",
+      "nodes": [
+        "node_modules/@cloudflare/vite-plugin"
+      ],
+      "fixAvailable": true
+    },
+    "@humanfs/node": {
+      "name": "@humanfs/node",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1158499,
+          "name": "@humanfs/node",
+          "dependency": "@humanfs/node",
+          "title": "humanfs: Recursive copy follows symlinked files and copies data from outside the source tree",
+          "url": "https://github.com/advisories/GHSA-p498-v437-472g",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<0.16.8"
+        }
+      ],
+      "effects": [],
+      "range": "<0.16.8",
+      "nodes": [
+        "node_modules/@humanfs/node"
+      ],
+      "fixAvailable": true
+    },
+    "@tanstack/react-start": {
+      "name": "@tanstack/react-start",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tanstack/react-start-rsc",
+        "@tanstack/react-start-server",
+        "@tanstack/start-plugin-core",
+        "@tanstack/start-server-core"
+      ],
+      "effects": [],
+      "range": "1.121.23 - 1.167.63",
+      "nodes": [
+        "node_modules/@tanstack/react-start"
+      ],
+      "fixAvailable": true
+    },
+    "@tanstack/react-start-rsc": {
+      "name": "@tanstack/react-start-rsc",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tanstack/react-start-server",
+        "@tanstack/start-plugin-core",
+        "@tanstack/start-server-core"
+      ],
+      "effects": [
+        "@tanstack/react-start"
+      ],
+      "range": "<=0.0.42",
+      "nodes": [
+        "node_modules/@tanstack/react-start-rsc"
+      ],
+      "fixAvailable": true
+    },
+    "@tanstack/react-start-server": {
+      "name": "@tanstack/react-start-server",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tanstack/start-server-core"
+      ],
+      "effects": [
+        "@tanstack/react-start"
+      ],
+      "range": "1.121.23 - 1.166.51",
+      "nodes": [
+        "node_modules/@tanstack/react-start-server"
+      ],
+      "fixAvailable": true
+    },
+    "@tanstack/start-plugin-core": {
+      "name": "@tanstack/start-plugin-core",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tanstack/start-server-core"
+      ],
+      "effects": [
+        "@tanstack/react-start"
+      ],
+      "range": "1.121.23 - 1.169.18",
+      "nodes": [
+        "node_modules/@tanstack/start-plugin-core"
+      ],
+      "fixAvailable": true
+    },
+    "@tanstack/start-server-core": {
+      "name": "@tanstack/start-server-core",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1118887,
+          "name": "@tanstack/start-server-core",
+          "dependency": "@tanstack/start-server-core",
+          "title": "TanStack Start - Server Core: Inbound server-function request deserialization could invoke a sibling client-referenced server function",
+          "url": "https://github.com/advisories/GHSA-9m65-766c-r333",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-502",
+            "CWE-843"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<1.167.30"
+        }
+      ],
+      "effects": [
+        "@tanstack/react-start",
+        "@tanstack/react-start-rsc",
+        "@tanstack/react-start-server",
+        "@tanstack/start-plugin-core"
+      ],
+      "range": "<1.167.30",
+      "nodes": [
+        "node_modules/@tanstack/start-server-core"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/core": {
+      "name": "@tiptap/core",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1158508,
+          "name": "@tiptap/core",
+          "dependency": "@tiptap/core",
+          "title": "Tiptap: mergeAttributes() turns an own __proto__ key into inherited executable DOM attributes",
+          "url": "https://github.com/advisories/GHSA-cp6q-959q-f8rh",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79",
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=2.0.0-alpha.0 <3.30.4"
+        },
+        {
+          "source": 1193728,
+          "name": "@tiptap/core",
+          "dependency": "@tiptap/core",
+          "title": "Tiptap: Quadratic ReDoS in block and inline Markdown attribute parsing",
+          "url": "https://github.com/advisories/GHSA-j95f-988m-3j2f",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-1333"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=3.7.0 <3.30.5"
+        }
+      ],
+      "effects": [
+        "@tiptap/extension-blockquote",
+        "@tiptap/extension-bold",
+        "@tiptap/extension-bubble-menu",
+        "@tiptap/extension-code",
+        "@tiptap/extension-code-block",
+        "@tiptap/extension-document",
+        "@tiptap/extension-floating-menu",
+        "@tiptap/extension-hard-break",
+        "@tiptap/extension-heading",
+        "@tiptap/extension-horizontal-rule",
+        "@tiptap/extension-image",
+        "@tiptap/extension-italic",
+        "@tiptap/extension-link",
+        "@tiptap/extension-list",
+        "@tiptap/extension-paragraph",
+        "@tiptap/extension-strike",
+        "@tiptap/extension-table",
+        "@tiptap/extension-text",
+        "@tiptap/extension-text-style",
+        "@tiptap/extension-underline",
+        "@tiptap/extensions",
+        "@tiptap/react"
+      ],
+      "range": "<=3.30.4",
+      "nodes": [
+        "node_modules/@tiptap/core"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-blockquote": {
+      "name": "@tiptap/extension-blockquote",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-blockquote"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-bold": {
+      "name": "@tiptap/extension-bold",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-bold"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-bubble-menu": {
+      "name": "@tiptap/extension-bubble-menu",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-bubble-menu"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-bullet-list": {
+      "name": "@tiptap/extension-bullet-list",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/extension-list"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-bullet-list"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-code": {
+      "name": "@tiptap/extension-code",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-code"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-code-block": {
+      "name": "@tiptap/extension-code-block",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-code-block"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-document": {
+      "name": "@tiptap/extension-document",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-document"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-dropcursor": {
+      "name": "@tiptap/extension-dropcursor",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/extensions"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-dropcursor"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-floating-menu": {
+      "name": "@tiptap/extension-floating-menu",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-floating-menu"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-font-family": {
+      "name": "@tiptap/extension-font-family",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/extension-text-style"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-font-family"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-gapcursor": {
+      "name": "@tiptap/extension-gapcursor",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/extensions"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-gapcursor"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-hard-break": {
+      "name": "@tiptap/extension-hard-break",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-hard-break"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-heading": {
+      "name": "@tiptap/extension-heading",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-heading"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-horizontal-rule": {
+      "name": "@tiptap/extension-horizontal-rule",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-horizontal-rule"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-image": {
+      "name": "@tiptap/extension-image",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-image"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-italic": {
+      "name": "@tiptap/extension-italic",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-italic"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-link": {
+      "name": "@tiptap/extension-link",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-link"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-list": {
+      "name": "@tiptap/extension-list",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [
+        "@tiptap/extension-bullet-list",
+        "@tiptap/extension-list-item",
+        "@tiptap/extension-list-keymap",
+        "@tiptap/extension-ordered-list"
+      ],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-list"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-list-item": {
+      "name": "@tiptap/extension-list-item",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/extension-list"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-list-item"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-list-keymap": {
+      "name": "@tiptap/extension-list-keymap",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/extension-list"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-list-keymap"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-ordered-list": {
+      "name": "@tiptap/extension-ordered-list",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/extension-list"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-ordered-list"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-paragraph": {
+      "name": "@tiptap/extension-paragraph",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-paragraph"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-strike": {
+      "name": "@tiptap/extension-strike",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-strike"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-table": {
+      "name": "@tiptap/extension-table",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [
+        "@tiptap/extension-table-cell",
+        "@tiptap/extension-table-header",
+        "@tiptap/extension-table-row"
+      ],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-table"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-table-cell": {
+      "name": "@tiptap/extension-table-cell",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/extension-table"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-table-cell"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-table-header": {
+      "name": "@tiptap/extension-table-header",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/extension-table"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-table-header"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-table-row": {
+      "name": "@tiptap/extension-table-row",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/extension-table"
+      ],
+      "effects": [],
+      "range": "3.0.0-beta.0 - 3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-table-row"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-text": {
+      "name": "@tiptap/extension-text",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-text"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-text-style": {
+      "name": "@tiptap/extension-text-style",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [
+        "@tiptap/extension-font-family"
+      ],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-text-style"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extension-underline": {
+      "name": "@tiptap/extension-underline",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extension-underline"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/extensions": {
+      "name": "@tiptap/extensions",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [
+        "@tiptap/extension-dropcursor",
+        "@tiptap/extension-gapcursor"
+      ],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/extensions"
+      ],
+      "fixAvailable": true
+    },
+    "@tiptap/react": {
+      "name": "@tiptap/react",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@tiptap/core"
+      ],
+      "effects": [],
+      "range": "<=3.0.0-next.8 || 3.22.4 - 3.30.3",
+      "nodes": [
+        "node_modules/@tiptap/react"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/collaboration": {
+      "name": "@univerjs-pro/collaboration",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/license",
+        "@univerjs-pro/sheets-outline",
+        "@univerjs/core",
+        "@univerjs/data-validation",
+        "@univerjs/docs",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets",
+        "@univerjs/sheets-conditional-formatting",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/thread-comment"
+      ],
+      "effects": [
+        "@univerjs-pro/exchange-client"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/collaboration"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs-pro/collaboration-client": {
+      "name": "@univerjs-pro/collaboration-client",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/drawing",
+        "@univerjs/network",
+        "@univerjs/sheets",
+        "@univerjs/telemetry"
+      ],
+      "effects": [
+        "@univerjs/preset-docs-collaboration",
+        "@univerjs/preset-sheets-collaboration"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/collaboration-client"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/collaboration-client-ui": {
+      "name": "@univerjs-pro/collaboration-client-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/collaboration-client",
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/drawing",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/network",
+        "@univerjs/rpc",
+        "@univerjs/sheets",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/edit-history-viewer",
+        "@univerjs/preset-docs-collaboration",
+        "@univerjs/preset-sheets-collaboration"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/collaboration-client-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/docs-exchange-client": {
+      "name": "@univerjs-pro/docs-exchange-client",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/exchange-client",
+        "@univerjs/core",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/docs-exchange-client"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/docs-print": {
+      "name": "@univerjs-pro/docs-print",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-render",
+        "@univerjs/network",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/docs-print"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/edit-history-loader": {
+      "name": "@univerjs-pro/edit-history-loader",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/collaboration-client-ui",
+        "@univerjs-pro/edit-history-viewer",
+        "@univerjs-pro/license",
+        "@univerjs-pro/sheets-chart",
+        "@univerjs-pro/sheets-chart-ui",
+        "@univerjs-pro/sheets-pivot",
+        "@univerjs-pro/sheets-shape",
+        "@univerjs-pro/sheets-shape-ui",
+        "@univerjs-pro/sheets-sparkline",
+        "@univerjs-pro/sheets-sparkline-ui",
+        "@univerjs/core",
+        "@univerjs/data-validation",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/drawing",
+        "@univerjs/drawing-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/network",
+        "@univerjs/rpc",
+        "@univerjs/sheets",
+        "@univerjs/sheets-conditional-formatting",
+        "@univerjs/sheets-conditional-formatting-ui",
+        "@univerjs/sheets-data-validation",
+        "@univerjs/sheets-data-validation-ui",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-drawing-ui",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-filter-ui",
+        "@univerjs/sheets-formula",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/sheets-hyper-link-ui",
+        "@univerjs/sheets-numfmt",
+        "@univerjs/sheets-table",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/edit-history-loader"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/edit-history-viewer": {
+      "name": "@univerjs-pro/edit-history-viewer",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/collaboration-client-ui",
+        "@univerjs-pro/sheets-chart",
+        "@univerjs-pro/sheets-pivot",
+        "@univerjs-pro/sheets-shape",
+        "@univerjs-pro/sheets-sparkline",
+        "@univerjs/core",
+        "@univerjs/data-validation",
+        "@univerjs/drawing",
+        "@univerjs/engine-render",
+        "@univerjs/network",
+        "@univerjs/sheets",
+        "@univerjs/sheets-conditional-formatting",
+        "@univerjs/sheets-data-validation",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-table",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/edit-history-viewer"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/engine-chart": {
+      "name": "@univerjs-pro/engine-chart",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render"
+      ],
+      "effects": [
+        "@univerjs-pro/sheets-chart",
+        "@univerjs-pro/sheets-chart-ui",
+        "@univerjs/preset-sheets-advanced"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/engine-chart"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/engine-formula": {
+      "name": "@univerjs-pro/engine-formula",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/engine-formula"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/engine-formula"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/exchange-client": {
+      "name": "@univerjs-pro/exchange-client",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/network",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs-pro/sheets-exchange-client",
+        "@univerjs/preset-docs-advanced",
+        "@univerjs/preset-sheets-advanced"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/exchange-client"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs-pro/license": {
+      "name": "@univerjs-pro/license",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/exchange-client",
+        "@univerjs-pro/sheets-chart",
+        "@univerjs-pro/sheets-pivot",
+        "@univerjs-pro/sheets-print",
+        "@univerjs-pro/thread-comment-datasource"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/license"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs-pro/sheets-chart": {
+      "name": "@univerjs-pro/sheets-chart",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/engine-chart",
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets",
+        "@univerjs/sheets-drawing"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/edit-history-viewer"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-chart"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-chart-ui": {
+      "name": "@univerjs-pro/sheets-chart-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/engine-chart",
+        "@univerjs-pro/sheets-chart",
+        "@univerjs/core",
+        "@univerjs/drawing",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-drawing-ui",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-chart-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-exchange-client": {
+      "name": "@univerjs-pro/sheets-exchange-client",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/exchange-client",
+        "@univerjs/core",
+        "@univerjs/sheets",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-exchange-client"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-outline": {
+      "name": "@univerjs-pro/sheets-outline",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-outline"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs-pro/sheets-outline-ui": {
+      "name": "@univerjs-pro/sheets-outline-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/sheets-outline",
+        "@univerjs/core",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-advanced"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-outline-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-pivot": {
+      "name": "@univerjs-pro/sheets-pivot",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/rpc",
+        "@univerjs/sheets",
+        "@univerjs/sheets-filter"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/edit-history-viewer"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-pivot"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-pivot-ui": {
+      "name": "@univerjs-pro/sheets-pivot-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/sheets-pivot",
+        "@univerjs/core",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-pivot-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-print": {
+      "name": "@univerjs-pro/sheets-print",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-render",
+        "@univerjs/network",
+        "@univerjs/sheets",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-print"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-shape": {
+      "name": "@univerjs-pro/sheets-shape",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/drawing",
+        "@univerjs/sheets",
+        "@univerjs/sheets-drawing"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-shape"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-shape-ui": {
+      "name": "@univerjs-pro/sheets-shape-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/sheets-shape",
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/drawing",
+        "@univerjs/drawing-ui",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-drawing-ui",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs/preset-sheets-advanced"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-shape-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-sparkline": {
+      "name": "@univerjs-pro/sheets-sparkline",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-viewer"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-sparkline"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/sheets-sparkline-ui": {
+      "name": "@univerjs-pro/sheets-sparkline-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/sheets-sparkline",
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-graphics",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs/preset-sheets-advanced"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/sheets-sparkline-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs-pro/thread-comment-datasource": {
+      "name": "@univerjs-pro/thread-comment-datasource",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/license",
+        "@univerjs/core",
+        "@univerjs/network",
+        "@univerjs/thread-comment",
+        "@univerjs/thread-comment-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs-pro/thread-comment-datasource"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/core": {
+      "name": "@univerjs/core",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "nanoid"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/collaboration-client-ui",
+        "@univerjs-pro/docs-exchange-client",
+        "@univerjs-pro/docs-print",
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/edit-history-viewer",
+        "@univerjs-pro/engine-chart",
+        "@univerjs-pro/engine-formula",
+        "@univerjs-pro/exchange-client",
+        "@univerjs-pro/license",
+        "@univerjs-pro/sheets-chart",
+        "@univerjs-pro/sheets-chart-ui",
+        "@univerjs-pro/sheets-exchange-client",
+        "@univerjs-pro/sheets-outline",
+        "@univerjs-pro/sheets-outline-ui",
+        "@univerjs-pro/sheets-pivot",
+        "@univerjs-pro/sheets-pivot-ui",
+        "@univerjs-pro/sheets-print",
+        "@univerjs-pro/sheets-shape",
+        "@univerjs-pro/sheets-shape-ui",
+        "@univerjs-pro/sheets-sparkline",
+        "@univerjs-pro/sheets-sparkline-ui",
+        "@univerjs-pro/thread-comment-datasource",
+        "@univerjs/data-validation",
+        "@univerjs/docs",
+        "@univerjs/docs-drawing",
+        "@univerjs/docs-drawing-ui",
+        "@univerjs/docs-hyper-link",
+        "@univerjs/docs-hyper-link-ui",
+        "@univerjs/docs-thread-comment-ui",
+        "@univerjs/docs-ui",
+        "@univerjs/drawing",
+        "@univerjs/drawing-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/find-replace",
+        "@univerjs/network",
+        "@univerjs/presets",
+        "@univerjs/rpc",
+        "@univerjs/rpc-node",
+        "@univerjs/sheets",
+        "@univerjs/sheets-conditional-formatting",
+        "@univerjs/sheets-conditional-formatting-ui",
+        "@univerjs/sheets-data-validation",
+        "@univerjs/sheets-data-validation-ui",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-drawing-ui",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-filter-ui",
+        "@univerjs/sheets-find-replace",
+        "@univerjs/sheets-formula",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-graphics",
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/sheets-hyper-link-ui",
+        "@univerjs/sheets-note",
+        "@univerjs/sheets-note-ui",
+        "@univerjs/sheets-numfmt",
+        "@univerjs/sheets-numfmt-ui",
+        "@univerjs/sheets-sort",
+        "@univerjs/sheets-sort-ui",
+        "@univerjs/sheets-table",
+        "@univerjs/sheets-table-ui",
+        "@univerjs/sheets-thread-comment",
+        "@univerjs/sheets-thread-comment-ui",
+        "@univerjs/sheets-ui",
+        "@univerjs/telemetry",
+        "@univerjs/thread-comment",
+        "@univerjs/thread-comment-ui",
+        "@univerjs/ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/core"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/core",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/data-validation": {
+      "name": "@univerjs/data-validation",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-data-validation"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/data-validation"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/docs": {
+      "name": "@univerjs/docs",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render"
+      ],
+      "effects": [
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/sheets-hyper-link-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/docs"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/docs-drawing": {
+      "name": "@univerjs/docs-drawing",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/drawing"
+      ],
+      "effects": [
+        "@univerjs/preset-docs-node-core",
+        "@univerjs/preset-sheets-drawing",
+        "@univerjs/sheets-drawing-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/docs-drawing"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/docs-drawing-ui": {
+      "name": "@univerjs/docs-drawing-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-drawing",
+        "@univerjs/docs-ui",
+        "@univerjs/drawing",
+        "@univerjs/drawing-ui",
+        "@univerjs/engine-render",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-docs-drawing"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/docs-drawing-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/docs-hyper-link": {
+      "name": "@univerjs/docs-hyper-link",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs/preset-docs-hyper-link"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/docs-hyper-link"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/docs-hyper-link-ui": {
+      "name": "@univerjs/docs-hyper-link-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-hyper-link",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-render",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/docs-hyper-link-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/docs-thread-comment-ui": {
+      "name": "@univerjs/docs-thread-comment-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-render",
+        "@univerjs/thread-comment",
+        "@univerjs/thread-comment-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-docs-thread-comment"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/docs-thread-comment-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/docs-ui": {
+      "name": "@univerjs/docs-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/drawing",
+        "@univerjs/engine-render",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs-pro/sheets-pivot-ui",
+        "@univerjs-pro/sheets-print",
+        "@univerjs/sheets-hyper-link-ui",
+        "@univerjs/sheets-ui",
+        "@univerjs/thread-comment-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/docs-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/drawing": {
+      "name": "@univerjs/drawing",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/sheets-shape",
+        "@univerjs/docs-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/drawing"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/drawing-ui": {
+      "name": "@univerjs/drawing-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/drawing",
+        "@univerjs/engine-render",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-drawing"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/drawing-ui"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/engine-formula": {
+      "name": "@univerjs/engine-formula",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/rpc"
+      ],
+      "effects": [
+        "@univerjs-pro/sheets-chart",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/sheets-numfmt",
+        "@univerjs/sheets-numfmt-ui",
+        "@univerjs/sheets-table"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/engine-formula"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/engine-render": {
+      "name": "@univerjs/engine-render",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs-pro/engine-chart",
+        "@univerjs-pro/sheets-pivot",
+        "@univerjs/find-replace",
+        "@univerjs/preset-docs-core",
+        "@univerjs/preset-sheets-core",
+        "@univerjs/preset-sheets-node-core",
+        "@univerjs/sheets",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-filter"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/engine-render"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/preset-sheets-core",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/find-replace": {
+      "name": "@univerjs/find-replace",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/find-replace"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/network": {
+      "name": "@univerjs/network",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/sheets-print",
+        "@univerjs/preset-docs-core",
+        "@univerjs/preset-sheets-core"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/network"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/preset-sheets-core",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/preset-docs-advanced": {
+      "name": "@univerjs/preset-docs-advanced",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/docs-exchange-client",
+        "@univerjs-pro/docs-print",
+        "@univerjs-pro/exchange-client",
+        "@univerjs-pro/license"
+      ],
+      "effects": [
+        "@univerjs/presets"
+      ],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-docs-advanced"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/preset-docs-collaboration": {
+      "name": "@univerjs/preset-docs-collaboration",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/collaboration-client-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-docs-collaboration"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-docs-core": {
+      "name": "@univerjs/preset-docs-core",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/network",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-docs-core"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-docs-drawing": {
+      "name": "@univerjs/preset-docs-drawing",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/docs-drawing",
+        "@univerjs/docs-drawing-ui",
+        "@univerjs/drawing",
+        "@univerjs/drawing-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-docs-drawing"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-docs-hyper-link": {
+      "name": "@univerjs/preset-docs-hyper-link",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/docs-hyper-link",
+        "@univerjs/docs-hyper-link-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-docs-hyper-link"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-docs-node-core": {
+      "name": "@univerjs/preset-docs-node-core",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/docs",
+        "@univerjs/docs-drawing",
+        "@univerjs/docs-hyper-link",
+        "@univerjs/drawing",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/rpc-node",
+        "@univerjs/thread-comment"
+      ],
+      "effects": [
+        "@univerjs/presets"
+      ],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-docs-node-core"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/preset-docs-thread-comment": {
+      "name": "@univerjs/preset-docs-thread-comment",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/docs-thread-comment-ui",
+        "@univerjs/thread-comment",
+        "@univerjs/thread-comment-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-docs-thread-comment"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-advanced": {
+      "name": "@univerjs/preset-sheets-advanced",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/engine-chart",
+        "@univerjs-pro/engine-formula",
+        "@univerjs-pro/exchange-client",
+        "@univerjs-pro/license",
+        "@univerjs-pro/sheets-chart",
+        "@univerjs-pro/sheets-chart-ui",
+        "@univerjs-pro/sheets-exchange-client",
+        "@univerjs-pro/sheets-outline",
+        "@univerjs-pro/sheets-outline-ui",
+        "@univerjs-pro/sheets-pivot",
+        "@univerjs-pro/sheets-pivot-ui",
+        "@univerjs-pro/sheets-print",
+        "@univerjs-pro/sheets-shape",
+        "@univerjs-pro/sheets-shape-ui",
+        "@univerjs-pro/sheets-sparkline",
+        "@univerjs-pro/sheets-sparkline-ui",
+        "@univerjs/sheets-graphics"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-advanced"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-collaboration": {
+      "name": "@univerjs/preset-sheets-collaboration",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/collaboration-client",
+        "@univerjs-pro/collaboration-client-ui",
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/edit-history-viewer",
+        "@univerjs-pro/thread-comment-datasource",
+        "@univerjs/preset-sheets-advanced"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-collaboration"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-conditional-formatting": {
+      "name": "@univerjs/preset-sheets-conditional-formatting",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/sheets-conditional-formatting",
+        "@univerjs/sheets-conditional-formatting-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-conditional-formatting"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-core": {
+      "name": "@univerjs/preset-sheets-core",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/network",
+        "@univerjs/rpc",
+        "@univerjs/sheets",
+        "@univerjs/sheets-formula",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-numfmt",
+        "@univerjs/sheets-numfmt-ui",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-core"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/preset-sheets-core",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/preset-sheets-data-validation": {
+      "name": "@univerjs/preset-sheets-data-validation",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/data-validation",
+        "@univerjs/sheets-data-validation",
+        "@univerjs/sheets-data-validation-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-data-validation"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-drawing": {
+      "name": "@univerjs/preset-sheets-drawing",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/docs-drawing",
+        "@univerjs/drawing",
+        "@univerjs/drawing-ui",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-drawing-ui"
+      ],
+      "effects": [
+        "@univerjs/presets"
+      ],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-drawing"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/preset-sheets-filter": {
+      "name": "@univerjs/preset-sheets-filter",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-filter-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-filter"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-find-replace": {
+      "name": "@univerjs/preset-sheets-find-replace",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/find-replace",
+        "@univerjs/sheets-find-replace"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-find-replace"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-hyper-link": {
+      "name": "@univerjs/preset-sheets-hyper-link",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/sheets-hyper-link-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-hyper-link"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-node-core": {
+      "name": "@univerjs/preset-sheets-node-core",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/docs",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/rpc-node",
+        "@univerjs/sheets",
+        "@univerjs/sheets-data-validation",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-formula",
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/sheets-numfmt",
+        "@univerjs/sheets-sort",
+        "@univerjs/sheets-thread-comment",
+        "@univerjs/thread-comment"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-node-core"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-note": {
+      "name": "@univerjs/preset-sheets-note",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/sheets-note",
+        "@univerjs/sheets-note-ui"
+      ],
+      "effects": [
+        "@univerjs/presets"
+      ],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-note"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/preset-sheets-sort": {
+      "name": "@univerjs/preset-sheets-sort",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/sheets-sort",
+        "@univerjs/sheets-sort-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-sort"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-table": {
+      "name": "@univerjs/preset-sheets-table",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/sheets-table",
+        "@univerjs/sheets-table-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-table"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/preset-sheets-thread-comment": {
+      "name": "@univerjs/preset-sheets-thread-comment",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/sheets-thread-comment",
+        "@univerjs/sheets-thread-comment-ui",
+        "@univerjs/thread-comment",
+        "@univerjs/thread-comment-ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/preset-sheets-thread-comment"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/presets": {
+      "name": "@univerjs/presets",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/preset-docs-advanced",
+        "@univerjs/preset-docs-collaboration",
+        "@univerjs/preset-docs-core",
+        "@univerjs/preset-docs-drawing",
+        "@univerjs/preset-docs-hyper-link",
+        "@univerjs/preset-docs-node-core",
+        "@univerjs/preset-docs-thread-comment",
+        "@univerjs/preset-sheets-advanced",
+        "@univerjs/preset-sheets-collaboration",
+        "@univerjs/preset-sheets-conditional-formatting",
+        "@univerjs/preset-sheets-core",
+        "@univerjs/preset-sheets-data-validation",
+        "@univerjs/preset-sheets-drawing",
+        "@univerjs/preset-sheets-filter",
+        "@univerjs/preset-sheets-find-replace",
+        "@univerjs/preset-sheets-hyper-link",
+        "@univerjs/preset-sheets-node-core",
+        "@univerjs/preset-sheets-note",
+        "@univerjs/preset-sheets-sort",
+        "@univerjs/preset-sheets-table",
+        "@univerjs/preset-sheets-thread-comment"
+      ],
+      "effects": [],
+      "range": "<=0.25.1",
+      "nodes": [
+        "node_modules/@univerjs/presets"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/rpc": {
+      "name": "@univerjs/rpc",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs/engine-formula",
+        "@univerjs/sheets",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-filter-ui",
+        "@univerjs/sheets-formula"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/rpc"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/rpc-node": {
+      "name": "@univerjs/rpc-node",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/rpc"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/rpc-node"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets": {
+      "name": "@univerjs/sheets",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/rpc"
+      ],
+      "effects": [
+        "@univerjs-pro/sheets-exchange-client",
+        "@univerjs/sheets-drawing"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/sheets-conditional-formatting": {
+      "name": "@univerjs/sheets-conditional-formatting",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-conditional-formatting"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-conditional-formatting"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-conditional-formatting-ui": {
+      "name": "@univerjs/sheets-conditional-formatting-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-conditional-formatting",
+        "@univerjs/sheets-formula",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-conditional-formatting-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-data-validation": {
+      "name": "@univerjs/sheets-data-validation",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/data-validation",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets",
+        "@univerjs/sheets-formula"
+      ],
+      "effects": [
+        "@univerjs/sheets-hyper-link-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-data-validation"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-data-validation-ui": {
+      "name": "@univerjs/sheets-data-validation-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/data-validation",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-data-validation",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-numfmt",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-data-validation-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-drawing": {
+      "name": "@univerjs/sheets-drawing",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/drawing",
+        "@univerjs/engine-render",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration",
+        "@univerjs-pro/sheets-chart-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-drawing"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/sheets-drawing-ui": {
+      "name": "@univerjs/sheets-drawing-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs-drawing",
+        "@univerjs/docs-ui",
+        "@univerjs/drawing",
+        "@univerjs/drawing-ui",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-drawing",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-drawing-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-filter": {
+      "name": "@univerjs/sheets-filter",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/rpc",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs-pro/sheets-pivot"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-filter"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-filter-ui": {
+      "name": "@univerjs/sheets-filter-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render",
+        "@univerjs/rpc",
+        "@univerjs/sheets",
+        "@univerjs/sheets-filter",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-filter"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-filter-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-find-replace": {
+      "name": "@univerjs/sheets-find-replace",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render",
+        "@univerjs/find-replace",
+        "@univerjs/sheets",
+        "@univerjs/sheets-ui"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-find-replace"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-find-replace"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-formula": {
+      "name": "@univerjs/sheets-formula",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/rpc",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs/sheets-conditional-formatting-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-formula"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-formula-ui": {
+      "name": "@univerjs/sheets-formula-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-formula",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs-pro/edit-history-loader",
+        "@univerjs-pro/sheets-pivot-ui",
+        "@univerjs/sheets-conditional-formatting-ui",
+        "@univerjs/sheets-hyper-link-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-formula-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-graphics": {
+      "name": "@univerjs/sheets-graphics",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render",
+        "@univerjs/sheets-ui"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@univerjs/sheets-graphics"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-hyper-link": {
+      "name": "@univerjs/sheets-hyper-link",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-hyper-link"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/sheets-hyper-link-ui": {
+      "name": "@univerjs/sheets-hyper-link-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-data-validation",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-hyper-link",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-hyper-link"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-hyper-link-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-note": {
+      "name": "@univerjs/sheets-note",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/sheets"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-note"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-note-ui": {
+      "name": "@univerjs/sheets-note-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-note",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-note"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-note-ui"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/sheets-numfmt": {
+      "name": "@univerjs/sheets-numfmt",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-numfmt"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-numfmt-ui": {
+      "name": "@univerjs/sheets-numfmt-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-numfmt",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-numfmt-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-sort": {
+      "name": "@univerjs/sheets-sort",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-sort"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-sort"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-sort-ui": {
+      "name": "@univerjs/sheets-sort-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets",
+        "@univerjs/sheets-sort",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-sort-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-table": {
+      "name": "@univerjs/sheets-table",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-table"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-table-ui": {
+      "name": "@univerjs/sheets-table-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-formula-ui",
+        "@univerjs/sheets-sort",
+        "@univerjs/sheets-table",
+        "@univerjs/sheets-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-table"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-table-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-thread-comment": {
+      "name": "@univerjs/sheets-thread-comment",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/sheets",
+        "@univerjs/thread-comment"
+      ],
+      "effects": [
+        "@univerjs/preset-sheets-thread-comment"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-thread-comment"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-thread-comment-ui": {
+      "name": "@univerjs/sheets-thread-comment-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/sheets-thread-comment",
+        "@univerjs/sheets-ui",
+        "@univerjs/thread-comment",
+        "@univerjs/thread-comment-ui",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-thread-comment-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/sheets-ui": {
+      "name": "@univerjs/sheets-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs",
+        "@univerjs/docs-ui",
+        "@univerjs/engine-formula",
+        "@univerjs/engine-render",
+        "@univerjs/sheets",
+        "@univerjs/telemetry",
+        "@univerjs/ui"
+      ],
+      "effects": [
+        "@univerjs/sheets-graphics"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/sheets-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/telemetry": {
+      "name": "@univerjs/telemetry",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration-client",
+        "@univerjs/sheets-ui"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/telemetry"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/thread-comment": {
+      "name": "@univerjs/thread-comment",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core"
+      ],
+      "effects": [
+        "@univerjs-pro/collaboration",
+        "@univerjs/preset-docs-thread-comment",
+        "@univerjs/preset-sheets-thread-comment"
+      ],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/thread-comment"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/presets",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "@univerjs/thread-comment-ui": {
+      "name": "@univerjs/thread-comment-ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/docs-ui",
+        "@univerjs/thread-comment",
+        "@univerjs/ui"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/thread-comment-ui"
+      ],
+      "fixAvailable": true
+    },
+    "@univerjs/ui": {
+      "name": "@univerjs/ui",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@univerjs/core",
+        "@univerjs/engine-render"
+      ],
+      "effects": [],
+      "range": "<=0.25.2",
+      "nodes": [
+        "node_modules/@univerjs/ui"
+      ],
+      "fixAvailable": true
+    },
+    "baseline-browser-mapping": {
+      "name": "baseline-browser-mapping",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1193686,
+          "name": "baseline-browser-mapping",
+          "dependency": "baseline-browser-mapping",
+          "title": "baseline-browser-mapping process termination on invalid input causes denial of service",
+          "url": "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-705"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=2.0.0 <2.11.0"
+        }
+      ],
+      "effects": [],
+      "range": ">=2.0.0 <2.11.0",
+      "nodes": [
+        "node_modules/baseline-browser-mapping"
+      ],
+      "fixAvailable": true
+    },
+    "brace-expansion": {
+      "name": "brace-expansion",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1120311,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: Large numeric range defeats documented `max` DoS protection",
+          "url": "https://github.com/advisories/GHSA-jxxr-4gwj-5jf2",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-400"
+          ],
+          "cvss": {
+            "score": 6.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=5.0.0 <5.0.6"
+        },
+        {
+          "source": 1123897,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+          "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-407"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": "<1.1.16"
+        },
+        {
+          "source": 1123898,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+          "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-407"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": ">=3.0.0 <5.0.7"
+        },
+        {
+          "source": 1130588,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+          "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<1.1.17"
+        },
+        {
+          "source": 1130591,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+          "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0 <5.0.8"
+        },
+        {
+          "source": 1130734,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+          "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0 <5.0.9"
+        },
+        {
+          "source": 1130737,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+          "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<1.1.18"
+        }
+      ],
+      "effects": [],
+      "range": "<=1.1.17 || 3.0.0 - 5.0.8",
+      "nodes": [
+        "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
+        "node_modules/brace-expansion"
+      ],
+      "fixAvailable": true
+    },
+    "browserslist": {
+      "name": "browserslist",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1153171,
+          "name": "browserslist",
+          "dependency": "browserslist",
+          "title": "Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM",
+          "url": "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+          "severity": "high",
+          "cwe": [
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=4.28.6"
+        },
+        {
+          "source": 1153172,
+          "name": "browserslist",
+          "dependency": "browserslist",
+          "title": "Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)",
+          "url": "https://github.com/advisories/GHSA-73wf-gq98-2v4g",
+          "severity": "high",
+          "cwe": [
+            "CWE-248",
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=4.28.6"
+        }
+      ],
+      "effects": [],
+      "range": "<=4.28.6",
+      "nodes": [
+        "node_modules/browserslist"
+      ],
+      "fixAvailable": true
+    },
+    "esbuild": {
+      "name": "esbuild",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1120680,
+          "name": "esbuild",
+          "dependency": "esbuild",
+          "title": "esbuild allows arbitrary file read when running the development server on Windows",
+          "url": "https://github.com/advisories/GHSA-g7r4-m6w7-qqqr",
+          "severity": "low",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 2.5,
+            "vectorString": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=0.27.3 <0.28.1"
+        }
+      ],
+      "effects": [
+        "wrangler"
+      ],
+      "range": "0.27.3 - 0.28.0",
+      "nodes": [
+        "node_modules/tsx/node_modules/esbuild",
+        "node_modules/vite/node_modules/esbuild",
+        "node_modules/wrangler/node_modules/esbuild"
+      ],
+      "fixAvailable": true
+    },
+    "fflate": {
+      "name": "fflate",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1164786,
+          "name": "fflate",
+          "dependency": "fflate",
+          "title": "fflate unzipSync can enter an infinite loop when parsing malformed ZIP64 archives",
+          "url": "https://github.com/advisories/GHSA-px8p-9vwx-vf98",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-400"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=0.4.5 <0.4.9"
+        }
+      ],
+      "effects": [],
+      "range": "0.4.5 - 0.4.8",
+      "nodes": [
+        "node_modules/fflate"
+      ],
+      "fixAvailable": true
+    },
+    "js-yaml": {
+      "name": "js-yaml",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1121860,
+          "name": "js-yaml",
+          "dependency": "js-yaml",
+          "title": "JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases",
+          "url": "https://github.com/advisories/GHSA-h67p-54hq-rp68",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-407"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": ">=4.0.0 <=4.1.1"
+        },
+        {
+          "source": 1123911,
+          "name": "js-yaml",
+          "dependency": "js-yaml",
+          "title": "js-yaml: YAML merge-key chains can force quadratic CPU consumption",
+          "url": "https://github.com/advisories/GHSA-52cp-r559-cp3m",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-407"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0 <4.3.0"
+        },
+        {
+          "source": 1138115,
+          "name": "js-yaml",
+          "dependency": "js-yaml",
+          "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported",
+          "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+          "severity": "high",
+          "cwe": [
+            "CWE-407"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0 <4.3.1"
+        },
+        {
+          "source": 1193727,
+          "name": "js-yaml",
+          "dependency": "js-yaml",
+          "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+          "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-407"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0 <4.3.2"
+        }
+      ],
+      "effects": [],
+      "range": "4.0.0 - 4.3.1",
+      "nodes": [
+        "node_modules/js-yaml"
+      ],
+      "fixAvailable": true
+    },
+    "miniflare": {
+      "name": "miniflare",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "sharp",
+        "undici",
+        "ws"
+      ],
+      "effects": [
+        "@cloudflare/vite-plugin",
+        "wrangler"
+      ],
+      "range": "<=0.0.0-fff677e35 || 3.20250204.0 - 5.20260801.0-alpha",
+      "nodes": [
+        "node_modules/miniflare"
+      ],
+      "fixAvailable": true
+    },
+    "nanoid": {
+      "name": "nanoid",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1138810,
+          "name": "nanoid",
+          "dependency": "nanoid",
+          "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+          "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+          "severity": "high",
+          "cwe": [
+            "CWE-835"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0 <5.1.16"
+        },
+        {
+          "source": 1138811,
+          "name": "nanoid",
+          "dependency": "nanoid",
+          "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+          "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+          "severity": "high",
+          "cwe": [
+            "CWE-835"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<3.3.16"
+        },
+        {
+          "source": 1139427,
+          "name": "nanoid",
+          "dependency": "nanoid",
+          "title": "nanoid: custom generators can loop indefinitely when size is zero",
+          "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+          "severity": "high",
+          "cwe": [
+            "CWE-835"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<3.3.18"
+        },
+        {
+          "source": 1153189,
+          "name": "nanoid",
+          "dependency": "nanoid",
+          "title": "nanoid: Integer Overflow or Wraparound",
+          "url": "https://github.com/advisories/GHSA-xwg4-73v4-xw9w",
+          "severity": "high",
+          "cwe": [
+            "CWE-190"
+          ],
+          "cvss": {
+            "score": 7.4,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+          },
+          "range": "<3.3.12"
+        }
+      ],
+      "effects": [
+        "@univerjs/core"
+      ],
+      "range": "<=3.3.17 || 4.0.0 - 5.1.15",
+      "nodes": [
+        "node_modules/@univerjs/core/node_modules/nanoid",
+        "node_modules/nanoid"
+      ],
+      "fixAvailable": {
+        "name": "@univerjs/core",
+        "version": "1.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "postcss": {
+      "name": "postcss",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1117015,
+          "name": "postcss",
+          "dependency": "postcss",
+          "title": "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output",
+          "url": "https://github.com/advisories/GHSA-qx2v-qp2m-jg93",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 6.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+          },
+          "range": "<8.5.10"
+        },
+        {
+          "source": 1124252,
+          "name": "postcss",
+          "dependency": "postcss",
+          "title": "PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments",
+          "url": "https://github.com/advisories/GHSA-6g55-p6wh-862q",
+          "severity": "high",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": "<=8.5.11"
+        },
+        {
+          "source": 1130709,
+          "name": "postcss",
+          "dependency": "postcss",
+          "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+          "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=8.5.22"
+        },
+        {
+          "source": 1139510,
+          "name": "postcss",
+          "dependency": "postcss",
+          "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+          "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+          "severity": "high",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": "<=8.5.17"
+        }
+      ],
+      "effects": [],
+      "range": "<=8.5.22",
+      "nodes": [
+        "node_modules/postcss"
+      ],
+      "fixAvailable": true
+    },
+    "postcss-selector-parser": {
+      "name": "postcss-selector-parser",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1153170,
+          "name": "postcss-selector-parser",
+          "dependency": "postcss-selector-parser",
+          "title": "postcss-selector-parser allows denial of service through uncontrolled AST recursion",
+          "url": "https://github.com/advisories/GHSA-w9m9-85wc-3x92",
+          "severity": "low",
+          "cwe": [
+            "CWE-404"
+          ],
+          "cvss": {
+            "score": 4.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L"
+          },
+          "range": ">=6.1.0 <6.1.3"
+        }
+      ],
+      "effects": [],
+      "range": "6.1.0 - 6.1.2",
+      "nodes": [
+        "node_modules/postcss-selector-parser"
+      ],
+      "fixAvailable": true
+    },
+    "protobufjs": {
+      "name": "protobufjs",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1123964,
+          "name": "protobufjs",
+          "dependency": "protobufjs",
+          "title": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+          "url": "https://github.com/advisories/GHSA-j3f2-48v5-ccww",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-835"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": ">=7.5.0 <=7.6.4"
+        }
+      ],
+      "effects": [],
+      "range": "7.5.0 - 7.6.4",
+      "nodes": [
+        "node_modules/protobufjs"
+      ],
+      "fixAvailable": true
+    },
+    "seroval": {
+      "name": "seroval",
+      "severity": "critical",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1124299,
+          "name": "seroval",
+          "dependency": "seroval",
+          "title": "seroval: `seroval.fromJSON()` Promise resolver type confusion invokes attacker-controlled methods during deserialization",
+          "url": "https://github.com/advisories/GHSA-mv8w-475r-vwqw",
+          "severity": "critical",
+          "cwe": [
+            "CWE-502",
+            "CWE-843"
+          ],
+          "cvss": {
+            "score": 9.8,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": "<=1.5.2"
+        }
+      ],
+      "effects": [],
+      "range": "<=1.5.2",
+      "nodes": [
+        "node_modules/seroval"
+      ],
+      "fixAvailable": true
+    },
+    "sharp": {
+      "name": "sharp",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1124066,
+          "name": "sharp",
+          "dependency": "sharp",
+          "title": "sharp inherited vulnerabilities in libvips: CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591",
+          "url": "https://github.com/advisories/GHSA-f88m-g3jw-g9cj",
+          "severity": "high",
+          "cwe": [
+            "CWE-1395"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<0.35.0"
+        },
+        {
+          "source": 1193725,
+          "name": "sharp",
+          "dependency": "sharp",
+          "title": "sharp: Vulnerabilities in libheif: GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545",
+          "url": "https://github.com/advisories/GHSA-rgj7-g3m4-5g8c",
+          "severity": "high",
+          "cwe": [
+            "CWE-122"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<0.35.4"
+        }
+      ],
+      "effects": [
+        "miniflare"
+      ],
+      "range": "<=0.35.4-rc.0",
+      "nodes": [
+        "node_modules/sharp"
+      ],
+      "fixAvailable": true
+    },
+    "undici": {
+      "name": "undici",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1121187,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to TLS certificate validation bypass via dropped requestTls in SOCKS5 ProxyAgent",
+          "url": "https://github.com/advisories/GHSA-vmh5-mc38-953g",
+          "severity": "high",
+          "cwe": [
+            "CWE-295"
+          ],
+          "cvss": {
+            "score": 7.4,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+          },
+          "range": ">=7.23.0 <7.28.0"
+        },
+        {
+          "source": 1121241,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to HTTP header injection via Set-Cookie percent-decoding",
+          "url": "https://github.com/advisories/GHSA-p88m-4jfj-68fv",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-93"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121244,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici WebSocket client vulnerable to denial of service via fragment count bypass",
+          "url": "https://github.com/advisories/GHSA-vxpw-j846-p89q",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121247,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-origin request routing via SOCKS5 proxy pool reuse",
+          "url": "https://github.com/advisories/GHSA-hm92-r4w5-c3mj",
+          "severity": "high",
+          "cwe": [
+            "CWE-346"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": ">=7.23.0 <7.28.0"
+        },
+        {
+          "source": 1121254,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to Set-Cookie SameSite attribute downgrade via permissive substring matching",
+          "url": "https://github.com/advisories/GHSA-g8m3-5g58-fq7m",
+          "severity": "low",
+          "cwe": [
+            "CWE-183"
+          ],
+          "cvss": {
+            "score": 3.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121428,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-user information disclosure via shared cache whitespace bypass",
+          "url": "https://github.com/advisories/GHSA-pr7r-676h-xcf6",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-524"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1130715,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to downstream response desynchronization via retry interceptor",
+          "url": "https://github.com/advisories/GHSA-8xcm-r25x-g524",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-444"
+          ],
+          "cvss": {
+            "score": 4.8,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.29.0"
+        },
+        {
+          "source": 1130718,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-user information disclosure and parse-time crash via degenerate private cache directives",
+          "url": "https://github.com/advisories/GHSA-4cwx-7wf7-3272",
+          "severity": "high",
+          "cwe": [
+            "CWE-200",
+            "CWE-248",
+            "CWE-525"
+          ],
+          "cvss": {
+            "score": 7.4,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:H"
+          },
+          "range": ">=7.0.0 <7.29.0"
+        },
+        {
+          "source": 1130726,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to CRLF Injection via blob-like body 'type' property",
+          "url": "https://github.com/advisories/GHSA-m8rv-5g2x-5cg5",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-93"
+          ],
+          "cvss": {
+            "score": 4.2,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.29.0"
+        },
+        {
+          "source": 1130729,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-user information disclosure via whitespace around equals in Cache-Control directives",
+          "url": "https://github.com/advisories/GHSA-jr45-8vmc-qm54",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-436",
+            "CWE-524"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=7.0.0 <7.29.0"
+        },
+        {
+          "source": 1130731,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cookie attribute injection via unsanitized domain and unparsed setCookie fields",
+          "url": "https://github.com/advisories/GHSA-v3r7-h72x-cjcm",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-74"
+          ],
+          "cvss": {
+            "score": 4.8,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.29.0"
+        },
+        {
+          "source": 1137242,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to HTTP response queue poisoning via keep-alive socket reuse",
+          "url": "https://github.com/advisories/GHSA-35p6-xmwp-9g52",
+          "severity": "low",
+          "cwe": [
+            "CWE-367"
+          ],
+          "cvss": {
+            "score": 3.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        }
+      ],
+      "effects": [
+        "miniflare"
+      ],
+      "range": "7.0.0 - 7.28.0",
+      "nodes": [
+        "node_modules/miniflare/node_modules/undici",
+        "node_modules/undici"
+      ],
+      "fixAvailable": true
+    },
+    "vite": {
+      "name": "vite",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1120785,
+          "name": "vite",
+          "dependency": "vite",
+          "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+          "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-73",
+            "CWE-522"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=7.0.0 <=7.3.4"
+        },
+        {
+          "source": 1123526,
+          "name": "vite",
+          "dependency": "vite",
+          "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
+          "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
+          "severity": "high",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=7.0.0 <=7.3.4"
+        }
+      ],
+      "effects": [],
+      "range": "7.0.0 - 7.3.3",
+      "nodes": [
+        "node_modules/vite"
+      ],
+      "fixAvailable": true
+    },
+    "wrangler": {
+      "name": "wrangler",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "esbuild",
+        "miniflare"
+      ],
+      "effects": [
+        "@cloudflare/vite-plugin"
+      ],
+      "range": "<=0.0.0-31bfd374c || 4.36.0 - 4.119.0",
+      "nodes": [
+        "node_modules/wrangler"
+      ],
+      "fixAvailable": true
+    },
+    "ws": {
+      "name": "ws",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1119108,
+          "name": "ws",
+          "dependency": "ws",
+          "title": "ws: Uninitialized memory disclosure",
+          "url": "https://github.com/advisories/GHSA-58qx-3vcg-4xpx",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-908"
+          ],
+          "cvss": {
+            "score": 4.4,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=8.0.0 <8.20.1"
+        },
+        {
+          "source": 1123259,
+          "name": "ws",
+          "dependency": "ws",
+          "title": "ws: Memory exhaustion DoS from tiny fragments and data chunks",
+          "url": "https://github.com/advisories/GHSA-96hv-2xvq-fx4p",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770",
+            "CWE-1050"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=8.0.0 <8.21.0"
+        }
+      ],
+      "effects": [
+        "@cloudflare/vite-plugin",
+        "miniflare"
+      ],
+      "range": "8.0.0 - 8.20.1",
+      "nodes": [
+        "node_modules/ws"
+      ],
+      "fixAvailable": true
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 3,
+      "moderate": 43,
+      "high": 104,
+      "critical": 1,
+      "total": 151
+    },
+    "dependencies": {
+      "prod": 570,
+      "dev": 187,
+      "optional": 185,
+      "peer": 1,
+      "peerOptional": 0,
+      "total": 916
+    }
+  }
+}

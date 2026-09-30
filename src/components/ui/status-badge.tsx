@@ -8,6 +8,8 @@ const statusLabelsEs: Record<string, string> = {
   Qualified: "Calificado",
   "Proposal Needed": "Requiere propuesta",
   "Proposal Sent": "Propuesta enviada",
+  "New Lead": "Prospecto nuevo",
+  Discovery: "Descubrimiento",
   Negotiation: "Negociación",
   Won: "Ganado",
   Lost: "Perdido",
@@ -63,6 +65,14 @@ const statusLabelsEs: Record<string, string> = {
   "Not Signed": "Sin firmar",
   "Pending Signature": "Pendiente de firma",
 };
+
+export function getStatusDisplayLabel(status: string) {
+  const normalizedStatus = status.trim().toLowerCase();
+  const matchingStatus = Object.keys(statusLabelsEs).find(
+    (label) => label.toLowerCase() === normalizedStatus,
+  );
+  return matchingStatus ? statusLabelsEs[matchingStatus] : status;
+}
 
 const statusColors: Record<string, string> = {
   // Leads
@@ -127,7 +137,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
   const { t } = useT();
   const key = statusKey(status);
   const label = t(key);
-  const display = label === key ? (statusLabelsEs[status] ?? status) : label;
+  const display = label === key ? getStatusDisplayLabel(status) : label;
   return (
     <Badge
       variant="secondary"

@@ -177,6 +177,7 @@ type SalesBasicPageProps = {
   displayStatusKey?: string;
   summaryLabel?: string;
   canDeleteRow?: (row: GenericRow) => boolean;
+  inlineDeleteAction?: boolean;
   onOpenRow?: (row: GenericRow) => void;
   renderRowActions?: (row: GenericRow) => ReactNode;
 };
@@ -401,6 +402,7 @@ export function SalesBasicPage({
   displayStatusKey,
   summaryLabel,
   canDeleteRow,
+  inlineDeleteAction = false,
   onOpenRow,
   renderRowActions,
 }: SalesBasicPageProps) {
@@ -409,6 +411,7 @@ export function SalesBasicPage({
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { taxes: salesTaxes, taxById: salesTaxById, defaultTax } = useCompanyTaxes("sales");
   const canDelete = enableDelete && can(`${config.module}.delete` as any);
+  const showActionsColumn = !inlineDeleteAction && (canDelete || Boolean(renderRowActions));
   const currencyAware = CURRENCY_AWARE_TABLES.has(config.table);
   const allowTaxFields = config.fields.some((field) => field.type === "tax-select");
   const fields = useMemo(() => currencyAwareFields(config), [config]);
@@ -954,7 +957,7 @@ export function SalesBasicPage({
                   <TableHead>Fecha</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Estado</TableHead>
-                  {canDelete || renderRowActions ? (
+                  {showActionsColumn ? (
                     <TableHead className="w-[160px] text-right">Acciones</TableHead>
                   ) : null}
                 </TableRow>
@@ -1009,20 +1012,38 @@ export function SalesBasicPage({
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          <InlineStatusSelect
-                            value={row[effectiveStatusKey] || "—"}
-                            options={config.statuses.map((status) => ({
-                              value: status,
-                              label: displayLabel(status),
-                            }))}
-                            onChange={(nextStatus) => updateStatus(row, nextStatus)}
-                            disabled={
-                              config.module === "payments" &&
-                              row[effectiveStatusKey] !== row[config.statusKey]
-                            }
-                          />
+                          <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+                            <InlineStatusSelect
+                              value={row[effectiveStatusKey] || "—"}
+                              options={config.statuses.map((status) => ({
+                                value: status,
+                                label: displayLabel(status),
+                              }))}
+                              onChange={(nextStatus) => updateStatus(row, nextStatus)}
+                              disabled={
+                                config.module === "payments" &&
+                                row[effectiveStatusKey] !== row[config.statusKey]
+                              }
+                            />
+                            {inlineDeleteAction && canDelete && (!canDeleteRow || canDeleteRow(row)) ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDeleteRow(row);
+                                }}
+                                aria-label={`Eliminar ${config.primaryLabel.toLowerCase()}`}
+                                title={`Eliminar ${config.primaryLabel.toLowerCase()}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                          </div>
                         </TableCell>
-                        {canDelete || renderRowActions ? (
+                        {showActionsColumn ? (
                           <TableCell className="text-right">
                             <div
                               className="flex justify-end gap-1"
@@ -1053,7 +1074,7 @@ export function SalesBasicPage({
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={canDelete || renderRowActions ? 8 : 7}
+                      colSpan={showActionsColumn ? 8 : 7}
                       className="py-10 text-center text-sm text-slate-500"
                     >
                       No se encontraron registros.

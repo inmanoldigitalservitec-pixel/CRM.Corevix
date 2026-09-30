@@ -20,6 +20,7 @@ import { useCrud } from "@/hooks/use-crud";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CURRENCY_OPTIONS,
+  convertCurrencyAmount,
   formatCurrencyAmount,
   getCurrencyInputMode,
   getCurrencyStep,
@@ -27,6 +28,7 @@ import {
   normalizeCurrencyInput,
 } from "@/lib/currency";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
+import { DRAFT_INVOICE_PAYMENT_MESSAGE } from "@/lib/payments/invoice-payment-policy";
 import { PAYMENT_RECEIPT_ACCEPT, uploadPaymentReceipt } from "@/lib/payments/payment-receipts";
 
 const NONE = "none";
@@ -234,24 +236,23 @@ export function PaymentFormDialog({
         if (normalizedInvoiceStatus === "cancelled" || normalizedInvoiceStatus === "canceled") {
           throw new Error("Esta factura está cancelada.");
         }
+        if (normalizedInvoiceStatus === "draft") {
+          throw new Error(DRAFT_INVOICE_PAYMENT_MESSAGE);
+        }
         const balance = await loadInvoicePaymentBalance(selectedInvoice, profile.company_id);
 
         const invoiceBaseCurrency = normalizeCurrency(
           selectedInvoice.base_currency || balance.baseCurrency || currencySettings.baseCurrency,
         );
 
-        const effectiveRate = Number(
-          selectedInvoice.exchange_rate || currencySettings.usdToDopRate || 1,
+        const paymentExchangeRate =
+          currency === invoiceBaseCurrency ? 1 : currencySettings.usdToDopRate;
+        const paymentAmountBase = convertCurrencyAmount(
+          amount,
+          currency,
+          invoiceBaseCurrency,
+          paymentExchangeRate,
         );
-
-        const paymentAmountBase =
-          currency === invoiceBaseCurrency
-            ? amount
-            : currency === "USD" && invoiceBaseCurrency === "DOP"
-              ? amount * effectiveRate
-              : currency === "DOP" && invoiceBaseCurrency === "USD"
-                ? amount / effectiveRate
-                : amount;
 
         if (
           String(form.status || "") === "Completed" &&
@@ -274,13 +275,9 @@ export function PaymentFormDialog({
           p_client_id: normalizeOptionalId(form.client_id),
           p_idempotency_key: paymentRequestKeyRef.current,
           p_currency: currency,
-          p_exchange_rate: Number(
-            selectedInvoice.exchange_rate || currencySettings.usdToDopRate || 1,
-          ),
-          p_exchange_rate_source:
-            selectedInvoice.exchange_rate_source || currencySettings.rateSource,
-          p_exchange_rate_updated_at:
-            selectedInvoice.exchange_rate_updated_at || currencySettings.rateUpdatedAt,
+          p_exchange_rate: paymentExchangeRate,
+          p_exchange_rate_source: currencySettings.rateSource,
+          p_exchange_rate_updated_at: currencySettings.rateUpdatedAt,
         });
         if (error) throw error;
         const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
@@ -500,12 +497,9 @@ export function PaymentFormDialog({
                 <span>El pago se aplicará directamente en la moneda de la factura.</span>
               ) : (
                 <span>
-                  Pago recibido en {normalizeCurrency(form.currency)}. Se convertirá a{" "}
-                  {getInvoiceCurrency(selectedInvoice)} usando una tasa de{" "}
-                  {Number(
-                    selectedInvoice.exchange_rate || currencySettings.usdToDopRate || 1,
-                  ).toLocaleString("es-DO")}
-                  .
+                  Pago recibido en {normalizeCurrency(form.currency)}. Se convertirá primero a la
+                  moneda base con la tasa del pago y luego se aplicará en{" "}
+                  {getInvoiceCurrency(selectedInvoice)} con la tasa registrada en la factura.
                 </span>
               )}
             </div>

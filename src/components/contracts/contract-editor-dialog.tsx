@@ -147,7 +147,7 @@ export function ContractEditorDialog({
   clients,
   projects,
   profiles,
-  invoices,
+  invoices = [],
   initialValues,
   onSaved,
 }: Props) {

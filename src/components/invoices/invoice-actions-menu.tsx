@@ -20,6 +20,7 @@ import {
 import { CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
 
 export function InvoiceActionsMenu({
+  canEdit,
   canOpenPublic,
   canMarkPaid,
   canRegisterPayment,
@@ -40,6 +41,7 @@ export function InvoiceActionsMenu({
   onViewProposal,
   onDeleteDraft,
 }: {
+  canEdit: boolean;
   canOpenPublic: boolean;
   canMarkPaid: boolean;
   canRegisterPayment: boolean;
@@ -63,7 +65,13 @@ export function InvoiceActionsMenu({
   if (inline) {
     return (
       <div className="flex flex-wrap items-center justify-end gap-1.5">
-        <CrmDetailLineButton type="button" className="h-8 gap-1.5 px-2 text-xs" onClick={onEdit}>
+        <CrmDetailLineButton
+          type="button"
+          className="h-8 gap-1.5 px-2 text-xs"
+          onClick={onEdit}
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Solo se pueden editar facturas en borrador."}
+        >
           <Pencil className="h-4 w-4" />
           Editar
         </CrmDetailLineButton>
@@ -147,7 +155,11 @@ export function InvoiceActionsMenu({
           <FileText className="h-4 w-4" />
           Ver detalle
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onEdit}>
+        <DropdownMenuItem
+          onSelect={onEdit}
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Solo se pueden editar facturas en borrador."}
+        >
           <Pencil className="h-4 w-4" />
           Editar
         </DropdownMenuItem>

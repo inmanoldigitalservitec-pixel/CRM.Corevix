@@ -96,6 +96,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   isActiveProjectStatus,
+  isApprovedProposalStatus,
   isClosedDealStageValue,
   isCompletedTaskStatusValue,
   isOverdueInvoiceStatus,
@@ -1150,6 +1151,7 @@ function ClientsPage() {
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { can, role } = usePermissions();
   const canManageVault = ["super_admin", "admin", "manager"].includes(String(role || ""));
+  const canCreateProposal = ["super_admin", "admin", "manager"].includes(String(role || ""));
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [managerFilter, setManagerFilter] = useState<AccountManagerFilter>("all");
@@ -5810,26 +5812,73 @@ function ClientsPage() {
                     </TabsContent>
 
                     <TabsContent value="proposals" className="space-y-4">
+                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                            Propuestas del cliente
+                          </h3>
+                          <p className="mt-1 text-sm font-normal text-slate-500">
+                            Consulta su estado y crea nuevas propuestas para esta cuenta.
+                          </p>
+                        </div>
+                        {canCreateProposal ? (
+                          <CrmDetailLineButton
+                            className="h-8 shrink-0"
+                            icon={<Plus className="h-4 w-4" />}
+                            onClick={() => {
+                              void navigate({
+                                to: "/proposals",
+                                search: {
+                                  clientId: selectedClient.id,
+                                  title: `Propuesta — ${selectedClient.company_name}`,
+                                  currency: "USD",
+                                  valid_until: new Date(Date.now() + 15 * 86400000)
+                                    .toISOString()
+                                    .slice(0, 10),
+                                },
+                              });
+                            }}
+                          >
+                            Crear propuesta
+                          </CrmDetailLineButton>
+                        ) : null}
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "proposals-count",
+                            label: "Propuestas",
+                            value: selectedClient.proposals.length,
+                          },
+                          {
+                            key: "proposals-follow-up",
+                            label: "En seguimiento",
+                            value: selectedClient.pendingProposals.length,
+                          },
+                          {
+                            key: "proposals-approved",
+                            label: "Aprobadas",
+                            value: selectedClient.proposals.filter((proposal) =>
+                              isApprovedProposalStatus(proposal.status),
+                            ).length,
+                          },
+                          {
+                            key: "proposals-drafts",
+                            label: "Borradores",
+                            value: selectedClient.proposals.filter(
+                              (proposal) => normalizeStatus(proposal.status) === "draft",
+                            ).length,
+                          },
+                        ]}
+                      />
+
                       {selectedClient.proposals.length === 0 ? (
                         <EmptyState
                           icon={<BriefcaseBusiness className="h-6 w-6" />}
                           title="No hay propuestas vinculadas"
-                          description="Las propuestas creadas para este cliente aparecerán aquí."
-                          actionLabel="Crear propuesta"
-                          onAction={() => {
-                            if (!selectedClient) return;
-                            void navigate({
-                              to: "/proposals",
-                              search: {
-                                clientId: selectedClient.id,
-                                title: `Propuesta — ${selectedClient.company_name}`,
-                                currency: "USD",
-                                valid_until: new Date(Date.now() + 15 * 86400000)
-                                  .toISOString()
-                                  .slice(0, 10),
-                              },
-                            });
-                          }}
+                          description="Las propuestas creadas para este cliente aparecerán aquí. Usa el botón superior para crear una nueva."
                         />
                       ) : (
                         <div className="divide-y divide-slate-100 border-y border-slate-100">
@@ -7400,6 +7449,7 @@ function ClientsPage() {
         clients={clients}
         projects={projects}
         profiles={managers}
+        invoices={invoices}
         initialValues={contractInitialValues}
         onSaved={async () => {
           await fetchContracts();

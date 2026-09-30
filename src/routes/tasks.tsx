@@ -408,7 +408,11 @@ function TasksPage() {
     ascending: true,
     limit: 500,
   });
-  const { data: profiles } = useCrud<ProfileRow>({
+  const {
+    data: profiles,
+    loading: profilesLoading,
+    error: profilesError,
+  } = useCrud<ProfileRow>({
     table: "profiles",
     select: "id, user_id, full_name, email, avatar_url, is_active",
     orderBy: "full_name",
@@ -1570,6 +1574,8 @@ function TasksPage() {
         onOpenChange={(open) => !open && setSelectedTask(null)}
         task={selectedTask}
         profiles={profiles}
+        profilesLoading={profilesLoading}
+        profilesError={profilesError}
         projectName={selectedProject?.name || "—"}
         clientName={
           selectedClient

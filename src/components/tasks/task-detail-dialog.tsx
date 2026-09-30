@@ -114,6 +114,21 @@ type QuickProfile = {
   email: string | null;
   is_active?: boolean | null;
 };
+
+function normalizeProfileId(value: string | null | undefined) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function profileMatchesId(profile: QuickProfile, id: string) {
+  const normalizedId = normalizeProfileId(id);
+  return (
+    normalizedId.length > 0 &&
+    (normalizeProfileId(profile.id) === normalizedId ||
+      normalizeProfileId(profile.user_id) === normalizedId)
+  );
+}
 type TaskAssigneeRow = {
   id: string;
   task_id: string;
@@ -176,8 +191,11 @@ type ProjectOption = {
   id: string;
   name: string;
   client_id: string | null;
+  lead_id?: string | null;
   product_id: string | null;
 };
+
+export type TaskProjectContext = ProjectOption;
 
 type ClientOption = { id: string; company_name: string; contact_person: string | null };
 type LeadOption = {
@@ -197,6 +215,8 @@ type TaskDetailDialogProps = {
 
   task?: TaskRow | null;
   profiles?: QuickProfile[];
+  profilesLoading?: boolean;
+  profilesError?: string | null;
   projectName?: string;
   clientName?: string;
   productName?: string;
@@ -240,6 +260,7 @@ type TaskCreateDialogProps = {
   currentUserId?: string | null;
   profiles?: QuickProfile[];
   initialValues?: Partial<TaskEditorDraft>;
+  projectContext?: TaskProjectContext;
   relatedProposalId?: string | null;
   relatedInvoiceId?: string | null;
   onCreated?: (task: TaskRow) => void | Promise<void>;
@@ -248,6 +269,18 @@ type TaskCreateDialogProps = {
 
 const TASK_STATUSES = ["To Do", "In Progress", "Completed", "Cancelled"];
 const TASK_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const TASK_STATUS_LABELS: Record<string, string> = {
+  "To Do": "Por hacer",
+  "In Progress": "En progreso",
+  Completed: "Completado",
+  Cancelled: "Cancelado",
+};
+const TASK_PRIORITY_LABELS: Record<string, string> = {
+  Low: "Baja",
+  Medium: "Media",
+  High: "Alta",
+  Urgent: "Urgente",
+};
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_PROJECT_VALUE = "__no_project__";
 const NO_CLIENT_VALUE = "__no_client__";
@@ -464,7 +497,7 @@ function primaryAssigneeId(assigneeIds: string[]) {
 }
 
 function profileUserId(profile: QuickProfile) {
-  return String(profile.user_id || profile.id);
+  return String(profile.user_id || profile.id).trim();
 }
 
 function profileDisplayName(profile: QuickProfile) {
@@ -475,8 +508,8 @@ function assigneeNamesFromIds(ids: string[], profiles: QuickProfile[]) {
   if (!ids.length) return "Sin asignar";
   return ids
     .map((id) => {
-      const profile = profiles.find((item) => item.id === id || item.user_id === id);
-      return profile ? profileDisplayName(profile) : "Usuario";
+      const profile = profiles.find((item) => profileMatchesId(item, id));
+      return profile ? profileDisplayName(profile) : "Perfil no disponible";
     })
     .join(", ");
 }
@@ -509,7 +542,7 @@ async function fetchTaskRelationOptions(companyId: string) {
   const [projectResult, clientResult, leadResult, productResult] = await Promise.all([
     (supabase as any)
       .from("projects")
-      .select("id,name,client_id,product_id")
+      .select("id,name,client_id,lead_id,product_id")
       .eq("company_id", companyId)
       .order("name", { ascending: true })
       .limit(500),
@@ -538,7 +571,8 @@ async function fetchTaskRelationOptions(companyId: string) {
     clients: !clientResult.error && Array.isArray(clientResult.data) ? clientResult.data : [],
     leads: !leadResult.error && Array.isArray(leadResult.data) ? leadResult.data : [],
     products: !productResult.error && Array.isArray(productResult.data) ? productResult.data : [],
-    error: projectResult.error || clientResult.error || leadResult.error || productResult.error || null,
+    error:
+      projectResult.error || clientResult.error || leadResult.error || productResult.error || null,
   };
 }
 
@@ -642,24 +676,6 @@ function clientLabel(client: ClientOption | null | undefined) {
   return client.contact_person
     ? `${client.company_name} · ${client.contact_person}`
     : client.company_name || "—";
-}
-
-function projectBelongsToClient(project: ProjectOption | null | undefined, clientId: string) {
-  if (!project) return true;
-  if (clientId === NO_CLIENT_VALUE) return !project.client_id;
-  return project.client_id === clientId;
-}
-
-function filterProjectsForClient(projects: ProjectOption[], clientId: string) {
-  return projects.filter((project) => projectBelongsToClient(project, clientId));
-}
-
-function resolveProjectClientId(
-  project: ProjectOption | null | undefined,
-  fallbackClientId: string,
-) {
-  if (project?.client_id) return project.client_id;
-  return fallbackClientId;
 }
 
 function eventIcon(type: string) {
@@ -1197,21 +1213,29 @@ function TaskRichTextView({ html, fallback }: { html?: string | null; fallback?:
 function TaskAssigneesPicker({
   value,
   profiles,
+  loading = false,
+  error = null,
   onChange,
 }: {
   value: string[];
   profiles: QuickProfile[];
+  loading?: boolean;
+  error?: string | null;
   onChange: (value: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const selectedIds = normalizeAssigneeIds(value);
   const selectedNames = selectedIds
-    .map((id) => profiles.find((profile) => profile.id === id || profile.user_id === id))
+    .map((id) => profiles.find((profile) => profileMatchesId(profile, id)))
     .filter((profile): profile is QuickProfile => Boolean(profile));
   const triggerLabel =
-    selectedNames.length > 0
+    loading
+      ? "Cargando responsables…"
+      : selectedNames.length > 0
       ? selectedNames.map((profile) => profileDisplayName(profile)).join(", ")
-      : "Seleccionar responsables";
+      : selectedIds.length > 0
+        ? "Perfil no disponible"
+        : "Seleccionar responsables";
 
   const toggleAssignee = (id: string) => {
     const checked = selectedIds.includes(id);
@@ -1244,7 +1268,15 @@ function TaskAssigneesPicker({
         <Command>
           <CommandInput placeholder="Buscar responsable..." />
           <CommandList>
-            <CommandEmpty>No hay usuarios disponibles.</CommandEmpty>
+            <CommandEmpty>
+              {loading
+                ? "Cargando responsables…"
+                : error
+                  ? "No se pudieron cargar los responsables. Inténtalo de nuevo."
+                  : profiles.length === 0
+                    ? "No hay usuarios activos disponibles para esta empresa."
+                    : "No se encontraron responsables con esa búsqueda."}
+            </CommandEmpty>
             <CommandGroup>
               {profiles.map((profile) => {
                 const id = profileUserId(profile);
@@ -1287,6 +1319,9 @@ function TaskEditorInfoFields({
   clients,
   leads = [],
   draftProductName,
+  onProjectChange,
+  profilesLoading = false,
+  profilesError = null,
 }: {
   draft: TaskEditorDraft;
   setDraft: Dispatch<SetStateAction<TaskEditorDraft>>;
@@ -1295,52 +1330,58 @@ function TaskEditorInfoFields({
   clients: ClientOption[];
   leads?: LeadOption[];
   draftProductName: string;
+  onProjectChange?: () => void;
+  profilesLoading?: boolean;
+  profilesError?: string | null;
 }) {
-  const availableProjects = useMemo(
-    () => filterProjectsForClient(projects, draft.clientId),
-    [projects, draft.clientId],
-  );
-
-  const updateClientId = (clientId: string) => {
+  const [pendingRelatedEntity, setPendingRelatedEntity] = useState<string | null>(null);
+  const applyRelatedEntity = (value: string, removeProject: boolean) => {
     setDraft((current) => {
-      const selectedProject =
-        current.projectId !== NO_PROJECT_VALUE
-          ? projects.find((project) => project.id === current.projectId)
-          : null;
+      const clientId = value.startsWith("client:")
+        ? value.slice("client:".length)
+        : NO_CLIENT_VALUE;
+      const leadId = value.startsWith("lead:") ? value.slice("lead:".length) : "";
       return {
         ...current,
         clientId,
-        leadId: "",
-        projectId: projectBelongsToClient(selectedProject, clientId)
-          ? current.projectId
-          : NO_PROJECT_VALUE,
+        leadId,
+        projectId: removeProject ? NO_PROJECT_VALUE : current.projectId,
       };
     });
+    if (removeProject) onProjectChange?.();
+    setPendingRelatedEntity(null);
   };
 
   const updateRelatedEntity = (value: string) => {
-    if (value === NO_RELATED_VALUE) {
-      setDraft((current) => ({
-        ...current,
-        clientId: NO_CLIENT_VALUE,
-        leadId: "",
-        projectId: NO_PROJECT_VALUE,
-      }));
-      return;
-    }
-    if (value.startsWith("client:")) {
-      updateClientId(value.slice("client:".length));
-      return;
-    }
-    if (value.startsWith("lead:")) {
-      setDraft((current) => ({
-        ...current,
-        clientId: NO_CLIENT_VALUE,
-        leadId: value.slice("lead:".length),
-        projectId: NO_PROJECT_VALUE,
-      }));
+    const selectedProject = projects.find((project) => project.id === draft.projectId);
+    const conflictsWithProject = selectedProject
+      ? value === NO_RELATED_VALUE
+        ? Boolean(selectedProject.client_id || selectedProject.lead_id)
+        : value.startsWith("client:")
+          ? selectedProject.client_id !== value.slice("client:".length)
+          : Boolean(selectedProject.client_id) ||
+            (Boolean(selectedProject.lead_id) &&
+              selectedProject.lead_id !== value.slice("lead:".length))
+      : false;
+    if (conflictsWithProject) {
+      setPendingRelatedEntity(value);
+    } else {
+      applyRelatedEntity(value, false);
     }
   };
+
+  const conflictingProject = projects.find((project) => project.id === draft.projectId);
+  const pendingLead = pendingRelatedEntity?.startsWith("lead:")
+    ? leads.find((lead) => lead.id === pendingRelatedEntity.slice("lead:".length))
+    : null;
+  const pendingRelationLabel = pendingRelatedEntity?.startsWith("client:")
+    ? clients.find((client) => client.id === pendingRelatedEntity.slice("client:".length))
+        ?.company_name || "el cliente seleccionado"
+    : pendingRelatedEntity?.startsWith("lead:")
+      ? pendingLead
+        ? leadLabel(pendingLead)
+        : "el prospecto seleccionado"
+      : "sin relación";
 
   const relatedEntityValue =
     draft.clientId !== NO_CLIENT_VALUE
@@ -1350,6 +1391,8 @@ function TaskEditorInfoFields({
         : NO_RELATED_VALUE;
 
   const updateProjectId = (projectId: string) => {
+    if (projectId !== draft.projectId) onProjectChange?.();
+    setPendingRelatedEntity(null);
     setDraft((current) => {
       const selectedProject =
         projectId !== NO_PROJECT_VALUE
@@ -1358,7 +1401,8 @@ function TaskEditorInfoFields({
       return {
         ...current,
         projectId,
-        clientId: resolveProjectClientId(selectedProject, current.clientId),
+        clientId: selectedProject ? selectedProject.client_id || NO_CLIENT_VALUE : current.clientId,
+        leadId: selectedProject ? selectedProject.lead_id || "" : current.leadId,
       };
     });
   };
@@ -1366,7 +1410,7 @@ function TaskEditorInfoFields({
   return (
     <div className="space-y-3">
       {renderEditField(
-        "Status",
+        "Estado",
         <Select
           value={draft.status}
           onValueChange={(value) => setDraft((d) => ({ ...d, status: value }))}
@@ -1377,14 +1421,14 @@ function TaskEditorInfoFields({
           <SelectContent>
             {TASK_STATUSES.map((status) => (
               <SelectItem key={status} value={status}>
-                {status}
+                {TASK_STATUS_LABELS[status] || status}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>,
       )}
       {renderEditField(
-        "Priority",
+        "Prioridad",
         <Select
           value={draft.priority}
           onValueChange={(value) => setDraft((d) => ({ ...d, priority: value }))}
@@ -1395,22 +1439,22 @@ function TaskEditorInfoFields({
           <SelectContent>
             {TASK_PRIORITIES.map((priority) => (
               <SelectItem key={priority} value={priority}>
-                {priority}
+                {TASK_PRIORITY_LABELS[priority] || priority}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>,
       )}
       {renderEditField(
-        "Due date",
+        "Vencimiento",
         <Input
           name="due_date"
           type="date"
           value={draft.dueDate}
-          onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
-          onInput={(e) =>
-            setDraft((d) => ({ ...d, dueDate: (e.currentTarget as HTMLInputElement).value }))
-          }
+          onChange={(event) => {
+            const dueDate = event.currentTarget.value;
+            setDraft((draft) => ({ ...draft, dueDate }));
+          }}
         />,
       )}
       {renderEditField(
@@ -1418,6 +1462,8 @@ function TaskEditorInfoFields({
         <TaskAssigneesPicker
           value={draft.assigneeIds}
           profiles={profiles}
+          loading={profilesLoading}
+          error={profilesError}
           onChange={(assigneeIds) =>
             setDraft((d) => ({
               ...d,
@@ -1433,22 +1479,14 @@ function TaskEditorInfoFields({
           clients={clients.map((client) => ({
             id: client.id,
             label: clientLabel(client),
-            searchText: [client.company_name, client.contact_person]
-              .filter(Boolean)
-              .join(" "),
+            searchText: [client.company_name, client.contact_person].filter(Boolean).join(" "),
             data: client,
           }))}
           prospects={leads.map((lead) => ({
             id: lead.id,
             label: leadLabel(lead),
             secondaryLabel: [lead.email, lead.phone].filter(Boolean).join(" · ") || null,
-            searchText: [
-              lead.company_name,
-              lead.first_name,
-              lead.last_name,
-              lead.email,
-              lead.phone,
-            ]
+            searchText: [lead.company_name, lead.first_name, lead.last_name, lead.email, lead.phone]
               .filter(Boolean)
               .join(" "),
             data: lead,
@@ -1470,15 +1508,43 @@ function TaskEditorInfoFields({
           }}
         />,
       )}
+      {pendingRelatedEntity && conflictingProject ? (
+        <div
+          role="alert"
+          className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950"
+        >
+          <p>
+            {pendingRelationLabel} no corresponde al proyecto «{conflictingProject.name}». ¿Quieres
+            mantener el proyecto y la relación actual, o cambiar la relación y quitar el proyecto?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setPendingRelatedEntity(null)}
+            >
+              Mantener proyecto
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => applyRelatedEntity(pendingRelatedEntity, true)}
+            >
+              Cambiar relación
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {renderEditField(
-        "Project",
+        "Proyecto",
         <Select value={draft.projectId} onValueChange={updateProjectId}>
           <SelectTrigger>
             <SelectValue placeholder="Proyecto" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NO_PROJECT_VALUE}>Sin proyecto</SelectItem>
-            {availableProjects.map((project) => (
+            {projects.map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}
               </SelectItem>
@@ -1594,6 +1660,7 @@ export function TaskCreateDialog({
   currentUserId,
   profiles: propProfiles = EMPTY_PROFILES,
   initialValues,
+  projectContext,
   relatedProposalId,
   relatedInvoiceId,
   onCreated,
@@ -1603,6 +1670,9 @@ export function TaskCreateDialog({
     createEmptyTaskDraft({
       assignedTo: currentUserId || UNASSIGNED_VALUE,
       ...initialValues,
+      projectId: projectContext?.id || initialValues?.projectId,
+      clientId: projectContext?.client_id || initialValues?.clientId,
+      leadId: projectContext?.lead_id || initialValues?.leadId,
     }),
   );
   const [profiles, setProfiles] = useState<QuickProfile[]>([]);
@@ -1613,24 +1683,29 @@ export function TaskCreateDialog({
   const [saving, setSaving] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [projectChoiceChanged, setProjectChoiceChanged] = useState(false);
   const [pendingResources, setPendingResources] = useState<PendingTaskResource[]>([]);
   const [resourceUrlInput, setResourceUrlInput] = useState("");
   const [resourceUploadingName, setResourceUploadingName] = useState("");
   const [resourceUploadProgress, setResourceUploadProgress] = useState(0);
   const resourceFileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const projectOptions = useMemo(
+    () =>
+      projectContext && !projects.some((project) => project.id === projectContext.id)
+        ? [...projects, projectContext]
+        : projects,
+    [projects, projectContext],
+  );
   const projectsById = useMemo(
-    () => new Map(projects.map((project) => [project.id, project])),
-    [projects],
+    () => new Map(projectOptions.map((project) => [project.id, project])),
+    [projectOptions],
   );
   const clientsById = useMemo(
     () => new Map(clients.map((client) => [client.id, client])),
     [clients],
   );
-  const leadsById = useMemo(
-    () => new Map(leads.map((lead) => [lead.id, lead])),
-    [leads],
-  );
+  const leadsById = useMemo(() => new Map(leads.map((lead) => [lead.id, lead])), [leads]);
   const productsById = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
     [products],
@@ -1663,8 +1738,12 @@ export function TaskCreateDialog({
       createEmptyTaskDraft({
         assignedTo: currentUserId || UNASSIGNED_VALUE,
         ...initialValues,
+        projectId: projectContext?.id || initialValues?.projectId,
+        clientId: projectContext?.client_id || initialValues?.clientId,
+        leadId: projectContext?.lead_id || initialValues?.leadId,
       }),
     );
+    setProjectChoiceChanged(false);
     setMessage(null);
     setPendingResources([]);
     setResourceUrlInput("");
@@ -1675,7 +1754,7 @@ export function TaskCreateDialog({
   useEffect(() => {
     if (!open) return;
     resetDraft();
-  }, [open, currentUserId, initialValues]);
+  }, [open, initialValues, projectContext]);
 
   useEffect(() => {
     if (!open || !companyId) return;
@@ -1836,6 +1915,12 @@ export function TaskCreateDialog({
       toast.error("El título de la tarea es requerido.");
       return;
     }
+    if (projectContext && !projectChoiceChanged && draft.projectId !== projectContext.id) {
+      toast.error(
+        `La tarea debe conservar el proyecto «${projectContext.name}». Revísalo antes de guardar.`,
+      );
+      return;
+    }
 
     setSaving(true);
     try {
@@ -1935,7 +2020,7 @@ export function TaskCreateDialog({
                   <span
                     className={`rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold ${priorityTone(draft.priority)}`}
                   >
-                    {draft.priority}
+                    {TASK_PRIORITY_LABELS[draft.priority] || draft.priority}
                   </span>
                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-600">
                     Vence {formatDate(draft.dueDate)}
@@ -1946,7 +2031,7 @@ export function TaskCreateDialog({
                 <Button
                   className="h-9 px-3 text-sm"
                   onClick={() => void createTask()}
-                  disabled={saving || loadingOptions || !canCreate || !draft.title.trim()}
+                  disabled={saving || !canCreate || !draft.title.trim()}
                 >
                   {saving ? "Creando..." : "Crear"}
                 </Button>
@@ -2006,18 +2091,28 @@ export function TaskCreateDialog({
                 <section className="rounded-xl border bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
-                      <Star className="h-4 w-4 text-slate-400" /> Task Info
+                      <Star className="h-4 w-4 text-slate-400" /> Información de la tarea
                     </h3>
                     <span className="text-slate-400">•••</span>
                   </div>
+                  {loadingOptions ? (
+                    <p
+                      role="status"
+                      className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"
+                    >
+                      Cargando opciones de responsables y relaciones. Puedes guardar la tarea mientras tanto.
+                    </p>
+                  ) : null}
                   <TaskEditorInfoFields
                     draft={draft}
                     setDraft={setDraft}
                     profiles={profiles}
-                    projects={projects}
+                    profilesLoading={loadingOptions}
+                    projects={projectOptions}
                     clients={clients}
                     leads={leads}
                     draftProductName={draftProductName}
+                    onProjectChange={() => setProjectChoiceChanged(true)}
                   />
                 </section>
 
@@ -2050,7 +2145,7 @@ export function TaskCreateDialog({
               <Button
                 type="button"
                 onClick={() => void createTask()}
-                disabled={saving || loadingOptions || !canCreate || !draft.title.trim()}
+                disabled={saving || !canCreate || !draft.title.trim()}
               >
                 {saving ? "Creando..." : "Crear tarea"}
               </Button>
@@ -2068,6 +2163,8 @@ export function TaskDetailDialog({
   children,
   task: propTask,
   profiles: propProfiles = EMPTY_PROFILES,
+  profilesLoading: propProfilesLoading = false,
+  profilesError: propProfilesError = null,
   projectName = "—",
   clientName = "—",
   productName = "—",
@@ -2103,7 +2200,7 @@ export function TaskDetailDialog({
 }: TaskDetailDialogProps) {
   const legacyContentRef = useRef<HTMLDivElement | null>(null);
   const [task, setTask] = useState<TaskRow | null>(null);
-  const [profiles, setProfiles] = useState<QuickProfile[]>([]);
+  const [profiles, setProfiles] = useState<QuickProfile[]>(propProfiles);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -2113,6 +2210,8 @@ export function TaskDetailDialog({
   const [driveFiles, setDriveFiles] = useState<DriveFileRow[]>([]);
   const [taskAssignees, setTaskAssignees] = useState<TaskAssigneeRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [localProfilesLoading, setLocalProfilesLoading] = useState(false);
+  const [localProfilesError, setLocalProfilesError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [newChecklistTitle, setNewChecklistTitle] = useState("");
   const [newCommentBody, setNewCommentBody] = useState("");
@@ -2173,6 +2272,16 @@ export function TaskDetailDialog({
     );
     return assigneeNamesFromIds(assigneeIds, profiles);
   }, [profiles, task?.assigned_to, taskAssignees]);
+  const unresolvedAssigneeIds = useMemo(() => {
+    const assigneeIds = normalizeAssigneeIds(
+      taskAssignees.length
+        ? taskAssignees.map((row) => row.user_id)
+        : task?.assigned_to
+          ? [task.assigned_to]
+          : [],
+    );
+    return assigneeIds.filter((id) => !profiles.some((profile) => profileMatchesId(profile, id)));
+  }, [profiles, task?.assigned_to, taskAssignees]);
 
   const completedChecklist = checklist.filter((item) => item.is_completed).length;
   const checklistProgress = checklist.length
@@ -2196,6 +2305,10 @@ export function TaskDetailDialog({
   useEffect(() => {
     if (!open) resetState();
   }, [open]);
+
+  useEffect(() => {
+    setProfiles(propProfiles);
+  }, [propProfiles]);
 
   const loadRelationOptions = async (companyId: string) => {
     const options = await fetchTaskRelationOptions(companyId);
@@ -2312,14 +2425,20 @@ export function TaskDetailDialog({
       const snapshot = readTaskTextSnapshot(legacyContentRef.current);
       const taskIdFromUrl = readTaskIdFromUrl();
 
-      const { data: profileRows } = await (supabase as any)
+      setLocalProfilesLoading(true);
+      setLocalProfilesError(null);
+      const { data: profileRows, error: profileError } = await (supabase as any)
         .from("profiles")
         .select("id,user_id,full_name,email,is_active")
         .order("full_name", { ascending: true })
         .limit(500);
+      if (profileError) {
+        setLocalProfilesError(profileError.message || "No se pudieron cargar los responsables.");
+      }
       const loadedProfiles = Array.isArray(profileRows)
         ? profileRows.filter((p) => p && p.is_active !== false)
         : [];
+      setLocalProfilesLoading(false);
 
       let query = (supabase as any)
         .from("tasks")
@@ -2357,6 +2476,7 @@ export function TaskDetailDialog({
     } catch (error: any) {
       setMessage(error?.message || "No se pudo cargar el detalle de la tarea.");
     } finally {
+      setLocalProfilesLoading(false);
       setLoading(false);
     }
   };
@@ -2656,7 +2776,7 @@ export function TaskDetailDialog({
                       <span
                         className={`rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold ${priorityTone(task.priority)}`}
                       >
-                        {task.priority}
+                        {TASK_PRIORITY_LABELS[task.priority] || task.priority}
                       </span>
                     ) : null}
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-600">
@@ -2969,20 +3089,30 @@ export function TaskDetailDialog({
                     <section className="order-2 rounded-xl border bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <h3 className="flex items-center gap-2 text-[15px] font-extrabold text-slate-900">
-                          <Star className="h-4 w-4 text-slate-400" /> Task Info
+                          <Star className="h-4 w-4 text-slate-400" /> Información de la tarea
                         </h3>
                         <span className="text-slate-400">•••</span>
                       </div>
 
                       {editing ? (
-                        <TaskEditorInfoFields
-                          draft={draft}
-                          setDraft={setDraft}
-                          profiles={profiles}
-                          projects={projects}
-                          clients={clients}
-                          draftProductName={draftProductName}
-                        />
+                        <>
+                          {unresolvedAssigneeIds.length > 0 ? (
+                            <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                              No se pudo cargar el perfil asignado. La asignación se conservará al
+                              guardar.
+                            </p>
+                          ) : null}
+                          <TaskEditorInfoFields
+                            draft={draft}
+                            setDraft={setDraft}
+                            profiles={profiles}
+                            projects={projects}
+                            clients={clients}
+                            draftProductName={draftProductName}
+                            profilesLoading={propProfilesLoading || localProfilesLoading}
+                            profilesError={propProfilesError || localProfilesError}
+                          />
+                        </>
                       ) : (
                         <div>
                           {renderInfoRow(
@@ -2991,7 +3121,7 @@ export function TaskDetailDialog({
                             <Star className="h-4 w-4" />,
                           )}
                           {renderInfoRow(
-                            "Task ID",
+                            "ID de tarea",
                             <span className="font-mono text-[12px]">{task?.id || "—"}</span>,
                             <Copy className="h-4 w-4" />,
                           )}
@@ -3008,7 +3138,9 @@ export function TaskDetailDialog({
                           {renderInfoRow(
                             "Prioridad",
                             <span className={priorityTone(task?.priority)}>
-                              {task?.priority || "—"}
+                              {task?.priority
+                                ? TASK_PRIORITY_LABELS[task.priority] || task.priority
+                                : "—"}
                             </span>,
                             <Flag className="h-4 w-4" />,
                           )}

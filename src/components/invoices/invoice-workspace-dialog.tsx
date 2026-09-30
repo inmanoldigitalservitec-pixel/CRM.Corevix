@@ -8,6 +8,7 @@ import {
 import { Activity, Bell, CreditCard, FileText, ListChecks, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { InvoiceActivity, type InvoiceActivityEvent } from "@/components/invoices/invoice-activity";
+import { InvoiceEditor, type InvoiceEditorProps } from "@/components/invoices/invoice-editor";
 import { InvoiceDetailsSummary } from "@/components/invoices/invoice-details-summary";
 import { InvoiceDocumentPreview } from "@/components/invoices/invoice-document-preview";
 import type { InvoiceDetailItem } from "@/components/invoices/invoice-items-view";
@@ -51,6 +52,8 @@ export function InvoiceWorkspaceDialog({
   open,
   onOpenChange,
   invoice,
+  workspaceMode = "view",
+  editorConfig,
   financialStatus,
   actions,
   summaryFields,
@@ -87,6 +90,8 @@ export function InvoiceWorkspaceDialog({
     date_issued?: string | null;
     due_date?: string | null;
   } | null;
+  workspaceMode?: "view" | "create" | "edit";
+  editorConfig?: Omit<InvoiceEditorProps, "mode">;
   financialStatus: string;
   actions: ReactNode;
   summaryFields: DetailField[];
@@ -124,6 +129,10 @@ export function InvoiceWorkspaceDialog({
   const [savingReminder, setSavingReminder] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (open) setActiveTab("invoice");
+  }, [open, workspaceMode, invoice?.id]);
 
   const profilesById = useMemo(() => {
     const entries: Array<[string, ProposalProfileRow]> = [];
@@ -221,11 +230,11 @@ export function InvoiceWorkspaceDialog({
   }, [invoice?.id, profile?.company_id]);
 
   useEffect(() => {
-    if (!open || !invoice?.id) return;
+    if (!open || workspaceMode !== "view" || !invoice?.id) return;
     void loadProfiles();
     void loadTasks();
     void loadReminders();
-  }, [invoice?.id, loadProfiles, loadReminders, loadTasks, open]);
+  }, [invoice?.id, loadProfiles, loadReminders, loadTasks, open, workspaceMode]);
 
   useEffect(() => {
     const onReminderCreated = async (event: Event) => {
@@ -326,26 +335,41 @@ export function InvoiceWorkspaceDialog({
 
   if (!invoice) return null;
 
+  const isViewMode = workspaceMode === "view";
+  const visibleTabs = isViewMode
+    ? invoiceWorkspaceTabs
+    : [{ value: "invoice", label: "Factura", icon: FileText }];
+
   return (
     <SalesDocumentWorkspaceDialog
+      key={`${workspaceMode}:${invoice.id}`}
       open={open}
       onOpenChange={onOpenChange}
-      title={invoice.number || "Factura"}
-      srTitle={`Factura ${invoice.number || ""}`.trim()}
-      status={<StatusBadge status={financialStatus} />}
-      meta={
+      title={
+        workspaceMode === "create"
+          ? "Nueva factura"
+          : workspaceMode === "edit"
+            ? "Editar factura"
+            : invoice.number || "Factura"
+      }
+      srTitle={`${workspaceMode === "create" ? "Nueva factura" : "Factura"} ${invoice.number || ""}`.trim()}
+      status={isViewMode ? <StatusBadge status={financialStatus} /> : null}
+      meta={isViewMode ? (
         <>
           <span>{total}</span>
           <span>Saldo pendiente {balance}</span>
         </>
-      }
-      actions={actions}
-      tabs={invoiceWorkspaceTabs}
+      ) : null}
+      actions={isViewMode ? actions : null}
+      tabs={visibleTabs}
       activeTab={activeTab}
       onActiveTabChange={setActiveTab}
+      scrollContentClassName={!isViewMode ? "pb-0 md:pb-0" : ""}
+      wide={!isViewMode}
+      showTabs={isViewMode}
     >
       <TabsContent value="invoice" className="mt-0">
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {isViewMode ? <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <InvoiceDocumentPreview
             invoice={invoice}
             issuerFields={issuerFields}
@@ -377,10 +401,12 @@ export function InvoiceWorkspaceDialog({
             notes={notes}
             formatMoney={formatMoney}
           />
-        </div>
+        </div> : workspaceMode !== "view" && editorConfig ? (
+          <InvoiceEditor mode={workspaceMode} {...editorConfig} />
+        ) : null}
       </TabsContent>
 
-      <TabsContent value="payments" className="mt-0">
+      {isViewMode ? <TabsContent value="payments" className="mt-0">
         <InvoicePaymentsPanel
           invoiceId={invoice.id}
           refreshKey={paymentReceiptsRefreshKey}
@@ -388,9 +414,9 @@ export function InvoiceWorkspaceDialog({
           registerPaymentDisabledReason={registerPaymentDisabledReason}
           onRegisterPayment={onRegisterPayment}
         />
-      </TabsContent>
+      </TabsContent> : null}
 
-      <TabsContent value="tasks" className="mt-0">
+      {isViewMode ? <TabsContent value="tasks" className="mt-0">
         <ProposalTasksPanel
           tasks={tasks}
           profilesById={profilesById}
@@ -405,17 +431,17 @@ export function InvoiceWorkspaceDialog({
           onComplete={(task) => void updateTaskStatus(task, "Completed")}
           contextLabel="factura"
         />
-      </TabsContent>
+      </TabsContent> : null}
 
-      <TabsContent value="activity" className="mt-0">
+      {isViewMode ? <TabsContent value="activity" className="mt-0">
         <InvoiceActivity
           invoiceId={invoice.id}
           events={activity}
           refreshKey={activityRefreshKey}
         />
-      </TabsContent>
+      </TabsContent> : null}
 
-      <TabsContent value="reminders" className="mt-0">
+      {isViewMode ? <TabsContent value="reminders" className="mt-0">
         <ProposalRemindersPanel
           reminders={reminders}
           profilesById={profilesById}
@@ -429,18 +455,18 @@ export function InvoiceWorkspaceDialog({
           onCancel={(reminder) => void updateReminderStatus(reminder, "Cancelled")}
           contextLabel="factura"
         />
-      </TabsContent>
+      </TabsContent> : null}
 
-      <TabsContent value="notes" className="mt-0">
+      {isViewMode ? <TabsContent value="notes" className="mt-0">
         <InvoiceNotesPanel
           invoiceId={invoice.id}
           invoiceNumber={invoice.number}
           canEdit={canEditNotes}
           onChanged={() => setActivityRefreshKey((current) => current + 1)}
         />
-      </TabsContent>
+      </TabsContent> : null}
 
-      <TaskCreateDialog
+      {isViewMode ? <TaskCreateDialog
         open={taskDialogOpen}
         onOpenChange={setTaskDialogOpen}
         companyId={profile?.company_id}
@@ -457,7 +483,7 @@ export function InvoiceWorkspaceDialog({
           await loadTasks();
           setActivityRefreshKey((current) => current + 1);
         }}
-      />
+      /> : null}
     </SalesDocumentWorkspaceDialog>
   );
 }

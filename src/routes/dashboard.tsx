@@ -45,6 +45,7 @@ import {
 import { syncAttentionNotifications } from "@/lib/crm/attention-notifications";
 import {
   buildCalendarItems,
+  EVENT_TYPE_LABELS,
   type CalendarItem,
   type CalendarTone,
   type ContractCalendarSourceRow,
@@ -58,7 +59,7 @@ import {
   getInvoiceBalance,
   getInvoiceCurrency,
 } from "@/components/invoices/invoice-utils";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { getStatusDisplayLabel, StatusBadge } from "@/components/ui/status-badge";
 import {
   isActiveProjectStatus,
   isApprovedProposalStatus,
@@ -1552,10 +1553,11 @@ function DashboardEstimateDetailDialog({
 }
 
 function DashboardPage() {
-  const { profile, user } = useAuth();
+  const { profile, user, loading: authLoading } = useAuth();
   const { t } = useT();
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const [error, setError] = useState<string | null>(null);
+  const [loadedDashboardCompanyId, setLoadedDashboardCompanyId] = useState<string | null>(null);
   const [attentionMemoryReady, setAttentionMemoryReady] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [taskRefreshKey, setTaskRefreshKey] = useState(0);
@@ -1891,7 +1893,7 @@ function DashboardPage() {
       );
     };
 
-    load();
+    void load().finally(() => setLoadedDashboardCompanyId(cid));
   }, [profile?.company_id, calendarRefreshKey, salesRefreshKey, taskRefreshKey]);
 
   useEffect(() => {
@@ -2118,11 +2120,13 @@ function DashboardPage() {
   ).length;
 
   const invoicesPending = invoices.filter((i) => isOpenInvoiceStatus(i.status));
-  const invoicesOverdue = invoices.filter((i) => {
+  const isInvoiceOverdue = (i: (typeof invoices)[number]) => {
+    if (!isOpenInvoiceStatus(i.status)) return false;
     const dueKey = toDateKey(i.due_date);
     if (!dueKey) return isOverdueInvoiceStatus(i.status);
-    return !isPaidInvoiceStatus(i.status) && dueKey < today;
-  });
+    return dueKey < today;
+  };
+  const invoicesOverdue = invoices.filter(isInvoiceOverdue);
   const invoicesSent = invoices.filter((i) => isSentInvoiceStatus(i.status));
   const paidRevenue = invoices
     .filter((i) => isPaidInvoiceStatus(i.status))
@@ -2222,11 +2226,7 @@ function DashboardPage() {
   const pendingInvoiceItems = invoicesPending
     .map((invoice) => ({
       ...invoice,
-      isOverdue:
-        isOverdueInvoiceStatus(invoice.status) ||
-        (!!toDateKey(invoice.due_date) &&
-          String(invoice.status || "").toLowerCase() !== "paid" &&
-          String(toDateKey(invoice.due_date)) < today),
+      isOverdue: isInvoiceOverdue(invoice),
       clientName: invoice.client_id ? clientLabel(clientById.get(String(invoice.client_id))) : null,
     }))
     .sort(
@@ -2615,7 +2615,7 @@ function DashboardPage() {
       .filter((p) => isActiveProjectStatus(p.status))
       .map((p) => ({
         kind: "Proyecto",
-        title: "Entrega de proyecto",
+        title: p.name ? `Entrega: ${p.name}` : "Entrega del proyecto",
         dateKey: toDateKey(p.due_date),
         to: "/projects",
       })),
@@ -2692,7 +2692,7 @@ function DashboardPage() {
               {item.title || "Tarea sin título"}
             </div>
             <span className="shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-[#fff1f3] text-[#e11d48]">
-              {item.priority || "Media"}
+              {getStatusDisplayLabel(item.priority || "Medium")}
             </span>
           </div>
           <div className="mt-1 text-[12px] font-medium text-[#667085]">{item.relation}</div>
@@ -2720,7 +2720,7 @@ function DashboardPage() {
               {moneyBase(item.displayValueBase)}
             </span>
           </div>
-          <div className="mt-1 text-[12px] font-medium text-[#667085]">Etapa: {item.stage}</div>
+          <div className="mt-1 text-[12px] font-medium text-[#667085]">Etapa: {getStatusDisplayLabel(item.stage)}</div>
           <div className="mt-1 text-[12px] font-medium text-[#667085]">
             Cierre: {item.expected_close ? formatShortDate(item.expected_close) : "Sin fecha"} ·{" "}
             {Math.floor(daysSince(item.updated_at))}d sin cambios
@@ -2968,14 +2968,30 @@ function DashboardPage() {
   };
 
   const dashboardScheduleSubtitle = (item: { kind: string; title: string; dateKey: string }) => {
-    if (item.kind === "Calendario")
-      return item.dateKey < today ? "Evento pendiente" : "Evento programado";
-    if (item.kind === "Tarea") return "Tarea pendiente";
-    if (item.kind === "Factura")
-      return item.dateKey < today ? "Factura vencida" : "Factura por cobrar";
-    if (item.kind === "Propuesta") return "Propuesta pendiente";
-    if (item.kind === "Proyecto") return "Entrega de proyecto";
-    return item.kind;
+    const subtitle =
+      item.kind === "Calendario"
+        ? item.dateKey < today
+          ? "Evento pendiente"
+          : "Evento programado"
+        : item.kind === "Tarea"
+          ? "Tarea pendiente"
+          : item.kind === "Factura"
+            ? item.dateKey < today
+              ? "Factura vencida"
+              : "Factura por cobrar"
+            : item.kind === "Propuesta"
+              ? "Propuesta pendiente"
+              : item.kind === "Proyecto"
+                ? "Fecha límite del proyecto"
+                : item.kind;
+
+    if (subtitle.trim().toLocaleLowerCase() === item.title.trim().toLocaleLowerCase()) {
+      if (item.kind === "Factura") return "Pendiente de pago";
+      if (item.kind === "Calendario") return "En calendario";
+      return item.kind;
+    }
+
+    return subtitle;
   };
 
   const dashboardV2Schedule: [string, string, string, string][] = agendaItems
@@ -3007,6 +3023,46 @@ function DashboardPage() {
     contracts: calendarContracts,
     payments: calendarPayments,
   }).sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
+
+  const calendarSubtitle = (item: CalendarItem) => {
+    const context = item.context?.trim();
+    const normalizeCalendarCopy = (value: string) =>
+      value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+    const titleText = normalizeCalendarCopy(item.title);
+    const description = item.description?.trim();
+    const normalizedDescription = description ? normalizeCalendarCopy(description) : "";
+    if (!context) {
+      return description && normalizedDescription !== titleText
+        ? description
+        : EVENT_TYPE_LABELS[item.source];
+    }
+
+    const contextName = context
+      .replace(
+        /^(Evento|Tarea|Factura|Propuesta|Proyecto|Cotización|Suscripción|Contrato|Ticket|Pago)\s*/i,
+        "",
+      )
+      .split(" · ")[0]
+      .trim();
+    const normalizedContextName = normalizeCalendarCopy(contextName);
+    const repeatsRecordName =
+      normalizedContextName.length > 0 && titleText.includes(normalizedContextName);
+
+    if (!repeatsRecordName) return context;
+
+    if (
+      description &&
+      normalizedDescription !== titleText &&
+      !normalizedDescription.includes(normalizedContextName)
+    ) {
+      return description;
+    }
+
+    return EVENT_TYPE_LABELS[item.source];
+  };
 
   const collectionTotal = Math.max(receivableTotal + paidRevenue, 1);
   const dashboardV2CollectionRows: [string, string, string, string][] = [
@@ -3640,11 +3696,10 @@ function DashboardPage() {
       id: item.id,
       type: "calendar" as const,
       title: item.title,
-      subtitle: item.context || item.description || "Agenda",
+      subtitle: calendarSubtitle(item),
       badge: dashboardRelativeDateLabel(toDateKey(item.start) || today),
       tone: dashboardToneFromCalendarTone(item.tone),
       href: item.href,
-      meta: item.context || undefined,
       dueLabel: formatShortDate(item.start),
     })),
     sales: workCenterSalesItems,
@@ -4130,6 +4185,7 @@ function DashboardPage() {
           previewItems: pendingInvoiceItems[0]
             ? [
                 {
+                  id: pendingInvoiceItems[0].id,
                   label: pendingInvoiceItems[0].number
                     ? `Factura ${pendingInvoiceItems[0].number}`
                     : "Factura pendiente",
@@ -4191,6 +4247,7 @@ function DashboardPage() {
           ctaLabel: "Ver leads",
           chart: { kind: "list" },
           previewItems: leadAttentionItems.slice(0, 2).map((item) => ({
+            id: item.lead.id,
             label: leadLabel(item.lead),
             value: item.reasons[0] || "Sin seguimiento",
             meta: item.lead.status || undefined,
@@ -4212,6 +4269,7 @@ function DashboardPage() {
           previewItems: pendingProposalItems[0]
             ? [
                 {
+                  id: pendingProposalItems[0].id,
                   label:
                     pendingProposalItems[0].title || pendingProposalItems[0].number || "Propuesta",
                   value: pendingProposalItems[0].clientName || "Sin cliente vinculado",
@@ -4240,6 +4298,7 @@ function DashboardPage() {
           ctaLabel: "Ver tareas",
           chart: { kind: "list" },
           previewItems: overdueTaskItems.slice(0, 2).map((task) => ({
+            id: task.id,
             label: task.title || "Tarea sin título",
             value: task.relation || "Sin relación",
             meta: task.due_date ? formatShortDate(task.due_date) : undefined,
@@ -4259,6 +4318,7 @@ function DashboardPage() {
           ctaLabel: "Ver proyectos",
           chart: { kind: "timeline" },
           previewItems: projectsAtRisk.slice(0, 2).map((project) => ({
+            id: project.id,
             label: project.name || "Proyecto sin nombre",
             value: project.due_date ? formatShortDate(project.due_date) : "Sin fecha",
             meta: project.status || undefined,
@@ -4357,6 +4417,52 @@ function DashboardPage() {
     collectionPeriodLabel: "Este mes⌄",
     pipelinePeriodLabel: "Pipeline⌄",
   };
+
+  const isDashboardLoading =
+    authLoading || Boolean(profile?.company_id && loadedDashboardCompanyId !== profile.company_id);
+
+  if (isDashboardLoading) {
+    return (
+      <main
+        className="min-h-screen space-y-5 bg-[#f6f8fb] p-4 text-[#111827] sm:p-6"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div>
+          <h1 className="text-[28px] font-extrabold tracking-[-0.04em]">{t("nav.dashboard")}</h1>
+          <p className="mt-1 text-[13px] font-medium text-[#667085]">Cargando tu información…</p>
+        </div>
+        <div aria-hidden="true" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              className="h-28 animate-pulse rounded-[18px] border border-[#e6eaf0] bg-white p-5 motion-reduce:animate-none"
+            >
+              <div className="h-3 w-2/5 rounded bg-slate-100" />
+              <div className="mt-5 h-6 w-3/5 rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
+        <div aria-hidden="true" className="grid gap-5 xl:grid-cols-2">
+          {Array.from({ length: 2 }, (_, index) => (
+            <div
+              key={index}
+              className="min-h-72 animate-pulse rounded-[22px] border border-[#e6eaf0] bg-white p-6 motion-reduce:animate-none"
+            >
+              <div className="h-4 w-2/5 rounded bg-slate-100" />
+              <div className="mt-6 space-y-4">
+                {Array.from({ length: 4 }, (_, row) => (
+                  <div key={row} className="h-9 rounded-lg bg-slate-50" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <span className="sr-only">Cargando los datos del dashboard.</span>
+      </main>
+    );
+  }
 
   return (
     <>
@@ -4781,7 +4887,7 @@ function DashboardPage() {
                           className="grid grid-cols-[1fr_auto_auto] items-center gap-3"
                         >
                           <div className="min-w-0">
-                            <strong className="block text-[13px] font-semibold">{s.stage}</strong>
+                            <strong className="block text-[13px] font-semibold">{getStatusDisplayLabel(s.stage)}</strong>
                             <span className="text-[12px] font-semibold text-[#667085]">
                               {s.count} deal(s)
                             </span>

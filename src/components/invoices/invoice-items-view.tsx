@@ -13,12 +13,14 @@ export function InvoiceItemsView({
   error,
   currency,
   formatMoney,
+  compact = false,
 }: {
   items: InvoiceDetailItem[];
   loading: boolean;
   error: string | null;
   currency: string;
   formatMoney: (amount: number, currency: string) => string;
+  compact?: boolean;
 }) {
   if (loading) {
     return (
@@ -37,9 +39,9 @@ export function InvoiceItemsView({
       ) : null}
 
       {items.length ? (
-        <div className="min-w-0 overflow-x-auto border-y border-slate-100">
-          <div className="min-w-[560px]">
-            <div className="grid grid-cols-[minmax(220px,1fr)_80px_120px_120px] gap-3 border-b border-slate-100 bg-white py-2 text-[11px] font-normal uppercase tracking-wide text-slate-500">
+        <div className={`min-w-0 ${compact ? "overflow-hidden border-y border-slate-100" : "overflow-x-auto border-y border-slate-100"}`}>
+          <div className={compact ? "min-w-0" : "min-w-[560px]"}>
+            <div className={`grid ${compact ? "grid-cols-[minmax(0,1fr)_32px_52px_60px] gap-1 py-1 text-[8px]" : "grid-cols-[minmax(220px,1fr)_80px_120px_120px] gap-3 py-2 text-[11px]"} border-b border-slate-100 bg-white font-normal uppercase tracking-wide text-slate-500`}>
               <span>Descripción</span>
               <span className="text-right">Cantidad</span>
               <span className="text-right">Precio</span>
@@ -49,7 +51,7 @@ export function InvoiceItemsView({
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="grid grid-cols-[minmax(220px,1fr)_80px_120px_120px] gap-3 py-3 text-sm"
+                  className={`grid ${compact ? "grid-cols-[minmax(0,1fr)_32px_52px_60px] gap-1 py-1.5 text-[9px] leading-tight" : "grid-cols-[minmax(220px,1fr)_80px_120px_120px] gap-3 py-3 text-sm"}`}
                 >
                   <div className="min-w-0 whitespace-normal break-words font-normal leading-5 text-slate-900">
                     {item.description || "Sin descripción"}

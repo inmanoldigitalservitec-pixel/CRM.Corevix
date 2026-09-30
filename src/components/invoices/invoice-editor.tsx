@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Copy, Loader2, Receipt, Send } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -11,17 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { CrmDetailLineButton } from "@/components/crm/crm-detail-layout";
 import { ClientProspectSearchSelect } from "@/components/crm/client-prospect-search-select";
+import { crmFormStyles } from "@/components/crm/crm-form-shell";
 import { formatInvoiceMoney } from "@/components/invoices/invoice-utils";
+import { InvoiceDocumentPreview } from "@/components/invoices/invoice-document-preview";
+import type { InvoiceDetailItem } from "@/components/invoices/invoice-items-view";
 import { SalesDocumentLineEditor } from "@/components/sales/sales-document-line-editor";
 import type {
   SalesDocumentLineItem,
@@ -93,6 +86,17 @@ export type InvoiceEditorProposal = {
   notes?: string | null;
 };
 
+export type InvoiceEditorIssuerDefaults = {
+  company_name?: string | null;
+  tax_id?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+};
+
 export type InvoiceEditorDraft = {
   number: string;
   status: string;
@@ -133,25 +137,18 @@ export type InvoicePaymentFeedback = {
   description?: string;
 };
 
-type InvoiceEditorProps = {
+export type InvoiceEditorProps = {
   mode: "create" | "edit";
   initialDraft: InvoiceEditorDraft;
   clients: InvoiceEditorClient[];
   products: InvoiceEditorProduct[];
-	  proposals: InvoiceEditorProposal[];
-	  taxes?: CompanyTax[];
-  statusOptions: string[];
-  publicToken?: string | null;
-  publicUrl?: string | null;
+  proposals: InvoiceEditorProposal[];
+  taxes?: CompanyTax[];
+  livePreview?: boolean;
+  issuerDefaults?: InvoiceEditorIssuerDefaults | null;
   saving?: boolean;
   error?: string | null;
   onCancel: () => void;
-  onCopyPublic?: () => void;
-  onOpenPublic?: () => void;
-  onRegisterPayment?: (draft: InvoiceEditorDraft) => Promise<void> | void;
-  canRegisterPayment?: boolean;
-  registerPaymentHint?: string;
-  paymentFeedback?: InvoicePaymentFeedback | null;
   onSaveDraft: (draft: InvoiceEditorDraft) => Promise<void> | void;
   onConfirmSend: (draft: InvoiceEditorDraft) => Promise<void> | void;
 };
@@ -202,6 +199,10 @@ function lineTotal(item: Pick<InvoiceEditorItem, "quantity" | "unit_price">) {
   return Math.max(0, cleanNumber(item.quantity)) * Math.max(0, cleanNumber(item.unit_price));
 }
 
+function invoiceLineTotal(item: InvoiceEditorItem) {
+  return item.is_optional === true ? 0 : lineTotal(item);
+}
+
 function emptyLine(): InvoiceEditorItem {
   return {
     product_id: null,
@@ -223,6 +224,20 @@ function hasLineContent(item: InvoiceEditorItem) {
   );
 }
 
+function getInvoiceSubtotal(draft: InvoiceEditorDraft) {
+  const items = draft.items.filter(hasLineContent);
+  return items.length
+    ? items.reduce((sum, item) => sum + invoiceLineTotal(item), 0)
+    : Math.max(0, cleanNumber(draft.legacySubtotal));
+}
+
+function getInvoiceDiscountPercentage(draft: InvoiceEditorDraft) {
+  const subtotal = getInvoiceSubtotal(draft);
+  return subtotal > 0
+    ? String(Math.min(100, Math.max(0, (cleanNumber(draft.discount) / subtotal) * 100)))
+    : "0";
+}
+
 function fillEmpty(current: string | null, next: string | null) {
   return cleanText(current) || cleanText(next);
 }
@@ -230,44 +245,68 @@ function fillEmpty(current: string | null, next: string | null) {
 export function InvoiceEditor({
   mode,
   initialDraft,
-	  clients,
-	  products,
-	  proposals,
-	  taxes = [],
-	  statusOptions,
-  publicToken,
-  publicUrl,
+  clients,
+  products,
+  proposals,
+  taxes = [],
+  livePreview = false,
+  issuerDefaults,
   saving = false,
   error,
   onCancel,
-  onCopyPublic,
-  onOpenPublic,
-  onRegisterPayment,
-  canRegisterPayment = false,
-  registerPaymentHint,
-  paymentFeedback,
   onSaveDraft,
   onConfirmSend,
 }: InvoiceEditorProps) {
 	  const { settings: currencySettings } = useCompanyCurrencySettings();
 	  const [draft, setDraft] = useState<InvoiceEditorDraft>(initialDraft);
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [discountEnabled, setDiscountEnabled] = useState(() => cleanNumber(initialDraft.discount) > 0);
+  const [discountPercentage, setDiscountPercentage] = useState(() =>
+    getInvoiceDiscountPercentage(initialDraft),
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
+  const previewViewportRef = useRef<HTMLDivElement>(null);
+  const previewContentRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
 
   useEffect(() => {
     setDraft(initialDraft);
+    setDiscountEnabled(cleanNumber(initialDraft.discount) > 0);
+    setDiscountPercentage(getInvoiceDiscountPercentage(initialDraft));
     setValidationError(null);
-    setReviewOpen(false);
   }, [initialDraft]);
+
+  useEffect(() => {
+    if (!livePreview) return;
+    const viewport = previewViewportRef.current;
+    const content = previewContentRef.current;
+    if (!viewport || !content) return;
+
+    const fitPreview = () => {
+      const availableWidth = viewport.clientWidth;
+      const availableHeight = viewport.clientHeight;
+      const contentWidth = content.scrollWidth;
+      const contentHeight = content.scrollHeight;
+      if (!availableWidth || !availableHeight || !contentWidth || !contentHeight) return;
+      const nextScale = Math.min(1, availableWidth / contentWidth, availableHeight / contentHeight);
+      setPreviewScale((current) => Math.abs(current - nextScale) < 0.01 ? current : nextScale);
+    };
+
+    const observer = new ResizeObserver(fitPreview);
+    observer.observe(viewport);
+    observer.observe(content);
+    fitPreview();
+    return () => observer.disconnect();
+  }, [livePreview]);
 
   const totals = useMemo(() => {
     const validItems = draft.items.filter(hasLineContent);
     const hasLineItems = validItems.length > 0;
     const subtotal = hasLineItems
-      ? validItems.reduce((sum, item) => sum + lineTotal(item), 0)
+      ? validItems.reduce((sum, item) => sum + invoiceLineTotal(item), 0)
       : Math.max(0, cleanNumber(draft.legacySubtotal));
     const itemTax = validItems.reduce(
-      (sum, item) => sum + lineTotal(item) * (normalizeTaxRate(item.tax_rate) / 100),
+      (sum, item) =>
+        sum + invoiceLineTotal(item) * (normalizeTaxRate(item.tax_rate) / 100),
       0,
     );
     const tax = Math.max(
@@ -281,7 +320,16 @@ export function InvoiceEditor({
       discount,
       total: normalizeInvoiceAmount(Math.max(0, subtotal + tax - discount), draft.currency),
     };
-  }, [draft.currency, draft.discount, draft.items, draft.tax]);
+  }, [draft.currency, draft.discount, draft.items, draft.legacySubtotal, draft.tax]);
+
+  useEffect(() => {
+    if (!discountEnabled) return;
+    const percentage = Math.min(100, Math.max(0, cleanNumber(discountPercentage)));
+    const discount = normalizeInvoiceAmount(totals.subtotal * (percentage / 100), draft.currency);
+    setDraft((current) =>
+      current.discount === discount ? current : { ...current, discount },
+    );
+  }, [discountEnabled, discountPercentage, draft.currency, totals.subtotal]);
 
 	  const taxById = useMemo(() => new Map(taxes.map((tax) => [tax.id, tax])), [taxes]);
 	  const defaultTax = useMemo(() => taxes.find((tax) => tax.is_default) || null, [taxes]);
@@ -308,13 +356,6 @@ export function InvoiceEditor({
   const selectedClient = draft.client_id
     ? clients.find((client) => client.id === draft.client_id)
     : null;
-  const selectedProduct = draft.product_id
-    ? products.find((product) => product.id === draft.product_id)
-    : null;
-  const selectedProposal = draft.proposal_id
-    ? proposals.find((proposal) => proposal.id === draft.proposal_id)
-    : null;
-
   const patchDraft = (patch: Partial<InvoiceEditorDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
   };
@@ -386,6 +427,7 @@ export function InvoiceEditor({
       productId === NONE_PRODUCT ? null : products.find((item) => item.id === productId);
     setDraft((current) => {
       if (!product) return { ...current, product_id: null };
+      if (current.items.some((item) => item.product_id === product.id)) return current;
       const description = cleanText(product.description) || product.name;
       const documentCurrency = normalizeInvoiceCurrency(current.currency);
       const productCurrency = normalizeInvoiceCurrency(
@@ -562,13 +604,17 @@ export function InvoiceEditor({
 	    items: draft.items.map((item) => {
 	      const unitPrice = normalizeInvoiceAmount(item.unit_price, draft.currency);
 	      const taxRate = normalizeTaxRate(item.tax_rate);
-	      const taxAmount = lineTotal({ ...item, unit_price: unitPrice }) * (taxRate / 100);
+	      const isOptional = item.is_optional === true;
+	      const normalizedLineTotal = isOptional
+	        ? 0
+	        : lineTotal({ ...item, unit_price: unitPrice });
+	      const taxAmount = isOptional ? 0 : normalizedLineTotal * (taxRate / 100);
 	      return {
         ...item,
         product_id: item.product_id || null,
         item_name: cleanText(item.item_name) || cleanText(item.description) || "",
         unit_type: item.unit_type || "qty",
-        is_optional: item.is_optional === true,
+	        is_optional: isOptional,
         unit_price: unitPrice,
 	        tax_rate: taxRate,
 	        tax_amount: normalizeInvoiceAmount(taxAmount, draft.currency),
@@ -583,7 +629,7 @@ export function InvoiceEditor({
         exchange_rate_source: item.exchange_rate_source || currencySettings.rateSource,
         exchange_rate_updated_at:
           item.exchange_rate_updated_at || currencySettings.rateUpdatedAt || null,
-        total: lineTotal({ ...item, unit_price: unitPrice }),
+	        total: normalizedLineTotal,
       };
     }),
   });
@@ -634,6 +680,55 @@ export function InvoiceEditor({
     [totals],
   );
 
+  const previewItems = useMemo<InvoiceDetailItem[]>(
+    () =>
+      draft.items
+        .filter(hasLineContent)
+        .map((item, index) => {
+          const name = cleanText(item.item_name);
+          const description = cleanText(item.description);
+          return {
+            id: item.id || `invoice-preview-${index}`,
+            description:
+              name && description && name.toLowerCase() !== description.toLowerCase()
+                ? `${name} · ${description}`
+                : name || description || "Sin descripción",
+            quantity: cleanNumber(item.quantity),
+            unit_price: cleanNumber(item.unit_price),
+            total: invoiceLineTotal(item),
+          };
+        }),
+    [draft.items],
+  );
+
+  const issuerAddress = mergeAddressParts(
+    issuerDefaults?.address || null,
+    issuerDefaults?.city || null,
+    issuerDefaults?.country || null,
+  );
+  const previewIssuerFields = [
+    { label: "Empresa", value: fillEmpty(issuerDefaults?.company_name || null, draft.issuerName) },
+    { label: "ID fiscal", value: fillEmpty(issuerDefaults?.tax_id || null, draft.issuerTaxId) },
+    { label: "Correo", value: fillEmpty(issuerDefaults?.email || null, draft.issuerEmail) },
+    { label: "Teléfono", value: fillEmpty(issuerDefaults?.phone || null, draft.issuerPhone) },
+    { label: "Dirección", value: fillEmpty(issuerAddress || null, draft.issuerAddress) },
+    { label: "Sitio web", value: fillEmpty(issuerDefaults?.website || null, draft.issuerWebsite) },
+  ];
+  const previewClientFields = [
+    { label: "Nombre", value: fillEmpty(draft.clientName, selectedClient?.contact_person || null) },
+    { label: "Empresa", value: fillEmpty(draft.clientCompany, selectedClient?.company_name || null) },
+    { label: "Correo", value: fillEmpty(draft.clientEmail, selectedClient?.email || null) },
+    { label: "Teléfono", value: fillEmpty(draft.clientPhone, selectedClient?.phone || null) },
+    { label: "ID fiscal", value: fillEmpty(draft.clientTaxId, selectedClient?.tax_id || null) },
+    {
+      label: "Dirección",
+      value: fillEmpty(
+        draft.clientAddress,
+        mergeAddressParts(selectedClient?.address, selectedClient?.city, selectedClient?.country) || null,
+      ),
+    },
+  ];
+
   const findLineIndex = (lineId: string) =>
     invoiceLineItems.findIndex((line) => line.id === lineId);
 
@@ -676,7 +771,15 @@ export function InvoiceEditor({
   const removeInvoiceLine = (lineId: string) => {
     const index = findLineIndex(lineId);
     if (index < 0) return;
-    patchDraft({ items: draft.items.filter((_, itemIndex) => itemIndex !== index) });
+    const removedItem = draft.items[index];
+    const items = draft.items.filter((_, itemIndex) => itemIndex !== index);
+    const remainingHasContent = items.some(hasLineContent);
+    patchDraft({
+      items,
+      ...(!remainingHasContent && hasLineContent(removedItem)
+        ? { legacySubtotal: 0, tax: 0, discount: 0 }
+        : {}),
+    });
   };
 
   const addBlankInvoiceLine = () => patchDraft({ items: [...draft.items, emptyLine()] });
@@ -691,40 +794,25 @@ export function InvoiceEditor({
       return;
     }
     setValidationError(null);
-    await onSaveDraft(normalizedDraft("Draft"));
+    await onSaveDraft(normalizedDraft(mode === "edit" ? draft.status : "Draft"));
   };
 
-  const registerPayment = async () => {
+  const markAsSent = async () => {
     const message = validateDraft();
     if (message) {
       setValidationError(message);
       return;
     }
     setValidationError(null);
-    await onRegisterPayment?.(normalizedDraft("Draft"));
-  };
-
-  const openReview = () => {
-    const message = validateDraft();
-    if (message) {
-      setValidationError(message);
-      return;
-    }
-    setValidationError(null);
-    setReviewOpen(true);
-  };
-
-  const confirmSend = async () => {
     await onConfirmSend(normalizedDraft("Sent"));
-    setReviewOpen(false);
   };
 
   return (
     <div className="space-y-4">
       {isIssuedStatus(draft.status) ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Esta factura ya fue emitida. Puedes editarla, pero revisa los cambios financieros antes de
-          guardar.
+          Esta factura ya fue emitida y no se puede editar. Para corregirla, crea una nota de crédito,
+          anúlala o emite una nueva factura.
         </div>
       ) : null}
       {error || validationError ? (
@@ -733,32 +821,20 @@ export function InvoiceEditor({
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="space-y-4">
-          <EditorSection title="Cliente y origen">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Número">
-                <Input
-                  value={draft.number}
-                  onChange={(event) => patchDraft({ number: event.target.value })}
-                />
-              </Field>
-              <Field label="Estado">
-                <Select value={draft.status} onValueChange={(status) => patchDraft({ status })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Cliente">
+      <div className={livePreview ? "grid min-w-0 gap-6 pb-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.8fr)]" : "space-y-6 pb-4"}>
+        <div className="min-w-0 space-y-6">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium text-slate-700">Factura {draft.number || "—"}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+            {invoiceStatusLabel(draft.status)}
+          </span>
+        </div>
+
+        <EditorSection title="1. Cliente y fechas" description="Elige a quién se factura y define las fechas del documento.">
+          <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+              <Field label="Cliente" description="La factura se emitirá a nombre de este cliente.">
                 <ClientProspectSearchSelect
+                  className={crmFormStyles.input}
                   clients={clients.map((client) => ({
                     id: client.id,
                     label: client.contact_person
@@ -800,9 +876,9 @@ export function InvoiceEditor({
                   }}
                 />
               </Field>
-              <Field label="Propuesta">
+              <Field label="Propuesta vinculada (opcional)" description="Vincúlala si esta factura corresponde a una propuesta; se completarán los datos disponibles.">
                 <Select value={draft.proposal_id || NONE_PROPOSAL} onValueChange={applyProposal}>
-                  <SelectTrigger>
+                  <SelectTrigger className={crmFormStyles.select}>
                     <SelectValue placeholder="Opcional" />
                   </SelectTrigger>
                   <SelectContent>
@@ -817,267 +893,163 @@ export function InvoiceEditor({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Producto / servicio">
-                <Select value={draft.product_id || NONE_PRODUCT} onValueChange={applyProduct}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Opcional" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE_PRODUCT}>Sin producto</SelectItem>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Moneda">
-                <Select
-                  value={normalizeInvoiceCurrency(draft.currency)}
-                  onValueChange={applyCurrency}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DOP">RD$ · Peso dominicano</SelectItem>
-                    <SelectItem value="USD">US$ · Dólares</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-          </EditorSection>
-
-          <EditorSection title="Fechas">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Fecha emitida">
+              <Field label="Fecha de emisión">
                 <Input
+                  className={crmFormStyles.input}
                   type="date"
                   value={draft.date_issued}
                   onChange={(event) => patchDraft({ date_issued: event.target.value })}
                 />
               </Field>
-              <Field label="Vence">
+              <Field label="Fecha de vencimiento">
                 <Input
+                  className={crmFormStyles.input}
                   type="date"
                   value={draft.due_date}
                   onChange={(event) => patchDraft({ due_date: event.target.value })}
                 />
               </Field>
-            </div>
-          </EditorSection>
+          </div>
+        </EditorSection>
 
-          <EditorSection title="Artículos">
-            <SalesDocumentLineEditor
-              mode="invoice"
-              form={{
-                currency: draft.currency,
-                discountType: "fixed",
-                discountValue: String(draft.discount || 0),
-                adjustmentValue: "0",
-                quantityMode: "qty",
-              }}
-              lineItems={invoiceLineItems}
-              totals={invoiceLineTotals}
-              productOptions={productOptions}
-              taxes={taxes}
-              taxById={taxById}
-              addItemLabel="Crear línea desde producto"
-              rateSource={currencySettings.rateSource}
-              rateUpdatedAt={currencySettings.rateUpdatedAt}
-              showAdjustment={false}
-              showOptional={false}
-              showQuantityMode={false}
-              emptyMessage="Agrega productos o líneas manuales para construir la factura."
-              onAddProductLine={applyProduct}
-              onAddBlankLine={addBlankInvoiceLine}
-              onLinePatch={patchInvoiceLine}
-              onRemoveLine={removeInvoiceLine}
-              onFormPatch={(patch) => {
-                if (patch.discountValue !== undefined) {
-                  patchDraft({
-                    discount: normalizeInvoiceAmount(patch.discountValue, draft.currency),
-                  });
-                }
-              }}
-              normalizeMoneyInput={normalizeInvoiceMoneyText}
-            />
-          </EditorSection>
-
-          <EditorSection title="Pagos">
-            {paymentFeedback ? (
-              <div
-                className={
-                  paymentFeedback.status === "registered"
-                    ? "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-emerald-950"
-                    : "rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-blue-950"
-                }
+        <EditorSection title="2. Conceptos e importes" description="Añade cada producto o servicio y revisa cómo se calcula el total.">
+          <SalesDocumentLineEditor
+            mode="invoice"
+            form={{
+              currency: draft.currency,
+              discountType: discountEnabled ? "percent" : "none",
+              discountValue: discountPercentage,
+              adjustmentValue: "0",
+              quantityMode: "qty",
+            }}
+            lineItems={invoiceLineItems}
+            totals={invoiceLineTotals}
+            productOptions={productOptions}
+            taxes={taxes}
+            taxById={taxById}
+            addItemLabel="Agregar producto del catálogo"
+            addItemHelp="Busca en el catálogo o pulsa + para escribir una línea manual."
+            currencyControl={
+              <Select
+                value={normalizeInvoiceCurrency(draft.currency)}
+                onValueChange={applyCurrency}
               >
-                <div className="flex items-start gap-3">
-                  {paymentFeedback.status === "registered" ? (
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                  ) : (
-                    <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-blue-600" />
-                  )}
-                  <div className="min-w-0">
-                    <div className="font-semibold">{paymentFeedback.title}</div>
-                    {paymentFeedback.description ? (
-                      <div className="mt-1 text-sm opacity-80">{paymentFeedback.description}</div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                {paymentFeedback?.status === "registered"
-                  ? "Puedes registrar otro pago para esta factura si hace falta."
-                  : "Registra pagos y adjunta comprobantes directamente al CRM."}
-              </p>
-              <Button
-                type="button"
-                variant={paymentFeedback?.status === "registered" ? "secondary" : "outline"}
-                onClick={registerPayment}
-                disabled={
-                  !canRegisterPayment ||
-                  !onRegisterPayment ||
-                  saving ||
-                  paymentFeedback?.status === "preparing"
-                }
-              >
-                {paymentFeedback?.status === "preparing" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Receipt className="mr-2 h-4 w-4" />
-                )}
-                {paymentFeedback?.status === "registered"
-                  ? "Registrar otro pago"
-                  : "Registrar pago"}
-              </Button>
-            </div>
-            {registerPaymentHint && !paymentFeedback ? (
-              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                {registerPaymentHint}
-              </div>
-            ) : null}
-          </EditorSection>
+                <SelectTrigger
+                  className={crmFormStyles.select}
+                  aria-label="Moneda de la factura"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DOP">RD$ · Peso dominicano</SelectItem>
+                  <SelectItem value="USD">US$ · Dólares</SelectItem>
+                </SelectContent>
+              </Select>
+            }
+            rateSource={currencySettings.rateSource}
+            rateUpdatedAt={currencySettings.rateUpdatedAt}
+            showAdjustment={false}
+            allowPercentageDiscount
+            showOptional={false}
+            useCrmFieldStyles
+            showQuantityMode={false}
+            emptyMessage="Aún no hay conceptos. Selecciona un producto o pulsa + para agregar una línea manual."
+            onAddProductLine={applyProduct}
+            onAddBlankLine={addBlankInvoiceLine}
+            onLinePatch={patchInvoiceLine}
+            onRemoveLine={removeInvoiceLine}
+            onFormPatch={(patch) => {
+              if (patch.discountType === "percent") {
+                setDiscountEnabled(true);
+              } else if (patch.discountType === "none") {
+                setDiscountEnabled(false);
+                setDiscountPercentage("0");
+                patchDraft({ discount: 0 });
+              }
+              if (patch.discountValue !== undefined) {
+                setDiscountPercentage(patch.discountValue);
+              }
+            }}
+            normalizeMoneyInput={normalizeInvoiceMoneyText}
+          />
+        </EditorSection>
 
-          <EditorSection title="Notas">
-            <Field label="Notas internas">
-              <Textarea
-                value={draft.notes || ""}
-                onChange={(event) => patchDraft({ notes: event.target.value })}
-                rows={3}
-              />
-            </Field>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Propuesta #">
-                <Input
-                  value={draft.relatedProposalNumber || ""}
-                  onChange={(event) => patchDraft({ relatedProposalNumber: event.target.value })}
-                />
-              </Field>
-              <Field label="Título propuesta">
-                <Input
-                  value={draft.relatedProposalTitle || ""}
-                  onChange={(event) => patchDraft({ relatedProposalTitle: event.target.value })}
-                />
-              </Field>
-              <Field label="Emisor">
-                <Input
-                  value={draft.issuerName || ""}
-                  onChange={(event) => patchDraft({ issuerName: event.target.value })}
-                />
-              </Field>
-              <Field label="Correo emisor">
-                <Input
-                  value={draft.issuerEmail || ""}
-                  onChange={(event) => patchDraft({ issuerEmail: event.target.value })}
-                />
-              </Field>
-              <Field label="ID fiscal emisor">
-                <Input
-                  value={draft.issuerTaxId || ""}
-                  onChange={(event) => patchDraft({ issuerTaxId: event.target.value })}
-                />
-              </Field>
-              <Field label="Teléfono emisor">
-                <Input
-                  value={draft.issuerPhone || ""}
-                  onChange={(event) => patchDraft({ issuerPhone: event.target.value })}
-                />
-              </Field>
-              <Field label="Sitio web">
-                <Input
-                  value={draft.issuerWebsite || ""}
-                  onChange={(event) => patchDraft({ issuerWebsite: event.target.value })}
-                />
-              </Field>
-            </div>
-            <Field label="Dirección emisor" className="mt-4">
-              <Textarea
-                value={draft.issuerAddress || ""}
-                onChange={(event) => patchDraft({ issuerAddress: event.target.value })}
-                rows={2}
-              />
-            </Field>
-          </EditorSection>
         </div>
 
-        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-          <InvoiceEditorSummary
-            draft={draft}
-            client={selectedClient}
-            currency={draft.currency}
-            subtotal={totals.subtotal}
-            tax={totals.tax}
-            discount={draft.discount}
-            total={totals.total}
-          />
-          <EditorSection title="Acciones">
-            <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-1">
-              <CrmDetailLineButton type="button" onClick={saveDraft} disabled={saving}>
-                Guardar borrador
-              </CrmDetailLineButton>
-              <CrmDetailLineButton type="button" onClick={openReview} disabled={saving}>
-                <Send className="mr-2 h-4 w-4" /> Revisar y enviar
-              </CrmDetailLineButton>
-              <CrmDetailLineButton type="button" onClick={onCancel} disabled={saving}>
-                Cancelar
-              </CrmDetailLineButton>
+        {livePreview ? (
+          <aside className="flex h-[calc(100dvh-220px)] min-w-0 flex-col self-start overflow-hidden lg:sticky lg:top-0 lg:h-[calc(92vh-190px)]">
+            <div ref={previewViewportRef} className="relative min-h-0 flex-1 overflow-hidden">
+              <div
+                ref={previewContentRef}
+                className="absolute left-1/2 top-2 w-full origin-top"
+                style={{
+                  transform: `translateX(-50%) scale(${previewScale})`,
+                }}
+              >
+                <InvoiceDocumentPreview
+                  compact
+                  invoice={{ number: draft.number || "Borrador", date_issued: draft.date_issued, due_date: draft.due_date }}
+                  issuerFields={previewIssuerFields}
+                  clientFields={previewClientFields}
+                  items={previewItems}
+                  itemsLoading={false}
+                  itemsError={null}
+                  currency={normalizeInvoiceCurrency(draft.currency)}
+                  subtotal={formatInvoiceMoney(totals.subtotal, draft.currency)}
+                  tax={formatInvoiceMoney(totals.tax, draft.currency)}
+                  discount={formatInvoiceMoney(totals.discount, draft.currency)}
+                  total={formatInvoiceMoney(totals.total, draft.currency)}
+                  notes={draft.notes}
+                  formatMoney={formatInvoiceMoney}
+                />
+              </div>
             </div>
-            {mode === "edit" ? (
-              <div className="mt-3 border-b border-slate-100 pb-3 text-xs font-normal text-slate-500">
-                {publicUrl
-                  ? "Enlace público disponible."
-                  : "Guarda la factura para generar o conservar su enlace público."}
-              </div>
-            ) : null}
-            {publicToken ? (
-              <div className="mt-3 grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-1">
-                <CrmDetailLineButton type="button" onClick={onCopyPublic}>
-                  <Copy className="mr-2 h-3.5 w-3.5" /> Copiar enlace
-                </CrmDetailLineButton>
-                <CrmDetailLineButton type="button" onClick={onOpenPublic}>
-                  Abrir pública
-                </CrmDetailLineButton>
-              </div>
-            ) : null}
-          </EditorSection>
+          </aside>
+        ) : null}
+      </div>
+
+      <div className="sticky bottom-0 z-20 -mx-4 mt-2 border-t border-slate-200 bg-white/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-6px_18px_rgba(15,23,42,0.08)] backdrop-blur-sm md:-mx-5 md:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Total de la factura
+            </p>
+            <p className="text-lg font-semibold text-slate-950">
+              {formatInvoiceMoney(totals.total, draft.currency)}
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-w-0 whitespace-normal px-2 text-xs leading-tight sm:px-4 sm:text-sm"
+              onClick={onCancel}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-0 whitespace-normal px-2 text-xs leading-tight sm:px-4 sm:text-sm"
+              onClick={saveDraft}
+              disabled={saving || isIssuedStatus(draft.status)}
+            >
+              {mode === "create" ? "Guardar como borrador" : "Guardar cambios"}
+            </Button>
+            <Button
+              type="button"
+              className="min-w-0 whitespace-normal px-2 text-xs leading-tight sm:px-4 sm:text-sm"
+              onClick={markAsSent}
+              disabled={saving || isIssuedStatus(draft.status)}
+            >
+              <Send className="mr-1 h-3.5 w-3.5 shrink-0 sm:mr-2 sm:h-4 sm:w-4" />
+              Marcar como enviada
+            </Button>
+          </div>
         </div>
       </div>
 
-      <InvoiceReviewDialog
-        open={reviewOpen}
-        onOpenChange={setReviewOpen}
-        draft={draft}
-        client={selectedClient}
-        items={draft.items.filter(hasLineContent)}
-        totals={totals}
-        saving={saving}
-        onConfirm={confirmSend}
-      />
     </div>
   );
 }
@@ -1087,249 +1059,54 @@ function isIssuedStatus(status: string) {
   return normalized === "sent" || normalized === "overdue" || normalized === "paid";
 }
 
+function invoiceStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    Draft: "Borrador",
+    Sent: "Enviada",
+    Paid: "Pagada",
+    "Partially Paid": "Pago parcial",
+    Overdue: "Vencida",
+    Cancelled: "Cancelada",
+  };
+  return labels[status] || status || "Borrador";
+}
+
 function Field({
   label,
   children,
   className,
+  description,
 }: {
   label: string;
   children: React.ReactNode;
   className?: string;
+  description?: string;
 }) {
   return (
     <div className={className ? `space-y-1.5 ${className}` : "space-y-1.5"}>
-      <Label>{label}</Label>
+      <Label className={crmFormStyles.label}>{label}</Label>
       {children}
+      {description ? <p className="text-xs leading-relaxed text-slate-500">{description}</p> : null}
     </div>
   );
 }
 
-function EditorSection({ title, children }: { title: string; children: React.ReactNode }) {
+function EditorSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="border-b border-slate-100 bg-white pb-5">
-      <div className="mb-4 text-sm font-normal text-slate-900">{title}</div>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+      </div>
       {children}
     </section>
-  );
-}
-
-function InvoiceEditorSummary({
-  draft,
-  client,
-  currency,
-  subtotal,
-  tax,
-  discount,
-  total,
-}: {
-  draft: InvoiceEditorDraft;
-  client: InvoiceEditorClient | null | undefined;
-  currency: string;
-  subtotal: number;
-  tax: number;
-  discount: number;
-  total: number;
-}) {
-  const clientSummary = {
-    name: draft.clientName || client?.contact_person || "—",
-    company: draft.clientCompany || client?.company_name || "—",
-    email: draft.clientEmail || client?.email || "—",
-    phone: draft.clientPhone || client?.phone || "—",
-    taxId: draft.clientTaxId || client?.tax_id || "—",
-    address:
-      mergeAddressParts(
-        draft.clientAddress,
-        client?.address,
-        client?.city,
-        client?.country,
-      ) || "—",
-    product: draft.productName || "—",
-  };
-
-  return (
-    <EditorSection title="Resumen">
-      <div className="space-y-5">
-        <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Cliente
-            </p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
-              {clientSummary.company}
-            </p>
-            <p className="mt-0.5 text-xs leading-5 text-slate-500">{clientSummary.name}</p>
-          </div>
-          <div className="space-y-2 border-t border-slate-200 pt-3">
-            <SummaryDetail label="Correo" value={clientSummary.email} />
-            <SummaryDetail label="Teléfono" value={clientSummary.phone} />
-            <SummaryDetail label="ID fiscal / RNC" value={clientSummary.taxId} />
-            <SummaryDetail label="Producto visible" value={clientSummary.product} />
-            <SummaryDetail label="Dirección" value={clientSummary.address} multiline />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Totales
-          </p>
-          <SummaryRow label="Subtotal" value={formatInvoiceMoney(subtotal, currency)} />
-          <SummaryRow label="Impuestos" value={formatInvoiceMoney(tax, currency)} />
-          {discount > 0 ? (
-            <SummaryRow label="Descuento" value={`-${formatInvoiceMoney(discount, currency)}`} />
-          ) : null}
-          <div className="border-t pt-3">
-            <SummaryRow label="Total" value={formatInvoiceMoney(total, currency)} strong />
-          </div>
-        </div>
-      </div>
-    </EditorSection>
-  );
-}
-
-function SummaryDetail({
-  label,
-  value,
-  multiline,
-}: {
-  label: string;
-  value: string;
-  multiline?: boolean;
-}) {
-  return (
-    <div className={multiline ? "space-y-0.5" : "flex items-start justify-between gap-3"}>
-      <span className="shrink-0 text-xs font-medium text-slate-500">{label}</span>
-      <span
-        className={
-          multiline
-            ? "block break-words text-xs leading-5 text-slate-800"
-            : "min-w-0 break-words text-right text-xs leading-5 text-slate-800"
-        }
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function SummaryRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span
-        className={strong ? "text-base font-bold text-slate-950" : "font-semibold text-slate-900"}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function InvoiceReviewDialog({
-  open,
-  onOpenChange,
-  draft,
-  client,
-  items,
-  totals,
-  saving,
-  onConfirm,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  draft: InvoiceEditorDraft;
-  client: InvoiceEditorClient | null | undefined;
-  items: InvoiceEditorItem[];
-  totals: { subtotal: number; tax: number; discount: number; total: number };
-  saving: boolean;
-  onConfirm: () => Promise<void> | void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-x-hidden overflow-y-auto rounded-none border-0 bg-white p-4 shadow-none sm:h-auto sm:max-h-[92dvh] sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:rounded-lg sm:border sm:border-slate-200 sm:p-6">
-        <DialogHeader>
-          <DialogTitle>Revisar factura antes de enviar</DialogTitle>
-          <DialogDescription>
-            Confirma los datos. Esta acción marcará la factura como enviada, sin enviar email
-            externo.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
-            <ReviewField label="Número" value={draft.number} />
-            <ReviewField
-              label="Destinatario"
-              value={draft.clientEmail || client?.email || "Sin correo"}
-            />
-            <ReviewField
-              label="Cliente"
-              value={
-                draft.clientCompany || client?.company_name || draft.clientName || "Sin cliente"
-              }
-            />
-            <ReviewField label="Fecha emitida" value={draft.date_issued} />
-            <ReviewField label="Vencimiento" value={draft.due_date} />
-          </div>
-          <div className="min-w-0 rounded-lg border">
-            {items.map((item, index) => (
-              <div
-                key={`${item.id || index}`}
-                className="flex min-w-0 items-start justify-between gap-3 border-b px-3 py-2 text-sm last:border-b-0"
-              >
-                <div className="min-w-0">
-                  <div className="break-words font-medium leading-snug">{item.description}</div>
-                  <div className="text-xs text-muted-foreground">
-                    x{item.quantity} · {formatInvoiceMoney(item.unit_price, draft.currency)}
-                  </div>
-                </div>
-                <div className="shrink-0 whitespace-nowrap text-right font-semibold">
-                  {formatInvoiceMoney(lineTotal(item), draft.currency)}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="space-y-2 rounded-lg bg-muted/40 p-3">
-            <SummaryRow
-              label="Subtotal"
-              value={formatInvoiceMoney(totals.subtotal, draft.currency)}
-            />
-            <SummaryRow label="Impuestos" value={formatInvoiceMoney(totals.tax, draft.currency)} />
-            <SummaryRow
-              label="Descuento"
-              value={formatInvoiceMoney(totals.discount, draft.currency)}
-            />
-            <SummaryRow
-              label="Total"
-              value={formatInvoiceMoney(totals.total, draft.currency)}
-              strong
-            />
-          </div>
-        </div>
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Volver a editar
-          </Button>
-          <Button type="button" className="w-full sm:w-auto" onClick={onConfirm} disabled={saving}>
-            Confirmar como enviada
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ReviewField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 break-words font-medium text-slate-950">{value}</div>
-    </div>
   );
 }

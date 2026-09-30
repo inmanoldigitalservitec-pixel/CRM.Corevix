@@ -279,6 +279,7 @@ export function ProjectContractsPanel({ projectId }: { projectId: string }) {
         clients={clients}
         projects={projects}
         profiles={profiles}
+        invoices={[]}
         initialValues={{
           project_id: project?.id || projectId,
           client_id: project?.client_id || "none",

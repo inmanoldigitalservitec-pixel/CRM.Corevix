@@ -33,6 +33,7 @@ import type { DashboardWidgetMode } from "@/components/dashboard-builder";
 import { fetchAgentWidgetContract, refreshAgentOperatingContext } from "@/lib/agentClient";
 import { DashboardCalendarWidget } from "./dashboard-calendar-widget";
 import type { CalendarItem } from "@/lib/crm/calendar-items";
+import { getStatusDisplayLabel } from "@/components/ui/status-badge";
 
 type DashboardV2Tone = "blue" | "green" | "orange" | "red" | "purple" | "teal" | "neutral";
 
@@ -378,7 +379,7 @@ function MiniWidgetCard({
                   tone,
                 )}`}
               >
-                {status}
+                {getStatusDisplayLabel(status)}
               </span>
             ) : null}
           </span>
@@ -561,7 +562,7 @@ function DashboardListWidget({
                     itemTone,
                   )}`}
                 >
-                  {badge}
+                  {getStatusDisplayLabel(badge)}
                 </span>
               </button>
             ))
@@ -666,7 +667,7 @@ function DashboardEmailWidget({
                     tone,
                   )}`}
                 >
-                  {badge}
+                  {getStatusDisplayLabel(badge)}
                 </span>
               </button>
             ))
@@ -917,7 +918,7 @@ function DashboardReportSnapshotWidget({
                 <span
                   className={`max-w-[90px] truncate text-[10.5px] font-medium ${actionTone(tone as DashboardV2Tone)}`}
                 >
-                  {badge}
+                  {getStatusDisplayLabel(badge)}
                 </span>
               </button>
             ))}
@@ -1010,7 +1011,9 @@ function FinancialMetricRow({
   return (
     <div className="min-w-0">
       <div className="mb-1 flex min-w-0 items-baseline justify-between gap-3">
-        <span className="min-w-0 truncate text-[12px] font-normal text-slate-700">{label}</span>
+        <span className="min-w-0 truncate text-[12px] font-normal text-slate-700">
+          {getStatusDisplayLabel(label)}
+        </span>
         <strong className="shrink-0 text-[12px] font-medium text-slate-950">{value}</strong>
       </div>
       <div className="flex items-center gap-2">
@@ -1066,6 +1069,21 @@ function DashboardDocumentColumn({
   icon: LucideIcon;
   rows: DocumentStatusItem[];
 }) {
+  const statusLabels: Record<string, string> = {
+    draft: "Borradores",
+    "not sent": "No enviadas",
+    unpaid: "Pendientes de pago",
+    "partially paid": "Pagos parciales",
+    overdue: "Vencidas",
+    paid: "Pagadas",
+    sent: "Enviadas",
+    expired: "Vencidas",
+    declined: "Rechazadas",
+    accepted: "Aceptadas",
+    open: "Abiertas",
+    revised: "Revisadas",
+  };
+
   return (
     <div className="min-w-0">
       <div className="mb-3 flex min-w-0 items-center gap-2">
@@ -1077,7 +1095,7 @@ function DashboardDocumentColumn({
           <div key={`${title}-${label}`}>
             <div className="mb-1 flex items-center justify-between gap-3 text-[11.5px]">
               <span className={`truncate font-semibold ${actionTone(tone)}`}>
-                {count} {label}
+                {count} {statusLabels[label.toLowerCase()] || label}
               </span>
               <span className="shrink-0 font-medium text-slate-400">{percent}%</span>
             </div>
@@ -1114,7 +1132,7 @@ function DashboardSalesDocumentsOverviewWidget({
       <MiniWidgetCard
         title="Documentos"
         value={String(totalDocuments)}
-        helper={overview.totals[0]?.[1] ? `${overview.totals[0][1]} outstanding` : "Sin documentos"}
+        helper={overview.totals[0]?.[1] ? `${overview.totals[0][1]} por cobrar` : "Sin documentos"}
         icon={FileText}
         tone={openInvoices ? "orange" : "blue"}
         status="Ventas"
@@ -1124,24 +1142,24 @@ function DashboardSalesDocumentsOverviewWidget({
 
   return (
     <DashboardCard
-      title="Sales documents overview"
+      title="Resumen de documentos de venta"
       action={<DashboardTextButton href="/invoices">Ver documentos →</DashboardTextButton>}
       bodyClassName="h-full p-4"
     >
       <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-4">
         <div className="grid min-h-0 gap-5 overflow-hidden md:grid-cols-3">
           <DashboardDocumentColumn
-            title="Invoice overview"
+            title="Resumen de facturas"
             icon={FileText}
             rows={overview.invoices}
           />
           <DashboardDocumentColumn
-            title="Estimate overview"
+            title="Resumen de cotizaciones"
             icon={FileText}
             rows={overview.estimates}
           />
           <DashboardDocumentColumn
-            title="Proposal overview"
+            title="Resumen de propuestas"
             icon={FileText}
             rows={overview.proposals}
           />
@@ -1158,7 +1176,11 @@ function DashboardSalesDocumentsOverviewWidget({
               className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
             >
               <span className={`block truncate text-[11px] font-semibold ${actionTone(tone)}`}>
-                {label}
+                {{
+                  "Outstanding Invoices": "Facturas por cobrar",
+                  "Past Due Invoices": "Facturas vencidas",
+                  "Paid Invoices": "Facturas cobradas",
+                }[label] || label}
               </span>
               <strong className="mt-1 block truncate text-[13px] font-semibold text-slate-800">
                 {value}
@@ -1266,7 +1288,7 @@ function DashboardWorkCenterWidget({
             item.tone,
           )}`}
         >
-          {item.badge}
+          {getStatusDisplayLabel(item.badge)}
         </span>
         {item.type === "task" && item.id ? (
           <div className="hidden items-center gap-1 sm:flex">
@@ -1627,7 +1649,7 @@ export function DashboardActionPrioritiesWidget({
                     item.priority,
                   )}`}
                 >
-                  {item.priority}
+                  {getStatusDisplayLabel(item.priority)}
                 </span>
 
                 <button
@@ -1779,12 +1801,14 @@ export function DashboardSalesCollectionsWidget({
             </div>
 
             <div className="space-y-1.5">
-              {pipeline.slice(0, pipelineLimit).map(([label, count, value, percent, color]) => (
+                {pipeline.slice(0, pipelineLimit).map(([label, count, value, percent, color]) => (
                 <div
                   key={String(label)}
                   className="grid grid-cols-[72px_1fr_20px_52px] items-center gap-2 text-[10.8px]"
                 >
-                  <span className="truncate font-medium text-blue-600">{label}</span>
+                  <span className="truncate font-medium text-blue-600">
+                    {getStatusDisplayLabel(label)}
+                  </span>
                   <span className="h-4 overflow-hidden rounded bg-slate-100">
                     <i className={`block h-full ${color}`} style={{ width: `${percent}%` }} />
                   </span>
@@ -1895,7 +1919,7 @@ export function DashboardClientsReviewWidget({
                   tone === "red" ? "Alta" : tone === "orange" ? "Media" : "Normal",
                 )}`}
               >
-                {status}
+                {getStatusDisplayLabel(status)}
               </span>
             </div>
           ))}
@@ -2300,10 +2324,10 @@ export function DashboardV2({
         ([label, value, , color]) =>
           [
             label === "Por cobrar"
-              ? "Outstanding Invoices"
+              ? "Facturas por cobrar"
               : label === "Vencido"
-                ? "Past Due Invoices"
-                : "Paid Invoices",
+                ? "Facturas vencidas"
+                : "Facturas cobradas",
             value,
             color.includes("rose") ? "red" : color.includes("emerald") ? "green" : "orange",
           ] as [string, string, DashboardV2Tone],
@@ -2556,7 +2580,7 @@ export function DashboardV2({
           id: "goals.progress",
           render: ({ mode }) => (
             <DashboardPlaceholderWidget
-              title="Goals progress"
+              title="Avance de metas"
               helper="Preparado para metas comerciales y operativas."
               icon={Goal}
               mode={mode}
