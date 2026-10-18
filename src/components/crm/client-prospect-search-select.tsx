@@ -193,7 +193,7 @@ export function ClientProspectSearchSelect({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[var(--radix-popover-trigger-width)] min-w-[320px] p-0"
+          className="z-[110] w-[var(--radix-popover-trigger-width)] min-w-[320px] p-0"
         >
           <Command shouldFilter={false}>
             <CommandInput
@@ -202,7 +202,11 @@ export function ClientProspectSearchSelect({
               onValueChange={setQuery}
               placeholder="Escribe para buscar..."
             />
-            <CommandList>
+            <CommandList
+              className="max-h-[min(300px,calc(100dvh-12rem))] overscroll-y-contain touch-pan-y"
+              onWheel={(event) => event.stopPropagation()}
+              onTouchMove={(event) => event.stopPropagation()}
+            >
               {value ? (
                 <CommandItem
                   value="__clear_relation__"

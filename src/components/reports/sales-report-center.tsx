@@ -43,6 +43,7 @@ import {
   type CurrencyCode,
 } from "@/lib/currency";
 import { toast } from "sonner";
+import { filterIssuedInvoiceReportRows } from "@/lib/reports/invoice-report";
 
 const REPORTS = [
   {
@@ -426,12 +427,10 @@ export function SalesReportCenter() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((row) => {
+    const reportRows = config.id === "invoices" ? filterIssuedInvoiceReportRows(rows) : rows;
+    return reportRows.filter((row) => {
       const rowStatus = row.finance_status || row.status || "";
-      if (
-        config.id === "subscriptions" &&
-        String(rowStatus).toLowerCase() === "paused"
-      ) {
+      if (config.id === "subscriptions" && String(rowStatus).toLowerCase() === "paused") {
         return false;
       }
 

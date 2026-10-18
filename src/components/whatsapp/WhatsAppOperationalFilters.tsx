@@ -50,7 +50,12 @@ function ensureSlot() {
 }
 
 function getConversationButtons() {
-  return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
+  const conversationList = document.querySelector<HTMLElement>(
+    "[data-whatsapp-conversation-list]",
+  );
+  if (!conversationList) return [];
+
+  return Array.from(conversationList.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
     const className = String(button.className || "");
     return (
       className.includes("w-full") &&

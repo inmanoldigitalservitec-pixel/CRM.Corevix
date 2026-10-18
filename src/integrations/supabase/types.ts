@@ -5062,124 +5062,6 @@ export type Database = {
           },
         ]
       }
-      product_workflow_steps: {
-        Row: {
-          assigned_role: string | null
-          company_id: string
-          created_at: string
-          default_duration_days: number
-          default_priority: string
-          description: string | null
-          id: string
-          is_active: boolean
-          product_id: string
-          step_order: number
-          title: string
-          updated_at: string
-          workflow_id: string
-        }
-        Insert: {
-          assigned_role?: string | null
-          company_id: string
-          created_at?: string
-          default_duration_days?: number
-          default_priority?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          product_id: string
-          step_order?: number
-          title: string
-          updated_at?: string
-          workflow_id: string
-        }
-        Update: {
-          assigned_role?: string | null
-          company_id?: string
-          created_at?: string
-          default_duration_days?: number
-          default_priority?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          product_id?: string
-          step_order?: number
-          title?: string
-          updated_at?: string
-          workflow_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_workflow_steps_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_workflow_steps_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_workflow_steps_workflow_id_fkey"
-            columns: ["workflow_id"]
-            isOneToOne: false
-            referencedRelation: "product_workflows"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_workflows: {
-        Row: {
-          company_id: string
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          name: string
-          product_id: string
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          product_id: string
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          product_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_workflows_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_workflows_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       products: {
         Row: {
           base_price: number | null
@@ -6964,7 +6846,6 @@ export type Database = {
           related_lead_id: string | null
           related_project_id: string | null
           related_proposal_id: string | null
-          source_workflow_step_id: string | null
           status: string
           title: string
           updated_at: string
@@ -6991,7 +6872,6 @@ export type Database = {
           related_lead_id?: string | null
           related_project_id?: string | null
           related_proposal_id?: string | null
-          source_workflow_step_id?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -7018,7 +6898,6 @@ export type Database = {
           related_lead_id?: string | null
           related_project_id?: string | null
           related_proposal_id?: string | null
-          source_workflow_step_id?: string | null
           status?: string
           title?: string
           updated_at?: string
@@ -7067,13 +6946,6 @@ export type Database = {
             columns: ["related_proposal_id"]
             isOneToOne: false
             referencedRelation: "proposals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_source_workflow_step_id_fkey"
-            columns: ["source_workflow_step_id"]
-            isOneToOne: false
-            referencedRelation: "product_workflow_steps"
             referencedColumns: ["id"]
           },
         ]

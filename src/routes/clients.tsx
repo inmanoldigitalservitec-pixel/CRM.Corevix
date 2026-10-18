@@ -42,6 +42,12 @@ import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import { logActivityEvent } from "@/lib/activity-log";
+import { derivePaymentDisplayStatus } from "@/lib/payments/payment-net-balance";
+import { groupEstimatesByClient } from "@/lib/client360-estimates";
+import {
+  canRegisterClient360InvoicePayment,
+  getClient360FinancialInvoices,
+} from "@/lib/client360-invoice-financials";
 import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
 import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import { LoadingMetrics, LoadingTable } from "@/components/crm/loading-state";
@@ -147,6 +153,7 @@ type Client360QuickDetailGroup =
   | "projects"
   | "tickets"
   | "invoices"
+  | "estimates"
   | "proposals"
   | "payments"
   | "credit_notes"
@@ -215,6 +222,9 @@ const PAYMENT_LABELS: Record<string, string> = {
   Pending: "Pendiente",
   Failed: "Fallido",
   Refunded: "Reembolsado",
+  "Partially Refunded": "Parcialmente reembolsado",
+  Reversed: "Revertido",
+  "Review Required": "Revisar movimiento",
   Manual: "Manual",
   Cash: "Efectivo",
   Card: "Tarjeta",
@@ -229,6 +239,24 @@ const CREDIT_NOTE_LABELS: Record<string, string> = {
   Applied: "Aplicada",
   Cancelled: "Cancelada",
 };
+
+const INVOICE_STATEMENT_DESCRIPTIONS: Record<string, string> = {
+  draft: "Factura en borrador",
+  sent: "Factura enviada",
+  paid: "Factura pagada",
+  partially_paid: "Factura parcialmente pagada",
+  overdue: "Factura vencida",
+  cancelled: "Factura cancelada",
+  canceled: "Factura cancelada",
+  void: "Factura anulada",
+};
+
+function invoiceStatementDescription(status: string | null | undefined) {
+  const normalized = normalizeStatus(status);
+  return (
+    INVOICE_STATEMENT_DESCRIPTIONS[normalized] || `Factura · ${String(status || "Sin estado")}`
+  );
+}
 
 const SUBSCRIPTION_LABELS: Record<string, string> = {
   Trial: "Prueba",
@@ -608,9 +636,23 @@ interface ProposalRow {
   updated_at: string;
 }
 
+interface EstimateRow {
+  id: string;
+  company_id: string;
+  client_id: string | null;
+  number: number | null;
+  title: string;
+  total: number | null;
+  currency: string | null;
+  status: string;
+  expiry_date: string | null;
+  updated_at: string;
+}
+
 interface DealRow {
   id: string;
   company_id: string;
+  client_id?: string | null;
   lead_id?: string | null;
   name: string;
   stage: string;
@@ -675,6 +717,7 @@ interface ClientSnapshot extends ClientRow {
   criticalVaultItems: VaultItemRow[];
   vaultItemsToReview: VaultItemRow[];
   proposals: ProposalRow[];
+  estimates: EstimateRow[];
   pendingProposals: ProposalRow[];
   deals: DealRow[];
   openDeals: DealRow[];
@@ -1203,6 +1246,19 @@ function ClientsPage() {
   const [vaultSaving, setVaultSaving] = useState(false);
   const [revealedVaultItemIds, setRevealedVaultItemIds] = useState<Set<string>>(() => new Set());
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([]);
+  const [paymentMovementSummaryById, setPaymentMovementSummaryById] = useState<
+    Map<
+      string,
+      {
+        refundAmount: number;
+        refundAmountBase: number;
+        reversalAmount: number;
+        reversalAmountBase: number;
+        refundMovementCount: number;
+        reversalMovementCount: number;
+      }
+    >
+  >(() => new Map());
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
   const [statementFrom, setStatementFrom] = useState(() => isoDate(-90));
   const [statementTo, setStatementTo] = useState(() => isoDate());
@@ -1271,6 +1327,7 @@ function ClientsPage() {
       "id,company_id,title,description,status,priority,due_date,updated_at,related_client_id,related_project_id",
     orderBy: "updated_at",
     ascending: false,
+    fetchAll: true,
   });
 
   const {
@@ -1333,6 +1390,67 @@ function ClientsPage() {
     ascending: false,
     limit: 2000,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    const paymentIds = payments.map((payment) => payment.id);
+    if (!profile?.company_id || paymentIds.length === 0) {
+      setPaymentMovementSummaryById(new Map());
+      return;
+    }
+
+    void (async () => {
+      const { data, error } = await (supabase as any)
+        .from("payment_movements")
+        .select("original_payment_id,movement_type,amount,amount_base")
+        .eq("company_id", profile.company_id)
+        .in("original_payment_id", paymentIds);
+      if (cancelled) return;
+      if (error) {
+        console.error("No se pudieron cargar los movimientos de pagos del Cliente 360:", error);
+        setPaymentMovementSummaryById(new Map());
+        return;
+      }
+
+      const summaries = new Map<
+        string,
+        {
+          refundAmount: number;
+          refundAmountBase: number;
+          reversalAmount: number;
+          reversalAmountBase: number;
+          refundMovementCount: number;
+          reversalMovementCount: number;
+        }
+      >();
+      for (const movement of data || []) {
+        if (movement.movement_type !== "Refund" && movement.movement_type !== "Reversal") continue;
+        const paymentId = String(movement.original_payment_id);
+        const summary = summaries.get(paymentId) || {
+          refundAmount: 0,
+          refundAmountBase: 0,
+          reversalAmount: 0,
+          reversalAmountBase: 0,
+          refundMovementCount: 0,
+          reversalMovementCount: 0,
+        };
+        const prefix = movement.movement_type === "Refund" ? "refund" : "reversal";
+        summary[`${prefix}Amount` as "refundAmount" | "reversalAmount"] += Number(
+          movement.amount || 0,
+        );
+        summary[`${prefix}AmountBase` as "refundAmountBase" | "reversalAmountBase"] += Number(
+          movement.amount_base || 0,
+        );
+        summary[`${prefix}MovementCount` as "refundMovementCount" | "reversalMovementCount"] += 1;
+        summaries.set(paymentId, summary);
+      }
+      setPaymentMovementSummaryById(summaries);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [payments, profile?.company_id]);
 
   const {
     data: creditNotes,
@@ -1460,12 +1578,25 @@ function ClientsPage() {
   });
 
   const {
+    data: estimates,
+    loading: estimatesLoading,
+    error: estimatesError,
+  } = useCrud<EstimateRow>({
+    table: "estimates",
+    select: "id,company_id,client_id,number,title,total,currency,status,expiry_date,updated_at",
+    orderBy: "updated_at",
+    ascending: false,
+    fetchAll: true,
+  });
+
+  const {
     data: deals,
     loading: dealsLoading,
     error: dealsError,
   } = useCrud<DealRow>({
     table: "deals",
-    select: "id,company_id,lead_id,name,stage,value,probability,expected_close,updated_at",
+    select:
+      "id,company_id,client_id,lead_id,name,stage,value,probability,expected_close,updated_at",
     orderBy: "updated_at",
     ascending: false,
   });
@@ -1498,6 +1629,7 @@ function ClientsPage() {
     calendarEventsLoading ||
     vaultItemsLoading ||
     proposalsLoading ||
+    estimatesLoading ||
     dealsLoading ||
     managersLoading;
 
@@ -1519,6 +1651,7 @@ function ClientsPage() {
       calendarEventsError,
       vaultItemsError,
       proposalsError,
+      estimatesError,
       dealsError,
       managersError,
     ].filter(Boolean);
@@ -1541,6 +1674,7 @@ function ClientsPage() {
     calendarEventsError,
     vaultItemsError,
     proposalsError,
+    estimatesError,
     dealsError,
     managersError,
   ]);
@@ -1660,6 +1794,10 @@ function ClientsPage() {
     () => groupBy(contracts, (contract) => contract.client_id),
     [contracts],
   );
+  const contractsByInvoice = useMemo(
+    () => groupBy(contracts, (contract) => contract.invoice_id),
+    [contracts],
+  );
   const contractsByProject = useMemo(
     () => groupBy(contracts, (contract) => contract.project_id),
     [contracts],
@@ -1685,7 +1823,8 @@ function ClientsPage() {
     () => groupBy(proposals, (proposal) => proposal.client_id),
     [proposals],
   );
-  const dealsByClient = useMemo(() => new Map<string, DealRow[]>(), []);
+  const estimatesByClient = useMemo(() => groupEstimatesByClient(estimates), [estimates]);
+  const dealsByClient = useMemo(() => groupBy(deals, (deal) => deal.client_id), [deals]);
   const clientProductsByClient = useMemo(
     () => groupBy(clientProducts, (cp) => cp.client_id),
     [clientProducts],
@@ -1786,6 +1925,11 @@ function ClientsPage() {
           contractById.set(contract.id, contract);
         }
       }
+      for (const invoice of clientInvoices) {
+        for (const contract of contractsByInvoice.get(invoice.id) || []) {
+          contractById.set(contract.id, contract);
+        }
+      }
       const clientContracts = Array.from(contractById.values()).sort((a, b) =>
         String(b.updated_at || b.created_at || "").localeCompare(
           String(a.updated_at || a.created_at || ""),
@@ -1861,6 +2005,7 @@ function ClientsPage() {
         ["needs_review", "expired"].includes(normalizeStatus(item.status)),
       );
       const clientProposals = proposalsByClient.get(client.id) || [];
+      const clientEstimates = estimatesByClient.get(client.id) || [];
       const clientDeals = dealsByClient.get(client.id) || [];
       const cps = (clientProductsByClient.get(client.id) || []) as ClientProductRow[];
       const purchasedProductById = new Map<
@@ -1955,32 +2100,43 @@ function ClientsPage() {
           ),
         0,
       );
-      const invoicedAmount = clientInvoices
-        .filter((invoice) => normalizeStatus(invoice.status) !== "cancelled")
-        .reduce(
-          (sum, invoice) =>
-            sum +
-            storedOrConvertedBaseMoney(
-              invoice.total_base,
-              invoice.base_currency,
-              invoice.total,
-              rowCurrency(invoice),
-              currencySettings,
-            ),
-          0,
-        );
-      const paidAmount = completedPayments.reduce(
-        (sum, payment) =>
+      const invoicedAmount = getClient360FinancialInvoices(clientInvoices).reduce(
+        (sum, invoice) =>
           sum +
           storedOrConvertedBaseMoney(
-            payment.amount_base,
-            payment.base_currency,
-            payment.amount,
-            payment.currency || "USD",
+            invoice.total_base,
+            invoice.base_currency,
+            invoice.total,
+            rowCurrency(invoice),
             currencySettings,
           ),
         0,
       );
+      const paidAmount = completedPayments.reduce((sum, payment) => {
+        const movement = paymentMovementSummaryById.get(payment.id);
+        const netAmount = Math.max(
+          Number(payment.amount || 0) -
+            (movement?.refundAmount || 0) -
+            (movement?.reversalAmount || 0),
+          0,
+        );
+        const netAmountBase = Math.max(
+          Number(payment.amount_base ?? payment.amount ?? 0) -
+            (movement?.refundAmountBase || 0) -
+            (movement?.reversalAmountBase || 0),
+          0,
+        );
+        return (
+          sum +
+          storedOrConvertedBaseMoney(
+            netAmountBase,
+            payment.base_currency,
+            netAmount,
+            payment.currency || "USD",
+            currencySettings,
+          )
+        );
+      }, 0);
       const creditedAmount = appliedCreditNotes.reduce(
         (sum, creditNote) =>
           sum +
@@ -2009,6 +2165,7 @@ function ClientsPage() {
         ...clientReminders.map((reminder) => reminder.updated_at),
         ...clientVaultItems.map((item) => item.updated_at),
         ...clientProposals.map((proposal) => proposal.updated_at),
+        ...clientEstimates.map((estimate) => estimate.updated_at),
         ...clientDeals.map((deal) => deal.updated_at),
       ]);
 
@@ -2101,6 +2258,7 @@ function ClientsPage() {
         criticalVaultItems,
         vaultItemsToReview,
         proposals: clientProposals,
+        estimates: clientEstimates,
         pendingProposals,
         deals: clientDeals,
         openDeals,
@@ -2120,11 +2278,14 @@ function ClientsPage() {
     clientProductsByClient,
     contactsByClient,
     contractsByClient,
+    contractsByInvoice,
     contractsByProject,
     creditNotesByClient,
     creditNotesByInvoice,
     currencySettings,
     dealsByClient,
+    estimatesByClient,
+    paymentMovementSummaryById,
     expensesByClient,
     expensesByProject,
     internalNotesByClient,
@@ -2344,26 +2505,43 @@ function ClientsPage() {
     };
 
     const raw = [
-      ...selectedClient.invoices
-        .filter((row) => normalizeStatus(row.status) !== "cancelled")
-        .map((row) => {
-          const value = amount(row, row.total);
-          return value == null
-            ? null
-            : {
-                id: "invoice-" + row.id,
-                date: dateKey(row.date_issued || row.due_date || row.updated_at),
-                type: "invoice" as const,
-                reference: row.number || "Factura",
-                description: "Factura emitida",
-                debit: value,
-                credit: 0,
-                currency: displayCurrency,
-                status: row.status,
-              };
-        }),
+      ...getClient360FinancialInvoices(selectedClient.invoices).map((row) => {
+        const value = amount(row, row.total);
+        return value == null
+          ? null
+          : {
+              id: "invoice-" + row.id,
+              date: dateKey(row.date_issued || row.due_date || row.updated_at),
+              type: "invoice" as const,
+              reference: row.number || "Factura",
+              description: invoiceStatementDescription(row.status),
+              debit: value,
+              credit: 0,
+              currency: displayCurrency,
+              status: row.status,
+            };
+      }),
       ...selectedClient.completedPayments.map((row) => {
-        const value = amount(row, row.amount);
+        const movement = paymentMovementSummaryById.get(row.id);
+        const netAmount = Math.max(
+          Number(row.amount || 0) - (movement?.refundAmount || 0) - (movement?.reversalAmount || 0),
+          0,
+        );
+        const netAmountBase = Math.max(
+          Number(row.amount_base ?? row.amount ?? 0) -
+            (movement?.refundAmountBase || 0) -
+            (movement?.reversalAmountBase || 0),
+          0,
+        );
+        const value = useBase
+          ? storedOrConvertedBaseMoney(
+              netAmountBase,
+              row.base_currency,
+              netAmount,
+              currencyOf(row),
+              currencySettings,
+            )
+          : amount(row, netAmount);
         return value == null
           ? null
           : {
@@ -2433,7 +2611,14 @@ function ClientsPage() {
       overdueBalance,
       displayCurrency,
     };
-  }, [currencySettings, selectedClient, statementCurrency, statementFrom, statementTo]);
+  }, [
+    currencySettings,
+    paymentMovementSummaryById,
+    selectedClient,
+    statementCurrency,
+    statementFrom,
+    statementTo,
+  ]);
 
   const exportAccountStatement = () => {
     if (!selectedClient) return;
@@ -3472,6 +3657,7 @@ function ClientsPage() {
     selectedClient.reminders.forEach((reminder) => relatedEntityIds.add(reminder.id));
     selectedClient.vaultItems.forEach((item) => relatedEntityIds.add(item.id));
     selectedClient.proposals.forEach((proposal) => relatedEntityIds.add(proposal.id));
+    selectedClient.estimates.forEach((estimate) => relatedEntityIds.add(estimate.id));
     selectedClient.deals.forEach((deal) => {
       relatedEntityIds.add(deal.id);
       if (deal.lead_id) relatedLeadIds.add(deal.lead_id);
@@ -4755,6 +4941,12 @@ function ClientsPage() {
                           icon: BriefcaseBusiness,
                           count: selectedClient.proposals.length,
                         },
+                        {
+                          value: "estimates",
+                          label: "Cotizaciones",
+                          icon: FileText,
+                          count: selectedClient.estimates.length,
+                        },
                         { value: "credit-notes", label: "Notas de crédito", icon: FileText },
                         { value: "subscriptions", label: "Suscripciones", icon: Activity },
                         { value: "expenses", label: "Gastos", icon: Receipt },
@@ -5593,7 +5785,8 @@ function ClientsPage() {
                                       <span className="text-slate-500">
                                         {formatDateTime(invoice.updated_at)}
                                       </span>
-                                      {can("payments.create") ? (
+                                      {can("payments.create") &&
+                                      canRegisterClient360InvoicePayment(invoice.status) ? (
                                         <Button
                                           type="button"
                                           variant="ghost"
@@ -5769,6 +5962,25 @@ function ClientsPage() {
                             const invoice = payment.invoice_id
                               ? invoiceById.get(payment.invoice_id)
                               : null;
+                            const movement = paymentMovementSummaryById.get(payment.id);
+                            const netAmount = Math.max(
+                              Number(payment.amount || 0) -
+                                (movement?.refundAmount || 0) -
+                                (movement?.reversalAmount || 0),
+                              0,
+                            );
+                            const displayStatus = derivePaymentDisplayStatus(
+                              payment.status,
+                              netAmount,
+                              movement || {
+                                refundAmount: 0,
+                                refundAmountBase: 0,
+                                reversalAmount: 0,
+                                reversalAmountBase: 0,
+                                refundMovementCount: 0,
+                                reversalMovementCount: 0,
+                              },
+                            );
                             return (
                               <div
                                 key={payment.id}
@@ -5794,9 +6006,9 @@ function ClientsPage() {
                                 <div className="flex shrink-0 items-center gap-3 sm:justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {money(payment.amount, payment.currency)}
+                                      {money(netAmount, payment.currency)}
                                     </p>
-                                    <StatusBadge status={payment.status} />
+                                    <StatusBadge status={displayStatus} />
                                   </div>
                                   {renderClient360QuickDetailButton(
                                     "payments",
@@ -5902,6 +6114,98 @@ function ClientsPage() {
                                   "proposals",
                                   proposal.id,
                                   "Ver propuesta",
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent
+                      value="estimates"
+                      className="space-y-4"
+                      data-demo="client-360-estimates"
+                    >
+                      <div className="border-b border-slate-100 pb-4">
+                        <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                          Cotizaciones del cliente
+                        </h3>
+                        <p className="mt-1 text-sm font-normal text-slate-500">
+                          Cotizaciones vinculadas directamente a esta cuenta, separadas de sus
+                          propuestas.
+                        </p>
+                      </div>
+
+                      <CrmDetailSummaryGrid
+                        className="border-b border-slate-100 pb-4"
+                        items={[
+                          {
+                            key: "estimates-count",
+                            label: "Cotizaciones",
+                            value: selectedClient.estimates.length,
+                          },
+                          {
+                            key: "estimates-drafts",
+                            label: "Borradores",
+                            value: selectedClient.estimates.filter(
+                              (estimate) => normalizeStatus(estimate.status) === "draft",
+                            ).length,
+                          },
+                          {
+                            key: "estimates-sent",
+                            label: "Enviadas",
+                            value: selectedClient.estimates.filter(
+                              (estimate) => normalizeStatus(estimate.status) === "sent",
+                            ).length,
+                          },
+                          {
+                            key: "estimates-converted",
+                            label: "Convertidas",
+                            value: selectedClient.estimates.filter(
+                              (estimate) => normalizeStatus(estimate.status) === "converted",
+                            ).length,
+                          },
+                        ]}
+                      />
+
+                      {selectedClient.estimates.length === 0 ? (
+                        <EmptyState
+                          icon={<FileText className="h-6 w-6" />}
+                          title="No hay cotizaciones vinculadas"
+                          description="Las cotizaciones asociadas a este cliente aparecerán aquí."
+                        />
+                      ) : (
+                        <div className="divide-y divide-slate-100 border-y border-slate-100">
+                          {selectedClient.estimates.map((estimate) => (
+                            <div
+                              key={estimate.id}
+                              className="flex items-start justify-between gap-4 py-4"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-normal text-slate-950">
+                                  {estimate.title || "Cotización"}
+                                </p>
+                                <p className="mt-1 text-xs font-normal text-slate-500">
+                                  {estimate.number
+                                    ? `Cotización #${estimate.number}`
+                                    : "Cotización"}
+                                  {estimate.expiry_date
+                                    ? ` · Vence ${formatDate(estimate.expiry_date)}`
+                                    : ""}
+                                </p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-3">
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-slate-950">
+                                    {money(estimate.total, estimate.currency)}
+                                  </p>
+                                  <StatusBadge status={estimate.status} />
+                                </div>
+                                {renderClient360QuickDetailButton(
+                                  "estimates",
+                                  estimate.id,
+                                  "Ver cotización",
                                 )}
                               </div>
                             </div>

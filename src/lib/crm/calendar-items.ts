@@ -1,3 +1,5 @@
+import { isClient360FinancialInvoiceStatus } from "../client360-invoice-financials.ts";
+
 export type EventSourceType =
   | "calendar_event"
   | "task"
@@ -345,7 +347,9 @@ export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem
         tone: "blue" as const,
       })),
     ...(input.invoices || [])
-      .filter((invoice) => Boolean(invoice.due_date))
+      .filter(
+        (invoice) => Boolean(invoice.due_date) && isClient360FinancialInvoiceStatus(invoice.status),
+      )
       .map((invoice) => ({
         id: `invoice-${invoice.id}`,
         relatedId: invoice.id,

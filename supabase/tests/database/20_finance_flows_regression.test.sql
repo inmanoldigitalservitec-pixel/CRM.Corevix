@@ -1,13 +1,15 @@
 begin;
+set local search_path = "$user", public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(16);
+select plan(21);
 
 -- Permiso temporal para que las políticas RLS puedan consultar profiles.
 -- Se revierte al finalizar mediante ROLLBACK.
 grant select on public.profiles to authenticated;
--- payments conserva únicamente SELECT; sus mutaciones pasan por RPC.
+-- payments permite borrar pagos Pending por RLS; los pagos finalizados
+-- permanecen protegidos y las demás mutaciones pasan por RPC.
 grant select
 on public.payments
 to authenticated;
@@ -83,6 +85,76 @@ values (
   '',
   ''
 );
+
+-- Viewer de la compañía principal y admin de otra compañía para comprobar
+-- que la política DELETE exige tanto payments.create como el tenant correcto.
+insert into auth.users (
+  id,
+  instance_id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change
+)
+values
+(
+  '30000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'finance-viewer@example.test',
+  '',
+  now(),
+  '{"provider":"email","providers":["email"]}',
+  '{}',
+  now(), now(), '', '', '', ''
+),
+(
+  '30000000-0000-0000-0000-000000000004',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'finance-other-company@example.test',
+  '',
+  now(),
+  '{"provider":"email","providers":["email"]}',
+  '{}',
+  now(), now(), '', '', '', ''
+);
+
+insert into public.companies (
+  id,
+  company_name
+)
+values (
+  '10000000-0000-0000-0000-000000000002',
+  'Finance Regression Other Company'
+);
+
+update public.profiles
+set
+  company_id = '10000000-0000-0000-0000-000000000001',
+  full_name = 'Finance Regression Viewer',
+  email = 'finance-viewer@example.test',
+  is_active = true
+where user_id = '30000000-0000-0000-0000-000000000003';
+
+update public.profiles
+set
+  company_id = '10000000-0000-0000-0000-000000000002',
+  full_name = 'Finance Regression Other Company Admin',
+  email = 'finance-other-company@example.test',
+  is_active = true
+where user_id = '30000000-0000-0000-0000-000000000004';
 
 update public.profiles
 set
@@ -345,6 +417,37 @@ values (
   '40000000-0000-0000-0000-000000000001'
 );
 
+insert into public.payments (
+  id,
+  company_id,
+  invoice_id,
+  client_id,
+  amount,
+  amount_base,
+  status,
+  method,
+  reference,
+  currency,
+  base_currency,
+  exchange_rate,
+  created_by
+)
+values (
+  '70000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000001',
+  '50000000-0000-0000-0000-000000000007',
+  '20000000-0000-0000-0000-000000000001',
+  25,
+  25,
+  'Pending',
+  'Manual',
+  'PENDING-DELETE-TEST',
+  'USD',
+  'USD',
+  1,
+  '40000000-0000-0000-0000-000000000001'
+);
+
 alter table public.payments
   enable trigger payments_refresh_invoice_finance;
 
@@ -387,13 +490,21 @@ select is(
 -- ============================================================
 
 -- Roles para capacidades financieras sensibles.
+delete from public.user_roles
+where user_id in (
+  '30000000-0000-0000-0000-000000000003',
+  '30000000-0000-0000-0000-000000000004'
+);
+
 insert into public.user_roles (
   user_id,
   role
 )
 values
 ('30000000-0000-0000-0000-000000000001', 'admin'::public.app_role),
-('30000000-0000-0000-0000-000000000002', 'admin'::public.app_role);
+('30000000-0000-0000-0000-000000000002', 'admin'::public.app_role),
+('30000000-0000-0000-0000-000000000003', 'viewer'::public.app_role),
+('30000000-0000-0000-0000-000000000004', 'admin'::public.app_role);
 
 set local role authenticated;
 
@@ -596,7 +707,7 @@ select throws_matching(
       '20000000-0000-0000-0000-000000000001'
     )
   $$,
-  '.*No hay una compañía activa asociada al usuario.*',
+  '.*No se encontró la factura dentro de la compañía actual.*',
   'Un usuario sin compañía activa no puede registrar pagos'
 );
 
@@ -627,12 +738,119 @@ select ok(
 );
 
 select ok(
-  not has_table_privilege(
+  has_table_privilege(
     'authenticated',
     'public.payments',
     'DELETE'
   ),
-  'Authenticated no puede eliminar payments directamente'
+  'Authenticated tiene GRANT DELETE; RLS lo limita a pagos Pending autorizados'
+);
+
+delete from public.payments
+where id = '70000000-0000-0000-0000-000000000001';
+
+select is(
+  (
+    select count(*)
+    from public.payments
+    where id = '70000000-0000-0000-0000-000000000001'
+  ),
+  1::bigint,
+  'RLS conserva el pago Completed tras el DELETE silencioso'
+);
+
+-- Viewer de la misma compañía tiene acceso de lectura, pero no payments.create.
+select set_config(
+  'request.jwt.claim.sub',
+  '30000000-0000-0000-0000-000000000003',
+  true
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"30000000-0000-0000-0000-000000000003","role":"authenticated"}',
+  true
+);
+
+delete from public.payments
+where id = '70000000-0000-0000-0000-000000000002';
+
+select set_config(
+  'request.jwt.claim.sub',
+  '30000000-0000-0000-0000-000000000001',
+  true
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"30000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+select is(
+  (
+    select count(*)
+    from public.payments
+    where id = '70000000-0000-0000-0000-000000000002'
+  ),
+  1::bigint,
+  'RLS conserva el pago Pending frente a un viewer sin payments.create'
+);
+
+-- Un admin de otra compañía tampoco puede borrar el pago Pending.
+select set_config(
+  'request.jwt.claim.sub',
+  '30000000-0000-0000-0000-000000000004',
+  true
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"30000000-0000-0000-0000-000000000004","role":"authenticated"}',
+  true
+);
+
+delete from public.payments
+where id = '70000000-0000-0000-0000-000000000002';
+
+select set_config(
+  'request.jwt.claim.sub',
+  '30000000-0000-0000-0000-000000000001',
+  true
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"30000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+select is(
+  (
+    select count(*)
+    from public.payments
+    where id = '70000000-0000-0000-0000-000000000002'
+  ),
+  1::bigint,
+  'RLS conserva el pago Pending frente a otra compañía'
+);
+
+select lives_ok(
+  $$
+    delete from public.payments
+    where id = '70000000-0000-0000-0000-000000000002'
+  $$,
+  'RLS permite a Authenticated eliminar su pago Pending con payments.create'
+);
+
+select is(
+  (
+    select count(*)
+    from public.payments
+    where id = '70000000-0000-0000-0000-000000000002'
+  ),
+  0::bigint,
+  'El DELETE autorizado elimina el fixture Pending dentro del rollback'
 );
 
 select * from finish();

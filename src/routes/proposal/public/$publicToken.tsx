@@ -27,6 +27,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ProposalTemplateRenderer } from "@/components/proposals/ProposalTemplateRenderer";
+import { getProposalDiscountAmount } from "@/components/proposals/proposal-template-rendering";
 import { formatCurrencyAmount } from "@/lib/currency";
 import { toast } from "sonner";
 
@@ -71,6 +72,7 @@ function LetterProposalView(props: {
 
   const currency = proposal?.currency || "USD";
   const amount = Number(proposal?.amount || 0);
+  const discountAmount = getProposalDiscountAmount(proposal);
   const clientName =
     String((data as any)?.companyName || (data as any)?.clientName || "").trim() ||
     (proposal?.client_id ? `Cliente ${String(proposal.client_id).slice(0, 8)}` : "Cliente");
@@ -232,7 +234,7 @@ function LetterProposalView(props: {
             </div>
             <div className="flex justify-between border-b border-slate-200 py-2">
               <span className="font-semibold">Descuento</span>
-              <span className="font-bold">{formatMoney(0, currency)}</span>
+              <span className="font-bold">-{formatMoney(discountAmount, currency)}</span>
             </div>
             <div className="mt-4 flex items-center justify-between bg-[#1d62f9] px-5 py-4 text-white">
               <span className="text-[15px] font-bold uppercase">Total</span>
@@ -288,6 +290,7 @@ function ProposalDocumentView(props: {
   const currency = proposal?.currency || "USD";
   const subtotal = Number(proposal?.subtotal ?? proposal?.amount ?? 0);
   const taxTotal = Number(proposal?.tax_total ?? 0);
+  const discountAmount = getProposalDiscountAmount(proposal);
   const total = Number(proposal?.total ?? proposal?.amount ?? subtotal + taxTotal);
 
   const clientName =
@@ -505,6 +508,12 @@ function ProposalDocumentView(props: {
                 <span className="font-bold">{formatMoney(taxTotal, currency)}</span>
               </div>
             ) : null}
+            {discountAmount > 0 ? (
+              <div className="flex justify-between border-b border-slate-200 py-2">
+                <span className="font-semibold">Descuento</span>
+                <span className="font-bold">-{formatMoney(discountAmount, currency)}</span>
+              </div>
+            ) : null}
             <div className="mt-3 flex items-center justify-between bg-slate-950 px-4 py-3 text-white">
               <span className="font-bold uppercase">Total</span>
               <span className="text-[17px] font-bold">{formatMoney(total, currency)}</span>
@@ -624,9 +633,6 @@ function PublicProposalView(props: {
   const revisionStageText = String((data as any)?.revisionStageText || "").trim();
   const finalStageText = String((data as any)?.finalStageText || "").trim();
   const processText = String((data as any)?.processText || "").trim();
-  const processStepsRaw = Array.isArray((data as any)?.processSteps)
-    ? (data as any).processSteps
-    : [];
 
   const clientRequirementsText = String((data as any)?.clientRequirementsText || "").trim();
   const requiredMaterialsText = String((data as any)?.requiredMaterialsText || "").trim();
@@ -664,7 +670,6 @@ function PublicProposalView(props: {
   const showExecutiveSummary = introductionText || objectiveText || serviceDescription;
   const showScope = deliverablesText || featuresText || optionalServicesText || outOfScopeText;
   const showProcess =
-    processStepsRaw.length ||
     processText ||
     initialStageText ||
     productionStageText ||
@@ -897,16 +902,6 @@ function PublicProposalView(props: {
   const optionalItems = splitItems(optionalServicesText);
   const outOfScopeItems = splitItems(outOfScopeText);
 
-  const processStepsFromData = processStepsRaw
-    .map((step: any, index: number) => ({
-      number: String(index + 1).padStart(2, "0"),
-      title: String(step?.title || `Paso ${index + 1}`).trim(),
-      text: String(step?.description || "").trim(),
-      order: Number(step?.order || index + 1),
-    }))
-    .sort((a: any, b: any) => a.order - b.order)
-    .filter((step: any) => step.title || step.text);
-
   const processStepsFromFallback = [
     { number: "01", title: "Etapa inicial", text: initialStageText },
     { number: "02", title: "Producción / desarrollo", text: productionStageText },
@@ -936,11 +931,9 @@ function PublicProposalView(props: {
     : [];
 
   const processSteps =
-    processStepsFromData.length > 0
-      ? processStepsFromData
-      : processStepsFromText.length > 0
-        ? (processStepsFromText as Array<{ number: string; title: string; text: string }>)
-        : processStepsFromFallback;
+    processStepsFromText.length > 0
+      ? (processStepsFromText as Array<{ number: string; title: string; text: string }>)
+      : processStepsFromFallback;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_50%_0%,rgba(29,98,249,.28),transparent_34%),linear-gradient(180deg,#020817_0%,#07152e_100%)] px-3 py-4 text-[#101828] print:bg-white">
@@ -1056,7 +1049,7 @@ function PublicProposalView(props: {
             </SectionCard>
           ) : null}
 
-          {/* Workflow Process */}
+          {/* Manual proposal process */}
           {showProcess ? (
             <SectionCard>
               <SectionTitle title="Proceso de trabajo" />

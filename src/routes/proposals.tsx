@@ -58,6 +58,7 @@ import { ProposalWorkspaceDialog } from "@/components/proposals/proposal-workspa
 import { useCrud } from "@/hooks/use-crud";
 import { supabase } from "@/integrations/supabase/client";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
+import { withoutProductWorkflowSteps } from "@/lib/proposals/proposal-data";
 import {
   isApprovedProposalStatus,
   isPendingProposalStatus,
@@ -207,16 +208,6 @@ interface Product {
   default_tax_rate?: number | string | null;
 }
 
-interface ProductWorkflowStep {
-  id: string;
-  product_id: string;
-  title: string;
-  description: string | null;
-  step_order: number | null;
-  default_duration_days: number | null;
-  is_active: boolean;
-}
-
 interface Client {
   id: string;
   company_name: string;
@@ -239,13 +230,6 @@ interface ProposalLead {
   display_name?: string | null;
   email?: string | null;
   phone?: string | null;
-}
-
-interface ProposalProcessStep {
-  title: string;
-  description: string;
-  order: number;
-  durationDays: number | null;
 }
 
 interface ProposalLineItem {
@@ -514,7 +498,6 @@ function createEmptyProposalForm(context?: ProposalsSearch) {
     optionalServicesText: "",
     outOfScopeText: "",
     processText: "",
-    processSteps: [],
     initialStageText: "",
     productionStageText: "",
     revisionStageText: "",
@@ -680,7 +663,7 @@ function ProposalEditorDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-none [&>button]:hidden">
+      <DialogContent className="z-[100] flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-none [&>button]:hidden">
         <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] text-left sm:px-6 lg:px-10">
           <DialogDescription className="sr-only">
             Completa o edita la informacion comercial de la propuesta.
@@ -707,8 +690,10 @@ function ProposalEditorDialog({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-10">{children}</div>
+        <ScrollArea className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:!min-w-0">
+          <div className="mx-auto w-full min-w-0 max-w-[1440px] px-4 py-5 sm:px-6 lg:px-10">
+            {children}
+          </div>
         </ScrollArea>
 
         {footer ? (
@@ -832,7 +817,6 @@ function ProposalsPage() {
     optionalServicesText: string;
     outOfScopeText: string;
     processText: string;
-    processSteps: ProposalProcessStep[];
     initialStageText: string;
     productionStageText: string;
     revisionStageText: string;
@@ -871,9 +855,7 @@ function ProposalsPage() {
       };
       const saved = await update(proposal.id, statusPatch);
       setSelected((current) =>
-        current?.id === proposal.id
-          ? { ...current, ...(saved || statusPatch) }
-          : current,
+        current?.id === proposal.id ? { ...current, ...(saved || statusPatch) } : current,
       );
       toast.success("Estado de la propuesta actualizado.");
     } catch (error: any) {
@@ -906,12 +888,6 @@ function ProposalsPage() {
     limit: 1000,
   });
 
-  const { data: productWorkflowSteps } = useCrud<ProductWorkflowStep>({
-    table: "product_workflow_steps",
-    orderBy: "step_order",
-    ascending: true,
-    filters: [{ column: "is_active", op: "eq", value: true }],
-  });
   const sendProposalNotification = async (title: string, message: string) => {
     if (!profile?.company_id || !user?.id) return;
     await createAttentionNotification(
@@ -1114,7 +1090,9 @@ function ProposalsPage() {
     const adjustmentValue = normalizeCurrencyAmount(form.adjustmentValue, form.currency);
     const safeDiscount = Number.isFinite(discountValue) ? discountValue : 0;
     const discount =
-      form.discountType === "percent" ? subtotal * (safeDiscount / 100) : safeDiscount;
+      form.discountType === "percent"
+        ? subtotal * (Math.min(Math.max(safeDiscount, 0), 100) / 100)
+        : Math.max(0, safeDiscount);
     const adjustment = Number.isFinite(adjustmentValue) ? adjustmentValue : 0;
     const total = Math.max(0, subtotal + taxTotal - discount + adjustment);
     return {
@@ -1148,26 +1126,6 @@ function ProposalsPage() {
       return next;
     });
   }, [selectedProposalClient]);
-
-  const workflowStepsByProductId = useMemo(() => {
-    const map = new Map<string, ProposalProcessStep[]>();
-    for (const step of productWorkflowSteps) {
-      if (!step.product_id) continue;
-      const list = map.get(step.product_id) || [];
-      list.push({
-        title: String(step.title || "").trim(),
-        description: String(step.description || "").trim(),
-        order: Number(step.step_order || 0),
-        durationDays: step.default_duration_days ?? null,
-      });
-      map.set(step.product_id, list);
-    }
-    for (const [productId, list] of map.entries()) {
-      list.sort((a, b) => a.order - b.order);
-      map.set(productId, list);
-    }
-    return map;
-  }, [productWorkflowSteps]);
 
   const stats = useMemo(() => {
     const total = data.length;
@@ -1306,7 +1264,6 @@ function ProposalsPage() {
         product?.proposal_defaults && typeof product.proposal_defaults === "object"
           ? (product.proposal_defaults as any)
           : {};
-      const workflowSteps = workflowStepsByProductId.get(product.id) || [];
       const productTax = getDefaultTaxForProduct(product);
       const productTaxRate = productTax ? normalizeTaxRate(productTax.rate) : 0;
 
@@ -1320,7 +1277,6 @@ function ProposalsPage() {
       const nextStepEmpty = !prev.nextStep?.trim();
       const paymentFrequencyEmpty = !prev.paymentFrequency?.trim();
       const contentEmpty = !prev.content?.trim();
-      const processStepsEmpty = !Array.isArray(prev.processSteps) || prev.processSteps.length === 0;
 
       if (force || amountEmpty) next.amount = convertedPriceInput;
       if (force && currencyEmpty) next.currency = documentCurrency;
@@ -1389,10 +1345,6 @@ function ProposalsPage() {
       mapTextField("investmentDetailsText", defaults.investmentDetailsText);
       mapTextField("additionalCostsText", defaults.additionalCostsText);
       mapTextField("paymentTermsText", defaults.paymentTermsText);
-
-      if (force || processStepsEmpty) {
-        next.processSteps = workflowSteps;
-      }
 
       if (force || contentEmpty) {
         // Keep content optional; provide a short suggested message if empty.
@@ -1578,16 +1530,6 @@ function ProposalsPage() {
       optionalServicesText: String((pd as any)?.optionalServicesText ?? ""),
       outOfScopeText: String((pd as any)?.outOfScopeText ?? ""),
       processText: String((pd as any)?.processText ?? ""),
-      processSteps: Array.isArray((pd as any)?.processSteps)
-        ? (pd as any).processSteps
-            .map((step: any, index: number) => ({
-              title: String(step?.title || "").trim(),
-              description: String(step?.description || "").trim(),
-              order: Number(step?.order || index + 1),
-              durationDays: step?.durationDays != null ? Number(step.durationDays) : null,
-            }))
-            .filter((step: ProposalProcessStep) => step.title || step.description)
-        : [],
       initialStageText: String((pd as any)?.initialStageText ?? ""),
       productionStageText: String((pd as any)?.productionStageText ?? ""),
       revisionStageText: String((pd as any)?.revisionStageText ?? ""),
@@ -1740,10 +1682,11 @@ function ProposalsPage() {
       .map((tag) => tag.trim())
       .filter(Boolean);
 
-    const baseProposalData =
+    const baseProposalData = withoutProductWorkflowSteps(
       editItem?.proposal_data && typeof editItem.proposal_data === "object"
         ? { ...(editItem.proposal_data as any) }
-        : {};
+        : {},
+    );
 
     const proposalData = {
       ...baseProposalData,
@@ -1778,15 +1721,6 @@ function ProposalsPage() {
       optionalServicesText: form.optionalServicesText?.trim() || null,
       outOfScopeText: form.outOfScopeText?.trim() || null,
       processText: form.processText?.trim() || null,
-      processSteps:
-        Array.isArray(form.processSteps) && form.processSteps.length
-          ? form.processSteps.map((step, index) => ({
-              title: step.title?.trim() || `Paso ${index + 1}`,
-              description: step.description?.trim() || "",
-              order: Number(step.order || index + 1),
-              durationDays: step.durationDays ?? null,
-            }))
-          : null,
       initialStageText: form.initialStageText?.trim() || null,
       productionStageText: form.productionStageText?.trim() || null,
       revisionStageText: form.revisionStageText?.trim() || null,
@@ -2753,9 +2687,8 @@ function ProposalsPage() {
                             label: client.contact_person
                               ? `${client.company_name} · ${client.contact_person}`
                               : client.company_name,
-                            secondaryLabel: [client.email, client.phone]
-                              .filter(Boolean)
-                              .join(" · ") || null,
+                            secondaryLabel:
+                              [client.email, client.phone].filter(Boolean).join(" · ") || null,
                             searchText: [
                               client.company_name,
                               client.contact_person,
@@ -2768,10 +2701,7 @@ function ProposalsPage() {
                             data: client,
                           }))}
                           prospects={leads.map((lead) => {
-                            const contactName = [
-                              lead.first_name,
-                              lead.last_name,
-                            ]
+                            const contactName = [lead.first_name, lead.last_name]
                               .filter(Boolean)
                               .join(" ")
                               .trim();
@@ -2784,9 +2714,9 @@ function ProposalsPage() {
                                 contactName ||
                                 lead.email ||
                                 "Prospecto",
-                              secondaryLabel: [contactName, lead.email, lead.phone]
-                                .filter(Boolean)
-                                .join(" · ") || null,
+                              secondaryLabel:
+                                [contactName, lead.email, lead.phone].filter(Boolean).join(" · ") ||
+                                null,
                               searchText: [
                                 lead.company_name,
                                 lead.first_name,
@@ -2813,10 +2743,8 @@ function ProposalsPage() {
                             const data = (option?.data || {}) as Record<string, unknown>;
                             setForm((p) => ({
                               ...p,
-                              client_id:
-                                nextValue?.type === "client" ? nextValue.id : null,
-                              lead_id:
-                                nextValue?.type === "lead" ? nextValue.id : null,
+                              client_id: nextValue?.type === "client" ? nextValue.id : null,
+                              lead_id: nextValue?.type === "lead" ? nextValue.id : null,
                               recipientName:
                                 String(
                                   data.contact_person ||
@@ -2825,13 +2753,11 @@ function ProposalsPage() {
                                     data.company_name ||
                                     "",
                                 ).trim() || p.recipientName,
-                              recipientEmail:
-                                String(data.email || "").trim() || p.recipientEmail,
+                              recipientEmail: String(data.email || "").trim() || p.recipientEmail,
                               recipientPhone:
                                 String(data.phone || data.whatsapp || "").trim() ||
                                 p.recipientPhone,
-                              recipientCity:
-                                String(data.city || "").trim() || p.recipientCity,
+                              recipientCity: String(data.city || "").trim() || p.recipientCity,
                             }));
                           }}
                         />
@@ -2842,9 +2768,8 @@ function ProposalsPage() {
                             label: client.contact_person
                               ? `${client.company_name} · ${client.contact_person}`
                               : client.company_name,
-                            secondaryLabel: [client.email, client.phone]
-                              .filter(Boolean)
-                              .join(" · ") || null,
+                            secondaryLabel:
+                              [client.email, client.phone].filter(Boolean).join(" · ") || null,
                             searchText: [
                               client.company_name,
                               client.contact_person,
@@ -2865,9 +2790,8 @@ function ProposalsPage() {
                               [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
                               lead.email ||
                               "Prospecto",
-                            secondaryLabel: [lead.email, lead.phone]
-                              .filter(Boolean)
-                              .join(" · ") || null,
+                            secondaryLabel:
+                              [lead.email, lead.phone].filter(Boolean).join(" · ") || null,
                             searchText: [
                               lead.company_name,
                               lead.first_name,
@@ -2893,10 +2817,8 @@ function ProposalsPage() {
                             const data = (option?.data || {}) as Record<string, unknown>;
                             setForm((p) => ({
                               ...p,
-                              client_id:
-                                nextValue?.type === "client" ? nextValue.id : null,
-                              lead_id:
-                                nextValue?.type === "lead" ? nextValue.id : null,
+                              client_id: nextValue?.type === "client" ? nextValue.id : null,
+                              lead_id: nextValue?.type === "lead" ? nextValue.id : null,
                               recipientName:
                                 String(
                                   data.contact_person ||
@@ -2905,13 +2827,11 @@ function ProposalsPage() {
                                     data.company_name ||
                                     "",
                                 ).trim() || p.recipientName,
-                              recipientEmail:
-                                String(data.email || "").trim() || p.recipientEmail,
+                              recipientEmail: String(data.email || "").trim() || p.recipientEmail,
                               recipientPhone:
                                 String(data.phone || data.whatsapp || "").trim() ||
                                 p.recipientPhone,
-                              recipientCity:
-                                String(data.city || "").trim() || p.recipientCity,
+                              recipientCity: String(data.city || "").trim() || p.recipientCity,
                             }));
                           }}
                         />
@@ -3424,6 +3344,8 @@ function ProposalsPage() {
                           className="h-10 max-w-[120px] text-right"
                           type="number"
                           step={form.discountType === "percent" ? "0.01" : moneyStep}
+                          min={0}
+                          max={form.discountType === "percent" ? 100 : undefined}
                           inputMode={form.discountType === "percent" ? "decimal" : moneyMode}
                           value={form.discountValue}
                           disabled={form.discountType === "none"}
@@ -4031,31 +3953,6 @@ function ProposalsPage() {
                         rows={3}
                       />
                     </div>
-
-                    {form.processSteps.length > 0 ? (
-                      <div className="space-y-2 border-y border-slate-100 py-3">
-                        <div className="text-xs font-medium text-slate-500">
-                          Pasos del flujo de trabajo del producto
-                        </div>
-                        <div className="space-y-2">
-                          {form.processSteps.map((step, index) => (
-                            <div
-                              key={`${step.order}-${index}`}
-                              className="border-b border-slate-100 py-2 last:border-b-0"
-                            >
-                              <div className="text-sm font-medium">
-                                {step.order || index + 1}. {step.title || `Paso ${index + 1}`}
-                              </div>
-                              {step.description ? (
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  {step.description}
-                                </div>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
 
                     <div className="space-y-1.5">
                       <Label className={crmFormStyles.label}>

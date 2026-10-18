@@ -1,4 +1,5 @@
 begin;
+set local search_path = "$user", public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
@@ -33,7 +34,10 @@ select has_view(
 select has_function(
   'public',
   'register_invoice_payment',
-  array['uuid','numeric','date','text','text','text','text','uuid','text','text','text'],
+  array[
+    'uuid','numeric','date','text','text','text','text','uuid','text','text',
+    'text','text','numeric','text','timestamp with time zone'
+  ],
   'Existe register_invoice_payment con la firma esperada'
 );
 

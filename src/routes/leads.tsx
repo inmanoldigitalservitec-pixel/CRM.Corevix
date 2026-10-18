@@ -83,6 +83,9 @@ import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { QuickCreateDialog } from "@/components/crm/quick-create-dialog";
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel";
 import { LeadFilesPanel } from "@/components/leads/lead-files-panel";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { findLeadClientMatches, type ClientContactMatch } from "@/lib/lead-client-match";
+import { projectBudgetFromSale } from "@/lib/crm/project-budget";
 
 export const Route = createFileRoute("/leads")({
   validateSearch: (search: Record<string, unknown>): { leadId?: string } => ({
@@ -287,26 +290,6 @@ type LeadActivityItem = {
   at: string | null;
 };
 
-type ProductWorkflowRow = {
-  id: string;
-  product_id: string;
-  name: string;
-  is_active: boolean | null;
-};
-
-type ProductWorkflowStepRow = {
-  id: string;
-  workflow_id: string;
-  product_id: string;
-  title: string;
-  description: string | null;
-  step_order: number;
-  default_priority: string | null;
-  default_duration_days: number | null;
-  assigned_role: string | null;
-  is_active: boolean | null;
-};
-
 function normalizePhoneForWhatsApp(phone?: string | null) {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, "");
@@ -508,39 +491,6 @@ function readLeadBaseValue(lead: Lead, baseCurrency: CurrencyCode, usdToDopRate:
 
 function formatLeadOriginalValue(lead: Lead) {
   return formatCurrency(lead.estimated_value || 0, lead.currency || "USD");
-}
-
-function readLeadPipelineBaseValue(
-  lead: Lead,
-  signal: LeadSignals | undefined,
-  baseCurrency: CurrencyCode,
-  usdToDopRate: number,
-) {
-  if (signal?.hasDeal && signal.latestDealValue != null) {
-    return convertToBaseCurrency(
-      signal.latestDealValue || 0,
-      signal.latestDealCurrency || baseCurrency,
-      {
-        baseCurrency,
-        usdToDopRate,
-        rateSource: "manual",
-        rateUpdatedAt: null,
-      },
-    );
-  }
-
-  return readLeadBaseValue(lead, baseCurrency, usdToDopRate);
-}
-
-function formatLeadPipelineOriginalValue(lead: Lead, signal: LeadSignals | undefined) {
-  if (signal?.hasDeal && signal.latestDealValue != null) {
-    return formatCurrency(
-      signal.latestDealValue,
-      signal.latestDealCurrency || lead.currency || "USD",
-    );
-  }
-
-  return formatLeadOriginalValue(lead);
 }
 
 function readDealBaseValue(deal: DealRow, baseCurrency: CurrencyCode, usdToDopRate: number) {
@@ -766,6 +716,10 @@ function LeadsPage() {
   const [openingWhatsapp, setOpeningWhatsapp] = useState(false);
   const [convertingClient, setConvertingClient] = useState(false);
   const [convertReviewOpen, setConvertReviewOpen] = useState(false);
+  const [convertMatches, setConvertMatches] = useState<ClientContactMatch[]>([]);
+  const [convertMatchesLeadId, setConvertMatchesLeadId] = useState<string | null>(null);
+  const [convertMatchesLoading, setConvertMatchesLoading] = useState(false);
+  const [convertMatchChoice, setConvertMatchChoice] = useState<string | null>(null);
   const [leadProposals, setLeadProposals] = useState<any[]>([]);
   const [leadTasks, setLeadTasks] = useState<any[]>([]);
   const [leadReminders, setLeadReminders] = useState<any[]>([]);
@@ -791,6 +745,7 @@ function LeadsPage() {
     quantity: "1",
     unit_price: "",
   });
+
   const [savingDeal, setSavingDeal] = useState(false);
   const [closingDeal, setClosingDeal] = useState<"won" | "lost" | null>(null);
   const [lostDeal, setLostDeal] = useState<DealRow | null>(null);
@@ -809,6 +764,39 @@ function LeadsPage() {
   const selectedLead = useMemo(() => {
     return leads.find((lead) => lead.id === selectedLeadId) || null;
   }, [leads, selectedLeadId]);
+
+  useEffect(() => {
+    if (!convertReviewOpen || !selectedLead || !profile?.company_id) return;
+    if (convertMatchesLeadId === selectedLead.id) return;
+
+    let cancelled = false;
+    setConvertMatches([]);
+    setConvertMatchesLeadId(null);
+    setConvertMatchChoice(null);
+    setConvertMatchesLoading(true);
+    void (async () => {
+      try {
+        const clients = await fetchAllPages(async (from, to) => {
+          const { data, error } = await (supabase as any)
+            .from("clients")
+            .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status")
+            .eq("company_id", profile.company_id)
+            .order("created_at", { ascending: false })
+            .range(from, to);
+          if (error) throw new Error(error.message || "No se pudieron comprobar coincidencias");
+          return data || [];
+        }, 500);
+        if (cancelled) return;
+        setConvertMatches(findLeadClientMatches(selectedLead, clients));
+        setConvertMatchesLeadId(selectedLead.id);
+      } catch (error: any) {
+        if (!cancelled) toast.error(error?.message || "No se pudieron comprobar coincidencias");
+      } finally {
+        if (!cancelled) setConvertMatchesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [convertReviewOpen, convertMatchesLeadId, profile?.company_id, selectedLead]);
 
   const refreshLeadActivity = useCallback(() => {
     setLeadActivityRefreshKey((value) => value + 1);
@@ -1862,48 +1850,13 @@ function LeadsPage() {
         return;
       }
 
-      const { data: workflow, error: workflowError } = await db
-        .from("product_workflows")
-        .select("id,product_id,name,is_active")
-        .eq("company_id", profile.company_id)
-        .eq("product_id", product.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (workflowError) throw workflowError;
-      if (!workflow?.id) {
-        toast.error("Este producto no tiene workflow activo.");
-        return;
-      }
-
-      const { data: steps, error: stepsError } = await db
-        .from("product_workflow_steps")
-        .select(
-          "id,workflow_id,product_id,title,description,step_order,default_priority,default_duration_days,assigned_role,is_active",
-        )
-        .eq("company_id", profile.company_id)
-        .eq("workflow_id", workflow.id)
-        .eq("product_id", product.id)
-        .eq("is_active", true)
-        .order("step_order", { ascending: true });
-      if (stepsError) throw stepsError;
-      const workflowSteps = (steps || []) as ProductWorkflowStepRow[];
-      if (!workflowSteps.length) {
-        toast.error("El workflow activo no tiene pasos.");
-        return;
-      }
-
       const startDate = new Date();
       const toDate = (date: Date) => date.toISOString().slice(0, 10);
-      const addDays = (days: number) => {
-        const next = new Date(startDate);
-        next.setDate(next.getDate() + days);
-        return toDate(next);
-      };
-      const totalDays = workflowSteps.reduce(
-        (sum, step) => sum + Math.max(0, Number(step.default_duration_days || 0)),
-        0,
+      const projectBudget = projectBudgetFromSale(
+        deal,
+        currencySettings.baseCurrency,
+        currencySettings.usdToDopRate,
+        product.currency,
       );
 
       const projectName = selectedLead?.company_name
@@ -1918,10 +1871,10 @@ function LeadsPage() {
           lead_id: deal.lead_id || selectedLeadId,
           product_id: product.id,
           start_date: toDate(startDate),
-          due_date: totalDays > 0 ? addDays(totalDays) : null,
+          due_date: null,
           status: "Not Started",
-          budget: Number(deal.value || 0),
-          description: `Proyecto creado desde oportunidad ganada.\nProducto: ${product.name}\nWorkflow: ${workflow.name}`,
+          ...projectBudget,
+          description: `Proyecto creado desde oportunidad ganada.\nProducto: ${product.name}`,
           progress: 0,
           manager: null,
         })
@@ -1929,25 +1882,7 @@ function LeadsPage() {
         .single();
       if (projectError) throw projectError;
 
-      let cursor = 0;
-      const tasksPayload = workflowSteps.map((step) => {
-        cursor += Math.max(1, Number(step.default_duration_days || 1));
-        return {
-          company_id: profile.company_id,
-          title: step.title,
-          description: step.description || null,
-          status: "To Do",
-          priority: step.default_priority || "Medium",
-          assigned_to: getAssigneeUserId(deal.assigned_to),
-          due_date: addDays(cursor),
-          related_project_id: project.id,
-          related_lead_id: deal.lead_id || selectedLeadId,
-          related_deal_id: deal.id,
-        };
-      });
-      const { error: tasksError } = await db.from("tasks").insert(tasksPayload);
-      if (tasksError) throw tasksError;
-      toast.success("Proyecto y tareas creados.");
+      toast.success("Proyecto creado.");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo crear el proyecto.");
     } finally {
@@ -2011,11 +1946,41 @@ function LeadsPage() {
       return;
     }
 
+    if (convertMatchesLeadId !== lead.id) {
+      setConvertMatchesLoading(true);
+      try {
+        const clients = await fetchAllPages(async (from, to) => {
+          const { data, error } = await (supabase as any)
+            .from("clients")
+            .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status")
+            .eq("company_id", profile.company_id)
+            .order("created_at", { ascending: false })
+            .range(from, to);
+          if (error) throw new Error(error.message || "No se pudieron comprobar coincidencias");
+          return data || [];
+        }, 500);
+        const matches = findLeadClientMatches(lead, clients);
+        setConvertMatches(matches);
+        setConvertMatchesLeadId(lead.id);
+        setConvertMatchChoice(null);
+        if (matches.length) return;
+      } catch (error: any) {
+        toast.error(error?.message || "No se pudieron comprobar coincidencias");
+        return;
+      } finally {
+        setConvertMatchesLoading(false);
+      }
+    }
+    if (convertMatchesLeadId === lead.id && convertMatches.length && !convertMatchChoice) {
+      toast.error("Selecciona un cliente coincidente o confirma crear otro");
+      return;
+    }
+
     setConvertingClient(true);
     try {
       const { data, error } = await (supabase as any).rpc("convert_lead_to_client", {
         p_lead_id: lead.id,
-        p_existing_client_id: null,
+        p_existing_client_id: convertMatchChoice && convertMatchChoice !== "create-new" ? convertMatchChoice : null,
       });
       if (error) throw error;
 
@@ -2028,6 +1993,9 @@ function LeadsPage() {
           : "Prospecto convertido en cliente",
       );
       setConvertReviewOpen(false);
+      setConvertMatches([]);
+      setConvertMatchesLeadId(null);
+      setConvertMatchChoice(null);
       setDetailOpen(false);
       await fetchLeads();
       void navigate({ to: "/clients", search: { clientId } });
@@ -2110,16 +2078,15 @@ function LeadsPage() {
       .reduce(
         (sum, l) =>
           sum +
-          readLeadPipelineBaseValue(
+          readLeadBaseValue(
             l,
-            signalsByLeadId[l.id],
             currencySettings.baseCurrency,
             currencySettings.usdToDopRate,
           ),
         0,
       );
     return { total, newLeads, needsFollowUp, readyForProposal, potentialValue };
-  }, [currencySettings.baseCurrency, currencySettings.usdToDopRate, leads, signalsByLeadId]);
+  }, [currencySettings.baseCurrency, currencySettings.usdToDopRate, leads]);
 
   const tabCounts = useMemo(() => {
     const all = leads.length;
@@ -2162,9 +2129,8 @@ function LeadsPage() {
           (ownerFilter === "mine" && isOwnLead) ||
           (ownerFilter === "team" && !!lead.assigned_to) ||
           (ownerFilter === "unassigned" && !lead.assigned_to);
-      const value = readLeadPipelineBaseValue(
+      const value = readLeadBaseValue(
         lead,
-        signalsByLeadId[lead.id],
         currencySettings.baseCurrency,
         currencySettings.usdToDopRate,
       );
@@ -2193,9 +2159,8 @@ function LeadsPage() {
 
       const highIntent = (() => {
         const valueHigh =
-          readLeadPipelineBaseValue(
+          readLeadBaseValue(
             lead,
-            signalsByLeadId[lead.id],
             currencySettings.baseCurrency,
             currencySettings.usdToDopRate,
           ) >= 15000;
@@ -2764,7 +2729,7 @@ function LeadsPage() {
                               Valor potencial
                             </div>
                             <div className="mt-1 truncate text-[12.5px] font-normal text-slate-900">
-                              {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
+                              {formatLeadOriginalValue(lead)}
                             </div>
                           </div>
                           <div className="min-w-0">
@@ -2871,7 +2836,7 @@ function LeadsPage() {
                               </div>
                             </td>
                             <td className="truncate px-3 py-2 text-[13px] font-normal text-slate-900">
-                              {formatLeadPipelineOriginalValue(lead, signalsByLeadId[lead.id])}
+                              {formatLeadOriginalValue(lead)}
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex min-w-0 items-center gap-2 text-[13px] font-normal text-slate-600">
@@ -3784,6 +3749,26 @@ function LeadsPage() {
                 <div className="border border-slate-200 p-4"><div className="text-xs uppercase text-slate-500">Empresa</div><div className="mt-1 font-medium text-slate-950">{selectedLead.company_name || getLeadName(selectedLead)}</div><div className="mt-1 text-sm text-slate-500">{selectedLead.website || selectedLead.industry || "Sin datos corporativos adicionales"}</div></div>
                 <div className="border border-slate-200 p-4"><div className="text-xs uppercase text-slate-500">Contacto principal</div><div className="mt-1 font-medium text-slate-950">{getLeadName(selectedLead)}</div><div className="mt-1 text-sm text-slate-500">{selectedLead.email || selectedLead.phone || selectedLead.whatsapp || "Sin contacto"}</div></div>
               </div>
+              {convertMatchesLeadId === selectedLead.id && convertMatches.length > 0 ? (
+                <section className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4" aria-label="Clientes coincidentes">
+                  <div>
+                    <h3 className="font-medium text-amber-950">Encontramos posibles clientes existentes</h3>
+                    <p className="text-sm text-amber-900">Elige si deseas asociar el prospecto a uno de ellos o crear otro cliente. No se fusionarán registros.</p>
+                  </div>
+                  <div className="space-y-2">
+                    {convertMatches.map(({ client, reasons }) => (
+                      <label key={client.id} className="flex cursor-pointer gap-3 rounded border border-amber-200 bg-white p-3 text-sm">
+                        <input type="radio" name="lead-client-match" value={client.id} checked={convertMatchChoice === client.id} onChange={() => setConvertMatchChoice(client.id)} />
+                        <span><span className="font-medium">{client.company_name || client.contact_person || "Cliente sin nombre"}</span><br /><span className="text-slate-600">{[client.email, client.phone || client.whatsapp, `Coincide por: ${reasons.join(", ")}`].filter(Boolean).join(" · ")}</span></span>
+                      </label>
+                    ))}
+                    <label className="flex cursor-pointer gap-3 rounded border border-amber-200 bg-white p-3 text-sm">
+                      <input type="radio" name="lead-client-match" value="create-new" checked={convertMatchChoice === "create-new"} onChange={() => setConvertMatchChoice("create-new")} />
+                      <span><span className="font-medium">Crear otro cliente</span><br /><span className="text-slate-600">Crear un registro nuevo aunque existan coincidencias.</span></span>
+                    </label>
+                  </div>
+                </section>
+              ) : null}
               <div className="border-y border-slate-100 py-4">
                 <div className="text-sm font-medium text-slate-950">Se transferirá al Cliente 360</div>
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -3795,7 +3780,7 @@ function LeadsPage() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setConvertReviewOpen(false)}>Cancelar</Button>
-                <Button onClick={() => selectedLead && void handleConvertLeadToClient(selectedLead)} disabled={convertingClient || !selectedLead}>{convertingClient ? "Convirtiendo..." : "Convertir y abrir Cliente 360"}</Button>
+                <Button onClick={() => selectedLead && void handleConvertLeadToClient(selectedLead)} disabled={convertingClient || convertMatchesLoading || !selectedLead || (convertMatchesLeadId === selectedLead.id && convertMatches.length > 0 && !convertMatchChoice)}>{convertMatchesLoading ? "Buscando coincidencias..." : convertingClient ? "Convirtiendo..." : convertMatchChoice && convertMatchChoice !== "create-new" ? "Asociar al cliente seleccionado" : convertMatchChoice === "create-new" ? "Crear otro cliente" : "Convertir y abrir Cliente 360"}</Button>
               </div>
             </div>
           ) : null}

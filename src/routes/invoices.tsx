@@ -935,6 +935,13 @@ function InvoicesPage() {
     return "Pendiente";
   };
 
+  const invoiceDueLabel = (invoice: Invoice) => {
+    if (!isFinanciallyPending(invoice) && invoice.due_date && invoice.due_date < isoToday()) {
+      return `Vencimiento ${formatInvoiceDate(invoice.due_date)}`;
+    }
+    return formatInvoiceDueDate(invoice.due_date);
+  };
+
   const renderActionsMenu = (
     invoice: Invoice,
     options: { viewProposalDisabled?: boolean; inline?: boolean } = {},
@@ -1935,7 +1942,11 @@ function InvoicesPage() {
             meta: [
               {
                 label: "Vencidas",
-                value: data.filter((invoice) => isInvoiceOverdue(invoice, isoToday())).length,
+                value: data.filter(
+                  (invoice) =>
+                    isFinanciallyPending(invoice) &&
+                    isInvoiceOverdue(invoice, isoToday()),
+                ).length,
                 tone: "red",
               },
               {
@@ -2211,7 +2222,7 @@ function InvoicesPage() {
                             {formatInvoiceDate(invoice.date_issued)}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {formatInvoiceDueDate(invoice.due_date)}
+                            {invoiceDueLabel(invoice)}
                           </TableCell>
                           <TableCell className="text-right font-normal">
                             {formatInvoiceMoney(invoice.total, currency)}
@@ -2256,7 +2267,7 @@ function InvoicesPage() {
                       proposal={getProposalNumber(invoice)}
                       status={getFinancialInvoiceStatus(invoice)}
                       total={formatInvoiceMoney(invoice.total, getInvoiceDisplayCurrency(invoice))}
-                      dueLabel={formatInvoiceDueDate(invoice.due_date)}
+                      dueLabel={invoiceDueLabel(invoice)}
                       collectionLabel={collectionLabel(invoice)}
                       actionMenu={renderActionsMenu(invoice)}
                       statusOptions={INVOICE_STATUSES.map((status) => ({

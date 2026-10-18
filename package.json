@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test:pagination": "node --experimental-strip-types --test tests/fetch-all-pages.test.ts",
+    "test:client360-estimates": "node --experimental-strip-types --test tests/client360-estimates.test.ts",
     "format": "prettier --write .",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",

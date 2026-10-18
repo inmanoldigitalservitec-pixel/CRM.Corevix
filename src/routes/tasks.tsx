@@ -1288,7 +1288,7 @@ function TasksPage() {
             <EmptyState
               icon={<CheckSquare className="h-6 w-6" />}
               title="No hay tareas todavía."
-              description="Cuando una factura se marque como pagada, el flujo de trabajo del producto creará tareas automáticamente."
+              description="Crea y organiza tareas desde el proyecto para dar seguimiento a la entrega del servicio."
               actionLabel={can("tasks.create") ? "Nueva tarea" : undefined}
               onAction={() => setDialogOpen(true)}
             />

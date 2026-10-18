@@ -43,7 +43,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { CrmDetailLineButton, CrmDetailSummaryGrid } from "@/components/crm/crm-detail-layout";
 import { EmptyState } from "@/components/crm/empty-state";
-import { renderProposalTemplateHtml } from "@/components/proposals/proposal-template-rendering";
+import {
+  getProposalDiscountAmount,
+  renderProposalTemplateHtml,
+} from "@/components/proposals/proposal-template-rendering";
 import { SalesDocumentWorkspaceDialog } from "@/components/sales/sales-document-workspace-dialog";
 import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
 import { TaskCreateDialog } from "@/components/tasks/task-detail-dialog";
@@ -68,6 +71,8 @@ type ProposalWorkspaceProposal = {
   subtotal?: number | null;
   tax_total?: number | null;
   total?: number | null;
+  discount_type?: string | null;
+  discount_value?: number | null;
   valid_until: string | null;
   description: string | null;
   content: string | null;
@@ -511,6 +516,7 @@ export function ProposalWorkspaceDialog({
   const totalAmount = Number(proposal?.total ?? proposal?.amount ?? 0);
   const subtotalAmount = Number(proposal?.subtotal ?? proposal?.amount ?? 0);
   const taxAmount = Number(proposal?.tax_total ?? 0);
+  const discountAmount = getProposalDiscountAmount(proposal);
 
   const copiedContent = useMemo(() => {
     if (!proposal) return "";
@@ -1311,6 +1317,10 @@ export function ProposalWorkspaceDialog({
                       <SummaryLine
                         label="Impuestos"
                         value={formatMoney(taxAmount, proposal.currency)}
+                      />
+                      <SummaryLine
+                        label="Descuento"
+                        value={formatMoney(discountAmount, proposal.currency)}
                       />
                       <div className="border-t border-slate-100 pt-3">
                         <SummaryLine

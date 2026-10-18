@@ -1,4 +1,5 @@
 begin;
+set local search_path = "$user", public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
@@ -139,7 +140,7 @@ values (
   'Draft',
   current_date,
   current_date + 30,
-  '31000000-0000-0000-0000-000000000001'
+  '41000000-0000-0000-0000-000000000001'
 );
 
 insert into public.invoice_items (

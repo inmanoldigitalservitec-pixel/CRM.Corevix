@@ -2080,6 +2080,23 @@ export function TaskCreateDialog({
                   }
                   className="md:min-h-0 md:flex-1"
                 />
+                <TaskCreateResourcesPanel
+                  resources={pendingResources}
+                  linkValue={resourceUrlInput}
+                  uploadingName={resourceUploadingName}
+                  uploadProgress={resourceUploadProgress}
+                  fileInputRef={resourceFileInputRef}
+                  onLinkChange={setResourceUrlInput}
+                  onAddLink={addPendingDriveLink}
+                  onPickFile={addPendingFile}
+                  onFileDrop={addPendingDroppedFile}
+                  onUploadClick={() => resourceFileInputRef.current?.click()}
+                  onRemove={(resourceId) =>
+                    setPendingResources((current) =>
+                      current.filter((resource) => resource.id !== resourceId),
+                    )
+                  }
+                />
                 {message ? (
                   <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
                     {message}
@@ -2116,23 +2133,6 @@ export function TaskCreateDialog({
                   />
                 </section>
 
-                <TaskCreateResourcesPanel
-                  resources={pendingResources}
-                  linkValue={resourceUrlInput}
-                  uploadingName={resourceUploadingName}
-                  uploadProgress={resourceUploadProgress}
-                  fileInputRef={resourceFileInputRef}
-                  onLinkChange={setResourceUrlInput}
-                  onAddLink={addPendingDriveLink}
-                  onPickFile={addPendingFile}
-                  onFileDrop={addPendingDroppedFile}
-                  onUploadClick={() => resourceFileInputRef.current?.click()}
-                  onRemove={(resourceId) =>
-                    setPendingResources((current) =>
-                      current.filter((resource) => resource.id !== resourceId),
-                    )
-                  }
-                />
               </div>
             </div>
           </main>

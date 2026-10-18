@@ -19,7 +19,11 @@ export function isCancelledInvoiceStatus(status?: string | null) {
 }
 
 export function isOpenInvoiceStatus(status?: string | null) {
-  return !isPaidInvoiceStatus(status) && !isCancelledInvoiceStatus(status);
+  return (
+    normalizeStatus(status) !== "draft" &&
+    !isPaidInvoiceStatus(status) &&
+    !isCancelledInvoiceStatus(status)
+  );
 }
 
 export function isSentInvoiceStatus(status?: string | null) {

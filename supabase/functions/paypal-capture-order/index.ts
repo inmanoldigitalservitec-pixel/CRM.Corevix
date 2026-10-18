@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isInvoiceEligibleForOnlinePayment } from "../../../src/lib/payments/invoice-payment-eligibility.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,6 +72,17 @@ serve(async (req) => {
     if (!invoice) {
       return new Response(JSON.stringify({ error: "Invoice not found" }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!isInvoiceEligibleForOnlinePayment(invoice.status)) {
+      const message =
+        String(invoice.status || "").toLowerCase() === "paid"
+          ? "Invoice already paid"
+          : "Invoice is not issued and cannot accept payment.";
+      return new Response(JSON.stringify({ error: message }), {
+        status: 409,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

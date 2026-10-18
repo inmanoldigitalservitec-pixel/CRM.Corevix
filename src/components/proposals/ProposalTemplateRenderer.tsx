@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { SocialMediaProposalTemplate } from "@/components/proposals/templates/SocialMediaProposalTemplate";
 import {
+  getProposalDiscountAmount,
   renderProposalTemplateHtml,
   type ProposalCompanyProfile,
 } from "@/components/proposals/proposal-template-rendering";
+import { formatCurrencyAmount } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -196,6 +198,27 @@ export function ProposalTemplateRenderer({
 
   if (templateKey === "custom_html" && proposal?.content) {
     const html = renderProposalTemplateHtml(proposal, items, resolvedCompany);
+    const discountAmount = getProposalDiscountAmount(proposal);
+    const discountLabel = formatCurrencyAmount(
+      discountAmount,
+      String(proposal?.currency || "USD"),
+    );
+    const discountAlreadyVisible =
+      /\bdescuento\b/i.test(html) && html.includes(discountLabel);
+    const discountRowHtml = `<div style="display:flex;justify-content:flex-end;gap:24px;border-top:1px solid #e2e8f0;padding-top:8px;margin-top:4px;font-size:12px"><span style="font-weight:600">Descuento</span><strong>-${discountLabel}</strong></div>`;
+    const conditionsIndex = html.search(/\bCondiciones\b/i);
+    const precedingHtml = conditionsIndex >= 0 ? html.slice(Math.max(0, conditionsIndex - 800), conditionsIndex) : "";
+    const blockTags = Array.from(precedingHtml.matchAll(/<(?:h[1-6]|div|p)\b[^>]*>/gi));
+    const lastHeading = blockTags.at(-1);
+    const discountInsertionIndex =
+      lastHeading?.index !== undefined
+        ? Math.max(0, conditionsIndex - 800) + lastHeading.index
+        : -1;
+    const discountInsertedBeforeConditions =
+      discountAmount > 0 && !discountAlreadyVisible && discountInsertionIndex >= 0;
+    const renderedHtml = discountInsertedBeforeConditions
+      ? `${html.slice(0, discountInsertionIndex)}${discountRowHtml}${html.slice(discountInsertionIndex)}`
+      : html;
 
     return (
       <main className="min-h-screen bg-[#eef1f6] px-4 py-6 text-slate-950 print:bg-white print:p-0">
@@ -239,8 +262,15 @@ export function ProposalTemplateRenderer({
 
         <article
           className="proposal-template-page mx-auto w-full max-w-[8.27in] bg-white px-[0.45in] py-[0.42in] text-[14px] leading-6 text-slate-800 shadow-[0_24px_70px_rgba(15,23,42,0.18)]"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        >
+          <div dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+          {discountAmount > 0 && !discountAlreadyVisible && !discountInsertedBeforeConditions ? (
+            <div className="mt-3 flex justify-end border-t border-slate-200 pt-2 text-[12px]">
+              <span className="font-semibold">Descuento</span>
+              <strong className="ml-8">-{discountLabel}</strong>
+            </div>
+          ) : null}
+        </article>
       </main>
     );
   }

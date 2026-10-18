@@ -85,6 +85,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { logActivityEvent } from "@/lib/activity-log";
 import { isLostDealStageValue, isWonDealStageValue, normalizeStage } from "@/lib/crm/status";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { findLeadClientMatches } from "@/lib/lead-client-match";
+import { projectBudgetFromSale } from "@/lib/crm/project-budget";
 
 export const Route = createFileRoute("/pipeline")({
   component: PipelinePage,
@@ -148,26 +151,6 @@ type ProposalRow = {
   created_at: string;
 };
 
-type ProductWorkflowRow = {
-  id: string;
-  product_id: string;
-  name: string;
-  is_active: boolean;
-};
-
-type ProductWorkflowStepRow = {
-  id: string;
-  workflow_id: string;
-  product_id: string;
-  title: string;
-  description: string | null;
-  step_order: number;
-  default_priority: string;
-  default_duration_days: number;
-  assigned_role: string | null;
-  is_active: boolean;
-};
-
 type ViewMode = "board" | "list";
 type DealStatusFilter = "active" | "won" | "lost" | "all";
 type AssignedFilter = "all" | "me" | "team" | "unassigned";
@@ -210,6 +193,11 @@ type ClientRow = {
   phone: string | null;
   whatsapp: string | null;
   status: string | null;
+};
+
+type WonDealClientMatch = {
+  client: ClientRow;
+  reasons: Array<"email" | "phone" | "whatsapp">;
 };
 
 type TaskRow = {
@@ -416,12 +404,6 @@ function toIsoDateOnly(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-function addDays(date: Date, days: number) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
 function PipelinePage() {
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { profile, user, roles } = useAuth();
@@ -499,6 +481,8 @@ function PipelinePage() {
   const [convertClientDialogOpen, setConvertClientDialogOpen] = useState(false);
   const [convertingClient, setConvertingClient] = useState(false);
   const [pendingWonDealId, setPendingWonDealId] = useState<string | null>(null);
+  const [wonDealClientMatches, setWonDealClientMatches] = useState<WonDealClientMatch[]>([]);
+  const [selectedWonDealClientId, setSelectedWonDealClientId] = useState<string | null>(null);
 
   const [createProjectDialogOpen, setCreateProjectDialogOpen] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
@@ -591,12 +575,36 @@ function PipelinePage() {
     Record<string, DealProductRow | undefined>
   >({});
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [workflowLoading, setWorkflowLoading] = useState(false);
-  const [activeWorkflow, setActiveWorkflow] = useState<ProductWorkflowRow | null>(null);
-  const [activeWorkflowSteps, setActiveWorkflowSteps] = useState<ProductWorkflowStepRow[]>([]);
 
   const [relatedLeadById, setRelatedLeadById] = useState<Record<string, LeadRow | undefined>>({});
-  const [relatedClientById, setRelatedClientById] = useState<Record<string, ClientRow | undefined>>({});
+  const [relatedClientById, setRelatedClientById] = useState<Record<string, ClientRow | undefined>>(
+    {},
+  );
+  useEffect(() => {
+    const leadIds = [...new Set(deals.map((deal) => deal.lead_id).filter(Boolean))] as string[];
+    if (!profile?.company_id || leadIds.length === 0) {
+      setRelatedLeadById({});
+      return;
+    }
+    let cancelled = false;
+    void (supabase as any)
+      .from("leads")
+      .select(
+        "id,company_id,first_name,last_name,company_name,email,phone,whatsapp,status,source,source_channel,created_at,updated_at",
+      )
+      .eq("company_id", profile.company_id)
+      .in("id", leadIds)
+      .then(({ data, error }: { data: LeadRow[] | null; error: unknown }) => {
+        if (!cancelled && !error) {
+          const byId: Record<string, LeadRow> = {};
+          for (const lead of data || []) byId[String(lead.id)] = lead;
+          setRelatedLeadById(byId);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, profile?.company_id]);
   useEffect(() => {
     const clientIds = [...new Set(deals.map((deal) => deal.client_id).filter(Boolean))] as string[];
     if (!profile?.company_id || clientIds.length === 0) {
@@ -842,6 +850,8 @@ function PipelinePage() {
     () => stages.filter((s) => !isWonStageName(s.name) && !isLostStageName(s.name)),
     [stages],
   );
+  const displayedViewMode =
+    pipelineStages.length === 0 && deals.length > 0 ? "list" : effectiveViewMode;
   const DESKTOP_STAGES_PER_PAGE = 6;
   const stagePages = useMemo(() => {
     const pages: { label: string; from: number; to: number }[] = [];
@@ -860,16 +870,21 @@ function PipelinePage() {
     return pipelineStages.slice(window.from, window.to);
   }, [boardStagePage, pipelineStages, stagePages]);
   const wonStageNames = useMemo(
-    () => new Set(stages.filter((s) => isWonStageName(s.name)).map((s) => s.name)),
-    [stages],
+    () =>
+      new Set([
+        ...stages.filter((s) => isWonStageName(s.name)).map((s) => s.name),
+        ...deals.filter((deal) => isWonStageName(deal.stage)).map((deal) => deal.stage),
+      ]),
+    [deals, stages],
   );
   const lostStageNames = useMemo(() => {
     // Fallback: even if the company doesn't have a `deal_stages` row for "Lost",
     // deals can still be in enum stage "Lost". Treat it as archived.
     const set = new Set(stages.filter((s) => isLostStageName(s.name)).map((s) => s.name));
     set.add("Lost");
+    deals.filter((deal) => isLostStageName(deal.stage)).forEach((deal) => set.add(deal.stage));
     return set;
-  }, [stages]);
+  }, [deals, stages]);
   const archiveStageName = useMemo(() => {
     const lost = stages.find((s) => isLostStageName(s.name))?.name;
     return lost || "Lost";
@@ -1011,48 +1026,10 @@ function PipelinePage() {
     };
   }
 
-  async function loadActiveWorkflowForProduct(productId: string) {
-    if (!profile?.company_id)
-      return { workflow: null as ProductWorkflowRow | null, steps: [] as ProductWorkflowStepRow[] };
-    const cid = profile.company_id;
-
-    const { data: wf, error: wfErr } = await db
-      .from("product_workflows")
-      .select("id,product_id,name,is_active")
-      .eq("company_id", cid)
-      .eq("product_id", productId)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (wfErr) throw new Error(wfErr.message || "No se pudo cargar el workflow del producto");
-    const workflow = (wf as ProductWorkflowRow | null) ?? null;
-    if (!workflow?.id) return { workflow: null, steps: [] };
-
-    const { data: steps, error: stepsErr } = await db
-      .from("product_workflow_steps")
-      .select(
-        "id,workflow_id,product_id,title,description,step_order,default_priority,default_duration_days,assigned_role,is_active",
-      )
-      .eq("company_id", cid)
-      .eq("workflow_id", workflow.id)
-      .eq("product_id", productId)
-      .eq("is_active", true)
-      .order("step_order", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (stepsErr)
-      throw new Error(stepsErr.message || "No se pudieron cargar los pasos del workflow");
-
-    return { workflow, steps: (steps || []) as ProductWorkflowStepRow[] };
-  }
-
   async function openCreateProjectPromptForDeal(deal: Deal) {
     if (!profile?.company_id) return;
     setProjectCandidateDealId(deal.id);
     setCreateProjectDialogOpen(true);
-    setWorkflowLoading(true);
-    setActiveWorkflow(null);
-    setActiveWorkflowSteps([]);
     setProductCandidates([]);
     setSelectedProductId(null);
     setDealProductsByProductId({});
@@ -1069,7 +1046,6 @@ function PipelinePage() {
         toast.message(
           "Esta oportunidad no tiene producto asociado. Asocia un producto para crear un proyecto automáticamente.",
         );
-        setWorkflowLoading(false);
         return;
       }
 
@@ -1079,36 +1055,8 @@ function PipelinePage() {
       const msg = e instanceof Error ? e.message : "No se pudo preparar la creación de proyecto";
       toast.error(msg);
       setCreateProjectDialogOpen(false);
-    } finally {
-      setWorkflowLoading(false);
     }
   }
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!createProjectDialogOpen || !selectedProductId) return;
-      setWorkflowLoading(true);
-      try {
-        const { workflow, steps } = await loadActiveWorkflowForProduct(selectedProductId);
-        if (cancelled) return;
-        setActiveWorkflow(workflow);
-        setActiveWorkflowSteps(steps);
-      } catch (e) {
-        if (cancelled) return;
-        const msg = e instanceof Error ? e.message : "No se pudo cargar el workflow";
-        toast.error(msg);
-        setActiveWorkflow(null);
-        setActiveWorkflowSteps([]);
-      } finally {
-        if (!cancelled) setWorkflowLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [createProjectDialogOpen, selectedProductId, profile?.company_id]);
 
   async function handleCreateProjectFromWonDeal() {
     if (!profile?.company_id || !profile?.id) return;
@@ -1129,25 +1077,13 @@ function PipelinePage() {
       return;
     }
 
-    if (!activeWorkflow?.id) {
-      toast.error(
-        "Este producto no tiene workflow activo. Define un workflow en /products primero.",
-      );
-      return;
-    }
-    if (!activeWorkflowSteps.length) {
-      toast.error("El workflow activo no tiene pasos activos.");
-      return;
-    }
-
     setCreatingProject(true);
     try {
       const cid = profile.company_id;
       const lead = deal.lead_id ? relatedLeadById[String(deal.lead_id)] || null : null;
-
       const { data: existingProject, error: existingErr } = await db
         .from("projects")
-        .select("id,name,deal_id,product_id")
+        .select("id")
         .eq("company_id", cid)
         .eq("deal_id", deal.id)
         .eq("product_id", product.id)
@@ -1157,95 +1093,41 @@ function PipelinePage() {
         toast.error(existingErr.message || "No se pudo validar duplicados de proyecto");
         return;
       }
-      const startDate = new Date();
-      const startDateIso = toIsoDateOnly(startDate);
-      const totalDays = activeWorkflowSteps.reduce(
-        (sum, s) => sum + Math.max(0, Number(s.default_duration_days || 0)),
-        0,
-      );
-      const dueDateIso = totalDays > 0 ? toIsoDateOnly(addDays(startDate, totalDays)) : null;
+      if (existingProject?.id) {
+        toast.message("Esta oportunidad ya tiene un proyecto para este producto.");
+        setCreateProjectDialogOpen(false);
+        return;
+      }
 
-      const managerProfileId = resolveAssigneeProfileId(deal.assigned_to) || profile.id;
-      const taskAssigneeUserId = resolveAssigneeUserId(deal.assigned_to);
       const projectName = lead?.company_name?.trim()
         ? `${product.name} — ${lead.company_name}`
         : `${product.name} — ${deal.name}`;
-
-      let projectId: string | null = existingProject?.id ? String(existingProject.id) : null;
-      if (!projectId) {
-        const { data: createdProject, error: createErr } = await db
-          .from("projects")
-          .insert({
-            company_id: cid,
-            name: projectName,
-            deal_id: deal.id,
-            lead_id: deal.lead_id || null,
-            product_id: product.id,
-            manager: null,
-            start_date: startDateIso,
-            due_date: dueDateIso,
-            status: "Not Started",
-            budget: Number(deal.value || 0),
-            description: `Proyecto creado desde oportunidad ganada.\nProducto: ${product.name}\nWorkflow: ${activeWorkflow.name}`,
-            progress: 0,
-          })
-          .select("id")
-          .single();
-        if (createErr) {
-          toast.error(createErr.message || "No se pudo crear el proyecto");
-          return;
-        }
-        projectId = String(createdProject.id);
-      }
-
-      const { data: existingTasks, error: tErr } = await db
-        .from("tasks")
-        .select("id")
-        .eq("company_id", cid)
-        .eq("related_project_id", projectId)
-        .limit(1);
-      if (tErr) {
-        toast.error(tErr.message || "No se pudo validar duplicados de tareas");
-        return;
-      }
-      if ((existingTasks || []).length) {
-        toast.message("Ya existe un proyecto y tareas vinculadas. No se generaron nuevas tareas.");
-        setCreateProjectDialogOpen(false);
+      const projectBudget = projectBudgetFromSale(
+        deal,
+        currencySettings.baseCurrency,
+        currencySettings.usdToDopRate,
+        product.currency,
+      );
+      const { error: createErr } = await db.from("projects").insert({
+        company_id: cid,
+        name: projectName,
+        deal_id: deal.id,
+        lead_id: deal.lead_id || null,
+        product_id: product.id,
+        manager: null,
+        start_date: toIsoDateOnly(new Date()),
+        due_date: null,
+        status: "Not Started",
+        ...projectBudget,
+        description: `Proyecto creado desde oportunidad ganada.\nProducto: ${product.name}`,
+        progress: 0,
+      });
+      if (createErr) {
+        toast.error(createErr.message || "No se pudo crear el proyecto");
         return;
       }
 
-      let cursor = 0;
-      const tasksPayload = activeWorkflowSteps
-        .slice()
-        .sort((a, b) => a.step_order - b.step_order)
-        .map((step) => {
-          cursor += Math.max(1, Number(step.default_duration_days || 1));
-          const due = toIsoDateOnly(addDays(startDate, cursor));
-          return {
-            company_id: cid,
-            title: step.title,
-            description: step.description || null,
-            status: "To Do",
-            priority: (step.default_priority as any) || "Medium",
-            assigned_to: taskAssigneeUserId,
-            due_date: due,
-            related_project_id: projectId,
-            related_client_id: null,
-            related_lead_id: deal.lead_id || null,
-            related_deal_id: deal.id,
-          };
-        });
-
-      const { error: insertTasksErr } = await db.from("tasks").insert(tasksPayload);
-      if (insertTasksErr) {
-        toast.error(
-          insertTasksErr.message || "Proyecto creado, pero no se pudieron generar tareas.",
-        );
-        setCreateProjectDialogOpen(false);
-        return;
-      }
-
-      toast.success("Proyecto y tareas creados correctamente.");
+      toast.success("Proyecto creado correctamente. Puedes añadir tareas desde el módulo Tareas.");
       setCreateProjectDialogOpen(false);
     } finally {
       setCreatingProject(false);
@@ -1567,28 +1449,6 @@ function PipelinePage() {
       if (raw === String(profile?.id || "")) return currentUserId;
 
       return currentUserId;
-    },
-    [profile?.id, profile?.user_id, teamByProfileId, teamByUserId, user?.id],
-  );
-
-  const resolveAssigneeProfileId = useCallback(
-    (assignedTo?: string | null) => {
-      if (!assignedTo) return profile?.id || null;
-
-      const raw = String(assignedTo);
-
-      const byProfile = teamByProfileId.get(raw);
-      if (byProfile?.profile_id) return byProfile.profile_id;
-
-      const byUser = teamByUserId.get(raw);
-      if (byUser?.profile_id) return byUser.profile_id;
-
-      if (raw === String(profile?.id || "")) return raw;
-      if (raw === String(user?.id || "") || raw === String(profile?.user_id || "")) {
-        return profile?.id || null;
-      }
-
-      return profile?.id || null;
     },
     [profile?.id, profile?.user_id, teamByProfileId, teamByUserId, user?.id],
   );
@@ -2053,92 +1913,74 @@ function PipelinePage() {
         return;
       }
 
-      void openCreateProjectPromptForDeal(deal);
     } finally {
       setClosingAsWon(false);
     }
   }
 
-  async function createClientFromLead(lead: LeadRow, deal: Deal) {
+  async function loadPossibleWonDealClientMatches(lead: LeadRow) {
     if (!profile?.company_id) throw new Error("No hay contexto de empresa");
-    if (!profile?.id) throw new Error("No se pudo identificar el perfil actual");
 
-    const companyId = profile.company_id;
-
-    // Duplicate check: prefer email, then phone (clients has no lead_id column in this repo).
-    if (lead.email) {
-      const { data: existingByEmail, error: emailErr } = await (supabase as any)
+    const clients = await fetchAllPages(async (from, to) => {
+      const { data, error } = await db
         .from("clients")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("email", lead.email)
+        .select("id,company_id,company_name,contact_person,email,phone,whatsapp,status")
+        .eq("company_id", profile.company_id)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (emailErr) throw new Error(emailErr.message || "No se pudo validar duplicados");
-      if (existingByEmail?.id) return String(existingByEmail.id);
-    } else {
-      const phoneCandidate = lead.phone || lead.whatsapp;
-      if (phoneCandidate) {
-        const digits = phoneCandidate.replace(/\D/g, "");
-        const phoneMatch = digits.length ? digits : phoneCandidate;
-        const { data: existingByPhone, error: phoneErr } = await (supabase as any)
-          .from("clients")
-          .select("id,phone,whatsapp")
-          .eq("company_id", companyId)
-          .or(`phone.eq.${phoneMatch},whatsapp.eq.${phoneMatch}`)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (phoneErr) throw new Error(phoneErr.message || "No se pudo validar duplicados");
-        if (existingByPhone?.id) return String(existingByPhone.id);
-      }
-    }
+        .range(from, to);
+      if (error) throw new Error(error.message || "No se pudieron comprobar coincidencias");
+      return (data || []) as ClientRow[];
+    }, 500);
 
-    const leadName = formatPersonName(lead.first_name, lead.last_name);
-    const companyName =
-      lead.company_name?.trim() ||
-      leadName ||
-      lead.email ||
-      lead.phone ||
-      lead.whatsapp ||
-      "Cliente sin nombre";
-    const contactPerson = leadName || null;
-    const phone = lead.phone || lead.whatsapp || null;
-    const whatsapp = lead.whatsapp || lead.phone || null;
-
-    const accountManagerProfileId =
-      resolveAssigneeProfileId(deal.assigned_to) || profile.id || null;
-
-    const { data: created, error: createErr } = await (supabase as any)
-      .from("clients")
-      .insert({
-        company_id: companyId,
-        company_name: companyName,
-        contact_person: contactPerson,
-        email: lead.email || null,
-        phone,
-        whatsapp,
-        status: "Active",
-        account_manager: accountManagerProfileId,
-      })
-      .select("id")
-      .single();
-
-    if (createErr) throw new Error(createErr.message || "No se pudo crear el cliente");
-    void logActivityEvent({
-      companyId: profile?.company_id ?? "",
-      userId: profile?.id || null,
-      action: "client_created",
-      entityType: "clients",
-      entityId: String(created.id),
-      detail: `Cliente creado desde oportunidad ganada: ${companyName}`,
-      metadata: { lead_id: lead.id, deal_id: deal.id },
-    }).catch(() => {});
-    return String(created.id);
+    return findLeadClientMatches(lead, clients) as WonDealClientMatch[];
   }
 
-  async function handleConvertWonDealToClient() {
+  async function convertWonDealLeadToClient(
+    lead: LeadRow,
+    deal: Deal,
+    existingClientId: string | null,
+  ) {
+    if (!profile?.company_id) throw new Error("No hay contexto de empresa");
+
+    const { data, error } = await db.rpc("convert_lead_to_client", {
+      p_lead_id: lead.id,
+      p_existing_client_id: existingClientId,
+    });
+    if (error) throw new Error(error.message || "No se pudo convertir el prospecto");
+
+    const clientId = String(data?.client_id || "");
+    if (!clientId) throw new Error("La conversión no devolvió el cliente asociado");
+
+    // The canonical RPC updates every deal linked to the lead. Keep this won
+    // deal synchronized if the lead had already been converted earlier.
+    const { error: dealError } = await db
+      .from("deals")
+      .update({ client_id: clientId })
+      .eq("company_id", profile.company_id)
+      .eq("id", deal.id)
+      .eq("lead_id", lead.id);
+    if (dealError) {
+      throw new Error(
+        dealError.message ||
+          "El prospecto se convirtió, pero la oportunidad no se pudo vincular al cliente",
+      );
+    }
+
+    await loadPipelineData();
+    toast.success(
+      existingClientId
+        ? "Prospecto asociado al cliente seleccionado."
+        : data?.already_converted
+          ? "El prospecto ya estaba convertido y la oportunidad quedó vinculada."
+          : "Prospecto convertido en cliente.",
+    );
+    setConvertClientDialogOpen(false);
+    setWonDealClientMatches([]);
+    setSelectedWonDealClientId(null);
+    setPendingWonDealId(null);
+  }
+
+  async function handleConvertWonDealToClient(existingClientId: string | null = null) {
     if (!pendingWonDealId) return;
     const deal = deals.find((d) => d.id === pendingWonDealId) || selectedDeal;
     if (!deal) return;
@@ -2164,20 +2006,24 @@ function PipelinePage() {
 
     setConvertingClient(true);
     try {
-      await createClientFromLead(lead, deal);
-      toast.success("Cliente creado correctamente.");
-      setConvertClientDialogOpen(false);
-      void openCreateProjectPromptForDeal(deal);
+      if (wonDealClientMatches.length === 0 && existingClientId === null) {
+        const matches = await loadPossibleWonDealClientMatches(lead);
+        if (matches.length > 0) {
+          setWonDealClientMatches(matches);
+          setSelectedWonDealClientId(matches.length === 1 ? matches[0].client.id : null);
+          return;
+        }
+      }
+
+      await convertWonDealLeadToClient(lead, deal, existingClientId);
     } catch (e) {
       const message =
         e instanceof Error
           ? e.message
           : "La oportunidad fue marcada como ganada, pero no se pudo crear el cliente.";
       toast.error(message);
-      setConvertClientDialogOpen(false);
     } finally {
       setConvertingClient(false);
-      setPendingWonDealId(null);
     }
   }
 
@@ -2540,7 +2386,7 @@ function PipelinePage() {
                   <button
                     className={
                       "hidden h-9 border-b px-1 text-[12px] font-normal items-center gap-1.5 transition md:flex " +
-                      (effectiveViewMode === "board"
+                      (displayedViewMode === "board"
                         ? "border-blue-600 text-blue-600"
                         : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950")
                     }
@@ -2553,7 +2399,7 @@ function PipelinePage() {
                   <button
                     className={
                       "h-9 border-b px-1 text-[12px] font-normal flex items-center gap-1.5 transition " +
-                      (effectiveViewMode === "list"
+                      (displayedViewMode === "list"
                         ? "border-blue-600 text-blue-600"
                         : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-950")
                     }
@@ -2770,7 +2616,7 @@ function PipelinePage() {
             ) : null}
           </div>
 
-          {pipelineStages.length === 0 ? (
+          {pipelineStages.length === 0 && deals.length === 0 ? (
             <EmptyState
               icon={<DollarSign className="h-6 w-6" />}
               title="No hay etapas en el pipeline"
@@ -2778,7 +2624,7 @@ function PipelinePage() {
             />
           ) : (
             <>
-              {effectiveViewMode === "list" ? (
+              {displayedViewMode === "list" ? (
                 <div className="overflow-hidden border-y border-slate-100 bg-white">
                   <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                     <div>
@@ -2814,10 +2660,14 @@ function PipelinePage() {
                         const client = deal.client_id
                           ? relatedClientById[String(deal.client_id)]
                           : undefined;
-                        const contactLabel =
-                          client?.company_name || client?.contact_person || lead?.company_name ||
-                          formatPersonName(lead?.first_name, lead?.last_name) || lead?.email ||
-                          lead?.phone || "Sin contacto";
+                        const linkedName =
+                          client?.company_name ||
+                          client?.contact_person ||
+                          lead?.company_name ||
+                          formatPersonName(lead?.first_name, lead?.last_name) ||
+                          client?.email ||
+                          lead?.email ||
+                          null;
                         const stageColor =
                           normalizeHex(
                             stages.find((stage) => stage.name === deal.stage)?.color || "",
@@ -2836,9 +2686,11 @@ function PipelinePage() {
                                 <div className="truncate text-[14px] font-semibold text-[#101828]">
                                   {deal.name}
                                 </div>
-                                <div className="mt-1 truncate text-[12px] text-[#667085]">
-                                  {contactLabel}
-                                </div>
+                                {linkedName ? (
+                                  <div className="mt-1 truncate text-[12px] text-[#667085]">
+                                    {linkedName}
+                                  </div>
+                                ) : null}
                               </div>
                               <span
                                 className="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold"
@@ -2908,6 +2760,14 @@ function PipelinePage() {
                           lead?.email ||
                           lead?.phone ||
                           "Sin contacto";
+                        const linkedName =
+                          client?.company_name ||
+                          client?.contact_person ||
+                          lead?.company_name ||
+                          formatPersonName(lead?.first_name, lead?.last_name) ||
+                          client?.email ||
+                          lead?.email ||
+                          null;
                         const stageColor =
                           normalizeHex(
                             stages.find((stage) => stage.name === deal.stage)?.color || "",
@@ -2942,9 +2802,11 @@ function PipelinePage() {
                                   <div className="truncate text-[13px] font-normal text-[#101828]">
                                     {deal.name}
                                   </div>
-                                  <div className="mt-0.5 text-[11px] font-normal text-[#667085]">
-                                    {deal.client_id ? "Cliente conectado" : deal.lead_id ? "Prospecto conectado" : "Oportunidad manual"}
-                                  </div>
+                                  {linkedName ? (
+                                    <div className="mt-0.5 truncate text-[11px] font-normal text-[#667085]">
+                                      {linkedName}
+                                    </div>
+                                  ) : null}
                                 </div>
                               </div>
                             </div>
@@ -3176,6 +3038,20 @@ function PipelinePage() {
                             {stageDeals.map((deal) => {
                               const prob = clamp(deal.probability ?? 0, 0, 100);
                               const borderHover = rgba(stageColor, 0.38);
+                              const client = deal.client_id
+                                ? relatedClientById[String(deal.client_id)]
+                                : undefined;
+                              const lead = deal.lead_id
+                                ? relatedLeadById[String(deal.lead_id)]
+                                : undefined;
+                              const linkedName =
+                                client?.company_name ||
+                                client?.contact_person ||
+                                lead?.company_name ||
+                                formatPersonName(lead?.first_name, lead?.last_name) ||
+                                client?.email ||
+                                lead?.email ||
+                                null;
                               return (
                                 <div
                                   key={deal.id}
@@ -3215,9 +3091,11 @@ function PipelinePage() {
                                       <strong className="block text-[13.5px] font-normal line-clamp-2">
                                         {deal.name}
                                       </strong>
-                                      <span className="block text-[11px] font-normal text-[#667085] line-clamp-1">
-                                        {deal.lead_id ? "Prospecto conectado" : "Prospecto: —"}
-                                      </span>
+                                      {linkedName ? (
+                                        <span className="block text-[11px] font-normal text-[#667085] line-clamp-1">
+                                          {linkedName}
+                                        </span>
+                                      ) : null}
                                     </div>
                                   </div>
 
@@ -4044,6 +3922,18 @@ function PipelinePage() {
                         </div>
                       </div>
 
+                      {isWon ? (
+                        <div className="border-b border-slate-100 pb-4">
+                          <CrmDetailLineButton
+                            className="w-full"
+                            disabled={!can("projects.create")}
+                            onClick={() => void openCreateProjectPromptForDeal(selectedDeal)}
+                          >
+                            Crear proyecto desde producto
+                          </CrmDetailLineButton>
+                        </div>
+                      ) : null}
+
                       <details className="border-b border-slate-100 pb-4">
                         <summary className="cursor-pointer text-[11px] font-normal uppercase tracking-wide text-slate-500">
                           Más detalles
@@ -4354,6 +4244,8 @@ function PipelinePage() {
               setConvertClientDialogOpen(open);
               if (!open) {
                 setPendingWonDealId(null);
+                setWonDealClientMatches([]);
+                setSelectedWonDealClientId(null);
               }
             }}
           >
@@ -4361,18 +4253,72 @@ function PipelinePage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Convertir a cliente</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta oportunidad no tiene cliente conectado. ¿Quieres convertir el prospecto en
-                  cliente ahora?
+                  {wonDealClientMatches.length > 0
+                    ? "Encontramos clientes de esta compañía con datos de contacto coincidentes. Revisa las opciones y elige si quieres asociar uno o continuar creando otro cliente. No cambiaremos ningún registro sin tu elección."
+                    : "Esta oportunidad no tiene cliente conectado. Revisaremos si ya existe un cliente en esta compañía con el mismo correo, teléfono o WhatsApp antes de convertir el prospecto."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              {wonDealClientMatches.length > 0 ? (
+                <div className="space-y-2">
+                  {wonDealClientMatches.map(({ client, reasons }) => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      aria-pressed={selectedWonDealClientId === client.id}
+                      onClick={() => setSelectedWonDealClientId(client.id)}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                        selectedWonDealClientId === client.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <span className="block font-medium text-slate-900">
+                        {client.company_name || client.contact_person || client.email || "Cliente sin nombre"}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-600">
+                        {[client.email, client.phone, client.whatsapp]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        {reasons.length ? ` · Coincide por ${reasons.join(", ")}` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={convertingClient}>Más tarde</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => void handleConvertWonDealToClient()}
-                  disabled={convertingClient}
-                >
-                  {convertingClient ? "Convirtiendo..." : "Convertir ahora"}
-                </AlertDialogAction>
+                {wonDealClientMatches.length === 0 ? (
+                  <AlertDialogAction
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void handleConvertWonDealToClient();
+                    }}
+                    disabled={convertingClient}
+                  >
+                    {convertingClient ? "Revisando..." : "Continuar"}
+                  </AlertDialogAction>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleConvertWonDealToClient(null)}
+                      disabled={convertingClient}
+                    >
+                      {convertingClient ? "Creando..." : "Crear otro cliente"}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        selectedWonDealClientId &&
+                        void handleConvertWonDealToClient(selectedWonDealClientId)
+                      }
+                      disabled={convertingClient || !selectedWonDealClientId}
+                    >
+                      {convertingClient ? "Asociando..." : "Asociar cliente seleccionado"}
+                    </Button>
+                  </>
+                )}
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -4385,8 +4331,6 @@ function PipelinePage() {
                 setProjectCandidateDealId(null);
                 setProductCandidates([]);
                 setSelectedProductId(null);
-                setActiveWorkflow(null);
-                setActiveWorkflowSteps([]);
                 setDealProductsByProductId({});
               }
             }}
@@ -4395,8 +4339,7 @@ function PipelinePage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Crear proyecto desde producto</AlertDialogTitle>
                 <AlertDialogDescription>
-                  ¿Quieres crear un proyecto para ejecutar el producto vendido y generar tareas
-                  desde su workflow?
+                  ¿Quieres crear un proyecto para el producto asociado a esta oportunidad?
                 </AlertDialogDescription>
               </AlertDialogHeader>
 
@@ -4432,23 +4375,6 @@ function PipelinePage() {
                   </div>
                 )}
 
-                {workflowLoading ? (
-                  <div className="text-sm text-muted-foreground">Cargando workflow…</div>
-                ) : selectedProductId ? (
-                  activeWorkflow ? (
-                    <div className="rounded-[12px] border bg-background p-3 text-sm">
-                      <div className="font-semibold">{activeWorkflow.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Pasos activos: {activeWorkflowSteps.length}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-[12px] border bg-background p-3 text-sm text-muted-foreground">
-                      Este producto no tiene workflow activo. Defínelo en{" "}
-                      <span className="font-mono">/products</span>.
-                    </div>
-                  )
-                ) : null}
               </div>
 
               <AlertDialogFooter>
@@ -4457,9 +4383,7 @@ function PipelinePage() {
                   onClick={() => void handleCreateProjectFromWonDeal()}
                   disabled={
                     creatingProject ||
-                    !selectedProductId ||
-                    !activeWorkflow?.id ||
-                    !activeWorkflowSteps.length
+                    !selectedProductId
                   }
                 >
                   {creatingProject ? "Creando..." : "Crear proyecto"}

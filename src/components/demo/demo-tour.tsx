@@ -397,7 +397,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         moduleTitle: "Pipeline",
         title: "Productos de la oportunidad",
         description:
-          "Aquí se asocia el producto vendido. Esto permite calcular valor, preparar propuesta y luego crear proyectos con el workflow correcto.",
+          "Aquí se asocia el producto vendido. Esto permite calcular valor, preparar propuestas y mantener la trazabilidad de la oportunidad.",
         to: "/pipeline",
         selector: '[data-demo="pipeline-deal-products"]',
       },
@@ -837,17 +837,17 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       {
         id: "products-main",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Módulo de productos",
         description:
-          "Productos es el catálogo de lo que vende la empresa. No es solo una lista: aquí se define precio, modalidad de cobro, entregables y proceso de ejecución.",
+          "Productos es el catálogo comercial de la empresa: aquí se definen precio, modalidad de cobro, entregables y datos fiscales.",
         to: "/products",
         selector: '[data-demo="products-main"]',
       },
       {
         id: "products-list",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Panel de productos",
         description:
           "Este panel permite buscar y filtrar productos por categoría, tipo, modalidad de cobro y estado. Así el equipo sabe qué servicios están disponibles para vender.",
@@ -857,7 +857,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       {
         id: "products-first-row",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Producto como servicio vendible",
         description:
           "Cada fila representa un producto, servicio, paquete o suscripción. Estos productos pueden conectarse a prospectos, oportunidades, propuestas, facturas y proyectos.",
@@ -867,7 +867,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       {
         id: "products-price",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Precio base",
         description:
           "El precio base ayuda a llenar propuestas y facturas más rápido. Luego puede ajustarse según el caso, pero sirve como punto de partida comercial.",
@@ -877,7 +877,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       {
         id: "products-billing",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Modalidad de cobro",
         description:
           "La modalidad de cobro indica si el producto se cobra una sola vez, mensual, anual o de forma personalizada. Esto ayuda a preparar propuestas más claras.",
@@ -887,7 +887,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       {
         id: "products-active-status",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Estado activo o inactivo",
         description:
           "Los productos activos están disponibles para usarse en ventas. Los inactivos pueden quedar guardados sin aparecer como opción principal para el equipo.",
@@ -897,7 +897,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       {
         id: "products-detail-summary",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Detalle del producto",
         description:
           "Al abrir un producto ves su categoría, tipo, precio y cobro. Esto permite validar rápido qué se vende y bajo qué condiciones.",
@@ -907,7 +907,7 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
       {
         id: "products-deliverables",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Entregables del producto",
         description:
           "Los entregables definen lo que recibirá el cliente. Esta información puede reutilizarse al crear propuestas para no escribir todo desde cero.",
@@ -915,39 +915,9 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
         selector: '[data-demo="products-deliverables"]',
       },
       {
-        id: "products-workflow",
-        module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
-        title: "Workflow de ejecución",
-        description:
-          "El workflow define cómo se ejecuta el producto después de venderse. Es la base para convertir una venta en tareas operativas dentro de proyectos.",
-        to: "/products",
-        selector: '[data-demo="products-workflow"]',
-      },
-      {
-        id: "products-workflow-steps",
-        module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
-        title: "Pasos del workflow",
-        description:
-          "Cada paso del workflow representa una etapa de trabajo: qué se debe hacer, duración estimada, prioridad y rol responsable.",
-        to: "/products",
-        selector: '[data-demo="products-workflow-steps"]',
-      },
-      {
-        id: "products-add-workflow-step",
-        module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
-        title: "Agregar pasos al proceso",
-        description:
-          "Puedes agregar pasos al workflow para estandarizar cómo se entrega cada servicio. Esto hace que los proyectos sean más consistentes.",
-        to: "/products",
-        selector: '[data-demo="products-add-workflow-step"]',
-      },
-      {
         id: "products-actions",
         module: "Módulo 7",
-        moduleTitle: "Productos y workflows",
+        moduleTitle: "Productos",
         title: "Acciones del producto",
         description:
           "Desde aquí puedes editar el producto o activar/desactivar su disponibilidad. Así controlas qué servicios se venden y cuáles quedan pausados.",
@@ -1175,9 +1145,6 @@ export function DemoTourProvider({ children }: { children: React.ReactNode }) {
     const stepsThatNeedProductDetail = new Set([
       "products-detail-summary",
       "products-deliverables",
-      "products-workflow",
-      "products-workflow-steps",
-      "products-add-workflow-step",
       "products-actions",
     ]);
 

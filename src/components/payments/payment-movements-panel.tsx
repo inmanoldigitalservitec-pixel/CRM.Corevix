@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { History, Loader2, RotateCcw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrencyAmount } from "@/lib/currency";
+import { createMovementIdempotencyKeyCache } from "@/lib/payments/movement-idempotency";
 
 type MovementRow = {
   id: string;
@@ -71,6 +72,8 @@ export function PaymentMovementsPanel({
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [reference, setReference] = useState("");
+  const submittingRef = useRef(false);
+  const idempotencyKeysRef = useRef(createMovementIdempotencyKeyCache(() => crypto.randomUUID()));
 
   const actionable = paymentStatus === "Completed" && Boolean(invoiceId) && availableAmount > 0;
   const normalizedCurrency = String(currency || "USD").toUpperCase();
@@ -121,7 +124,7 @@ export function PaymentMovementsPanel({
   };
 
   const submit = async () => {
-    if (!mode) return;
+    if (!mode || submittingRef.current) return;
     if (!reason.trim()) {
       toast.error("Debes indicar el motivo del movimiento.");
       return;
@@ -131,30 +134,33 @@ export function PaymentMovementsPanel({
       return;
     }
 
+    submittingRef.current = true;
     setSaving(true);
     try {
-      const idempotencyKey = crypto.randomUUID();
       const db = supabase as any;
       const rpcName = mode === "refund" ? "refund_invoice_payment" : "reverse_invoice_payment";
-      const args =
+      const payload =
         mode === "refund"
           ? {
               p_original_payment_id: paymentId,
               p_amount: parsedAmount,
               p_reason: reason.trim(),
               p_external_reference: reference.trim() || null,
-              p_idempotency_key: idempotencyKey,
             }
           : {
               p_original_payment_id: paymentId,
               p_reason: reason.trim(),
               p_external_reference: reference.trim() || null,
-              p_idempotency_key: idempotencyKey,
             };
+      const args = {
+        ...payload,
+        p_idempotency_key: idempotencyKeysRef.current.get({ p_mode: mode, ...payload }),
+      };
 
       const { error } = await db.rpc(rpcName, args);
       if (error) throw error;
 
+      idempotencyKeysRef.current.reset();
       toast.success(mode === "refund" ? "Reembolso registrado." : "Pago revertido.");
       setMode(null);
       await loadMovements();
@@ -162,6 +168,7 @@ export function PaymentMovementsPanel({
     } catch (error: any) {
       toast.error(error?.message || "No se pudo registrar el movimiento.");
     } finally {
+      submittingRef.current = false;
       setSaving(false);
     }
   };

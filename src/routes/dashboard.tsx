@@ -69,7 +69,6 @@ import {
   isOpenConversationStatus,
   isOpenInvoiceStatus,
   isOverdueInvoiceStatus,
-  isPaidInvoiceStatus,
   isPendingProposalStatus,
   isSentInvoiceStatus,
   isWonDealStageValue,
@@ -78,7 +77,10 @@ import {
   isSentOrOverdueInvoiceStatus,
   isSentOrViewedProposalStatus,
 } from "@/lib/crm/status";
+import { buildDashboardInvoiceFinancials } from "@/lib/dashboard-invoice-financials";
 import { ATTENTION_PRIORITY_ORDER } from "@/lib/crm/attention-rules";
+import { isClient360FinancialInvoiceStatus } from "@/lib/client360-invoice-financials";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import {
   convertCurrencyAmount,
@@ -215,6 +217,15 @@ type InvoiceRow = {
   currency?: string | null;
   base_currency?: string | null;
   total_base?: number | string | null;
+};
+
+type InvoiceFinancialRow = {
+  invoice_id: string;
+  status: string;
+  finance_status: string | null;
+  balance_due: number | string | null;
+  paid_amount_base: number | string | null;
+  balance_due_base: number | string | null;
 };
 
 type ProposalRow = {
@@ -1611,6 +1622,7 @@ function DashboardPage() {
   const [taskAssignees, setTaskAssignees] = useState<TaskAssigneeRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [invoiceFinancialRows, setInvoiceFinancialRows] = useState<InvoiceFinancialRow[]>([]);
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [estimates, setEstimates] = useState<EstimateRow[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
@@ -1708,6 +1720,20 @@ function DashboardPage() {
           .order("updated_at", { ascending: false })
           .limit(80);
 
+      const loadInvoiceFinancialRows = async () =>
+        fetchAllPages(async (from, to) => {
+          const { data, error } = await db
+            .from("invoice_finance_summary")
+            .select(
+              "invoice_id,status,finance_status,balance_due,paid_amount_base,balance_due_base",
+            )
+            .eq("company_id", cid)
+            .order("invoice_id")
+            .range(from, to);
+          if (error) throw error;
+          return (data || []) as InvoiceFinancialRow[];
+        }, 1000);
+
       const loadProposals = async () => {
         const richSelect = "*";
         const res = await db
@@ -1754,6 +1780,7 @@ function DashboardPage() {
         loadTasks(),
         loadProjects(),
         loadInvoices(),
+        loadInvoiceFinancialRows(),
         loadProposals(),
         loadEstimates(),
         loadTickets(),
@@ -1836,6 +1863,7 @@ function DashboardPage() {
       const getData = <T,>(index: number): T[] => {
         const r = results[index];
         if (r.status !== "fulfilled") return [];
+        if (Array.isArray(r.value)) return r.value as T[];
         return (r.value?.data || []) as T[];
       };
 
@@ -1862,24 +1890,25 @@ function DashboardPage() {
         getData<Partial<ProjectRow>>(5).map((project) => normalizeDashboardProject(project, cid)),
       );
       setInvoices(getData<InvoiceRow>(6));
-      setProposals(getData<ProposalRow>(7));
-      setEstimates(getData<EstimateRow>(8));
+      setInvoiceFinancialRows(getData<InvoiceFinancialRow>(7));
+      setProposals(getData<ProposalRow>(8));
+      setEstimates(getData<EstimateRow>(9));
       setTickets(
-        getData<Partial<TicketRow>>(9).map((ticket) => normalizeDashboardTicket(ticket, cid)),
+        getData<Partial<TicketRow>>(10).map((ticket) => normalizeDashboardTicket(ticket, cid)),
       );
-      setCalendarSubscriptions(getData<SubscriptionCalendarSourceRow>(10));
-      setCalendarContracts(getData<ContractCalendarSourceRow>(11));
-      setCalendarPayments(getData<PaymentCalendarSourceRow>(12));
-      setWaConversations(getData<WhatsAppConversationRow>(13));
-      setEmailConversations(getData<EmailConversationRow>(14));
-      setMetaConversations(getData<MetaConversationRow>(15));
-      setCalendarEvents(getData<CalendarEventRow>(17));
-      setClientProducts(getData<ClientProductRow>(18));
-      setProductSummaries(getData<ProductSummaryRow>(19));
-      setProfileSummaries(getData<ProfileSummaryRow>(20));
-      setTaskAssignees(getData<TaskAssigneeRow>(21));
+      setCalendarSubscriptions(getData<SubscriptionCalendarSourceRow>(11));
+      setCalendarContracts(getData<ContractCalendarSourceRow>(12));
+      setCalendarPayments(getData<PaymentCalendarSourceRow>(13));
+      setWaConversations(getData<WhatsAppConversationRow>(14));
+      setEmailConversations(getData<EmailConversationRow>(15));
+      setMetaConversations(getData<MetaConversationRow>(16));
+      setCalendarEvents(getData<CalendarEventRow>(18));
+      setClientProducts(getData<ClientProductRow>(19));
+      setProductSummaries(getData<ProductSummaryRow>(20));
+      setProfileSummaries(getData<ProfileSummaryRow>(21));
+      setTaskAssignees(getData<TaskAssigneeRow>(22));
 
-      const actRows = getData<ActivityLogRow>(16);
+      const actRows = getData<ActivityLogRow>(17);
       setActivities(
         actRows.map((a) => ({
           id: a.id,
@@ -2119,22 +2148,18 @@ function DashboardPage() {
     isApprovedProposalStatus(p.status),
   ).length;
 
-  const invoicesPending = invoices.filter((i) => isOpenInvoiceStatus(i.status));
+  const invoiceFinancials = buildDashboardInvoiceFinancials(invoices, invoiceFinancialRows);
+  const invoicesPending = invoiceFinancials.pendingInvoices;
   const isInvoiceOverdue = (i: (typeof invoices)[number]) => {
     if (!isOpenInvoiceStatus(i.status)) return false;
     const dueKey = toDateKey(i.due_date);
     if (!dueKey) return isOverdueInvoiceStatus(i.status);
     return dueKey < today;
   };
-  const invoicesOverdue = invoices.filter(isInvoiceOverdue);
+  const invoicesOverdue = invoicesPending.filter(isInvoiceOverdue);
   const invoicesSent = invoices.filter((i) => isSentInvoiceStatus(i.status));
-  const paidRevenue = invoices
-    .filter((i) => isPaidInvoiceStatus(i.status))
-    .reduce((s, i) => s + invoiceBaseAmount(i, currencySettings), 0);
-  const receivableTotal = invoicesPending.reduce(
-    (s, i) => s + invoiceBaseAmount(i, currencySettings),
-    0,
-  );
+  const paidRevenue = invoiceFinancials.collectedTotalBase;
+  const receivableTotal = invoiceFinancials.receivableTotalBase;
 
   const waOpen = waConversations.filter((c) => isOpenConversationStatus(c.status)).length;
   const emailOpen = emailConversations.filter((c) => isOpenConversationStatus(c.status)).length;
@@ -2440,14 +2465,14 @@ function DashboardPage() {
       to: "/tasks",
     });
   }
-  if (invoicesPending.length > 0) {
+  if (invoiceFinancials.pendingCount > 0) {
     priorities.push({
       key: "pending_invoices",
       icon: Receipt,
       title: "Facturas por cobrar",
       description: "Revisa facturas enviadas o vencidas y prioriza el cobro.",
       urgency: invoicesOverdue.length > 0 ? "alta" : "media",
-      count: invoicesPending.length,
+      count: invoiceFinancials.pendingCount,
       variant: priorityVariantFromKey("pending_invoices"),
       ctaLabel: "Ver facturas",
       to: "/invoices",
@@ -2821,11 +2846,13 @@ function DashboardPage() {
   const dashboardV2Kpis = [
     {
       label: "Facturas por cobrar",
-      value: dashboardKpiRatio(invoicesPending.length, invoices.length),
+      value: dashboardKpiRatio(invoiceFinancials.pendingCount, invoiceFinancials.issuedCount),
       helper: moneyBase(receivableTotal),
-      progressLabel: invoicesPending.length ? `Faltan ${invoicesPending.length}` : "Todo cobrado",
-      progressCurrent: invoicesPending.length,
-      progressTotal: Math.max(invoices.length, invoicesPending.length, 1),
+      progressLabel: invoiceFinancials.pendingCount
+        ? `Faltan ${invoiceFinancials.pendingCount}`
+        : "Todo cobrado",
+      progressCurrent: invoiceFinancials.pendingCount,
+      progressTotal: Math.max(invoiceFinancials.issuedCount, invoiceFinancials.pendingCount, 1),
       tone: invoicesOverdue.length ? ("orange" as const) : ("green" as const),
       icon: DollarSign,
     },
@@ -3275,23 +3302,22 @@ function DashboardPage() {
     },
     {
       status: "Unpaid",
-      count: invoices.filter(
+      count: invoiceFinancialRows.filter(
         (invoice) =>
-          isOpenInvoiceStatus(invoice.status) &&
-          !isOverdueInvoiceStatus(invoice.status) &&
-          !normalizeDashboardStatus(invoice.status).includes("partial"),
+          isClient360FinancialInvoiceStatus(invoice.status) &&
+          Number(invoice.balance_due_base || 0) > 0 &&
+          Number(invoice.paid_amount_base || 0) <= 0 &&
+          !isOverdueInvoiceStatus(invoice.finance_status),
       ).length,
     },
     {
       status: "Partially Paid",
-      count: invoices.filter((invoice) =>
-        normalizeDashboardStatus(invoice.status).includes("partial"),
-      ).length,
+      count: invoiceFinancials.partiallyPaidCount,
     },
     { status: "Overdue", count: invoicesOverdue.length },
     {
       status: "Paid",
-      count: invoices.filter((invoice) => isPaidInvoiceStatus(invoice.status)).length,
+      count: invoiceFinancials.paidCount,
     },
   ];
   const invoiceDocumentTotal = Math.max(
@@ -4201,11 +4227,11 @@ function DashboardPage() {
           percent: percentNumber(overdueInvoiceTotal, collectionTotal),
         }
       : null,
-    invoicesPending.length > 0 || receivableTotal > 0
+    invoiceFinancials.pendingCount > 0 || receivableTotal > 0
       ? {
           type: "receivable",
           title: "Facturas por cobrar",
-          value: String(invoicesPending.length),
+          value: String(invoiceFinancials.pendingCount),
           detail: moneyBase(receivableTotal),
           href: "/invoices",
           tone: "blue",
@@ -4651,7 +4677,7 @@ function DashboardPage() {
           <p className="mt-2 text-[13px] font-semibold text-[#475467]">
             Hoy tienes <strong className="text-[#111827]">{newLeadsToday}</strong> leads nuevos,{" "}
             <strong className="text-[#111827]">{pendingProposals.length}</strong> propuestas
-            pendientes, <strong className="text-[#111827]">{invoicesPending.length}</strong>{" "}
+            pendientes, <strong className="text-[#111827]">{invoiceFinancials.pendingCount}</strong>{" "}
             facturas por cobrar y <strong className="text-[#111827]">{upcomingTasksCount}</strong>{" "}
             tareas próximas.
           </p>

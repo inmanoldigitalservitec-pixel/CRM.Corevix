@@ -43,6 +43,7 @@ import type { CalendarItem } from "@/lib/crm/calendar-items";
 import { getCalendarEventTone } from "@/lib/crm/calendar-items";
 import { isClosedTaskStatusValue } from "@/lib/crm/status";
 import { formatCurrencyAmount } from "@/lib/currency";
+import { loadPaymentNetBalance } from "@/lib/payments/payment-net-balance";
 
 type GlobalDetailGroup =
   | "clients"
@@ -234,7 +235,12 @@ function mergeAddressParts(...values: unknown[]) {
     const part = text(value);
     if (!part) continue;
     const normalized = part.toLowerCase();
-    if (result.some((item) => item.toLowerCase().includes(normalized) || normalized.includes(item.toLowerCase()))) {
+    if (
+      result.some(
+        (item) =>
+          item.toLowerCase().includes(normalized) || normalized.includes(item.toLowerCase()),
+      )
+    ) {
       continue;
     }
     result.push(part);
@@ -242,15 +248,9 @@ function mergeAddressParts(...values: unknown[]) {
   return result.join(", ");
 }
 
-function buildInvoicePartyFields(
-  invoice: InvoiceRow,
-  client: any,
-  company: any,
-) {
+function buildInvoicePartyFields(invoice: InvoiceRow, client: any, company: any) {
   const invoiceData =
-    invoice.invoice_data && typeof invoice.invoice_data === "object"
-      ? invoice.invoice_data
-      : {};
+    invoice.invoice_data && typeof invoice.invoice_data === "object" ? invoice.invoice_data : {};
   const value = (key: string) => text((invoiceData as Record<string, unknown>)[key]) || null;
   const companyAddress = mergeAddressParts(company?.address, company?.city, company?.country);
   const clientAddress = mergeAddressParts(
@@ -1259,14 +1259,19 @@ export function GlobalDetailHost() {
             : { data: null };
 
           if (!cancelled) {
-            const partyFields = buildInvoicePartyFields(invoiceRow, clientRes.data, companyRes.data);
+            const partyFields = buildInvoicePartyFields(
+              invoiceRow,
+              clientRes.data,
+              companyRes.data,
+            );
             setInvoice(invoiceRow);
             setInvoiceBalance(computedInvoiceBalance);
             setInvoiceIssuerFields(partyFields.issuerFields);
             setInvoiceClientFields(partyFields.clientFields);
             setInvoiceItems((itemsRes.data || []) as InvoiceDetailItem[]);
             setInvoiceItemsLoading(false);
-          }          return;
+          }
+          return;
         }
 
         if (selection.group === "proposals") {
@@ -1431,6 +1436,7 @@ export function GlobalDetailHost() {
           ]);
           if (paymentRes.error) throw paymentRes.error;
           const payment = paymentRes.data;
+          const financial = await loadPaymentNetBalance(payment, cid);
           const client = (clientsRes.data || []).find((item: any) => item.id === payment.client_id);
           const invoice = (invoicesRes.data || []).find(
             (item: any) => item.id === payment.invoice_id,
@@ -1446,7 +1452,7 @@ export function GlobalDetailHost() {
                       .join(" · ")
                   : "Pago",
               subtitle: client?.company_name || client?.contact_person || "Sin cliente vinculado",
-              status: payment.status,
+              status: financial.displayStatus,
               href: `/payments?invoiceId=${encodeURIComponent(payment.invoice_id || "")}`,
               primaryActionLabel: "Abrir pagos",
               sections: [
@@ -1478,9 +1484,23 @@ export function GlobalDetailHost() {
                   icon: <CircleDollarSign className="h-3.5 w-3.5" />,
                   rows: [
                     {
-                      label: "Monto pagado",
+                      label: "Monto original",
                       value: money(
-                        payment.amount_base ?? payment.amount,
+                        financial.originalAmountBase,
+                        payment.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                    {
+                      label: "Reembolsado/revertido",
+                      value: money(
+                        financial.movementAmountBase,
+                        payment.base_currency || currencySettings.baseCurrency,
+                      ),
+                    },
+                    {
+                      label: "Cobrado neto",
+                      value: money(
+                        financial.netAmountBase,
                         payment.base_currency || currencySettings.baseCurrency,
                       ),
                     },

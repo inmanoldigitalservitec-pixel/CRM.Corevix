@@ -744,7 +744,10 @@ function WhatsAppWebPage() {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+          <div
+            data-whatsapp-conversation-list="true"
+            className="min-h-0 flex-1 overflow-y-auto px-3 py-2"
+          >
             <div className="mb-2 flex items-center gap-3 border-b border-slate-100 px-3 py-3 text-sm text-slate-500">
               <Archive className="h-4 w-4" />
               <span>Archivados</span>

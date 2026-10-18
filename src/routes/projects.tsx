@@ -54,6 +54,7 @@ import { ProjectGanttPanel } from "@/components/projects/project-gantt-panel";
 import { ProjectMilestonesPanel } from "@/components/projects/project-milestones-panel";
 import { ProjectSalesPanel } from "@/components/projects/project-sales-panel";
 import { ProjectTicketsPanel } from "@/components/projects/project-tickets-panel";
+import { ProjectTimeSummary } from "@/components/projects/project-time-summary";
 import { ProjectTimesheetsPanel } from "@/components/projects/project-timesheets-panel";
 import { ProjectContractsPanel } from "@/components/projects/project-contracts-panel";
 import { ProjectNotesPanel } from "@/components/projects/project-notes-panel";
@@ -259,6 +260,7 @@ type DealRow = {
 type LeadRow = {
   id: string;
   company_id: string;
+  converted_client_id: string | null;
   first_name: string | null;
   last_name: string | null;
   company_name: string | null;
@@ -657,11 +659,15 @@ function ProjectsPage() {
   });
   const { data: leads } = useCrud<LeadRow>({
     table: "leads",
-    select: "id,company_id,first_name,last_name,company_name,email",
+    select: "id,company_id,first_name,last_name,company_name,email,converted_client_id",
     orderBy: "updated_at",
     ascending: false,
     limit: 2000,
   });
+  const selectedLead = leads.find((lead) => lead.id === form.lead_id);
+  const hasMismatchedConvertedLead = Boolean(
+    selectedLead?.converted_client_id && selectedLead.converted_client_id !== form.client_id,
+  );
   const { data: profiles } = useCrud<ProfileRow>({
     table: "profiles",
     select: "id,company_id,full_name,email,avatar_url,user_id,is_active",
@@ -1025,6 +1031,14 @@ function ProjectsPage() {
     }
     if (hasInvalidProjectSchedule) {
       toast.error("La fecha de entrega debe ser igual o posterior a la fecha de inicio.");
+      return;
+    }
+    const projectRelationshipsChanged =
+      !editItem ||
+      editItem.client_id !== (form.client_id === NONE ? null : form.client_id) ||
+      editItem.lead_id !== (form.lead_id === NONE ? null : form.lead_id);
+    if (hasMismatchedConvertedLead && projectRelationshipsChanged) {
+      toast.error("El prospecto seleccionado ya pertenece a otro cliente.");
       return;
     }
     const budgetCurrency = normalizeCurrency(form.budget_currency || currencySettings.baseCurrency);
@@ -1552,7 +1566,9 @@ function ProjectsPage() {
                         setForm((current) => ({ ...current, name: event.target.value }))
                       }
                       onInvalid={(event) => {
-                        event.currentTarget.setCustomValidity("Escribe un nombre para el proyecto.");
+                        event.currentTarget.setCustomValidity(
+                          "Escribe un nombre para el proyecto.",
+                        );
                       }}
                       onInput={(event) => {
                         event.currentTarget.setCustomValidity(
@@ -1670,13 +1686,27 @@ function ProjectsPage() {
                       noneLabel="Sin oportunidad"
                     />
                     <ProjectSelect
-                      label="Lead relacionado"
+                      label={
+                        selectedLead?.converted_client_id
+                          ? "Prospecto de origen"
+                          : "Prospecto relacionado"
+                      }
                       value={form.lead_id}
                       onChange={(value) => setForm((current) => ({ ...current, lead_id: value }))}
                       options={leadOptions}
-                      noneLabel="Sin lead"
+                      noneLabel="Sin prospecto"
                     />
                   </div>
+                  <p className="text-sm text-muted-foreground">
+                    Al convertir un prospecto en cliente, el proyecto queda asociado al cliente y
+                    conserva el prospecto como origen.
+                  </p>
+                  {hasMismatchedConvertedLead ? (
+                    <p className="text-sm text-rose-600" role="alert">
+                      Este prospecto ya fue convertido a otro cliente. Selecciona ese cliente o
+                      cambia el prospecto.
+                    </p>
+                  ) : null}
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <ProjectSelect
@@ -2654,6 +2684,103 @@ function ProjectOverviewPanel({
   leadName: string;
   managerName: string;
 }) {
+  const { profile } = useAuth();
+  const [timeEntriesState, setTimeEntriesState] = useState<{
+    entries: ProjectOverviewTimeEntry[];
+    loading: boolean;
+    error: boolean;
+  }>({ entries: [], loading: true, error: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    const companyId = profile?.company_id;
+
+    if (!companyId) {
+      setTimeEntriesState({ entries: [], loading: false, error: false });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setTimeEntriesState((current) => ({ ...current, loading: true, error: false }));
+    void (async () => {
+      const { data, error } = await (supabase as any)
+        .from("project_time_entries")
+        .select("entry_date,duration_minutes,is_billable")
+        .eq("company_id", companyId)
+        .eq("project_id", project.id)
+        .is("archived_at", null)
+        .order("entry_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (cancelled) return;
+      if (error) {
+        toast.error(error.message || "No se pudieron cargar las horas del proyecto.");
+        setTimeEntriesState({ entries: [], loading: false, error: true });
+        return;
+      }
+
+      setTimeEntriesState({
+        entries: (data || []) as ProjectOverviewTimeEntry[],
+        loading: false,
+        error: false,
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.company_id, project.id]);
+
+  const timeSummary = useMemo(() => {
+    const totalMinutes = timeEntriesState.entries.reduce(
+      (total, entry) => total + Number(entry.duration_minutes || 0),
+      0,
+    );
+    const billableMinutes = timeEntriesState.entries
+      .filter((entry) => entry.is_billable)
+      .reduce((total, entry) => total + Number(entry.duration_minutes || 0), 0);
+
+    return {
+      total: formatProjectDuration(totalMinutes),
+      billable: formatProjectDuration(billableMinutes),
+      nonBillable: formatProjectDuration(totalMinutes - billableMinutes),
+      entries: String(timeEntriesState.entries.length),
+    };
+  }, [timeEntriesState.entries]);
+
+  const weekDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    today.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() + index);
+      const dateKey = formatLocalDateKey(date);
+      const entries = timeEntriesState.entries.filter((entry) => entry.entry_date === dateKey);
+      const billableMinutes = entries
+        .filter((entry) => entry.is_billable)
+        .reduce((total, entry) => total + Number(entry.duration_minutes || 0), 0);
+      const nonBillableMinutes = entries
+        .filter((entry) => !entry.is_billable)
+        .reduce((total, entry) => total + Number(entry.duration_minutes || 0), 0);
+
+      return {
+        dateKey,
+        label: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][index],
+        billableMinutes,
+        nonBillableMinutes,
+      };
+    });
+  }, [timeEntriesState.entries]);
+
+  const maxDailyMinutes = Math.max(
+    8 * 60,
+    ...weekDays.map((day) => day.billableMinutes + day.nonBillableMinutes),
+  );
+
   return (
     <div className="grid grid-cols-1 bg-white xl:grid-cols-[minmax(0,0.98fr)_minmax(420px,1.02fr)]">
       <section className="border-b border-slate-100 pb-5 xl:border-b-0 xl:border-r xl:pr-5">
@@ -2716,16 +2843,23 @@ function ProjectOverviewPanel({
           <Progress value={meta.stats.pct} className="mt-2 h-2" />
         </div>
 
-        <FinanceSection
-          icon={<Clock3 className="h-4 w-4" />}
-          title="Horas registradas"
-          rows={[
-            ["Horas registradas", "00:00", "US$ 0.00", "text-slate-700"],
-            ["Horas facturables", "00:00", "US$ 0.00", "text-blue-600"],
-            ["Horas facturadas", "00:00", "US$ 0.00", "text-emerald-600"],
-            ["Horas sin facturar", "00:00", "US$ 0.00", "text-rose-600"],
-          ]}
-        />
+        <section className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-normal text-slate-700">
+            <Clock3 className="h-4 w-4" /> Horas registradas
+          </div>
+          {timeEntriesState.error ? (
+            <p role="status" className="text-sm text-rose-700">
+              No se pudieron cargar las horas registradas.
+            </p>
+          ) : (
+            <ProjectTimeSummary
+              total={timeEntriesState.loading ? "Cargando…" : timeSummary.total}
+              billable={timeEntriesState.loading ? "Cargando…" : timeSummary.billable}
+              nonBillable={timeEntriesState.loading ? "Cargando…" : timeSummary.nonBillable}
+              entries={timeEntriesState.loading ? "—" : timeSummary.entries}
+            />
+          )}
+        </section>
 
         <FinanceSection
           icon={<ReceiptText className="h-4 w-4" />}
@@ -2741,23 +2875,76 @@ function ProjectOverviewPanel({
         <div className="border-b border-slate-100 pb-4">
           <div className="flex items-center justify-between">
             <div className="text-sm font-normal text-slate-700">Horas registradas esta semana</div>
-            <div className="text-xs font-normal text-slate-500">Esta semana</div>
+            <div className="text-xs font-normal text-slate-500">
+              {timeEntriesState.loading ? "Cargando…" : "Esta semana"}
+            </div>
           </div>
           <div className="mt-4 grid h-24 grid-cols-7 items-end gap-2 border-b border-l px-2 pb-2">
-            {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
-              <div key={day} className="flex h-full flex-col justify-end gap-1">
-                <div className="h-1 rounded-sm bg-blue-400" />
-                <div className="h-1 rounded-sm bg-rose-400" />
+            {weekDays.map((day) => (
+              <div
+                key={day.dateKey}
+                className="flex h-full flex-col justify-end gap-1"
+                title={`${day.label}: ${formatProjectDuration(day.billableMinutes)} facturables, ${formatProjectDuration(day.nonBillableMinutes)} no facturables`}
+              >
+                <div className="flex min-h-0 flex-1 items-end justify-center gap-1">
+                  <div
+                    className="w-2 rounded-t-sm bg-blue-400"
+                    style={{
+                      height: getProjectHoursBarHeight(day.billableMinutes, maxDailyMinutes),
+                    }}
+                  />
+                  <div
+                    className="w-2 rounded-t-sm bg-rose-400"
+                    style={{
+                      height: getProjectHoursBarHeight(day.nonBillableMinutes, maxDailyMinutes),
+                    }}
+                  />
+                </div>
                 <span className="mt-1 rotate-[-35deg] text-[10px] font-semibold text-slate-400">
-                  {day}
+                  {day.label}
                 </span>
               </div>
             ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-blue-400" /> Facturables
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-rose-400" /> No facturables
+            </span>
           </div>
         </div>
       </section>
     </div>
   );
+}
+
+type ProjectOverviewTimeEntry = {
+  entry_date: string;
+  duration_minutes: number;
+  is_billable: boolean;
+};
+
+function formatProjectDuration(minutes: number) {
+  const safeMinutes = Math.max(0, Number(minutes || 0));
+  const hours = Math.floor(safeMinutes / 60);
+  const remainder = safeMinutes % 60;
+  if (!hours) return `${remainder} min`;
+  if (!remainder) return `${hours} h`;
+  return `${hours} h ${remainder} min`;
+}
+
+function formatLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getProjectHoursBarHeight(minutes: number, maxDailyMinutes: number) {
+  if (!minutes || !maxDailyMinutes) return "0%";
+  return `${Math.max(6, (minutes / maxDailyMinutes) * 100)}%`;
 }
 
 function OverviewField({

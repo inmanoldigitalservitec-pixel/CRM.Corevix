@@ -2,6 +2,7 @@ import { Check, CreditCard, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PayPalInvoiceButton } from "@/components/invoices/PayPalInvoiceButton";
 import { formatCurrencyAmount } from "@/lib/currency";
+import { isInvoiceEligibleForOnlinePayment } from "@/lib/payments/invoice-payment-eligibility";
 
 type InvoiceItem = {
   id?: string;
@@ -58,6 +59,8 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
   const currency = clean(invoice.currency) || clean(data.currency) || "USD";
   const statusInfo = getStatusInfo(invoice.status);
   const isPaid = clean(invoice.status).toLowerCase() === "paid";
+  const canPayOnline = isInvoiceEligibleForOnlinePayment(invoice.status);
+  const isDraft = clean(invoice.status).toLowerCase() === "draft";
 
   const clientName = clean(data.clientCompany) || clean(data.clientName) || "Cliente";
   const clientLines = [
@@ -94,7 +97,7 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
   const total = Number(invoice.total || subtotal + tax - discount);
 
   return (
-    <main className="min-h-screen bg-[#eef1f6] px-4 py-6 text-slate-950 print:bg-white print:p-0">
+    <main className="min-h-screen min-w-0 bg-[#eef1f6] px-3 py-4 text-slate-950 sm:px-4 sm:py-6 print:bg-white print:p-0">
       <style>{`
         @page { size: letter; margin: 0; }
         @media print {
@@ -104,7 +107,7 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
         }
       `}</style>
 
-      <div className="invoice-print-toolbar sticky top-3 z-20 mx-auto mb-4 flex max-w-[8.5in] flex-wrap items-center justify-end gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+      <div className="invoice-print-toolbar sticky top-3 z-20 mx-auto mb-4 flex w-full min-w-0 max-w-[8.5in] flex-wrap items-center justify-end gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
         <Button
           type="button"
           variant="outline"
@@ -114,29 +117,33 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
           <Printer className="h-4 w-4" />
           Exportar PDF
         </Button>
-        {!isPaid ? (
+        {canPayOnline ? (
           <div className="flex h-9 items-center rounded-full border border-slate-200 bg-white px-2">
             <PayPalInvoiceButton
               publicToken={invoice.public_token}
-              disabled={isPaid}
+              disabled={!canPayOnline}
               onPaid={() => window.location.reload()}
             />
           </div>
-        ) : (
+        ) : isPaid ? (
           <span className="inline-flex h-9 items-center gap-2 rounded-full bg-emerald-50 px-4 text-sm font-semibold text-emerald-700">
             <Check className="h-4 w-4" />
             Pagada
           </span>
+        ) : (
+          <span className="inline-flex h-9 items-center rounded-full bg-slate-100 px-4 text-sm font-semibold text-slate-700">
+            {statusInfo.label}
+          </span>
         )}
       </div>
 
-      <article className="invoice-letter-page mx-auto flex min-h-[11in] w-full max-w-[8.5in] flex-col bg-white px-[0.62in] py-[0.58in] shadow-[0_24px_70px_rgba(15,23,42,0.18)] print:h-[11in] print:w-[8.5in] print:max-w-none print:px-[0.62in] print:py-[0.58in]">
-        <header className="grid grid-cols-[1fr_auto] gap-8">
+      <article className="invoice-letter-page mx-auto flex min-h-[11in] w-full min-w-0 max-w-[8.5in] flex-col bg-white px-4 py-6 shadow-[0_24px_70px_rgba(15,23,42,0.18)] sm:px-[0.62in] sm:py-[0.58in] print:h-[11in] print:w-[8.5in] print:max-w-none print:px-[0.62in] print:py-[0.58in]">
+        <header className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-8">
           <div>
             <div className="flex items-center gap-3">
               <img src="/imagotipo_corevix.svg" alt="Corevix" className="h-14 w-14" />
               <div>
-                <div className="text-2xl font-semibold leading-none tracking-normal text-[#1d62f9]">
+                <div className="break-words text-2xl font-semibold leading-none tracking-normal text-[#1d62f9]">
                   {issuerName}
                 </div>
                 <div className="mt-1 text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -153,8 +160,8 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
             </div>
           </div>
 
-          <div className="text-right">
-            <h1 className="text-[34px] font-bold uppercase leading-none tracking-normal text-[#1d62f9]">
+          <div className="min-w-0 text-left sm:text-right">
+            <h1 className="text-3xl font-bold uppercase leading-none tracking-normal text-[#1d62f9] sm:text-[34px]">
               Invoice
             </h1>
             <div className="mt-2 text-sm font-semibold text-slate-700">
@@ -170,15 +177,15 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
           </div>
         </header>
 
-        <section className="mt-10 grid grid-cols-3 gap-6 border-y border-slate-200 py-4 text-[12px]">
+        <section className="mt-8 grid min-w-0 grid-cols-1 gap-3 border-y border-slate-200 py-4 text-[12px] sm:mt-10 sm:grid-cols-3 sm:gap-6">
           <InvoiceMeta label="Factura" value={invoice.number || "Sin numero"} />
           <InvoiceMeta label="Estado" value={statusInfo.label} />
           <InvoiceMeta label="Vencimiento" value={formatDate(invoice.due_date)} />
         </section>
 
         <section className="mt-8">
-          <div className="grid grid-cols-[1fr_1.1in_0.75in_1.25in] bg-[#1d62f9] px-5 py-3 text-[12px] font-semibold text-white">
-            <div>Items Description</div>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 bg-[#1d62f9] px-2 py-3 text-[10px] font-semibold text-white sm:grid-cols-[minmax(0,1fr)_1.1in_0.75in_1.25in] sm:px-5 sm:text-[12px]">
+            <div className="min-w-0">Items Description</div>
             <div className="text-right">Unit Price</div>
             <div className="text-center">Qnt</div>
             <div className="text-right">Total</div>
@@ -196,10 +203,10 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
               return (
                 <div
                   key={item.id || `${description}-${index}`}
-                  className="grid min-h-[0.68in] grid-cols-[1fr_1.1in_0.75in_1.25in] items-start border-b border-slate-300 px-5 py-4 text-[12px]"
+                  className="grid min-h-[0.68in] min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto] items-start gap-2 border-b border-slate-300 px-2 py-4 text-[10px] sm:grid-cols-[minmax(0,1fr)_1.1in_0.75in_1.25in] sm:px-5 sm:text-[12px]"
                 >
-                  <div className="pr-6">
-                    <div className="font-bold text-slate-950">{title}</div>
+                  <div className="min-w-0 pr-1 sm:pr-6">
+                    <div className="break-words font-bold text-slate-950">{title}</div>
                     {details ? (
                       <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
                         {details}
@@ -215,12 +222,14 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
           </div>
         </section>
 
-        <section className="mt-8 grid grid-cols-[1fr_2.45in] gap-10">
+        <section className="mt-8 grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-[minmax(0,1fr)_2.45in] sm:gap-10">
           <div className="text-[11px] leading-5 text-slate-600">
             <div className="mb-2 font-bold text-slate-950">Note</div>
             <p className="m-0">
               {clean(invoice.notes) ||
-                "Gracias por confiar en Corevix. Esta factura resume los servicios aprobados y el balance pendiente."}
+                (isDraft
+                  ? "Borrador interno. Este documento todavía no ha sido emitido."
+                  : "Gracias por confiar en Corevix. Esta factura resume los servicios aprobados y el balance pendiente.")}
             </p>
           </div>
 
@@ -229,7 +238,9 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
             <SummaryLine label="Tax" value={formatMoney(tax, currency)} />
             <SummaryLine label="DISCOUNT" value={formatMoney(discount, currency)} />
             <div className="mt-4 flex items-center justify-between bg-[#1d62f9] px-5 py-4 text-white">
-              <span className="text-[15px] font-bold uppercase">Total due</span>
+              <span className="text-[15px] font-bold uppercase">
+                {isDraft ? "Total del borrador" : "Total due"}
+              </span>
               <span className="text-[18px] font-bold">{formatMoney(total, currency)}</span>
             </div>
           </div>
@@ -240,27 +251,38 @@ export function PublicInvoiceView({ invoice, items, onPrint }: PublicInvoiceView
             Thank you for your Business
           </div>
 
-          <footer className="grid grid-cols-3 gap-8 border-t border-[#1d62f9] pt-5 text-[9.5px] leading-4 text-slate-600">
+          <footer className="grid min-w-0 grid-cols-1 gap-5 border-t border-[#1d62f9] pt-5 text-[10px] leading-4 text-slate-600 sm:grid-cols-3 sm:gap-8 sm:text-[9.5px]">
             <div>
               <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">Questions?</div>
               <div>Email: {clean(data.issuerEmail) || "hello@corevix.com"}</div>
               <div>Invoice: {invoice.number || "—"}</div>
             </div>
-            <div>
-              <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">Payment Info</div>
-              <div className="flex items-center gap-1">
-                <CreditCard className="h-3 w-3" />
-                PayPal / transferencia
+            {isDraft ? (
+              <div className="sm:col-span-2">
+                <div className="mb-2 text-[12px] font-bold text-amber-700">Borrador</div>
+                <div>Documento no emitido. No se aceptan pagos para esta factura.</div>
               </div>
-              <div>Status: {statusInfo.label}</div>
-            </div>
-            <div>
-              <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">Terms & Conditions</div>
-              <div className="line-clamp-3">
-                Los pagos se aplican al balance de esta factura. Cualquier ajuste debe confirmarse
-                con Corevix.
-              </div>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">Payment Info</div>
+                  <div className="flex items-center gap-1">
+                    <CreditCard className="h-3 w-3" />
+                    PayPal / transferencia
+                  </div>
+                  <div>Status: {statusInfo.label}</div>
+                </div>
+                <div>
+                  <div className="mb-2 text-[12px] font-bold text-[#1d62f9]">
+                    Terms & Conditions
+                  </div>
+                  <div className="line-clamp-3">
+                    Los pagos se aplican al balance de esta factura. Cualquier ajuste debe
+                    confirmarse con Corevix.
+                  </div>
+                </div>
+              </>
+            )}
           </footer>
         </div>
       </article>
@@ -336,6 +358,7 @@ function getItemDescription(description?: string | null) {
 
 function getStatusInfo(status?: string | null) {
   const normalized = clean(status).toLowerCase();
+  if (normalized === "draft") return { label: "Borrador" };
   if (normalized === "paid") return { label: "Pagada" };
   if (normalized === "overdue") return { label: "Vencida" };
   if (normalized === "cancelled" || normalized === "canceled") return { label: "Cancelada" };

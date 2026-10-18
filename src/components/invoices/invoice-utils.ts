@@ -63,7 +63,11 @@ export function isInvoicePending(invoice: InvoiceLike) {
 }
 
 export function isInvoiceOverdue(invoice: InvoiceLike, todayIso = isoToday()) {
-  return Boolean(invoice.due_date && invoice.due_date < todayIso && !isInvoicePaid(invoice));
+  return Boolean(
+    invoice.due_date &&
+      invoice.due_date < todayIso &&
+      isInvoicePending(invoice),
+  );
 }
 
 export function getInvoiceOperationalStatus(invoice: InvoiceLike, todayIso = isoToday()) {

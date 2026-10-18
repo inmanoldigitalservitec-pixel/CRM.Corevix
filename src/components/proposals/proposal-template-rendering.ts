@@ -47,6 +47,33 @@ function formatMoney(amount: unknown, currency: unknown) {
   return formatCurrencyAmount(Number(amount || 0), String(currency || "USD"));
 }
 
+export function getProposalDiscountAmount(proposal: any) {
+  const data = proposalData(proposal);
+  const type = String(proposal?.discount_type ?? data?.discountType ?? "none");
+  const rawValue = Number(proposal?.discount_value ?? data?.discountValue ?? 0);
+  const value = Number.isFinite(rawValue) ? Math.max(0, rawValue) : 0;
+  const subtotal = Math.max(
+    0,
+    Number(proposal?.subtotal ?? proposal?.amount ?? 0) || 0,
+  );
+
+  let configuredDiscount = 0;
+  if (type === "percent") configuredDiscount = subtotal * (Math.min(value, 100) / 100);
+  else if (type === "fixed") configuredDiscount = value;
+
+  if (configuredDiscount > 0) return configuredDiscount;
+
+  // The public RPC historically returned totals without the discount fields.
+  // Recover the displayed discount from the persisted totals in that case.
+  const total = Number(proposal?.total ?? proposal?.amount);
+  if (!Number.isFinite(total)) return 0;
+  const tax = Number(proposal?.tax_total ?? 0) || 0;
+  const adjustment = Number(
+    proposal?.adjustment_value ?? data?.adjustmentValue ?? 0,
+  ) || 0;
+  return Math.max(0, subtotal + tax + adjustment - total);
+}
+
 function clean(value: unknown) {
   return String(value || "").trim();
 }
@@ -256,6 +283,7 @@ function buildMergeFields(
     "issuerLogoUrl",
     "companyLogoUrl",
   );
+  const discountAmount = getProposalDiscountAmount(proposal);
 
   return {
     proposal_number: proposal?.number || "PROP",
@@ -268,6 +296,7 @@ function buildMergeFields(
     proposal_items: renderItemsTable(items, currency),
     proposal_subtotal: formatMoney(proposal?.subtotal ?? proposal?.amount ?? 0, currency),
     proposal_tax_total: formatMoney(proposal?.tax_total ?? 0, currency),
+    proposal_discount: formatMoney(discountAmount, currency),
     proposal_total: formatMoney(proposal?.total ?? proposal?.amount ?? 0, currency),
     client_name: clientName,
     client_email: proposal?.recipient_email || getClientValue(proposal, "email"),
@@ -304,11 +333,67 @@ export function renderProposalTemplateHtml(
 ) {
   const fields = buildMergeFields(proposal, items, company);
   let html = String(proposal?.content || "");
+  const hasDiscountPlaceholder = /\{proposal_discount\}/i.test(html);
 
   Object.entries(fields).forEach(([key, value]) => {
     const replacement = key === "proposal_items" ? value : escapeHtml(value);
     html = html.replace(new RegExp(`\\{${key}\\}`, "g"), replacement);
   });
+
+  // Older proposal templates have totals rows but predate the discount field.
+  const discountAmount = getProposalDiscountAmount(proposal);
+  if (discountAmount > 0 && !hasDiscountPlaceholder) {
+    const formattedDiscount = formatMoney(discountAmount, proposal?.currency);
+    if (typeof DOMParser !== "undefined") {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const hasDiscountRow = Array.from(doc.body.querySelectorAll("tr, div, p, li")).some(
+        (element) => /^descuento\b/i.test(element.textContent?.trim() || ""),
+      );
+
+      if (!hasDiscountRow) {
+        const subtotalLabel = Array.from(doc.body.querySelectorAll("*"))
+          .filter((element) => /^sub\s*total\s*:?$/i.test(element.textContent?.trim() || ""))
+          .sort((left, right) => left.querySelectorAll("*").length - right.querySelectorAll("*").length)[0];
+        let subtotalRow = subtotalLabel?.parentElement || null;
+        while (
+          subtotalRow &&
+          subtotalRow !== doc.body &&
+          (!/^sub\s*total\b/i.test(subtotalRow.textContent?.trim() || "") ||
+            !/\d/.test(subtotalRow.textContent || ""))
+        ) {
+          subtotalRow = subtotalRow.parentElement;
+        }
+
+        if (subtotalRow?.parentElement) {
+          const discountRow = subtotalRow.cloneNode(true) as HTMLElement;
+          const leafElements = Array.from(discountRow.querySelectorAll("*"))
+            .filter((element) => !element.children.length);
+          const label = leafElements.find((element) =>
+            /^sub\s*total\s*:?$/i.test(element.textContent?.trim() || ""),
+          );
+          const amount = leafElements.find((element) => /\d/.test(element.textContent || ""));
+
+          if (label) label.textContent = "Descuento";
+          else {
+            discountRow.childNodes.forEach((node) => {
+              if (node.nodeType === Node.TEXT_NODE && /sub\s*total/i.test(node.textContent || "")) {
+                node.textContent = (node.textContent || "").replace(/sub\s*total\s*:?/i, "Descuento");
+              }
+            });
+          }
+          if (amount) amount.textContent = `-${formattedDiscount}`;
+          subtotalRow.after(discountRow);
+          html = doc.body.innerHTML;
+        }
+      }
+    } else {
+      const discountRow = `<div>Descuento: <strong>-${escapeHtml(formattedDiscount)}</strong></div>`;
+      html = html.replace(
+        /(<div[^>]*>\s*Subtotal:\s*<strong>[^<]*<\/strong>\s*<\/div>)/i,
+        `$1\n${discountRow}`,
+      );
+    }
+  }
 
   // Remove the known accidental QA marker without mutating the persisted proposal.
   html = html.replace(

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -251,6 +251,8 @@ function SettingsPage() {
     logo_url: "",
   });
   const [companyLoading, setCompanyLoading] = useState(false);
+  const [profileForm, setProfileForm] = useState({ full_name: "" });
+  const [profileSaving, setProfileSaving] = useState(false);
   const [currencyLoading, setCurrencyLoading] = useState(false);
   const [currencySaving, setCurrencySaving] = useState(false);
   const [currencyForm, setCurrencyForm] = useState(DEFAULT_CURRENCY_SETTINGS);
@@ -259,6 +261,12 @@ function SettingsPage() {
   const [taxSaving, setTaxSaving] = useState(false);
   const [taxFormOpen, setTaxFormOpen] = useState(false);
   const [taxForm, setTaxForm] = useState<TaxFormState>(DEFAULT_TAX_FORM);
+
+  useEffect(() => {
+    setProfileForm({
+      full_name: profile?.full_name || String(user?.user_metadata?.full_name || ""),
+    });
+  }, [profile?.id, profile?.full_name, user?.user_metadata?.full_name]);
 
   const roleOptions: AppRole[] = [
     "super_admin",
@@ -1266,6 +1274,28 @@ function SettingsPage() {
     else toast.success("Empresa actualizada");
   };
 
+  const saveUserProfile = async () => {
+    if (!profile?.id) {
+      toast.error("No se encontró un perfil para este usuario.");
+      return;
+    }
+    if (!profileForm.full_name.trim()) {
+      toast.error("El nombre completo es obligatorio.");
+      return;
+    }
+    setProfileSaving(true);
+    const { error } = await db
+      .from("profiles")
+      .update({ full_name: profileForm.full_name.trim() })
+      .eq("id", profile.id);
+    setProfileSaving(false);
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar el perfil.");
+      return;
+    }
+    toast.success("Perfil actualizado.");
+  };
+
   const togglePerm = (
     module: ModuleKey,
     key: keyof Omit<PermissionRow, "id" | "company_id" | "role" | "module">,
@@ -1468,22 +1498,29 @@ function SettingsPage() {
               <CardTitle className="text-base">Perfil</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Nombre completo</Label>
-                  <Input defaultValue="Admin User" />
+                  <Input
+                    value={profileForm.full_name}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({ ...current, full_name: event.target.value }))
+                    }
+                    disabled={authLoading || profileSaving || !profile?.id}
+                  />
                 </div>
                 <div>
                   <Label>Email</Label>
-                  <Input defaultValue="admin@corevix.com" />
+                  <Input value={user?.email || ""} readOnly disabled />
                 </div>
               </div>
               <Separator />
-              <div>
-                <Label>Cambiar contraseña</Label>
-                <Input type="password" placeholder="Nueva contraseña" />
-              </div>
-              <Button>Actualizar perfil</Button>
+              <p className="text-sm text-muted-foreground">
+                Para cambiar tu contraseña, visita <Link to="/profile" className="text-blue-700 underline">tu perfil</Link>.
+              </p>
+              <Button onClick={() => void saveUserProfile()} disabled={profileSaving || authLoading || !profile?.id}>
+                {profileSaving ? "Guardando…" : "Actualizar perfil"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

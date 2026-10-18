@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 type FilterOp = "eq" | "ilike" | "in" | "neq";
 
@@ -32,6 +33,7 @@ interface UseCrudOptions {
   ascending?: boolean;
   filters?: Filter[];
   limit?: number;
+  fetchAll?: boolean;
   enabled?: boolean;
 }
 
@@ -43,6 +45,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     ascending = false,
     filters = [],
     limit = 200,
+    fetchAll = false,
     enabled = true,
   } = options;
   const { profile, roles } = useAuth();
@@ -59,26 +62,36 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     setError(null);
     try {
       const db = supabase as any;
-      let query = db.from(table).select(select).eq("company_id", profile.company_id);
+      const fetchPage = async (from: number, to: number) => {
+        let query = db.from(table).select(select).eq("company_id", profile.company_id);
 
-      for (const f of filters) {
-        if (f.value === undefined || f.value === null || f.value === "" || f.value === "all")
-          continue;
-        if (f.op === "ilike") {
-          query = query.ilike(f.column, `%${f.value}%`);
-        } else if (f.op === "in") {
-          query = query.in(f.column, f.value);
-        } else if (f.op === "neq") {
-          query = query.neq(f.column, f.value);
-        } else {
-          query = query.eq(f.column, f.value);
+        for (const f of filters) {
+          if (f.value === undefined || f.value === null || f.value === "" || f.value === "all")
+            continue;
+          if (f.op === "ilike") {
+            query = query.ilike(f.column, `%${f.value}%`);
+          } else if (f.op === "in") {
+            query = query.in(f.column, f.value);
+          } else if (f.op === "neq") {
+            query = query.neq(f.column, f.value);
+          } else {
+            query = query.eq(f.column, f.value);
+          }
         }
-      }
 
-      const { data: rows, error: err } = await query.order(orderBy, { ascending }).limit(limit);
-      if (err)
-        throw new Error(formatCrudErrorMessage(err, `No se pudo crear registro en ${table}`));
-      setData((rows || []) as unknown as T[]);
+        query = query.order(orderBy, { ascending });
+        if (fetchAll) query = query.order("id", { ascending: true });
+        const result = fetchAll ? await query.range(from, to) : await query.limit(limit);
+        if (result.error) {
+          throw new Error(
+            formatCrudErrorMessage(result.error, `No se pudo crear registro en ${table}`),
+          );
+        }
+        return (result.data || []) as unknown as T[];
+      };
+
+      const rows = fetchAll ? await fetchAllPages(fetchPage, limit) : await fetchPage(0, limit - 1);
+      setData(rows);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -91,6 +104,7 @@ export function useCrud<T extends Record<string, any>>(options: UseCrudOptions) 
     ascending,
     JSON.stringify(filters),
     limit,
+    fetchAll,
     enabled,
     profile?.company_id,
   ]);

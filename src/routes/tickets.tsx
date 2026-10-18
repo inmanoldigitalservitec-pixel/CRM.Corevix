@@ -2,7 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -1110,6 +1116,12 @@ export function TicketDetailDialog({
       <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 bg-white p-0 shadow-none md:h-[88vh] md:w-[calc(100vw-24px)] md:max-w-4xl md:border md:border-slate-200">
         {ticket ? (
           <div className="flex h-full min-h-0 flex-col">
+            <DialogTitle className="sr-only">
+              #{ticket.ticket_number || "—"} · {ticket.subject}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Detalle del ticket, estado y acciones de soporte.
+            </DialogDescription>
             <header className="border-b border-slate-100 bg-white p-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
