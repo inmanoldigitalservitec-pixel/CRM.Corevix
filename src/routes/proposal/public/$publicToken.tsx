@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { ProposalTemplateRenderer } from "@/components/proposals/ProposalTemplateRenderer";
 import { getProposalDiscountAmount } from "@/components/proposals/proposal-template-rendering";
 import { formatCurrencyAmount } from "@/lib/currency";
+import { isExplicitZeroPrice } from "@/lib/proposals/explicit-zero-price";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/proposal/public/$publicToken")({
@@ -322,15 +323,33 @@ function ProposalDocumentView(props: {
   const investmentDetailsText = String((data as any)?.investmentDetailsText || "").trim();
   const proposalDate = proposal?.proposal_date || proposal?.created_at || null;
 
+  const serializedItems = Array.isArray((data as any)?.proposalItems)
+    ? (data as any).proposalItems
+    : [];
   const documentRows = (Array.isArray(items) ? items : [])
-    .map((item) => ({
-      name: String(item?.item_name || item?.name || item?.description || "Servicio").trim(),
-      description: String(item?.description || "").trim(),
-      qty: Number(item?.quantity || 1),
-      rate: Number(item?.rate || item?.converted_rate || 0),
-      taxRate: Number(item?.tax_rate || 0),
-      amount: Number(item?.amount || 0),
-    }))
+    .map((item, index) => {
+      const serializedRate = serializedItems[index]?.rate;
+      const hasSerializedRate = serializedItems[index]?.rate !== undefined;
+      const hasPrice =
+        typeof serializedItems[index]?.priceSpecified === "boolean"
+          ? serializedItems[index].priceSpecified
+          : hasSerializedRate
+            ? serializedRate !== null &&
+              String(serializedRate).trim() !== "" &&
+              Number(serializedRate) !== 0
+            : item?.rate !== null && item?.rate !== undefined;
+      const pricedRate = hasSerializedRate ? serializedRate : item?.rate;
+      return {
+        name: String(item?.item_name || item?.name || item?.description || "Servicio").trim(),
+        description: String(item?.description || "").trim(),
+        qty: Number(item?.quantity || 1),
+        rate: Number(pricedRate || 0),
+        hasPrice,
+        isExplicitZeroPrice: isExplicitZeroPrice(pricedRate, hasPrice),
+        taxRate: Number(item?.tax_rate || 0),
+        amount: Number(item?.amount || 0),
+      };
+    })
     .filter((item) => item.name || item.description);
 
   const fallbackRows = (
@@ -344,6 +363,8 @@ function ProposalDocumentView(props: {
         index === 0 && serviceDescription && serviceDescription !== item ? serviceDescription : "",
       qty: 1,
       rate: index === 0 ? total : 0,
+      hasPrice: total !== 0,
+      isExplicitZeroPrice: false,
       taxRate: 0,
       amount: index === 0 ? total : 0,
     }));
@@ -358,6 +379,8 @@ function ProposalDocumentView(props: {
             description: serviceDescription,
             qty: 1,
             rate: total,
+            hasPrice: total !== 0,
+            isExplicitZeroPrice: false,
             taxRate: 0,
             amount: total,
           },
@@ -474,14 +497,21 @@ function ProposalDocumentView(props: {
               <div>{index + 1}</div>
               <div className="pr-5">
                 <div className="font-bold text-slate-950">{row.name}</div>
+                {row.isExplicitZeroPrice ? (
+                  <div className="mt-1 text-[10px] font-semibold text-emerald-700">Sin costo</div>
+                ) : null}
                 {row.description ? (
                   <div className="mt-1 text-[10px] leading-4 text-slate-600">{row.description}</div>
                 ) : null}
               </div>
               <div className="text-right">{row.qty}</div>
-              <div className="text-right">{formatMoney(row.rate, currency)}</div>
+              <div className="text-right">
+                {row.hasPrice ? formatMoney(row.rate, currency) : "Por definir"}
+              </div>
               <div className="text-right">{row.taxRate ? `${row.taxRate}%` : "0%"}</div>
-              <div className="text-right font-semibold">{formatMoney(row.amount, currency)}</div>
+              <div className="text-right font-semibold">
+                {row.hasPrice ? formatMoney(row.amount, currency) : "—"}
+              </div>
             </div>
           ))}
         </section>

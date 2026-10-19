@@ -59,6 +59,7 @@ import { useCrud } from "@/hooks/use-crud";
 import { supabase } from "@/integrations/supabase/client";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { withoutProductWorkflowSteps } from "@/lib/proposals/proposal-data";
+import { isExplicitZeroPrice } from "@/lib/proposals/explicit-zero-price";
 import {
   isApprovedProposalStatus,
   isPendingProposalStatus,
@@ -247,6 +248,7 @@ interface ProposalLineItem {
   originalCurrency?: string | null;
   originalRate?: string | null;
   convertedRate?: string | null;
+  priceSpecified?: boolean;
   exchangeRate?: number | null;
   exchangeRateSource?: string | null;
   exchangeRateUpdatedAt?: string | null;
@@ -1056,17 +1058,20 @@ function ProposalsPage() {
           item: line.item?.trim() || "",
           description: line.description?.trim() || "",
           quantity: line.quantity?.trim() || "1",
-          rate: normalizeCurrencyInput(line.rate, form.currency) || "0",
+          rate: line.rate.trim() ? normalizeCurrencyInput(line.rate, form.currency) : "",
+          priceSpecified: line.rate.trim() !== "",
           tax: String(taxRate),
           taxId: catalogTax?.id || line.taxId || null,
           taxName: catalogTax?.name || line.taxName || null,
           optional: Boolean(line.optional),
           documentCurrency: line.documentCurrency || form.currency,
           originalCurrency: line.originalCurrency || form.currency,
-          originalRate:
-            line.originalRate || normalizeCurrencyInput(line.rate, form.currency) || "0",
-          convertedRate:
-            line.convertedRate || normalizeCurrencyInput(line.rate, form.currency) || "0",
+          originalRate: line.rate.trim()
+            ? line.originalRate || normalizeCurrencyInput(line.rate, form.currency)
+            : "",
+          convertedRate: line.rate.trim()
+            ? line.convertedRate || normalizeCurrencyInput(line.rate, form.currency)
+            : "",
           exchangeRate: line.exchangeRate ?? 1,
           exchangeRateSource: line.exchangeRateSource || currencySettings.rateSource,
           exchangeRateUpdatedAt: line.exchangeRateUpdatedAt || currencySettings.rateUpdatedAt,
@@ -1213,6 +1218,19 @@ function ProposalsPage() {
         discountValue: convertedDiscount,
         adjustmentValue: normalizeCurrencyInput(String(convertedAdjustment), nextCurrency),
         proposalItems: prev.proposalItems.map((line) => {
+          if (!line.rate.trim()) {
+            return {
+              ...line,
+              documentCurrency: nextCurrency,
+              originalCurrency: line.originalCurrency || currentCurrency,
+              originalRate: "",
+              convertedRate: "",
+              priceSpecified: false,
+              exchangeRate: 1,
+              exchangeRateSource: currencySettings.rateSource,
+              exchangeRateUpdatedAt: currencySettings.rateUpdatedAt,
+            };
+          }
           const originalCurrency = normalizeProposalCurrency(
             line.originalCurrency || currentCurrency,
           );
@@ -1289,6 +1307,7 @@ function ProposalsPage() {
             description: String(product.description || "").trim(),
             quantity: "1",
             rate: convertedPriceInput,
+            priceSpecified: product.base_price !== null && product.base_price !== undefined,
             tax: String(productTaxRate),
             taxId: productTax?.id || null,
             taxName: productTax?.name || null,
@@ -1420,13 +1439,22 @@ function ProposalsPage() {
     const storedItems = proposalItemsByProposalId.get(item.id) || [];
     const dbProposalItems =
       storedItems.length > 0
-        ? storedItems.map((line) => ({
+      ? storedItems.map((line, index) => {
+          const serializedLine = Array.isArray((pd as any)?.proposalItems)
+            ? (pd as any).proposalItems[index]
+            : null;
+          const priceSpecified =
+            typeof serializedLine?.priceSpecified === "boolean"
+              ? serializedLine.priceSpecified
+              : Number(line.rate) > 0;
+          return {
             id: line.id,
             productId: line.product_id || null,
             item: line.item_name || "",
             description: line.description || "",
             quantity: String(line.quantity ?? "1"),
-            rate: String(line.rate ?? ""),
+            rate: priceSpecified ? String(serializedLine?.rate ?? line.rate ?? "") : "",
+            priceSpecified,
             tax: String(line.tax_rate ?? "0"),
             taxId: line.tax_id || null,
             taxName: line.tax_name || null,
@@ -1434,21 +1462,24 @@ function ProposalsPage() {
             documentCurrency: line.document_currency || item.currency || "USD",
             originalCurrency:
               line.original_currency || line.document_currency || item.currency || "USD",
-            originalRate:
-              line.original_rate === null || line.original_rate === undefined
+            originalRate: priceSpecified
+              ? line.original_rate === null || line.original_rate === undefined
                 ? String(line.rate ?? "")
-                : String(line.original_rate),
-            convertedRate:
-              line.converted_rate === null || line.converted_rate === undefined
+                : String(line.original_rate)
+              : "",
+            convertedRate: priceSpecified
+              ? line.converted_rate === null || line.converted_rate === undefined
                 ? String(line.rate ?? "")
-                : String(line.converted_rate),
+                : String(line.converted_rate)
+              : "",
             exchangeRate:
               line.exchange_rate === null || line.exchange_rate === undefined
                 ? null
                 : Number(line.exchange_rate),
             exchangeRateSource: line.exchange_rate_source || null,
             exchangeRateUpdatedAt: line.exchange_rate_updated_at || null,
-          }))
+          };
+        })
         : null;
     const jsonProposalItems = Array.isArray((pd as any)?.proposalItems)
       ? (pd as any).proposalItems.map((line: any) => ({
@@ -1458,6 +1489,10 @@ function ProposalsPage() {
           description: String(line?.description || ""),
           quantity: String(line?.quantity ?? "1"),
           rate: String(line?.rate ?? ""),
+          priceSpecified:
+            typeof line?.priceSpecified === "boolean"
+              ? line.priceSpecified
+              : String(line?.rate ?? "").trim() !== "" && Number(line?.rate) !== 0,
           tax: String(line?.tax ?? line?.tax_rate ?? "0"),
           taxId: String(line?.taxId || line?.tax_id || "") || null,
           taxName: String(line?.taxName || line?.tax_name || "") || null,
@@ -1811,18 +1846,17 @@ function ProposalsPage() {
 
       const rows = proposalLineItems.map((line, index) => {
         const quantity = parseMoneyValue(line.quantity);
+        // proposal_items.rate is NOT NULL; proposal_data preserves blank separately.
         const rate = normalizeCurrencyAmount(line.rate, currency);
         const tax = parseMoneyValue(line.tax);
         const documentCurrency = normalizeProposalCurrency(line.documentCurrency || currency);
         const originalCurrency = normalizeProposalCurrency(line.originalCurrency || currency);
-        const originalRate = normalizeCurrencyAmount(
-          line.originalRate || line.rate,
-          originalCurrency,
-        );
-        const convertedRate = normalizeCurrencyAmount(
-          line.convertedRate || line.rate,
-          documentCurrency,
-        );
+        const originalRate = line.rate.trim()
+          ? normalizeCurrencyAmount(line.originalRate || line.rate, originalCurrency)
+          : null;
+        const convertedRate = line.rate.trim()
+          ? normalizeCurrencyAmount(line.convertedRate || line.rate, documentCurrency)
+          : null;
         const lineBase = quantity * rate;
         const lineTaxAmount = lineBase * (tax / 100);
         return {
@@ -3202,6 +3236,18 @@ function ProposalsPage() {
                                   }
                                   placeholder="Descripción"
                                 />
+                                {(line.item.trim() || line.description.trim()) &&
+                                isExplicitZeroPrice(line.rate, line.priceSpecified) ? (
+                                  <div className="mt-2 text-xs font-semibold text-emerald-700">
+                                    Sin costo
+                                  </div>
+                                ) :
+                                  (line.item.trim() || line.description.trim()) &&
+                                  !line.rate.trim() ? (
+                                  <div className="mt-2 text-xs font-medium text-amber-700">
+                                    Tarifa pendiente
+                                  </div>
+                                ) : null}
                                 <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-600">
                                   <Checkbox
                                     checked={line.optional}
@@ -3250,6 +3296,7 @@ function ProposalsPage() {
                                   onChange={(e) =>
                                     updateProposalItem(line.id, {
                                       rate: e.target.value,
+                                      priceSpecified: e.target.value.trim() !== "",
                                       documentCurrency: normalizeProposalCurrency(form.currency),
                                       originalCurrency: normalizeProposalCurrency(form.currency),
                                       originalRate: e.target.value,
@@ -3266,6 +3313,7 @@ function ProposalsPage() {
                                     );
                                     updateProposalItem(line.id, {
                                       rate: normalizedRate,
+                                      priceSpecified: normalizedRate.trim() !== "",
                                       documentCurrency: normalizeProposalCurrency(form.currency),
                                       originalCurrency: normalizeProposalCurrency(form.currency),
                                       originalRate: normalizedRate,

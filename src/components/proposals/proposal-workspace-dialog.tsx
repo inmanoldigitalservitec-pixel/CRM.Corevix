@@ -55,6 +55,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivityEvent } from "@/lib/activity-log";
 import { cn } from "@/lib/utils";
+import { isExplicitZeroPrice } from "@/lib/proposals/explicit-zero-price";
 
 type ProposalWorkspaceProposal = {
   id: string;
@@ -80,6 +81,7 @@ type ProposalWorkspaceProposal = {
   public_token?: string | null;
   template_id?: string | null;
   template_key?: string | null;
+  proposal_data?: Record<string, unknown> | null;
   allow_comments?: boolean | null;
   recipient_name?: string | null;
   recipient_email?: string | null;
@@ -114,7 +116,7 @@ type ProposalWorkspaceItem = {
   description: string | null;
   quantity: number;
   unit_type: string;
-  rate: number;
+  rate: number | null;
   tax_rate: number;
   tax_name?: string | null;
   tax_amount?: number | null;
@@ -517,6 +519,9 @@ export function ProposalWorkspaceDialog({
   const subtotalAmount = Number(proposal?.subtotal ?? proposal?.amount ?? 0);
   const taxAmount = Number(proposal?.tax_total ?? 0);
   const discountAmount = getProposalDiscountAmount(proposal);
+  const serializedProposalItems = Array.isArray((proposal?.proposal_data as any)?.proposalItems)
+    ? (proposal?.proposal_data as any).proposalItems
+    : [];
 
   const copiedContent = useMemo(() => {
     if (!proposal) return "";
@@ -1236,29 +1241,56 @@ export function ProposalWorkspaceDialog({
                       </TableHeader>
                       <TableBody>
                         {items.length ? (
-                          items.map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell className="font-normal text-slate-950">
-                                {item.item_name || "Ítem"}
-                              </TableCell>
-                              <TableCell className="max-w-[320px] text-sm font-normal text-slate-500">
-                                <span className="line-clamp-2">{item.description || "—"}</span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {Number(item.quantity || 0)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatMoney(Number(item.rate || 0), proposal.currency)}
-                              </TableCell>
-                              <TableCell>
-                                {item.tax_name ||
-                                  (Number(item.tax_rate || 0) ? `${item.tax_rate}%` : "—")}
-                              </TableCell>
-                              <TableCell className="text-right font-normal text-slate-950">
-                                {formatMoney(Number(item.amount || 0), proposal.currency)}
-                              </TableCell>
-                            </TableRow>
-                          ))
+                          items.map((item, index) => {
+                            const serializedRate = serializedProposalItems[index]?.rate;
+                            const hasSerializedRate = serializedProposalItems[index]?.rate !== undefined;
+                            const hasPrice =
+                              typeof serializedProposalItems[index]?.priceSpecified === "boolean"
+                                ? serializedProposalItems[index].priceSpecified
+                                : hasSerializedRate
+                                  ? serializedRate !== null &&
+                                    String(serializedRate).trim() !== "" &&
+                                    Number(serializedRate) !== 0
+                                  : item.rate !== null && item.rate !== undefined;
+                            const rate = hasSerializedRate ? serializedRate : item.rate;
+                            const free = isExplicitZeroPrice(rate, hasPrice);
+                            return (
+                              <TableRow key={item.id}>
+                                <TableCell className="font-normal text-slate-950">
+                                  {item.item_name || "Ítem"}
+                                  {free ? (
+                                    <div className="mt-1 text-xs font-semibold text-emerald-700">
+                                      Sin costo
+                                    </div>
+                                  ) : !hasPrice ? (
+                                    <div className="mt-1 text-xs font-medium text-amber-700">
+                                      Tarifa pendiente
+                                    </div>
+                                  ) : null}
+                                </TableCell>
+                                <TableCell className="max-w-[320px] text-sm font-normal text-slate-500">
+                                  <span className="line-clamp-2">{item.description || "—"}</span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {Number(item.quantity || 0)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {!hasPrice
+                                    ? "Por definir"
+                                    : formatMoney(Number(rate), proposal.currency)}
+                                </TableCell>
+                                <TableCell>
+                                  {item.tax_name ||
+                                    (Number(item.tax_rate || 0) ? `${item.tax_rate}%` : "—")}
+                                </TableCell>
+                                <TableCell className="text-right font-normal text-slate-950">
+                                  {!hasPrice
+                                    ? "—"
+                                    : formatMoney(Number(item.amount || 0), proposal.currency)}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
                         ) : (
                           <TableRow>
                             <TableCell

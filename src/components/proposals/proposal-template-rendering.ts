@@ -1,4 +1,5 @@
-import { formatCurrencyAmount } from "@/lib/currency";
+import { formatCurrencyAmount } from "../../lib/currency.ts";
+import { resolveProposalItemPricing } from "../../lib/proposals/explicit-zero-price.ts";
 
 export type ProposalCompanyProfile = {
   company_name?: string | null;
@@ -169,25 +170,35 @@ function buildCompanyAddress(
   return parts.join(", ");
 }
 
-function renderItemsTable(items: any[], currency: string) {
+function renderItemsTable(
+  items: any[],
+  currency: string,
+  serializedItems: any[] = [],
+) {
   if (!Array.isArray(items) || !items.length) {
     return `<p style="color:#64748b;">No hay ítems agregados todavía.</p>`;
   }
 
   const rows = items
     .map((item, index) => {
+      const pricing = resolveProposalItemPricing(item, serializedItems[index]);
       const name = escapeHtml(item?.item_name || item?.name || item?.description || "Servicio");
       const description = escapeHtml(item?.description || "");
       const quantity = escapeHtml(item?.quantity || 1);
-      const rate = escapeHtml(formatMoney(item?.rate ?? item?.converted_rate ?? 0, currency));
+      const rate = escapeHtml(
+        pricing.hasPrice ? formatMoney(Number(pricing.rate), currency) : "Por definir",
+      );
       const tax = Number(item?.tax_rate || 0);
-      const amount = escapeHtml(formatMoney(item?.amount || 0, currency));
+      const amount = escapeHtml(
+        pricing.hasPrice ? formatMoney(item?.amount || 0, currency) : "—",
+      );
 
       return `
         <tr>
           <td style="padding:12px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;">${index + 1}</td>
           <td style="padding:12px 10px;border-bottom:1px solid #e2e8f0;">
             <div style="font-weight:700;color:#0f172a;">${name}</div>
+            ${pricing.label ? `<div style="margin-top:4px;color:${pricing.isFree ? "#047857" : "#b45309"};font-size:11px;font-weight:600;">${pricing.label}</div>` : ""}
             ${description ? `<div style="margin-top:4px;color:#64748b;font-size:12px;line-height:1.45;">${description}</div>` : ""}
           </td>
           <td style="padding:12px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${quantity}</td>
@@ -293,7 +304,7 @@ function buildMergeFields(
     valid_until: proposal?.valid_until || "",
     proposal_description: proposal?.description || data?.serviceDescription || "",
     proposal_content: summaryContent,
-    proposal_items: renderItemsTable(items, currency),
+    proposal_items: renderItemsTable(items, currency, data?.proposalItems || []),
     proposal_subtotal: formatMoney(proposal?.subtotal ?? proposal?.amount ?? 0, currency),
     proposal_tax_total: formatMoney(proposal?.tax_total ?? 0, currency),
     proposal_discount: formatMoney(discountAmount, currency),
