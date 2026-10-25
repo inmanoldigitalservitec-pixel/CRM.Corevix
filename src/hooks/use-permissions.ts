@@ -52,7 +52,7 @@ type CrudPermissionModule =
   | "expenses"
   | "invoices"
   | "reports";
-type CrudPermissionAction = "view_all" | "view_assigned" | "create" | "edit" | "delete";
+type CrudPermissionAction = "view_all" | "view_assigned" | "create" | "edit" | "delete" | "assign";
 type PermissionKey =
   | `${CrudPermissionModule}.${CrudPermissionAction}`
   | "settings.view"
@@ -122,6 +122,7 @@ export function usePermissions() {
     if (action === "create") return row.can_create;
     if (action === "edit") return row.can_edit;
     if (action === "delete") return row.can_delete;
+    if (action === "assign") return row.can_assign;
     if (action === "view_all")
       return row.can_view && role !== "sales_agent" && role !== "collaborator";
     if (action === "view_assigned")

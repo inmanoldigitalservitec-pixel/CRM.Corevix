@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
-import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openCommercialFollowUp } from "@/components/commercial-follow-ups/global-commercial-follow-up-host";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -319,7 +319,7 @@ export function MessengerContextPanel({
   const actorUserId = profile?.user_id || null;
 
   const canCreateFollowUp = Boolean(
-    conversation && hasLinkedLead && profile?.company_id && actorUserId && can("tasks.create"),
+    conversation && hasLinkedLead && profile?.company_id && actorUserId && can("leads.edit"),
   );
 
   const canCreateDeal = Boolean(
@@ -356,22 +356,13 @@ export function MessengerContextPanel({
   function openFollowUpDialog() {
     if (!conversation) return;
     if (!conversation.linked_lead_id) return;
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dueDate = tomorrow.toISOString().slice(0, 10);
-    const lastMsg = String(conversation.last_message_text || "").trim();
-    openGlobalTaskCreate({
-      initialValues: {
-        title: "Seguimiento Messenger",
-        dueDate,
-        priority: "Medium",
-        description: `Seguimiento creado desde conversación de Messenger.\nID de Messenger: ${messengerId || "—"}\nÚltimo mensaje: ${lastMsg || "—"}`,
-        assignedTo:
-          (linkedLead?.assigned_to ? String(linkedLead.assigned_to) : null) ||
-          actorUserId ||
-          undefined,
-        leadId: String(conversation.linked_lead_id),
-      },
+    openCommercialFollowUp({
+      mode: "schedule",
+      entity: { type: "lead", id: String(conversation.linked_lead_id) },
+      entityLabel: linkedLead?.company_name || "Prospecto de Messenger",
+      assigneeUserId: linkedLead?.assigned_to || actorUserId || undefined,
+      channel: "whatsapp",
+      objective: "Contactar al prospecto por Messenger",
     });
   }
 

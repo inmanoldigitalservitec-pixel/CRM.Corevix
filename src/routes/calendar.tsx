@@ -28,6 +28,8 @@ import { MobileCalendarMonthView } from "@/components/calendar/mobile-calendar-m
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
+import { rescheduleFollowUp } from "@/lib/commercial-follow-ups";
 import {
   CALENDAR_FILTER_OPTIONS,
   DOT_STYLES,
@@ -228,7 +230,7 @@ function CalendarPage() {
       db
         .from("calendar_events")
         .select(
-          "id,title,description,location,type,status,start_at,end_at,all_day,related_task_id,created_at",
+          "id,title,description,location,type,status,start_at,end_at,all_day,related_task_id,metadata,created_at",
         )
         .eq("company_id", cid)
         .order("start_at", { ascending: true }),
@@ -444,6 +446,15 @@ function CalendarPage() {
     const newDate = dateOnly(newStart.toISOString());
 
     try {
+      if (item.commercialFollowUpId) {
+        await rescheduleFollowUp(
+          item.commercialFollowUpId,
+          newStart.toISOString(),
+          Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        );
+        await fetchEvents();
+        return;
+      }
       if (item.source === "calendar_event") {
         await db
           .from("calendar_events")
@@ -533,7 +544,8 @@ function CalendarPage() {
       }
 
       await fetchEvents();
-    } catch {
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo reprogramar el evento.");
       info.revert();
     }
   }

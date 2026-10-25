@@ -49,6 +49,8 @@ import {
   getClient360FinancialInvoices,
 } from "@/lib/client360-invoice-financials";
 import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openCommercialFollowUp } from "@/components/commercial-follow-ups/global-commercial-follow-up-host";
+import { CommercialTimelinePanel } from "@/components/commercial-follow-ups/commercial-timeline-panel";
 import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import { LoadingMetrics, LoadingTable } from "@/components/crm/loading-state";
 import { EmptyState } from "@/components/crm/empty-state";
@@ -2753,6 +2755,14 @@ function ClientsPage() {
     return true;
   };
 
+  const canManageCommercialForClient = (client: ClientSnapshot): boolean => {
+    if (!profile?.company_id || !can("clients.edit") || role === "viewer") return false;
+    if (role === "sales_agent" || role === "collaborator") {
+      return Boolean(client.account_manager && String(client.account_manager) === String(profile.id));
+    }
+    return true;
+  };
+
   const openCreateTaskForClient = (client: ClientSnapshot) => {
     setSelectedClientId(client.id);
     openGlobalTaskCreate({
@@ -4820,6 +4830,14 @@ function ClientsPage() {
                   <div className="flex flex-wrap items-center gap-2 pr-10 lg:justify-end">
                     <CrmDetailLineButton
                       className="h-8"
+                      icon={<CalendarClock className="h-3.5 w-3.5" />}
+                      onClick={() => openCommercialFollowUp({ mode: "schedule", entity: { type: "client", id: selectedClient.id }, entityLabel: selectedClient.company_name, assigneeUserId: (selectedClient.account_manager && managerUserIdByProfileId.get(selectedClient.account_manager)) || profile?.user_id || undefined, objective: `Contactar a ${selectedClient.company_name}` })}
+                      disabled={!canManageCommercialForClient(selectedClient)}
+                    >
+                      Crear seguimiento
+                    </CrmDetailLineButton>
+                    <CrmDetailLineButton
+                      className="h-8"
                       icon={<FileText className="h-3.5 w-3.5" />}
                       data-demo="client-360-create-task"
                       onClick={() => openCreateTaskForClient(selectedClient)}
@@ -4964,6 +4982,7 @@ function ClientsPage() {
                           icon: CheckCircle2,
                           count: selectedClient.tasks.length,
                         },
+                        { value: "follow-ups", label: "Seguimientos", icon: CalendarClock },
                         { value: "tickets", label: "Tickets", icon: MessageSquarePlus },
                         { value: "files", label: "Archivos", icon: FileText },
                         {
@@ -7139,6 +7158,20 @@ function ClientsPage() {
                         driveFolderUrl={selectedClient.drive_folder_url}
                         canEdit={can("clients.edit")}
                       />
+                    </TabsContent>
+
+                    <TabsContent value="follow-ups" className="space-y-5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-950">Seguimientos comerciales</h3>
+                          <p className="text-xs text-slate-500">Contactos programados e interacciones registradas.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <CrmDetailLineButton disabled={!canManageCommercialForClient(selectedClient)} onClick={() => openCommercialFollowUp({ mode: "schedule", entity: { type: "client", id: selectedClient.id }, entityLabel: selectedClient.company_name, assigneeUserId: (selectedClient.account_manager && managerUserIdByProfileId.get(selectedClient.account_manager)) || profile?.user_id || undefined })}>Programar</CrmDetailLineButton>
+                          <CrmDetailLineButton disabled={!canManageCommercialForClient(selectedClient)} onClick={() => openCommercialFollowUp({ mode: "interaction", entity: { type: "client", id: selectedClient.id }, entityLabel: selectedClient.company_name })}>Registrar contacto</CrmDetailLineButton>
+                        </div>
+                      </div>
+                      <CommercialTimelinePanel entity={{ type: "client", id: selectedClient.id }} entityLabel={selectedClient.company_name} />
                     </TabsContent>
 
                     <TabsContent value="tasks" className="space-y-5">

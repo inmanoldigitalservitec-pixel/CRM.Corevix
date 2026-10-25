@@ -20,6 +20,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { I18nProvider, useT } from "@/i18n";
 import { GlobalTaskCreateHost } from "@/components/tasks/global-task-create-host";
 import { GlobalReminderCreateHost } from "@/components/calendar/global-reminder-create-host";
+import { GlobalCommercialFollowUpHost } from "@/components/commercial-follow-ups/global-commercial-follow-up-host";
 import { WhatsAppClient360Bridge } from "@/components/whatsapp/WhatsAppClient360Bridge";
 import { WhatsAppInternalWorkPanel } from "@/components/whatsapp/WhatsAppInternalWorkPanel";
 import { WhatsAppPanelPhase2Safe } from "@/components/whatsapp/WhatsAppPanelPhase2Safe";
@@ -187,6 +188,7 @@ function AppShell() {
         <MobileBottomNav />
         <GlobalTaskCreateHost />
         <GlobalReminderCreateHost />
+        <GlobalCommercialFollowUpHost />
         <GlobalDetailHost />
       </SidebarProvider>
     </DemoTourProvider>

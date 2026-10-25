@@ -33,6 +33,7 @@ export type CalendarItem = {
   href: string;
   context?: string | null;
   tone: CalendarTone;
+  commercialFollowUpId?: string | null;
 };
 
 export type CalendarEventSourceRow = {
@@ -45,6 +46,8 @@ export type CalendarEventSourceRow = {
   start_at: string;
   end_at?: string | null;
   all_day?: boolean | null;
+  related_task_id?: string | null;
+  metadata?: { commercial_follow_up_id?: string } | null;
 };
 
 export type TaskCalendarSourceRow = {
@@ -312,6 +315,11 @@ function detailHref(source: EventSourceType, id: string) {
 }
 
 export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem[] {
+  const linkedTaskIds = new Set(
+    (input.calendarEvents || [])
+      .filter((event) => Boolean(event.metadata?.commercial_follow_up_id && event.related_task_id))
+      .map((event) => String(event.related_task_id)),
+  );
   return [
     ...(input.calendarEvents || []).map((event) => ({
       id: `calendar_event-${event.id}`,
@@ -325,14 +333,19 @@ export function buildCalendarItems(input: BuildCalendarItemsInput): CalendarItem
       description: event.description,
       location: event.location,
       eventType: event.type,
-      href: detailHref("calendar_event", event.id),
-      context: event.type
+      commercialFollowUpId: event.metadata?.commercial_follow_up_id || null,
+      href: event.metadata?.commercial_follow_up_id
+        ? `/follow-ups?followUpId=${encodeURIComponent(event.metadata.commercial_follow_up_id)}`
+        : detailHref("calendar_event", event.id),
+      context: event.metadata?.commercial_follow_up_id
+        ? "Seguimiento comercial"
+        : event.type
         ? FORM_TYPE_LABELS[event.type as FormType] || event.type
         : "Evento manual",
-      tone: getCalendarEventTone(event.type),
+      tone: event.metadata?.commercial_follow_up_id ? "violet" as const : getCalendarEventTone(event.type),
     })),
     ...(input.tasks || [])
-      .filter((task) => Boolean(task.due_date))
+      .filter((task) => Boolean(task.due_date) && !linkedTaskIds.has(task.id))
       .map((task) => ({
         id: `task-${task.id}`,
         relatedId: task.id,

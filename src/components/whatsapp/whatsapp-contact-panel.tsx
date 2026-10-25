@@ -21,7 +21,7 @@ import { WhatsappAvatar } from "@/components/whatsapp/whatsapp-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
-import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openCommercialFollowUp } from "@/components/commercial-follow-ups/global-commercial-follow-up-host";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CrmDetailSection } from "@/components/crm/crm-detail";
@@ -348,7 +348,7 @@ export function WhatsappContactPanel({
       (!isSalesAgent || matchesAssignedActor(lead.assigned_to))),
   );
   const canCreateFollowUpFromPanel = Boolean(
-    lead && can("tasks.create") && (!isSalesAgent || matchesAssignedActor(lead.assigned_to)),
+    lead && can("leads.edit") && (!isSalesAgent || matchesAssignedActor(lead.assigned_to)),
   );
 
   function panelActionHint(
@@ -1250,31 +1250,25 @@ export function WhatsappContactPanel({
 
   function openFollowUpDialog() {
     if (!lead) return;
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dueDate = tomorrow.toISOString().slice(0, 10);
     const leadLabel =
       lead.company_name ||
       formatPersonName(lead.first_name, lead.last_name) ||
       lead.email ||
       lead.phone ||
       "prospecto";
-    const sourceHint = lead.source_channel || lead.source || "—";
-    if (!can("tasks.create")) {
+    if (!can("leads.edit")) {
       toast.error("No tienes permiso para crear seguimiento");
       return;
     }
     if (!enforceOwnLeadForSales("Solo puedes crear seguimiento para tus propios prospectos"))
       return;
-    openGlobalTaskCreate({
-      initialValues: {
-        title: `Dar seguimiento a ${leadLabel}`,
-        dueDate,
-        priority: "Medium",
-        description: `Seguimiento creado desde WhatsApp.\nFuente: ${sourceHint}`,
-        assignedTo: lead.assigned_to || profile?.user_id || user?.id || undefined,
-        leadId: lead.id,
-      },
+    openCommercialFollowUp({
+      mode: "schedule",
+      entity: { type: "lead", id: lead.id },
+      entityLabel: leadLabel,
+      assigneeUserId: lead.assigned_to || profile?.user_id || undefined,
+      channel: "whatsapp",
+      objective: `Contactar a ${leadLabel} por WhatsApp`,
     });
   }
 

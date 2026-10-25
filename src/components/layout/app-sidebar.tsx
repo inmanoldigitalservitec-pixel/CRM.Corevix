@@ -7,6 +7,7 @@ import {
   Bot,
   Building2,
   Calendar,
+  CalendarClock,
   CheckSquare,
   ChevronDown,
   CreditCard,
@@ -94,6 +95,12 @@ const mainItems: SidebarItem[] = [
 const salesItems: SidebarItem[] = [
   { titleKey: "nav.leads", url: "/leads", icon: Users, iconClassName: "text-blue-600" },
   { titleKey: "nav.pipeline", url: "/pipeline", icon: GitBranch, iconClassName: "text-blue-600" },
+  {
+    title: "Seguimientos",
+    url: "/follow-ups",
+    icon: CalendarClock,
+    iconClassName: "text-blue-600",
+  },
   {
     titleKey: "nav.proposals",
     url: "/proposals",

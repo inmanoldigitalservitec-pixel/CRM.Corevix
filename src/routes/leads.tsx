@@ -9,7 +9,6 @@ import {
   Mail,
   MessageCircle,
   MoreHorizontal,
-  Phone,
   Pencil,
   Plus,
   Sidebar,
@@ -51,7 +50,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openCommercialFollowUp } from "@/components/commercial-follow-ups/global-commercial-follow-up-host";
+import { CommercialTimelinePanel } from "@/components/commercial-follow-ups/commercial-timeline-panel";
 import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import {
   DropdownMenu,
@@ -64,11 +64,7 @@ import { toast } from "sonner";
 import { LoadingTable as LoadingState } from "@/components/crm/loading-state";
 import { DetailSheet } from "@/components/crm/detail-sheet";
 import { CrmDetailEmptyState, CrmDetailRow, CrmDetailSection } from "@/components/crm/crm-detail";
-import {
-  CrmDetailActionGrid,
-  CrmDetailLineButton,
-  CrmDetailSelectTrigger,
-} from "@/components/crm/crm-detail-layout";
+import { CrmDetailLineButton, CrmDetailSelectTrigger } from "@/components/crm/crm-detail-layout";
 import { PageHeader } from "@/components/crm/page-header";
 import { GlobalKpiStrip } from "@/components/crm/global-kpi-strip";
 import { InlineStatusSelect } from "@/components/crm/inline-status-select";
@@ -581,7 +577,10 @@ function getLeadTags(lead: Lead) {
   const meta = lead.metadata && typeof lead.metadata === "object" ? lead.metadata : null;
   const raw = meta ? (meta as any).tags : null;
   if (!Array.isArray(raw)) return [] as string[];
-  return raw.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 3);
+  return raw
+    .map((tag) => String(tag || "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
 }
 
 function getOwnerLabel(lead: Lead, currentUserId?: string) {
@@ -633,14 +632,22 @@ function LeadsPage() {
   const [leadChipFilter, setLeadChipFilter] = useState<LeadChipFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const [updatingLeadStatusId, setUpdatingLeadStatusId] = useState<string | null>(null);
-  const [pendingConvertedStatusChange, setPendingConvertedStatusChange] = useState<{ lead: Lead; nextStatus: string; confirm: () => void } | null>(null);
+  const [pendingConvertedStatusChange, setPendingConvertedStatusChange] = useState<{
+    lead: Lead;
+    nextStatus: string;
+    confirm: () => void;
+  } | null>(null);
   const skipStatusConfirmationRef = useRef(false);
 
   useEffect(() => {
     if (!dialogOpen) return;
     const currency = normalizeCurrency(editLead?.currency || currencySettings.baseCurrency);
     setLeadFormCurrency(currency);
-    setLeadFormEstimatedValue(editLead?.estimated_value != null ? String(normalizeCurrencyAmount(editLead.estimated_value, currency)) : "");
+    setLeadFormEstimatedValue(
+      editLead?.estimated_value != null
+        ? String(normalizeCurrencyAmount(editLead.estimated_value, currency))
+        : "",
+    );
     let cancelled = false;
     const loadCatalog = async () => {
       if (!profile?.company_id) return;
@@ -651,9 +658,16 @@ function LeadsPage() {
         .eq("is_active", true)
         .order("name", { ascending: true });
       if (cancelled) return;
-      if (error) { toast.error(error.message || "No se pudo cargar el catálogo"); return; }
+      if (error) {
+        toast.error(error.message || "No se pudo cargar el catálogo");
+        return;
+      }
       setLeadCatalogProducts((data || []) as ProductRow[]);
-      if (!editLead?.id) { setLeadProductId("custom"); setLeadCustomInterest(""); return; }
+      if (!editLead?.id) {
+        setLeadProductId("custom");
+        setLeadCustomInterest("");
+        return;
+      }
       const { data: interest } = await (supabase as any)
         .from("lead_products")
         .select("product_id,custom_name")
@@ -663,11 +677,22 @@ function LeadsPage() {
         .maybeSingle();
       if (cancelled) return;
       setLeadProductId(interest?.product_id ? String(interest.product_id) : "custom");
-      setLeadCustomInterest(String(interest?.custom_name || (editLead ? getInterestLabel(editLead) : null) || ""));
+      setLeadCustomInterest(
+        String(interest?.custom_name || (editLead ? getInterestLabel(editLead) : null) || ""),
+      );
     };
     void loadCatalog();
-    return () => { cancelled = true; };
-  }, [currencySettings.baseCurrency, dialogOpen, editLead?.currency, editLead?.estimated_value, editLead?.id, profile?.company_id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currencySettings.baseCurrency,
+    dialogOpen,
+    editLead?.currency,
+    editLead?.estimated_value,
+    editLead?.id,
+    profile?.company_id,
+  ]);
 
   const {
     data: leads,
@@ -795,7 +820,9 @@ function LeadsPage() {
         if (!cancelled) setConvertMatchesLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [convertReviewOpen, convertMatchesLeadId, profile?.company_id, selectedLead]);
 
   const refreshLeadActivity = useCallback(() => {
@@ -865,7 +892,9 @@ function LeadsPage() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),
     );
-    setLeadActivityNotes(notesResult.error ? [] : ((notesResult.data || []) as LeadActivityNoteRow[]));
+    setLeadActivityNotes(
+      notesResult.error ? [] : ((notesResult.data || []) as LeadActivityNoteRow[]),
+    );
     setLeadActivityLoading(false);
   }, [profile?.company_id, selectedLeadId]);
 
@@ -896,16 +925,17 @@ function LeadsPage() {
     const noteTextCovered = (content: string | null) =>
       Boolean(
         content &&
-          items.some((item) =>
-            item.description.toLowerCase().includes(String(content).slice(0, 40).toLowerCase()),
-          ),
+        items.some((item) =>
+          item.description.toLowerCase().includes(String(content).slice(0, 40).toLowerCase()),
+        ),
       );
 
     leadActivityNotes.forEach((note) => {
       if (noteTextCovered(note.content)) return;
       items.push({
         id: `lead-note-${note.id}`,
-        title: note.created_at === note.updated_at ? "Nota interna creada" : "Nota interna actualizada",
+        title:
+          note.created_at === note.updated_at ? "Nota interna creada" : "Nota interna actualizada",
         description: note.content || "Nota interna del prospecto",
         at: note.updated_at || note.created_at,
       });
@@ -934,7 +964,6 @@ function LeadsPage() {
     return items.sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime());
   }, [leadActivityLogs, leadActivityNotes, leadDeals, leadTasks]);
 
-
   const loadLeadWorkspaceRelations = useCallback(async () => {
     if (!profile?.company_id || !selectedLeadId) {
       setLeadProposals([]);
@@ -947,7 +976,9 @@ function LeadsPage() {
       const [proposalsRes, tasksRes, remindersRes] = await Promise.all([
         (supabase as any)
           .from("proposals")
-          .select("id,number,title,status,total,amount,currency,valid_until,public_token,updated_at")
+          .select(
+            "id,number,title,status,total,amount,currency,valid_until,public_token,updated_at",
+          )
           .eq("company_id", profile.company_id)
           .eq("lead_id", selectedLeadId)
           .order("updated_at", { ascending: false }),
@@ -1207,7 +1238,9 @@ function LeadsPage() {
             .limit(200),
           db
             .from("deal_products")
-            .select("id,deal_id,product_id,custom_name,custom_description,quantity,unit_price,total_price")
+            .select(
+              "id,deal_id,product_id,custom_name,custom_description,quantity,unit_price,total_price",
+            )
             .eq("company_id", profile.company_id)
             .eq("deal_id", deal.id)
             .order("created_at", { ascending: true }),
@@ -1530,7 +1563,9 @@ function LeadsPage() {
     async function copyLeadProductsToDeal(dealId: string) {
       const { data: leadProducts, error } = await (supabase as any)
         .from("lead_products")
-        .select("product_id,custom_name,custom_description,quantity,unit_price,currency,estimated_total")
+        .select(
+          "product_id,custom_name,custom_description,quantity,unit_price,currency,estimated_total",
+        )
         .eq("company_id", profile.company_id)
         .eq("lead_id", lead.id)
         .limit(20);
@@ -1980,7 +2015,8 @@ function LeadsPage() {
     try {
       const { data, error } = await (supabase as any).rpc("convert_lead_to_client", {
         p_lead_id: lead.id,
-        p_existing_client_id: convertMatchChoice && convertMatchChoice !== "create-new" ? convertMatchChoice : null,
+        p_existing_client_id:
+          convertMatchChoice && convertMatchChoice !== "create-new" ? convertMatchChoice : null,
       });
       if (error) throw error;
 
@@ -2009,32 +2045,21 @@ function LeadsPage() {
 
   function openFollowUpDialog(lead: Lead) {
     const canCreateFollowUp =
-      can("tasks.create") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
+      can("leads.edit") && (canViewAllLeads || isLeadAssignedToCurrentUser(lead.assigned_to));
     if (!canCreateFollowUp) {
       toast.error("No tienes permiso para crear seguimiento");
       return;
     }
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dueDate = tomorrow.toISOString().slice(0, 10);
     const leadLabel =
-      lead.company_name ||
-      getLeadName(lead) ||
-      lead.email ||
-      lead.phone ||
-      lead.whatsapp ||
-      "prospecto";
-    const sourceHint = lead.source_channel || lead.source || "—";
+      lead.company_name || getLeadName(lead) || lead.email || lead.phone || "prospecto";
     setSelectedLeadId(lead.id);
-    openGlobalTaskCreate({
-      initialValues: {
-        title: `Dar seguimiento a ${leadLabel}`,
-        dueDate,
-        priority: "Medium",
-        description: `Seguimiento creado desde Prospectos.\nFuente: ${sourceHint}`,
-        assignedTo: getAssigneeUserId(lead.assigned_to) || undefined,
-        leadId: lead.id,
-      },
+    openCommercialFollowUp({
+      mode: "schedule",
+      entity: { type: "lead", id: lead.id },
+      entityLabel: leadLabel,
+      assigneeUserId: lead.assigned_to || profile?.user_id || undefined,
+      channel: lead.whatsapp ? "whatsapp" : "call",
+      objective: `Contactar a ${leadLabel}`,
     });
   }
 
@@ -2077,12 +2102,7 @@ function LeadsPage() {
       .filter((l) => !["Won", "Lost"].includes(String(l.status || "")))
       .reduce(
         (sum, l) =>
-          sum +
-          readLeadBaseValue(
-            l,
-            currencySettings.baseCurrency,
-            currencySettings.usdToDopRate,
-          ),
+          sum + readLeadBaseValue(l, currencySettings.baseCurrency, currencySettings.usdToDopRate),
         0,
       );
     return { total, newLeads, needsFollowUp, readyForProposal, potentialValue };
@@ -2159,11 +2179,8 @@ function LeadsPage() {
 
       const highIntent = (() => {
         const valueHigh =
-          readLeadBaseValue(
-            lead,
-            currencySettings.baseCurrency,
-            currencySettings.usdToDopRate,
-          ) >= 15000;
+          readLeadBaseValue(lead, currencySettings.baseCurrency, currencySettings.usdToDopRate) >=
+          15000;
         const meta = lead.metadata && typeof lead.metadata === "object" ? lead.metadata : null;
         const hot = meta
           ? Boolean(
@@ -2272,9 +2289,10 @@ function LeadsPage() {
       currency,
       metadata: {
         ...(editLead?.metadata || {}),
-        selected_service: leadProductId !== "custom"
-          ? leadCatalogProducts.find((item) => item.id === leadProductId)?.name || null
-          : leadCustomInterest.trim() || null,
+        selected_service:
+          leadProductId !== "custom"
+            ? leadCatalogProducts.find((item) => item.id === leadProductId)?.name || null
+            : leadCustomInterest.trim() || null,
       },
       notes: String(fd.get("notes") || "").trim() || null,
     };
@@ -2318,7 +2336,11 @@ function LeadsPage() {
       const savedLeadId = savedLead?.id || editLead?.id;
       if (savedLeadId && profile?.company_id) {
         const db = supabase as any;
-        await db.from("lead_products").delete().eq("company_id", profile.company_id).eq("lead_id", savedLeadId);
+        await db
+          .from("lead_products")
+          .delete()
+          .eq("company_id", profile.company_id)
+          .eq("lead_id", savedLeadId);
         const selectedProduct = leadCatalogProducts.find((item) => item.id === leadProductId);
         if (leadProductId !== "custom" || leadCustomInterest.trim()) {
           const unitPrice = normalizeCurrencyAmount(leadFormEstimatedValue, leadFormCurrency);
@@ -2328,7 +2350,9 @@ function LeadsPage() {
             product_id: leadProductId !== "custom" ? leadProductId : null,
             custom_name: leadProductId === "custom" ? leadCustomInterest.trim() || null : null,
             quantity: 1,
-            unit_price: Number.isFinite(unitPrice) ? unitPrice : Number(selectedProduct?.base_price || 0),
+            unit_price: Number.isFinite(unitPrice)
+              ? unitPrice
+              : Number(selectedProduct?.base_price || 0),
             currency: leadFormCurrency,
             created_by: profile.id || null,
           });
@@ -2676,9 +2700,7 @@ function LeadsPage() {
                     const companyLabel =
                       (lead.company_name || "").trim() || getLeadPrimaryLabel(lead);
                     const personLabel =
-                      getLeadName(lead) !== "Prospecto sin nombre"
-                        ? getLeadName(lead)
-                        : "—";
+                      getLeadName(lead) !== "Prospecto sin nombre" ? getLeadName(lead) : "—";
 
                     return (
                       <article
@@ -2783,18 +2805,31 @@ function LeadsPage() {
                   <table className="w-full min-w-[900px] table-fixed border-collapse">
                     <thead>
                       <tr>
-                        <th className="w-[28%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Prospecto</th>
-                        <th className="w-[13%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Valor</th>
-                        <th className="w-[18%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Responsable</th>
-                        <th className="w-[15%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Estado</th>
-                        <th className="w-[14%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">Último contacto</th>
-                        <th className="w-[12%] border-b border-slate-100 bg-white px-3 py-2 text-right text-[11px] font-normal text-slate-500">Acciones</th>
+                        <th className="w-[28%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">
+                          Prospecto
+                        </th>
+                        <th className="w-[13%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">
+                          Valor
+                        </th>
+                        <th className="w-[18%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">
+                          Responsable
+                        </th>
+                        <th className="w-[15%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">
+                          Estado
+                        </th>
+                        <th className="w-[14%] border-b border-slate-100 bg-white px-3 py-2 text-left text-[11px] font-normal text-slate-500">
+                          Último contacto
+                        </th>
+                        <th className="w-[12%] border-b border-slate-100 bg-white px-3 py-2 text-right text-[11px] font-normal text-slate-500">
+                          Acciones
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.map((lead, index) => {
                         const isSelected = selectedLeadId === lead.id;
-                        const lastActivity = lead.last_interaction_at || lead.updated_at || lead.created_at;
+                        const lastActivity =
+                          lead.last_interaction_at || lead.updated_at || lead.created_at;
                         const personName = getLeadName(lead);
                         const companyName = (lead.company_name || "").trim();
                         const primaryName =
@@ -2853,7 +2888,9 @@ function LeadsPage() {
                                   value: status,
                                   label: getStatusLabel(status),
                                 }))}
-                                onChange={(nextStatus) => handleInlineStatusChange(lead, nextStatus)}
+                                onChange={(nextStatus) =>
+                                  handleInlineStatusChange(lead, nextStatus)
+                                }
                                 disabled={updatingLeadStatusId === lead.id || !can("leads.edit")}
                               />
                             </td>
@@ -2897,10 +2934,27 @@ function LeadsPage() {
                                     </button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => openDetail(lead)}>Ver</DropdownMenuItem>
-                                    <DropdownMenuItem disabled={!can("leads.edit")} onClick={() => can("leads.edit") && openEdit(lead)}>Editar</DropdownMenuItem>
-                                    <DropdownMenuItem disabled={!can("deals.create")} onClick={() => void handleCreateDealFromLead(lead)}>Crear oportunidad</DropdownMenuItem>
-                                    <DropdownMenuItem disabled={!can("tasks.create")} onClick={() => openFollowUpDialog(lead)}>Crear seguimiento</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openDetail(lead)}>
+                                      Ver
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("leads.edit")}
+                                      onClick={() => can("leads.edit") && openEdit(lead)}
+                                    >
+                                      Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("deals.create")}
+                                      onClick={() => void handleCreateDealFromLead(lead)}
+                                    >
+                                      Crear oportunidad
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!can("leads.edit")}
+                                      onClick={() => openFollowUpDialog(lead)}
+                                    >
+                                      Crear seguimiento
+                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
@@ -2963,6 +3017,90 @@ function LeadsPage() {
               </span>
             ) : null
           }
+          actions={
+            selectedLead ? (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <CrmDetailLineButton className="h-8 gap-1.5 px-2">
+                      <MoreHorizontal className="h-4 w-4" /> Más
+                    </CrmDetailLineButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      disabled={!can("leads.edit")}
+                      onClick={() => can("leads.edit") && openEdit(selectedLead)}
+                    >
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={!can("leads.delete")}
+                      onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      Eliminar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <CrmDetailLineButton
+                  className="h-8 gap-1.5 px-2"
+                  onClick={() => {
+                    if (selectedLead.converted_client_id) {
+                      void navigate({
+                        to: "/clients",
+                        search: { clientId: selectedLead.converted_client_id },
+                      });
+                      return;
+                    }
+                    setConvertReviewOpen(true);
+                  }}
+                  disabled={convertingClient}
+                >
+                  <Users className="h-4 w-4" />
+                  {selectedLead.converted_client_id ? "Abrir cliente" : "Convertir en cliente"}
+                </CrmDetailLineButton>
+                <CrmDetailLineButton
+                  className="h-8 gap-1.5 px-2"
+                  tone="success"
+                  onClick={() => void handleOpenWhatsAppFromLead(selectedLead)}
+                  disabled={
+                    openingWhatsapp ||
+                    !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)
+                  }
+                  title={
+                    !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone)
+                      ? "Este prospecto no tiene teléfono o WhatsApp válido."
+                      : undefined
+                  }
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  {openingWhatsapp ? "Abriendo…" : "Abrir WhatsApp"}
+                </CrmDetailLineButton>
+                <CrmDetailLineButton
+                  className="h-8 gap-1.5 px-2"
+                  onClick={() => {
+                    const email = selectedLead.email?.trim();
+                    if (!email) {
+                      toast.error("Este prospecto no contiene un correo electrónico.");
+                      return;
+                    }
+                    void navigate({
+                      to: "/email",
+                      search: { compose: "1", to: email },
+                    });
+                  }}
+                  disabled={!selectedLead.email?.trim()}
+                  title={
+                    !selectedLead.email?.trim()
+                      ? "Este prospecto no contiene un correo electrónico."
+                      : undefined
+                  }
+                >
+                  <Mail className="h-4 w-4" /> Email
+                </CrmDetailLineButton>
+              </>
+            ) : null
+          }
           fields={[]}
         >
           {selectedLead ? (
@@ -2973,6 +3111,7 @@ function LeadsPage() {
               >
                 {[
                   ["overview", "Perfil", Users],
+                  ["commercial-follow-ups", "Seguimientos", Calendar],
                   ["proposals", "Propuestas " + (leadProposals.length || ""), FileText],
                   ["tasks", "Tareas " + (leadTasks.length || ""), Check],
                   ["files", "Archivos", FolderOpen],
@@ -2996,7 +3135,10 @@ function LeadsPage() {
 
               <TabsContent value="overview" className="space-y-4 data-[state=inactive]:hidden">
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <CrmDetailSection title="Información del prospecto" icon={<Users className="h-3.5 w-3.5" />}>
+                  <CrmDetailSection
+                    title="Información del prospecto"
+                    icon={<Users className="h-3.5 w-3.5" />}
+                  >
                     <div className="space-y-2">
                       <CrmDetailRow label="Nombre completo" value={getLeadName(selectedLead)} />
                       <CrmDetailRow label="Cargo" value={selectedLead.position || "—"} />
@@ -3009,16 +3151,41 @@ function LeadsPage() {
                     </div>
                   </CrmDetailSection>
 
-                  <CrmDetailSection title="Información comercial" icon={<Target className="h-3.5 w-3.5" />}>
+                  <CrmDetailSection
+                    title="Información comercial"
+                    icon={<Target className="h-3.5 w-3.5" />}
+                  >
                     <div className="space-y-2">
                       <CrmDetailRow label="Estado" value={getStatusLabel(selectedLead.status)} />
                       <CrmDetailRow label="Fuente" value={getSourceLabel(selectedLead.source)} />
-                      <CrmDetailRow label="Canal" value={selectedLead.source_channel || selectedLead.first_touch_channel || "—"} />
-                      <CrmDetailRow label="Plataforma" value={selectedLead.source_platform || "—"} />
-                      <CrmDetailRow label="Servicio de interés" value={selectedServiceLabel || "—"} />
-                      <CrmDetailRow label="Valor estimado" value={formatCurrencyAmount(selectedLead.estimated_value || 0, selectedLead.currency || currencySettings.baseCurrency)} />
+                      <CrmDetailRow
+                        label="Canal"
+                        value={
+                          selectedLead.source_channel || selectedLead.first_touch_channel || "—"
+                        }
+                      />
+                      <CrmDetailRow
+                        label="Plataforma"
+                        value={selectedLead.source_platform || "—"}
+                      />
+                      <CrmDetailRow
+                        label="Servicio de interés"
+                        value={selectedServiceLabel || "—"}
+                      />
+                      <CrmDetailRow
+                        label="Valor estimado"
+                        value={formatCurrencyAmount(
+                          selectedLead.estimated_value || 0,
+                          selectedLead.currency || currencySettings.baseCurrency,
+                        )}
+                      />
                       <CrmDetailRow label="Responsable" value={getAssigneeLabel(selectedLead)} />
-                      <CrmDetailRow label="Último contacto" value={formatDate(selectedLead.last_interaction_at || selectedLead.updated_at)} />
+                      <CrmDetailRow
+                        label="Último contacto"
+                        value={formatDate(
+                          selectedLead.last_interaction_at || selectedLead.updated_at,
+                        )}
+                      />
                     </div>
                   </CrmDetailSection>
 
@@ -3032,13 +3199,28 @@ function LeadsPage() {
                     </div>
                   </CrmDetailSection>
 
-                  <CrmDetailSection title="Registro y seguimiento" icon={<Calendar className="h-3.5 w-3.5" />}>
+                  <CrmDetailSection
+                    title="Registro y seguimiento"
+                    icon={<Calendar className="h-3.5 w-3.5" />}
+                  >
                     <div className="space-y-2">
                       <CrmDetailRow label="Creado" value={formatDate(selectedLead.created_at)} />
-                      <CrmDetailRow label="Última actualización" value={formatDate(selectedLead.updated_at)} />
-                      <CrmDetailRow label="Idioma" value={selectedLead.default_language || "Sistema"} />
-                      <CrmDetailRow label="Visibilidad" value={selectedLead.is_public ? "Público" : "Privado"} />
-                      <CrmDetailRow label="Etiquetas" value={selectedLead.tags?.length ? selectedLead.tags.join(", ") : "—"} />
+                      <CrmDetailRow
+                        label="Última actualización"
+                        value={formatDate(selectedLead.updated_at)}
+                      />
+                      <CrmDetailRow
+                        label="Idioma"
+                        value={selectedLead.default_language || "Sistema"}
+                      />
+                      <CrmDetailRow
+                        label="Visibilidad"
+                        value={selectedLead.is_public ? "Público" : "Privado"}
+                      />
+                      <CrmDetailRow
+                        label="Etiquetas"
+                        value={selectedLead.tags?.length ? selectedLead.tags.join(", ") : "—"}
+                      />
                       <CrmDetailRow label="ID externo" value={selectedLead.external_id || "—"} />
                     </div>
                   </CrmDetailSection>
@@ -3247,203 +3429,72 @@ function LeadsPage() {
                     </div>
                   )}
                 </CrmDetailSection>
-
-                <div data-demo="leads-quick-actions">
-                  <CrmDetailSection
-                    title="Acciones rápidas"
-                    icon={<Target className="h-3.5 w-3.5" />}
-                    action={
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <CrmDetailLineButton className="h-8">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                            Más
-                          </CrmDetailLineButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            disabled={!can("leads.edit")}
-                            onClick={() => can("leads.edit") && openEdit(selectedLead)}
-                          >
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!can("leads.delete")}
-                            onClick={() => can("leads.delete") && setDeleteId(selectedLead.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    }
-                  >
-                    <CrmDetailActionGrid
-                      actions={[
-                        {
-                          key: "convert-client",
-                          label: selectedLead.converted_client_id ? "Abrir cliente" : "Convertir en cliente",
-                          icon: <Users className="h-4 w-4" />,
-                          onClick: () => {
-                            if (selectedLead.converted_client_id) {
-                              void navigate({ to: "/clients", search: { clientId: selectedLead.converted_client_id } });
-                              return;
-                            }
-                            setConvertReviewOpen(true);
-                          },
-                          disabled: convertingClient,
-                        },
-                        {
-                          key: "whatsapp",
-                          label: openingWhatsapp ? "Abriendo..." : "Abrir WhatsApp",
-                          icon: <MessageCircle className="h-4 w-4" />,
-                          tone: "success",
-                          onClick: () => void handleOpenWhatsAppFromLead(selectedLead),
-                          disabled:
-                            openingWhatsapp ||
-                            !normalizePhoneForWhatsApp(selectedLead.whatsapp || selectedLead.phone),
-                          title: !normalizePhoneForWhatsApp(
-                            selectedLead.whatsapp || selectedLead.phone,
-                          )
-                            ? "Este prospecto no tiene teléfono o WhatsApp válido."
-                            : undefined,
-                        },
-                        {
-                          key: "email",
-                          label: "Email",
-                          icon: <Mail className="h-4 w-4" />,
-                          onClick: () => {
-                            const email = selectedLead.email?.trim();
-                            if (!email) {
-                              toast.error("Este prospecto no contiene un correo electrónico.");
-                              return;
-                            }
-                            void navigate({
-                              to: "/email",
-                              search: {
-                                compose: "1",
-                                to: email,
-                              },
-                            });
-                          },
-                        },
-                        {
-                          key: "call",
-                          label: "Llamar",
-                          icon: <Phone className="h-4 w-4" />,
-                          onClick: () => {
-                            if (!selectedLead.phone) {
-                              toast.message("Este prospecto no tiene teléfono");
-                              return;
-                            }
-                            window.location.href = `tel:${selectedLead.phone}`;
-                          },
-                        },
-                        {
-                          key: "follow-up",
-                          label: "Crear seguimiento",
-                          icon: <Calendar className="h-4 w-4" />,
-                          onClick: () => openFollowUpDialog(selectedLead),
-                          disabled:
-                            !can("tasks.create") ||
-                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
-                          title: !can("tasks.create")
-                            ? "No tienes permiso para crear seguimiento."
-                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                              ? "Solo puedes crear seguimiento para tus propios prospectos."
-                              : undefined,
-                        },
-                        {
-                          key: "proposal",
-                          label: "Crear propuesta",
-                          icon: <FileText className="h-4 w-4" />,
-                          onClick: () => {
-                            if (!selectedLead) return;
-                            void navigate({
-                              to: "/proposals",
-                              search: {
-                                leadId: selectedLead.id,
-                                title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
-                                amount: selectedLead.estimated_value
-                                  ? String(selectedLead.estimated_value)
-                                  : undefined,
-                                currency: selectedLead.currency || currencySettings.baseCurrency,
-                                description:
-                                  getInterestLabel(selectedLead) || selectedLead.notes || undefined,
-                                valid_until: new Date(Date.now() + 15 * 86400000)
-                                  .toISOString()
-                                  .slice(0, 10),
-                              },
-                            });
-                          },
-                          disabled:
-                            !can("deals.create") ||
-                            (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)),
-                          title: !can("deals.create")
-                            ? "No tienes permiso para crear propuestas."
-                            : isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to)
-                              ? "Solo puedes crear propuestas para tus propios prospectos."
-                              : undefined,
-                        },
-                      ]}
-                    />
-                    <div className="pt-2 text-[11px] font-normal text-slate-500">
-                      {!can("leads.edit")
-                        ? "No tienes permiso para editar este prospecto."
-                        : "Edita, contacta y avanza este prospecto desde aquí."}
-                    </div>
-                  </CrmDetailSection>
-                </div>
               </TabsContent>
 
-              <TabsContent value="followup" className="space-y-4 data-[state=inactive]:hidden">
-                <div data-demo="leads-followup">
-                  <CrmDetailSection
-                    title="Seguimiento"
-                    icon={<Calendar className="h-3.5 w-3.5" />}
-                    action={
+              <TabsContent
+                value="commercial-follow-ups"
+                className="space-y-5 data-[state=inactive]:hidden"
+              >
+                <div data-demo="leads-commercial-follow-ups">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-950">
+                        Seguimientos comerciales
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Contactos programados e interacciones registradas.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       <CrmDetailLineButton
-                        className="h-8"
-                        onClick={() => openFollowUpDialog(selectedLead)}
                         disabled={
-                          !can("tasks.create") ||
+                          !can("leads.edit") ||
                           (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
                         }
+                        onClick={() =>
+                          openCommercialFollowUp({
+                            mode: "schedule",
+                            entity: { type: "lead", id: selectedLead.id },
+                            entityLabel: getLeadPrimaryLabel(selectedLead),
+                            assigneeUserId:
+                              selectedLead.assigned_to || profile?.user_id || undefined,
+                            channel: selectedLead.whatsapp ? "whatsapp" : "call",
+                            objective: `Contactar a ${getLeadPrimaryLabel(selectedLead)}`,
+                          })
+                        }
                       >
-                        <Plus className="h-3.5 w-3.5" />
-                        Crear
+                        Programar
                       </CrmDetailLineButton>
-                    }
-                  >
-                    {signalsLoading ? (
-                      <CrmDetailEmptyState>Cargando seguimiento...</CrmDetailEmptyState>
-                    ) : signalsByLeadId[selectedLead.id]?.hasActiveTask ? (
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold truncate">
-                          {signalsByLeadId[selectedLead.id]?.nextTaskTitle || "Seguimiento"}
-                        </div>
-                        <div className="text-[13px] text-muted-foreground">
-                          {formatDateShort(signalsByLeadId[selectedLead.id]?.nextTaskDueDate)} ·{" "}
-                          {signalsByLeadId[selectedLead.id]?.nextTaskStatus || "—"}
-                        </div>
-                      </div>
-                    ) : (
-                      <CrmDetailEmptyState>
-                        Este prospecto no tiene seguimiento programado.
-                      </CrmDetailEmptyState>
-                    )}
-                    {signalsError ? (
-                      <div className="mt-2 text-xs font-medium text-destructive">
-                        {signalsError}
-                      </div>
-                    ) : null}
-                  </CrmDetailSection>
+                      <CrmDetailLineButton
+                        disabled={
+                          !can("leads.edit") ||
+                          (isSalesUser && !isLeadAssignedToCurrentUser(selectedLead.assigned_to))
+                        }
+                        onClick={() =>
+                          openCommercialFollowUp({
+                            mode: "interaction",
+                            entity: { type: "lead", id: selectedLead.id },
+                            entityLabel: getLeadPrimaryLabel(selectedLead),
+                          })
+                        }
+                      >
+                        Registrar contacto
+                      </CrmDetailLineButton>
+                    </div>
+                  </div>
+                  <CommercialTimelinePanel
+                    entity={{ type: "lead", id: selectedLead.id }}
+                    entityLabel={getLeadPrimaryLabel(selectedLead)}
+                  />
                 </div>
               </TabsContent>
 
               <TabsContent value="overview" className="space-y-4 data-[state=inactive]:hidden">
                 <div data-demo="leads-assignment">
-                  <CrmDetailSection title="Responsable comercial" icon={<Users className="h-3.5 w-3.5" />}>
+                  <CrmDetailSection
+                    title="Responsable comercial"
+                    icon={<Users className="h-3.5 w-3.5" />}
+                  >
                     <CrmDetailRow
                       label="Responsable"
                       value={
@@ -3538,42 +3589,81 @@ function LeadsPage() {
               </TabsContent>
 
               <TabsContent value="proposals" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection title="Propuestas" icon={<FileText className="h-3.5 w-3.5" />} action={<CrmDetailLineButton
-                    onClick={() => {
-                      if (!selectedLead) return;
-                      void navigate({
-                        to: "/proposals",
-                        search: {
-                          leadId: selectedLead.id,
-                          title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
-                          amount: selectedLead.estimated_value
-                            ? String(selectedLead.estimated_value)
-                            : undefined,
-                          currency: selectedLead.currency || currencySettings.baseCurrency,
-                          description:
-                            getInterestLabel(selectedLead) || selectedLead.notes || undefined,
-                          valid_until: new Date(Date.now() + 15 * 86400000)
-                            .toISOString()
-                            .slice(0, 10),
-                        },
-                      });
-                    }}
-                  ><Plus className="h-3.5 w-3.5" />Nueva</CrmDetailLineButton>}>
-                  {relatedLoading ? <CrmDetailEmptyState>Cargando propuestas...</CrmDetailEmptyState> : leadProposals.length ? (
+                <CrmDetailSection
+                  title="Propuestas"
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  action={
+                    <CrmDetailLineButton
+                      onClick={() => {
+                        if (!selectedLead) return;
+                        void navigate({
+                          to: "/proposals",
+                          search: {
+                            leadId: selectedLead.id,
+                            title: `Propuesta — ${getLeadPrimaryLabel(selectedLead)}`,
+                            amount: selectedLead.estimated_value
+                              ? String(selectedLead.estimated_value)
+                              : undefined,
+                            currency: selectedLead.currency || currencySettings.baseCurrency,
+                            description:
+                              getInterestLabel(selectedLead) || selectedLead.notes || undefined,
+                            valid_until: new Date(Date.now() + 15 * 86400000)
+                              .toISOString()
+                              .slice(0, 10),
+                          },
+                        });
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Nueva
+                    </CrmDetailLineButton>
+                  }
+                >
+                  {relatedLoading ? (
+                    <CrmDetailEmptyState>Cargando propuestas...</CrmDetailEmptyState>
+                  ) : leadProposals.length ? (
                     <div className="divide-y divide-slate-100 border-y border-slate-100">
                       {leadProposals.map((proposal) => (
-                        <div key={proposal.id} className="flex items-center justify-between gap-4 py-3">
-                          <div className="min-w-0"><div className="truncate text-sm text-slate-950">{proposal.title}</div><div className="mt-1 text-xs text-slate-500">{proposal.number} · {proposal.status} · {formatCurrencyAmount(proposal.total || proposal.amount || 0, proposal.currency || currencySettings.baseCurrency)}</div></div>
-                          {proposal.public_token ? <Button variant="ghost" size="sm" onClick={() => window.open("/proposal/public/" + proposal.public_token, "_blank", "noopener,noreferrer")}>Abrir</Button> : null}
+                        <div
+                          key={proposal.id}
+                          className="flex items-center justify-between gap-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-slate-950">{proposal.title}</div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {proposal.number} · {proposal.status} ·{" "}
+                              {formatCurrencyAmount(
+                                proposal.total || proposal.amount || 0,
+                                proposal.currency || currencySettings.baseCurrency,
+                              )}
+                            </div>
+                          </div>
+                          {proposal.public_token ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                window.open(
+                                  "/proposal/public/" + proposal.public_token,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                )
+                              }
+                            >
+                              Abrir
+                            </Button>
+                          ) : null}
                         </div>
                       ))}
                     </div>
-                  ) : <CrmDetailEmptyState>No hay propuestas asociadas.</CrmDetailEmptyState>}
+                  ) : (
+                    <CrmDetailEmptyState>No hay propuestas asociadas.</CrmDetailEmptyState>
+                  )}
                 </CrmDetailSection>
               </TabsContent>
 
               <TabsContent value="tasks" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection title="Tareas" icon={<Check className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => openFollowUpDialog(selectedLead)}><Plus className="h-3.5 w-3.5" />Nueva</CrmDetailLineButton>}>
+                <CrmDetailSection title="Tareas" icon={<Check className="h-3.5 w-3.5" />}>
                   {relatedLoading ? (
                     <CrmDetailEmptyState>Cargando tareas...</CrmDetailEmptyState>
                   ) : leadTasks.length ? (
@@ -3605,8 +3695,29 @@ function LeadsPage() {
               </TabsContent>
 
               <TabsContent value="reminders" className="space-y-4 data-[state=inactive]:hidden">
-                <CrmDetailSection title="Recordatorios" icon={<Calendar className="h-3.5 w-3.5" />} action={<CrmDetailLineButton onClick={() => openReminderDialogForLead(selectedLead)}><Calendar className="h-3.5 w-3.5" />Recordatorio</CrmDetailLineButton>}>
-                  {relatedLoading ? <CrmDetailEmptyState>Cargando recordatorios...</CrmDetailEmptyState> : leadReminders.length ? leadReminders.map((event) => <CrmDetailRow key={event.id} label={event.title} value={event.status + " · " + formatDateShort(event.start_at)} />) : <CrmDetailEmptyState>No hay recordatorios asociados.</CrmDetailEmptyState>}
+                <CrmDetailSection
+                  title="Recordatorios"
+                  icon={<Calendar className="h-3.5 w-3.5" />}
+                  action={
+                    <CrmDetailLineButton onClick={() => openReminderDialogForLead(selectedLead)}>
+                      <Calendar className="h-3.5 w-3.5" />
+                      Recordatorio
+                    </CrmDetailLineButton>
+                  }
+                >
+                  {relatedLoading ? (
+                    <CrmDetailEmptyState>Cargando recordatorios...</CrmDetailEmptyState>
+                  ) : leadReminders.length ? (
+                    leadReminders.map((event) => (
+                      <CrmDetailRow
+                        key={event.id}
+                        label={event.title}
+                        value={event.status + " · " + formatDateShort(event.start_at)}
+                      />
+                    ))
+                  ) : (
+                    <CrmDetailEmptyState>No hay recordatorios asociados.</CrmDetailEmptyState>
+                  )}
                 </CrmDetailSection>
               </TabsContent>
 
@@ -3746,41 +3857,139 @@ function LeadsPage() {
           {selectedLead ? (
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="border border-slate-200 p-4"><div className="text-xs uppercase text-slate-500">Empresa</div><div className="mt-1 font-medium text-slate-950">{selectedLead.company_name || getLeadName(selectedLead)}</div><div className="mt-1 text-sm text-slate-500">{selectedLead.website || selectedLead.industry || "Sin datos corporativos adicionales"}</div></div>
-                <div className="border border-slate-200 p-4"><div className="text-xs uppercase text-slate-500">Contacto principal</div><div className="mt-1 font-medium text-slate-950">{getLeadName(selectedLead)}</div><div className="mt-1 text-sm text-slate-500">{selectedLead.email || selectedLead.phone || selectedLead.whatsapp || "Sin contacto"}</div></div>
+                <div className="border border-slate-200 p-4">
+                  <div className="text-xs uppercase text-slate-500">Empresa</div>
+                  <div className="mt-1 font-medium text-slate-950">
+                    {selectedLead.company_name || getLeadName(selectedLead)}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    {selectedLead.website ||
+                      selectedLead.industry ||
+                      "Sin datos corporativos adicionales"}
+                  </div>
+                </div>
+                <div className="border border-slate-200 p-4">
+                  <div className="text-xs uppercase text-slate-500">Contacto principal</div>
+                  <div className="mt-1 font-medium text-slate-950">{getLeadName(selectedLead)}</div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    {selectedLead.email ||
+                      selectedLead.phone ||
+                      selectedLead.whatsapp ||
+                      "Sin contacto"}
+                  </div>
+                </div>
               </div>
               {convertMatchesLeadId === selectedLead.id && convertMatches.length > 0 ? (
-                <section className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4" aria-label="Clientes coincidentes">
+                <section
+                  className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4"
+                  aria-label="Clientes coincidentes"
+                >
                   <div>
-                    <h3 className="font-medium text-amber-950">Encontramos posibles clientes existentes</h3>
-                    <p className="text-sm text-amber-900">Elige si deseas asociar el prospecto a uno de ellos o crear otro cliente. No se fusionarán registros.</p>
+                    <h3 className="font-medium text-amber-950">
+                      Encontramos posibles clientes existentes
+                    </h3>
+                    <p className="text-sm text-amber-900">
+                      Elige si deseas asociar el prospecto a uno de ellos o crear otro cliente. No
+                      se fusionarán registros.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     {convertMatches.map(({ client, reasons }) => (
-                      <label key={client.id} className="flex cursor-pointer gap-3 rounded border border-amber-200 bg-white p-3 text-sm">
-                        <input type="radio" name="lead-client-match" value={client.id} checked={convertMatchChoice === client.id} onChange={() => setConvertMatchChoice(client.id)} />
-                        <span><span className="font-medium">{client.company_name || client.contact_person || "Cliente sin nombre"}</span><br /><span className="text-slate-600">{[client.email, client.phone || client.whatsapp, `Coincide por: ${reasons.join(", ")}`].filter(Boolean).join(" · ")}</span></span>
+                      <label
+                        key={client.id}
+                        className="flex cursor-pointer gap-3 rounded border border-amber-200 bg-white p-3 text-sm"
+                      >
+                        <input
+                          type="radio"
+                          name="lead-client-match"
+                          value={client.id}
+                          checked={convertMatchChoice === client.id}
+                          onChange={() => setConvertMatchChoice(client.id)}
+                        />
+                        <span>
+                          <span className="font-medium">
+                            {client.company_name || client.contact_person || "Cliente sin nombre"}
+                          </span>
+                          <br />
+                          <span className="text-slate-600">
+                            {[
+                              client.email,
+                              client.phone || client.whatsapp,
+                              `Coincide por: ${reasons.join(", ")}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        </span>
                       </label>
                     ))}
                     <label className="flex cursor-pointer gap-3 rounded border border-amber-200 bg-white p-3 text-sm">
-                      <input type="radio" name="lead-client-match" value="create-new" checked={convertMatchChoice === "create-new"} onChange={() => setConvertMatchChoice("create-new")} />
-                      <span><span className="font-medium">Crear otro cliente</span><br /><span className="text-slate-600">Crear un registro nuevo aunque existan coincidencias.</span></span>
+                      <input
+                        type="radio"
+                        name="lead-client-match"
+                        value="create-new"
+                        checked={convertMatchChoice === "create-new"}
+                        onChange={() => setConvertMatchChoice("create-new")}
+                      />
+                      <span>
+                        <span className="font-medium">Crear otro cliente</span>
+                        <br />
+                        <span className="text-slate-600">
+                          Crear un registro nuevo aunque existan coincidencias.
+                        </span>
+                      </span>
                     </label>
                   </div>
                 </section>
               ) : null}
               <div className="border-y border-slate-100 py-4">
-                <div className="text-sm font-medium text-slate-950">Se transferirá al Cliente 360</div>
+                <div className="text-sm font-medium text-slate-950">
+                  Se transferirá al Cliente 360
+                </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div><div className="text-2xl font-normal">{leadDeals.length}</div><div className="text-xs text-slate-500">Oportunidades</div></div>
-                  <div><div className="text-2xl font-normal">{leadProposals.length}</div><div className="text-xs text-slate-500">Propuestas</div></div>
-                  <div><div className="text-2xl font-normal">{leadTasks.length}</div><div className="text-xs text-slate-500">Tareas</div></div>
-                  <div><div className="text-2xl font-normal">{leadReminders.length}</div><div className="text-xs text-slate-500">Recordatorios</div></div>
+                  <div>
+                    <div className="text-2xl font-normal">{leadDeals.length}</div>
+                    <div className="text-xs text-slate-500">Oportunidades</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-normal">{leadProposals.length}</div>
+                    <div className="text-xs text-slate-500">Propuestas</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-normal">{leadTasks.length}</div>
+                    <div className="text-xs text-slate-500">Tareas</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-normal">{leadReminders.length}</div>
+                    <div className="text-xs text-slate-500">Recordatorios</div>
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setConvertReviewOpen(false)}>Cancelar</Button>
-                <Button onClick={() => selectedLead && void handleConvertLeadToClient(selectedLead)} disabled={convertingClient || convertMatchesLoading || !selectedLead || (convertMatchesLeadId === selectedLead.id && convertMatches.length > 0 && !convertMatchChoice)}>{convertMatchesLoading ? "Buscando coincidencias..." : convertingClient ? "Convirtiendo..." : convertMatchChoice && convertMatchChoice !== "create-new" ? "Asociar al cliente seleccionado" : convertMatchChoice === "create-new" ? "Crear otro cliente" : "Convertir y abrir Cliente 360"}</Button>
+                <Button variant="outline" onClick={() => setConvertReviewOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => selectedLead && void handleConvertLeadToClient(selectedLead)}
+                  disabled={
+                    convertingClient ||
+                    convertMatchesLoading ||
+                    !selectedLead ||
+                    (convertMatchesLeadId === selectedLead.id &&
+                      convertMatches.length > 0 &&
+                      !convertMatchChoice)
+                  }
+                >
+                  {convertMatchesLoading
+                    ? "Buscando coincidencias..."
+                    : convertingClient
+                      ? "Convirtiendo..."
+                      : convertMatchChoice && convertMatchChoice !== "create-new"
+                        ? "Asociar al cliente seleccionado"
+                        : convertMatchChoice === "create-new"
+                          ? "Crear otro cliente"
+                          : "Convertir y abrir Cliente 360"}
+                </Button>
               </div>
             </div>
           ) : null}
@@ -3805,8 +4014,8 @@ function LeadsPage() {
                       getLeadName(pendingConvertedStatusChange.lead)}
                   </strong>
                   . Si lo cambias a{" "}
-                  <strong>{getStatusLabel(pendingConvertedStatusChange.nextStatus)}</strong>,
-                  el cliente seguirá vinculado: no se eliminará ni se desvinculará.
+                  <strong>{getStatusLabel(pendingConvertedStatusChange.nextStatus)}</strong>, el
+                  cliente seguirá vinculado: no se eliminará ni se desvinculará.
                 </>
               ) : (
                 <>
@@ -3891,32 +4100,66 @@ function LeadsPage() {
             <section className="space-y-4">
               <div>
                 <h3 className="text-sm font-semibold text-slate-950">Información principal</h3>
-                <p className="mt-1 text-xs text-slate-500">Datos de la persona y de la empresa que se convertirán en Cliente 360.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Datos de la persona y de la empresa que se convertirán en Cliente 360.
+                </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Nombre</Label>
-                  <Input name="first_name" defaultValue={editLead?.first_name} placeholder="Nombre" className={crmFormStyles.input} required />
+                  <Input
+                    name="first_name"
+                    defaultValue={editLead?.first_name}
+                    placeholder="Nombre"
+                    className={crmFormStyles.input}
+                    required
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Apellido</Label>
-                  <Input name="last_name" defaultValue={editLead?.last_name} placeholder="Apellido" className={crmFormStyles.input} required />
+                  <Input
+                    name="last_name"
+                    defaultValue={editLead?.last_name}
+                    placeholder="Apellido"
+                    className={crmFormStyles.input}
+                    required
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Empresa</Label>
-                  <Input name="company_name" defaultValue={editLead?.company_name || ""} placeholder="Nombre comercial o razón social" className={crmFormStyles.input} />
+                  <Input
+                    name="company_name"
+                    defaultValue={editLead?.company_name || ""}
+                    placeholder="Nombre comercial o razón social"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Industria</Label>
-                  <Input name="industry" defaultValue={editLead?.industry || ""} placeholder="Ej. Construcción, legal, comercio" className={crmFormStyles.input} />
+                  <Input
+                    name="industry"
+                    defaultValue={editLead?.industry || ""}
+                    placeholder="Ej. Construcción, legal, comercio"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Cargo</Label>
-                  <Input name="position" defaultValue={editLead?.position || ""} placeholder="Cargo del contacto" className={crmFormStyles.input} />
+                  <Input
+                    name="position"
+                    defaultValue={editLead?.position || ""}
+                    placeholder="Cargo del contacto"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Departamento</Label>
-                  <Input name="department" defaultValue={editLead?.department || ""} placeholder="Ej. Dirección, compras, marketing" className={crmFormStyles.input} />
+                  <Input
+                    name="department"
+                    defaultValue={editLead?.department || ""}
+                    placeholder="Ej. Dirección, compras, marketing"
+                    className={crmFormStyles.input}
+                  />
                 </div>
               </div>
             </section>
@@ -3924,24 +4167,48 @@ function LeadsPage() {
             <section className="space-y-4 border-t border-slate-100 pt-6">
               <div>
                 <h3 className="text-sm font-semibold text-slate-950">Contacto</h3>
-                <p className="mt-1 text-xs text-slate-500">Canales disponibles para comunicación y seguimiento.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Canales disponibles para comunicación y seguimiento.
+                </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Email</Label>
-                  <Input name="email" type="email" defaultValue={editLead?.email || ""} placeholder="email@empresa.com" className={crmFormStyles.input} />
+                  <Input
+                    name="email"
+                    type="email"
+                    defaultValue={editLead?.email || ""}
+                    placeholder="email@empresa.com"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Teléfono</Label>
-                  <Input name="phone" defaultValue={editLead?.phone || ""} placeholder="+1 809 555 0000" className={crmFormStyles.input} />
+                  <Input
+                    name="phone"
+                    defaultValue={editLead?.phone || ""}
+                    placeholder="+1 809 555 0000"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>WhatsApp</Label>
-                  <Input name="whatsapp" defaultValue={editLead?.whatsapp || ""} placeholder="Número de WhatsApp" className={crmFormStyles.input} />
+                  <Input
+                    name="whatsapp"
+                    defaultValue={editLead?.whatsapp || ""}
+                    placeholder="Número de WhatsApp"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Sitio web</Label>
-                  <Input name="website" type="url" defaultValue={editLead?.website || ""} placeholder="https://empresa.com" className={crmFormStyles.input} />
+                  <Input
+                    name="website"
+                    type="url"
+                    defaultValue={editLead?.website || ""}
+                    placeholder="https://empresa.com"
+                    className={crmFormStyles.input}
+                  />
                 </div>
               </div>
             </section>
@@ -3949,20 +4216,32 @@ function LeadsPage() {
             <section className="space-y-4 border-t border-slate-100 pt-6">
               <div>
                 <h3 className="text-sm font-semibold text-slate-950">Información comercial</h3>
-                <p className="mt-1 text-xs text-slate-500">Origen, interés, valor y responsable del prospecto.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Origen, interés, valor y responsable del prospecto.
+                </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Fuente</Label>
                   <Select name="source" defaultValue={editLead?.source || "Website"}>
-                    <SelectTrigger className={crmFormStyles.select}><SelectValue placeholder="Selecciona fuente" /></SelectTrigger>
-                    <SelectContent>{SOURCES.map((item) => <SelectItem key={item} value={item}>{getSourceLabel(item)}</SelectItem>)}</SelectContent>
+                    <SelectTrigger className={crmFormStyles.select}>
+                      <SelectValue placeholder="Selecciona fuente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOURCES.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {getSourceLabel(item)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Canal</Label>
                   <Select name="source_channel" defaultValue={editLead?.source_channel || "manual"}>
-                    <SelectTrigger className={crmFormStyles.select}><SelectValue /></SelectTrigger>
+                    <SelectTrigger className={crmFormStyles.select}>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="manual">Manual</SelectItem>
                       <SelectItem value="whatsapp">WhatsApp</SelectItem>
@@ -3976,63 +4255,136 @@ function LeadsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Plataforma</Label>
-                  <Input name="source_platform" defaultValue={editLead?.source_platform || ""} placeholder="Instagram, Facebook, Google..." className={crmFormStyles.input} />
+                  <Input
+                    name="source_platform"
+                    defaultValue={editLead?.source_platform || ""}
+                    placeholder="Instagram, Facebook, Google..."
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Campaña, persona o referencia</Label>
-                  <Input name="source_detail" defaultValue={editLead?.source_detail || ""} placeholder="Campaña, evento o referencia" className={crmFormStyles.input} />
+                  <Input
+                    name="source_detail"
+                    defaultValue={editLead?.source_detail || ""}
+                    placeholder="Campaña, evento o referencia"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Estado</Label>
                   <Select name="status" defaultValue={editLead?.status || "New"}>
-                    <SelectTrigger className={crmFormStyles.select}><SelectValue /></SelectTrigger>
-                    <SelectContent>{STATUSES.map((item) => <SelectItem key={item} value={item}>{getStatusLabel(item)}</SelectItem>)}</SelectContent>
+                    <SelectTrigger className={crmFormStyles.select}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {getStatusLabel(item)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Responsable comercial</Label>
                   <Select name="assigned_to" defaultValue={editLead?.assigned_to || "unassigned"}>
-                    <SelectTrigger className={crmFormStyles.select}><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                    <SelectTrigger className={crmFormStyles.select}>
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="unassigned">Sin asignar</SelectItem>
-                      {assignableUsers.map((member) => <SelectItem key={member.user_id} value={member.user_id}>{member.full_name}</SelectItem>)}
+                      {assignableUsers.map((member) => (
+                        <SelectItem key={member.user_id} value={member.user_id}>
+                          {member.full_name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5 lg:col-span-2">
                   <Label className={crmFormStyles.label}>Servicio o producto de interés</Label>
                   <div className="space-y-3">
-                    <Select value={leadProductId} onValueChange={(value) => {
-                      setLeadProductId(value);
-                      if (value === "custom") return;
-                      const product = leadCatalogProducts.find((item) => item.id === value);
-                      if (!product) return;
-                      setLeadFormCurrency(normalizeCurrency(product.currency || currencySettings.baseCurrency));
-                      setLeadFormEstimatedValue(String(product.base_price || 0));
-                      setLeadCustomInterest("");
-                    }}>
-                      <SelectTrigger className={crmFormStyles.select}><SelectValue placeholder="Selecciona un producto del CRM" /></SelectTrigger>
+                    <Select
+                      value={leadProductId}
+                      onValueChange={(value) => {
+                        setLeadProductId(value);
+                        if (value === "custom") return;
+                        const product = leadCatalogProducts.find((item) => item.id === value);
+                        if (!product) return;
+                        setLeadFormCurrency(
+                          normalizeCurrency(product.currency || currencySettings.baseCurrency),
+                        );
+                        setLeadFormEstimatedValue(String(product.base_price || 0));
+                        setLeadCustomInterest("");
+                      }}
+                    >
+                      <SelectTrigger className={crmFormStyles.select}>
+                        <SelectValue placeholder="Selecciona un producto del CRM" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {leadCatalogProducts.map((product) => <SelectItem key={product.id} value={product.id}>{product.name} · {formatCurrencyAmount(product.base_price || 0, product.currency || currencySettings.baseCurrency)}</SelectItem>)}
-                        <SelectItem value="custom">Otro servicio o necesidad personalizada</SelectItem>
+                        {leadCatalogProducts.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name} ·{" "}
+                            {formatCurrencyAmount(
+                              product.base_price || 0,
+                              product.currency || currencySettings.baseCurrency,
+                            )}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="custom">
+                          Otro servicio o necesidad personalizada
+                        </SelectItem>
                       </SelectContent>
                     </Select>
-                    {leadProductId === "custom" ? <Input value={leadCustomInterest} onChange={(event) => setLeadCustomInterest(event.target.value)} placeholder="Describe el servicio o necesidad" className={crmFormStyles.input} /> : null}
+                    {leadProductId === "custom" ? (
+                      <Input
+                        value={leadCustomInterest}
+                        onChange={(event) => setLeadCustomInterest(event.target.value)}
+                        placeholder="Describe el servicio o necesidad"
+                        className={crmFormStyles.input}
+                      />
+                    ) : null}
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Etiquetas</Label>
-                  <Input name="tags" defaultValue={editLead ? editLead.tags?.join(", ") || getLeadTags(editLead).join(", ") : ""} placeholder="VIP, urgente, seguimiento" className={crmFormStyles.input} />
+                  <Input
+                    name="tags"
+                    defaultValue={
+                      editLead ? editLead.tags?.join(", ") || getLeadTags(editLead).join(", ") : ""
+                    }
+                    placeholder="VIP, urgente, seguimiento"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Valor estimado</Label>
-                  <Input name="estimated_value" type="number" step={getCurrencyStep(leadFormCurrency)} inputMode={getCurrencyInputMode(leadFormCurrency)} value={leadFormEstimatedValue} onChange={(event) => setLeadFormEstimatedValue(event.target.value)} placeholder="0" className={crmFormStyles.input} />
+                  <Input
+                    name="estimated_value"
+                    type="number"
+                    step={getCurrencyStep(leadFormCurrency)}
+                    inputMode={getCurrencyInputMode(leadFormCurrency)}
+                    value={leadFormEstimatedValue}
+                    onChange={(event) => setLeadFormEstimatedValue(event.target.value)}
+                    placeholder="0"
+                    className={crmFormStyles.input}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Moneda</Label>
-                  <Select name="currency" value={leadFormCurrency} onValueChange={(value) => setLeadFormCurrency(normalizeCurrency(value))}>
-                    <SelectTrigger className={crmFormStyles.select}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="DOP">RD$ Peso dominicano</SelectItem><SelectItem value="USD">US$ Dólares</SelectItem></SelectContent>
+                  <Select
+                    name="currency"
+                    value={leadFormCurrency}
+                    onValueChange={(value) => setLeadFormCurrency(normalizeCurrency(value))}
+                  >
+                    <SelectTrigger className={crmFormStyles.select}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DOP">RD$ Peso dominicano</SelectItem>
+                      <SelectItem value="USD">US$ Dólares</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
@@ -4041,17 +4393,52 @@ function LeadsPage() {
             <section className="space-y-4 border-t border-slate-100 pt-6">
               <div>
                 <h3 className="text-sm font-semibold text-slate-950">Ubicación</h3>
-                <p className="mt-1 text-xs text-slate-500">Dirección que se transferirá a la cuenta del cliente.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Dirección que se transferirá a la cuenta del cliente.
+                </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
                   <Label className={crmFormStyles.label}>Dirección</Label>
-                  <Input name="address" defaultValue={editLead?.address || ""} placeholder="Calle, número, sector" className={crmFormStyles.input} />
+                  <Input
+                    name="address"
+                    defaultValue={editLead?.address || ""}
+                    placeholder="Calle, número, sector"
+                    className={crmFormStyles.input}
+                  />
                 </div>
-                <div className="space-y-1.5"><Label className={crmFormStyles.label}>Ciudad</Label><Input name="city" defaultValue={editLead?.city || ""} className={crmFormStyles.input} /></div>
-                <div className="space-y-1.5"><Label className={crmFormStyles.label}>Estado / provincia</Label><Input name="state" defaultValue={editLead?.state || ""} className={crmFormStyles.input} /></div>
-                <div className="space-y-1.5"><Label className={crmFormStyles.label}>País</Label><Input name="country" defaultValue={editLead?.country || ""} className={crmFormStyles.input} /></div>
-                <div className="space-y-1.5"><Label className={crmFormStyles.label}>Código postal</Label><Input name="postal_code" defaultValue={editLead?.postal_code || ""} className={crmFormStyles.input} /></div>
+                <div className="space-y-1.5">
+                  <Label className={crmFormStyles.label}>Ciudad</Label>
+                  <Input
+                    name="city"
+                    defaultValue={editLead?.city || ""}
+                    className={crmFormStyles.input}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className={crmFormStyles.label}>Estado / provincia</Label>
+                  <Input
+                    name="state"
+                    defaultValue={editLead?.state || ""}
+                    className={crmFormStyles.input}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className={crmFormStyles.label}>País</Label>
+                  <Input
+                    name="country"
+                    defaultValue={editLead?.country || ""}
+                    className={crmFormStyles.input}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className={crmFormStyles.label}>Código postal</Label>
+                  <Input
+                    name="postal_code"
+                    defaultValue={editLead?.postal_code || ""}
+                    className={crmFormStyles.input}
+                  />
+                </div>
               </div>
             </section>
 
@@ -4063,21 +4450,39 @@ function LeadsPage() {
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Idioma</Label>
                   <Select name="default_language" defaultValue={editLead?.default_language || "es"}>
-                    <SelectTrigger className={crmFormStyles.select}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="es">Español</SelectItem><SelectItem value="en">English</SelectItem><SelectItem value="fr">Français</SelectItem><SelectItem value="other">Otro</SelectItem></SelectContent>
+                    <SelectTrigger className={crmFormStyles.select}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="fr">Français</SelectItem>
+                      <SelectItem value="other">Otro</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className={crmFormStyles.label}>Visibilidad</Label>
                   <Select name="is_public" defaultValue={editLead?.is_public ? "true" : "false"}>
-                    <SelectTrigger className={crmFormStyles.select}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="false">Privado</SelectItem><SelectItem value="true">Público para el equipo</SelectItem></SelectContent>
+                    <SelectTrigger className={crmFormStyles.select}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="false">Privado</SelectItem>
+                      <SelectItem value="true">Público para el equipo</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label className={crmFormStyles.label}>Notas</Label>
-                <Textarea name="notes" defaultValue={editLead?.notes || ""} placeholder="Contexto, necesidades, acuerdos y observaciones..." rows={5} className={crmFormStyles.textarea} />
+                <Textarea
+                  name="notes"
+                  defaultValue={editLead?.notes || ""}
+                  placeholder="Contexto, necesidades, acuerdos y observaciones..."
+                  rows={5}
+                  className={crmFormStyles.textarea}
+                />
               </div>
             </section>
           </div>

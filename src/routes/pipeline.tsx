@@ -19,7 +19,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { openGlobalTaskCreate } from "@/components/tasks/global-task-create-host";
+import { openCommercialFollowUp } from "@/components/commercial-follow-ups/global-commercial-follow-up-host";
+import { CommercialTimelinePanel } from "@/components/commercial-follow-ups/commercial-timeline-panel";
 import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import { useCompanyCurrencySettings } from "@/hooks/use-company-currency";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -90,6 +91,9 @@ import { findLeadClientMatches } from "@/lib/lead-client-match";
 import { projectBudgetFromSale } from "@/lib/crm/project-budget";
 
 export const Route = createFileRoute("/pipeline")({
+  validateSearch: (search: Record<string, unknown>): { dealId?: string } => ({
+    dealId: typeof search.dealId === "string" ? search.dealId : undefined,
+  }),
   component: PipelinePage,
   head: () => ({ meta: [{ title: "Pipeline — Corevix CRM" }] }),
 });
@@ -405,6 +409,7 @@ function toIsoDateOnly(d: Date) {
 }
 
 function PipelinePage() {
+  const routeSearch = Route.useSearch();
   const { settings: currencySettings } = useCompanyCurrencySettings();
   const { profile, user, roles } = useAuth();
   const { can } = usePermissions();
@@ -414,6 +419,7 @@ function PipelinePage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const openedDealSearchRef = useRef<string | null>(null);
   const [editDeal, setEditDeal] = useState<Deal | null>(null);
   const [deleteDealId, setDeleteDealId] = useState<string | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
@@ -648,6 +654,36 @@ function PipelinePage() {
   });
   const [addingDealProduct, setAddingDealProduct] = useState(false);
   const [removingDealProductId, setRemovingDealProductId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const dealId = routeSearch.dealId;
+    if (!dealId || !profile?.company_id || openedDealSearchRef.current === dealId) return;
+    const found = deals.find((deal) => deal.id === dealId);
+    if (found) {
+      openedDealSearchRef.current = dealId;
+      setSelectedDeal(found);
+      return;
+    }
+    let cancelled = false;
+    void (supabase as any)
+      .from("deals")
+      .select("*")
+      .eq("company_id", profile.company_id)
+      .eq("id", dealId)
+      .maybeSingle()
+      .then(({ data, error }: { data: Deal | null; error: { message: string } | null }) => {
+        if (cancelled) return;
+        if (error) {
+          toast.error(error.message || "No se pudo abrir la oportunidad");
+          return;
+        }
+        if (data) {
+          openedDealSearchRef.current = dealId;
+          setSelectedDeal(data);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [routeSearch.dealId, profile?.company_id, deals]);
 
   useEffect(() => {
     const onDemoOpenDealDetail = (event: Event) => {
@@ -1794,20 +1830,16 @@ function PipelinePage() {
   };
 
   function openFollowUpDialogForDeal(deal: Deal) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dueDate = tomorrow.toISOString().slice(0, 10);
-    const label = deal.name || "oportunidad";
-    openGlobalTaskCreate({
-      initialValues: {
-        title: `Dar seguimiento a ${label}`,
-        dueDate,
-        priority: "Medium",
-        description: `Seguimiento creado desde Pipeline.\nOportunidad: ${deal.name}`,
-        assignedTo: resolveAssigneeUserId(deal.assigned_to) || undefined,
-        leadId: deal.lead_id || undefined,
-        dealId: deal.id,
-      },
+    if (!can("deals.edit")) {
+      toast.error("No tienes permiso para crear seguimiento");
+      return;
+    }
+    openCommercialFollowUp({
+      mode: "schedule",
+      entity: { type: "deal", id: deal.id },
+      entityLabel: deal.name || "Oportunidad",
+      assigneeUserId: deal.assigned_to || profile?.user_id || undefined,
+      objective: `Contactar sobre ${deal.name || "la oportunidad"}`,
     });
   }
 
@@ -3658,7 +3690,7 @@ function PipelinePage() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                              Próximo paso
+                              Próxima tarea operativa
                             </div>
                             <div className="mt-1 text-base font-normal text-slate-950">
                               {isWon
@@ -3667,7 +3699,7 @@ function PipelinePage() {
                                   ? "Oportunidad perdida"
                                   : selectedNextTask
                                     ? selectedNextTask.title
-                                    : "Define el siguiente seguimiento"}
+                                    : "Sin tarea pendiente"}
                             </div>
                             <div className="mt-1 text-sm font-normal text-slate-500">
                               {isWon
@@ -3680,15 +3712,37 @@ function PipelinePage() {
                             </div>
                           </div>
 
-                          <CrmDetailLineButton
-                            className="h-8 shrink-0"
-                            disabled={isWon || isLost}
-                            onClick={() => openReminderDialogForDeal(selectedDeal)}
-                            icon={<CalendarIcon className="h-4 w-4" />}
-                          >
-                            Recordatorio
-                          </CrmDetailLineButton>
+                          <div className="flex shrink-0 flex-wrap gap-2">
+                            <CrmDetailLineButton
+                              className="h-8"
+                              disabled={isWon || isLost || !can("deals.edit")}
+                              onClick={() => openFollowUpDialogForDeal(selectedDeal)}
+                              icon={<CalendarIcon className="h-4 w-4" />}
+                            >
+                              Crear seguimiento
+                            </CrmDetailLineButton>
+                            <CrmDetailLineButton
+                              className="h-8"
+                              disabled={!can("deals.edit")}
+                              onClick={() => openCommercialFollowUp({ mode: "interaction", entity: { type: "deal", id: selectedDeal.id }, entityLabel: selectedDeal.name })}
+                              icon={<Phone className="h-4 w-4" />}
+                            >
+                              Registrar contacto
+                            </CrmDetailLineButton>
+                            <CrmDetailLineButton
+                              className="h-8"
+                              disabled={isWon || isLost}
+                              onClick={() => openReminderDialogForDeal(selectedDeal)}
+                              icon={<CalendarIcon className="h-4 w-4" />}
+                            >
+                              Recordatorio
+                            </CrmDetailLineButton>
+                          </div>
                         </div>
+                      </div>
+
+                      <div className="border-b border-slate-100 pb-4">
+                        <CommercialTimelinePanel entity={{ type: "deal", id: selectedDeal.id }} entityLabel={selectedDeal.name} compact />
                       </div>
 
                       <div data-demo="pipeline-contact" className="border-b border-slate-100 pb-4">
