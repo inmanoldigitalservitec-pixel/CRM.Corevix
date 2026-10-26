@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+export { formatTaxOptionLabel } from "@/lib/company-tax-options";
 
 export type CompanyTax = {
   id: string;
@@ -16,12 +17,6 @@ export type CompanyTax = {
 export function normalizeTaxRate(value: unknown) {
   const rate = Number(value);
   return Number.isFinite(rate) && rate >= 0 ? rate : 0;
-}
-
-export function formatTaxOptionLabel(tax: Pick<CompanyTax, "name" | "rate">) {
-  return `${tax.name} · ${normalizeTaxRate(tax.rate).toLocaleString("es-DO", {
-    maximumFractionDigits: 4,
-  })}%`;
 }
 
 export function useCompanyTaxes(type = "sales") {

@@ -232,6 +232,7 @@ type TaskDetailDialogProps = {
   uploadingFileName?: string;
   uploadingResourceFileName?: string;
   canEdit?: boolean;
+  startInEditMode?: boolean;
   fileInputRef?: RefObject<HTMLInputElement | null>;
   resourceFileInputRef?: RefObject<HTMLInputElement | null>;
 
@@ -1228,10 +1229,9 @@ function TaskAssigneesPicker({
   const selectedNames = selectedIds
     .map((id) => profiles.find((profile) => profileMatchesId(profile, id)))
     .filter((profile): profile is QuickProfile => Boolean(profile));
-  const triggerLabel =
-    loading
-      ? "Cargando responsables…"
-      : selectedNames.length > 0
+  const triggerLabel = loading
+    ? "Cargando responsables…"
+    : selectedNames.length > 0
       ? selectedNames.map((profile) => profileDisplayName(profile)).join(", ")
       : selectedIds.length > 0
         ? "Perfil no disponible"
@@ -2117,7 +2117,8 @@ export function TaskCreateDialog({
                       role="status"
                       className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"
                     >
-                      Cargando opciones de responsables y relaciones. Puedes guardar la tarea mientras tanto.
+                      Cargando opciones de responsables y relaciones. Puedes guardar la tarea
+                      mientras tanto.
                     </p>
                   ) : null}
                   <TaskEditorInfoFields
@@ -2132,7 +2133,6 @@ export function TaskCreateDialog({
                     onProjectChange={() => setProjectChoiceChanged(true)}
                   />
                 </section>
-
               </div>
             </div>
           </main>
@@ -2179,6 +2179,7 @@ export function TaskDetailDialog({
   uploadingFileName = "",
   uploadingResourceFileName = "",
   canEdit = true,
+  startInEditMode = false,
   fileInputRef,
   resourceFileInputRef,
   onUpdateTask,
@@ -2392,6 +2393,7 @@ export function TaskDetailDialog({
     loadedProfiles: QuickProfile[] = propProfiles,
   ) => {
     setTask(loadedTask);
+    setEditing(Boolean(startInEditMode && canEdit));
     setProfiles(loadedProfiles);
     setDraft({
       title: loadedTask.title || "",
@@ -2497,6 +2499,8 @@ export function TaskDetailDialog({
     propTask?.assigned_to,
     propTask?.related_project_id,
     propTask?.related_client_id,
+    startInEditMode,
+    canEdit,
     propDriveFiles?.length,
     projectName,
     clientName,

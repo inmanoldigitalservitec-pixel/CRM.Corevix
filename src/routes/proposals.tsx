@@ -59,6 +59,11 @@ import { useCrud } from "@/hooks/use-crud";
 import { supabase } from "@/integrations/supabase/client";
 import { createAttentionNotification } from "@/lib/crm/attention-notifications";
 import { withoutProductWorkflowSteps } from "@/lib/proposals/proposal-data";
+import {
+  canTransitionProposalStatus,
+  getProposalStatusLabel,
+  hasEffectiveProposalApproval,
+} from "@/lib/proposals/status";
 import { isExplicitZeroPrice } from "@/lib/proposals/explicit-zero-price";
 import {
   isApprovedProposalStatus,
@@ -848,9 +853,16 @@ function ProposalsPage() {
 
   const updateProposalStatus = async (proposal: Proposal, nextStatus: string) => {
     if (!proposal.id || !nextStatus || proposal.status === nextStatus) return;
+    if (!canTransitionProposalStatus(proposal.status, nextStatus, proposal.approved_at)) {
+      toast.error("Una propuesta aprobada no puede volver a un estado anterior.");
+      return;
+    }
     try {
       const statusPatch = {
         status: nextStatus,
+        ...(isApprovedProposalStatus(nextStatus) && !proposal.approved_at
+          ? { approved_at: new Date().toISOString() }
+          : {}),
         ...(nextStatus === "Sent" && !proposal.sent_at
           ? { sent_at: new Date().toISOString() }
           : {}),
@@ -1439,47 +1451,47 @@ function ProposalsPage() {
     const storedItems = proposalItemsByProposalId.get(item.id) || [];
     const dbProposalItems =
       storedItems.length > 0
-      ? storedItems.map((line, index) => {
-          const serializedLine = Array.isArray((pd as any)?.proposalItems)
-            ? (pd as any).proposalItems[index]
-            : null;
-          const priceSpecified =
-            typeof serializedLine?.priceSpecified === "boolean"
-              ? serializedLine.priceSpecified
-              : Number(line.rate) > 0;
-          return {
-            id: line.id,
-            productId: line.product_id || null,
-            item: line.item_name || "",
-            description: line.description || "",
-            quantity: String(line.quantity ?? "1"),
-            rate: priceSpecified ? String(serializedLine?.rate ?? line.rate ?? "") : "",
-            priceSpecified,
-            tax: String(line.tax_rate ?? "0"),
-            taxId: line.tax_id || null,
-            taxName: line.tax_name || null,
-            optional: Boolean(line.is_optional),
-            documentCurrency: line.document_currency || item.currency || "USD",
-            originalCurrency:
-              line.original_currency || line.document_currency || item.currency || "USD",
-            originalRate: priceSpecified
-              ? line.original_rate === null || line.original_rate === undefined
-                ? String(line.rate ?? "")
-                : String(line.original_rate)
-              : "",
-            convertedRate: priceSpecified
-              ? line.converted_rate === null || line.converted_rate === undefined
-                ? String(line.rate ?? "")
-                : String(line.converted_rate)
-              : "",
-            exchangeRate:
-              line.exchange_rate === null || line.exchange_rate === undefined
-                ? null
-                : Number(line.exchange_rate),
-            exchangeRateSource: line.exchange_rate_source || null,
-            exchangeRateUpdatedAt: line.exchange_rate_updated_at || null,
-          };
-        })
+        ? storedItems.map((line, index) => {
+            const serializedLine = Array.isArray((pd as any)?.proposalItems)
+              ? (pd as any).proposalItems[index]
+              : null;
+            const priceSpecified =
+              typeof serializedLine?.priceSpecified === "boolean"
+                ? serializedLine.priceSpecified
+                : Number(line.rate) > 0;
+            return {
+              id: line.id,
+              productId: line.product_id || null,
+              item: line.item_name || "",
+              description: line.description || "",
+              quantity: String(line.quantity ?? "1"),
+              rate: priceSpecified ? String(serializedLine?.rate ?? line.rate ?? "") : "",
+              priceSpecified,
+              tax: String(line.tax_rate ?? "0"),
+              taxId: line.tax_id || null,
+              taxName: line.tax_name || null,
+              optional: Boolean(line.is_optional),
+              documentCurrency: line.document_currency || item.currency || "USD",
+              originalCurrency:
+                line.original_currency || line.document_currency || item.currency || "USD",
+              originalRate: priceSpecified
+                ? line.original_rate === null || line.original_rate === undefined
+                  ? String(line.rate ?? "")
+                  : String(line.original_rate)
+                : "",
+              convertedRate: priceSpecified
+                ? line.converted_rate === null || line.converted_rate === undefined
+                  ? String(line.rate ?? "")
+                  : String(line.converted_rate)
+                : "",
+              exchangeRate:
+                line.exchange_rate === null || line.exchange_rate === undefined
+                  ? null
+                  : Number(line.exchange_rate),
+              exchangeRateSource: line.exchange_rate_source || null,
+              exchangeRateUpdatedAt: line.exchange_rate_updated_at || null,
+            };
+          })
         : null;
     const jsonProposalItems = Array.isArray((pd as any)?.proposalItems)
       ? (pd as any).proposalItems.map((line: any) => ({
@@ -1799,7 +1811,15 @@ function ProposalsPage() {
       whatsapp_conversation_id: uuidOrNull(form.whatsapp_conversation_id),
       amount: Number.isFinite(amount) ? amount : 0,
       currency,
-      status: form.status || "Draft",
+      status:
+        editItem && hasEffectiveProposalApproval(editItem.status, editItem.approved_at)
+          ? isApprovedProposalStatus(editItem.status)
+            ? editItem.status
+            : "Approved"
+          : form.status || "Draft",
+      approved_at:
+        editItem?.approved_at ||
+        (hasEffectiveProposalApproval(form.status) ? new Date().toISOString() : null),
       proposal_date: form.proposalDate || null,
       discount_type: form.discountType || "none",
       discount_value:
@@ -1964,7 +1984,10 @@ function ProposalsPage() {
 
   const mobileStatusFilters = [
     { value: "all", label: "Todos los estados" },
-    ...PROPOSAL_STATUSES.map((status) => ({ value: status, label: status })),
+    ...PROPOSAL_STATUSES.map((status) => ({
+      value: status,
+      label: getProposalStatusLabel(status),
+    })),
   ];
   const mobileValidityFilters = [
     { value: "all", label: "Toda validez" },
@@ -2176,7 +2199,7 @@ function ProposalsPage() {
                   <SelectItem value="all">Todos los estados</SelectItem>
                   {PROPOSAL_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {status}
+                      {getProposalStatusLabel(status)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -2249,8 +2272,9 @@ function ProposalsPage() {
                           value={p.status}
                           options={PROPOSAL_STATUSES.map((status) => ({
                             value: status,
-                            label: status,
+                            label: getProposalStatusLabel(status),
                           }))}
+                          disabled={hasEffectiveProposalApproval(p.status, p.approved_at)}
                           onChange={(nextStatus) => updateProposalStatus(p, nextStatus)}
                         />
                       </div>
@@ -2340,8 +2364,9 @@ function ProposalsPage() {
                                 value={p.status}
                                 options={PROPOSAL_STATUSES.map((status) => ({
                                   value: status,
-                                  label: status,
+                                  label: getProposalStatusLabel(status),
                                 }))}
+                                disabled={hasEffectiveProposalApproval(p.status, p.approved_at)}
                                 onChange={(nextStatus) => updateProposalStatus(p, nextStatus)}
                               />
                               {isProposalExpired(p.valid_until) &&
@@ -2882,13 +2907,10 @@ function ProposalsPage() {
                           className={crmFormStyles.input}
                           type="date"
                           value={form.proposalDate}
-                          onChange={(e) => setForm((p) => ({ ...p, proposalDate: e.target.value }))}
-                          onInput={(e) =>
-                            setForm((p) => ({
-                              ...p,
-                              proposalDate: (e.currentTarget as HTMLInputElement).value,
-                            }))
-                          }
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            setForm((current) => ({ ...current, proposalDate: value }));
+                          }}
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -2898,13 +2920,10 @@ function ProposalsPage() {
                           className={crmFormStyles.input}
                           type="date"
                           value={form.valid_until}
-                          onChange={(e) => setForm((p) => ({ ...p, valid_until: e.target.value }))}
-                          onInput={(e) =>
-                            setForm((p) => ({
-                              ...p,
-                              valid_until: (e.currentTarget as HTMLInputElement).value,
-                            }))
-                          }
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            setForm((current) => ({ ...current, valid_until: value }));
+                          }}
                         />
                       </div>
                     </div>
@@ -3004,14 +3023,18 @@ function ProposalsPage() {
                         <Select
                           value={form.status}
                           onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}
+                          disabled={Boolean(
+                            editItem &&
+                            hasEffectiveProposalApproval(editItem.status, editItem.approved_at),
+                          )}
                         >
                           <SelectTrigger className={crmFormStyles.select}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {PROPOSAL_STATUSES.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
+                            {PROPOSAL_STATUSES.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {getProposalStatusLabel(status)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3241,8 +3264,7 @@ function ProposalsPage() {
                                   <div className="mt-2 text-xs font-semibold text-emerald-700">
                                     Sin costo
                                   </div>
-                                ) :
-                                  (line.item.trim() || line.description.trim()) &&
+                                ) : (line.item.trim() || line.description.trim()) &&
                                   !line.rate.trim() ? (
                                   <div className="mt-2 text-xs font-medium text-amber-700">
                                     Tarifa pendiente
@@ -3547,14 +3569,18 @@ function ProposalsPage() {
                           <Select
                             value={form.status}
                             onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}
+                            disabled={Boolean(
+                              editItem &&
+                              hasEffectiveProposalApproval(editItem.status, editItem.approved_at),
+                            )}
                           >
                             <SelectTrigger className={crmFormStyles.select}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {PROPOSAL_STATUSES.map((s) => (
-                                <SelectItem key={s} value={s}>
-                                  {s}
+                              {PROPOSAL_STATUSES.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {getProposalStatusLabel(status)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -3604,15 +3630,10 @@ function ProposalsPage() {
                             className={crmFormStyles.input}
                             type="date"
                             value={form.valid_until}
-                            onChange={(e) =>
-                              setForm((p) => ({ ...p, valid_until: e.target.value }))
-                            }
-                            onInput={(e) =>
-                              setForm((p) => ({
-                                ...p,
-                                valid_until: (e.currentTarget as HTMLInputElement).value,
-                              }))
-                            }
+                            onChange={(event) => {
+                              const value = event.currentTarget.value;
+                              setForm((current) => ({ ...current, valid_until: value }));
+                            }}
                           />
                         </div>
 

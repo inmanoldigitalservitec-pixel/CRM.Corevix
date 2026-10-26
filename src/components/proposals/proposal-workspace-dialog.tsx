@@ -47,9 +47,12 @@ import {
   getProposalDiscountAmount,
   renderProposalTemplateHtml,
 } from "@/components/proposals/proposal-template-rendering";
-import { SalesDocumentWorkspaceDialog } from "@/components/sales/sales-document-workspace-dialog";
+import {
+  SalesDocumentWorkspaceDialog,
+  type SalesDocumentWorkspaceTab,
+} from "@/components/sales/sales-document-workspace-dialog";
 import { ProjectWorkspaceFormDialog } from "@/components/projects/project-workspace-form-dialog";
-import { TaskCreateDialog } from "@/components/tasks/task-detail-dialog";
+import { TaskCreateDialog, TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
 import { openGlobalReminderCreate } from "@/components/calendar/global-reminder-create-host";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -162,12 +165,16 @@ export type ProposalTaskRow = {
   company_id: string;
   title: string;
   description: string | null;
+  description_html?: string | null;
   status: string;
   priority: string;
   assigned_to: string | null;
   due_date: string | null;
+  related_project_id: string | null;
   related_client_id: string | null;
+  related_lead_id?: string | null;
   related_proposal_id?: string | null;
+  created_at: string;
   related_invoice_id?: string | null;
   updated_at: string;
 };
@@ -190,7 +197,7 @@ export type ProposalReminderRow = {
 };
 
 export type ProposalProfileRow = WorkspaceAuthor & {
-  user_id?: string | null;
+  user_id: string | null;
   is_active?: boolean | null;
 };
 
@@ -232,14 +239,14 @@ type ProposalWorkspaceDialogProps = {
   formatMoney: (amount: number, currency: string | null | undefined) => string;
 };
 
-const tabs = [
+const tabs: SalesDocumentWorkspaceTab[] = [
   { value: "proposal", label: "Propuesta", icon: FileText },
   { value: "comments", label: "Comentarios", icon: MessageSquare },
   { value: "reminders", label: "Recordatorios", icon: Bell },
   { value: "tasks", label: "Tareas", icon: CheckCircle2 },
   { value: "notes", label: "Notas", icon: StickyNote },
   { value: "templates", label: "Templates", icon: LayoutTemplate },
-] as const;
+];
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -503,6 +510,9 @@ export function ProposalWorkspaceDialog({
   const [savingReminder, setSavingReminder] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<ProposalTaskRow | null>(null);
+  const [taskDetailStartsEditing, setTaskDetailStartsEditing] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ProposalTemplateRow | null>(null);
   const [templateDraft, setTemplateDraft] = useState<ProposalTemplateDraft>(emptyTemplateDraft);
@@ -631,7 +641,7 @@ export function ProposalWorkspaceDialog({
     const { data, error } = await (supabase as any)
       .from("tasks")
       .select(
-        "id,company_id,title,description,status,priority,assigned_to,due_date,related_client_id,related_proposal_id,updated_at",
+        "id,company_id,title,description,description_html,status,priority,assigned_to,due_date,related_project_id,related_client_id,related_proposal_id,created_at,updated_at",
       )
       .eq("company_id", profile.company_id)
       .eq("related_proposal_id", proposal.id)
@@ -653,7 +663,9 @@ export function ProposalWorkspaceDialog({
     setLoadingReminders(true);
     const { data, error } = await (supabase as any)
       .from("calendar_events")
-      .select("id,company_id,user_id,title,description,status,start_at,related_proposal_id,updated_at")
+      .select(
+        "id,company_id,user_id,title,description,status,start_at,related_proposal_id,updated_at",
+      )
       .eq("company_id", profile.company_id)
       .eq("related_proposal_id", proposal.id)
       .order("start_at", { ascending: true })
@@ -665,7 +677,28 @@ export function ProposalWorkspaceDialog({
       return;
     }
 
-    setReminders((data || []).map((event: any) => ({ id: event.id, company_id: event.company_id, proposal_id: event.related_proposal_id, assigned_to: event.user_id, created_by: event.user_id, title: event.title, notes: event.description, remind_at: event.start_at, status: event.status === "completed" ? "Completed" : event.status === "cancelled" ? "Cancelled" : "Pending", completed_at: event.status === "completed" ? event.updated_at : null, archived_at: null, created_at: event.updated_at, updated_at: event.updated_at })) as ProposalReminderRow[]);
+    setReminders(
+      (data || []).map((event: any) => ({
+        id: event.id,
+        company_id: event.company_id,
+        proposal_id: event.related_proposal_id,
+        assigned_to: event.user_id,
+        created_by: event.user_id,
+        title: event.title,
+        notes: event.description,
+        remind_at: event.start_at,
+        status:
+          event.status === "completed"
+            ? "Completed"
+            : event.status === "cancelled"
+              ? "Cancelled"
+              : "Pending",
+        completed_at: event.status === "completed" ? event.updated_at : null,
+        archived_at: null,
+        created_at: event.updated_at,
+        updated_at: event.updated_at,
+      })) as ProposalReminderRow[],
+    );
   }, [profile?.company_id, proposal?.id]);
 
   const loadTemplates = useCallback(async () => {
@@ -714,7 +747,8 @@ export function ProposalWorkspaceDialog({
 
   useEffect(() => {
     const onReminderCreated = (event: Event) => {
-      const created = (event as CustomEvent<{ event?: { related_proposal_id?: string | null } }>).detail?.event;
+      const created = (event as CustomEvent<{ event?: { related_proposal_id?: string | null } }>)
+        .detail?.event;
       if (created?.related_proposal_id === proposal?.id) void loadReminders();
     };
     window.addEventListener("corevix:reminder-created", onReminderCreated);
@@ -731,7 +765,7 @@ export function ProposalWorkspaceDialog({
       setNoteDialogOpen(false);
       setCommentDialogOpen(false);
       setTaskDialogOpen(false);
-        setTemplateDialogOpen(false);
+      setTemplateDialogOpen(false);
       setEditingTemplate(null);
       setTemplateDraft(emptyTemplateDraft);
     }
@@ -923,13 +957,23 @@ export function ProposalWorkspaceDialog({
     toast.success(status === "Completed" ? "Tarea completada." : "Tarea actualizada.");
   }
 
-  async function updateReminderStatus(reminder: ProposalReminderRow, status: "Completed" | "Cancelled") {
+  async function updateReminderStatus(
+    reminder: ProposalReminderRow,
+    status: "Completed" | "Cancelled",
+  ) {
     if (!profile?.company_id) return;
     setSavingReminder(true);
     const nextStatus = status === "Completed" ? "completed" : "cancelled";
-    const { error } = await (supabase as any).from("calendar_events").update({ status: nextStatus }).eq("id", reminder.id).eq("company_id", profile.company_id);
+    const { error } = await (supabase as any)
+      .from("calendar_events")
+      .update({ status: nextStatus })
+      .eq("id", reminder.id)
+      .eq("company_id", profile.company_id);
     setSavingReminder(false);
-    if (error) { toast.error(error.message || "No se pudo actualizar el recordatorio."); return; }
+    if (error) {
+      toast.error(error.message || "No se pudo actualizar el recordatorio.");
+      return;
+    }
     await loadReminders();
     toast.success(status === "Completed" ? "Recordatorio completado." : "Recordatorio cancelado.");
   }
@@ -1102,13 +1146,15 @@ export function ProposalWorkspaceDialog({
 
   function openProposalReminderCreator() {
     if (!proposal) return;
-    openGlobalReminderCreate({ initialValues: {
-      title: `Dar seguimiento a ${proposal.title}`,
-      description: `Recordatorio creado desde la propuesta ${proposal.number}.`,
-      startAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      relatedProposalId: proposal.id,
-      contextLabel: `Propuesta: ${proposal.number}`,
-    } });
+    openGlobalReminderCreate({
+      initialValues: {
+        title: `Dar seguimiento a ${proposal.title}`,
+        description: `Recordatorio creado desde la propuesta ${proposal.number}.`,
+        startAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        relatedProposalId: proposal.id,
+        contextLabel: `Propuesta: ${proposal.number}`,
+      },
+    });
   }
   const displayProductName =
     product?.name ||
@@ -1173,545 +1219,579 @@ export function ProposalWorkspaceDialog({
       activeTab={activeTab}
       onActiveTabChange={(value) => setActiveTab(value as typeof activeTab)}
     >
-            <TabsContent value="proposal" className="mt-0 space-y-5">
-              <CrmDetailSummaryGrid
-                columns={4}
-                className="border-b border-slate-100 pb-4"
-                items={[
-                  {
-                    key: "status",
-                    label: "Estado",
-                    value: <StatusBadge status={proposal.status} />,
-                  },
-                  { key: "date", label: "Fecha", value: formatDate(proposal.proposal_date) },
-                  { key: "valid", label: "Válida hasta", value: formatDate(proposal.valid_until) },
-                  {
-                    key: "comments",
-                    label: "Comentarios",
-                    value: proposal.allow_comments === false ? "Desactivados" : "Permitidos",
-                  },
-                ]}
-              />
+      <TabsContent value="proposal" className="mt-0 space-y-5">
+        <CrmDetailSummaryGrid
+          columns={4}
+          className="border-b border-slate-100 pb-4"
+          items={[
+            {
+              key: "status",
+              label: "Estado",
+              value: <StatusBadge status={proposal.status} />,
+            },
+            { key: "date", label: "Fecha", value: formatDate(proposal.proposal_date) },
+            { key: "valid", label: "Válida hasta", value: formatDate(proposal.valid_until) },
+            {
+              key: "comments",
+              label: "Comentarios",
+              value: proposal.allow_comments === false ? "Desactivados" : "Permitidos",
+            },
+          ]}
+        />
 
-              <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="space-y-5">
-                  <div className="grid gap-4 border-b border-slate-100 pb-5 md:grid-cols-2">
-                    <div>
-                      <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                        Propuesta
-                      </h3>
-                      <p className="mt-2 text-lg font-normal text-slate-950">{proposal.number}</p>
-                      <p className="mt-1 text-sm font-normal text-slate-500">{proposal.title}</p>
-                      {proposal.description ? (
-                        <p className="mt-3 whitespace-pre-wrap text-sm font-normal leading-6 text-slate-600">
-                          {proposal.description}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="md:text-right">
-                      <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                        Para
-                      </h3>
-                      <p className="mt-2 text-lg font-normal text-slate-950">{recipientName}</p>
-                      {recipientAddress ? (
-                        <p className="mt-1 text-sm font-normal leading-5 text-slate-500">
-                          {recipientAddress}
-                        </p>
-                      ) : null}
-                      {recipientEmail ? (
-                        <p className="mt-2 text-sm font-normal text-blue-600">{recipientEmail}</p>
-                      ) : null}
-                      {recipientPhone ? (
-                        <p className="mt-1 text-sm font-normal text-blue-600">{recipientPhone}</p>
-                      ) : null}
-                    </div>
-                  </div>
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-5">
+            <div className="grid gap-4 border-b border-slate-100 pb-5 md:grid-cols-2">
+              <div>
+                <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                  Propuesta
+                </h3>
+                <p className="mt-2 text-lg font-normal text-slate-950">{proposal.number}</p>
+                <p className="mt-1 text-sm font-normal text-slate-500">{proposal.title}</p>
+                {proposal.description ? (
+                  <p className="mt-3 whitespace-pre-wrap text-sm font-normal leading-6 text-slate-600">
+                    {proposal.description}
+                  </p>
+                ) : null}
+              </div>
+              <div className="md:text-right">
+                <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                  Para
+                </h3>
+                <p className="mt-2 text-lg font-normal text-slate-950">{recipientName}</p>
+                {recipientAddress ? (
+                  <p className="mt-1 text-sm font-normal leading-5 text-slate-500">
+                    {recipientAddress}
+                  </p>
+                ) : null}
+                {recipientEmail ? (
+                  <p className="mt-2 text-sm font-normal text-blue-600">{recipientEmail}</p>
+                ) : null}
+                {recipientPhone ? (
+                  <p className="mt-1 text-sm font-normal text-blue-600">{recipientPhone}</p>
+                ) : null}
+              </div>
+            </div>
 
-                  <div className="overflow-hidden border border-slate-200">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50">
-                          <TableHead>Ítem</TableHead>
-                          <TableHead>Descripción</TableHead>
-                          <TableHead className="text-right">Cant.</TableHead>
-                          <TableHead className="text-right">Tarifa</TableHead>
-                          <TableHead>Impuesto</TableHead>
-                          <TableHead className="text-right">Importe</TableHead>
+            <div className="overflow-hidden border border-slate-200">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Ítem</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead className="text-right">Cant.</TableHead>
+                    <TableHead className="text-right">Tarifa</TableHead>
+                    <TableHead>Impuesto</TableHead>
+                    <TableHead className="text-right">Importe</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.length ? (
+                    items.map((item, index) => {
+                      const serializedRate = serializedProposalItems[index]?.rate;
+                      const hasSerializedRate = serializedProposalItems[index]?.rate !== undefined;
+                      const hasPrice =
+                        typeof serializedProposalItems[index]?.priceSpecified === "boolean"
+                          ? serializedProposalItems[index].priceSpecified
+                          : hasSerializedRate
+                            ? serializedRate !== null &&
+                              String(serializedRate).trim() !== "" &&
+                              Number(serializedRate) !== 0
+                            : item.rate !== null && item.rate !== undefined;
+                      const rate = hasSerializedRate ? serializedRate : item.rate;
+                      const free = isExplicitZeroPrice(rate, hasPrice);
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-normal text-slate-950">
+                            {item.item_name || "Ítem"}
+                            {free ? (
+                              <div className="mt-1 text-xs font-semibold text-emerald-700">
+                                Sin costo
+                              </div>
+                            ) : !hasPrice ? (
+                              <div className="mt-1 text-xs font-medium text-amber-700">
+                                Tarifa pendiente
+                              </div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="max-w-[320px] text-sm font-normal text-slate-500">
+                            <span className="line-clamp-2">{item.description || "—"}</span>
+                          </TableCell>
+                          <TableCell className="text-right">{Number(item.quantity || 0)}</TableCell>
+                          <TableCell className="text-right">
+                            {!hasPrice
+                              ? "Por definir"
+                              : formatMoney(Number(rate), proposal.currency)}
+                          </TableCell>
+                          <TableCell>
+                            {item.tax_name ||
+                              (Number(item.tax_rate || 0) ? `${item.tax_rate}%` : "—")}
+                          </TableCell>
+                          <TableCell className="text-right font-normal text-slate-950">
+                            {!hasPrice
+                              ? "—"
+                              : formatMoney(Number(item.amount || 0), proposal.currency)}
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.length ? (
-                          items.map((item, index) => {
-                            const serializedRate = serializedProposalItems[index]?.rate;
-                            const hasSerializedRate = serializedProposalItems[index]?.rate !== undefined;
-                            const hasPrice =
-                              typeof serializedProposalItems[index]?.priceSpecified === "boolean"
-                                ? serializedProposalItems[index].priceSpecified
-                                : hasSerializedRate
-                                  ? serializedRate !== null &&
-                                    String(serializedRate).trim() !== "" &&
-                                    Number(serializedRate) !== 0
-                                  : item.rate !== null && item.rate !== undefined;
-                            const rate = hasSerializedRate ? serializedRate : item.rate;
-                            const free = isExplicitZeroPrice(rate, hasPrice);
-                            return (
-                              <TableRow key={item.id}>
-                                <TableCell className="font-normal text-slate-950">
-                                  {item.item_name || "Ítem"}
-                                  {free ? (
-                                    <div className="mt-1 text-xs font-semibold text-emerald-700">
-                                      Sin costo
-                                    </div>
-                                  ) : !hasPrice ? (
-                                    <div className="mt-1 text-xs font-medium text-amber-700">
-                                      Tarifa pendiente
-                                    </div>
-                                  ) : null}
-                                </TableCell>
-                                <TableCell className="max-w-[320px] text-sm font-normal text-slate-500">
-                                  <span className="line-clamp-2">{item.description || "—"}</span>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {Number(item.quantity || 0)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {!hasPrice
-                                    ? "Por definir"
-                                    : formatMoney(Number(rate), proposal.currency)}
-                                </TableCell>
-                                <TableCell>
-                                  {item.tax_name ||
-                                    (Number(item.tax_rate || 0) ? `${item.tax_rate}%` : "—")}
-                                </TableCell>
-                                <TableCell className="text-right font-normal text-slate-950">
-                                  {!hasPrice
-                                    ? "—"
-                                    : formatMoney(Number(item.amount || 0), proposal.currency)}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={6}
-                              className="py-8 text-center text-sm text-slate-500"
-                            >
-                              Esta propuesta todavía no tiene líneas detalladas.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-8 text-center text-sm text-slate-500">
+                        Esta propuesta todavía no tiene líneas detalladas.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
 
-                  <section className="border-y border-slate-100 py-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                        Contenido
-                      </h3>
-                      <CrmDetailLineButton
-                        className="h-8"
-                        icon={<Clipboard className="h-4 w-4" />}
-                        onClick={() => {
-                          void navigator.clipboard.writeText(copiedContent);
-                          toast.success("Contenido copiado.");
-                        }}
-                      >
-                        Copiar
-                      </CrmDetailLineButton>
-                    </div>
-                    {renderedProposalContent ? (
-                      <div className="mt-3 max-h-[460px] overflow-y-auto border border-slate-100 bg-white p-4">
-                        <div
-                          className="proposal-content-preview text-sm leading-6 text-slate-700 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_img]:h-auto [&_img]:max-w-full [&_ol]:ml-5 [&_ol]:list-decimal [&_p]:mb-3 [&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:p-2 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:p-2 [&_ul]:ml-5 [&_ul]:list-disc"
-                          dangerouslySetInnerHTML={{ __html: renderedProposalContent }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="mt-3 border border-slate-100 bg-slate-50/60 p-4 text-sm leading-6 text-slate-500">
-                        Esta propuesta no tiene contenido escrito todavía.
-                      </div>
-                    )}
-                  </section>
+            <section className="border-y border-slate-100 py-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                  Contenido
+                </h3>
+                <CrmDetailLineButton
+                  className="h-8"
+                  icon={<Clipboard className="h-4 w-4" />}
+                  onClick={() => {
+                    void navigator.clipboard.writeText(copiedContent);
+                    toast.success("Contenido copiado.");
+                  }}
+                >
+                  Copiar
+                </CrmDetailLineButton>
+              </div>
+              {renderedProposalContent ? (
+                <div className="mt-3 max-h-[460px] overflow-y-auto border border-slate-100 bg-white p-4">
+                  <div
+                    className="proposal-content-preview text-sm leading-6 text-slate-700 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_img]:h-auto [&_img]:max-w-full [&_ol]:ml-5 [&_ol]:list-decimal [&_p]:mb-3 [&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:p-2 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:p-2 [&_ul]:ml-5 [&_ul]:list-disc"
+                    dangerouslySetInnerHTML={{ __html: renderedProposalContent }}
+                  />
                 </div>
+              ) : (
+                <div className="mt-3 border border-slate-100 bg-slate-50/60 p-4 text-sm leading-6 text-slate-500">
+                  Esta propuesta no tiene contenido escrito todavía.
+                </div>
+              )}
+            </section>
+          </div>
 
-                <aside className="space-y-4">
-                  <div className="border border-slate-200 p-4">
-                    <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                      Totales
-                    </h3>
-                    <div className="mt-4 space-y-3 text-sm">
-                      <SummaryLine
-                        label="Subtotal"
-                        value={formatMoney(subtotalAmount, proposal.currency)}
-                      />
-                      <SummaryLine
-                        label="Impuestos"
-                        value={formatMoney(taxAmount, proposal.currency)}
-                      />
-                      <SummaryLine
-                        label="Descuento"
-                        value={formatMoney(discountAmount, proposal.currency)}
-                      />
-                      <div className="border-t border-slate-100 pt-3">
-                        <SummaryLine
-                          label="Total"
-                          value={formatMoney(totalAmount, proposal.currency)}
-                          strong
-                        />
-                      </div>
-                      {proposal.amount_base != null && proposal.base_currency ? (
-                        <p className="pt-1 text-xs font-normal text-slate-500">
-                          Base interna:{" "}
-                          {formatMoney(Number(proposal.amount_base), proposal.base_currency)}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="border border-slate-200 p-4">
-                    <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-                      Seguimiento
-                    </h3>
-                    <div className="mt-4 space-y-3 text-sm">
-                      <SummaryLine label="Enviada" value={formatDate(proposal.sent_at)} />
-                      <SummaryLine label="Vista" value={formatDate(proposal.viewed_at)} />
-                      <SummaryLine label="Aprobada" value={formatDate(proposal.approved_at)} />
-                      <SummaryLine label="Actualizada" value={formatDate(proposal.updated_at)} />
-                    </div>
-                  </div>
-                </aside>
-              </section>
-            </TabsContent>
-
-            <TabsContent value="comments" className="mt-0">
-              <ProposalWorkspaceTextPanel
-                title="Comentarios"
-                description="Conversaciones internas o comentarios visibles para el cliente cuando habilitemos el portal público."
-                countLabel={
-                  comments.length === 0
-                    ? "Sin comentarios todavía"
-                    : comments.length === 1
-                      ? "1 comentario"
-                      : `${comments.length} comentarios`
-                }
-                canEdit={canEdit}
-                loading={loadingComments}
-                saving={savingComment}
-                draft={commentDraft}
-                onDraftChange={setCommentDraft}
-                placeholder="Escribe un comentario sobre esta propuesta..."
-                submitLabel={editingComment ? "Guardar comentario" : "Crear comentario"}
-                onSubmit={() => void saveComment()}
-                onCancelEdit={() => {
-                  setEditingComment(null);
-                  setCommentDraft("");
-                  setCommentVisibility("internal");
-                  setCommentDialogOpen(false);
-                }}
-                editing={Boolean(editingComment)}
-                dialogOpen={commentDialogOpen}
-                onDialogOpenChange={(nextOpen) => {
-                  if (savingComment) return;
-                  setCommentDialogOpen(nextOpen);
-                  if (!nextOpen) {
-                    setEditingComment(null);
-                    setCommentDraft("");
-                    setCommentVisibility("internal");
-                  }
-                }}
-                onCreate={() => {
-                  setEditingComment(null);
-                  setCommentDraft("");
-                  setCommentVisibility("internal");
-                  setCommentDialogOpen(true);
-                }}
-                emptyIcon={<MessageSquare className="h-6 w-6" />}
-                emptyTitle="No hay comentarios todavía"
-                emptyDescription="Agrega comentarios internos para mantener el contexto de esta propuesta."
-                onRefresh={() => void loadComments()}
-                toolbar={
-                  <div className="flex rounded-full border border-slate-200 bg-slate-50 p-0.5">
-                    {(["internal", "client"] as const).map((visibility) => (
-                      <button
-                        key={visibility}
-                        type="button"
-                        onClick={() => setCommentVisibility(visibility)}
-                        disabled={!canEdit || savingComment}
-                        className={cn(
-                          "rounded-full px-3 py-1 text-xs font-medium transition",
-                          commentVisibility === visibility
-                            ? "bg-white text-slate-950 shadow-sm"
-                            : "text-slate-500 hover:text-slate-800",
-                        )}
-                      >
-                        {visibility === "internal" ? "Interno" : "Cliente"}
-                      </button>
-                    ))}
-                  </div>
-                }
-              >
-                {comments.map((comment) => (
-                  <ProposalWorkspaceTextItem
-                    key={comment.id}
-                    author={authorLabel(comment.author, comment.author_name, comment.author_email)}
-                    meta={`${comment.visibility === "client" ? "Cliente" : "Interno"} · ${relativeTimeLabel(
-                      comment.updated_at,
-                    )} · ${formatDateTime(comment.updated_at)}`}
-                    content={comment.content}
-                    canEdit={canEdit}
-                    saving={savingComment}
-                    onEdit={() => {
-                      setEditingComment(comment);
-                      setCommentDraft(comment.content);
-                      setCommentVisibility(comment.visibility);
-                      setCommentDialogOpen(true);
-                    }}
-                    onArchive={() => void archiveComment(comment)}
+          <aside className="space-y-4">
+            <div className="border border-slate-200 p-4">
+              <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                Totales
+              </h3>
+              <div className="mt-4 space-y-3 text-sm">
+                <SummaryLine
+                  label="Subtotal"
+                  value={formatMoney(subtotalAmount, proposal.currency)}
+                />
+                <SummaryLine label="Impuestos" value={formatMoney(taxAmount, proposal.currency)} />
+                <SummaryLine
+                  label="Descuento"
+                  value={formatMoney(discountAmount, proposal.currency)}
+                />
+                <div className="border-t border-slate-100 pt-3">
+                  <SummaryLine
+                    label="Total"
+                    value={formatMoney(totalAmount, proposal.currency)}
+                    strong
                   />
-                ))}
-              </ProposalWorkspaceTextPanel>
-            </TabsContent>
-            <TabsContent value="reminders" className="mt-0">
-              <ProposalRemindersPanel
-                reminders={reminders}
-                profilesById={profilesById}
-                canEdit={canEdit}
-                loading={loadingReminders}
-                saving={savingReminder}
-                countLabel={reminderCountLabel}
-                onRefresh={() => void loadReminders()}
-                onCreate={openProposalReminderCreator}
-                onComplete={(reminder) => void updateReminderStatus(reminder, "Completed")}
-                onCancel={(reminder) => void updateReminderStatus(reminder, "Cancelled")}
-              />
-            </TabsContent>
-            <TabsContent value="tasks" className="mt-0">
-              <ProposalTasksPanel
-                tasks={tasks}
-                profilesById={profilesById}
-                canEdit={canEdit}
-                loading={loadingTasks}
-                saving={savingTask}
-                countLabel={taskCountLabel}
-                onRefresh={() => void loadTasks()}
-                onCreate={() => setTaskDialogOpen(true)}
-                onComplete={(task) => void updateTaskStatus(task, "Completed")}
-              />
-            </TabsContent>
-            <TabsContent value="notes" className="mt-0">
-              <ProposalWorkspaceTextPanel
-                title="Notas internas"
-                description="Contexto privado del equipo: decisiones, acuerdos, cambios y próximos pasos."
-                countLabel={
-                  notes.length === 0
-                    ? "Sin notas todavía"
-                    : notes.length === 1
-                      ? "1 nota interna"
-                      : `${notes.length} notas internas`
-                }
-                canEdit={canEdit}
-                loading={loadingNotes}
-                saving={savingNote}
-                draft={noteDraft}
-                onDraftChange={setNoteDraft}
-                placeholder="Escribe una nota interna sobre esta propuesta..."
-                submitLabel={editingNote ? "Guardar nota" : "Crear nota"}
-                onSubmit={() => void saveNote()}
-                onCancelEdit={() => {
-                  setEditingNote(null);
-                  setNoteDraft("");
-                  setNoteDialogOpen(false);
-                }}
-                editing={Boolean(editingNote)}
-                dialogOpen={noteDialogOpen}
-                onDialogOpenChange={(nextOpen) => {
-                  if (savingNote) return;
-                  setNoteDialogOpen(nextOpen);
-                  if (!nextOpen) {
-                    setEditingNote(null);
-                    setNoteDraft("");
-                  }
-                }}
-                onCreate={() => {
-                  setEditingNote(null);
-                  setNoteDraft("");
-                  setNoteDialogOpen(true);
-                }}
-                emptyIcon={<StickyNote className="h-6 w-6" />}
-                emptyTitle="Sin notas todavía"
-                emptyDescription="Agrega la primera nota interna para mantener claro el seguimiento."
-                onRefresh={() => void loadNotes()}
-              >
-                {notes.map((note) => (
-                  <ProposalWorkspaceTextItem
-                    key={note.id}
-                    author={authorLabel(note.author)}
-                    meta={`${relativeTimeLabel(note.updated_at)} · ${formatDateTime(note.updated_at)}`}
-                    content={note.content}
-                    canEdit={canEdit}
-                    saving={savingNote}
-                    onEdit={() => {
-                      setEditingNote(note);
-                      setNoteDraft(note.content);
-                      setNoteDialogOpen(true);
-                    }}
-                    onArchive={() => void archiveNote(note)}
-                  />
-                ))}
-              </ProposalWorkspaceTextPanel>
-            </TabsContent>
-            <TabsContent value="templates" className="mt-0">
-              <ProposalTemplatesPanel
-                templates={templates}
-                loading={loadingTemplates}
-                saving={savingTemplate}
-                canEdit={canEdit}
-                countLabel={templateCountLabel}
-                activeTemplateId={proposal.template_id}
-                onCreate={openCreateTemplateDialog}
-                onRefresh={() => void loadTemplates()}
-                onEdit={openEditTemplateDialog}
-                onArchive={(template) => void archiveTemplate(template)}
-                onApply={(template) => void applyTemplate(template)}
-              />
-            </TabsContent>
+                </div>
+                {proposal.amount_base != null && proposal.base_currency ? (
+                  <p className="pt-1 text-xs font-normal text-slate-500">
+                    Base interna:{" "}
+                    {formatMoney(Number(proposal.amount_base), proposal.base_currency)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
 
-        <Dialog
-          open={templateDialogOpen}
-          onOpenChange={(nextOpen) => {
-            if (savingTemplate) return;
-            setTemplateDialogOpen(nextOpen);
+            <div className="border border-slate-200 p-4">
+              <h3 className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
+                Seguimiento
+              </h3>
+              <div className="mt-4 space-y-3 text-sm">
+                <SummaryLine label="Enviada" value={formatDate(proposal.sent_at)} />
+                <SummaryLine label="Vista" value={formatDate(proposal.viewed_at)} />
+                <SummaryLine label="Aprobada" value={formatDate(proposal.approved_at)} />
+                <SummaryLine label="Actualizada" value={formatDate(proposal.updated_at)} />
+              </div>
+            </div>
+          </aside>
+        </section>
+      </TabsContent>
+
+      <TabsContent value="comments" className="mt-0">
+        <ProposalWorkspaceTextPanel
+          title="Comentarios"
+          description="Conversaciones internas o comentarios visibles para el cliente cuando habilitemos el portal público."
+          countLabel={
+            comments.length === 0
+              ? "Sin comentarios todavía"
+              : comments.length === 1
+                ? "1 comentario"
+                : `${comments.length} comentarios`
+          }
+          canEdit={canEdit}
+          loading={loadingComments}
+          saving={savingComment}
+          draft={commentDraft}
+          onDraftChange={setCommentDraft}
+          placeholder="Escribe un comentario sobre esta propuesta..."
+          submitLabel={editingComment ? "Guardar comentario" : "Crear comentario"}
+          onSubmit={() => void saveComment()}
+          onCancelEdit={() => {
+            setEditingComment(null);
+            setCommentDraft("");
+            setCommentVisibility("internal");
+            setCommentDialogOpen(false);
+          }}
+          editing={Boolean(editingComment)}
+          dialogOpen={commentDialogOpen}
+          onDialogOpenChange={(nextOpen) => {
+            if (savingComment) return;
+            setCommentDialogOpen(nextOpen);
             if (!nextOpen) {
-              setEditingTemplate(null);
-              setTemplateDraft(emptyTemplateDraft);
+              setEditingComment(null);
+              setCommentDraft("");
+              setCommentVisibility("internal");
             }
           }}
+          onCreate={() => {
+            setEditingComment(null);
+            setCommentDraft("");
+            setCommentVisibility("internal");
+            setCommentDialogOpen(true);
+          }}
+          emptyIcon={<MessageSquare className="h-6 w-6" />}
+          emptyTitle="No hay comentarios todavía"
+          emptyDescription="Agrega comentarios internos para mantener el contexto de esta propuesta."
+          onRefresh={() => void loadComments()}
+          toolbar={
+            <div className="flex rounded-full border border-slate-200 bg-slate-50 p-0.5">
+              {(["internal", "client"] as const).map((visibility) => (
+                <button
+                  key={visibility}
+                  type="button"
+                  onClick={() => setCommentVisibility(visibility)}
+                  disabled={!canEdit || savingComment}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition",
+                    commentVisibility === visibility
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800",
+                  )}
+                >
+                  {visibility === "internal" ? "Interno" : "Cliente"}
+                </button>
+              ))}
+            </div>
+          }
         >
-          <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-none [&>button:last-child]:hidden">
-            <DialogTitle className="sr-only">
-              {editingTemplate ? "Editar template" : "Crear template"}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Crea o edita una plantilla reutilizable para propuestas comerciales.
-            </DialogDescription>
-            <form
-              className="flex min-h-0 flex-1 flex-col"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void saveTemplate();
+          {comments.map((comment) => (
+            <ProposalWorkspaceTextItem
+              key={comment.id}
+              author={authorLabel(comment.author, comment.author_name, comment.author_email)}
+              meta={`${comment.visibility === "client" ? "Cliente" : "Interno"} · ${relativeTimeLabel(
+                comment.updated_at,
+              )} · ${formatDateTime(comment.updated_at)}`}
+              content={comment.content}
+              canEdit={canEdit}
+              saving={savingComment}
+              onEdit={() => {
+                setEditingComment(comment);
+                setCommentDraft(comment.content);
+                setCommentVisibility(comment.visibility);
+                setCommentDialogOpen(true);
               }}
-            >
-              <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-6">
-                <div className="flex min-w-0 items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setTemplateDialogOpen(false);
-                      setEditingTemplate(null);
-                      setTemplateDraft(emptyTemplateDraft);
-                    }}
-                    disabled={savingTemplate}
-                    className="h-10 w-10 shrink-0 rounded-full text-slate-700 hover:bg-slate-100"
-                    aria-label="Volver"
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </Button>
-                  <Input
-                    aria-label="Título del template"
-                    value={templateDraft.title}
-                    onChange={(event) =>
-                      setTemplateDraft((current) => ({ ...current, title: event.target.value }))
-                    }
-                    placeholder="Ej: Propuesta web corporativa"
-                    disabled={savingTemplate}
-                    className="h-11 min-w-0 flex-1 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-xl font-normal tracking-normal text-slate-950 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => printProposalTemplateHtml(templateDraft.contentHtml)}
-                    className="h-10 shrink-0 rounded-full px-4 text-sm"
-                  >
-                    <Printer className="mr-1.5 h-4 w-4" />
-                    Imprimir
-                  </Button>
-                </div>
-              </div>
+              onArchive={() => void archiveComment(comment)}
+            />
+          ))}
+        </ProposalWorkspaceTextPanel>
+      </TabsContent>
+      <TabsContent value="reminders" className="mt-0">
+        <ProposalRemindersPanel
+          reminders={reminders}
+          profilesById={profilesById}
+          canEdit={canEdit}
+          loading={loadingReminders}
+          saving={savingReminder}
+          countLabel={reminderCountLabel}
+          onRefresh={() => void loadReminders()}
+          onCreate={openProposalReminderCreator}
+          onComplete={(reminder) => void updateReminderStatus(reminder, "Completed")}
+          onCancel={(reminder) => void updateReminderStatus(reminder, "Cancelled")}
+        />
+      </TabsContent>
+      <TabsContent value="tasks" className="mt-0">
+        <ProposalTasksPanel
+          tasks={tasks}
+          profilesById={profilesById}
+          canEdit={canEdit}
+          loading={loadingTasks}
+          saving={savingTask}
+          countLabel={taskCountLabel}
+          onRefresh={() => void loadTasks()}
+          onCreate={() => setTaskDialogOpen(true)}
+          onComplete={(task) => void updateTaskStatus(task, "Completed")}
+          onViewTask={(task) => {
+            setSelectedTask(task);
+            setTaskDetailStartsEditing(false);
+            setTaskDetailOpen(true);
+          }}
+          onEditTask={(task) => {
+            setSelectedTask(task);
+            setTaskDetailStartsEditing(true);
+            setTaskDetailOpen(true);
+          }}
+        />
+      </TabsContent>
+      <TabsContent value="notes" className="mt-0">
+        <ProposalWorkspaceTextPanel
+          title="Notas internas"
+          description="Contexto privado del equipo: decisiones, acuerdos, cambios y próximos pasos."
+          countLabel={
+            notes.length === 0
+              ? "Sin notas todavía"
+              : notes.length === 1
+                ? "1 nota interna"
+                : `${notes.length} notas internas`
+          }
+          canEdit={canEdit}
+          loading={loadingNotes}
+          saving={savingNote}
+          draft={noteDraft}
+          onDraftChange={setNoteDraft}
+          placeholder="Escribe una nota interna sobre esta propuesta..."
+          submitLabel={editingNote ? "Guardar nota" : "Crear nota"}
+          onSubmit={() => void saveNote()}
+          onCancelEdit={() => {
+            setEditingNote(null);
+            setNoteDraft("");
+            setNoteDialogOpen(false);
+          }}
+          editing={Boolean(editingNote)}
+          dialogOpen={noteDialogOpen}
+          onDialogOpenChange={(nextOpen) => {
+            if (savingNote) return;
+            setNoteDialogOpen(nextOpen);
+            if (!nextOpen) {
+              setEditingNote(null);
+              setNoteDraft("");
+            }
+          }}
+          onCreate={() => {
+            setEditingNote(null);
+            setNoteDraft("");
+            setNoteDialogOpen(true);
+          }}
+          emptyIcon={<StickyNote className="h-6 w-6" />}
+          emptyTitle="Sin notas todavía"
+          emptyDescription="Agrega la primera nota interna para mantener claro el seguimiento."
+          onRefresh={() => void loadNotes()}
+        >
+          {notes.map((note) => (
+            <ProposalWorkspaceTextItem
+              key={note.id}
+              author={authorLabel(note.author)}
+              meta={`${relativeTimeLabel(note.updated_at)} · ${formatDateTime(note.updated_at)}`}
+              content={note.content}
+              canEdit={canEdit}
+              saving={savingNote}
+              onEdit={() => {
+                setEditingNote(note);
+                setNoteDraft(note.content);
+                setNoteDialogOpen(true);
+              }}
+              onArchive={() => void archiveNote(note)}
+            />
+          ))}
+        </ProposalWorkspaceTextPanel>
+      </TabsContent>
+      <TabsContent value="templates" className="mt-0">
+        <ProposalTemplatesPanel
+          templates={templates}
+          loading={loadingTemplates}
+          saving={savingTemplate}
+          canEdit={canEdit}
+          countLabel={templateCountLabel}
+          activeTemplateId={proposal.template_id}
+          onCreate={openCreateTemplateDialog}
+          onRefresh={() => void loadTemplates()}
+          onEdit={openEditTemplateDialog}
+          onArchive={(template) => void archiveTemplate(template)}
+          onApply={(template) => void applyTemplate(template)}
+        />
+      </TabsContent>
 
-              <div className="min-h-0 flex-1 bg-white">
-                <ProposalTemplateEditor
-                  value={templateDraft.contentHtml}
-                  onChange={(contentHtml) =>
-                    setTemplateDraft((current) => ({ ...current, contentHtml }))
-                  }
-                  disabled={savingTemplate}
-                  className="h-full"
-                />
-              </div>
-              <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6">
+      <Dialog
+        open={templateDialogOpen}
+        onOpenChange={(nextOpen) => {
+          if (savingTemplate) return;
+          setTemplateDialogOpen(nextOpen);
+          if (!nextOpen) {
+            setEditingTemplate(null);
+            setTemplateDraft(emptyTemplateDraft);
+          }
+        }}
+      >
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-none [&>button:last-child]:hidden">
+          <DialogTitle className="sr-only">
+            {editingTemplate ? "Editar template" : "Crear template"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Crea o edita una plantilla reutilizable para propuestas comerciales.
+          </DialogDescription>
+          <form
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveTemplate();
+            }}
+          >
+            <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
                 <Button
                   type="button"
                   variant="ghost"
+                  size="icon"
                   onClick={() => {
                     setTemplateDialogOpen(false);
                     setEditingTemplate(null);
                     setTemplateDraft(emptyTemplateDraft);
                   }}
                   disabled={savingTemplate}
-                  className="rounded-full px-4"
+                  className="h-10 w-10 shrink-0 rounded-full text-slate-700 hover:bg-slate-100"
+                  aria-label="Volver"
                 >
-                  Cancelar
+                  <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    savingTemplate ||
-                    !templateDraft.title.trim() ||
-                    !templateDraft.contentHtml.trim()
+                <Input
+                  aria-label="Título del template"
+                  value={templateDraft.title}
+                  onChange={(event) =>
+                    setTemplateDraft((current) => ({ ...current, title: event.target.value }))
                   }
-                  className="rounded-full px-4"
+                  placeholder="Ej: Propuesta web corporativa"
+                  disabled={savingTemplate}
+                  className="h-11 min-w-0 flex-1 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-xl font-normal tracking-normal text-slate-950 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => printProposalTemplateHtml(templateDraft.contentHtml)}
+                  className="h-10 shrink-0 rounded-full px-4 text-sm"
                 >
-                  <Save className="mr-1.5 h-3.5 w-3.5" />
-                  {editingTemplate ? "Guardar template" : "Crear template"}
+                  <Printer className="mr-1.5 h-4 w-4" />
+                  Imprimir
                 </Button>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </div>
 
-        <TaskCreateDialog
-          open={taskDialogOpen}
-          onOpenChange={setTaskDialogOpen}
-          companyId={profile?.company_id}
-          currentUserId={(profile as any)?.user_id || user?.id || null}
-          profiles={profiles}
-          relatedProposalId={proposal.id}
-          canCreate={canEdit}
-          initialValues={{
-            title: `Seguimiento de propuesta ${proposal.number}`,
-            clientId: proposal.client_id || undefined,
-            leadId: proposal.lead_id || undefined,
-            assignedTo: (profile as any)?.user_id || user?.id || undefined,
-          }}
-          onCreated={async (task) => {
-            await loadTasks();
-            void logActivityEvent({
-              companyId: profile?.company_id || task.company_id,
-              userId: profile?.id || null,
-              action: "proposal_task_created",
-              entityType: "tasks",
-              entityId: task.id,
-              detail: `Tarea creada desde propuesta ${proposal.number}: ${task.title}`,
-              metadata: { proposal_id: proposal.id, related_client_id: proposal.client_id },
-            }).catch(() => {});
-          }}
-        />
+            <div className="min-h-0 flex-1 bg-white">
+              <ProposalTemplateEditor
+                value={templateDraft.contentHtml}
+                onChange={(contentHtml) =>
+                  setTemplateDraft((current) => ({ ...current, contentHtml }))
+                }
+                disabled={savingTemplate}
+                className="h-full"
+              />
+            </div>
+            <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setTemplateDialogOpen(false);
+                  setEditingTemplate(null);
+                  setTemplateDraft(emptyTemplateDraft);
+                }}
+                disabled={savingTemplate}
+                className="rounded-full px-4"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  savingTemplate || !templateDraft.title.trim() || !templateDraft.contentHtml.trim()
+                }
+                className="rounded-full px-4"
+              >
+                <Save className="mr-1.5 h-3.5 w-3.5" />
+                {editingTemplate ? "Guardar template" : "Crear template"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-   </SalesDocumentWorkspaceDialog>
+      <TaskCreateDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        companyId={profile?.company_id}
+        currentUserId={(profile as any)?.user_id || user?.id || null}
+        profiles={profiles}
+        relatedProposalId={proposal.id}
+        canCreate={canEdit}
+        initialValues={{
+          title: `Seguimiento de propuesta ${proposal.number}`,
+          clientId: proposal.client_id || undefined,
+          leadId: proposal.lead_id || undefined,
+          assignedTo: (profile as any)?.user_id || user?.id || undefined,
+        }}
+        onCreated={async (task) => {
+          await loadTasks();
+          void logActivityEvent({
+            companyId: profile?.company_id || task.company_id,
+            userId: profile?.id || null,
+            action: "proposal_task_created",
+            entityType: "tasks",
+            entityId: task.id,
+            detail: `Tarea creada desde propuesta ${proposal.number}: ${task.title}`,
+            metadata: { proposal_id: proposal.id, related_client_id: proposal.client_id },
+          }).catch(() => {});
+        }}
+      />
+
+      <TaskDetailDialog
+        open={taskDetailOpen}
+        onOpenChange={(nextOpen) => {
+          setTaskDetailOpen(nextOpen);
+          if (!nextOpen) {
+            setSelectedTask(null);
+            void loadTasks();
+          }
+        }}
+        task={selectedTask}
+        profiles={profiles.map((item) => ({
+          id: item.id,
+          user_id: item.user_id,
+          full_name: item.full_name,
+          email: item.email,
+          is_active: item.is_active,
+        }))}
+        canEdit={canEdit}
+        startInEditMode={taskDetailStartsEditing}
+        onUpdateTask={async (taskId, patch) => {
+          if (!profile?.company_id) throw new Error("No se pudo identificar la empresa.");
+          const { error } = await (supabase as any)
+            .from("tasks")
+            .update(patch)
+            .eq("id", taskId)
+            .eq("company_id", profile.company_id);
+          if (error) throw error;
+          await loadTasks();
+        }}
+        onComplete={async () => {
+          if (selectedTask) await updateTaskStatus(selectedTask, "Completed");
+          setTaskDetailOpen(false);
+        }}
+      />
+    </SalesDocumentWorkspaceDialog>
   );
 }
 
@@ -1738,6 +1818,8 @@ export function ProposalTasksPanel({
   onRefresh,
   onCreate,
   onComplete,
+  onViewTask,
+  onEditTask,
   contextLabel = "propuesta",
 }: {
   tasks: ProposalTaskRow[];
@@ -1751,6 +1833,8 @@ export function ProposalTasksPanel({
   onRefresh: () => void;
   onCreate: () => void;
   onComplete: (task: ProposalTaskRow) => void;
+  onViewTask: (task: ProposalTaskRow) => void;
+  onEditTask: (task: ProposalTaskRow) => void;
   contextLabel?: string;
 }) {
   return (
@@ -1809,7 +1893,7 @@ export function ProposalTasksPanel({
                 <TableHead>Fecha límite</TableHead>
                 <TableHead>Prioridad</TableHead>
                 <TableHead>Responsable</TableHead>
-                <TableHead className="text-right">Acción</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1819,7 +1903,13 @@ export function ProposalTasksPanel({
                   <TableRow key={task.id}>
                     <TableCell>
                       <div className="max-w-[320px]">
-                        <div className="truncate font-semibold text-slate-950">{task.title}</div>
+                        <button
+                          type="button"
+                          onClick={() => onViewTask(task)}
+                          className="block max-w-full truncate text-left font-semibold text-slate-950 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        >
+                          {task.title}
+                        </button>
                         {task.description ? (
                           <div className="mt-1 line-clamp-1 text-xs text-slate-500">
                             {task.description}
@@ -1834,20 +1924,41 @@ export function ProposalTasksPanel({
                     <TableCell>{task.priority || "Medium"}</TableCell>
                     <TableCell>{profileLabel(profilesById, task.assigned_to)}</TableCell>
                     <TableCell className="text-right">
-                      {canComplete && !isClosed ? (
+                      <div className="flex flex-wrap justify-end gap-1">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => onComplete(task)}
-                          disabled={saving}
-                          className="h-8 rounded-full px-3 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                          onClick={() => onViewTask(task)}
+                          className="h-8 rounded-full px-2.5 text-xs font-semibold"
                         >
-                          Completar
+                          Ver tarea
                         </Button>
-                      ) : (
-                        <span className="text-sm text-slate-400">—</span>
-                      )}
+                        {canEdit ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onEditTask(task)}
+                            disabled={saving}
+                            className="h-8 rounded-full px-2.5 text-xs font-semibold"
+                          >
+                            Editar tarea
+                          </Button>
+                        ) : null}
+                        {canComplete && !isClosed ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onComplete(task)}
+                            disabled={saving}
+                            className="h-8 rounded-full px-2.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                          >
+                            Completar
+                          </Button>
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

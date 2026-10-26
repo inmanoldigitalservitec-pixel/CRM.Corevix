@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,14 +19,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { crmFormStyles } from "@/components/crm/crm-form-shell";
 import { cn } from "@/lib/utils";
-import { formatCurrencyAmount, getCurrencyInputMode, getCurrencyStep, normalizeCurrency } from "@/lib/currency";
 import {
-  formatTaxOptionLabel,
-  normalizeTaxRate,
-  type CompanyTax,
-} from "@/hooks/use-company-taxes";
+  formatCurrencyAmount,
+  getCurrencyInputMode,
+  getCurrencyStep,
+  normalizeCurrency,
+} from "@/lib/currency";
+import { dedupeEquivalentTaxOptions } from "@/lib/company-tax-options";
+import { formatTaxOptionLabel, normalizeTaxRate, type CompanyTax } from "@/hooks/use-company-taxes";
 
 const NO_TAX_VALUE = "__no_tax__";
 
@@ -129,15 +141,45 @@ export function SalesDocumentLineEditor({
   const moneyMode = getCurrencyInputMode(form.currency);
   const moneyUnitLabel = normalizeCurrency(form.currency) === "DOP" ? "RD$" : "US$";
   const selectedProductIds = new Set(
-    lineItems.map((line) => line.productId).filter((productId): productId is string => Boolean(productId)),
+    lineItems
+      .map((line) => line.productId)
+      .filter((productId): productId is string => Boolean(productId)),
   );
   const [adjustmentOpen, setAdjustmentOpen] = useState(
     () => Math.abs(Number(form.adjustmentValue) || 0) > 0,
+  );
+  const [pendingDiscountType, setPendingDiscountType] = useState<"fixed" | "percent" | null>(null);
+  const { options: taxOptions, canonicalIdByTaxId } = useMemo(
+    () => dedupeEquivalentTaxOptions(taxes),
+    [taxes],
   );
 
   useEffect(() => {
     setAdjustmentOpen(Math.abs(Number(form.adjustmentValue) || 0) > 0);
   }, [form.adjustmentValue]);
+
+  const requestDiscountTypeChange = (nextType: "none" | "fixed" | "percent") => {
+    if (nextType === "none") {
+      onFormPatch({ discountType: "none", discountValue: "" });
+      return;
+    }
+    if (
+      form.discountType !== "none" &&
+      form.discountType !== nextType &&
+      Number(form.discountValue) > 0
+    ) {
+      setPendingDiscountType(nextType);
+      return;
+    }
+    onFormPatch({ discountType: nextType, discountValue: "" });
+  };
+
+  const applyPendingDiscountType = () => {
+    if (pendingDiscountType) {
+      onFormPatch({ discountType: pendingDiscountType, discountValue: "" });
+    }
+    setPendingDiscountType(null);
+  };
 
   return (
     <div
@@ -160,42 +202,42 @@ export function SalesDocumentLineEditor({
             <p className="text-xs font-medium text-slate-600">Producto o servicio</p>
           ) : null}
           <div className="flex min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <Select
-            value="none"
-            onValueChange={(value) => {
-              if (value !== "none") onAddProductLine(value);
-            }}
-          >
-            <SelectTrigger className="h-10 flex-1 rounded-none border-0 px-3 shadow-none focus:ring-0">
-              <SelectValue placeholder={addItemLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">{addItemLabel}</SelectItem>
-              {productOptions.map((option) => {
-                const alreadyAdded = selectedProductIds.has(option.value);
-                return (
-                  <SelectItem key={option.value} value={option.value} disabled={alreadyAdded}>
-                    <span className="flex w-full items-center justify-between gap-3">
-                      <span>{option.label}</span>
-                      {alreadyAdded ? (
-                        <Check className="h-4 w-4 text-emerald-600" aria-label="Ya agregado" />
-                      ) : null}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 w-12 shrink-0 rounded-none border-0 border-l border-slate-200 bg-white px-0 shadow-none"
-            onClick={onAddBlankLine}
-            title="Agregar línea manual"
-            aria-label="Agregar línea manual"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+            <Select
+              value="none"
+              onValueChange={(value) => {
+                if (value !== "none") onAddProductLine(value);
+              }}
+            >
+              <SelectTrigger className="h-10 flex-1 rounded-none border-0 px-3 shadow-none focus:ring-0">
+                <SelectValue placeholder={addItemLabel} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{addItemLabel}</SelectItem>
+                {productOptions.map((option) => {
+                  const alreadyAdded = selectedProductIds.has(option.value);
+                  return (
+                    <SelectItem key={option.value} value={option.value} disabled={alreadyAdded}>
+                      <span className="flex w-full items-center justify-between gap-3">
+                        <span>{option.label}</span>
+                        {alreadyAdded ? (
+                          <Check className="h-4 w-4 text-emerald-600" aria-label="Ya agregado" />
+                        ) : null}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-12 shrink-0 rounded-none border-0 border-l border-slate-200 bg-white px-0 shadow-none"
+              onClick={onAddBlankLine}
+              title="Agregar línea manual"
+              aria-label="Agregar línea manual"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
           {useCrmFieldStyles && addItemHelp ? (
             <p className="text-xs leading-relaxed text-slate-500">{addItemHelp}</p>
@@ -225,29 +267,105 @@ export function SalesDocumentLineEditor({
         ) : null}
       </div>
 
-      <div className={compactInvoiceLayout ? "min-w-0 overflow-hidden" : useCrmFieldStyles ? "min-w-0 overflow-hidden" : "overflow-x-auto"}>
-        <Table className={compactInvoiceLayout ? "w-full table-fixed" : useCrmFieldStyles ? "w-full table-fixed" : undefined}>
+      <div
+        className={
+          compactInvoiceLayout
+            ? "min-w-0 overflow-hidden"
+            : useCrmFieldStyles
+              ? "min-w-0 overflow-hidden"
+              : "overflow-x-auto"
+        }
+      >
+        <Table
+          className={
+            compactInvoiceLayout
+              ? "w-full table-fixed"
+              : useCrmFieldStyles
+                ? "w-full table-fixed"
+                : undefined
+          }
+        >
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead className={cn(compactInvoiceLayout ? "w-[22%] min-w-0 px-1.5 text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[20%] min-w-0" : "min-w-[260px]", "text-left")}>
+              <TableHead
+                className={cn(
+                  compactInvoiceLayout
+                    ? "w-[22%] min-w-0 px-1.5 text-sm whitespace-nowrap"
+                    : useCrmFieldStyles
+                      ? "w-[20%] min-w-0"
+                      : "min-w-[260px]",
+                  "text-left",
+                )}
+              >
                 Concepto
               </TableHead>
-              <TableHead className={compactInvoiceLayout ? "w-[19%] min-w-0 px-1.5 text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[21%] min-w-0" : "min-w-[320px]"}>
+              <TableHead
+                className={
+                  compactInvoiceLayout
+                    ? "w-[19%] min-w-0 px-1.5 text-sm whitespace-nowrap"
+                    : useCrmFieldStyles
+                      ? "w-[21%] min-w-0"
+                      : "min-w-[320px]"
+                }
+              >
                 Descripción
               </TableHead>
-              <TableHead className={cn(compactInvoiceLayout ? "w-[9%] min-w-0 px-1 text-center text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[11%] min-w-0" : "w-[140px]", compactInvoiceLayout ? "" : "text-right")}>
+              <TableHead
+                className={cn(
+                  compactInvoiceLayout
+                    ? "w-[9%] min-w-0 px-1 text-center text-sm whitespace-nowrap"
+                    : useCrmFieldStyles
+                      ? "w-[11%] min-w-0"
+                      : "w-[140px]",
+                  compactInvoiceLayout ? "" : "text-right",
+                )}
+              >
                 Cant.
               </TableHead>
-              <TableHead className={cn(compactInvoiceLayout ? "w-[12%] min-w-0 px-1 text-right text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[13%] min-w-0" : "w-[180px]", "text-right")}>
+              <TableHead
+                className={cn(
+                  compactInvoiceLayout
+                    ? "w-[12%] min-w-0 px-1 text-right text-sm whitespace-nowrap"
+                    : useCrmFieldStyles
+                      ? "w-[13%] min-w-0"
+                      : "w-[180px]",
+                  "text-right",
+                )}
+              >
                 Precio
               </TableHead>
-              <TableHead className={compactInvoiceLayout ? "w-[15%] min-w-0 px-1 text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[16%] min-w-0" : "w-[220px]"}>
+              <TableHead
+                className={
+                  compactInvoiceLayout
+                    ? "w-[15%] min-w-0 px-1 text-sm whitespace-nowrap"
+                    : useCrmFieldStyles
+                      ? "w-[16%] min-w-0"
+                      : "w-[220px]"
+                }
+              >
                 Impuesto
               </TableHead>
-              <TableHead className={cn(compactInvoiceLayout ? "w-[17%] min-w-0 px-1 text-right text-sm whitespace-nowrap" : useCrmFieldStyles ? "w-[11%] min-w-0" : "w-[160px]", "text-right")}>
+              <TableHead
+                className={cn(
+                  compactInvoiceLayout
+                    ? "w-[17%] min-w-0 px-1 text-right text-sm whitespace-nowrap"
+                    : useCrmFieldStyles
+                      ? "w-[11%] min-w-0"
+                      : "w-[160px]",
+                  "text-right",
+                )}
+              >
                 Total
               </TableHead>
-              <TableHead className={compactInvoiceLayout ? "w-[6%] min-w-0 px-0.5" : useCrmFieldStyles ? "w-[8%] min-w-0" : "w-[72px]"} />
+              <TableHead
+                className={
+                  compactInvoiceLayout
+                    ? "w-[6%] min-w-0 px-0.5"
+                    : useCrmFieldStyles
+                      ? "w-[8%] min-w-0"
+                      : "w-[72px]"
+                }
+              />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -262,8 +380,13 @@ export function SalesDocumentLineEditor({
                   : base + base * ((Number.isFinite(tax) ? tax : 0) / 100);
 
                 return (
-                  <TableRow key={line.id} className={cn("align-top", compactInvoiceLayout && "text-sm")}>
-                    <TableCell className={cn("min-w-0 align-top", compactInvoiceLayout && "px-2 py-2")}>
+                  <TableRow
+                    key={line.id}
+                    className={cn("align-top", compactInvoiceLayout && "text-sm")}
+                  >
+                    <TableCell
+                      className={cn("min-w-0 align-top", compactInvoiceLayout && "px-2 py-2")}
+                    >
                       <Textarea
                         rows={compactInvoiceLayout ? 3 : undefined}
                         className={cn(
@@ -289,7 +412,9 @@ export function SalesDocumentLineEditor({
                         </label>
                       ) : null}
                     </TableCell>
-                    <TableCell className={cn("min-w-0 align-top", compactInvoiceLayout && "px-2 py-2")}>
+                    <TableCell
+                      className={cn("min-w-0 align-top", compactInvoiceLayout && "px-2 py-2")}
+                    >
                       <Textarea
                         rows={compactInvoiceLayout ? 4 : undefined}
                         className={cn(
@@ -306,8 +431,19 @@ export function SalesDocumentLineEditor({
                         placeholder="Describe brevemente el producto o servicio"
                       />
                     </TableCell>
-                    <TableCell className={cn("min-w-0 align-top text-right", compactInvoiceLayout && "px-1 py-2 text-center")}>
-                      <div className={compactInvoiceLayout ? "relative h-9 border-b border-slate-200 focus-within:border-blue-500" : "relative"}>
+                    <TableCell
+                      className={cn(
+                        "min-w-0 align-top text-right",
+                        compactInvoiceLayout && "px-1 py-2 text-center",
+                      )}
+                    >
+                      <div
+                        className={
+                          compactInvoiceLayout
+                            ? "relative h-9 border-b border-slate-200 focus-within:border-blue-500"
+                            : "relative"
+                        }
+                      >
                         <Input
                           className={cn(
                             compactInvoiceLayout
@@ -319,13 +455,23 @@ export function SalesDocumentLineEditor({
                           step="0.01"
                           value={line.quantity}
                           aria-label="Cantidad del artículo o servicio"
-                          onChange={(event) => onLinePatch(line.id, { quantity: event.target.value })}
+                          onChange={(event) =>
+                            onLinePatch(line.id, { quantity: event.target.value })
+                          }
                         />
-                        <div className={cn("absolute right-1 top-1/2 flex -translate-y-1/2 flex-col", compactInvoiceLayout && "right-0.5")}>
+                        <div
+                          className={cn(
+                            "absolute right-1 top-1/2 flex -translate-y-1/2 flex-col",
+                            compactInvoiceLayout && "right-0.5",
+                          )}
+                        >
                           <Button
                             type="button"
                             variant="ghost"
-                            className={cn("h-4 w-5 p-0 text-slate-500 hover:text-slate-900", compactInvoiceLayout && "h-3 w-4")}
+                            className={cn(
+                              "h-4 w-5 p-0 text-slate-500 hover:text-slate-900",
+                              compactInvoiceLayout && "h-3 w-4",
+                            )}
                             aria-label="Aumentar cantidad"
                             title="Aumentar cantidad"
                             onClick={() =>
@@ -339,7 +485,10 @@ export function SalesDocumentLineEditor({
                           <Button
                             type="button"
                             variant="ghost"
-                            className={cn("h-4 w-5 p-0 text-slate-500 hover:text-slate-900 disabled:opacity-40", compactInvoiceLayout && "h-3 w-4")}
+                            className={cn(
+                              "h-4 w-5 p-0 text-slate-500 hover:text-slate-900 disabled:opacity-40",
+                              compactInvoiceLayout && "h-3 w-4",
+                            )}
                             aria-label="Disminuir cantidad"
                             title="Disminuir cantidad"
                             disabled={Number(line.quantity) <= 1}
@@ -353,7 +502,12 @@ export function SalesDocumentLineEditor({
                           </Button>
                         </div>
                       </div>
-                      <div className={cn("mt-2 text-xs text-slate-400", compactInvoiceLayout && "mt-1 text-[10px]")}>
+                      <div
+                        className={cn(
+                          "mt-2 text-xs text-slate-400",
+                          compactInvoiceLayout && "mt-1 text-[10px]",
+                        )}
+                      >
                         {form.quantityMode === "hours"
                           ? "Horas"
                           : form.quantityMode === "qty_hours"
@@ -361,11 +515,18 @@ export function SalesDocumentLineEditor({
                             : "Unidad"}
                       </div>
                     </TableCell>
-                    <TableCell className={cn("min-w-0 align-top text-right", compactInvoiceLayout && "px-1 py-2")}>
+                    <TableCell
+                      className={cn(
+                        "min-w-0 align-top text-right",
+                        compactInvoiceLayout && "px-1 py-2",
+                      )}
+                    >
                       <Input
-                        className={compactInvoiceLayout
-                          ? "h-9 min-w-0 rounded-lg border border-slate-200 px-1.5 text-right text-sm shadow-none focus-visible:ring-2"
-                          : `${crmFormStyles.input} text-right`}
+                        className={
+                          compactInvoiceLayout
+                            ? "h-9 min-w-0 rounded-lg border border-slate-200 px-1.5 text-right text-sm shadow-none focus-visible:ring-2"
+                            : `${crmFormStyles.input} text-right`
+                        }
                         type="number"
                         step={moneyStep}
                         inputMode={moneyMode}
@@ -384,7 +545,10 @@ export function SalesDocumentLineEditor({
                           })
                         }
                         onBlur={(event) => {
-                          const normalizedRate = normalizeMoneyInput(event.target.value, form.currency);
+                          const normalizedRate = normalizeMoneyInput(
+                            event.target.value,
+                            form.currency,
+                          );
                           onLinePatch(line.id, {
                             rate: normalizedRate,
                             documentCurrency: normalizeCurrency(form.currency),
@@ -399,9 +563,15 @@ export function SalesDocumentLineEditor({
                         placeholder="Precio unitario"
                       />
                     </TableCell>
-                    <TableCell className={cn("min-w-0 align-top", compactInvoiceLayout && "px-1 py-2")}>
+                    <TableCell
+                      className={cn("min-w-0 align-top", compactInvoiceLayout && "px-1 py-2")}
+                    >
                       <Select
-                        value={line.taxId || NO_TAX_VALUE}
+                        value={
+                          line.taxId
+                            ? canonicalIdByTaxId.get(line.taxId) || line.taxId
+                            : NO_TAX_VALUE
+                        }
                         onValueChange={(value) => {
                           const selectedTax =
                             value === NO_TAX_VALUE ? null : taxById.get(value) || null;
@@ -412,14 +582,22 @@ export function SalesDocumentLineEditor({
                           });
                         }}
                       >
-                        <SelectTrigger className={compactInvoiceLayout
-                          ? "h-9 min-w-0 rounded-lg border border-slate-200 px-1 text-[11px] shadow-none focus:ring-2"
-                          : cn(crmFormStyles.select, useCrmFieldStyles && "min-w-0 px-1 text-xs")} aria-label="Impuesto aplicado a este artículo">
+                        <SelectTrigger
+                          className={
+                            compactInvoiceLayout
+                              ? "h-9 min-w-0 rounded-lg border border-slate-200 px-1 text-[11px] shadow-none focus:ring-2"
+                              : cn(
+                                  crmFormStyles.select,
+                                  useCrmFieldStyles && "min-w-0 px-1 text-xs",
+                                )
+                          }
+                          aria-label="Impuesto aplicado a este artículo"
+                        >
                           <SelectValue placeholder="Sin impuesto" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={NO_TAX_VALUE}>Sin impuesto</SelectItem>
-                          {taxes.map((tax) => (
+                          {taxOptions.map((tax) => (
                             <SelectItem key={tax.id} value={tax.id}>
                               {formatTaxOptionLabel(tax)}
                             </SelectItem>
@@ -427,10 +605,20 @@ export function SalesDocumentLineEditor({
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className={cn("min-w-0 align-top whitespace-nowrap pt-9 text-right font-semibold text-slate-900", compactInvoiceLayout && "px-1 pt-5 text-[13px] tabular-nums")}>
+                    <TableCell
+                      className={cn(
+                        "min-w-0 align-top whitespace-nowrap pt-9 text-right font-semibold text-slate-900",
+                        compactInvoiceLayout && "px-1 pt-5 text-[13px] tabular-nums",
+                      )}
+                    >
                       {formatCurrencyAmount(amount, form.currency)}
                     </TableCell>
-                    <TableCell className={cn("min-w-0 align-top pt-6", compactInvoiceLayout && "px-0.5 pt-5")}>
+                    <TableCell
+                      className={cn(
+                        "min-w-0 align-top pt-6",
+                        compactInvoiceLayout && "px-0.5 pt-5",
+                      )}
+                    >
                       <Button
                         type="button"
                         variant={compactInvoiceLayout ? "ghost" : "outline"}
@@ -450,7 +638,10 @@ export function SalesDocumentLineEditor({
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-28 whitespace-normal break-words text-center text-sm text-slate-500">
+                <TableCell
+                  colSpan={7}
+                  className="h-28 whitespace-normal break-words text-center text-sm text-slate-500"
+                >
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -490,7 +681,7 @@ export function SalesDocumentLineEditor({
           </div>
         ) : null}
 
-        {form.discountType !== "none" ? (
+        {allowPercentageDiscount && form.discountType !== "none" ? (
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(108px,150px)] items-center gap-4 border-b border-slate-200 py-3">
             <div className="text-right font-semibold text-slate-700">
               {allowPercentageDiscount || form.discountType === "percent"
@@ -506,10 +697,14 @@ export function SalesDocumentLineEditor({
               <Input
                 className="h-10 max-w-[120px] text-right"
                 type="number"
-                step={allowPercentageDiscount || form.discountType === "percent" ? "0.01" : moneyStep}
+                step={
+                  allowPercentageDiscount || form.discountType === "percent" ? "0.01" : moneyStep
+                }
                 min="0"
                 max={allowPercentageDiscount || form.discountType === "percent" ? "100" : undefined}
-                inputMode={allowPercentageDiscount || form.discountType === "percent" ? "decimal" : moneyMode}
+                inputMode={
+                  allowPercentageDiscount || form.discountType === "percent" ? "decimal" : moneyMode
+                }
                 value={form.discountValue}
                 aria-label={
                   allowPercentageDiscount || form.discountType === "percent"
@@ -527,7 +722,7 @@ export function SalesDocumentLineEditor({
                   });
                 }}
                 onBlur={(event) => {
-                  if (allowPercentageDiscount) {
+                  if (form.discountType === "percent") {
                     onFormPatch({
                       discountValue: String(
                         Math.min(100, Math.max(0, Number(event.target.value) || 0)),
@@ -535,9 +730,17 @@ export function SalesDocumentLineEditor({
                     });
                     return;
                   }
-                  if (form.discountType === "percent") return;
+                  if (form.discountType === "none") return;
                   onFormPatch({
-                    discountValue: normalizeMoneyInput(event.target.value, form.currency),
+                    discountValue: normalizeMoneyInput(
+                      String(
+                        Math.min(
+                          Math.max(0, totals.subtotal + totals.taxTotal),
+                          Math.max(0, Number(event.target.value) || 0),
+                        ),
+                      ),
+                      form.currency,
+                    ),
                   });
                 }}
               />
@@ -561,36 +764,113 @@ export function SalesDocumentLineEditor({
           </div>
         ) : null}
 
-        {showAdjustment && !adjustmentOpen ? (
-          <div className="flex justify-end border-b border-slate-200 py-3">
-            <Button
-              type="button"
-              variant="ghost"
-              className="gap-2 text-sm font-semibold text-slate-600"
-              onClick={() => setAdjustmentOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Agregar ajuste
-            </Button>
+        {!allowPercentageDiscount ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 py-3">
+            <div className="flex min-w-36 justify-start">
+              {showAdjustment ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className={cn(
+                    "gap-2 text-sm font-semibold",
+                    adjustmentOpen ? "text-rose-600" : "text-blue-700",
+                  )}
+                  onClick={() => {
+                    if (adjustmentOpen) onFormPatch({ adjustmentValue: "" });
+                    setAdjustmentOpen((open) => !open);
+                  }}
+                >
+                  {adjustmentOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {adjustmentOpen ? "Quitar ajuste" : "Agregar ajuste"}
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+              {form.discountType === "none" ? (
+                <Select
+                  value="none"
+                  onValueChange={(value) =>
+                    requestDiscountTypeChange(value as "none" | "fixed" | "percent")
+                  }
+                >
+                  <SelectTrigger className="h-9 w-44" aria-label="Tipo de descuento">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin descuento</SelectItem>
+                    <SelectItem value="fixed">Descuento fijo</SelectItem>
+                    <SelectItem value="percent">Descuento porcentual</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <>
+                  <span className="text-sm font-semibold text-slate-700">Descuento</span>
+                  <Input
+                    className="h-9 w-28 text-right"
+                    type="number"
+                    min="0"
+                    max={form.discountType === "percent" ? "100" : undefined}
+                    step={form.discountType === "percent" ? "0.01" : moneyStep}
+                    inputMode={form.discountType === "percent" ? "decimal" : moneyMode}
+                    value={form.discountValue}
+                    aria-label={
+                      form.discountType === "percent"
+                        ? "Porcentaje de descuento"
+                        : "Importe fijo del descuento"
+                    }
+                    onChange={(event) => onFormPatch({ discountValue: event.target.value })}
+                    onBlur={(event) => {
+                      if (form.discountType === "percent") {
+                        onFormPatch({
+                          discountValue: String(
+                            Math.min(100, Math.max(0, Number(event.target.value) || 0)),
+                          ),
+                        });
+                        return;
+                      }
+                      const capped = Math.min(
+                        Math.max(0, totals.subtotal + totals.taxTotal),
+                        Math.max(0, Number(event.target.value) || 0),
+                      );
+                      onFormPatch({
+                        discountValue: normalizeMoneyInput(String(capped), form.currency),
+                      });
+                    }}
+                  />
+                  <span className="w-10 text-right text-xs text-slate-500">
+                    {form.discountType === "percent" ? "%" : moneyUnitLabel}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 px-2 text-xs"
+                    onClick={() =>
+                      requestDiscountTypeChange(
+                        form.discountType === "percent" ? "fixed" : "percent",
+                      )
+                    }
+                  >
+                    Cambiar a {form.discountType === "percent" ? moneyUnitLabel : "%"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-slate-500"
+                    aria-label="Quitar descuento"
+                    title="Quitar descuento"
+                    onClick={() => requestDiscountTypeChange("none")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         ) : null}
 
         {showAdjustment && adjustmentOpen ? (
-          <div className="grid grid-cols-[1fr_220px_150px] items-center gap-4 border-b border-slate-200 py-3">
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-sm text-rose-600"
-                onClick={() => {
-                  onFormPatch({ adjustmentValue: "" });
-                  setAdjustmentOpen(false);
-                }}
-              >
-                Quitar ajuste
-              </Button>
-            </div>
-
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(108px,150px)] items-center gap-4 border-b border-slate-200 py-3">
             <div className="text-right font-semibold text-slate-700">Ajuste</div>
 
             <Input
@@ -619,6 +899,31 @@ export function SalesDocumentLineEditor({
           </div>
         </div>
       </div>
+      <AlertDialog
+        open={pendingDiscountType !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDiscountType(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cambiar el tipo de descuento</AlertDialogTitle>
+            <AlertDialogDescription>
+              El valor actual representa{" "}
+              {form.discountType === "percent" ? "un porcentaje" : "un monto"}. Para evitar cambiar
+              su significado, se limpiará al cambiar el tipo. ¿Deseas continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDiscountType(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={applyPendingDiscountType}>
+              Cambiar y limpiar valor
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -3,7 +3,7 @@ set local search_path = "$user", public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(16);
 
 grant select on public.profiles to authenticated;
 grant select on public.invoices to authenticated;
@@ -250,7 +250,7 @@ select lives_ok(
     from public.save_credit_note(
       null,
       '51000000-0000-0000-0000-000000000001',
-      '21000000-0000-0000-0000-000000000001',
+      null,
       200,
       current_date,
       'Ajuste comercial',
@@ -258,6 +258,29 @@ select lives_ok(
     )
   $$,
   'Puede crearse una nota Draft mediante RPC'
+);
+
+select is(
+  (select client_id from public.credit_notes where invoice_id = '51000000-0000-0000-0000-000000000001'),
+  '21000000-0000-0000-0000-000000000001'::uuid,
+  'La factura determina automáticamente el cliente de la nota'
+);
+
+select throws_ok(
+  $$
+    select * from public.save_credit_note(
+      null,
+      '51000000-0000-0000-0000-000000000001',
+      '21000000-0000-0000-0000-000000000002',
+      100,
+      current_date,
+      'Cliente discrepante',
+      null
+    )
+  $$,
+  '22023',
+  'El cliente de la nota no coincide con el cliente de la factura.',
+  'La RPC rechaza un cliente diferente al de la factura'
 );
 
 select is(

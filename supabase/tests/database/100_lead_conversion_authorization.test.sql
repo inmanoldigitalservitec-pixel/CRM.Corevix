@@ -3,7 +3,7 @@ set local search_path = "$user", public, extensions;
 
 create extension if not exists pgtap;
 
-select plan(10);
+select plan(17);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -65,6 +65,20 @@ values
   ('c3000000-0000-0000-0000-000000000105', 'c2000000-0000-0000-0000-000000000101', 'Admin', 'Allowed', null),
   ('c3000000-0000-0000-0000-000000000106', 'c2000000-0000-0000-0000-000000000101', 'Super Admin', 'Allowed', null);
 
+-- This estimate starts lead-linked. Explicit conversion should re-parent it to
+-- the client while preserving the source lead in JSON metadata.
+insert into public.estimates (
+  id, company_id, title, lead_id, subtotal, tax, total, status,
+  estimate_data, currency, base_currency, exchange_rate
+)
+values (
+  'c4000000-0000-0000-0000-000000000106',
+  'c2000000-0000-0000-0000-000000000101',
+  'Lead conversion traceability estimate',
+  'c3000000-0000-0000-0000-000000000106',
+  100, 18, 118, 'Draft', '{}'::jsonb, 'USD', 'USD', 1
+);
+
 set local role authenticated;
 
 select set_config('request.jwt.claims', '{"sub":"c1000000-0000-0000-0000-000000000101","role":"authenticated"}', true);
@@ -121,10 +135,47 @@ select is(
 );
 
 select set_config('request.jwt.claims', '{"sub":"c1000000-0000-0000-0000-000000000105","role":"authenticated"}', true);
+select throws_ok(
+  $$select * from public.convert_estimate_to_invoice('c4000000-0000-0000-0000-000000000106')$$,
+  'P0001',
+  'Convert the associated lead to a client before converting this estimate to an invoice',
+  'a lead-linked estimate cannot create an invoice without an explicit client conversion'
+);
 select is(
   public.convert_lead_to_client('c3000000-0000-0000-0000-000000000106', null) ->> 'already_converted',
   'false',
   'super admin can convert a lead'
+);
+
+select is(
+  (select e.client_id from public.estimates e where e.id = 'c4000000-0000-0000-0000-000000000106'),
+  (select l.converted_client_id from public.leads l where l.id = 'c3000000-0000-0000-0000-000000000106'),
+  'lead conversion links its estimates to the created client'
+);
+select is(
+  (select e.lead_id from public.estimates e where e.id = 'c4000000-0000-0000-0000-000000000106'),
+  null::uuid,
+  'converted estimate keeps exactly one active entity relation'
+);
+select is(
+  (select e.estimate_data->>'converted_from_lead_id' from public.estimates e where e.id = 'c4000000-0000-0000-0000-000000000106'),
+  'c3000000-0000-0000-0000-000000000106',
+  'converted estimate retains its source lead id in metadata'
+);
+select is(
+  (select created::text from public.convert_estimate_to_invoice('c4000000-0000-0000-0000-000000000106')),
+  'true',
+  'a lead estimate converts to an invoice after its lead becomes a client'
+);
+select is(
+  (select i.client_id from public.invoices i where i.estimate_id = 'c4000000-0000-0000-0000-000000000106'),
+  (select l.converted_client_id from public.leads l where l.id = 'c3000000-0000-0000-0000-000000000106'),
+  'invoice created from converted estimate is linked to the client'
+);
+select is(
+  (select i.invoice_data->>'source_lead_id' from public.invoices i where i.estimate_id = 'c4000000-0000-0000-0000-000000000106'),
+  'c3000000-0000-0000-0000-000000000106',
+  'invoice metadata also preserves the source lead id'
 );
 
 select * from finish();

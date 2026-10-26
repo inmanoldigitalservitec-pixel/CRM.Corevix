@@ -89,9 +89,14 @@ function uploadLeadFileWithProgress(args: {
         payload = null;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        const detail = payload?.detail ? ` Detalle: ${String(payload.detail)}` : "";
+        const detail = [payload?.detail, payload?.cleanup_detail]
+          .filter((value) => typeof value === "string" && value.trim())
+          .map((value) => String(value).trim())
+          .join(". ");
         reject(
-          new Error(`${payload?.error || "No se pudo subir el archivo a Google Drive."}${detail}`),
+          new Error(
+            `${payload?.error || "No se pudo subir el archivo a Google Drive."}${detail ? ` Detalle: ${detail}` : ""}`,
+          ),
         );
         return;
       }

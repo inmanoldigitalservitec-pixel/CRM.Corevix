@@ -15,16 +15,11 @@ import {
   type PaymentReceiptPreviewData,
 } from "@/components/payments/payment-receipt-preview";
 import { useAuth } from "@/hooks/use-auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  convertCurrencyAmount,
-  formatCurrencyAmount,
-} from "@/lib/currency";
+import { convertCurrencyAmount, formatCurrencyAmount } from "@/lib/currency";
 import { loadInvoicePaymentBalance } from "@/lib/payments/invoice-payment-balance";
-import {
-  loadPaymentNetBalance,
-  type PaymentNetBalance,
-} from "@/lib/payments/payment-net-balance";
+import { loadPaymentNetBalance, type PaymentNetBalance } from "@/lib/payments/payment-net-balance";
 import { mergeAddressParts } from "@/components/invoices/invoice-utils";
 
 type PaymentWorkspaceTab = "receipt" | "details" | "movements" | "receipts";
@@ -98,23 +93,13 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
-function DetailField({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | null;
-}) {
+function DetailField({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
 
   return (
     <div className="min-w-0">
-      <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className="mt-1 break-words text-sm font-normal text-slate-950">
-        {value}
-      </div>
+      <div className="text-[11px] font-normal uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-1 break-words text-sm font-normal text-slate-950">{value}</div>
     </div>
   );
 }
@@ -133,6 +118,8 @@ export function PaymentWorkspaceDialog({
   onOpenInvoice?: (invoiceId: string) => void;
 }) {
   const { profile } = useAuth();
+  const { can } = usePermissions();
+  const [confirming, setConfirming] = useState(false);
   const [activeTab, setActiveTab] = useState<PaymentWorkspaceTab>(initialTab);
   const [loading, setLoading] = useState(false);
   const [payment, setPayment] = useState<PaymentRow | null>(null);
@@ -171,35 +158,30 @@ export function PaymentWorkspaceDialog({
 
         const paymentRow = paymentData as PaymentRow;
 
-        const [financialResult, companyResult, invoiceResult, clientResult] =
-          await Promise.all([
-            loadPaymentNetBalance(paymentRow, profile.company_id),
-            db
-              .from("companies")
-              .select("company_name,tax_id")
-              .eq("id", profile.company_id)
-              .maybeSingle(),
-            paymentRow.invoice_id
-              ? db
-                  .from("invoices")
-                  .select(
-                    "id,number,total,currency,base_currency,exchange_rate,status,invoice_data",
-                  )
-                  .eq("company_id", profile.company_id)
-                  .eq("id", paymentRow.invoice_id)
-                  .maybeSingle()
-              : Promise.resolve({ data: null, error: null }),
-            paymentRow.client_id
-              ? db
-                  .from("clients")
-                  .select(
-                    "id,company_name,contact_person,email,phone,address,city,country,tax_id",
-                  )
-                  .eq("company_id", profile.company_id)
-                  .eq("id", paymentRow.client_id)
-                  .maybeSingle()
-              : Promise.resolve({ data: null, error: null }),
-          ]);
+        const [financialResult, companyResult, invoiceResult, clientResult] = await Promise.all([
+          loadPaymentNetBalance(paymentRow, profile.company_id),
+          db
+            .from("companies")
+            .select("company_name,tax_id")
+            .eq("id", profile.company_id)
+            .maybeSingle(),
+          paymentRow.invoice_id
+            ? db
+                .from("invoices")
+                .select("id,number,total,currency,base_currency,exchange_rate,status,invoice_data")
+                .eq("company_id", profile.company_id)
+                .eq("id", paymentRow.invoice_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          paymentRow.client_id
+            ? db
+                .from("clients")
+                .select("id,company_name,contact_person,email,phone,address,city,country,tax_id")
+                .eq("company_id", profile.company_id)
+                .eq("id", paymentRow.client_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
 
         if (companyResult.error) throw companyResult.error;
         if (invoiceResult.error) throw invoiceResult.error;
@@ -210,10 +192,7 @@ export function PaymentWorkspaceDialog({
         let nextInvoiceStatus: string | null = invoiceRow?.status || null;
 
         if (invoiceRow) {
-          const balance = await loadInvoicePaymentBalance(
-            invoiceRow,
-            profile.company_id,
-          );
+          const balance = await loadInvoicePaymentBalance(invoiceRow, profile.company_id);
           nextInvoiceBalance = balance.outstandingBalance;
 
           if (balance.outstandingBalance <= 0) {
@@ -254,12 +233,9 @@ export function PaymentWorkspaceDialog({
     if (!payment || !financial) return null;
 
     const invoiceData =
-      invoice?.invoice_data && typeof invoice.invoice_data === "object"
-        ? invoice.invoice_data
-        : {};
+      invoice?.invoice_data && typeof invoice.invoice_data === "object" ? invoice.invoice_data : {};
 
-    const issuerAddress =
-      readText(invoiceData, "issuerAddress") || null;
+    const issuerAddress = readText(invoiceData, "issuerAddress") || null;
 
     return {
       paymentNumber: payment.payment_number,
@@ -277,64 +253,51 @@ export function PaymentWorkspaceDialog({
         invoice && payment
           ? convertCurrencyAmount(
               financial.netAmountBase,
-              payment.base_currency ||
-                invoice.base_currency ||
-                "DOP",
+              payment.base_currency || invoice.base_currency || "DOP",
               invoice.currency || "USD",
-              Number(
-                payment.exchange_rate ||
-                  invoice.exchange_rate ||
-                  1,
-              ),
+              Number(payment.exchange_rate || invoice.exchange_rate || 1),
             )
           : null,
       financial,
       issuer: {
-        name:
-          readText(invoiceData, "issuerName") ||
-          company?.company_name ||
-          "Empresa",
+        name: readText(invoiceData, "issuerName") || company?.company_name || "Empresa",
         email: readText(invoiceData, "issuerEmail"),
         phone: readText(invoiceData, "issuerPhone"),
         address: issuerAddress,
-        taxId:
-          readText(invoiceData, "issuerTaxId") ||
-          company?.tax_id,
+        taxId: readText(invoiceData, "issuerTaxId") || company?.tax_id,
       },
       client: {
-        name:
-          readText(invoiceData, "clientName") ||
-          client?.contact_person,
-        company:
-          readText(invoiceData, "clientCompany") ||
-          client?.company_name,
-        email:
-          readText(invoiceData, "clientEmail") ||
-          client?.email,
-        phone:
-          readText(invoiceData, "clientPhone") ||
-          client?.phone,
-        address:
-          mergeAddressParts(
-            readText(invoiceData, "clientAddress"),
-            client?.address,
-            client?.city,
-            client?.country,
-          ),
-        taxId:
-          readText(invoiceData, "clientTaxId") ||
-          client?.tax_id,
+        name: readText(invoiceData, "clientName") || client?.contact_person,
+        company: readText(invoiceData, "clientCompany") || client?.company_name,
+        email: readText(invoiceData, "clientEmail") || client?.email,
+        phone: readText(invoiceData, "clientPhone") || client?.phone,
+        address: mergeAddressParts(
+          readText(invoiceData, "clientAddress"),
+          client?.address,
+          client?.city,
+          client?.country,
+        ),
+        taxId: readText(invoiceData, "clientTaxId") || client?.tax_id,
       },
     };
-  }, [
-    client,
-    company,
-    financial,
-    invoice,
-    invoiceBalance,
-    invoiceFinancialStatus,
-    payment,
-  ]);
+  }, [client, company, financial, invoice, invoiceBalance, invoiceFinancialStatus, payment]);
+
+  const confirmPendingPayment = async () => {
+    if (!payment?.id || payment.status !== "Pending" || !can("payments.create" as any)) return;
+    setConfirming(true);
+    try {
+      const { error } = await (supabase as any).rpc("confirm_pending_payment", {
+        p_payment_id: payment.id,
+      });
+      if (error) throw error;
+      toast.success("Pago confirmado.");
+      setMovementRefresh((current) => current + 1);
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo confirmar el pago.");
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   if (!paymentId) return null;
 
@@ -342,48 +305,47 @@ export function PaymentWorkspaceDialog({
     <SalesDocumentWorkspaceDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={
-        payment
-          ? `Pago #${payment.payment_number || "—"}`
-          : "Pago"
-      }
+      title={payment ? `Pago #${payment.payment_number || "—"}` : "Pago"}
       srTitle="Detalle del pago"
-      status={
-        financial ? (
-          <StatusBadge status={financial.displayStatus} />
-        ) : null
-      }
+      status={financial ? <StatusBadge status={financial.displayStatus} /> : null}
       meta={
         financial && payment ? (
           <>
             <span>
-              {formatCurrencyAmount(
-                financial.netAmount,
-                payment.currency || "USD",
-              )}{" "}
-              netos
+              {formatCurrencyAmount(financial.netAmount, payment.currency || "USD")} netos
             </span>
             {invoice?.number ? <span>{invoice.number}</span> : null}
           </>
         ) : null
       }
       actions={
-        invoice?.id ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenInvoice?.(invoice.id)}
-          >
-            Abrir factura
-          </Button>
-        ) : null
+        <div className="flex flex-wrap items-center gap-2">
+          {payment?.status === "Pending" && can("payments.create" as any) ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={confirming}
+              onClick={() => void confirmPendingPayment()}
+            >
+              {confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirmar pago
+            </Button>
+          ) : null}
+          {invoice?.id ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenInvoice?.(invoice.id)}
+            >
+              Abrir factura
+            </Button>
+          ) : null}
+        </div>
       }
       tabs={workspaceTabs}
       activeTab={activeTab}
-      onActiveTabChange={(value) =>
-        setActiveTab(value as PaymentWorkspaceTab)
-      }
+      onActiveTabChange={(value) => setActiveTab(value as PaymentWorkspaceTab)}
     >
       {loading || !payment || !financial ? (
         <div className="flex min-h-64 items-center justify-center gap-2 text-sm font-normal text-slate-500">
@@ -393,9 +355,7 @@ export function PaymentWorkspaceDialog({
       ) : (
         <>
           <TabsContent value="receipt" className="mt-0">
-            {receiptData ? (
-              <PaymentReceiptPreview data={receiptData} />
-            ) : null}
+            {receiptData ? <PaymentReceiptPreview data={receiptData} /> : null}
           </TabsContent>
 
           <TabsContent value="details" className="mt-0">
@@ -406,10 +366,7 @@ export function PaymentWorkspaceDialog({
                     Monto original
                   </div>
                   <div className="mt-1 text-lg font-normal text-slate-950">
-                    {formatCurrencyAmount(
-                      financial.originalAmount,
-                      payment.currency || "USD",
-                    )}
+                    {formatCurrencyAmount(financial.originalAmount, payment.currency || "USD")}
                   </div>
                 </div>
 
@@ -418,10 +375,7 @@ export function PaymentWorkspaceDialog({
                     Reembolsado
                   </div>
                   <div className="mt-1 text-lg font-normal text-slate-950">
-                    {formatCurrencyAmount(
-                      financial.movementAmount,
-                      payment.currency || "USD",
-                    )}
+                    {formatCurrencyAmount(financial.movementAmount, payment.currency || "USD")}
                   </div>
                 </div>
 
@@ -430,39 +384,18 @@ export function PaymentWorkspaceDialog({
                     Cobrado neto
                   </div>
                   <div className="mt-1 text-2xl font-normal text-slate-950">
-                    {formatCurrencyAmount(
-                      financial.netAmount,
-                      payment.currency || "USD",
-                    )}
+                    {formatCurrencyAmount(financial.netAmount, payment.currency || "USD")}
                   </div>
                 </div>
               </section>
 
               <section className="grid gap-5 border-b border-slate-100 pb-5 sm:grid-cols-2">
-                <DetailField
-                  label="Número"
-                  value={String(payment.payment_number || "—")}
-                />
-                <DetailField
-                  label="Fecha"
-                  value={formatDate(payment.payment_date)}
-                />
-                <DetailField
-                  label="Método"
-                  value={payment.method}
-                />
-                <DetailField
-                  label="Referencia"
-                  value={payment.reference}
-                />
-                <DetailField
-                  label="Factura"
-                  value={invoice?.number}
-                />
-                <DetailField
-                  label="Estado factura"
-                  value={invoiceFinancialStatus}
-                />
+                <DetailField label="Número" value={String(payment.payment_number || "—")} />
+                <DetailField label="Fecha" value={formatDate(payment.payment_date)} />
+                <DetailField label="Método" value={payment.method} />
+                <DetailField label="Referencia" value={payment.reference} />
+                <DetailField label="Factura" value={invoice?.number} />
+                <DetailField label="Estado factura" value={invoiceFinancialStatus} />
                 <DetailField
                   label="Saldo factura"
                   value={
@@ -487,10 +420,7 @@ export function PaymentWorkspaceDialog({
 
               {payment.notes ? (
                 <section className="border-b border-slate-100 pb-5">
-                  <DetailField
-                    label="Notas"
-                    value={payment.notes}
-                  />
+                  <DetailField label="Notas" value={payment.notes} />
                 </section>
               ) : null}
             </div>

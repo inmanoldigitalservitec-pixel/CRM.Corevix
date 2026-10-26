@@ -89,13 +89,8 @@ import {
 import { convertCurrencyAmount, convertToBaseCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/invoices")({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { invoiceId?: string } => ({
-    invoiceId:
-      typeof search.invoiceId === "string"
-        ? search.invoiceId
-        : undefined,
+  validateSearch: (search: Record<string, unknown>): { invoiceId?: string } => ({
+    invoiceId: typeof search.invoiceId === "string" ? search.invoiceId : undefined,
   }),
   component: InvoicesPage,
   head: () => ({ meta: [{ title: "Facturas — Corevix CRM" }] }),
@@ -251,24 +246,24 @@ type InvoiceItemDraft = {
   original_unit_price?: number | null;
   converted_unit_price?: number | null;
   exchange_rate?: number | null;
-	  exchange_rate_source?: string | null;
-	  exchange_rate_updated_at?: string | null;
-	  tax_id?: string | null;
-	  tax_name?: string | null;
-	  tax_rate?: number | null;
-	  tax_amount?: number | null;
-	};
+  exchange_rate_source?: string | null;
+  exchange_rate_updated_at?: string | null;
+  tax_id?: string | null;
+  tax_name?: string | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
+};
 
 type ProductOption = {
   id: string;
   name: string;
-	  base_price?: number | null;
-	  currency?: string | null;
-	  description?: string | null;
-	  default_tax_id?: string | null;
-	  default_tax_name?: string | null;
-	  default_tax_rate?: number | string | null;
-	};
+  base_price?: number | null;
+  currency?: string | null;
+  description?: string | null;
+  default_tax_id?: string | null;
+  default_tax_name?: string | null;
+  default_tax_rate?: number | string | null;
+};
 type ClientOption = {
   id: string;
   company_name: string;
@@ -344,12 +339,13 @@ function InvoicesPage() {
     ascending: false,
   });
 
-	  const { data: products } = useCrud<ProductOption>({
-	    table: "products",
-	    select: "id, name, base_price, currency, description, default_tax_id, default_tax_name, default_tax_rate",
-	    orderBy: "name",
-	    ascending: true,
-	  });
+  const { data: products } = useCrud<ProductOption>({
+    table: "products",
+    select:
+      "id, name, base_price, currency, description, default_tax_id, default_tax_name, default_tax_rate",
+    orderBy: "name",
+    ascending: true,
+  });
 
   const { data: clients } = useCrud<ClientOption>({
     table: "clients",
@@ -407,10 +403,7 @@ function InvoicesPage() {
           const balance = await loadInvoicePaymentBalance(invoice, profile.company_id);
           return [invoice.id, balance] as const;
         } catch (error) {
-          console.error(
-            `No se pudo cargar el balance financiero de ${invoice.number}:`,
-            error,
-          );
+          console.error(`No se pudo cargar el balance financiero de ${invoice.number}:`, error);
           return [invoice.id, null] as const;
         }
       }),
@@ -437,9 +430,7 @@ function InvoicesPage() {
 
     void supabase
       .from("companies")
-      .select(
-        "company_name,tax_id,email,phone,address,city,country,website,logo_url",
-      )
+      .select("company_name,tax_id,email,phone,address,city,country,website,logo_url")
       .eq("id", companyId)
       .maybeSingle()
       .then(({ data: company, error }) => {
@@ -461,12 +452,9 @@ function InvoicesPage() {
 
   const financialBalancesReady =
     data.length === 0 ||
-    data.every((invoice) =>
-      Object.prototype.hasOwnProperty.call(invoiceFinancialById, invoice.id),
-    );
+    data.every((invoice) => Object.prototype.hasOwnProperty.call(invoiceFinancialById, invoice.id));
 
-  const getFinancialBalance = (invoice: Invoice) =>
-    invoiceFinancialById[invoice.id] || null;
+  const getFinancialBalance = (invoice: Invoice) => invoiceFinancialById[invoice.id] || null;
 
   const isFinanciallyPaid = (invoice: Invoice) => {
     if (isInvoiceDraft(invoice) || isInvoiceCancelled(invoice)) return false;
@@ -482,11 +470,7 @@ function InvoicesPage() {
 
   const isFinanciallyPartiallyPaid = (invoice: Invoice) => {
     const balance = getFinancialBalance(invoice);
-    return Boolean(
-      balance &&
-        balance.outstandingBalance > 0 &&
-        balance.completedAmount > 0,
-    );
+    return Boolean(balance && balance.outstandingBalance > 0 && balance.completedAmount > 0);
   };
 
   const getFinancialInvoiceStatus = (invoice: Invoice) => {
@@ -511,10 +495,7 @@ function InvoicesPage() {
     if (filter === "paid") return isFinanciallyPaid(invoice);
     if (filter === "pending") return isFinanciallyPending(invoice);
     if (filter === "overdue") {
-      return (
-        isFinanciallyPending(invoice) &&
-        isInvoiceOverdue(invoice, todayIsoValue)
-      );
+      return isFinanciallyPending(invoice) && isInvoiceOverdue(invoice, todayIsoValue);
     }
     return true;
   };
@@ -579,7 +560,9 @@ function InvoicesPage() {
         if (clientIds.length) {
           const { data: rows, error } = await db
             .from("clients")
-            .select("id, company_name, contact_person, email, phone, address, city, country, tax_id")
+            .select(
+              "id, company_name, contact_person, email, phone, address, city, country, tax_id",
+            )
             .eq("company_id", profile.company_id)
             .in("id", clientIds);
           if (error) throw error;
@@ -719,9 +702,7 @@ function InvoicesPage() {
 
     if (openedInvoiceFromSearchRef.current === requestedInvoiceId) return;
 
-    const requestedInvoice = data.find(
-      (invoice) => invoice.id === requestedInvoiceId,
-    );
+    const requestedInvoice = data.find((invoice) => invoice.id === requestedInvoiceId);
 
     if (!requestedInvoice) return;
 
@@ -827,8 +808,7 @@ function InvoicesPage() {
     const today = isoToday();
     const pending = data.filter((invoice) => isFinanciallyPending(invoice));
     const overdue = data.filter(
-      (invoice) =>
-        isFinanciallyPending(invoice) && isInvoiceOverdue(invoice, today),
+      (invoice) => isFinanciallyPending(invoice) && isInvoiceOverdue(invoice, today),
     );
     const paid = data.filter((invoice) => isFinanciallyPaid(invoice));
     const collected = data.filter((invoice) => {
@@ -841,12 +821,7 @@ function InvoicesPage() {
       formatInvoiceMoney(
         rows.reduce((sum, invoice) => {
           const balance = getFinancialBalance(invoice);
-          return (
-            sum +
-            (balance
-              ? balance.outstandingBalanceBase
-              : getInvoiceBaseTotal(invoice))
-          );
+          return sum + (balance ? balance.outstandingBalanceBase : getInvoiceBaseTotal(invoice));
         }, 0),
         currencySettings.baseCurrency,
       );
@@ -950,13 +925,9 @@ function InvoicesPage() {
       canEdit={isInvoiceDraft(invoice)}
       canOpenPublic={Boolean(invoice.public_token)}
       canMarkPaid={false}
-      canRegisterPayment={
-        canCreatePayment && isFinanciallyPending(invoice)
-      }
+      canRegisterPayment={canCreatePayment && isFinanciallyPending(invoice)}
       canViewProject={
-        canViewProjects &&
-        isFinanciallyPaid(invoice) &&
-        Boolean(projectByInvoiceId[invoice.id])
+        canViewProjects && isFinanciallyPaid(invoice) && Boolean(projectByInvoiceId[invoice.id])
       }
       canViewClient={canViewClients && Boolean(invoice.client_id)}
       canViewProposal={Boolean(invoice.proposal_id)}
@@ -1008,10 +979,10 @@ function InvoicesPage() {
       try {
         const db = supabase as any;
         const { data: rows, error } = await db
-	          .from("invoice_items")
-	          .select(
-	            "id, product_id, item_name, description, quantity, unit_type, unit_price, total, is_optional, document_currency, original_currency, original_unit_price, converted_unit_price, exchange_rate, exchange_rate_source, exchange_rate_updated_at, tax_id, tax_name, tax_rate, tax_amount",
-	          )
+          .from("invoice_items")
+          .select(
+            "id, product_id, item_name, description, quantity, unit_type, unit_price, total, is_optional, document_currency, original_currency, original_unit_price, converted_unit_price, exchange_rate, exchange_rate_source, exchange_rate_updated_at, tax_id, tax_name, tax_rate, tax_amount",
+          )
           .eq("company_id", companyId)
           .eq("invoice_id", editItem.id)
           .order("sort_order", { ascending: true })
@@ -1042,14 +1013,14 @@ function InvoicesPage() {
             r.exchange_rate === null || r.exchange_rate === undefined
               ? null
               : Number(r.exchange_rate),
-	          exchange_rate_source: r.exchange_rate_source || null,
-	          exchange_rate_updated_at: r.exchange_rate_updated_at || null,
-	          tax_id: r.tax_id || null,
-	          tax_name: r.tax_name || null,
-	          tax_rate: r.tax_rate === null || r.tax_rate === undefined ? 0 : Number(r.tax_rate),
-	          tax_amount:
-	            r.tax_amount === null || r.tax_amount === undefined ? 0 : Number(r.tax_amount),
-	        }));
+          exchange_rate_source: r.exchange_rate_source || null,
+          exchange_rate_updated_at: r.exchange_rate_updated_at || null,
+          tax_id: r.tax_id || null,
+          tax_name: r.tax_name || null,
+          tax_rate: r.tax_rate === null || r.tax_rate === undefined ? 0 : Number(r.tax_rate),
+          tax_amount:
+            r.tax_amount === null || r.tax_amount === undefined ? 0 : Number(r.tax_amount),
+        }));
         if (!cancelled) {
           setItemsDraft(next);
           setLoadedInvoiceItemCount(next.length);
@@ -1184,9 +1155,7 @@ function InvoicesPage() {
         const result = Array.isArray(data) ? data[0] : data;
         const sentAt = result?.sent_at || new Date().toISOString();
         setSelected((current) =>
-          current?.id === inv.id
-            ? { ...current, status: "Sent", sent_at: sentAt }
-            : current,
+          current?.id === inv.id ? { ...current, status: "Sent", sent_at: sentAt } : current,
         );
         await fetch();
       } else {
@@ -1243,9 +1212,7 @@ function InvoicesPage() {
       }
 
       setSelected((current) =>
-        current?.id === voidInvoiceTarget.id
-          ? { ...current, status: "Cancelled" }
-          : current,
+        current?.id === voidInvoiceTarget.id ? { ...current, status: "Cancelled" } : current,
       );
       await fetch();
       void sendInvoiceNotification(
@@ -1373,22 +1340,20 @@ function InvoicesPage() {
             item.converted_unit_price === null || item.converted_unit_price === undefined
               ? unitPrice
               : Number(item.converted_unit_price),
-	          exchange_rate:
-	            item.exchange_rate === null || item.exchange_rate === undefined
-	              ? null
-	              : Number(item.exchange_rate),
-	          exchange_rate_source: item.exchange_rate_source || null,
-	          exchange_rate_updated_at: item.exchange_rate_updated_at || null,
-	          tax_id: item.tax_id || null,
-	          tax_name: item.tax_name || null,
-	          tax_rate:
-	            item.tax_rate === null || item.tax_rate === undefined ? 0 : Number(item.tax_rate),
-	          tax_amount:
-	            item.tax_amount === null || item.tax_amount === undefined
-	              ? 0
-	              : Number(item.tax_amount),
-	        };
-	      })
+          exchange_rate:
+            item.exchange_rate === null || item.exchange_rate === undefined
+              ? null
+              : Number(item.exchange_rate),
+          exchange_rate_source: item.exchange_rate_source || null,
+          exchange_rate_updated_at: item.exchange_rate_updated_at || null,
+          tax_id: item.tax_id || null,
+          tax_name: item.tax_name || null,
+          tax_rate:
+            item.tax_rate === null || item.tax_rate === undefined ? 0 : Number(item.tax_rate),
+          tax_amount:
+            item.tax_amount === null || item.tax_amount === undefined ? 0 : Number(item.tax_amount),
+        };
+      })
       .filter((item) => item.item_name || item.description || item.unit_price > 0);
 
     for (const row of rows) {
@@ -1473,14 +1438,14 @@ function InvoicesPage() {
           clean(companyIssuer?.website) ||
           clean(draft.issuerWebsite) ||
           clean(previousInvoiceData.issuerWebsite),
-	        relatedProposalNumber: clean(draft.relatedProposalNumber),
-	        relatedProposalTitle: clean(draft.relatedProposalTitle),
-	        productName: clean(draft.productName),
-	        taxId: clean(draft.taxId),
-	        taxName: clean(draft.taxName),
-	        taxRate: draft.taxRate ?? null,
-	      },
-	    };
+        relatedProposalNumber: clean(draft.relatedProposalNumber),
+        relatedProposalTitle: clean(draft.relatedProposalTitle),
+        productName: clean(draft.productName),
+        taxId: clean(draft.taxId),
+        taxName: clean(draft.taxName),
+        taxRate: draft.taxRate ?? null,
+      },
+    };
 
     setEditorSaving(true);
     setEditorError(null);
@@ -1501,15 +1466,15 @@ function InvoicesPage() {
           original_currency: row.original_currency,
           original_unit_price: row.original_unit_price,
           converted_unit_price: row.converted_unit_price,
-	          exchange_rate: row.exchange_rate,
-	          exchange_rate_source: row.exchange_rate_source,
-	          exchange_rate_updated_at: row.exchange_rate_updated_at,
-	          tax_id: row.tax_id,
-	          tax_name: row.tax_name,
-	          tax_rate: row.tax_rate,
-	          tax_amount: row.tax_amount,
-	        })),
-	      });
+          exchange_rate: row.exchange_rate,
+          exchange_rate_source: row.exchange_rate_source,
+          exchange_rate_updated_at: row.exchange_rate_updated_at,
+          tax_id: row.tax_id,
+          tax_name: row.tax_name,
+          tax_rate: row.tax_rate,
+          tax_amount: row.tax_amount,
+        })),
+      });
       if (saveError) throw saveError;
       const rpcRow = Array.isArray(savedResult) ? savedResult[0] : savedResult;
       const invoiceId = String(rpcRow?.invoice_id || "");
@@ -1524,10 +1489,10 @@ function InvoicesPage() {
       if (invoiceLoadError) throw invoiceLoadError;
 
       const { data: savedItems, error: itemsLoadError } = await db
-	        .from("invoice_items")
-	        .select(
-	          "id, product_id, item_name, description, quantity, unit_type, unit_price, total, is_optional, document_currency, original_currency, original_unit_price, converted_unit_price, exchange_rate, exchange_rate_source, exchange_rate_updated_at, tax_id, tax_name, tax_rate, tax_amount",
-	        )
+        .from("invoice_items")
+        .select(
+          "id, product_id, item_name, description, quantity, unit_type, unit_price, total, is_optional, document_currency, original_currency, original_unit_price, converted_unit_price, exchange_rate, exchange_rate_source, exchange_rate_updated_at, tax_id, tax_name, tax_rate, tax_amount",
+        )
         .eq("company_id", companyId)
         .eq("invoice_id", invoiceId)
         .order("sort_order", { ascending: true })
@@ -1561,17 +1526,17 @@ function InvoicesPage() {
                 row.exchange_rate === null || row.exchange_rate === undefined
                   ? null
                   : Number(row.exchange_rate),
-	              exchange_rate_source: row.exchange_rate_source || null,
-	              exchange_rate_updated_at: row.exchange_rate_updated_at || null,
-	              tax_id: row.tax_id || null,
-	              tax_name: row.tax_name || null,
-	              tax_rate:
-	                row.tax_rate === null || row.tax_rate === undefined ? 0 : Number(row.tax_rate),
-	              tax_amount:
-	                row.tax_amount === null || row.tax_amount === undefined
-	                  ? 0
-	                  : Number(row.tax_amount),
-	            }))
+              exchange_rate_source: row.exchange_rate_source || null,
+              exchange_rate_updated_at: row.exchange_rate_updated_at || null,
+              tax_id: row.tax_id || null,
+              tax_name: row.tax_name || null,
+              tax_rate:
+                row.tax_rate === null || row.tax_rate === undefined ? 0 : Number(row.tax_rate),
+              tax_amount:
+                row.tax_amount === null || row.tax_amount === undefined
+                  ? 0
+                  : Number(row.tax_amount),
+            }))
           : [],
       );
       setLoadedInvoiceItemCount((savedItems || []).length);
@@ -1670,13 +1635,13 @@ function InvoicesPage() {
       issuerWebsite: readTextValue(sourceData.issuerWebsite) || null,
       relatedProposalNumber:
         readTextValue(sourceData.relatedProposalNumber) || proposal?.number || null,
-	      relatedProposalTitle:
-	        readTextValue(sourceData.relatedProposalTitle) || proposal?.title || null,
-	      productName: readTextValue(sourceData.productName) || product?.name || null,
-	      taxId: readTextValue(sourceData.taxId) || null,
-	      taxName: readTextValue(sourceData.taxName) || null,
-	      taxRate: sourceData.taxRate == null ? null : Number(sourceData.taxRate),
-	      tax: Number(editItem?.tax || 0) || 0,
+      relatedProposalTitle:
+        readTextValue(sourceData.relatedProposalTitle) || proposal?.title || null,
+      productName: readTextValue(sourceData.productName) || product?.name || null,
+      taxId: readTextValue(sourceData.taxId) || null,
+      taxName: readTextValue(sourceData.taxName) || null,
+      taxRate: sourceData.taxRate == null ? null : Number(sourceData.taxRate),
+      tax: Number(editItem?.tax || 0) || 0,
       discount: Number(editItem?.discount || 0) || 0,
       legacySubtotal: Number(editItem?.subtotal || 0) || 0,
       items: itemsDraft.map((item) => ({
@@ -1693,16 +1658,16 @@ function InvoicesPage() {
         original_currency: item.original_currency || currency,
         original_unit_price: item.original_unit_price ?? item.unit_price ?? 0,
         converted_unit_price: item.converted_unit_price ?? item.unit_price ?? 0,
-	        exchange_rate: item.exchange_rate ?? null,
-	        exchange_rate_source: item.exchange_rate_source || null,
-	        exchange_rate_updated_at: item.exchange_rate_updated_at || null,
-	        tax_id: item.tax_id || null,
-	        tax_name: item.tax_name || null,
-	        tax_rate: item.tax_rate ?? 0,
-	        tax_amount: item.tax_amount ?? 0,
-	      })),
-	    };
-	  }, [editItem, itemsDraft, products, proposals]);
+        exchange_rate: item.exchange_rate ?? null,
+        exchange_rate_source: item.exchange_rate_source || null,
+        exchange_rate_updated_at: item.exchange_rate_updated_at || null,
+        tax_id: item.tax_id || null,
+        tax_name: item.tax_name || null,
+        tax_rate: item.tax_rate ?? 0,
+        tax_amount: item.tax_amount ?? 0,
+      })),
+    };
+  }, [editItem, itemsDraft, products, proposals]);
 
   if (loading || !financialBalancesReady) return <LoadingState />;
 
@@ -1715,8 +1680,7 @@ function InvoicesPage() {
   const selectedClient = selected?.client_id ? clientsById[selected.client_id] : null;
   const selectedProposal = selected?.proposal_id ? proposalsById[selected.proposal_id] : null;
   const selectedProduct = selected?.product_id ? productsById[selected.product_id] : null;
-  const selectedBalance =
-    selectedFinancialBalance ?? (selected ? getInvoiceBalance(selected) : 0);
+  const selectedBalance = selectedFinancialBalance ?? (selected ? getInvoiceBalance(selected) : 0);
   const selectedSummaryFields = selected
     ? [
         { label: "Número", value: selected.number, mono: true },
@@ -1745,17 +1709,11 @@ function InvoicesPage() {
         { label: "Vista", value: formatInvoiceDateTime(selected.viewed_at) },
         {
           label: "Pagada",
-          value: isFinanciallyPaid(selected)
-            ? formatInvoiceDateTime(selected.paid_at)
-            : null,
+          value: isFinanciallyPaid(selected) ? formatInvoiceDateTime(selected.paid_at) : null,
         },
       ]
     : [];
-  const issuerCompanyAddress = [
-    issuerCompany?.address,
-    issuerCompany?.city,
-    issuerCompany?.country,
-  ]
+  const issuerCompanyAddress = [issuerCompany?.address, issuerCompany?.city, issuerCompany?.country]
     .map((value) => readTextValue(value))
     .filter(Boolean)
     .join(", ");
@@ -1763,45 +1721,27 @@ function InvoicesPage() {
   const selectedIssuerFields = [
     {
       label: "Nombre",
-      value:
-        readTextValue(selectedInvoiceData.issuerName) ||
-        issuerCompany?.company_name ||
-        null,
+      value: readTextValue(selectedInvoiceData.issuerName) || issuerCompany?.company_name || null,
     },
     {
       label: "ID fiscal",
-      value:
-        readTextValue(selectedInvoiceData.issuerTaxId) ||
-        issuerCompany?.tax_id ||
-        null,
+      value: readTextValue(selectedInvoiceData.issuerTaxId) || issuerCompany?.tax_id || null,
     },
     {
       label: "Correo",
-      value:
-        readTextValue(selectedInvoiceData.issuerEmail) ||
-        issuerCompany?.email ||
-        null,
+      value: readTextValue(selectedInvoiceData.issuerEmail) || issuerCompany?.email || null,
     },
     {
       label: "Teléfono",
-      value:
-        readTextValue(selectedInvoiceData.issuerPhone) ||
-        issuerCompany?.phone ||
-        null,
+      value: readTextValue(selectedInvoiceData.issuerPhone) || issuerCompany?.phone || null,
     },
     {
       label: "Dirección",
-      value:
-        readTextValue(selectedInvoiceData.issuerAddress) ||
-        issuerCompanyAddress ||
-        null,
+      value: readTextValue(selectedInvoiceData.issuerAddress) || issuerCompanyAddress || null,
     },
     {
       label: "Sitio web",
-      value:
-        readTextValue(selectedInvoiceData.issuerWebsite) ||
-        issuerCompany?.website ||
-        null,
+      value: readTextValue(selectedInvoiceData.issuerWebsite) || issuerCompany?.website || null,
     },
   ];
   const selectedClientFields = selected
@@ -1889,27 +1829,25 @@ function InvoicesPage() {
           date: formatInvoiceDateTime(event.rawDate),
         })) as InvoiceActivityEvent[])
     : [];
-  const selectedDetailActions = selected
-    ? renderActionsMenu(selected, { inline: true })
-    : null;
+  const selectedDetailActions = selected ? renderActionsMenu(selected, { inline: true }) : null;
   const workspaceInvoice =
     selected ||
     editItem ||
     (drawerMode === "create"
       ? ({
-        id: "__new_invoice__",
-        company_id: profile?.company_id || "",
-        number: editorInitialDraft.number,
-        client_id: null,
-        status: "Draft",
-        date_issued: editorInitialDraft.date_issued,
-        due_date: editorInitialDraft.due_date,
-        total: 0,
-        subtotal: 0,
-        tax: 0,
-        discount: 0,
-        invoice_data: {},
-      } as Invoice)
+          id: "__new_invoice__",
+          company_id: profile?.company_id || "",
+          number: editorInitialDraft.number,
+          client_id: null,
+          status: "Draft",
+          date_issued: editorInitialDraft.date_issued,
+          due_date: editorInitialDraft.due_date,
+          total: 0,
+          subtotal: 0,
+          tax: 0,
+          discount: 0,
+          invoice_data: {},
+        } as Invoice)
       : null);
 
   return (
@@ -1944,8 +1882,7 @@ function InvoicesPage() {
                 label: "Vencidas",
                 value: data.filter(
                   (invoice) =>
-                    isFinanciallyPending(invoice) &&
-                    isInvoiceOverdue(invoice, isoToday()),
+                    isFinanciallyPending(invoice) && isInvoiceOverdue(invoice, isoToday()),
                 ).length,
                 tone: "red",
               },
@@ -2358,8 +2295,6 @@ function InvoicesPage() {
           formatMoney={formatInvoiceMoney}
           paymentReceiptsRefreshKey={paymentReceiptsRefreshKey}
           canEditNotes={can("invoices.edit")}
-          canCreateTasks={can("tasks.create")}
-          canEditTasks={can("tasks.edit")}
           canManageReminders={can("invoices.edit")}
           canRegisterPayment={canCreatePayment}
           registerPaymentDisabledReason={
@@ -2438,8 +2373,9 @@ function InvoicesPage() {
             <DialogDescription>
               {voidInvoiceTarget?.number
                 ? `La factura ${voidInvoiceTarget.number} pasará a Cancelada. La factura no se eliminará.`
-                : "La factura pasará a Cancelada. La factura no se eliminará."} Anota el motivo.
-              Si tiene pagos aplicados o ya está pagada, primero habrá que revertirlos o reembolsarlos.
+                : "La factura pasará a Cancelada. La factura no se eliminará."}{" "}
+              Anota el motivo. Si tiene pagos aplicados o ya está pagada, primero habrá que
+              revertirlos o reembolsarlos.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

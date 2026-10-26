@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { EstimateDocumentPreview, type EstimateDocumentData } from "@/components/estimates/estimate-document-preview";
+import {
+  EstimateDocumentPreview,
+  type EstimateDocumentData,
+} from "@/components/estimates/estimate-document-preview";
 import { supabase } from "@/integrations/supabase/client";
+import { calculateEstimateDiscountAmount } from "@/lib/estimate-pricing";
 
 export const Route = createFileRoute("/estimate/public/$publicToken")({
   component: PublicEstimatePage,
@@ -56,7 +60,8 @@ function PublicEstimatePage() {
           estimate.estimate_data && typeof estimate.estimate_data === "object"
             ? estimate.estimate_data
             : {};
-        const client = estimate.client && typeof estimate.client === "object" ? estimate.client : {};
+        const client =
+          estimate.client && typeof estimate.client === "object" ? estimate.client : {};
 
         const nextDocument: EstimateDocumentData = {
           number: estimate.number,
@@ -67,7 +72,13 @@ function PublicEstimatePage() {
           currency: estimate.currency,
           subtotal: Number(estimate.subtotal || 0),
           tax: Number(estimate.tax || 0),
-          discount: Number(estimate.discount_value || 0),
+          discount: calculateEstimateDiscountAmount(
+            Number(estimate.subtotal || 0),
+            Number(estimate.tax || 0),
+            String(estimate.discount_type || "none"),
+            estimate.discount_value,
+            String(estimate.currency || "USD"),
+          ),
           adjustment: Number(estimate.adjustment || 0),
           total: Number(estimate.total || 0),
           notes: estimate.client_note || estimate.notes,
@@ -77,7 +88,11 @@ function PublicEstimatePage() {
             taxId: snapshot.issuerTaxId,
             email: snapshot.issuerEmail,
             phone: snapshot.issuerPhone,
-            address: joinAddress(snapshot.issuerAddress, snapshot.issuerCity, snapshot.issuerCountry),
+            address: joinAddress(
+              snapshot.issuerAddress,
+              snapshot.issuerCity,
+              snapshot.issuerCountry,
+            ),
             website: snapshot.issuerWebsite,
             logoUrl: snapshot.issuerLogoUrl,
           },
@@ -112,7 +127,11 @@ function PublicEstimatePage() {
   }, [token]);
 
   if (loading) {
-    return <div className="grid min-h-[60vh] place-items-center text-sm text-slate-500">Cargando cotización…</div>;
+    return (
+      <div className="grid min-h-[60vh] place-items-center text-sm text-slate-500">
+        Cargando cotización…
+      </div>
+    );
   }
 
   if (error || !document) {

@@ -108,6 +108,30 @@ function displayLabel(value: string) {
   return DISPLAY_LABELS[value] ?? value;
 }
 
+function rowStatusOptions(
+  row: GenericRow,
+  config: SalesConfig,
+  displayStatusKey: string,
+): Option[] {
+  if (config.module !== "payments") {
+    return config.statuses.map((status) => ({ value: status, label: displayLabel(status) }));
+  }
+
+  if (row[config.statusKey] === "Pending" && row[displayStatusKey] === "Pending") {
+    return [
+      { value: "Pending", label: "Pendiente" },
+      { value: "Completed", label: "Completado" },
+    ];
+  }
+
+  const currentStatus = String(row[displayStatusKey] || row[config.statusKey] || "—");
+  return [{ value: currentStatus, label: displayLabel(currentStatus) }];
+}
+
+function isPaymentStatusImmutable(row: GenericRow, config: SalesConfig) {
+  return config.module === "payments" && row[config.statusKey] !== "Pending";
+}
+
 const NONE = "none";
 
 type Option = { label: string; value: string; displayLabel?: string };
@@ -723,7 +747,15 @@ export function SalesBasicPage({
   const updateStatus = async (row: GenericRow, nextStatus: string) => {
     if (!row.id || !nextStatus || row[config.statusKey] === nextStatus) return;
     try {
-      if (config.module === "credit_notes") {
+      if (config.module === "payments") {
+        if (row[config.statusKey] !== "Pending" || nextStatus !== "Completed") {
+          throw new Error("Solo puedes confirmar pagos que estén pendientes.");
+        }
+        const { error } = await db.rpc("confirm_pending_payment", {
+          p_payment_id: String(row.id),
+        });
+        if (error) throw error;
+      } else if (config.module === "credit_notes") {
         if (nextStatus === "Issued") {
           const { error } = await db.rpc("issue_credit_note", {
             p_credit_note_id: String(row.id),
@@ -1012,20 +1044,19 @@ export function SalesBasicPage({
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+                          <div
+                            className="flex items-center gap-1"
+                            onClick={(event) => event.stopPropagation()}
+                          >
                             <InlineStatusSelect
                               value={row[effectiveStatusKey] || "—"}
-                              options={config.statuses.map((status) => ({
-                                value: status,
-                                label: displayLabel(status),
-                              }))}
+                              options={rowStatusOptions(row, config, effectiveStatusKey)}
                               onChange={(nextStatus) => updateStatus(row, nextStatus)}
-                              disabled={
-                                config.module === "payments" &&
-                                row[effectiveStatusKey] !== row[config.statusKey]
-                              }
+                              disabled={isPaymentStatusImmutable(row, config)}
                             />
-                            {inlineDeleteAction && canDelete && (!canDeleteRow || canDeleteRow(row)) ? (
+                            {inlineDeleteAction &&
+                            canDelete &&
+                            (!canDeleteRow || canDeleteRow(row)) ? (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1099,65 +1130,75 @@ export function SalesBasicPage({
         >
           <form className="space-y-6" onSubmit={submit}>
             <div className="grid gap-4 sm:grid-cols-2">
-              {fields.map((field) => (
-                <Field
-                  key={field.key}
-                  field={field}
-                  value={form[field.key] || ""}
-                  options={fieldOptions(field)}
-                  clientOptions={clients}
-                  currency={form.currency || currencySettings.baseCurrency}
-                  onChange={(value) => {
-                    setForm((current) => {
-                      const patch: Record<string, string> = {
-                        [field.key]: normalizeFormValue(field.key, value, current.currency),
-                      };
-                      if (field.key === "currency") {
-                        const nextCurrency = normalizeCurrency(value);
-                        const currentCurrency = normalizeCurrency(
-                          current.currency || currencySettings.baseCurrency,
-                        );
-                        patch.currency = nextCurrency;
-                        MONEY_KEYS.forEach((moneyKey) => {
-                          if (current[moneyKey] === undefined) return;
-                          patch[moneyKey] = normalizeCurrencyInput(
-                            String(
-                              convertCurrencyAmount(
-                                current[moneyKey],
-                                currentCurrency,
-                                nextCurrency,
-                                currencySettings.usdToDopRate,
-                              ),
-                            ),
-                            nextCurrency,
+              {fields
+                .filter(
+                  (field) =>
+                    !(
+                      config.module === "credit_notes" &&
+                      field.key === "client_id" &&
+                      Boolean(form.invoice_id && form.invoice_id !== NONE)
+                    ),
+                )
+                .map((field) => (
+                  <Field
+                    key={field.key}
+                    field={field}
+                    value={form[field.key] || ""}
+                    options={fieldOptions(field)}
+                    clientOptions={clients}
+                    currency={form.currency || currencySettings.baseCurrency}
+                    onChange={(value) => {
+                      setForm((current) => {
+                        const patch: Record<string, string> = {
+                          [field.key]: normalizeFormValue(field.key, value, current.currency),
+                        };
+                        if (field.key === "currency") {
+                          const nextCurrency = normalizeCurrency(value);
+                          const currentCurrency = normalizeCurrency(
+                            current.currency || currencySettings.baseCurrency,
                           );
-                        });
-                      }
-                      if (field.key === "invoice_id") {
-                        const invoice = invoiceById.get(value);
-                        if (invoice) patch.currency = getInvoiceCurrency(invoice);
-                      }
-                      if (field.key === "product_id") {
-                        const product = productById.get(value);
-                        if (!allowTaxFields) {
-                          delete patch.tax_id;
-                          delete patch.tax_name;
-                          delete patch.tax_rate;
-                        } else if (product?.default_tax_id) {
-                          patch.tax_id = product.default_tax_id;
-                        } else if (product?.default_tax_name || product?.default_tax_rate) {
-                          patch.tax_id = NONE;
-                          patch.tax_name = product.default_tax_name || "";
-                          patch.tax_rate = String(normalizeTaxRate(product.default_tax_rate));
-                        } else if (defaultTax?.id) {
-                          patch.tax_id = defaultTax.id;
+                          patch.currency = nextCurrency;
+                          MONEY_KEYS.forEach((moneyKey) => {
+                            if (current[moneyKey] === undefined) return;
+                            patch[moneyKey] = normalizeCurrencyInput(
+                              String(
+                                convertCurrencyAmount(
+                                  current[moneyKey],
+                                  currentCurrency,
+                                  nextCurrency,
+                                  currencySettings.usdToDopRate,
+                                ),
+                              ),
+                              nextCurrency,
+                            );
+                          });
                         }
-                      }
-                      return { ...current, ...patch };
-                    });
-                  }}
-                />
-              ))}
+                        if (field.key === "invoice_id") {
+                          const invoice = invoiceById.get(value);
+                          if (config.module === "credit_notes") patch.client_id = NONE;
+                          if (invoice) patch.currency = getInvoiceCurrency(invoice);
+                        }
+                        if (field.key === "product_id") {
+                          const product = productById.get(value);
+                          if (!allowTaxFields) {
+                            delete patch.tax_id;
+                            delete patch.tax_name;
+                            delete patch.tax_rate;
+                          } else if (product?.default_tax_id) {
+                            patch.tax_id = product.default_tax_id;
+                          } else if (product?.default_tax_name || product?.default_tax_rate) {
+                            patch.tax_id = NONE;
+                            patch.tax_name = product.default_tax_name || "";
+                            patch.tax_rate = String(normalizeTaxRate(product.default_tax_rate));
+                          } else if (defaultTax?.id) {
+                            patch.tax_id = defaultTax.id;
+                          }
+                        }
+                        return { ...current, ...patch };
+                      });
+                    }}
+                  />
+                ))}
             </div>
             <div className={crmFormStyles.footer}>
               <Button
@@ -1315,12 +1356,9 @@ function SalesMobileCard({
 
         <InlineStatusSelect
           value={row[displayStatusKey] || "—"}
-          options={config.statuses.map((status) => ({
-            value: status,
-            label: displayLabel(status),
-          }))}
+          options={rowStatusOptions(row, config, displayStatusKey)}
           onChange={onStatusChange}
-          disabled={config.module === "payments" && row[displayStatusKey] !== row[config.statusKey]}
+          disabled={isPaymentStatusImmutable(row, config)}
         />
       </div>
 

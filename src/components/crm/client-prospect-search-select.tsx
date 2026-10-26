@@ -9,11 +9,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { QuickCreateDialog, type QuickCreateType } from "@/components/crm/quick-create-dialog";
 import { cn } from "@/lib/utils";
 
@@ -77,12 +73,20 @@ export function ClientProspectSearchSelect({
   const [createdProspects, setCreatedProspects] = useState<ClientProspectOption[]>([]);
 
   const allClients = useMemo(
-    () => [...clients, ...createdClients.filter((created) => !clients.some((client) => client.id === created.id))],
+    () => [
+      ...clients,
+      ...createdClients.filter((created) => !clients.some((client) => client.id === created.id)),
+    ],
     [clients, createdClients],
   );
 
   const allProspects = useMemo(
-    () => [...prospects, ...createdProspects.filter((created) => !prospects.some((prospect) => prospect.id === created.id))],
+    () => [
+      ...prospects,
+      ...createdProspects.filter(
+        (created) => !prospects.some((prospect) => prospect.id === created.id),
+      ),
+    ],
     [prospects, createdProspects],
   );
 
@@ -125,7 +129,11 @@ export function ClientProspectSearchSelect({
       label: String(
         type === "lead"
           ? record.company_name || fullName || record.email || record.phone || "Prospecto"
-          : record.company_name || record.contact_person || record.email || record.phone || "Cliente",
+          : record.company_name ||
+              record.contact_person ||
+              record.email ||
+              record.phone ||
+              "Cliente",
       ),
       secondaryLabel:
         type === "lead"
@@ -185,15 +193,13 @@ export function ClientProspectSearchSelect({
               className,
             )}
           >
-            <span className="min-w-0 truncate">
-              {selectedOption?.label || placeholder}
-            </span>
+            <span className="min-w-0 truncate">{selectedOption?.label || placeholder}</span>
             <Search className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
           </Button>
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="z-[110] w-[var(--radix-popover-trigger-width)] min-w-[320px] p-0"
+          className="z-[110] w-[var(--radix-popover-trigger-width)] min-w-0 max-w-[calc(100vw-1.5rem)] p-0"
         >
           <Command shouldFilter={false}>
             <CommandInput

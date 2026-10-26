@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
+import { persistLeadDriveFolder } from "../_shared/lead-drive-folder.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -108,7 +109,13 @@ async function getOrCreateFolder(args: {
   const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,webViewLink)&pageSize=1`;
   const listed = await driveRequest(args.accessToken, listUrl);
   const found = Array.isArray(listed?.files) ? listed.files[0] : null;
-  if (found?.id) return found as { id: string; name: string; webViewLink?: string };
+  if (found?.id)
+    return { ...found, created: false } as {
+      id: string;
+      name: string;
+      webViewLink?: string;
+      created: boolean;
+    };
 
   const metadata: Record<string, unknown> = {
     name: args.name,
@@ -149,7 +156,27 @@ async function getOrCreateFolder(args: {
   }
 
   const created = createJson;
-  return created as { id: string; name: string; webViewLink?: string };
+  if (!created?.id) throw new Error("Google Drive no devolvió el identificador de la carpeta.");
+  return { ...created, created: true } as {
+    id: string;
+    name: string;
+    webViewLink?: string;
+    created: boolean;
+  };
+}
+
+async function deleteDriveItem(accessToken: string, itemId: string) {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(itemId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+  if (!response.ok && response.status !== 404) {
+    const detail = await response.text();
+    throw new Error(`No se pudo retirar el elemento temporal de Google Drive: ${detail}`);
+  }
 }
 
 async function uploadFileMultipart(args: {
@@ -270,7 +297,8 @@ async function ensureLeadFolder(args: {
   serviceClient: any;
   companyId: string;
   lead: any;
-}) {
+}): Promise<{ id: string; webViewLink?: string }> {
+  if (!args.lead?.id) throw new Error("No se recibió el prospecto para preparar su carpeta.");
   let leadFolderId = args.lead.drive_folder_id ? String(args.lead.drive_folder_id) : "";
   let leadFolderUrl = args.lead.drive_folder_url ? String(args.lead.drive_folder_url) : "";
 
@@ -289,7 +317,8 @@ async function ensureLeadFolder(args: {
   const createdLeadFolder = await getOrCreateFolder({
     accessToken: args.accessToken,
     name: safeName(
-      args.lead.company_name || [args.lead.first_name, args.lead.last_name].filter(Boolean).join(" "),
+      args.lead.company_name ||
+        [args.lead.first_name, args.lead.last_name].filter(Boolean).join(" "),
       "Lead",
     ),
     parentId: leadsFolder.id,
@@ -297,16 +326,34 @@ async function ensureLeadFolder(args: {
 
   leadFolderId = createdLeadFolder.id;
   leadFolderUrl = String(createdLeadFolder.webViewLink || "");
-  await args.serviceClient
-    .from("leads")
-    .update({
-      drive_folder_id: leadFolderId,
-      drive_folder_url: leadFolderUrl || null,
-    })
-    .eq("id", String(args.lead.id))
-    .eq("company_id", args.companyId);
-
-  return { id: leadFolderId, webViewLink: leadFolderUrl };
+  return persistLeadDriveFolder({
+    folder: {
+      id: leadFolderId,
+      webViewLink: leadFolderUrl,
+      created: Boolean(createdLeadFolder.created),
+    },
+    saveIfMissing: async () =>
+      await args.serviceClient
+        .from("leads")
+        .update({
+          drive_folder_id: leadFolderId,
+          drive_folder_url: leadFolderUrl || null,
+        })
+        .eq("id", String(args.lead.id))
+        .eq("company_id", args.companyId)
+        .is("drive_folder_id", null)
+        .select("drive_folder_id,drive_folder_url")
+        .maybeSingle(),
+    readCurrent: async () =>
+      await args.serviceClient
+        .from("leads")
+        .select("drive_folder_id,drive_folder_url")
+        .eq("id", String(args.lead.id))
+        .eq("company_id", args.companyId)
+        .maybeSingle(),
+    deleteFolder: (id) => deleteDriveItem(args.accessToken, id),
+    warn: (message, details) => console.warn(message, { ...details, leadId: String(args.lead.id) }),
+  });
 }
 
 async function ensureClientChildFolder(args: {
@@ -464,7 +511,10 @@ Deno.serve(async (req) => {
     const file = formData.get("file");
     const targetCount = [taskId, clientId, leadId, projectId].filter(Boolean).length;
     if (targetCount === 0)
-      return jsonResponse({ error: "No se recibió task_id, client_id, lead_id o project_id." }, 400);
+      return jsonResponse(
+        { error: "No se recibió task_id, client_id, lead_id o project_id." },
+        400,
+      );
     if (targetCount > 1) return jsonResponse({ error: "Envía solo un destino por subida." }, 400);
     if (!(file instanceof File)) return jsonResponse({ error: "No se recibió archivo." }, 400);
 
@@ -700,7 +750,7 @@ Deno.serve(async (req) => {
           accessToken,
           serviceClient,
           companyId,
-          client,
+          lead,
         });
         filesFolder = await getOrCreateFolder({
           accessToken,
@@ -710,7 +760,7 @@ Deno.serve(async (req) => {
       } catch (folderError) {
         const detail = folderError instanceof Error ? folderError.message : "unknown";
         return jsonResponse(
-          { error: "No se pudo crear la carpeta de archivos del cliente.", detail },
+          { error: "No se pudo crear la carpeta de archivos del prospecto.", detail },
           400,
         );
       }
@@ -756,7 +806,32 @@ Deno.serve(async (req) => {
         .insert(rowPayload)
         .select("*")
         .single();
-      if (saveError) return jsonResponse({ error: saveError.message }, 400);
+      if (saveError) {
+        let cleanupDetail: string | null = null;
+        if (uploaded?.id) {
+          try {
+            await deleteDriveItem(accessToken, uploaded.id);
+          } catch (cleanupError) {
+            cleanupDetail =
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : "No se pudo retirar el archivo temporal.";
+            console.error("lead file cleanup failed after database insert error", {
+              leadId,
+              driveFileId: uploaded.id,
+              detail: cleanupDetail,
+            });
+          }
+        }
+        return jsonResponse(
+          {
+            error: "El archivo llegó a Google Drive, pero no pudo vincularse al prospecto.",
+            detail: saveError.message,
+            cleanup_detail: cleanupDetail,
+          },
+          400,
+        );
+      }
 
       return jsonResponse({ file: saved, folder_url: leadFolder.webViewLink || null });
     }

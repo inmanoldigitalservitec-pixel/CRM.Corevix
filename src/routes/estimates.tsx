@@ -42,6 +42,10 @@ import {
   type CurrencyCode,
 } from "@/lib/currency";
 import { toast } from "sonner";
+import {
+  calculateEstimateDiscountAmount,
+  normalizeEstimateDiscountValue,
+} from "@/lib/estimate-pricing";
 
 export const Route = createFileRoute("/estimates")({
   component: EstimatesPage,
@@ -237,7 +241,9 @@ function normalizeLine(line: SalesDocumentLineItem, currency: CurrencyCode) {
   const rate = normalizeCurrencyAmount(line.rate, currency);
   const taxRate = normalizeTaxRate(line.tax);
   const subtotal = quantity * rate;
-  const taxAmount = line.optional ? 0 : normalizeCurrencyAmount(subtotal * (taxRate / 100), currency);
+  const taxAmount = line.optional
+    ? 0
+    : normalizeCurrencyAmount(subtotal * (taxRate / 100), currency);
   const amount = line.optional ? 0 : normalizeCurrencyAmount(subtotal + taxAmount, currency);
 
   return {
@@ -260,13 +266,13 @@ function calculateTotals(
     return sum + normalized.quantity * normalized.rate;
   }, 0);
   const taxTotal = lines.reduce((sum, line) => sum + normalizeLine(line, currency).taxAmount, 0);
-  const rawDiscount = asNumber(form.discountValue);
-  const discount =
-    form.discountType === "percent"
-      ? subtotal * (Math.min(Math.max(rawDiscount, 0), 100) / 100)
-      : form.discountType === "fixed"
-        ? rawDiscount
-        : 0;
+  const discount = calculateEstimateDiscountAmount(
+    subtotal,
+    taxTotal,
+    form.discountType,
+    form.discountValue,
+    currency,
+  );
   const adjustment = asNumber(form.adjustmentValue);
   const total = Math.max(0, subtotal + taxTotal - discount + adjustment);
 
@@ -368,7 +374,9 @@ function EstimatesPage() {
         : estimate.lead_id
           ? [leadById.get(estimate.lead_id)?.first_name, leadById.get(estimate.lead_id)?.last_name]
               .filter(Boolean)
-              .join(" ") || leadById.get(estimate.lead_id)?.company_name || ""
+              .join(" ") ||
+            leadById.get(estimate.lead_id)?.company_name ||
+            ""
           : "";
       const matchesSearch =
         !needle ||
@@ -404,7 +412,9 @@ function EstimatesPage() {
     if (!editingEstimate || estimateItemsCrud.loading) return;
     const rows = estimateItemsCrud.data;
     if (rows.length === 0) {
-      setLineItems([emptyLine(normalizeCurrency(editingEstimate.currency || currencySettings.baseCurrency))]);
+      setLineItems([
+        emptyLine(normalizeCurrency(editingEstimate.currency || currencySettings.baseCurrency)),
+      ]);
       return;
     }
     setLineItems(
@@ -419,12 +429,16 @@ function EstimatesPage() {
         taxId: row.tax_id || null,
         taxName: row.tax_name || null,
         optional: row.is_optional,
-        documentCurrency: row.document_currency || editingEstimate.currency || currencySettings.baseCurrency,
-        originalCurrency: row.original_currency || editingEstimate.currency || currencySettings.baseCurrency,
+        documentCurrency:
+          row.document_currency || editingEstimate.currency || currencySettings.baseCurrency,
+        originalCurrency:
+          row.original_currency || editingEstimate.currency || currencySettings.baseCurrency,
         originalRate: row.original_rate != null ? String(row.original_rate) : String(row.rate || 0),
-        convertedRate: row.converted_rate != null ? String(row.converted_rate) : String(row.rate || 0),
+        convertedRate:
+          row.converted_rate != null ? String(row.converted_rate) : String(row.rate || 0),
         exchangeRate: row.exchange_rate || editingEstimate.exchange_rate || 1,
-        exchangeRateSource: row.exchange_rate_source || editingEstimate.exchange_rate_source || null,
+        exchangeRateSource:
+          row.exchange_rate_source || editingEstimate.exchange_rate_source || null,
         exchangeRateUpdatedAt:
           row.exchange_rate_updated_at || editingEstimate.exchange_rate_updated_at || null,
       })),
@@ -475,7 +489,10 @@ function EstimatesPage() {
     }));
   };
 
-  const productToLine = (product: Product, documentCurrency: CurrencyCode): SalesDocumentLineItem => {
+  const productToLine = (
+    product: Product,
+    documentCurrency: CurrencyCode,
+  ): SalesDocumentLineItem => {
     const originalCurrency = normalizeCurrency(product.currency || documentCurrency);
     const originalRate = normalizeCurrencyAmount(product.base_price, originalCurrency);
     const convertedRate = convertCurrencyAmount(
@@ -512,8 +529,7 @@ function EstimatesPage() {
       originalCurrency,
       originalRate: String(originalRate),
       convertedRate: String(convertedRate),
-      exchangeRate:
-        originalCurrency === documentCurrency ? 1 : currencySettings.usdToDopRate,
+      exchangeRate: originalCurrency === documentCurrency ? 1 : currencySettings.usdToDopRate,
       exchangeRateSource: currencySettings.rateSource,
       exchangeRateUpdatedAt: currencySettings.rateUpdatedAt,
     };
@@ -578,7 +594,10 @@ function EstimatesPage() {
     setLineItems((current) =>
       current.map((line) => {
         const originalCurrency = normalizeCurrency(line.originalCurrency || previousCurrency);
-        const originalRate = normalizeCurrencyAmount(line.originalRate || line.rate, originalCurrency);
+        const originalRate = normalizeCurrencyAmount(
+          line.originalRate || line.rate,
+          originalCurrency,
+        );
         const convertedRate = convertCurrencyAmount(
           originalRate,
           originalCurrency,
@@ -615,7 +634,9 @@ function EstimatesPage() {
   };
 
   const patchLine = (id: string, patch: Partial<SalesDocumentLineItem>) => {
-    setLineItems((current) => current.map((line) => (line.id === id ? { ...line, ...patch } : line)));
+    setLineItems((current) =>
+      current.map((line) => (line.id === id ? { ...line, ...patch } : line)),
+    );
   };
 
   const saveEstimate = async () => {
@@ -625,6 +646,18 @@ function EstimatesPage() {
     }
     if (!profile?.company_id) {
       toast.error("No hay compañía activa.");
+      return;
+    }
+    if (Boolean(form.clientId) === Boolean(form.leadId)) {
+      toast.error("Selecciona un cliente o un prospecto para la cotización.");
+      return;
+    }
+    if (form.clientId && !clientById.has(form.clientId)) {
+      toast.error("El cliente seleccionado ya no está disponible. Selecciónalo de nuevo.");
+      return;
+    }
+    if (form.leadId && !leadById.has(form.leadId)) {
+      toast.error("El prospecto seleccionado ya no está disponible. Selecciónalo de nuevo.");
       return;
     }
 
@@ -657,7 +690,12 @@ function EstimatesPage() {
       exchange_rate: exchangeRate,
       exchange_rate_source: currencySettings.rateSource,
       exchange_rate_updated_at: currencySettings.rateUpdatedAt,
-      subtotal_base: convertCurrencyAmount(nextTotals.subtotal, currency, baseCurrency, exchangeRate),
+      subtotal_base: convertCurrencyAmount(
+        nextTotals.subtotal,
+        currency,
+        baseCurrency,
+        exchangeRate,
+      ),
       tax_base: convertCurrencyAmount(nextTotals.taxTotal, currency, baseCurrency, exchangeRate),
       total_base: convertCurrencyAmount(nextTotals.total, currency, baseCurrency, exchangeRate),
       tax_id: firstTaxedLine?.taxId || null,
@@ -669,7 +707,13 @@ function EstimatesPage() {
         .map((tag) => tag.trim())
         .filter(Boolean),
       discount_type: form.discountType || "none",
-      discount_value: asNumber(form.discountValue),
+      discount_value: normalizeEstimateDiscountValue(
+        nextTotals.subtotal,
+        nextTotals.taxTotal,
+        form.discountType,
+        form.discountValue,
+        currency,
+      ),
       adjustment: asNumber(form.adjustmentValue),
       quantity_mode: form.quantityMode || "qty",
       client_note: form.notes || null,
@@ -726,12 +770,14 @@ function EstimatesPage() {
           amount: normalized.amount,
           document_currency: currency,
           original_currency: normalizeCurrency(line.originalCurrency || currency),
-          original_rate: normalizeCurrencyAmount(line.originalRate || line.rate, line.originalCurrency || currency),
+          original_rate: normalizeCurrencyAmount(
+            line.originalRate || line.rate,
+            line.originalCurrency || currency,
+          ),
           converted_rate: normalized.rate,
           exchange_rate: line.exchangeRate || exchangeRate,
           exchange_rate_source: line.exchangeRateSource || currencySettings.rateSource,
-          exchange_rate_updated_at:
-            line.exchangeRateUpdatedAt || currencySettings.rateUpdatedAt,
+          exchange_rate_updated_at: line.exchangeRateUpdatedAt || currencySettings.rateUpdatedAt,
         };
       });
 
@@ -818,11 +864,17 @@ function EstimatesPage() {
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-0 border-y border-slate-100 py-2 sm:grid-cols-4 sm:gap-3 sm:py-3">
           <div className="min-h-[58px] border-b border-slate-100 py-1.5 sm:min-h-0 sm:border-b-0 sm:border-r sm:py-0">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">Cotizaciones</div>
-            <div className="mt-1 text-lg font-light leading-tight text-slate-950 sm:mt-2 sm:text-2xl">{filteredEstimates.length}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">
+              Cotizaciones
+            </div>
+            <div className="mt-1 text-lg font-light leading-tight text-slate-950 sm:mt-2 sm:text-2xl">
+              {filteredEstimates.length}
+            </div>
           </div>
           <div className="min-h-[58px] border-b border-slate-100 py-1.5 sm:min-h-0 sm:border-b-0 sm:border-r sm:py-0">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">Activas</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">
+              Activas
+            </div>
             <div className="mt-1 text-lg font-light leading-tight text-emerald-600 sm:mt-2 sm:text-2xl">
               {
                 filteredEstimates.filter(
@@ -832,7 +884,9 @@ function EstimatesPage() {
             </div>
           </div>
           <div className="min-h-[58px] py-1.5 sm:min-h-0 sm:border-b-0 sm:border-r sm:py-0">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">Vencidas</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">
+              Vencidas
+            </div>
             <div className="mt-1 text-lg font-light leading-tight text-rose-600 sm:mt-2 sm:text-2xl">
               {filteredEstimates.filter((estimate) => estimate.status === "Expired").length}
             </div>
@@ -874,125 +928,135 @@ function EstimatesPage() {
 
         <section className="border-y border-slate-100 bg-white">
           <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-white">
-              <TableRow>
-                <TableHead className="pl-4 sm:pl-5">Número</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="hidden md:table-cell">Monto</TableHead>
-                <TableHead className="hidden lg:table-cell">Vence</TableHead>
-                <TableHead className="pr-4 text-right sm:pr-5">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEstimates.map((estimate) => (
-                <TableRow
-                  key={estimate.id}
-                  className="cursor-pointer transition-colors hover:bg-slate-50/70"
-                  onClick={() => openEstimatePreview(estimate)}
-                >
-                  <TableCell className="pl-4 font-normal text-slate-500 sm:pl-5">
-                    EST-{estimate.number || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-normal text-slate-900">{estimate.title}</div>
-                    <div className="text-xs text-slate-500">
-                      {estimate.reference || "Sin referencia"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-slate-600">
-                    {estimate.client_id
-                      ? clientById.get(estimate.client_id)?.company_name || "—"
-                      : estimate.lead_id
-                        ? [leadById.get(estimate.lead_id)?.first_name, leadById.get(estimate.lead_id)?.last_name].filter(Boolean).join(" ") || leadById.get(estimate.lead_id)?.company_name || "—"
-                        : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <InlineStatusSelect
-                      value={estimate.status}
-                      options={STATUSES.map((status) => ({
-                        value: status,
-                        label: displayLabel(status),
-                      }))}
-                      onChange={(nextStatus) => updateEstimateStatus(estimate, nextStatus)}
-                    />
-                  </TableCell>
-                  <TableCell className="hidden font-normal md:table-cell">
-                    {formatCurrencyAmount(estimate.total || 0, estimate.currency || currencySettings.baseCurrency)}
-                  </TableCell>
-                  <TableCell className="hidden text-sm text-slate-500 lg:table-cell">
-                    {estimate.expiry_date || "—"}
-                  </TableCell>
-                  <TableCell className="pr-4 text-right sm:pr-5">
-                    <div
+            <Table>
+              <TableHeader className="bg-white">
+                <TableRow>
+                  <TableHead className="pl-4 sm:pl-5">Número</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="hidden md:table-cell">Monto</TableHead>
+                  <TableHead className="hidden lg:table-cell">Vence</TableHead>
+                  <TableHead className="pr-4 text-right sm:pr-5">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredEstimates.map((estimate) => (
+                  <TableRow
+                    key={estimate.id}
+                    className="cursor-pointer transition-colors hover:bg-slate-50/70"
+                    onClick={() => openEstimatePreview(estimate)}
+                  >
+                    <TableCell className="pl-4 font-normal text-slate-500 sm:pl-5">
+                      EST-{estimate.number || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-normal text-slate-900">{estimate.title}</div>
+                      <div className="text-xs text-slate-500">
+                        {estimate.reference || "Sin referencia"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      {estimate.client_id
+                        ? clientById.get(estimate.client_id)?.company_name || "—"
+                        : estimate.lead_id
+                          ? [
+                              leadById.get(estimate.lead_id)?.first_name,
+                              leadById.get(estimate.lead_id)?.last_name,
+                            ]
+                              .filter(Boolean)
+                              .join(" ") ||
+                            leadById.get(estimate.lead_id)?.company_name ||
+                            "—"
+                          : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <InlineStatusSelect
+                        value={estimate.status}
+                        options={STATUSES.map((status) => ({
+                          value: status,
+                          label: displayLabel(status),
+                        }))}
+                        onChange={(nextStatus) => updateEstimateStatus(estimate, nextStatus)}
+                      />
+                    </TableCell>
+                    <TableCell className="hidden font-normal md:table-cell">
+                      {formatCurrencyAmount(
+                        estimate.total || 0,
+                        estimate.currency || currencySettings.baseCurrency,
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden text-sm text-slate-500 lg:table-cell">
+                      {estimate.expiry_date || "—"}
+                    </TableCell>
+                    <TableCell className="pr-4 text-right sm:pr-5">
+                      <div
                         className="flex justify-end gap-1.5"
                         onClick={(event) => event.stopPropagation()}
                       >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
-                        onClick={() => openPublicEstimate(estimate)}
-                        disabled={!estimate.public_token}
-                        title="Ver cotización"
-                        aria-label="Ver cotización"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
+                          onClick={() => openPublicEstimate(estimate)}
+                          disabled={!estimate.public_token}
+                          title="Ver cotización"
+                          aria-label="Ver cotización"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
-                        onClick={() => void copyPublicEstimateLink(estimate)}
-                        disabled={!estimate.public_token}
-                        title="Copiar enlace"
-                        aria-label="Copiar enlace"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
+                          onClick={() => void copyPublicEstimateLink(estimate)}
+                          disabled={!estimate.public_token}
+                          title="Copiar enlace"
+                          aria-label="Copiar enlace"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
 
-                      <Button
-                         type="button"
-                         variant="outline"
-                         size="sm"
-                         className="h-8 rounded-full bg-blue-600 px-3 text-xs font-normal text-white shadow-none hover:bg-blue-700"
-                         onClick={() => openEditBuilder(estimate)}
-                         title="Editar cotización"
-                         aria-label="Editar cotización"
-                       >
-                         <Pencil className="h-3.5 w-3.5" />
-                         Editar
-                       </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-full bg-blue-600 px-3 text-xs font-normal text-white shadow-none hover:bg-blue-700"
+                          onClick={() => openEditBuilder(estimate)}
+                          title="Editar cotización"
+                          aria-label="Editar cotización"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar
+                        </Button>
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
-                        onClick={() => void convertEstimate(estimate)}
-                        title="Convertir en factura"
-                        aria-label="Convertir en factura"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredEstimates.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-slate-500">
-                    No hay cotizaciones para mostrar.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-none border-0 border-b border-slate-200 bg-transparent px-0 text-slate-600 shadow-none hover:bg-transparent hover:text-slate-950"
+                          onClick={() => void convertEstimate(estimate)}
+                          title="Convertir en factura"
+                          aria-label="Convertir en factura"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredEstimates.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-slate-500">
+                      No hay cotizaciones para mostrar.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
           </div>
         </section>
       </div>
@@ -1011,7 +1075,8 @@ function EstimatesPage() {
                   {previewEstimate?.title || "Vista previa de cotización"}
                 </DialogTitle>
                 <p className="mt-1 text-sm text-slate-500">
-                  EST-{previewEstimate?.number || "—"} · {displayLabel(previewEstimate?.status || "Draft")}
+                  EST-{previewEstimate?.number || "—"} ·{" "}
+                  {displayLabel(previewEstimate?.status || "Draft")}
                 </p>
               </div>
               {previewEstimate ? (
@@ -1086,6 +1151,13 @@ function EstimatesPage() {
                   value: client.id,
                   label: client.company_name,
                 }))}
+                prospectOptions={leadsCrud.data.map((lead) => ({
+                  value: lead.id,
+                  label:
+                    [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+                    lead.company_name ||
+                    "Prospecto sin nombre",
+                }))}
                 productOptions={productsCrud.data.map((product) => ({
                   value: product.id,
                   label: product.name,
@@ -1100,12 +1172,17 @@ function EstimatesPage() {
                 onProductChange={chooseBaseProduct}
                 onAddProductLine={addProductLine}
                 onAddBlankLine={() =>
-                  setLineItems((current) => [...current, emptyLine(normalizeCurrency(form.currency))])
+                  setLineItems((current) => [
+                    ...current,
+                    emptyLine(normalizeCurrency(form.currency)),
+                  ])
                 }
                 onLinePatch={patchLine}
                 onRemoveLine={(id) =>
                   setLineItems((current) =>
-                    current.length <= 1 ? [emptyLine(normalizeCurrency(form.currency))] : current.filter((line) => line.id !== id),
+                    current.length <= 1
+                      ? [emptyLine(normalizeCurrency(form.currency))]
+                      : current.filter((line) => line.id !== id),
                   )
                 }
                 normalizeMoneyInput={normalizeCurrencyInput}

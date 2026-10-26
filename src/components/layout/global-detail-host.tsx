@@ -1962,8 +1962,6 @@ export function GlobalDetailHost() {
         notes={invoice?.notes}
         formatMoney={money}
         canEditNotes={false}
-        canCreateTasks={false}
-        canEditTasks={false}
         canManageReminders={false}
         canRegisterPayment={false}
       />

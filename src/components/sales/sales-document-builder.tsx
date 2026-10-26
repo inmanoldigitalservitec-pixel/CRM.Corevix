@@ -18,13 +18,12 @@ import type {
   SalesDocumentTotals,
 } from "@/components/sales/sales-document-line-editor";
 import type { CompanyTax } from "@/hooks/use-company-taxes";
-import {
-  getCurrencyInputMode,
-  getCurrencyStep,
-  normalizeCurrency,
-} from "@/lib/currency";
+import { getCurrencyInputMode, getCurrencyStep, normalizeCurrency } from "@/lib/currency";
 
-export type { SalesDocumentLineItem, SalesDocumentTotals } from "@/components/sales/sales-document-line-editor";
+export type {
+  SalesDocumentLineItem,
+  SalesDocumentTotals,
+} from "@/components/sales/sales-document-line-editor";
 
 export type SalesDocumentMode = "proposal" | "estimate";
 
@@ -60,7 +59,6 @@ type SelectOption = {
   label: string;
   value: string;
 };
-
 
 export function SalesDocumentBuilder({
   mode,
@@ -121,7 +119,6 @@ export function SalesDocumentBuilder({
   const relatedLabel = isEstimate ? "Cliente" : "Relacionado";
   const dateLabel = isEstimate ? "Fecha de cotización" : "Fecha";
   const validUntilLabel = isEstimate ? "Vence" : "Abierta hasta";
-  const productLabel = isEstimate ? "Producto / servicio base" : "Producto / servicio";
   const addItemLabel = isEstimate ? "Agregar producto o servicio" : "Agregar ítem";
 
   const patchForm = (patch: Partial<SalesDocumentBuilderForm>) => {
@@ -166,7 +163,9 @@ export function SalesDocumentBuilder({
                     ? { type: "lead", id: form.leadId }
                     : null
               }
-              placeholder={prospectOptions?.length ? "Buscar cliente o prospecto" : "Buscar cliente"}
+              placeholder={
+                prospectOptions?.length ? "Buscar cliente o prospecto" : "Buscar cliente"
+              }
               onChange={(value) => {
                 if (onRelatedChange) onRelatedChange(value);
                 else onClientChange(value?.type === "client" ? value.id : null);
@@ -212,48 +211,29 @@ export function SalesDocumentBuilder({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {!isEstimate ? (
             <div className="space-y-1.5">
-              <Label className={crmFormStyles.label}>Tipo de descuento</Label>
+              <Label className={crmFormStyles.label}>Producto / servicio</Label>
               <Select
-                value={form.discountType || "none"}
-                onValueChange={(value) =>
-                  patchForm({
-                    discountType: value,
-                    discountValue: value === "none" ? "" : form.discountValue,
-                  })
-                }
+                value={form.productId || "none"}
+                onValueChange={(value) => onProductChange(value === "none" ? null : value)}
               >
                 <SelectTrigger className={crmFormStyles.select}>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecciona un producto" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sin descuento</SelectItem>
-                  <SelectItem value="fixed">Monto fijo</SelectItem>
-                  <SelectItem value="percent">Porcentaje</SelectItem>
+                  <SelectItem value="none">Sin producto</SelectItem>
+                  {productOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className={crmFormStyles.label}>{productLabel}</Label>
-            <Select
-              value={form.productId || "none"}
-              onValueChange={(value) => onProductChange(value === "none" ? null : value)}
-            >
-              <SelectTrigger className={crmFormStyles.select}>
-                <SelectValue placeholder="Selecciona un producto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin producto</SelectItem>
-                {productOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          ) : null}
 
           <div className="space-y-1.5">
             <Label className={crmFormStyles.label}>Etiquetas</Label>

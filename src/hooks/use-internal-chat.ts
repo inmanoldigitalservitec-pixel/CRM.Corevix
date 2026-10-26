@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import {
@@ -38,6 +38,10 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const channelsLoadedRef = useRef(false);
+  const usersLoadedRef = useRef(false);
+  const loadedMessageChannelsRef = useRef(new Set<string>());
+  const messageRequestRef = useRef(0);
 
   const companyId = profile?.company_id || null;
   const profileId = profile?.id || null;
@@ -69,13 +73,15 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
       return;
     }
 
-    setChannelsLoading(true);
+    if (!channelsLoadedRef.current) setChannelsLoading(true);
     setError(null);
     try {
-      setChannels(await listInternalChatChannels());
+      const nextChannels = await listInternalChatChannels();
+      setChannels(nextChannels);
+      channelsLoadedRef.current = true;
     } catch (e: any) {
       setError(e?.message || "No se pudieron cargar los chats internos.");
-      setChannels([]);
+      if (!channelsLoadedRef.current) setChannels([]);
     } finally {
       setChannelsLoading(false);
     }
@@ -99,6 +105,7 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
 
   const loadMessages = useCallback(async () => {
     if (!canLoad || !activeChannelId) {
+      messageRequestRef.current += 1;
       setMessages([]);
       setLocalMessages([]);
       setMessageReceipts([]);
@@ -106,32 +113,44 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
       return;
     }
 
-    setMessagesLoading(true);
+    const requestedChannelId = activeChannelId;
+    const requestId = ++messageRequestRef.current;
+    const isInitialChannelLoad = !loadedMessageChannelsRef.current.has(requestedChannelId);
+    if (isInitialChannelLoad) {
+      setMessages([]);
+      setMessagesLoading(true);
+    }
     setError(null);
     try {
-      const rows = await listInternalChatMessages(activeChannelId, messageLimit);
+      const rows = await listInternalChatMessages(requestedChannelId, messageLimit);
+      if (requestId !== messageRequestRef.current) return;
       setMessages(rows);
+      loadedMessageChannelsRef.current.add(requestedChannelId);
       const lastMessage = rows[rows.length - 1];
       const incomingMessageIds = rows
         .filter((message) => message.sender_profile_id !== profileId)
         .map((message) => message.id);
       if (incomingMessageIds.length) {
-        await markInternalChatMessagesDelivered(activeChannelId, incomingMessageIds).catch(
+        await markInternalChatMessagesDelivered(requestedChannelId, incomingMessageIds).catch(
           () => [],
         );
-        await markInternalChatMessagesRead(activeChannelId, incomingMessageIds).catch(() => []);
+        await markInternalChatMessagesRead(requestedChannelId, incomingMessageIds).catch(() => []);
       }
-      await loadMessageReceipts(activeChannelId);
+      await loadMessageReceipts(requestedChannelId);
       if (lastMessage) {
-        await markInternalChatRead(activeChannelId, lastMessage.id);
-        void loadChannels();
+        await markInternalChatRead(requestedChannelId, lastMessage.id);
       }
     } catch (e: any) {
+      if (requestId !== messageRequestRef.current) return;
       setError(e?.message || "No se pudieron cargar los mensajes.");
-      setMessages([]);
-      setMessageReceipts([]);
+      if (isInitialChannelLoad) {
+        setMessages([]);
+        setMessageReceipts([]);
+      }
     } finally {
-      setMessagesLoading(false);
+      if (requestId === messageRequestRef.current && isInitialChannelLoad) {
+        setMessagesLoading(false);
+      }
     }
   }, [activeChannelId, canLoad, loadChannels, loadMessageReceipts, messageLimit, profileId]);
 
@@ -142,13 +161,15 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
       return;
     }
 
-    setUsersLoading(true);
+    if (!usersLoadedRef.current) setUsersLoading(true);
     setError(null);
     try {
-      setUsers(await listInternalChatUsers());
+      const nextUsers = await listInternalChatUsers();
+      setUsers(nextUsers);
+      usersLoadedRef.current = true;
     } catch (e: any) {
       setError(e?.message || "No se pudieron cargar los usuarios del chat.");
-      setUsers([]);
+      if (!usersLoadedRef.current) setUsers([]);
     } finally {
       setUsersLoading(false);
     }
@@ -220,7 +241,6 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
     enabled: canLoad && Boolean(activeChannelId),
     onChange: () => {
       void loadMessages();
-      void loadChannels();
     },
   });
 
@@ -278,7 +298,12 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
       try {
         const message = await sendInternalChatMessage(activeChannelId, cleanBody, input);
         setLocalMessages((current) => current.filter((item) => item.id !== localId));
-        await loadMessages();
+        setMessages((current) => {
+          const withoutServerDuplicate = current.filter((item) => item.id !== message.id);
+          return [...withoutServerDuplicate, message].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          );
+        });
         await loadChannels();
         await loadMessageReceipts();
         return message;
@@ -302,7 +327,6 @@ export function useInternalChat(options: UseInternalChatOptions = {}) {
       companyId,
       loadChannels,
       loadMessageReceipts,
-      loadMessages,
       profile?.avatar_url,
       profile?.department,
       profile?.email,

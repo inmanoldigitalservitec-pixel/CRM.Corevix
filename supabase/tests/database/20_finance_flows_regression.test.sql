@@ -3,7 +3,7 @@ set local search_path = "$user", public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(24);
 
 -- Permiso temporal para que las políticas RLS puedan consultar profiles.
 -- Se revierte al finalizar mediante ROLLBACK.
@@ -414,6 +414,19 @@ values (
   'USD',
   'USD',
   1,
+  '40000000-0000-0000-0000-000000000001'
+);
+
+insert into public.payments (
+  id, company_id, invoice_id, client_id, amount, amount_base, status,
+  method, reference, currency, base_currency, exchange_rate, created_by
+)
+values (
+  '70000000-0000-0000-0000-000000000003',
+  '10000000-0000-0000-0000-000000000001',
+  '50000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000001',
+  25, 25, 'Pending', 'Manual', 'PENDING-CONFIRM-TEST', 'USD', 'USD', 1,
   '40000000-0000-0000-0000-000000000001'
 );
 
@@ -851,6 +864,22 @@ select is(
   ),
   0::bigint,
   'El DELETE autorizado elimina el fixture Pending dentro del rollback'
+);
+
+select lives_ok(
+  $$ select * from public.confirm_pending_payment('70000000-0000-0000-0000-000000000003') $$,
+  'La RPC confirma un pago Pending autorizado'
+);
+
+select is(
+  (select status::text from public.payments where id = '70000000-0000-0000-0000-000000000003'),
+  'Completed',
+  'La confirmación deja el pago en Completed'
+);
+
+select lives_ok(
+  $$ select * from public.confirm_pending_payment('70000000-0000-0000-0000-000000000003') $$,
+  'Reintentar la confirmación es idempotente'
 );
 
 select * from finish();
